@@ -24,17 +24,18 @@ export async function beautyDigitalManagerReadiness(env=process.env,createClient
     AND has_table_privilege(current_user,'public."DigitalManagerActivation"','SELECT') AND has_table_privilege(current_user,'public."DigitalManagerActivation"','INSERT')
     AND NOT has_table_privilege(current_user,'public."DigitalManagerNotice"','DELETE,TRUNCATE,REFERENCES,TRIGGER')
     AND NOT has_table_privilege(current_user,'public."DigitalManagerActivation"','DELETE,TRUNCATE,REFERENCES,TRIGGER')
-    AND (SELECT bool_and(has_column_privilege(current_user,'public."DigitalManagerNotice"',c,'UPDATE')) FROM unnest(ARRAY['handledAt','handledById','handledByName','revision','updatedAt']) c)
-    AND (SELECT bool_and(NOT has_column_privilege(current_user,'public."DigitalManagerNotice"',c,'UPDATE')) FROM unnest(ARRAY['id','storeId','eventKey','eventType','targetId','createdAt']) c)
+    AND (SELECT bool_and(has_column_privilege(current_user,'public."DigitalManagerNotice"',c,'UPDATE')) FROM unnest(ARRAY['handledAt','handledById','handledByName','revision','updatedAt','readAt','readById','readByName']) c)
+    AND (SELECT bool_and(NOT has_column_privilege(current_user,'public."DigitalManagerNotice"',c,'UPDATE')) FROM unnest(ARRAY['id','storeId','eventKey','eventType','targetId','createdAt','publishedAt']) c)
     AND has_column_privilege(current_user,'public."DigitalManagerActivation"','activatedAt','UPDATE')
     AND NOT has_column_privilege(current_user,'public."DigitalManagerActivation"','storeId','UPDATE') AS ok`);
    if(access?.ok!==true)throw Error('beauty_digital_manager_access_rejected');
    // Permission checks and policy compilation use the actual restricted connection.
-   await tx.$queryRawUnsafe('SELECT id,"storeId","eventKey","eventType","targetId","handledAt",revision FROM public."DigitalManagerNotice" LIMIT 0');
+   await tx.$queryRawUnsafe('SELECT id,"storeId","eventKey","eventType","targetId","handledAt","publishedAt","readAt","readByName",revision FROM public."DigitalManagerNotice" LIMIT 0');
    await tx.$queryRawUnsafe('SELECT "storeId","activatedAt" FROM public."DigitalManagerActivation" LIMIT 0');
    for(const sql of [
     `INSERT INTO public."DigitalManagerNotice" (id,"storeId","eventKey","eventType","targetId") SELECT 'preflight-plan-only',id,'beauty-incomplete:preflight','INCOMPLETE_SERVICE_REMINDER',id FROM public."Store" WHERE false ON CONFLICT ("storeId","eventKey") DO NOTHING`,
     `UPDATE public."DigitalManagerNotice" SET "handledAt"=now(),"handledById"='system',"handledByName"='system',revision=revision+1,"updatedAt"=now() WHERE false`,
+    `UPDATE public."DigitalManagerNotice" SET "readAt"=now(),"readById"='system',"readByName"='system',revision=revision+1,"updatedAt"=now() WHERE false`,
     `INSERT INTO public."DigitalManagerActivation" ("storeId","activatedAt") SELECT id,now() FROM public."Store" WHERE false ON CONFLICT ("storeId") DO NOTHING`,
     `UPDATE public."DigitalManagerActivation" SET "activatedAt"=now() WHERE false`,
    ])await tx.$queryRawUnsafe(`EXPLAIN (FORMAT JSON) ${sql}`);

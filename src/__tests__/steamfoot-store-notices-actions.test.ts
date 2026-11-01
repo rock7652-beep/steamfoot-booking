@@ -5,7 +5,7 @@ vi.mock("@/lib/permissions",()=>({requirePermission:m.read,requireWritablePermis
 vi.mock("@/lib/store",()=>({getActiveStoreForRead:m.active,resolveWriteStoreId:m.writeStore}));
 vi.mock("@/lib/industry-module-server",()=>({getStoreIndustryModule:m.module}));
 vi.mock("@/server/services/operation-audit",()=>({recordOperationAudit:m.audit}));
-import {loadSteamfootStoreNotices,markSteamfootStoreNotice,saveSteamfootNoticeSetting,loadSteamfootVipNoticeTarget,loadSteamfootReminderTarget} from "@/server/actions/steamfoot-store-notices";
+import {markAllSteamfootStoreNotices,loadSteamfootStoreNotices,markSteamfootStoreNotice,saveSteamfootNoticeSetting,loadSteamfootVipNoticeTarget,loadSteamfootReminderTarget} from "@/server/actions/steamfoot-store-notices";
 const tx={$queryRaw:m.raw,$executeRaw:m.exec};
 const actor={id:"u",name:"店長",role:"OWNER",storeId:"s",staffId:"staff"};
 const date=new Date('2030-01-11T02:00:00Z');
@@ -60,4 +60,24 @@ it('reads only the scoped pending count for a closed bell, without snapshots or 
  m.raw.mockResolvedValueOnce([{count:7}]);
  expect(await loadSteamfootStoreNotices({storeId:'s',handled:false,summaryOnly:true})).toMatchObject({success:true,items:[],count:7,canHandle:false});
  expect(m.raw).toHaveBeenCalledTimes(1);expect(m.raw.mock.calls[0][0].join('')).toContain('count(*)');expect(m.permission).not.toHaveBeenCalled();
+});
+
+it('marks every page in one scoped transaction and audits the bulk action',async()=>{
+ m.exec.mockResolvedValueOnce(65).mockResolvedValueOnce(12);
+ expect(await markAllSteamfootStoreNotices({storeId:'s'})).toEqual({success:true,storeId:'s',count:77});
+ expect(m.transaction).toHaveBeenCalledTimes(1);
+ expect(m.exec).toHaveBeenCalledTimes(2);
+ for(const call of m.exec.mock.calls){
+  const sql=call[0].join('');expect(sql).toContain('WHERE "storeId"=');expect(sql).toContain('"readAt" IS NULL');expect(sql).not.toContain('LIMIT');expect(sql).toContain('revision=revision+1');
+ }
+ expect(m.audit).toHaveBeenCalledWith(expect.objectContaining({action:'HANDLE_ALL_NOTICES',storeId:'s'}),tx);
+});
+it('rejects bulk handling when read-only, switched to another store, or wrong module',async()=>{
+ m.write.mockRejectedValueOnce(new Error('read only'));
+ expect(await markAllSteamfootStoreNotices({storeId:'s'})).toMatchObject({success:false});
+ m.writeStore.mockResolvedValueOnce('other');
+ expect(await markAllSteamfootStoreNotices({storeId:'s'})).toMatchObject({success:false});
+ m.module.mockResolvedValueOnce('beauty');
+ expect(await markAllSteamfootStoreNotices({storeId:'s'})).toMatchObject({success:false});
+ expect(m.transaction).not.toHaveBeenCalled();
 });

@@ -1,4 +1,5 @@
 "use client";
+import {markAllCourseStoreNotices} from "@/server/actions/course-digital-manager-notices";
 import type {InitialStoreNoticeSummary} from "@/lib/store-notices";
 import {useEffect,useId,useRef,useState} from "react";
 import dynamic from "next/dynamic";
@@ -36,7 +37,7 @@ export function CourseStoreNoticeBell({storeId,initialEnabled=false,initialSumma
   }catch{if(mounted.current&&seq===generation.current)setTargetError("課程讀取失敗，請重試");}
  }
  return <>
-  <StoreNoticeBell initialEnabled={initialEnabled} initialSummary={initialSummary} storeId={storeId} namespace="course" labels={COURSE_NOTICE_LABELS} loadNotices={loadCombinedCourseStoreNotices} markNotice={markCombinedNotice} closeOnViewTarget={n=>n.kind==="PAYMENT"||n.kind==="LEAD"||n.kind==="SUPPORT"||n.kind==="DIGEST"} onViewTarget={n=>{const prefix=(pathname??"").split("/dashboard")[0];if(n.kind==="PAYMENT")router.push(`${prefix}/dashboard/revenue?status=PENDING`);else if(n.kind==="LEAD"||n.kind==="SUPPORT")router.push(`${prefix}/dashboard/digital-butler/leads${n.kind==="SUPPORT"?"?handoff=waiting":""}`);else if(n.kind==="DIGEST")router.push(`${prefix}/dashboard`);else void openCourse(n);}} targetLabel="查看課程" refreshKey={refreshKey}/>
+  <StoreNoticeBell markAllNotices={markAllCourseStoreNotices} initialEnabled={initialEnabled} initialSummary={initialSummary} storeId={storeId} namespace="course" labels={COURSE_NOTICE_LABELS} loadNotices={loadCombinedCourseStoreNotices} markNotice={markCombinedNotice} closeOnViewTarget={n=>n.kind==="PAYMENT"||n.kind==="LEAD"||n.kind==="SUPPORT"||n.kind==="DIGEST"} onViewTarget={n=>{const prefix=(pathname??"").split("/dashboard")[0];if(n.kind==="PAYMENT")router.push(`${prefix}/dashboard/revenue?status=PENDING`);else if(n.kind==="LEAD"||n.kind==="SUPPORT")router.push(`${prefix}/dashboard/digital-butler/leads${n.kind==="SUPPORT"?"?handoff=waiting":""}`);else if(n.kind==="DIGEST")router.push(`${prefix}/dashboard`);else void openCourse(n);}} targetLabel="查看課程" refreshKey={refreshKey}/>
   {course&&<ModalPanel open onClose={closeCourse} labelledById={courseHeading} width={1100}>
    <header className="flex items-center justify-between gap-2 border-b border-earth-200 p-3"><div className="min-w-0"><h2 id={courseHeading} className="text-base font-semibold text-primary-900">課程詳情</h2><p className="break-words text-sm text-earth-600">{target?.courseName??course.courseName}・{formatTWDateTime(new Date(target?.startsAt??course.startsAt))}</p></div><button type="button" className="min-h-11 shrink-0 px-3" onClick={closeCourse}>返回通知</button></header>
    <div className="max-h-[75dvh] overflow-y-auto p-3">

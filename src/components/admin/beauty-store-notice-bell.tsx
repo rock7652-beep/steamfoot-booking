@@ -1,4 +1,5 @@
 'use client';
+import {markAllBeautyStoreNotices} from "@/server/actions/beauty-store-notices";
 import type {InitialStoreNoticeSummary} from '@/lib/store-notices';
 import {useState} from 'react';
 import {usePathname,useRouter} from 'next/navigation';
@@ -16,7 +17,7 @@ async function readBeautyStoreNotices(input:{storeId:string;handled:boolean;offs
 }
 export function BeautyStoreNoticeBell({storeId,initialEnabled=false,initialSummary}:{storeId:string;initialEnabled?:boolean;initialSummary?:InitialStoreNoticeSummary|null}){
  const router=useRouter(),path=usePathname(),[opening,setOpening]=useState(false);
- return <StoreNoticeBell namespace="beauty" storeId={storeId} initialEnabled={initialEnabled} initialSummary={initialSummary} loadNotices={readBeautyStoreNotices} markNotice={markBeautyStoreNotice} targetLabel={opening?'讀取預約中…':'查看預約'} closeOnViewTarget onViewTarget={async n=>{
+ return <StoreNoticeBell markAllNotices={markAllBeautyStoreNotices} namespace="beauty" storeId={storeId} initialEnabled={initialEnabled} initialSummary={initialSummary} loadNotices={readBeautyStoreNotices} markNotice={markBeautyStoreNotice} targetLabel={opening?'讀取預約中…':'查看預約'} closeOnViewTarget onViewTarget={async n=>{
   if(n.kind==='PAYMENT'){const prefix=(path??'').split('/dashboard')[0];router.push(`${prefix}/dashboard/beauty?${new URLSearchParams({tab:'營運',status:'PENDING'})}`);return;}
   if(n.kind==='DIGEST'){const prefix=(path??'').split('/dashboard')[0];router.push(`${prefix}/dashboard/beauty`);return;}
   if(opening)return;setOpening(true);try{const r=await loadBeautyStoreNoticeTarget({storeId,id:n.id});if(!r.success){toast.error(r.error);return;}const prefix=(path??'').split('/dashboard')[0];router.push(`${prefix}/dashboard/beauty?${new URLSearchParams({tab:'班表',date:r.data.date,bookingId:r.data.id})}`);}catch{toast.error('預約讀取失敗，請重試');}finally{setOpening(false);}

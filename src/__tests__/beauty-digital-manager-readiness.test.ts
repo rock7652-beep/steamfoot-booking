@@ -16,7 +16,7 @@ function fixture(patch:{role?:string;readonly?:string;unsafe?:boolean;access?:bo
 it('verifies the actual restricted identity, grants and SQL plans without writing',async()=>{
  const m=fixture();expect(await beautyDigitalManagerReadiness(env,m.factory)).toBe('ready');
  expect(m.execute).toHaveBeenCalledExactlyOnceWith('SET TRANSACTION READ ONLY');
- expect(m.query.mock.calls.filter(([sql])=>sql.startsWith('EXPLAIN'))).toHaveLength(4);
+ expect(m.query.mock.calls.filter(([sql])=>sql.startsWith('EXPLAIN'))).toHaveLength(5);
  expect(m.query.mock.calls.every(([sql])=>sql.startsWith('SELECT')||sql.startsWith('EXPLAIN (FORMAT JSON) '))).toBe(true);
  expect(m.disconnect).toHaveBeenCalledOnce();
  expect(m.factory).toHaveBeenCalledWith({datasources:{db:{url:expect.stringContaining('steamfoot_beauty_prod_20261025.')}},log:[]});

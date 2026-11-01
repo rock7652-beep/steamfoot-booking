@@ -4,7 +4,7 @@ import {createRoot} from 'react-dom/client';
 import {expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({push:vi.fn(),mark:vi.fn(),target:vi.fn()}));
 vi.mock('next/navigation',()=>({usePathname:()=>'/s/beauty/admin/dashboard/beauty',useRouter:()=>({push:m.push}),useSearchParams:()=>new URLSearchParams()}));
-vi.mock('@/server/actions/beauty-store-notices',()=>({markBeautyStoreNotice:m.mark,loadBeautyStoreNoticeTarget:m.target}));
+vi.mock('@/server/actions/beauty-store-notices',()=>({markAllBeautyStoreNotices:vi.fn(),markBeautyStoreNotice:m.mark,loadBeautyStoreNoticeTarget:m.target}));
 import {BeautyStoreNoticeBell} from '@/components/admin/beauty-store-notice-bell';
 it('opens the scoped pending payment list from a compact notice',async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
@@ -14,7 +14,7 @@ it('opens the scoped pending payment list from a compact notice',async()=>{
  try {
   await act(async()=>root.render(createElement(BeautyStoreNoticeBell,{storeId:'store',initialEnabled:true})));
   const find=(text:string)=>[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-label')===text||x.textContent?.includes(text));
-  await act(async()=>find('數位管家｜門市提醒，1 筆待處理')!.click());
+  await act(async()=>find('數位管家｜門市提醒，1 筆未讀')!.click());
   await act(async()=>find('方案付款')!.click());
   await act(async()=>find('查看待核帳')!.click());
   expect(m.push).toHaveBeenCalledWith('/s/beauty/admin/dashboard/beauty?tab=%E7%87%9F%E9%81%8B&status=PENDING');

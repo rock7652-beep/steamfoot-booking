@@ -9,7 +9,7 @@ export async function checkDigitalManagerBuildReadiness(env=process.env,createCl
  else assertDigitalManagerProductionEnvironment(env);
  const client=await createClient(env.DIRECT_URL);
  try{
-  await verifyDigitalManagerReadiness(client);
+  await verifyDigitalManagerReadiness(client,{lifecycle:true});
   const beauty=await beautyDigitalManagerReadiness(env);
   if(beauty==='ready')console.info('[beauty-digital-manager-preflight] runtime_login=true schema_read=true required_privileges=true sql_planning=true readonly=true');
   return 'ready';

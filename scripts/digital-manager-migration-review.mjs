@@ -1,4 +1,5 @@
 // Review-only scoped migration runner. Not registered in ci-migrate or enabled for production.
+import {verifyStoreNoticeLifecycleReadiness} from './store-notice-lifecycle-readiness.mjs';
 import {createHash} from 'node:crypto';
 import {readFileSync,mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
@@ -41,11 +42,12 @@ export async function verifyDigitalManagerPolicyBoundary(tx){
  const policies=await tx.$queryRawUnsafe(`SELECT tablename,policyname,cmd,roles::text[] AS roles,md5(coalesce(qual,'<NULL>')) AS qual,md5(coalesce(with_check,'<NULL>')) AS check FROM pg_policies WHERE schemaname='public' AND tablename IN ('DigitalManagerNotice','DigitalManagerActivation') ORDER BY tablename,policyname`);
  if(policies.length!==6||policies.some((p,i)=>JSON.stringify(p.roles)!==JSON.stringify(['steamfoot_beauty_prod_20261025'])||JSON.stringify([p.tablename,p.policyname,p.cmd,p.qual,p.check])!==JSON.stringify(policyExpected[i])))fail('policies_rejected');
 }
-export async function verifyDigitalManagerPostflight(tx,sql=verifyReviewFiles().sql){
+export async function verifyDigitalManagerPostflight(tx,sql=verifyReviewFiles().sql,{lifecycle=false}={}){
+ if(lifecycle)await verifyStoreNoticeLifecycleReadiness(tx);
  const tables=await tx.$queryRawUnsafe(`SELECT c.relname AS name,c.relrowsecurity AS rls,c.relforcerowsecurity AS forced,
-  md5((SELECT string_agg(a.attname || ':' || format_type(a.atttypid,a.atttypmod) || ':' || a.attnotnull::text || ':' || coalesce(pg_get_expr(d.adbin,d.adrelid),'<NULL>'),'|' ORDER BY a.attnum) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped)) AS columns,
-  md5((SELECT string_agg(x.conname || ':' || x.contype::text || ':' || pg_get_constraintdef(x.oid) || ':' || x.convalidated::text,'|' ORDER BY x.conname) FROM pg_constraint x WHERE x.conrelid=c.oid)) AS constraints,
-  md5((SELECT string_agg(i.relname || ':' || pg_get_indexdef(i.oid) || ':' || x.indisvalid::text || ':' || x.indisready::text,'|' ORDER BY i.relname) FROM pg_index x JOIN pg_class i ON i.oid=x.indexrelid WHERE x.indrelid=c.oid)) AS indexes,
+  md5((SELECT string_agg(a.attname || ':' || format_type(a.atttypid,a.atttypmod) || ':' || a.attnotnull::text || ':' || coalesce(pg_get_expr(d.adbin,d.adrelid),'<NULL>'),'|' ORDER BY a.attnum) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped ${lifecycle?`AND a.attname NOT IN ('publishedAt','readAt','readById','readByName')`:''})) AS columns,
+  md5((SELECT string_agg(x.conname || ':' || x.contype::text || ':' || pg_get_constraintdef(x.oid) || ':' || x.convalidated::text,'|' ORDER BY x.conname) FROM pg_constraint x WHERE x.conrelid=c.oid ${lifecycle?`AND NOT (x.contype='n' AND x.conkey=ARRAY[(SELECT a.attnum FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='publishedAt')])`:''})) AS constraints,
+  md5((SELECT string_agg(i.relname || ':' || pg_get_indexdef(i.oid) || ':' || x.indisvalid::text || ':' || x.indisready::text,'|' ORDER BY i.relname) FROM pg_index x JOIN pg_class i ON i.oid=x.indexrelid WHERE x.indrelid=c.oid ${lifecycle?`AND i.relname NOT IN ('DigitalManagerNotice_storeId_publishedAt_id_idx','DigitalManagerNotice_unread_published_idx','DigitalManagerNotice_retention_idx','DigitalManagerNotice_display_order_idx')`:''})) AS indexes,
   EXISTS(SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee=0) AS public_access,
   EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname IN ('anon','authenticated') AND has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')) AS client_access
   FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('DigitalManagerActivation','DigitalManagerNotice') ORDER BY c.relname`);
@@ -63,12 +65,12 @@ export async function verifyDigitalManagerPostflight(tx,sql=verifyReviewFiles().
 }
 async function history(tx){const [r]=await tx.$queryRawUnsafe(`SELECT md5(coalesce(jsonb_agg(to_jsonb(m) ORDER BY id),'[]'::jsonb)::text) AS fingerprint FROM public._prisma_migrations m WHERE migration_name<>$1`,DIGITAL_MANAGER_REVIEW_TARGET);return r.fingerprint;}
 /** Read-only readiness candidate for a separately guarded application deployment. */
-export async function verifyDigitalManagerReadiness(prisma){
+export async function verifyDigitalManagerReadiness(prisma,{lifecycle=false}={}){
  const {sql}=verifyReviewFiles();
  const failed=await prisma.$queryRawUnsafe(`SELECT migration_name FROM public._prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL`);if(failed.length)fail('failed_history_rejected');
  const applied=await prisma.$queryRawUnsafe(`SELECT checksum,finished_at,rolled_back_at,applied_steps_count FROM public._prisma_migrations WHERE migration_name=$1`,DIGITAL_MANAGER_REVIEW_TARGET);
  if(applied.length!==1||applied[0].checksum!==DIGITAL_MANAGER_REVIEW_CHECKSUM||!applied[0].finished_at||applied[0].rolled_back_at||applied[0].applied_steps_count!==1)fail('readiness_ledger_rejected');
- await verifyDigitalManagerPostflight(prisma,sql);
+ await verifyDigitalManagerPostflight(prisma,sql,{lifecycle});
  return true;
 }
 /** Private core: caller selects an explicitly guarded production or local context. */

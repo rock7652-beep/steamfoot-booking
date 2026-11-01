@@ -3,7 +3,7 @@ const m=vi.hoisted(()=>({manager:vi.fn(),user:vi.fn(),permission:vi.fn(),view:vi
 vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:m.transaction,audit:m.audit}));
 vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{beautySetting:{findUnique:m.setting},$queryRaw:m.raw}}));
 vi.mock('@/lib/session',()=>({getCurrentUser:m.user}));vi.mock('@/lib/permissions',()=>({checkPermission:m.permission}));vi.mock('@/lib/feature-gate',()=>({hasStoreFeature:vi.fn(async()=>true)}));vi.mock('@/lib/store-view-context-server',()=>({resolveStoreViewContextFromCookie:m.view}));vi.mock('@/lib/store-read-only',()=>({isReadOnlyStoreTarget:m.readonly}));
-import {loadBeautyStoreNotices,markBeautyStoreNotice,loadBeautyStoreNoticeTarget} from '@/server/actions/beauty-store-notices';
+import {markAllBeautyStoreNotices,loadBeautyStoreNotices,markBeautyStoreNotice,loadBeautyStoreNoticeTarget} from '@/server/actions/beauty-store-notices';
 const now=new Date('2099-01-01T02:00Z'),row={id:'notice',kind:'MOVE',customerName:'姓名',courseName:'做臉',coachName:'技師',previousCoachName:'前技師',startsAt:now,previousStartsAt:null,affectedCount:1,details:{private:'hidden'},handledAt:null,handledByName:'人員',revision:2,createdAt:now,updatedAt:now};
 beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({storeId:'store',userId:'owner'});m.user.mockResolvedValue({id:'owner',role:'OWNER',staffId:'staff'});m.permission.mockResolvedValue(true);m.view.mockResolvedValue(null);m.readonly.mockReturnValue(false);m.setting.mockResolvedValue({backendNoticesEnabled:true});m.raw.mockImplementation(async(strings:TemplateStringsArray)=>strings.join('').includes('COUNT')?[{count:1}]:[row]);m.transaction.mockImplementation((_a,work)=>work({beautySetting:{findUnique:m.setting},$queryRaw:m.raw}));});
 it('checks current store before reads or writes and ignores the legacy disabled setting',async()=>{expect(await loadBeautyStoreNotices({storeId:'other',handled:false})).toMatchObject({success:false});expect(await markBeautyStoreNotice({storeId:'other',id:'notice',handled:true,revision:2})).toMatchObject({success:false});expect(m.raw).not.toHaveBeenCalled();m.setting.mockResolvedValue({backendNoticesEnabled:false});expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,enabled:true,count:1});});
@@ -22,4 +22,15 @@ it('marks only the current store and a Beauty payment notice with the expected r
  m.raw.mockResolvedValue([{id:'payment',revision:3,handledAt:now,handledByName:'店長'}]);
  expect(await markBeautyStoreNotice({storeId:'store',id:'digital:payment',handled:true,revision:2})).toMatchObject({success:true,data:{id:'digital:payment',revision:3}});
  const sql=m.raw.mock.calls[0][0].join('');expect(sql).toContain('"DigitalManagerNotice"');expect(sql).toContain('"storeId"=');expect(sql).toContain("'beauty-purchase-pending:%'");expect(sql).toContain('revision=');
+});
+
+it('bulk marks all current-store pages and records one audit',async()=>{
+ const execute=vi.fn().mockResolvedValueOnce(51).mockResolvedValueOnce(9);
+ m.transaction.mockImplementation(async(_actor,work)=>work({$executeRaw:execute}));
+ expect(await markAllBeautyStoreNotices({storeId:'store'})).toEqual({success:true,storeId:'store',count:60});
+ expect(execute).toHaveBeenCalledTimes(2);expect(m.audit).toHaveBeenCalledOnce();
+ for(const call of execute.mock.calls){const sql=call[0].join('');expect(sql).toContain('"storeId"=');expect(sql).toContain('"readAt" IS NULL');expect(sql).not.toContain('LIMIT');}
+});
+it('rejects bulk handling for a different store before transaction',async()=>{
+ expect(await markAllBeautyStoreNotices({storeId:'foreign'})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();
 });

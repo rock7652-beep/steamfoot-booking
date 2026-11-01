@@ -674,6 +674,10 @@ model CourseStoreNotice {
   previousStartsAt DateTime? @db.Timestamptz(3)
   affectedCount Int @default(1)
   details Json
+  publishedAt DateTime @default(now()) @db.Timestamptz(3)
+  readAt DateTime? @db.Timestamptz(3)
+  readById String?
+  readByName String?
   handledAt DateTime? @db.Timestamptz(3)
   handledById String?
   handledByName String?
@@ -682,4 +686,5 @@ model CourseStoreNotice {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
   @@unique([storeId, subjectKey])
   @@index([storeId, handledAt, startsAt])
+  @@index([storeId, publishedAt(sort: Desc), id(sort: Desc)])
 }

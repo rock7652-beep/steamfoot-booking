@@ -4,7 +4,7 @@ vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:m.ru
 vi.mock("@/lib/permissions",()=>({checkPermission:m.permission}));
 vi.mock("@/server/services/course-access",()=>({courseManagerRead:m.read,courseManager:m.manager,courseTransaction:m.transaction}));
 vi.mock("@/server/services/operation-audit-outbox",()=>({enqueueOperationAudit:m.audit}));
-import {loadCourseDigitalManagerNotices,markCourseDigitalManagerNotice} from "@/server/actions/course-digital-manager-notices";
+import {markAllCourseStoreNotices,loadCourseDigitalManagerNotices,markCourseDigitalManagerNotice} from "@/server/actions/course-digital-manager-notices";
 beforeEach(()=>{
  vi.resetAllMocks();
  m.read.mockResolvedValue({storeId:"a",user:{id:"u",role:"STAFF",staffId:"staff"},isChildStoreView:false});
@@ -43,4 +43,15 @@ it("audits a successful store-scoped update",async()=>{
  m.query.mockResolvedValue([{id:"n",revision:1,handledAt:new Date("2026-10-30T02:00:00Z"),handledByName:"值班人員"}]);
  expect(await markCourseDigitalManagerNotice({storeId:"a",id:"n",handled:true,revision:0})).toMatchObject({success:true,storeId:"a",data:{revision:1}});
  expect(m.audit).toHaveBeenCalledOnce();
+});
+
+it('bulk marks all current-store pages and records one audit',async()=>{
+ const execute=vi.fn().mockResolvedValueOnce(51).mockResolvedValueOnce(9);
+ m.transaction.mockImplementation(async(_store,work)=>work({$executeRaw:execute}));
+ expect(await markAllCourseStoreNotices({storeId:'a'})).toEqual({success:true,storeId:'a',count:60});
+ expect(execute).toHaveBeenCalledTimes(2);expect(m.audit).toHaveBeenCalledOnce();
+ for(const call of execute.mock.calls){const sql=call[0].join('');expect(sql).toContain('"storeId"=');expect(sql).toContain('"readAt" IS NULL');expect(sql).not.toContain('LIMIT');}
+});
+it('rejects bulk handling for a different store before transaction',async()=>{
+ expect(await markAllCourseStoreNotices({storeId:'foreign'})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();
 });

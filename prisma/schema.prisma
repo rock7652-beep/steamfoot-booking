@@ -3557,6 +3557,10 @@ model SteamfootStoreNotice {
   previousStartsAt DateTime? @db.Timestamptz(3)
   affectedCount Int @default(1)
   details Json @default("{}")
+  publishedAt DateTime @default(now()) @db.Timestamptz(3)
+  readAt DateTime? @db.Timestamptz(3)
+  readById String?
+  readByName String?
   handledAt DateTime? @db.Timestamptz(3)
   handledById String?
   handledByName String?
@@ -3565,6 +3569,7 @@ model SteamfootStoreNotice {
   updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
   @@unique([storeId, bookingId])
   @@index([storeId, handledAt, startsAt])
+  @@index([storeId, publishedAt(sort: Desc), id(sort: Desc)])
 }
 
 // Default-on monitoring for all real operating stores; explicit opt-outs are retained.

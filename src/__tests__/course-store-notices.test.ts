@@ -75,9 +75,9 @@ describe("transactional store notices",()=>{
   m.find.mockResolvedValue({id:"n",revision:2});expect(await markCourseStoreNotice(input)).toMatchObject({success:false});expect(m.update).not.toHaveBeenCalled();
  });
  it("O changes only notice state and returns a versioned receipt",async()=>{
-  m.find.mockResolvedValue({id:"n",revision:1});m.update.mockResolvedValue({revision:2,handledAt:new Date("2026-10-11"),handledByName:"店員"});
+  m.find.mockResolvedValue({id:"n",revision:1,publishedAt:new Date()});m.update.mockResolvedValue({revision:2,readAt:new Date(),readByName:"店員"});
   expect(await markCourseStoreNotice({storeId:"s",id:"n",handled:true,revision:1})).toMatchObject({success:true,storeId:"s",data:{revision:2}});
-  expect(m.update).toHaveBeenCalledWith({where:{id:"n"},data:{handledAt:expect.any(Date),handledById:"u",handledByName:"店員",revision:{increment:1}}});
+  expect(m.update).toHaveBeenCalledWith({where:{id:"n"},data:{readAt:expect.any(Date),readById:"u",readByName:"店員",revision:{increment:1}}});
   expect(m.audit).toHaveBeenCalledTimes(1);
  });
 });
@@ -85,7 +85,7 @@ describe("transactional store notices",()=>{
 it('reads a scoped summary without listing customer snapshots or checking write permission',async()=>{
  m.read.mockResolvedValue({storeId:'s',user:{role:'OWNER'}});m.count.mockResolvedValue(4);
  expect(await loadCourseStoreNotices({storeId:'s',handled:false,summaryOnly:true})).toMatchObject({success:true,enabled:true,count:4,items:[],canHandle:false});
- expect(m.list).not.toHaveBeenCalled();expect(m.permission).not.toHaveBeenCalled();expect(m.count).toHaveBeenCalledWith({where:{storeId:'s',handledAt:null}});
+ expect(m.list).not.toHaveBeenCalled();expect(m.permission).not.toHaveBeenCalled();expect(m.count).toHaveBeenCalledWith({where:{storeId:'s',readAt:null,publishedAt:{gt:expect.any(Date),lte:expect.any(Date)}}});
  expect(await loadCourseStoreNotices({storeId:'other',handled:false,summaryOnly:true})).toMatchObject({success:false});expect(m.count).toHaveBeenCalledTimes(1);
  m.rule.mockResolvedValue({backendNoticesEnabled:false});expect(await loadCourseStoreNotices({storeId:'s',handled:false,summaryOnly:true})).toMatchObject({success:true,enabled:true,count:4});expect(m.count).toHaveBeenCalledTimes(2);
 });
