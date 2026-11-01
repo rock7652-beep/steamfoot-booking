@@ -2,6 +2,7 @@
 
 import {RosterToolbar} from "@/components/admin/roster-primitives";
 import musicStyles from "./music-roster.module.css";
+import sportsStyles from "./sports-roster.module.css";
 import {CourseRosterList} from "./roster-list";
 
 export type RosterPreviewBooking = {
@@ -43,13 +44,13 @@ export function CourseRosterPreview({bookings,query,onQueryChange,onSearchIntera
       {musicLayout?<section className="overflow-x-auto rounded-xl border border-earth-200 bg-white" aria-label="學員">
         <div className={`${musicStyles.header} sticky top-0 z-10 border-b border-earth-200 bg-earth-50 text-sm font-medium text-earth-600`}><span aria-hidden="true"/><span>姓名</span><span>電話</span><span>本期剩餘／課程進度</span><span>標籤／備註</span><span>更多</span></div>
         <ul className="divide-y divide-earth-100">{matching.map(row=><li key={row.id} className={`${musicStyles.row} items-center gap-2 bg-white px-3 py-1 text-sm`}>
-          <button type="button" disabled aria-label={`${row.customerName}：核對中`} className="min-h-11 min-w-11 text-earth-400">○</button><span className="font-medium">{row.customerName}</span><span className="text-sm text-earth-400">{row.customerPhone===undefined?"電話核對中":row.customerPhone||"未留電話"}</span><span className="text-sm text-earth-400">核對中</span><span className="text-sm text-earth-400">核對中</span><span aria-hidden="true">…</span>
+          <button type="button" disabled aria-label={`${row.customerName}：核對中`} className="min-h-11 min-w-11 text-earth-400">○</button><span className="min-w-0 break-words font-medium">{row.customerName}</span><span className="text-sm text-earth-400">{row.customerPhone===undefined?"電話核對中":row.customerPhone||"未留電話"}</span><span className="text-sm text-earth-400">核對中</span><span className="text-sm text-earth-400">核對中</span><span aria-hidden="true">…</span>
         </li>)}</ul>
         {!matching.length&&<p className="p-8 text-center text-sm text-earth-500">{normalized?"正在核對搜尋結果…":"正在核對名單…"}</p>}
       </section>:<CourseRosterList preview labels={source?{identity:"顧客／電話",owner:"技師／位置",cost:"本次使用",balance:"可用次數",scroll:"預約名單捲動區"}:sportsNative?{cost:"本堂用量",balance:"本期剩餘"}:{}} empty={normalized?"正在核對搜尋結果…":"正在核對名單…"} rows={matching.map(row=>({
         id:row.id,name:row.customerName,phone:row.customerPhone??null,phonePending:row.customerPhone===undefined,owner:"核對中…",status:"核對中",mark:"pending",statusTitle:"最新資料核對完成後可操作",statusDisabled:true,onStatus:()=>{},onOpen:()=>{},
         cost:<span className="text-sm text-earth-400">核對中</span>,balance:<span className="text-sm text-earth-400">核對中</span>,
-        reminders:<span className="text-sm text-earth-400">核對中</span>,
+        reminders:<span className={`${sportsStyles.reminders} text-sm text-earth-400`}>核對中</span>,
       }))}/> }
     </div>
   </section>;
