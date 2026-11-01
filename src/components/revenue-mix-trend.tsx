@@ -2,10 +2,13 @@
 
 import styles from "@/components/admin/management-layout.module.css";
 import { useState } from "react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import dynamic from "next/dynamic";
+import { TrendChartBoundary, TrendChartLoading } from "./trend-chart-loading";
+import type { RevenueTrendMetric } from "./trend-chart-plots";
 import type { RevenueMixPoint } from "@/server/queries/revenue-mix";
 
-type Metric = "netRevenue" | "balance" | "packageRevenue" | "retailRevenue" | "otherRevenue" | "expense";
+const Plot = dynamic(() => import("./trend-chart-plots").then(module => module.RevenueTrendPlot), { ssr: false, loading: TrendChartLoading });
+type Metric = RevenueTrendMetric;
 const OPTIONS: Array<{ key: Metric; label: string; color: string }> = [
   { key: "netRevenue", label: "營業額", color: "#65a30d" },
   { key: "balance", label: "收支結餘", color: "#65a30d" },
@@ -40,18 +43,7 @@ export function RevenueMixTrend({ points }: { points: RevenueMixPoint[] }) {
         </div>
       </div>
       <div className={`${styles.chartScroll} mt-3`}><div className={`${styles.chart} h-[230px] w-full`}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e7e2dc" />
-            <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#a8a29e" minTickGap={24} />
-            <YAxis tick={{ fontSize: 11 }} stroke="#a8a29e" tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} />
-            <Tooltip
-              contentStyle={{ fontSize: 12, borderRadius: 8 }}
-              formatter={(value) => [`NT$ ${Number(value).toLocaleString()}`, selected.label]}
-            />
-            <Line type="monotone" dataKey={metric} name={selected.label} stroke={selected.color} strokeWidth={2} dot={points.length <= 31 ? { r: 2 } : false} />
-          </LineChart>
-        </ResponsiveContainer>
+        <TrendChartBoundary><Plot points={points} metric={metric} label={selected.label} color={selected.color} /></TrendChartBoundary>
       </div></div>
     </div>
   );
