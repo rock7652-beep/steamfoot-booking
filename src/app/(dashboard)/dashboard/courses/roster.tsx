@@ -3,6 +3,7 @@ import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import type {CourseRosterSource,NativeRosterBooking} from "./roster-source";
 import {CourseRosterList,type CourseRosterDisplayRow} from "./roster-list";
+import {CourseRosterPreview,type RosterPreviewBooking} from "./roster-preview";
 import bookingLayout from "./sports-booking-layout.module.css";
 import {startSportsBackgroundSync} from "@/lib/sports-background-sync";
 import {readCourseSessionDetailClient} from "@/lib/course-session-detail-client";
@@ -45,7 +46,7 @@ import {
   collectCourseTrial,
   voidCourseTrialPayment,
 } from "@/server/actions/course-trial";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition, type ComponentProps } from "react";
+import { useCallback, useEffect, useLayoutEffect, useId, useMemo, useRef, useState, useTransition, type ComponentProps } from "react";
 import { createPortal } from "react-dom";
 import type { SaveState } from "@/hooks/use-responsive-action";
 import { formatTWDateTime, toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
@@ -165,7 +166,7 @@ export function CourseRoster({
   coachId?: string;
   roomId?: string;
   initialAssignedCoach?: string;
-  previewBookings?:readonly {id:string;customerName:string;status:string}[];
+  previewBookings?:readonly RosterPreviewBooking[];
 }) {
   const personnelText = useCoursePersonnelText();
   const [sourceReadFailed,setSourceReadFailed]=useState(false);
@@ -215,6 +216,15 @@ export function CourseRoster({
   const [expandedLessonIds, setExpandedLessonIds] = useState<string[]>([]);
   const [openActionMenu, setOpenActionMenu] = useState<{ bookingId?: string; kind?:"status"|"more"; attendance?:boolean; top: number; left: number } | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [initialReadRetry,setInitialReadRetry]=useState(0);
+  const rosterSearchInput=useRef<HTMLInputElement>(null);
+  const previewSearchSelection=useRef<{start:number|null;end:number|null}|null>(null);
+  useLayoutEffect(()=>{
+    if(!loaded||!previewSearchSelection.current)return;
+    const input=rosterSearchInput.current,selection=previewSearchSelection.current;
+    previewSearchSelection.current=null;
+    if(input){input.focus();input.setSelectionRange(selection.start,selection.end);}
+  },[loaded]);
   const [sharedCardState, setSharedCardState] = useState<FeaturePresentationState>("ENABLED");
   useEffect(() => {
     if (sharedCardState !== "ENABLED" && companionEditor?.add) setCompanionEditor(null);
@@ -467,7 +477,7 @@ export function CourseRoster({
       window.removeEventListener("focus", refreshVisibleRoster);
       document.removeEventListener("visibilitychange", refreshVisibleRoster);
     };
-  }, [sessionId, view, sportsNative,musicLayout,sportsDetailReader,musicDetailReader,refreshVersion,sourceRead,sourceSync,invalidateRosterRead]);
+  }, [sessionId, view, sportsNative,musicLayout,sportsDetailReader,musicDetailReader,refreshVersion,sourceRead,sourceSync,invalidateRosterRead,initialReadRetry]);
 
   function run(
     action: () => Promise<{ success: boolean; error?: string;rosterSnapshot?:import('@/lib/course-purchase-roster').CoursePurchaseRosterSnapshot }>,
@@ -845,12 +855,13 @@ export function CourseRoster({
       : [];
 
   if (!loaded) {
-    if(view==="roster"&&previewBookings)return <section aria-busy="true" className="space-y-2">
-      <p role="status" className="text-sm text-earth-600">{message||"正在核對最新名單…"}</p>
-      <ul className="divide-y divide-earth-100 rounded-xl border border-earth-200 bg-white">
-        {previewBookings.filter(b=>b.status!=="CANCELLED").map(b=><li key={b.id} className="min-h-14 px-4 py-3 text-sm font-semibold text-earth-800">{b.customerName}</li>)}
-      </ul>
-    </section>;
+    if(view==="roster"&&previewBookings)return <CourseRosterPreview
+      bookings={previewBookings} query={memberQuery} onQueryChange={setMemberQuery}
+      onSearchInteraction={input=>{previewSearchSelection.current=input?{start:input.selectionStart,end:input.selectionEnd}:null;}}
+      message={message} onRetry={source?.readBlocked?undefined:()=>{setMessage("");setInitialReadRetry(value=>value+1);}}
+      teacherName={teacherName} teacherPhone={teacherPhone} teacherLabel={musicLayout?personnelText("教師"):personnelText("授課教練")}
+      source={source?.labels} sportsNative={sportsNative} musicLayout={musicLayout}
+    />;
     return (
       <div className="flex min-h-40 items-center justify-center text-earth-600">
         {message || "讀取中…"}
@@ -1249,7 +1260,7 @@ export function CourseRoster({
 
   return (
 
-    <section data-live-music-roster={musicLayout?'true':undefined} className={`flex min-h-0 w-full flex-col gap-2 ${!musicLayout ? sportsRoster.root : ""} ${musicLayout ? "" : "flex-1 overflow-hidden"}`}>
+    <section data-roster-ready="true" data-live-music-roster={musicLayout?'true':undefined} className={`flex min-h-0 w-full flex-col gap-2 ${!musicLayout ? sportsRoster.root : ""} ${musicLayout ? "" : "flex-1 overflow-hidden"}`}>
       {!source&&<aside className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 text-sm" aria-label={`教師資訊：${teacherName}、${courseName}、${roomName}`}>
         <span className="text-xs text-earth-500">{musicLayout ? personnelText("教師") : personnelText("授課教練")}</span><strong>{teacherName}</strong>
         {teacherPhone && <a className="inline-flex min-h-11 items-center text-primary-700" href={`tel:${teacherPhone}`}>{teacherPhone}</a>}
@@ -1324,6 +1335,7 @@ export function CourseRoster({
           className="min-h-11 min-w-48 flex-1 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:max-w-[14rem]"
           value={memberQuery}
           onChange={(event) => { setMemberQuery(event.target.value); resetFilterSelection(); }}
+          ref={rosterSearchInput}
           placeholder="搜尋姓名或手機"
           aria-label={source?"搜尋顧客或手機":"搜尋上課學員"}
         />}

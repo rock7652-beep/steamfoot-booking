@@ -33,7 +33,7 @@ try{
    await form(page).getByRole('button',{name:'關閉',exact:true}).click();await form(page).waitFor({state:'hidden'});
    const buttons=await target(page,cfg);
    const rs=performance.now();await buttons.click();const list=page.locator(`[role="dialog"][aria-labelledby="${cfg.rosterId}"]`);await list.waitFor();const rshell=Math.round(performance.now()-rs);
-   await list.locator('[aria-busy="true"] li, input[placeholder="搜尋姓名或手機"]').first().waitFor();const namesMs=Math.round(performance.now()-rs);await list.getByPlaceholder('搜尋姓名或手機').waitFor();
+   await list.locator('[aria-busy="true"] li, input[placeholder="搜尋姓名或手機"]').first().waitFor();const namesMs=Math.round(performance.now()-rs);await list.locator('[data-roster-ready="true"]').getByPlaceholder('搜尋姓名或手機').waitFor();
    const rd={module:cfg.key,sample,warmup:sample===0,kind:'roster',shellMs:rshell,firstPaintMs:namesMs,authoritativeMs:Math.round(performance.now()-rs)};report.samples.push(rd);save();console.log(JSON.stringify(rd));
    await list.getByRole('button',{name:'關閉',exact:true}).click();await list.waitFor({state:'hidden'});
   }
@@ -42,7 +42,7 @@ try{
    const time=form(page).locator('input[type="time"]').first();await time.fill('10:30');await page.setViewportSize({width:width===1366?1024:1366,height:900});assert.equal(await time.inputValue(),'10:30');await page.setViewportSize({width,height});
    await page.screenshot({path:out+`/${cfg.key}-schedule-${width}.png`,fullPage:true});report.checks.push({module:cfg.key,check:'form-bounds-and-draft-retention',width,height,pass:true});
    await form(page).getByRole('button',{name:'關閉',exact:true}).click();await form(page).waitFor({state:'hidden'});
-   await (await target(page,cfg)).click();const list=page.locator(`[role="dialog"][aria-labelledby="${cfg.rosterId}"]`);await list.getByPlaceholder('搜尋姓名或手機').waitFor();await bounds(list,width,height);await page.screenshot({path:out+`/${cfg.key}-roster-${width}.png`,fullPage:true});report.checks.push({module:cfg.key,check:'roster-bounds',width,height,pass:true});await list.getByRole('button',{name:'關閉',exact:true}).click();save();
+   await (await target(page,cfg)).click();const list=page.locator(`[role="dialog"][aria-labelledby="${cfg.rosterId}"]`);await list.locator('[data-roster-ready="true"]').getByPlaceholder('搜尋姓名或手機').waitFor();await bounds(list,width,height);await page.screenshot({path:out+`/${cfg.key}-roster-${width}.png`,fullPage:true});report.checks.push({module:cfg.key,check:'roster-bounds',width,height,pass:true});await list.getByRole('button',{name:'關閉',exact:true}).click();save();
   }
   await context.close();
  }
