@@ -276,6 +276,9 @@ export default async function CoursesPage({
     ]);
   const {rentals,rentalPermissions,rentalCustomers,cancelledBookings}=rentalContext;
   timing.mark("calendar_batch");
+  if (businessProfile === "MUSIC" && businessHours.length > 0 && businessHours.every((row) => row.segments == null)) {
+    redirect("/dashboard/courses/hours?tab=weekly&setup=1");
+  }
   const rosterPromise=view==="schedule"&&writableStore&&(sportsNative||businessProfile==="MUSIC")?timing.read("rosters",()=>preloadCourseCalendarRosters(storeId,sessions.map(session=>session.id))):Promise.resolve(undefined);
   // A later metadata failure must not leave a rejected in-flight roster read unobserved.
   void rosterPromise.catch(()=>{});
@@ -364,9 +367,6 @@ export default async function CoursesPage({
         index === 0 || Math.round((date - dates[index - 1]) / 86400000) === 14,
       )) biweeklyKeys.add(key);
     }
-  }
-  if (businessProfile === "MUSIC" && businessHours.length > 0 && businessHours.every((row) => row.segments == null)) {
-    redirect("/dashboard/courses/hours?tab=weekly&setup=1");
   }
   const writable =
     canCreate && writableStore;
