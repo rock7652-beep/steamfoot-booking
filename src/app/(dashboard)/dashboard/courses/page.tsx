@@ -356,7 +356,7 @@ export default async function CoursesPage({
     canCreate && writableStore;
   timing.mark("post_calendar");
   const [labelSnapshot,presentationPlans,presentationModes] = await (presentationPromise??readPresentation());
-  const rosterSnapshots=view==="schedule"&&(sportsNative||businessProfile==="MUSIC")?await timing.read("rosters",()=>preloadCourseCalendarRosters(storeId,sessions.map(session=>session.id))):undefined;
+  const rosterSnapshots=view==="schedule"&&writableStore&&(sportsNative||businessProfile==="MUSIC")?await timing.read("rosters",()=>preloadCourseCalendarRosters(storeId,sessions.map(session=>session.id))):undefined;
   timing.mark("presentation");
   return (
     <CustomerLabelsSeed initial={labelSnapshot}>

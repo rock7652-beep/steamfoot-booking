@@ -1274,7 +1274,7 @@ export function CourseWorkspace({
               onPasteMove={pasteMove}
               onSelectDate={go}
               onOpenSession={(sessionId, date) => {
-                if(calendarReading||pending)return;
+                if(calendarSource?.readBlocked||calendarReading||pending)return;
                 go(date);
                 if(calendarSource){calendarSource.onOpen(sessionId);return;}
                 // Start the fresh read on this click, alongside mounting the dialog.
