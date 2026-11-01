@@ -40,7 +40,7 @@ const workspace=(result:Awaited<ReturnType<typeof page>>)=>result.props.children
 it('prepares complete rosters while rentals are pending but waits for all data before rendering',async()=>{
  let release!:()=>void;m.rentals.mockImplementationOnce(()=>new Promise(resolve=>{release=()=>resolve([]);}));
  let done=false;const read=page().then(result=>{done=true;return result;});
- await vi.waitFor(()=>expect(m.rosters).toHaveBeenCalledWith('store',['a']));expect(m.sessions).toHaveBeenCalledOnce();expect(m.rentals).toHaveBeenCalledOnce();expect(done).toBe(false);release();
+ await vi.waitFor(()=>expect(m.rosters).toHaveBeenCalledWith('store',expect.any(Promise)));await expect(m.rosters.mock.calls[0][1]).resolves.toEqual(['a']);expect(m.sessions).toHaveBeenCalledOnce();expect(m.rentals).toHaveBeenCalledOnce();expect(done).toBe(false);release();
  const result=await read;expect(workspace(result).props.rosterSnapshots).toBe(snapshot);expect(m.user).toHaveBeenCalledOnce();expect(m.store).toHaveBeenCalledOnce();
 });
 it('waits for the session read and preserves the music hours setup guard before preloading',async()=>{
@@ -57,7 +57,7 @@ it('observes an early roster failure while unrelated metadata is pending and sti
 it('starts complete roster preparation before labels finish and awaits both before rendering',async()=>{
  let release!:()=>void;m.labels.mockImplementationOnce(()=>new Promise(resolve=>{release=()=>resolve({});}));
  let done=false;const read=page().then(result=>{done=true;return result;});
- await vi.waitFor(()=>expect(m.labels).toHaveBeenCalledOnce());expect(m.rosters).toHaveBeenCalledWith('store',['a']);expect(m.plans).toHaveBeenCalledOnce();expect(m.modes).toHaveBeenCalledOnce();expect(done).toBe(false);
+ await vi.waitFor(()=>expect(m.labels).toHaveBeenCalledOnce());expect(m.rosters).toHaveBeenCalledWith('store',expect.any(Promise));await expect(m.rosters.mock.calls[0][1]).resolves.toEqual(['a']);expect(m.plans).toHaveBeenCalledOnce();expect(m.modes).toHaveBeenCalledOnce();expect(done).toBe(false);
  release();const result=await read;expect(workspace(result).props.rosterSnapshots).toBe(snapshot);
 });
 it('never renders the calendar until complete roster preparation resolves',async()=>{
