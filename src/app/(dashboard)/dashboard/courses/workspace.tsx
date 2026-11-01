@@ -371,6 +371,7 @@ export function CourseWorkspace({
   const confirmedScheduleSessions=useConfirmedSettingsRows(confirmedSessionSource,row=>row.id);
   const sessions:Session[]=confirmedScheduleSessions.rows.filter(row=>row.receiptStoreId===storeId);
   const rawPreparedRosters=nativeCalendar?.rosterSnapshots??rosterSnapshots;
+  const calendarOwnsRosterRefresh=sportsNative||!!rawPreparedRosters&&rawPreparedRosters.storeId===storeId;
   const [invalidatedRosters,setInvalidatedRosters]=useState<CalendarRosterSnapshots|undefined>();
   const preparedRosters=rawPreparedRosters&&rawPreparedRosters.storeId===storeId&&rawPreparedRosters!==invalidatedRosters?rawPreparedRosters:undefined;
   const invalidatePreparedRosters=useCallback(()=>{setInvalidatedRosters(rawPreparedRosters);++calendarRequest.current;setCalendarReading(false);},[rawPreparedRosters]);
@@ -2583,7 +2584,7 @@ export function CourseWorkspace({
                   refreshVersion={sportsNative&&kind==="roster"?rosterRevision:0}
                   onBusyChange={setInlineBusy}
 
-                  onCommitted={sportsNative||preparedRosters?refreshWorkspace:undefined}
+                  onCommitted={calendarOwnsRosterRefresh?refreshWorkspace:undefined}
                   onAttendanceOptimistic={showPendingAttendance}
                   onTeacherAttendanceOptimistic={status=>setPendingTeacherAttendance(previous=>{if(status)return {...previous,[dialogSession.id]:status};const next={...previous};delete next[dialogSession.id];return next;})}
                   onMemberBookingReadyChange={setMemberBookingReady}

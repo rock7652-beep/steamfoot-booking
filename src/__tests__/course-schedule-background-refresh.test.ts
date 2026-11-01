@@ -150,7 +150,11 @@ it('opens with all prepared data and never starts a detail read on the click',as
   expect(host.querySelector('[data-calendar-rosters-ready="true"]')).not.toBeNull();
   await act(async()=>host.querySelector<HTMLButtonElement>('[data-calendar-session="session"]')!.click());
   expect(m.detail).not.toHaveBeenCalled();expect(m.roster.mock.lastCall?.[0].initialSnapshot).toEqual({sessionId:'session',data});
+  const owner=m.roster.mock.lastCall?.[0].onCommitted;expect(owner).toBeTypeOf('function');
   await act(async()=>m.roster.mock.lastCall?.[0].onSnapshotInvalidated());expect(host.querySelector('[data-calendar-rosters-ready="false"]')).not.toBeNull();
+  // Snapshot invalidation must not drop the parent owner while its read is pending.
+  expect(m.roster.mock.lastCall?.[0].onCommitted).toBe(owner);
+  await act(async()=>m.roster.mock.lastCall?.[0].onCommitted());expect(m.router.refresh).toHaveBeenCalledTimes(1);
  }finally{window.history.replaceState(null,'',original);}
 });
 

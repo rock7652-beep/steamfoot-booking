@@ -27,7 +27,7 @@ vi.mock("@/components/customer-labels", () => ({ CustomerLabels: () => null }));
 vi.mock("@/components/operation-history-button", () => ({ OperationHistoryButton: () => null }));
 import { CourseRoster } from "@/app/(dashboard)/dashboard/courses/roster";
 import { OperationScope } from "@/components/operations/operation-scope";
-import {publishMusicFinanceChange} from '@/lib/music-finance-sync';
+import * as musicFinanceSync from '@/lib/music-finance-sync';
 
 const booking = (id = "a", notes = "原始備註") => ({
   id, customerId: id, customerName: id === "a" ? "甲同學" : "乙同學", customerPhone: "0900000001",
@@ -90,7 +90,7 @@ it('defers finance-triggered quick reads during attendance and reconciles exactl
   const write=deferred<{success:boolean}>();m.status.mockReturnValue(write.promise);
   m.quick.mockResolvedValue({success:true,data:{roster:[{...booking(),status:'ATTENDED'},booking('b')],waitlist:[],teacherAttendance:'SCHEDULED'}});
   await render(true);await clickAttendance();
-  await act(async()=>publishMusicFinanceChange());expect(m.quick).not.toHaveBeenCalled();
+  await act(async()=>musicFinanceSync.publishMusicFinanceChange());expect(m.quick).not.toHaveBeenCalled();
   await act(async()=>write.resolve({success:true}));expect(m.quick).toHaveBeenCalledOnce();
  }finally{vi.unstubAllEnvs();window.history.replaceState({},'',oldPath);}
 });
@@ -253,6 +253,7 @@ it('starts a fresh roster read on the opening click, shares only its in-flight r
 });
 
 it.each([true,false])('reconciles music teacher notes and retains one calendar refresh owner: parent=%s',async hasParent=>{
+ const publication=vi.spyOn(musicFinanceSync,'publishMusicFinanceChange');
  const write=deferred<{success:boolean}>(),read=deferred<{success:boolean;data:{roster:ReturnType<typeof booking>[];teacherNote:string;teacherAttendance:string;teacherAttendanceReason:string}}>();
  const committed=vi.fn(),invalidate=vi.fn();m.save.mockReturnValueOnce(write.promise);m.quick.mockReturnValueOnce(read.promise);
  await act(async()=>root.render(createElement(OperationScope,{scope:'account:teacher-note:course'},createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,teacherName:'老師',onSnapshotInvalidated:invalidate,onCommitted:hasParent?committed:undefined}))));
@@ -263,6 +264,7 @@ it.each([true,false])('reconciles music teacher notes and retains one calendar r
  await act(async()=>write.resolve({success:true}));
  expect(m.save).toHaveBeenCalledWith({sessionId:'session-a',bookingId:undefined,note:'更新的教師備註',expectedNote:'教師提醒'});
  expect(invalidate).toHaveBeenCalled();expect(committed).toHaveBeenCalledTimes(hasParent?1:0);expect(m.quick).toHaveBeenCalledOnce();expect(m.refresh).not.toHaveBeenCalled();
+ expect(publication).toHaveBeenCalledWith('general',undefined,hasParent?{calendarRefreshOwned:true}:undefined);
  await act(async()=>read.resolve({success:true,data:{roster:[booking()],teacherNote:'後端核對的備註',teacherAttendance:'SCHEDULED',teacherAttendanceReason:''}}));
  expect(host.querySelector('button[title="後端核對的備註"]')).not.toBeNull();
  expect(committed).toHaveBeenCalledTimes(hasParent?1:0);expect(m.refresh).toHaveBeenCalledTimes(hasParent?0:1);

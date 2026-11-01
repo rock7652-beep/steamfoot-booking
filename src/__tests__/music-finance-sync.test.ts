@@ -1,8 +1,22 @@
 // @vitest-environment jsdom
 import {beforeEach,afterEach,expect,it,vi} from "vitest";
-import {MUSIC_FINANCE_SIGNAL,isMusicSyncRoute,subscribeMusicFinanceChange} from "@/lib/music-finance-sync";
+import {MUSIC_FINANCE_SIGNAL,isMusicSyncRoute,subscribeMusicFinanceChange,publishMusicFinanceChange} from "@/lib/music-finance-sync";
 beforeEach(()=>{localStorage.clear();vi.stubGlobal("BroadcastChannel",undefined);});
 afterEach(()=>vi.unstubAllGlobals());
+it('keeps calendar ownership local to the originating event and broadcasts only the token',()=>{
+ vi.stubEnv('NEXT_PUBLIC_BUILD_ENV','staging');window.history.replaceState(null,'','/s/lubymusic/admin/dashboard/courses');
+ const callback=vi.fn(),dispose=subscribeMusicFinanceChange(callback),post=vi.fn();
+ vi.stubGlobal('BroadcastChannel',class{postMessage=post;close(){};});
+ try{
+  publishMusicFinanceChange('general','general:owned',{calendarRefreshOwned:true});
+  expect(callback).toHaveBeenCalledExactlyOnceWith('general',{calendarRefreshOwned:true});
+  expect(localStorage.getItem(MUSIC_FINANCE_SIGNAL)).toBe('general:owned');expect(post).toHaveBeenCalledExactlyOnceWith('general:owned');
+  // A different tab receives the same persisted token without local ownership.
+  localStorage.removeItem(MUSIC_FINANCE_SIGNAL);const other=vi.fn(),stopOther=subscribeMusicFinanceChange(other);
+  window.dispatchEvent(new StorageEvent('storage',{key:MUSIC_FINANCE_SIGNAL,newValue:'general:owned'}));
+  expect(callback).toHaveBeenCalledOnce();expect(other).toHaveBeenCalledExactlyOnceWith('general');stopOther();
+ }finally{dispose();window.history.replaceState(null,'','/');vi.unstubAllEnvs();}
+});
 it("deduplicates signals and removes listeners",()=>{
  const refresh=vi.fn();const dispose=subscribeMusicFinanceChange(refresh);
  window.dispatchEvent(new StorageEvent("storage",{key:MUSIC_FINANCE_SIGNAL,newValue:"a"}));

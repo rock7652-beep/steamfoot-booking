@@ -374,7 +374,7 @@ export function CourseRoster({
     };
   }
 
-  function notifyRosterChanged(){onSnapshotInvalidated?.();publishMusicFinanceChange();onCommitted?.();}
+  function notifyRosterChanged(){onSnapshotInvalidated?.();publishMusicFinanceChange("general",undefined,onCommitted?{calendarRefreshOwned:true}:undefined);onCommitted?.();}
 
   async function load(reportError = true): Promise<"loaded" | "failed" | "stale"> {
     if(sportsNative)sportsDetailReader.clear();

@@ -6,7 +6,7 @@ import { PanelReadProvider, usePanelReader } from "@/components/operations/panel
 const refresh = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }), useSearchParams:()=>new URLSearchParams("view=customers"), usePathname: () => "/s/lubymusic/admin/dashboard/courses" }));
 vi.mock("@/lib/music-finance-sync", async importOriginal => ({ ...await importOriginal<typeof import("@/lib/music-finance-sync")>(), isMusicPreviewPage: () => true }));
-import { MUSIC_FINANCE_SIGNAL } from "@/lib/music-finance-sync";
+import { MUSIC_FINANCE_SIGNAL, publishMusicFinanceChange } from "@/lib/music-finance-sync";
 let host: HTMLDivElement, root: Root;
 beforeEach(() => { Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); host = document.createElement("div"); root = createRoot(host); });
 afterEach(async () => { await act(async () => root.unmount()); vi.useRealTimers(); });
@@ -90,4 +90,20 @@ it('keeps an open music roster mounted and refreshes the outer page once after c
   expect(refresh).not.toHaveBeenCalled();expect(readers.panel).toBe(original);expect(await original.read('1')).toBe('new');
   marker.remove();await act(async()=>window.dispatchEvent(new Event('music-roster-closed')));expect(refresh).toHaveBeenCalledOnce();
  }finally{marker.remove();}
+});
+it.each([false,true])('does not duplicate a local calendar-owned refresh; external change=%s',async external=>{
+ refresh.mockClear();vi.stubEnv('NEXT_PUBLIC_BUILD_ENV','staging');window.history.replaceState(null,'','/s/lubymusic/admin/dashboard/courses');
+ const marker=document.createElement('section');marker.dataset.liveMusicRoster='true';document.body.append(marker);
+ const fetcher=vi.fn().mockResolvedValueOnce('before').mockResolvedValueOnce('after');
+ try{
+  await act(async()=>root.render(tree('owned-'+external,[consumer('panel',fetcher)])));
+  const original=readers.panel;expect(await original.read('1')).toBe('before');
+  await act(async()=>{
+   if(external)window.dispatchEvent(new StorageEvent('storage',{key:MUSIC_FINANCE_SIGNAL,newValue:'general:external-'+external}));
+   publishMusicFinanceChange('general','general:local-'+external,{calendarRefreshOwned:true});
+  });
+  expect(refresh).not.toHaveBeenCalled();expect(readers.panel).toBe(original);expect(await original.read('1')).toBe('after');
+  marker.remove();await act(async()=>window.dispatchEvent(new Event('music-roster-closed')));
+  expect(refresh).toHaveBeenCalledTimes(external?1:0);
+ }finally{marker.remove();window.history.replaceState(null,'','/');vi.unstubAllEnvs();}
 });
