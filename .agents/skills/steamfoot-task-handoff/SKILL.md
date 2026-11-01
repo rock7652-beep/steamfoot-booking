@@ -13,8 +13,9 @@ description: 接續蒸管家既有開發、修復或跨模組需求時，核對�
 - 以目標、範圍、不做事項、成功條件整理任務。只讀問題不要升級為修復；草稿／審查不要升級為發布。
 
 ## 確認影響再動手
+- 將使用者的痛點與期待結果轉成最小任務範圍，主動選取相關流程與驗收項目，不要求使用者點名 Skill 或補齊技術名詞：影響與授權用本流程，介面與操作體驗用 [steamfoot-ui-review](../steamfoot-ui-review/SKILL.md)，測試證據、既有預覽及成本溝通用 [steamfoot-release-check](../steamfoot-release-check/SKILL.md)。先自行查核可取得的現有資訊，列出資料正確性、角色／門市權限、必要測試與未驗項目；僅真正取捨、必要資訊不足或超出授權時詢問，不藉流程選取擴大任務。
 - 列出受影響入口、門市／模組、角色、共用元件、資料及通知；共用呈現不等於共用方案、扣堂或退款規則。引用適用的現行文件，不複製第二份業務規則。
-- 涉及 UI 時依任務範圍採用本 repo 的 steamfoot-ui-review；只讀盤點不因此啟動實作或操作驗收。準備交付或發布時用 steamfoot-release-check，只讀取相關 Skill。
+- 涉及 UI 時依任務範圍採用本 repo 的 [steamfoot-ui-review](../steamfoot-ui-review/SKILL.md)，以 [操作情境](../../../docs/operation-experience-scenarios.md) 定義完整資料可用與任務完成條件；只讀盤點不因此啟動實作或操作驗收。準備交付或發布時用 steamfoot-release-check，只讀取相關 Skill。
 - 若涉及 Cloudflare，先以目前路由／設定／問題證據確認它是否為本次必要依賴；無關則記錄不適用，必要但存取受阻則只暫停依賴部分。不得把歷史跳過當永久豁免，也不要求所有任務一律檢查 Cloudflare。
 - 發現停發中的通知，保留其狀態並核對原因與原決策；不得為了測試或「恢復正常」自行啟用。
 
