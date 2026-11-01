@@ -182,3 +182,22 @@ it('music date navigation stays responsive and hides unmatched month data until 
  await choose('2026-10-17');expect(m.router.replace.mock.calls.at(-1)![0]).toContain('date=2026-10-17');
  await act(async()=>finish());m.router.replace.mockReset();
 });
+
+it('blocks a late parent after a cleared note and requests one fresh calendar without losing its owner',async()=>{
+ const original=window.location.href;m.query='date=2026-10-17&scheduleView=day';vi.stubEnv('NEXT_PUBLIC_BUILD_ENV','staging');window.history.replaceState(null,'','/s/lubymusic/admin/dashboard/courses?'+m.query);
+ const data=preparedRoster(),initial={storeId:'store-a',details:{session:data}};
+ const input={...props,canCreate:false,canEdit:false,sportsNative:false,businessProfile:'MUSIC' as const,rooms:[{id:'room',name:'Room',category:'',isActive:true,capacity:2}],coaches:[{id:'coach',displayName:'Coach',phone:'',status:'ACTIVE',courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:[]}],sessions:[{id:'session',templateId:'template',nameSnapshot:'Teaching A',startsAt:'2026-10-17T02:00:00Z',endsAt:'2026-10-17T03:00:00Z',coachId:'coach',roomId:'room',capacity:2,pointCost:1,bookings:[]}]};
+ try{
+  await act(async()=>root.render(createElement(CourseWorkspace,{...input,rosterSnapshots:initial})));
+  await act(async()=>host.querySelector<HTMLButtonElement>('[data-calendar-session="session"]')!.click());
+  const owner=m.roster.mock.lastCall?.[0].onCommitted,lease=m.roster.mock.lastCall?.[0].beginTeacherNoteSnapshot('session');
+  const empty={...data,session:{...data.session,teacherNote:''}};
+  await act(async()=>expect(lease.accept({sessionId:'session',data:empty})).toBe(true));lease.dispose();
+  expect(m.router.refresh).not.toHaveBeenCalled();
+  await act(async()=>root.render(createElement(CourseWorkspace,{...input,rosterSnapshots:JSON.parse(JSON.stringify(initial))})));
+  expect(host.querySelector('[data-calendar-rosters-ready="false"]')).not.toBeNull();
+  expect(m.roster.mock.lastCall?.[0].initialSnapshot).toBeUndefined();expect(m.roster.mock.lastCall?.[0].onCommitted).toBe(owner);expect(m.router.refresh).toHaveBeenCalledOnce();
+  await act(async()=>root.render(createElement(CourseWorkspace,{...input,rosterSnapshots:{...initial,details:{session:empty}}})));
+  expect(host.querySelector('[data-calendar-rosters-ready="true"]')).not.toBeNull();expect(m.roster.mock.lastCall?.[0].initialSnapshot.data.session.teacherNote).toBe('');expect(m.router.refresh).toHaveBeenCalledOnce();
+ }finally{window.history.replaceState(null,'',original);vi.unstubAllEnvs();}
+});

@@ -373,8 +373,9 @@ export function CourseWorkspace({
   const sessions:Session[]=confirmedScheduleSessions.rows.filter(row=>row.receiptStoreId===storeId);
   const incomingRosters=nativeCalendar?.rosterSnapshots??rosterSnapshots;
   const [invalidatedRosters,setInvalidatedRosters]=useState<CalendarRosterSnapshots|undefined>();
-  const {snapshots:rawPreparedRosters,begin:beginTeacherNoteSnapshot,invalidate:invalidateTeacherNoteSnapshot,cancelPending:cancelPendingTeacherNote}=useTeacherNoteSnapshot({incoming:incomingRosters,invalidated:invalidatedRosters,scope:`${storeId}:${pathname}:${loadedDate}:${params.get("date")??loadedDate}`,enabled:businessProfile==="MUSIC"&&!sportsNative&&incomingRosters?.storeId===storeId,onInvalidate:setInvalidatedRosters});
-  const calendarOwnsRosterRefresh=sportsNative||!!rawPreparedRosters&&rawPreparedRosters.storeId===storeId;
+  const teacherNoteScope=`${storeId}:${pathname}:${loadedDate}:${params.get("date")??loadedDate}`;
+  const {snapshots:rawPreparedRosters,begin:beginTeacherNoteSnapshot,invalidate:invalidateTeacherNoteSnapshot,cancelPending:cancelPendingTeacherNote,reconcileRequest:teacherNoteReconciliation}=useTeacherNoteSnapshot({incoming:incomingRosters,invalidated:invalidatedRosters,scope:teacherNoteScope,enabled:businessProfile==="MUSIC"&&!sportsNative&&incomingRosters?.storeId===storeId,onInvalidate:setInvalidatedRosters});
+  const calendarOwnsRosterRefresh=sportsNative||!!incomingRosters&&incomingRosters.storeId===storeId;
   const preparedRosters=rawPreparedRosters&&rawPreparedRosters.storeId===storeId&&rawPreparedRosters!==invalidatedRosters&&incomingRosters!==invalidatedRosters?rawPreparedRosters:undefined;
   const invalidatePreparedRosters=useCallback(()=>{invalidateTeacherNoteSnapshot();++calendarRequest.current;setCalendarReading(false);},[invalidateTeacherNoteSnapshot]);
   const cancelledBookings=nativeCalendar?.cancelledBookings??sourceCancelledBookings;
@@ -411,6 +412,12 @@ export function CourseWorkspace({
   useSportsCalendarScroll(sportsNative&&view==="schedule","window",undefined,calendarDataReady&&!calendarReading);
   const [transitionPending, startTransition] = useTransition();
   const refreshWorkspace=useCallback(()=>{if(sportsNative)return refreshNativeCalendar(nativeDateRef.current);startCalendarNavigation(()=>router.refresh());},[sportsNative,refreshNativeCalendar,router,startCalendarNavigation]);
+  const handledTeacherNoteReconciliation=useRef(teacherNoteReconciliation);
+  useEffect(()=>{
+    if(handledTeacherNoteReconciliation.current===teacherNoteReconciliation)return;
+    handledTeacherNoteReconciliation.current=teacherNoteReconciliation;
+    if(teacherNoteReconciliation?.scope===teacherNoteScope&&teacherNoteReconciliation.source===incomingRosters&&!rawPreparedRosters)refreshWorkspace();
+  },[teacherNoteReconciliation,teacherNoteScope,incomingRosters,rawPreparedRosters,refreshWorkspace]);
   const requestedScheduleMode = params.get("scheduleView");
   const [scheduleMode, setScheduleMode] = useSportsCalendarState<CourseScheduleMode>(sportsNative,"mode",
     requestedScheduleMode === "day" || requestedScheduleMode === "week" || requestedScheduleMode === "month"
@@ -1034,7 +1041,7 @@ export function CourseWorkspace({
   const weekFilters = <><button type="button" popoverTarget={sportsFilterPanelId} className={`${button} min-h-11 whitespace-nowrap`}>篩選{scheduleFiltered ? "（已套用）" : ""}</button><div id={sportsFilterPanelId} popover="auto" aria-label="課表篩選" className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[min(44rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-earth-200 bg-white p-4 shadow-xl backdrop:bg-black/20"><div className="mb-3 flex items-center justify-between"><strong>課表篩選</strong><button type="button" popoverTarget={sportsFilterPanelId} popoverTargetAction="hide" className="min-h-11 rounded-lg px-3">完成</button></div>{calendarSource?<div className="flex flex-wrap items-center gap-3">{serviceFilters}</div>:scheduleFilters}</div></>;
   return (
     <>
-      {rawPreparedRosters&&<span hidden data-calendar-rosters-ready={calendarDataReady&&!calendarReading&&preparedRosters&&preparedRosters.storeId===storeId&&sessions.filter(session=>!isRentalSession(session)).every(session=>preparedRosters.details[calendarSource?`booking:${session.id}`:session.id])?"true":"false"} data-calendar-rosters-count={sessions.filter(session=>!isRentalSession(session)).length}/>}
+      {incomingRosters&&<span hidden data-calendar-rosters-ready={calendarDataReady&&!calendarReading&&preparedRosters&&preparedRosters.storeId===storeId&&sessions.filter(session=>!isRentalSession(session)).every(session=>preparedRosters.details[calendarSource?`booking:${session.id}`:session.id])?"true":"false"} data-calendar-rosters-count={sessions.filter(session=>!isRentalSession(session)).length}/>}
       {!panel && <CourseConflicts items={conflicts}/>}
       {sportsNative&&<span hidden data-operation-background-refresh/>}
       {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onReview={()=>{setCourseDialog({sessionId:moveClipboard.sessionId,kind:"roster"});setMoveTarget(null);}} onSaved={(date,patches)=>{const ensure=date.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7));++calendarRequest.current;setNativeCalendar(previous=>({...previous??{month:loadedDate.slice(0,7),sessions:sourceSessions,cancelledBookings:sourceCancelledBookings,calendarDays:sourceCalendarDays,staffAvailabilityExceptions:sourceStaffAvailabilityExceptions},sessions:applySportsMovePatches(previous?.sessions??sourceSessions,patches??[])}));setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date,ensure);}}/>}

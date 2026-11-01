@@ -64,3 +64,50 @@ it('falls back against the current same-scope snapshot but never invalidates ano
  await act(async()=>root.render(createElement(Harness,{incoming:base(),scope:'store-b:2026-10'})));
  expect(lease.invalidate()).toBe(false);expect(controller.begin('a')).not.toBeNull();lease.dispose();
 });
+
+// A parent request may have started before the note commit and finish afterwards.
+it('blocks a late pre-save parent snapshot after accepting an empty teacher note',async()=>{
+ const input=base();input.details.a.session.teacherNote='已刪除的舊備註';
+ await act(async()=>root.render(createElement(Harness,{incoming:input})));
+ await act(async()=>expect(controller.begin('a')!.accept(changed(input.details.a,''))).toBe(true));
+ expect(controller.snapshots?.details.a.session.teacherNote).toBe('');
+ const late=JSON.parse(JSON.stringify(input));
+ await act(async()=>root.render(createElement(Harness,{incoming:late})));
+ expect(controller.snapshots).toBeUndefined();
+ expect(controller.begin('a')).toBeNull();
+ const request=controller.reconcileRequest;expect(request?.source).toBe(late);
+ await act(async()=>root.render(createElement(Harness,{incoming:late})));
+ expect(controller.reconcileRequest).toBe(request);
+ const fresh={...late,details:{...late.details,a:changed(input.details.a,'').data}};
+ await act(async()=>root.render(createElement(Harness,{incoming:fresh})));
+ expect(controller.snapshots?.details.a.session.teacherNote).toBe('');
+ expect(controller.begin('a')).not.toBeNull();
+});
+
+it('accepts a matching newer parent and unrelated changes without an extra read',async()=>{
+ const input=base();await act(async()=>root.render(createElement(Harness,{incoming:input})));
+ const next=changed(input.details.a,'');await act(async()=>expect(controller.begin('a')!.accept(next)).toBe(true));
+ const parent={...input,details:{a:JSON.parse(JSON.stringify(next.data)),b:{...input.details.b,roster:[]}}};
+ await act(async()=>root.render(createElement(Harness,{incoming:parent})));
+ expect(controller.snapshots).toBe(parent);expect(controller.reconcileRequest).toBeUndefined();
+});
+it.each(['scope','disabled','invalidated'])('keeps the existing refresh owner after intentional %s change',async kind=>{
+ const input=base();await act(async()=>root.render(createElement(Harness,{incoming:input})));
+ await act(async()=>expect(controller.begin('a')!.accept(changed(input.details.a,''))).toBe(true));
+ if(kind==='invalidated')await act(async()=>controller.invalidate());
+ const incoming=base();await act(async()=>root.render(createElement(Harness,{incoming,scope:kind==='scope'?'store-a:2026-11':undefined,enabled:kind!=='disabled'})));
+ expect(controller.snapshots).toBe(incoming);expect(controller.reconcileRequest).toBeUndefined();
+});
+it('checks every locally updated class before replacing the parent snapshot',async()=>{
+ const input=base();await act(async()=>root.render(createElement(Harness,{incoming:input})));
+ const a=changed(input.details.a,'新的A');
+ const b={sessionId:'b',data:{...input.details.b,session:{...input.details.b.session,teacherNote:'新的B'}}};
+ await act(async()=>{expect(controller.begin('a')!.accept(a)).toBe(true);expect(controller.begin('b')!.accept(b)).toBe(true);});
+ const staleB={...input,details:{a:a.data,b:input.details.b}};
+ await act(async()=>root.render(createElement(Harness,{incoming:staleB})));
+ expect(controller.snapshots).toBeUndefined();expect(controller.reconcileRequest?.source).toBe(staleB);
+ // A fresh authoritative parent may contain another person's newer note.
+ const latest={...staleB,details:{a:a.data,b:{...b.data,session:{...b.data.session,teacherNote:'另一人後續更新'}}}};
+ await act(async()=>root.render(createElement(Harness,{incoming:latest})));
+ expect(controller.snapshots).toBe(latest);expect(controller.begin('b')).not.toBeNull();
+});

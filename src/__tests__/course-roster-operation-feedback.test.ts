@@ -7,7 +7,7 @@ vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }))
 // @vitest-environment jsdom
 /** Real CourseRoster failure/concurrency tests using synthetic data.
  * These establish DOM/state behavior, not browser geometry or live DB writes. */
-import { act, createElement, useState } from "react";
+import { act, createElement, useState, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("@/server/actions/course-purchase-intent", () => ({ prepareCoursePurchaseIntent: vi.fn(), getCoursePurchaseIntent: vi.fn(), getPendingCoursePurchaseIntent: vi.fn(), cancelCoursePurchaseIntent: vi.fn(), acknowledgeCoursePurchaseIntent: vi.fn() }));
@@ -26,6 +26,8 @@ vi.mock("@/app/(dashboard)/dashboard/bookings/collect-trial-modal", () => ({ Col
 vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal", () => ({ CorrectTrialCollectionModal: () => null }));
 vi.mock("@/components/customer-labels", () => ({ CustomerLabels: () => null }));
 vi.mock("@/components/operation-history-button", () => ({ OperationHistoryButton: () => null }));
+import {useTeacherNoteSnapshot} from '@/app/(dashboard)/dashboard/courses/use-teacher-note-snapshot';
+import type {CalendarRosterSnapshots} from '@/app/(dashboard)/dashboard/courses/roster-source';
 import { CourseRoster } from "@/app/(dashboard)/dashboard/courses/roster";
 import { OperationScope } from "@/components/operations/operation-scope";
 import * as musicFinanceSync from '@/lib/music-finance-sync';
@@ -362,4 +364,30 @@ it('keeps a failed retry available and ignores its late response after switching
  const old=deferred<ReturnType<typeof data>>();m.load.mockReturnValueOnce(old.promise);await act(async()=>retry().click());
  m.load.mockResolvedValueOnce(data('乙課正確備註'));await render(true,'session-b');await act(async()=>old.resolve(data('甲課過期備註')));
  expect(host.textContent).toContain('乙課正確備註');expect(host.textContent).not.toContain('甲課過期備註');expect(host.textContent).not.toContain('讀取失敗');
+});
+
+it('keeps a cleared note visible when an older parent response arrives after confirmation',async()=>{
+ const initial={storeId:'store-a',details:{'session-a':preparedNoteData()}};
+ const committed=vi.fn();let deliver!:(incoming:CalendarRosterSnapshots)=>void;
+ function Harness(){
+  const [incoming,setIncoming]=useState<CalendarRosterSnapshots>(initial),[invalidated,onInvalidate]=useState<CalendarRosterSnapshots>();
+  useEffect(()=>{deliver=setIncoming;},[]);
+  const {snapshots,begin,invalidate,reconcileRequest}=useTeacherNoteSnapshot({incoming,invalidated,scope:'music:store-a:2026-10',enabled:true,onInvalidate});
+  useEffect(()=>{if(reconcileRequest)committed();},[reconcileRequest]);
+  return createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,teacherName:'老師',initialSnapshot:snapshots&&snapshots!==invalidated?{sessionId:'session-a',data:snapshots.details['session-a']}:undefined,beginTeacherNoteSnapshot:begin,onSnapshotInvalidated:invalidate,onCommitted:committed});
+ }
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:late-parent-note'},createElement(Harness))));
+ const empty={...initial.details['session-a'],session:{...initial.details['session-a'].session,teacherNote:''}};m.load.mockResolvedValue({success:true,data:empty});
+ await act(async()=>host.querySelector<HTMLButtonElement>('button[title="教師提醒"]')!.click());
+ const input=document.querySelector<HTMLTextAreaElement>('textarea[placeholder="記錄本次上課需要留意的事項"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'');input.dispatchEvent(new Event('input',{bubbles:true}));});
+ await act(async()=>input.closest('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(host.querySelector('button[title="教師提醒"]')).toBeNull();expect(committed).not.toHaveBeenCalled();
+ await act(async()=>deliver(JSON.parse(JSON.stringify(initial))));
+ expect(host.querySelector('button[title="教師提醒"]')).toBeNull();expect(committed).toHaveBeenCalledOnce();
+ const fresh={...initial,details:{'session-a':empty}};await act(async()=>deliver(fresh));
+ expect(host.querySelector('button[title="教師提醒"]')).toBeNull();expect(host.textContent).toContain('備註 ✎');
+ // A remount reads the repaired parent, rather than reviving the old note.
+ await act(async()=>root.render(createElement(OperationScope,{key:'remount',scope:'account:late-parent-note'},createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,initialSnapshot:{sessionId:'session-a',data:fresh.details['session-a']}}))));
+ expect(host.querySelector('button[title="教師提醒"]')).toBeNull();expect(host.textContent).toContain('備註 ✎');
 });
