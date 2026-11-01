@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import {
   applyDaySlotOverrides,
   getDaySlotDetails,
@@ -29,7 +28,6 @@ interface Props {
  * 時段資料，且只有按「儲存」才會影響顧客端可預約狀態。
  */
 export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [dayClosed, setDayClosed] = useState(true);
@@ -156,12 +154,15 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
         toast.error(result.error ?? "儲存時段失敗，草稿已保留");
         return;
       }
-      await onSaved();
-      // Reload the month summary as well as slots so a former closed day changes status immediately.
-      router.refresh();
+      let refreshed = true;
+      try { await onSaved(); } catch { refreshed = false; }
       setChanges(new Map());
       setCapacityChanges(new Map());
       setOpen(false);
+      if (!refreshed) {
+        toast.warning("時段已儲存，畫面更新失敗，請按「更新」重新確認");
+        return;
+      }
       toast.success(
         result.data.bookedPeopleKept > 0
           ? `已儲存 ${result.data.changed} 個時段；既有 ${result.data.bookedPeopleKept} 人預約已保留`

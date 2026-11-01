@@ -539,8 +539,13 @@ function BookingsManagerContent({
 
   const refreshDaySlots = useCallback(async (date: string) => {
     monthNavigation?.invalidate();
-    await loadDaySlots(date);
-  }, [monthNavigation, loadDaySlots]);
+    const [, snapshot] = await Promise.all([
+      loadDaySlots(date),
+      readBookingMonth({ year, month, storeId }),
+    ]);
+    // This workspace owns its month snapshot; an RSC refresh cannot replace it.
+    setMonthSchedule(snapshot.monthSchedule);
+  }, [monthNavigation, loadDaySlots, year, month, storeId]);
 
   const bookedPeopleBySlot = useMemo(() => {
     const result = new Map<string, number>();
