@@ -15,7 +15,7 @@ import {resolvedCourseHours} from "@/lib/course-business-hours";
 export async function loadSportsCalendar(input:unknown){try{
  const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(input);
  if(!parseTaipeiDateTime(date,"00:00"))throw new AppError("VALIDATION","日期不正確");
- const {storeId}=await courseManagerRead("booking.read");
+ const {storeId,isChildStoreView}=await courseManagerRead("booking.read");
  if(!(await sportsNativePreview(storeId))||!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.fitness",status:"ENABLED"}}))throw new AppError("FORBIDDEN","此店尚未開放運動新版");
  await requireStoreFeature(storeId,FEATURES.BASIC_BOOKING);
  const first=date.slice(0,7)+"-01",start=dayRange(addTaiwanDuration(first,-6,"DAY")).start,end=dayRange(addTaiwanDuration(addTaiwanDuration(first,1,"MONTH"),5,"DAY")).end;
@@ -38,6 +38,6 @@ export async function loadSportsCalendar(input:unknown){try{
  });
  const [year,month]=first.split('-').map(Number),days=new Date(Date.UTC(year,month,0)).getUTCDate();
  const calendarDays=Object.fromEntries(Array.from({length:days+12},(_,i)=>{const d=addTaiwanDuration(first,i-6,"DAY"),r=resolvedCourseHours(d,hours as Parameters<typeof resolvedCourseHours>[1],special as Parameters<typeof resolvedCourseHours>[2]);return[d,{status:r.status,reason:r.reason,periods:r.periods.map(p=>({openTime:p.openTime,closeTime:p.closeTime}))}];}));
- const rosterSnapshots=await preloadCourseCalendarRosters(storeId,sessions.map(session=>session.id));
+ const rosterSnapshots=isChildStoreView?undefined:await preloadCourseCalendarRosters(storeId,sessions.map(session=>session.id));
  return {success:true as const,data:{rosterSnapshots,schedulingModes:schedulingModes??undefined,month:first.slice(0,7),sessions:[...rows,...rentals.map(r=>({id:`rental:${r.id}`,rentalId:r.id,sportsPalette:true,rentalCancelled:!!r.cancelledAt,templateId:"",nameSnapshot:r.customerName,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),coachId:"",roomId:r.roomId,capacity:0,pointCost:0,bookings:[],previewKind:"RENTAL" as const}))],cancelledBookings,calendarDays,staffAvailabilityExceptions:exceptions.map(e=>({...e,date:e.date.toISOString().slice(0,10)}))}};
 }catch(e){return handleActionError(e);}}

@@ -1,14 +1,14 @@
-vi.mock("@/server/services/course-calendar-rosters",()=>({preloadCourseCalendarRosters:async(storeId:string)=>({storeId,details:{}})}));
+vi.mock("@/server/services/course-calendar-rosters",()=>({preloadCourseCalendarRosters:m.preload}));
 import {beforeEach,it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({scope:vi.fn(),sessions:vi.fn(),sessionQuery:vi.fn(),entitlement:vi.fn()}));
+const m=vi.hoisted(()=>({scope:vi.fn(),sessions:vi.fn(),sessionQuery:vi.fn(),entitlement:vi.fn(),preload:vi.fn(),actor:vi.fn()}));
 vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:m.scope}));
-vi.mock("@/server/services/course-access",()=>({courseManagerRead:async()=>({storeId:"sports-live-flow-store"})}));
+vi.mock("@/server/services/course-access",()=>({courseManagerRead:m.actor}));
 vi.mock("@/lib/feature-gate",()=>({requireStoreFeature:async()=>{}}));
 vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:m.entitlement},businessHours:{findMany:async()=>[]},specialBusinessDay:{findMany:async()=>[]},customer:{findMany:async()=>[{id:"member",assignedStaffId:"coach"}]},$queryRaw:async()=>[]}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:async()=>({selfBookingEnabled:false,assignedSchedulingEnabled:true})},courseSession:{findMany:m.sessions},courseRental:{findMany:async()=>[]},$queryRaw:async()=>[{sessionId:"session",frequency:"BIWEEKLY"}]}}));
 import {loadSportsCalendar} from "@/server/actions/sports-calendar";
 const session={id:"session",nameSnapshot:"運動",templateId:"template",startsAt:new Date("2026-11-09T01:00:00Z"),endsAt:new Date("2026-11-09T02:00:00Z"),coachId:"coach",roomId:"room",capacity:8,pointCost:2,isTrial:false,requestKey:"key",teacherAttendance:"SCHEDULED",releasedAt:null,rescheduledFromStartsAt:null,rescheduledFromEndsAt:null,rescheduledAt:null,rescheduledFromRoomId:null,rescheduledFromCoachId:null,rescheduleKind:null,bookings:[{id:"booking",customerId:"member",customerName:"驗收",status:"RESERVED",absenceKind:null,bookingKind:"STANDARD",checkedInAt:null,notes:"",cardId:"private-card-id"}]};
-beforeEach(()=>{vi.clearAllMocks();m.scope.mockReturnValue(true);m.sessions.mockResolvedValue([session]);m.entitlement.mockResolvedValue({id:"entitlement"});});
+beforeEach(()=>{vi.clearAllMocks();m.actor.mockResolvedValue({storeId:"sports-live-flow-store",isChildStoreView:false});m.preload.mockImplementation(async(storeId:string)=>({storeId,details:{}}));m.scope.mockReturnValue(true);m.sessions.mockResolvedValue([session]);m.entitlement.mockResolvedValue({id:"entitlement"});});
 it("loads the requested month through store-scoped reads, without leaking unrelated booking fields",async()=>{
  const r=await loadSportsCalendar("2026-11-09");expect(r.success).toBe(true);if(!r.success)return;
  expect(r.data.month).toBe("2026-11");expect(r.data.schedulingModes).toEqual({selfBookingEnabled:false,assignedSchedulingEnabled:true});expect(r.data.sessions[0]).toMatchObject({isFixed:true,isBiweekly:true,bookings:[{assignedCoachId:"coach",status:"RESERVED"}]});expect(JSON.stringify(r.data)).not.toContain("private-card-id");
@@ -24,3 +24,5 @@ it.each([false,true])("shows the teaching item for existing classes, trial=%s, w
  expect(bookings.map(b=>b.cardId)).toEqual(["private-card-id","ten-lessons","twenty-lessons"]);
  expect(m.sessions.mock.calls[0][0].include.template).toEqual({select:{musicSubject:{select:{name:true}}}});
 });
+
+it("preserves child-store calendar reads without entering writable-store detail authorization",async()=>{m.actor.mockResolvedValue({storeId:"sports-live-flow-store",isChildStoreView:true});const r=await loadSportsCalendar("2026-11-09");expect(r.success).toBe(true);expect(m.preload).not.toHaveBeenCalled();if(r.success)expect(r.data.rosterSnapshots).toBeUndefined();});
