@@ -62,6 +62,7 @@ type TxRow = Awaited<
 
 interface PageProps {
   searchParams: Promise<OperationsQuery & {
+    purchaseId?:string;
     method?: string;
     search?: string;
     kind?: string;

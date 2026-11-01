@@ -1,0 +1,98 @@
+{
+  "tables": [
+    {
+      "total": 279,
+      "latest": 27,
+      "newest": "2026-10-31T14:23:49.11+00:00",
+      "oldest": "2026-10-21T03:57:33.943+00:00",
+      "source": "SteamfootStoreNotice",
+      "stores": 3,
+      "expired": 50,
+      "history": 202,
+      "expired_unread": 10,
+      "uncertain_recent_update": 12
+    },
+    {
+      "total": 24,
+      "latest": 0,
+      "newest": "2026-10-28T14:02:51.07+00:00",
+      "oldest": "2026-10-25T12:35:08.207+00:00",
+      "source": "CourseStoreNotice",
+      "stores": 2,
+      "expired": 0,
+      "history": 24,
+      "expired_unread": 0,
+      "uncertain_recent_update": 0
+    },
+    {
+      "total": 4,
+      "latest": 4,
+      "newest": "2026-10-31T01:00:26.850234+00:00",
+      "oldest": "2026-10-30T12:30:08.455015+00:00",
+      "source": "DigitalManagerNotice",
+      "stores": 1,
+      "expired": 0,
+      "history": 0,
+      "expired_unread": 0,
+      "uncertain_recent_update": 0
+    }
+  ],
+  "indexes": [
+    {
+      "indexdef": "CREATE UNIQUE INDEX \"CourseStoreNotice_pkey\" ON public.\"CourseStoreNotice\" USING btree (id)",
+      "indexname": "CourseStoreNotice_pkey",
+      "tablename": "CourseStoreNotice"
+    },
+    {
+      "indexdef": "CREATE INDEX \"CourseStoreNotice_storeId_handledAt_startsAt_idx\" ON public.\"CourseStoreNotice\" USING btree (\"storeId\", \"handledAt\", \"startsAt\")",
+      "indexname": "CourseStoreNotice_storeId_handledAt_startsAt_idx",
+      "tablename": "CourseStoreNotice"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX \"CourseStoreNotice_storeId_subjectKey_key\" ON public.\"CourseStoreNotice\" USING btree (\"storeId\", \"subjectKey\")",
+      "indexname": "CourseStoreNotice_storeId_subjectKey_key",
+      "tablename": "CourseStoreNotice"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX \"DigitalManagerNotice_pkey\" ON public.\"DigitalManagerNotice\" USING btree (id)",
+      "indexname": "DigitalManagerNotice_pkey",
+      "tablename": "DigitalManagerNotice"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX \"DigitalManagerNotice_storeId_eventKey_key\" ON public.\"DigitalManagerNotice\" USING btree (\"storeId\", \"eventKey\")",
+      "indexname": "DigitalManagerNotice_storeId_eventKey_key",
+      "tablename": "DigitalManagerNotice"
+    },
+    {
+      "indexdef": "CREATE INDEX \"DigitalManagerNotice_store_handled_idx\" ON public.\"DigitalManagerNotice\" USING btree (\"storeId\", \"handledAt\" DESC, id) WHERE (\"handledAt\" IS NOT NULL)",
+      "indexname": "DigitalManagerNotice_store_handled_idx",
+      "tablename": "DigitalManagerNotice"
+    },
+    {
+      "indexdef": "CREATE INDEX \"DigitalManagerNotice_store_pending_created_idx\" ON public.\"DigitalManagerNotice\" USING btree (\"storeId\", \"createdAt\" DESC, id) WHERE (\"handledAt\" IS NULL)",
+      "indexname": "DigitalManagerNotice_store_pending_created_idx",
+      "tablename": "DigitalManagerNotice"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX \"SteamfootStoreNotice_pkey\" ON public.\"SteamfootStoreNotice\" USING btree (id)",
+      "indexname": "SteamfootStoreNotice_pkey",
+      "tablename": "SteamfootStoreNotice"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX \"SteamfootStoreNotice_storeId_bookingId_key\" ON public.\"SteamfootStoreNotice\" USING btree (\"storeId\", \"bookingId\")",
+      "indexname": "SteamfootStoreNotice_storeId_bookingId_key",
+      "tablename": "SteamfootStoreNotice"
+    },
+    {
+      "indexdef": "CREATE INDEX \"SteamfootStoreNotice_storeId_handledAt_startsAt_idx\" ON public.\"SteamfootStoreNotice\" USING btree (\"storeId\", \"handledAt\", \"startsAt\")",
+      "indexname": "SteamfootStoreNotice_storeId_handledAt_startsAt_idx",
+      "tablename": "SteamfootStoreNotice"
+    }
+  ],
+  "database": "postgres",
+  "readonly": "on",
+  "observedAt": "2026-11-01T12:26:30.31592+00:00",
+  "lifecycleColumns": 0,
+  "unfinishedMigrations": 0,
+  "maintenanceRoleExists": false
+}

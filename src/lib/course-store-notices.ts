@@ -1,4 +1,4 @@
-export const COURSE_NOTICE_LABELS = {BOOKING:"預約",LEAVE:"請假",CANCEL:"取消",MOVE:"改期",STOP:"停課",RESTORE:"恢復上課"} as const;
+export const COURSE_NOTICE_LABELS = {BOOKING:"預約",LEAVE:"請假",CANCEL:"取消",MOVE:"改期",STOP:"停課",UPDATE:"修改預約",RESTORE:"恢復上課"} as const;
 export type CourseNoticeKind=keyof typeof COURSE_NOTICE_LABELS;
 export type CourseNoticeItem={
  id:string;kind:CourseNoticeKind;customerName:string;courseName:string;coachName:string;previousCoachName:string|null;
@@ -9,5 +9,5 @@ export type CourseNoticeItem={
 };
 export function courseNoticeNeedsFollowup(kind:CourseNoticeKind,member:boolean,sameDayBooking=false) {
  if(kind==="BOOKING")return member && sameDayBooking;
- return member || kind==="LEAVE" || kind==="STOP" || kind==="MOVE";
+ return member || kind==="LEAVE" || kind==="STOP" || kind==="MOVE" || kind==="UPDATE";
 }

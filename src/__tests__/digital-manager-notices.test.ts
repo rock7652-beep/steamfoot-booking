@@ -1,7 +1,8 @@
 import { PGlite } from "@electric-sql/pglite";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { recordDigitalManagerNotice, resolveDigitalManagerNotice } from "@/server/services/digital-manager-notices";
+import { recordDigitalManagerNotice, resolveDigitalManagerNotice,recordLeadRenewalInterest } from "@/server/services/digital-manager-notices";
+import {isRenewalInterestRequest} from '@/lib/digital-manager-demand';
 import type { Prisma } from "@prisma/client";
 
 let db: PGlite;
@@ -35,6 +36,23 @@ it("rolls the notice back when the business transaction fails", async () => {
     throw new Error("business operation failed");
   })).rejects.toThrow("business operation failed");
   expect((await db.query(`SELECT id FROM "DigitalManagerNotice" WHERE "eventKey"='rollback'`)).rows).toHaveLength(0);
+});
+it('supersedes the initial support request with one current follow-up, without reopening it on retries',async()=>{
+ const first={storeId:'a',eventKey:'human-support-requested:lead',eventType:'HUMAN_SUPPORT_REQUESTED' as const,targetId:'lead'};
+ const followup={...first,eventKey:'human-support-final-reminder:lead',eventType:'HUMAN_SUPPORT_FINAL_REMINDER' as const};
+ await recordDigitalManagerNotice(adapter(db),first);await recordDigitalManagerNotice(adapter(db),followup);await recordDigitalManagerNotice(adapter(db),followup);
+ expect((await db.query(`SELECT "eventType" FROM "DigitalManagerNotice" WHERE "targetId"='lead' AND "handledAt" IS NULL`)).rows).toEqual([{eventType:'HUMAN_SUPPORT_FINAL_REMINDER'}]);
+ await resolveDigitalManagerNotice(adapter(db),{storeId:'a',eventKey:followup.eventKey,actorUserId:'u',actorName:'店長'});
+ await recordDigitalManagerNotice(adapter(db),followup);
+ expect((await db.query(`SELECT id FROM "DigitalManagerNotice" WHERE "targetId"='lead' AND "handledAt" IS NULL`)).rows).toEqual([]);
+});
+it('keeps one current renewal request for an existing contact, despite late retries from older conversations',async()=>{
+ expect(isRenewalInterestRequest('RENEWAL_INTEREST')).toBe(true);expect(isRenewalInterestRequest('續購需求')).toBe(true);
+ for(const value of ['LOW_BALANCE','VIEW_SHOP','LATER',null,{},'我只是看看'])expect(isRenewalInterestRequest(value)).toBe(false);
+ const input={storeId:'a',leadId:'existing-contact',conversationId:'first'};
+ await recordLeadRenewalInterest(adapter(db),input);await recordLeadRenewalInterest(adapter(db),{...input,conversationId:'second'});
+ await recordLeadRenewalInterest(adapter(db),input);
+ expect((await db.query(`SELECT "eventKey" FROM "DigitalManagerNotice" WHERE "targetId"='existing-contact' AND "handledAt" IS NULL`)).rows).toEqual([{eventKey:'renewal-interest:existing-contact:second'}]);
 });
 it("rejects a missing store and keeps row-level security enabled", async () => {
   await expect(recordDigitalManagerNotice(adapter(db), { ...event, storeId: "unknown" })).rejects.toThrow();

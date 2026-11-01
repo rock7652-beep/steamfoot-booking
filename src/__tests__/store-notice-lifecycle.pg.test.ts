@@ -1,3 +1,4 @@
+import {Prisma} from '@prisma/client';
 import {readFileSync} from 'node:fs';
 import {PGlite} from '@electric-sql/pglite';
 import {beforeAll,afterAll,expect,it,vi} from 'vitest';
@@ -24,7 +25,7 @@ import {noticeWindow} from '@/lib/store-notice-lifecycle';
 const db=new PGlite();
 const tx={$queryRaw:m.raw,$executeRaw:m.execute};
 const day=86400000;
-async function queryTag(strings:TemplateStringsArray,...values:unknown[]){return db.query(strings.map((part,i)=>part+(i<values.length?`$${i+1}`:'')).join(''),values);}
+async function queryTag(strings:TemplateStringsArray,...values:unknown[]){const sql=Prisma.sql(strings,...values);return db.query(sql.text,sql.values);}
 beforeAll(async()=>{
  await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE ordinary_notice; CREATE ROLE steamfoot_beauty_prod_20261025;
  CREATE TABLE "Store"(id text PRIMARY KEY); INSERT INTO "Store" VALUES ('s'),('other');
@@ -79,7 +80,7 @@ it.each([
  ['steamfoot',loadSteamfootStoreNotices,markAllSteamfootStoreNotices,'SteamfootStoreNotice','booking:x','digest:'],
  ['course',loadCombinedCourseStoreNotices,markAllCourseStoreNotices,'CourseStoreNotice','session:x','digest:'],
  ['beauty',loadBeautyStoreNotices,markAllBeautyStoreNotices,'CourseStoreNotice','beauty:x','beauty-digest:'],
-] as const)('reads %s latest/history independently of read state and excludes expired/other-store rows',async(label,load,markAll,table,subject,key)=>{
+] as const)('reads %s latest/history according to read state and excludes expired/other-store rows',async(label,load,markAll,table,subject,key)=>{
  await db.exec(`TRUNCATE "SteamfootStoreNotice","CourseStoreNotice","DigitalManagerNotice"`);
  await ordinary(table,'recent',1,subject);await ordinary(table,'history',4,subject);await ordinary(table,'expired',11,subject);await ordinary(table,'foreign',1,subject,'other');
  await digital('digital-recent',2,key);await digital('digital-history',8,key);await digital('digital-expired',11,key);
@@ -95,7 +96,9 @@ it.each([
  const marked=await load({storeId:'s',handled:false,offset:0});
  expect(marked).toMatchObject({success:true,count:0});
  if(!marked.success)throw Error(marked.error);
- expect(marked.items.map(n=>n.id)).toEqual(latest.items.map(n=>n.id));expect(marked.items.every(n=>n.handledAt)).toBe(true);
+ expect(marked.items).toEqual([]);
+ const archived=await load({storeId:'s',handled:true,offset:0});if(!archived.success)throw Error(archived.error);
+ expect(archived.items.map(n=>n.id)).toEqual(['recent','digital:digital-recent','history','digital:digital-history']);expect(archived.items.every(n=>n.handledAt)).toBe(true);
  expect((await db.query<Record<string,unknown>>(`SELECT "publishedAt" FROM "${table}" WHERE id='recent'`)).rows).toEqual(before);
  expect((await db.query<Record<string,unknown>>(`SELECT "readAt","handledAt" FROM "${table}" WHERE id IN ('expired','foreign')`)).rows.every(r=>r.readAt===null&&r.handledAt===null)).toBe(true);
 });
@@ -140,4 +143,22 @@ it.each([
 });
 it('installs no deletion function, maintenance role, or expiry table',async()=>{
  expect((await db.query(`SELECT to_regprocedure('public.maintain_store_notice_retention()') IS NULL AS function_absent,to_regclass('public."StoreNoticeExpiryReceipt"') IS NULL AS table_absent,NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='store_notice_retention_maintainer') AS role_absent`)).rows).toEqual([{function_absent:true,table_absent:true,role_absent:true}]);
+});
+it.each(['SteamfootStoreNotice','CourseStoreNotice'])('new %s business events start unread even when no follow-up action is needed',async table=>{
+ await db.exec(`TRUNCATE "SteamfootStoreNotice","CourseStoreNotice","DigitalManagerNotice"`);
+ const candidate=readFileSync('scripts/sql/store-notice-action-policy.sql','utf8');
+ const publish=candidate.match(/CREATE OR REPLACE FUNCTION public\.publish_store_notice\(\)[\s\S]*?END \$publish\$;/)![0];
+ await db.exec(publish+`REVOKE ALL ON FUNCTION public.publish_store_notice() FROM PUBLIC,anon,authenticated;`);
+ await db.query(`INSERT INTO "${table}" (id,"storeId",kind,"handledAt","handledByName") VALUES ('new-info','s','BOOKING',now(),'系統')`);
+ let row=(await db.query<{readAt:Date|null;handledAt:Date|null;publishedAt:Date}>(`SELECT "readAt","handledAt","publishedAt" FROM "${table}" WHERE id='new-info'`)).rows[0];
+ expect(row.readAt).toBeNull();expect(row.handledAt).not.toBeNull();
+ const published=row.publishedAt;
+ await db.exec(`UPDATE "${table}" SET "readAt"=now() WHERE id='new-info'`);
+ row=(await db.query<typeof row>(`SELECT "readAt","handledAt","publishedAt" FROM "${table}" WHERE id='new-info'`)).rows[0];
+ expect(row.readAt).not.toBeNull();expect(row.publishedAt).toEqual(published);
+ await db.exec(`UPDATE "${table}" SET kind='MOVE' WHERE id='new-info'`);
+ expect((await db.query<{readAt:Date|null}>(`SELECT "readAt" FROM "${table}" WHERE id='new-info'`)).rows[0].readAt).toBeNull();
+ const readOnlyClient={$queryRawUnsafe:async(sql:string,...values:unknown[])=>(await db.query(sql,values)).rows};
+ await expect(verifyStoreNoticeLifecycleReadiness(readOnlyClient)).rejects.toThrow('notice_lifecycle_schema_rejected');
+ expect(await verifyStoreNoticeLifecycleReadiness(readOnlyClient,{readArchive:true})).toBe(true);
 });

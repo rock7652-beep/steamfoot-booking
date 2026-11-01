@@ -62,11 +62,12 @@ describe("transactional store notices",()=>{
    expect(m.upsert).toHaveBeenLastCalledWith(expect.objectContaining({create:expect.objectContaining({handledAt:expect.any(Date)})}));
   } finally { vi.useRealTimers(); }
  });
- it("keeps staff leave followup pending and restores without stale pending state",async()=>{
+ it("keeps staff leave followup pending and does not publish restores",async()=>{
   const staff={...actor,customerId:undefined};await recordCourseStoreNotice(tx as never,staff,{...event,kind:"LEAVE"});
   expect(m.upsert).toHaveBeenLastCalledWith(expect.objectContaining({create:expect.objectContaining({handledAt:null})}));
+  m.upsert.mockClear();
   await recordCourseStoreNotice(tx as never,staff,{...event,kind:"RESTORE"});
-  expect(m.upsert).toHaveBeenLastCalledWith(expect.objectContaining({update:expect.objectContaining({handledById:"u",handledAt:expect.any(Date),revision:{increment:1}})}));
+  expect(m.upsert).not.toHaveBeenCalled();
  });
  it("requires permission, current store and current revision before O",async()=>{
   const input={storeId:"s",id:"n",handled:true,revision:1};
@@ -85,7 +86,7 @@ describe("transactional store notices",()=>{
 it('reads a scoped summary without listing customer snapshots or checking write permission',async()=>{
  m.read.mockResolvedValue({storeId:'s',user:{role:'OWNER'}});m.count.mockResolvedValue(4);
  expect(await loadCourseStoreNotices({storeId:'s',handled:false,summaryOnly:true})).toMatchObject({success:true,enabled:true,count:4,items:[],canHandle:false});
- expect(m.list).not.toHaveBeenCalled();expect(m.permission).not.toHaveBeenCalled();expect(m.count).toHaveBeenCalledWith({where:{storeId:'s',readAt:null,publishedAt:{gt:expect.any(Date),lte:expect.any(Date)}}});
+ expect(m.list).not.toHaveBeenCalled();expect(m.permission).not.toHaveBeenCalled();expect(m.count).toHaveBeenCalledWith({where:{storeId:'s',kind:{notIn:['COMPLETE','NO_SHOW','RESTORE']},readAt:null,publishedAt:{gt:expect.any(Date),lte:expect.any(Date)}}});
  expect(await loadCourseStoreNotices({storeId:'other',handled:false,summaryOnly:true})).toMatchObject({success:false});expect(m.count).toHaveBeenCalledTimes(1);
  m.rule.mockResolvedValue({backendNoticesEnabled:false});expect(await loadCourseStoreNotices({storeId:'s',handled:false,summaryOnly:true})).toMatchObject({success:true,enabled:true,count:4});expect(m.count).toHaveBeenCalledTimes(2);
 });

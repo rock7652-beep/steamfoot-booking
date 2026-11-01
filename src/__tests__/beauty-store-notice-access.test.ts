@@ -1,3 +1,6 @@
+const receivableState=vi.hoisted(()=>new Map());
+vi.mock('@/server/services/store-receivable-notices',()=>({readReceivableNoticeState:async()=>receivableState}));
+beforeEach(()=>receivableState.clear());
 import {it,beforeEach,expect,vi} from 'vitest';
 const m=vi.hoisted(()=>({manager:vi.fn(),user:vi.fn(),permission:vi.fn(),view:vi.fn(),readonly:vi.fn(),setting:vi.fn(),raw:vi.fn(),transaction:vi.fn(),audit:vi.fn()}));
 vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:m.transaction,audit:m.audit}));
@@ -11,6 +14,21 @@ it('limits background summary to a count and hides personal snapshots without gr
 it('keeps parent/store view read-only and rejects stale writes before auditing',async()=>{m.view.mockResolvedValue({isViewMode:true});expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,canHandle:false});m.raw.mockResolvedValue([]);expect(await markBeautyStoreNotice({storeId:'store',id:'notice',handled:true,revision:1})).toMatchObject({success:false});expect(m.audit).not.toHaveBeenCalled();});
 it('marks only matching store, beauty subject and current revision',async()=>{m.raw.mockResolvedValue([{id:'notice',revision:3,handledAt:now,handledByName:'店長'}]);expect(await markBeautyStoreNotice({storeId:'store',id:'notice',handled:true,revision:2})).toMatchObject({success:true,data:{id:'notice',revision:3,handledAt:now.toISOString()}});expect(m.manager).toHaveBeenCalledWith('booking.update',true);expect(m.raw.mock.calls[0][0].join('')).toContain('"subjectKey" LIKE \'beauty:%\' AND revision=');expect(m.audit).toHaveBeenCalledOnce();});
 it('resolves the target from the saved notice and current appointment, never a supplied booking id',async()=>{m.raw.mockResolvedValue([{id:'actual-booking',startsAt:now}]);expect(await loadBeautyStoreNoticeTarget({storeId:'store',id:'notice',bookingId:'foreign'})).toMatchObject({success:true,data:{id:'actual-booking',date:'2099-01-01'}});expect(m.raw.mock.calls[0]).not.toContain('foreign');m.raw.mockResolvedValue([]);expect(await loadBeautyStoreNoticeTarget({storeId:'store',id:'gone'})).toMatchObject({success:false});});
+it('protects receivable amounts and customer names with finance permission',async()=>{
+ receivableState.set('digital:debt',{amount:500,customerName:'收款顧客'});
+ m.raw.mockImplementation(async(strings:TemplateStringsArray)=>strings.join('').includes('COUNT')?[{count:1}]:[{...row,id:'digital:debt',kind:'RECEIVABLE',customerName:'顧客'}]);
+ m.permission.mockImplementation(async(_role,_staff,p)=>p!=='transaction.read');
+ expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,items:[{amountDue:undefined,customerName:'顧客',canViewCourse:false}]});
+ m.permission.mockResolvedValue(true);
+ expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,items:[{amountDue:500,customerName:'收款顧客',canViewCourse:true}]});
+});
+it('opens the saved receivable appointment for finance readers, without granting access to unrelated customer reminders',async()=>{
+ m.permission.mockImplementation(async(_role,_staff,p)=>p==='transaction.read');
+ m.raw.mockResolvedValue([{id:'actual-booking',startsAt:now}]);
+ expect(await loadBeautyStoreNoticeTarget({storeId:'store',id:'digital:debt'})).toMatchObject({success:true,data:{id:'actual-booking'}});
+ const sql=m.raw.mock.calls[0][0].join('');expect(sql).toContain("'OUTSTANDING_PAYMENT'");expect(sql).toContain("'beauty-receivable:service:%'");
+ m.raw.mockClear();expect(await loadBeautyStoreNoticeTarget({storeId:'store',id:'ordinary-customer-notice'})).toMatchObject({success:false});expect(m.raw).not.toHaveBeenCalled();
+});
 it('keeps payment notices generic and opens finance only with transaction read permission',async()=>{
  m.raw.mockImplementation(async(strings:TemplateStringsArray)=>strings.join('').includes('COUNT')?[{count:1}]:[{...row,id:'digital:payment',kind:'PAYMENT',customerName:'方案付款',coachName:'',courseName:''}]);
  m.permission.mockImplementation(async(_role,_staff,permission)=>permission!=='transaction.read');

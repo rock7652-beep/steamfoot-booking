@@ -1,10 +1,13 @@
+const receivableState=vi.hoisted(()=>new Map());
+vi.mock('@/server/services/store-receivable-notices',()=>({readReceivableNoticeState:async()=>receivableState}));
+beforeEach(()=>receivableState.clear());
 import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({read:vi.fn(),manager:vi.fn(),transaction:vi.fn(),rule:vi.fn(),query:vi.fn(),permission:vi.fn(),audit:vi.fn()}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:m.rule},$queryRaw:m.query}}));
 vi.mock("@/lib/permissions",()=>({checkPermission:m.permission}));
 vi.mock("@/server/services/course-access",()=>({courseManagerRead:m.read,courseManager:m.manager,courseTransaction:m.transaction}));
 vi.mock("@/server/services/operation-audit-outbox",()=>({enqueueOperationAudit:m.audit}));
-import {markAllCourseStoreNotices,loadCourseDigitalManagerNotices,markCourseDigitalManagerNotice} from "@/server/actions/course-digital-manager-notices";
+import {loadCombinedCourseStoreNotices,markAllCourseStoreNotices,loadCourseDigitalManagerNotices,markCourseDigitalManagerNotice} from "@/server/actions/course-digital-manager-notices";
 beforeEach(()=>{
  vi.resetAllMocks();
  m.read.mockResolvedValue({storeId:"a",user:{id:"u",role:"STAFF",staffId:"staff"},isChildStoreView:false});
@@ -27,6 +30,15 @@ it("returns generic labels without payment details and makes child-store views r
  expect(result).toMatchObject({success:true,count:1,canHandle:false,items:[{id:"notice",eventType:"TRANSFER_PENDING_CONFIRMATION"}]});
  expect(m.query.mock.calls[0][0].join("")).not.toContain("targetId");
  expect(m.permission).not.toHaveBeenCalled();
+});
+it('returns current amounts only for authorized course finance readers',async()=>{
+ const at=new Date('2026-11-01T10:00Z');
+ receivableState.set('digital:debt',{key:'course-receivable:tuition:purchase',targetId:'purchase',targetAt:new Date('2026-10-31T10:00Z'),amount:700,customerName:'學費'});
+ m.query.mockImplementation(async(strings:TemplateStringsArray)=>strings.join('').includes('count(*)')?[{count:1}]:[{id:'digital:debt',kind:'RECEIVABLE',subjectKey:'',customerName:'顧客',courseName:'',coachName:'',previousCoachName:null,startsAt:at,previousStartsAt:null,affectedCount:1,details:{},handledAt:null,handledByName:null,revision:0,createdAt:at,updatedAt:at}]);
+ m.permission.mockImplementation(async(_role,_staff,p)=>p!=='transaction.read');
+ expect(await loadCombinedCourseStoreNotices({storeId:'a',handled:false})).toMatchObject({success:true,items:[{amountDue:undefined,customerName:'顧客',canViewCourse:false}]});
+ m.permission.mockResolvedValue(true);
+ expect(await loadCombinedCourseStoreNotices({storeId:'a',handled:false})).toMatchObject({success:true,items:[{targetId:'tuition:purchase',startsAt:'2026-10-31T10:00:00.000Z',amountDue:700,customerName:'學費',canViewCourse:true}]});
 });
 it("requires write access, same store and the current revision",async()=>{
  m.manager.mockRejectedValueOnce(new Error("permission denied"));

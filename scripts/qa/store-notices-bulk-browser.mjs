@@ -17,9 +17,11 @@ await server.listen();const port=server.httpServer.address().port;let browser;co
 try {
  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-gpu']});
  for(const module of ['steamfoot','course','beauty'])for(const [width,height] of [[1366,900],[1920,1080],[1024,768],[768,1024],[560,800],[390,844]]){
+  if(process.env.QA_LIMIT_CASES&&results.length>=Number(process.env.QA_LIMIT_CASES))continue;
   const page=await browser.newPage({viewport:{width,height}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(`http://127.0.0.1:${port}/?module=${module}`);
-  await page.getByRole('button',{name:'數位管家｜門市提醒，4 筆未讀'}).click();
+  await page.goto(`http://127.0.0.1:${port}/?module=${module}${process.env.QA_RECEIVABLE==='1'?'&receivable=1':''}`);
+  await page.getByRole('button',{name:'數位店長｜門市提醒，4 筆未讀'}).click();
+  if(process.env.QA_RECEIVABLE==='1'){await page.getByText('待收款',{exact:true}).waitFor();await page.getByText('尚欠 NT$ 500',{exact:true}).waitFor();await page.getByRole('button',{name:/^王小明 待收款/}).click();await page.getByRole('button',{name:'查看收款',exact:true}).waitFor();await page.getByText('訊息到期隱藏後，欠款仍保留在收款紀錄。',{exact:true}).waitFor();}
   const button=page.getByRole('button',{name:'全部標為已讀',exact:true});await button.waitFor();
   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Page overflow');
   const box=await button.boundingBox();if(box.height<44||box.x<0||box.x+box.width>width)throw Error('Button unreachable');
@@ -29,23 +31,23 @@ try {
   if(await page.getByText('已到期十天',{exact:true}).count())throw Error('Expired message visible');
   await page.screenshot({path:path.join(out,`${module}-${width}x${height}-latest.png`)});
   await page.getByRole('button',{name:'標為已讀：王小明',exact:true}).click();
-  await page.getByRole('button',{name:'標為未讀：王小明',exact:true}).waitFor();
+  await page.getByRole('button',{name:'標為已讀：王小明',exact:true}).waitFor({state:'hidden'});await page.getByRole('status').filter({hasText:'已移至歷史訊息'}).waitFor();
   await page.getByRole('button',{name:'復原',exact:true}).click();
   await page.getByRole('button',{name:'標為已讀：王小明',exact:true}).waitFor();
   await history.click();await page.getByRole('button',{name:'標為已讀：歷史訊息三天',exact:true}).waitFor();
-  await button.click();await page.getByRole('button',{name:'數位管家｜門市提醒，0 筆未讀'}).waitFor();
+  await button.click();await page.getByRole('button',{name:'數位店長｜門市提醒，0 筆未讀'}).waitFor();
   if(!await button.isDisabled())throw Error('Empty bulk button enabled');
   await page.getByRole('button',{name:'標為未讀：歷史訊息三天',exact:true}).waitFor();
   await page.screenshot({path:path.join(out,`${module}-${width}x${height}-history.png`)});
-  await latest.click();await page.getByRole('button',{name:'標為未讀：王小明',exact:true}).waitFor();
+  await latest.click();await page.getByText('目前沒有最新消息',{exact:true}).waitFor();await page.screenshot({path:path.join(out,`${module}-${width}x${height}-latest-after-read.png`)});
   await page.evaluate(()=>globalThis.__advanceNoticeHours(24));
-  await page.getByRole('button',{name:'標為未讀：林小姐',exact:true}).waitFor({state:'hidden'});
+  await page.getByText('目前沒有最新消息',{exact:true}).waitFor();
   await history.click();await page.getByRole('button',{name:'標為未讀：林小姐',exact:true}).waitFor();
   await page.getByRole('button',{name:'標為未讀：歷史訊息九天',exact:true}).waitFor({state:'hidden'});
   await page.getByRole('button',{name:'關閉通知'}).click();
   if(await page.getByLabel('保留中的輸入').inputValue()!=='交班備註')throw Error('Underlying draft changed');
   if(errors.length)throw Error(errors.join(';'));
-  results.push({module,width,height,bulk:true,readKeepsSection:true,retained:true,ageTransition:true,expiredHidden:true,overflow:false,minTouchHeight:44});await page.close();
+  results.push({module,width,height,bulk:true,readMovesToHistory:true,retained:true,ageTransition:true,expiredHidden:true,overflow:false,minTouchHeight:44});await page.close();
  }
  writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results));
 }finally{await browser?.close();await server.close();}
