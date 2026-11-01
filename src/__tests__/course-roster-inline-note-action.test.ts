@@ -59,3 +59,12 @@ it("preserves the legacy booking detail contract and the separate teacher-note m
   expect(m.teacher).toHaveBeenCalledExactlyOnceWith({ where: { id: "session-a", storeId: "store-a", cancelledAt: null }, data: { teacherNote: "teacher" } });
   expect(m.refresh).toHaveBeenCalledTimes(6);
 });
+it("leaves teacher-note reconciliation to the compare-and-save editor without a duplicate route render", async () => {
+  expect(await saveCourseRosterNote({ sessionId: "session-a", note: " teacher ", expectedNote: "before" })).toEqual({ success: true });
+  expect(m.access).toHaveBeenCalledExactlyOnceWith("booking.update");
+  expect(m.teacher).toHaveBeenCalledExactlyOnceWith({
+    where: { id: "session-a", storeId: "store-a", cancelledAt: null, teacherNote: "before" },
+    data: { teacherNote: "teacher" },
+  });
+  expect(m.refresh).not.toHaveBeenCalled();
+});

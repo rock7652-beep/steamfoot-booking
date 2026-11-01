@@ -156,6 +156,64 @@ export default async function CoursesPage({
     return { rentals, ...customerContext, cancelledBookings };
   };
   timing.mark("pre_calendar");
+  // Start the session-dependent roster read without waiting for unrelated
+  // rooms, rentals or staff metadata. The existing setup guard still applies.
+  const sessionsPromise = timing.read("sessions",()=>coursePrisma.courseSession.findMany({
+        where: {
+          ...musicSessionWhere(storeId,query.dataScope),
+          storeId,
+          cancelledAt: null,
+          OR: [
+            { startsAt: { gte: scheduleStart, lte: scheduleEnd } },
+            { rescheduledFromStartsAt: { gte: scheduleStart, lte: scheduleEnd } },
+          ],
+        },
+        select: {
+          id: true,
+          isTrial: true,
+          bookingAudience: true, scheduleType:true, scheduleFrequency:true, enrollmentMode:true,
+          nameSnapshot: true,
+          templateId: true,
+          template: { select: { musicSubject: { select: { name: true } } } },
+          startsAt: true,
+          endsAt: true,
+          coachId: true,
+          roomId: true,
+          capacity: true,
+          pointCost: true,
+          requestKey: true,
+          teacherAttendance: true,
+          rescheduledFromStartsAt: true,
+          rescheduledFromEndsAt: true,
+          rescheduledFromRoomId: true,
+          rescheduledFromCoachId: true,
+          rescheduleKind: true,
+          rescheduledAt: true,
+          releasedAt: true,
+          bookings: {
+            where: { OR: [{ status: { not: "CANCELLED" } }, { absenceKind: { in: ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED", "TEACHER_ABSENT"] } }] },
+            select: {
+              id: true,
+              customerId: true,
+              customerName: true,
+              status: true,
+              absenceKind: true,
+              checkedInAt: true,
+              bookingKind: true,
+            },
+          },
+        },
+        orderBy: { startsAt: "asc" },
+      }));
+  const businessHoursPromise = timing.read("business_hours",()=>prisma.businessHours.findMany({ where: { storeId } }));
+  const rosterPromise = view === "schedule" && writableStore && (sportsNative || businessProfile === "MUSIC")
+    ? Promise.all([sessionsPromise, businessHoursPromise]).then(([rows, hours]) => {
+        if (businessProfile === "MUSIC" && hours.length > 0 && hours.every(row => row.segments == null)) return undefined;
+        return timing.read("rosters", () => preloadCourseCalendarRosters(storeId, rows.map(session => session.id)));
+      })
+    : Promise.resolve(undefined);
+  // Observe failure now; the final await still propagates it before rendering.
+  void rosterPromise.catch(() => {});
   const [
     rooms,
     templates,
@@ -211,53 +269,7 @@ export default async function CoursesPage({
         },
         orderBy: { name: "asc" },
       })),
-      timing.read("sessions",()=>coursePrisma.courseSession.findMany({
-        where: {
-          ...musicSessionWhere(storeId,query.dataScope),
-          storeId,
-          cancelledAt: null,
-          OR: [
-            { startsAt: { gte: scheduleStart, lte: scheduleEnd } },
-            { rescheduledFromStartsAt: { gte: scheduleStart, lte: scheduleEnd } },
-          ],
-        },
-        select: {
-          id: true,
-          isTrial: true,
-          bookingAudience: true, scheduleType:true, scheduleFrequency:true, enrollmentMode:true,
-          nameSnapshot: true,
-          templateId: true,
-          template: { select: { musicSubject: { select: { name: true } } } },
-          startsAt: true,
-          endsAt: true,
-          coachId: true,
-          roomId: true,
-          capacity: true,
-          pointCost: true,
-          requestKey: true,
-          teacherAttendance: true,
-          rescheduledFromStartsAt: true,
-          rescheduledFromEndsAt: true,
-          rescheduledFromRoomId: true,
-          rescheduledFromCoachId: true,
-          rescheduleKind: true,
-          rescheduledAt: true,
-          releasedAt: true,
-          bookings: {
-            where: { OR: [{ status: { not: "CANCELLED" } }, { absenceKind: { in: ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED", "TEACHER_ABSENT"] } }] },
-            select: {
-              id: true,
-              customerId: true,
-              customerName: true,
-              status: true,
-              absenceKind: true,
-              checkedInAt: true,
-              bookingKind: true,
-            },
-          },
-        },
-        orderBy: { startsAt: "asc" },
-      })),
+      sessionsPromise,
       timing.read("coaches",()=>prisma.staff.findMany({
         where: { storeId },
         select: { id: true, displayName: true, phone: true, status: true,courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:true },
@@ -265,7 +277,7 @@ export default async function CoursesPage({
       })),
       checkPermission(user.role, user.staffId, "booking.create"),
       checkPermission(user.role, user.staffId, "booking.update"),
-      timing.read("business_hours",()=>prisma.businessHours.findMany({ where: { storeId } })),
+      businessHoursPromise,
       timing.read("special_days",()=>prisma.specialBusinessDay.findMany({ where: { storeId } })),
       timing.read("availability",()=>prisma.$queryRaw<{staffId:string;dayOfWeek:number;segments:unknown}[]>`
         SELECT "staffId","dayOfWeek",segments FROM "CourseStaffAvailability" WHERE "storeId"=${storeId}`),
@@ -279,9 +291,6 @@ export default async function CoursesPage({
   if (businessProfile === "MUSIC" && businessHours.length > 0 && businessHours.every((row) => row.segments == null)) {
     redirect("/dashboard/courses/hours?tab=weekly&setup=1");
   }
-  const rosterPromise=view==="schedule"&&writableStore&&(sportsNative||businessProfile==="MUSIC")?timing.read("rosters",()=>preloadCourseCalendarRosters(storeId,sessions.map(session=>session.id))):Promise.resolve(undefined);
-  // A later metadata failure must not leave a rejected in-flight roster read unobserved.
-  void rosterPromise.catch(()=>{});
   const rosterCustomers = await timing.read("roster_customers",()=>prisma.customer.findMany({ where: { storeId, id: { in: [...new Set(sessions.flatMap(session => session.bookings.map(booking => booking.customerId).filter((id): id is string => !!id)))] } }, select: { id: true, assignedStaffId: true } }));
   const assignedByCustomer = new Map(rosterCustomers.map(customer => [customer.id, customer.assignedStaffId]));
   // Labels depend on the selected roster; plans and scheduling modes are independent.

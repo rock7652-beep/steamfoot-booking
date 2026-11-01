@@ -875,7 +875,10 @@ export async function saveCourseRosterNote(input: unknown) {
       const result=await coursePrisma.courseSession.updateMany({where:{id:data.sessionId,storeId,cancelledAt:null,...(data.expectedNote!==undefined?{teacherNote:data.expectedNote}:{})},data:{teacherNote:data.note}});
       if(!result.count){const current=await coursePrisma.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null},select:{teacherNote:true}});if(!current)throw new AppError("NOT_FOUND","找不到本店課程");if(current.teacherNote!==data.note)return {success:false as const,error:"教師備註已由其他人更新，輸入已保留，請重新核對",currentValue:current.teacherNote};}
     }
-    if(!(await (await import("@/lib/sports-native-preview")).sportsNativePreview(storeId)))refresh();return {success:true as const};
+    // Compare-and-save editors already invalidate and reconcile the calendar.
+    // Avoid making the action render it once more before that client refresh.
+    if(data.expectedNote === undefined && !(await sportsNativePreview(storeId))) refresh();
+    return {success:true as const};
   } catch(error) {return handleActionError(error);}
 }
 

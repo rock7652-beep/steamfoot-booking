@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({user:vi.fn(),store:vi.fn(),can:vi.fn(),feature:vi.fn(),view:vi.fn(),rentals:vi.fn(),customers:vi.fn(),sessions:vi.fn(),bookings:vi.fn(),rosters:vi.fn(),labels:vi.fn(),plans:vi.fn(),modes:vi.fn(),orders:vi.fn(),many:vi.fn()}));
+const m=vi.hoisted(()=>({user:vi.fn(),store:vi.fn(),can:vi.fn(),feature:vi.fn(),view:vi.fn(),rentals:vi.fn(),customers:vi.fn(),sessions:vi.fn(),bookings:vi.fn(),rosters:vi.fn(),labels:vi.fn(),plans:vi.fn(),modes:vi.fn(),orders:vi.fn(),hours:vi.fn(),many:vi.fn()}));
 vi.mock('next/navigation',()=>({redirect:()=>{throw Error('REDIRECT');}}));
 vi.mock('@/lib/session',()=>({getCurrentUser:m.user}));
 vi.mock('@/lib/store',()=>({getActiveStoreForRead:m.store}));
@@ -13,7 +13,7 @@ vi.mock('@/server/services/customer-label-snapshot',()=>({customerLabelSnapshot:
 vi.mock('@/server/services/course-display-order',()=>({readCourseOrders:m.orders}));
 vi.mock('@/server/services/music-data-scope',()=>({musicSessionWhere:()=>({}),musicDataScope:()=>undefined}));
 vi.mock('@/lib/course-purchase-intent-flag',()=>({coursePurchaseIntentsEnabled:()=>false}));
-vi.mock('@/lib/db',()=>({prisma:{storeFeatureEntitlement:{findMany:async()=>[{featureKey:'business.music'}]},customer:{findMany:m.customers},staff:{findMany:m.many},businessHours:{findMany:m.many},specialBusinessDay:{findMany:m.many},$queryRaw:m.many}}));
+vi.mock('@/lib/db',()=>({prisma:{storeFeatureEntitlement:{findMany:async()=>[{featureKey:'business.music'}]},customer:{findMany:m.customers},staff:{findMany:m.many},businessHours:{findMany:m.hours},specialBusinessDay:{findMany:m.many},$queryRaw:m.many}}));
 vi.mock('@/lib/course-db',()=>({coursePrisma:{courseRental:{findMany:m.rentals},courseBooking:{findMany:m.bookings},courseRoom:{findMany:m.many},courseTemplate:{findMany:m.many},courseSession:{findMany:m.sessions,groupBy:m.many},coursePointPlan:{findMany:m.plans},courseBookingRule:{findUnique:m.modes}}}));
 vi.mock('@/components/desktop',()=>({PageShell:()=>null,PageHeader:()=>null}));
 vi.mock('@/components/customer-labels',()=>({CustomerLabelsSeed:()=>null}));
@@ -30,17 +30,29 @@ import CoursesPage from '@/app/(dashboard)/dashboard/courses/page';
 const snapshot={storeId:'store',details:{a:{roster:[{id:'trial'},{id:'10-lessons'},{id:'20-lessons'}]}}};
 beforeEach(()=>{
  vi.clearAllMocks();m.user.mockResolvedValue({id:'u',storeId:'store',role:'OWNER',staffId:'s'});m.store.mockResolvedValue('store');m.can.mockResolvedValue(true);m.feature.mockResolvedValue(undefined);m.view.mockResolvedValue(null);
- for(const f of [m.rentals,m.customers,m.bookings,m.many,m.plans])f.mockResolvedValue([]);
+ for(const f of [m.rentals,m.customers,m.bookings,m.many,m.plans,m.hours])f.mockResolvedValue([]);
  m.sessions.mockResolvedValue([{id:'a',nameSnapshot:'教學 A',templateId:'t',requestKey:'a',startsAt:new Date('2026-11-08T02:00:00Z'),endsAt:new Date('2026-11-08T03:00:00Z'),bookings:[]}]);
  m.modes.mockResolvedValue(null);m.orders.mockResolvedValue({});m.labels.mockResolvedValue({});m.rosters.mockResolvedValue(snapshot);
  vi.spyOn(console,'info').mockImplementation(()=>{});
 });
 const page=()=>CoursesPage({searchParams:Promise.resolve({date:'2026-11-08'})});
 const workspace=(result:Awaited<ReturnType<typeof page>>)=>result.props.children[1].props.children[1].props.children;
-it('starts calendar reads while rentals are pending and preserves all loaded data',async()=>{
+it('prepares complete rosters while rentals are pending but waits for all data before rendering',async()=>{
  let release!:()=>void;m.rentals.mockImplementationOnce(()=>new Promise(resolve=>{release=()=>resolve([]);}));
- const read=page();await vi.waitFor(()=>expect(m.sessions).toHaveBeenCalledOnce());expect(m.rentals).toHaveBeenCalledOnce();release();
+ let done=false;const read=page().then(result=>{done=true;return result;});
+ await vi.waitFor(()=>expect(m.rosters).toHaveBeenCalledWith('store',['a']));expect(m.sessions).toHaveBeenCalledOnce();expect(m.rentals).toHaveBeenCalledOnce();expect(done).toBe(false);release();
  const result=await read;expect(workspace(result).props.rosterSnapshots).toBe(snapshot);expect(m.user).toHaveBeenCalledOnce();expect(m.store).toHaveBeenCalledOnce();
+});
+it('waits for the session read and preserves the music hours setup guard before preloading',async()=>{
+ let release!:()=>void;m.hours.mockImplementationOnce(()=>new Promise(resolve=>{release=()=>resolve([{segments:null}]);}));
+ const read=page();const failed=expect(read).rejects.toThrow('REDIRECT');
+ await vi.waitFor(()=>expect(m.sessions).toHaveBeenCalledOnce());expect(m.rosters).not.toHaveBeenCalled();release();await failed;expect(m.rosters).not.toHaveBeenCalled();
+});
+it('observes an early roster failure while unrelated metadata is pending and still fails closed',async()=>{
+ let release!:()=>void;m.rentals.mockImplementationOnce(()=>new Promise(resolve=>{release=()=>resolve([]);}));
+ m.rosters.mockRejectedValueOnce(Error('early-complete-roster-failed'));
+ const read=page();const failed=expect(read).rejects.toThrow('early-complete-roster-failed');
+ await vi.waitFor(()=>expect(m.rosters).toHaveBeenCalledOnce());release();await failed;
 });
 it('starts complete roster preparation before labels finish and awaits both before rendering',async()=>{
  let release!:()=>void;m.labels.mockImplementationOnce(()=>new Promise(resolve=>{release=()=>resolve({});}));

@@ -252,6 +252,22 @@ it('starts a fresh roster read on the opening click, shares only its in-flight r
  await act(async()=>second.resolve(data('新查核資料')));expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).not.toBeNull();
 });
 
+it.each([true,false])('reconciles music teacher notes and retains one calendar refresh owner: parent=%s',async hasParent=>{
+ const write=deferred<{success:boolean}>(),read=deferred<{success:boolean;data:{roster:ReturnType<typeof booking>[];teacherNote:string;teacherAttendance:string;teacherAttendanceReason:string}}>();
+ const committed=vi.fn(),invalidate=vi.fn();m.save.mockReturnValueOnce(write.promise);m.quick.mockReturnValueOnce(read.promise);
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:teacher-note:course'},createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,teacherName:'老師',onSnapshotInvalidated:invalidate,onCommitted:hasParent?committed:undefined}))));
+ await act(async()=>host.querySelector<HTMLButtonElement>('button[title="教師提醒"]')!.click());
+ const input=document.querySelector<HTMLTextAreaElement>('textarea[placeholder="記錄本次上課需要留意的事項"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'更新的教師備註');input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ expect(committed).not.toHaveBeenCalled();
+ await act(async()=>write.resolve({success:true}));
+ expect(m.save).toHaveBeenCalledWith({sessionId:'session-a',bookingId:undefined,note:'更新的教師備註',expectedNote:'教師提醒'});
+ expect(invalidate).toHaveBeenCalled();expect(committed).toHaveBeenCalledTimes(hasParent?1:0);expect(m.quick).toHaveBeenCalledOnce();expect(m.refresh).not.toHaveBeenCalled();
+ await act(async()=>read.resolve({success:true,data:{roster:[booking()],teacherNote:'後端核對的備註',teacherAttendance:'SCHEDULED',teacherAttendanceReason:''}}));
+ expect(host.querySelector('button[title="後端核對的備註"]')).not.toBeNull();
+ expect(committed).toHaveBeenCalledTimes(hasParent?1:0);expect(m.refresh).toHaveBeenCalledTimes(hasParent?0:1);
+});
+
 it.each([true,false])('invalidates prepared rosters after a confirmed native note save only: success=%s',async success=>{
  const write=deferred<{success:boolean;error?:string}>(),invalidate=vi.fn(),committed=vi.fn();m.save.mockReturnValue(write.promise);
  await act(async()=>root.render(createElement(OperationScope,{scope:'account:store-a:course:editable'},createElement(CourseRoster,{sessionId:'session-a',sportsNative:true,capacity:10,canCreate:false,canEdit:true,teacherName:'老師',onSnapshotInvalidated:invalidate,onCommitted:committed}))));
