@@ -10,12 +10,18 @@ vi.mock('@/server/services/operation-audit',()=>({recordOperationAudit:vi.fn()})
 import {loadSteamfootStoreNotices} from '@/server/actions/steamfoot-store-notices';
 let db:PGlite;
 beforeAll(async()=>{
+ vi.useFakeTimers({toFake:['Date']});
+ vi.setSystemTime(new Date('2026-11-01T04:00:00Z'));
  db=new PGlite();await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;CREATE TABLE "Store"(id text PRIMARY KEY,"industryModule" text);INSERT INTO "Store" VALUES ('a','STEAMFOOT'),('b','STEAMFOOT');CREATE TABLE "Customer"(id text PRIMARY KEY,"storeId" text,name text);INSERT INTO "Customer" VALUES ('c','a','顧客');CREATE TABLE "Staff"(id text PRIMARY KEY,"storeId" text,"displayName" text);CREATE TABLE "ServicePlan"(id text PRIMARY KEY,"storeId" text,name text);CREATE TABLE "Booking"(id text PRIMARY KEY,"storeId" text,"customerId" text,"bookingDate" date,"slotTime" text,people int DEFAULT 1,"bookingStatus" text DEFAULT 'PENDING',"serviceStaffId" text,"servicePlanId" text,"bookingType" text DEFAULT 'PACKAGE_SESSION',notes text);`);
  await db.exec(readFileSync('prisma/migrations/20261021040000_steamfoot_store_notices/migration.sql','utf8'));await db.exec(readFileSync('scripts/sql/digital-manager-notice-candidate.sql','utf8'));
  await db.exec(`INSERT INTO "Booking" (id,"storeId","customerId","bookingDate","slotTime") VALUES ('booking','a','c','2026-10-31','10:00'); UPDATE "Booking" SET "slotTime"='11:00' WHERE id='booking';
  INSERT INTO "DigitalManagerNotice"(id,"storeId","eventKey","eventType","targetId","createdAt") VALUES ('payment','a','pending-payment:1','TRANSFER_PENDING_CONFIRMATION','private-order','2026-10-30'),('foreign','b','pending-payment:2','TRANSFER_PENDING_CONFIRMATION','other-order','2026-10-30');`);
+ // Match the lifecycle columns read by the combined loaders; keep fixture dates deterministic.
+ await db.exec(`ALTER TABLE "SteamfootStoreNotice" ADD COLUMN "publishedAt" timestamptz DEFAULT '2026-10-30', ADD COLUMN "readAt" timestamptz, ADD COLUMN "readById" text, ADD COLUMN "readByName" text;
+ ALTER TABLE "DigitalManagerNotice" ADD COLUMN "publishedAt" timestamptz DEFAULT '2026-10-30', ADD COLUMN "readAt" timestamptz, ADD COLUMN "readById" text, ADD COLUMN "readByName" text;
+ UPDATE "SteamfootStoreNotice" SET "createdAt"='2026-10-30', "publishedAt"='2026-10-30';`);
 },30000);
-afterAll(async()=>db.close());
+afterAll(async()=>{await db.close();vi.useRealTimers();});
 beforeEach(()=>{m.read.mockResolvedValue({id:'u',role:'OWNER',storeId:'a',staffId:'s'});m.active.mockResolvedValue('a');m.module.mockResolvedValue('steamfoot');m.permission.mockResolvedValue(true);m.query.mockImplementation(async(strings:TemplateStringsArray,...args:unknown[])=>{let sql=strings[0];for(let i=0;i<args.length;i++)sql+=`$${i+1}${strings[i+1]}`;return (await db.query(sql,args)).rows;});});
 it('combines only this store’s payment and booking notices without exposing payment details',async()=>{
  const result=await loadSteamfootStoreNotices({storeId:'a',handled:false});
