@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import {
   applyDaySlotOverrides,
   getDaySlotDetails,
@@ -28,6 +29,7 @@ interface Props {
  * 時段資料，且只有按「儲存」才會影響顧客端可預約狀態。
  */
 export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [dayClosed, setDayClosed] = useState(true);
@@ -155,6 +157,8 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
         return;
       }
       await onSaved();
+      // Reload the month summary as well as slots so a former closed day changes status immediately.
+      router.refresh();
       setChanges(new Map());
       setCapacityChanges(new Map());
       setOpen(false);
