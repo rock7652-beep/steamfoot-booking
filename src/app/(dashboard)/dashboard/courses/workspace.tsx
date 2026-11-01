@@ -1,5 +1,6 @@
 "use client";
 import type {CalendarRosterSnapshots} from "./roster-source";
+import {useTeacherNoteSnapshot} from "./use-teacher-note-snapshot";
 import {sportsSchedulePreview} from "@/lib/sports-schedule-preview";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
@@ -370,11 +371,12 @@ export function CourseWorkspace({
   const confirmedSessionSource=useMemo(()=>(nativeCalendar?.sessions??sourceSessions).map(row=>({...row,receiptStoreId:storeId})),[nativeCalendar?.sessions,sourceSessions,storeId]);
   const confirmedScheduleSessions=useConfirmedSettingsRows(confirmedSessionSource,row=>row.id);
   const sessions:Session[]=confirmedScheduleSessions.rows.filter(row=>row.receiptStoreId===storeId);
-  const rawPreparedRosters=nativeCalendar?.rosterSnapshots??rosterSnapshots;
-  const calendarOwnsRosterRefresh=sportsNative||!!rawPreparedRosters&&rawPreparedRosters.storeId===storeId;
+  const incomingRosters=nativeCalendar?.rosterSnapshots??rosterSnapshots;
   const [invalidatedRosters,setInvalidatedRosters]=useState<CalendarRosterSnapshots|undefined>();
-  const preparedRosters=rawPreparedRosters&&rawPreparedRosters.storeId===storeId&&rawPreparedRosters!==invalidatedRosters?rawPreparedRosters:undefined;
-  const invalidatePreparedRosters=useCallback(()=>{setInvalidatedRosters(rawPreparedRosters);++calendarRequest.current;setCalendarReading(false);},[rawPreparedRosters]);
+  const {snapshots:rawPreparedRosters,begin:beginTeacherNoteSnapshot,invalidate:invalidateTeacherNoteSnapshot,cancelPending:cancelPendingTeacherNote}=useTeacherNoteSnapshot({incoming:incomingRosters,invalidated:invalidatedRosters,scope:`${storeId}:${pathname}:${loadedDate}:${params.get("date")??loadedDate}`,enabled:businessProfile==="MUSIC"&&!sportsNative&&incomingRosters?.storeId===storeId,onInvalidate:setInvalidatedRosters});
+  const calendarOwnsRosterRefresh=sportsNative||!!rawPreparedRosters&&rawPreparedRosters.storeId===storeId;
+  const preparedRosters=rawPreparedRosters&&rawPreparedRosters.storeId===storeId&&rawPreparedRosters!==invalidatedRosters&&incomingRosters!==invalidatedRosters?rawPreparedRosters:undefined;
+  const invalidatePreparedRosters=useCallback(()=>{invalidateTeacherNoteSnapshot();++calendarRequest.current;setCalendarReading(false);},[invalidateTeacherNoteSnapshot]);
   const cancelledBookings=nativeCalendar?.cancelledBookings??sourceCancelledBookings;
   const calendarDays=nativeCalendar?.calendarDays??sourceCalendarDays;
   const staffAvailabilityExceptions=nativeCalendar?.staffAvailabilityExceptions??sourceStaffAvailabilityExceptions;
@@ -700,6 +702,7 @@ export function CourseWorkspace({
   }
   for (const list of byDate.values()) list.sort((a,b)=>a.startsAt.localeCompare(b.startsAt)||a.id.localeCompare(b.id));
   function go(date: string) {
+    if(date!==selectedDate)cancelPendingTeacherNote();
     calendarSource?.onDateChange?.(date);
     if(sportsNative){setNativeDate(date);nativeDateRef.current=date;const month=date.slice(0,7);if(month!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date,true);else if(calendarTargetMonth.current!==month){++calendarRequest.current;calendarTargetMonth.current=month;setCalendarReading(false);}return;}
     const next = new URLSearchParams(window.location.search);
@@ -2564,6 +2567,7 @@ export function CourseWorkspace({
                   key={`${dialogSession.id}-${kind}`}
                   sessionId={dialogSession.id}
                   onSnapshotInvalidated={invalidatePreparedRosters}
+                  beginTeacherNoteSnapshot={businessProfile==="MUSIC"&&!sportsNative?beginTeacherNoteSnapshot:undefined}
                   initialSnapshot={kind==="roster"&&preparedRosters&&preparedRosters.storeId===storeId&&preparedRosters.details[dialogSession.id]?{sessionId:dialogSession.id,data:preparedRosters.details[dialogSession.id]}:undefined}
                   previewBookings={kind==="roster"?dialogSession.bookings:undefined}
                   capacity={dialogSession.capacity}

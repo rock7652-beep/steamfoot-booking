@@ -1,3 +1,4 @@
+import {preparedRoster} from './fixtures/prepared-roster';
 // UI state fixtures use the shared read transport; the real HTTP protocol is tested separately.
 vi.mock("@/lib/course-session-detail-client",()=>({readCourseSessionDetailClient:(...args:unknown[])=>m.load(...args)}));
 vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null}),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:vi.fn()}));
@@ -44,6 +45,10 @@ const data = (notes = "原始備註") => ({ success: true, data: {
   session: { startsAt: "2026-10-01T02:00:00Z", pointCost: 1, teacherAttendance: "SCHEDULED", teacherNote: "教師提醒" },
   roster: [booking("a", notes), booking("b", "另一位備註")], cards: [], trial: null,
 } });
+const preparedNoteData=()=>{
+ const full=preparedRoster();
+ return {...full,session:{...full.session,teacherNote:'教師提醒'},roster:['a','b'].map(id=>({...full.roster[0],id,customerId:id,customerName:id==='a'?'甲同學':'乙同學',notes:id==='a'?'原始備註':'另一位備註'}))};
+};
 let host: HTMLDivElement, root: Root;
 beforeEach(() => {
   vi.resetAllMocks(); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -268,6 +273,44 @@ it.each([true,false])('reconciles music teacher notes and retains one calendar r
  await act(async()=>read.resolve({success:true,data:{roster:[booking()],teacherNote:'後端核對的備註',teacherAttendance:'SCHEDULED',teacherAttendanceReason:''}}));
  expect(host.querySelector('button[title="後端核對的備註"]')).not.toBeNull();
  expect(committed).toHaveBeenCalledTimes(hasParent?1:0);expect(m.refresh).toHaveBeenCalledTimes(hasParent?0:1);
+});
+
+it.each(['accepted','rejected','read-failed','conflict','unknown'] as const)('uses a single full authority read for music teacher notes: %s',async outcome=>{
+ const lease={accept:vi.fn(()=>outcome==='accepted'),invalidate:vi.fn(()=>true),dispose:vi.fn()},begin=vi.fn(()=>lease),committed=vi.fn(),invalidate=vi.fn(),publication=vi.spyOn(musicFinanceSync,'publishMusicFinanceChange');
+ const seed=preparedNoteData();
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:targeted-teacher-note'},createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,teacherName:'老師',initialSnapshot:{sessionId:'session-a',data:seed},beginTeacherNoteSnapshot:begin,onCommitted:committed,onSnapshotInvalidated:invalidate}))));
+ m.load.mockClear();m.load.mockResolvedValue({success:true,data:{...seed,session:{...seed.session,teacherNote:'後端備註'}}});
+ if(outcome==='read-failed')m.load.mockRejectedValue(Error('offline'));
+ if(outcome==='conflict')m.save.mockResolvedValue({success:false,error:'版本衝突，保留輸入'});
+ if(outcome==='unknown')m.save.mockRejectedValue(Error('lost response'));
+ await act(async()=>host.querySelector<HTMLButtonElement>('button[title="教師提醒"]')!.click());
+ const input=document.querySelector<HTMLTextAreaElement>('textarea[placeholder="記錄本次上課需要留意的事項"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'  帶空白的輸入  ');input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ expect(begin).toHaveBeenCalledWith('session-a');expect(m.save).toHaveBeenCalledWith({sessionId:'session-a',note:'  帶空白的輸入  ',expectedNote:'教師提醒'});expect(m.quick).not.toHaveBeenCalled();expect(invalidate).not.toHaveBeenCalled();expect(lease.dispose).toHaveBeenCalledOnce();
+ if(outcome==='accepted'){
+  expect(m.load).toHaveBeenCalledExactlyOnceWith('session-a',true,false);expect(lease.accept).toHaveBeenCalledOnce();expect(committed).not.toHaveBeenCalled();expect(m.refresh).not.toHaveBeenCalled();expect(lease.invalidate).not.toHaveBeenCalled();expect(host.querySelector('button[title="後端備註"]')).not.toBeNull();expect(publication).toHaveBeenCalledWith('general',undefined,{calendarRefreshOwned:true});
+ }else if(outcome==='conflict'||outcome==='unknown'){
+  expect(m.load).not.toHaveBeenCalled();expect(lease.accept).not.toHaveBeenCalled();expect(committed).not.toHaveBeenCalled();expect(input.value).toBe('  帶空白的輸入  ');expect(document.body.textContent).toContain(outcome==='conflict'?'版本衝突':'結果待確認');expect(lease.invalidate).toHaveBeenCalledOnce();
+ }else{
+  expect(committed).toHaveBeenCalledOnce();expect(lease.invalidate).toHaveBeenCalledOnce();expect(host.textContent).toContain('備註已儲存，名單同步未完成');
+ }
+});
+
+it('keeps attendance on its existing authoritative projection path when a note lease is available',async()=>{
+ const begin=vi.fn();m.status.mockResolvedValue({success:true,rosterSnapshot:{sessionId:'session-a',data:{roster:[{...booking(),status:'ATTENDED'},booking('b')],waitlist:[]}}});
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:note-scope-attendance'},createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,initialSnapshot:{sessionId:'session-a',data:preparedNoteData()},beginTeacherNoteSnapshot:begin}))));
+ await clickAttendance();expect(begin).not.toHaveBeenCalled();expect(m.status).toHaveBeenCalledOnce();expect(m.quick).not.toHaveBeenCalled();expect(attendance('甲同學').getAttribute('aria-label')).toBe('甲同學：已出席');
+});
+it('does not apply or refresh from a late note read after changing the account/session scope',async()=>{
+ const read=deferred<ReturnType<typeof data>>(),lease={accept:vi.fn(()=>true),invalidate:vi.fn(()=>false),dispose:vi.fn()},committed=vi.fn();
+ await act(async()=>root.render(createElement(OperationScope,{key:'old-account',scope:'old-account:store-a'},createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,initialSnapshot:{sessionId:'session-a',data:preparedNoteData()},beginTeacherNoteSnapshot:()=>lease,onCommitted:committed}))));
+ m.load.mockReturnValueOnce(read.promise);await act(async()=>host.querySelector<HTMLButtonElement>('button[title="教師提醒"]')!.click());
+ const input=document.querySelector<HTMLTextAreaElement>('textarea[placeholder="記錄本次上課需要留意的事項"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'舊帳號備註');input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ const next={...preparedNoteData(),session:{...preparedNoteData().session,teacherNote:'新帳號備註'}};
+ await act(async()=>root.render(createElement(OperationScope,{key:'new-account',scope:'new-account:store-b'},createElement(CourseRoster,{sessionId:'session-b',musicLayout:true,capacity:10,canCreate:false,canEdit:true,initialSnapshot:{sessionId:'session-b',data:next}}))));
+ await act(async()=>read.resolve({...data(),data:{...data().data,session:{...data().data.session,teacherNote:'舊帳號晚到回覆'}}}));
+ expect(lease.accept).not.toHaveBeenCalled();expect(committed).not.toHaveBeenCalled();expect(host.querySelector('button[title="新帳號備註"]')).not.toBeNull();expect(host.textContent).not.toContain('舊帳號晚到回覆');
 });
 
 it.each([true,false])('invalidates prepared rosters after a confirmed native note save only: success=%s',async success=>{

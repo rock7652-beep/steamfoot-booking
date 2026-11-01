@@ -6,6 +6,7 @@ export type ServiceRosterMetadata={revision:number;startsAt:string;endsAt:string
 export type NativeRosterBooking=Awaited<ReturnType<typeof getCourseRoster>>[number]&{service?:ServiceRosterMetadata};
 type Detail=Extract<Awaited<ReturnType<typeof loadCourseSessionDetail>>,{success:true}>['data'];
 export type CourseRosterSnapshot={sessionId:string;data:Detail|CourseRosterData};
+export type TeacherNoteSnapshotLease={accept:(snapshot:CourseRosterSnapshot)=>boolean;invalidate:()=>boolean;dispose:()=>void};
 export type CalendarRosterSnapshots={storeId:string;details:Record<string,CourseRosterSnapshot['data']>};
 export type CourseRosterData=Omit<Detail,'roster'|'trial'|'customers'>&{customers?:Detail['customers'];roster:NativeRosterBooking[];trial:null;readVersion?:string};
 export type CourseRosterSource={

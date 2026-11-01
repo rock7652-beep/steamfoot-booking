@@ -1,7 +1,7 @@
 "use client";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
-import type {CourseRosterSource,NativeRosterBooking,CourseRosterSnapshot} from "./roster-source";
+import type {CourseRosterSource,NativeRosterBooking,CourseRosterSnapshot,TeacherNoteSnapshotLease} from "./roster-source";
 import {CourseRosterList,type CourseRosterDisplayRow} from "./roster-list";
 import bookingLayout from "./sports-booking-layout.module.css";
 import {startSportsBackgroundSync} from "@/lib/sports-background-sync";
@@ -140,6 +140,7 @@ export function CourseRoster({
   previewBookings,
   initialSnapshot,
   onSnapshotInvalidated,
+  beginTeacherNoteSnapshot,
 }: {
   source?:CourseRosterSource;
   sessionId: string;
@@ -169,6 +170,7 @@ export function CourseRoster({
   initialAssignedCoach?: string;
   initialSnapshot?:CourseRosterSnapshot;
   onSnapshotInvalidated?:()=>void;
+  beginTeacherNoteSnapshot?:(sessionId:string)=>TeacherNoteSnapshotLease|null;
   previewBookings?:readonly {id:string;customerName:string;status:string}[];
 }) {
   const initial=initialSnapshot?.sessionId===sessionId?initialSnapshot:source?.snapshot?.sessionId===sessionId?source.snapshot:undefined;
@@ -372,6 +374,43 @@ export function CourseRoster({
         if (savedGeneration !== undefined) applySavedNote(notes, savedGeneration);
       },
     };
+  }
+
+  function saveMusicTeacherNote(value:string,expected:string,lease:TeacherNoteSnapshotLease){
+    const scope=operationScope.current;
+    if(scope.locked||scope.uncertain||scope.inFlight.size){lease.dispose();return;}
+    scope.locked=true;const version=++readVersion.current;
+    const current=()=>rosterMounted.current&&operationScope.current===scope&&readVersion.current===version;
+    setNoteError("");setMessage("儲存中…");
+    start(async()=>{
+      let saved=false;
+      const recover=()=>{
+        if(lease.invalidate()){
+          publishMusicFinanceChange("general",undefined,onCommitted?{calendarRefreshOwned:true}:undefined);
+          void Promise.resolve(onCommitted?.()).catch(()=>{});
+        }
+        if(current()){
+          setMessage("備註已儲存，名單同步未完成，請重新讀取");
+          setReadStatus({sessionId,error:"備註已儲存，名單同步未完成，請重新讀取",retrying:false});
+        }
+      };
+      try{
+        let result;
+        try{result=await saveCourseRosterNote({sessionId,note:value,expectedNote:expected});if(typeof result?.success!=="boolean")throw Error('Unconfirmed write');}
+        catch{lease.invalidate();if(current()){scope.uncertain=true;setNoteError("結果待確認，輸入已保留，請重新開啟名單核對後再操作");setMessage("結果待確認，請重新開啟名單核對後再操作");}return;}
+        if(!current()){if(result.success)recover();return;}
+        if(!result.success){lease.invalidate();setNoteError(result.error??"備註尚未儲存");setMessage(result.error??"備註尚未儲存");return;}
+        saved=true;setEditingNote(null);setMessage("備註已儲存，正在更新名單");
+        const detail=await readCourseSessionDetailClient(sessionId,true,false);
+        if(!current()){recover();return;}
+        if(!detail.success||!lease.accept({sessionId,data:detail.data})){recover();return;}
+        const data=detail.data;
+        // The old seed remains consumed until the parent delivers its new snapshot.
+        setRoster(data.roster);setSession(data.session);setCards(data.cards);setTrial(data.trial);setWaitlist(data.waitlist??[]);setCanPurchase(data.canPurchase);setSharedCardState(data.sharedCardState??"ENABLED");setLoaded(true);setReadStatus(null);
+        publishMusicFinanceChange("general",undefined,{calendarRefreshOwned:true});setMessage("備註已儲存");
+      }catch{if(saved)recover();}
+      finally{scope.locked=false;lease.dispose();}
+    });
   }
 
   function notifyRosterChanged(){onSnapshotInvalidated?.();publishMusicFinanceChange("general",undefined,onCommitted?{calendarRefreshOwned:true}:undefined);onCommitted?.();}
@@ -1737,6 +1776,10 @@ export function CourseRoster({
             return;
           }
           if(sportsNative){setNoteError("");start(async()=>{++readVersion.current;setMessage("儲存中…");try{const result=await (source?.note??saveCourseRosterNote)({sessionId,bookingId:target.bookingId,note:noteDraft,expectedNote:target.value});if(!result.success){setNoteError(result.error??"備註尚未儲存");setMessage(result.error??"備註尚未儲存");return;}onSnapshotInvalidated?.();if(target.bookingId)setRoster(rows=>rows.map(row=>row.id===target.bookingId?{...row,notes:noteDraft}:row));else setSession(old=>old?{...old,teacherNote:noteDraft}:old);setEditingNote(null);setMessage("備註已儲存，課表同步中…");try{const synced=await onCommitted?.();setMessage(synced===false||synced===null?"備註已儲存，課表同步未完成，請重新讀取":"備註已儲存");}catch{setMessage("備註已儲存，課表同步未完成，請重新讀取");}}catch{setNoteError("連線失敗，輸入已保留");setMessage("連線失敗，輸入已保留");}});return;}
+          if(musicLayout&&!source&&view==="roster"&&!target.bookingId){
+            const lease=beginTeacherNoteSnapshot?.(sessionId);
+            if(lease){saveMusicTeacherNote(noteDraft,target.value,lease);return;}
+          }
           run(()=>{
           if(target.bookingId) {
             // A newer save through the existing details editor also supersedes
