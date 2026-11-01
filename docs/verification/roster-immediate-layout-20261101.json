@@ -1,0 +1,356 @@
+{
+  "commit": "d5098faffeb601e8de47bd07df9a1479e1d14c70",
+  "scope": "normal owner login; isolated sports/music/beauty fixtures; no submitted mutation; controlled-delay checks separated from natural timings",
+  "samples": [
+    {
+      "module": "sports",
+      "sample": 0,
+      "warmup": true,
+      "previewMs": 43,
+      "completeMs": 3036,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed"
+    },
+    {
+      "module": "sports",
+      "sample": 1,
+      "warmup": false,
+      "previewMs": 31,
+      "completeMs": 1162,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed"
+    },
+    {
+      "module": "sports",
+      "sample": 2,
+      "warmup": false,
+      "previewMs": 40,
+      "completeMs": 1053,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed"
+    },
+    {
+      "module": "sports",
+      "sample": 3,
+      "warmup": false,
+      "previewMs": 26,
+      "completeMs": 996,
+      "payloadHash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed"
+    },
+    {
+      "module": "beauty",
+      "sample": 0,
+      "warmup": true,
+      "previewMs": 351,
+      "completeMs": 1579,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c"
+    },
+    {
+      "module": "beauty",
+      "sample": 1,
+      "warmup": false,
+      "previewMs": 59,
+      "completeMs": 1455,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c"
+    },
+    {
+      "module": "beauty",
+      "sample": 2,
+      "warmup": false,
+      "previewMs": 78,
+      "completeMs": 904,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c"
+    },
+    {
+      "module": "beauty",
+      "sample": 3,
+      "warmup": false,
+      "previewMs": 71,
+      "completeMs": 1013,
+      "payloadHash": "4a0c2c5e8d1f42aad1dde3c8ea5ee90453127907c20b78dd02f6781083458f7c"
+    },
+    {
+      "module": "music",
+      "sample": 0,
+      "warmup": true,
+      "previewMs": 39,
+      "completeMs": 970,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c"
+    },
+    {
+      "module": "music",
+      "sample": 1,
+      "warmup": false,
+      "previewMs": 30,
+      "completeMs": 1032,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c"
+    },
+    {
+      "module": "music",
+      "sample": 2,
+      "warmup": false,
+      "previewMs": 26,
+      "completeMs": 898,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c"
+    },
+    {
+      "module": "music",
+      "sample": 3,
+      "warmup": false,
+      "previewMs": 31,
+      "completeMs": 1032,
+      "payloadHash": "f463c992613603cb6af036e915e5890f0917710f5d4f6e9c5d0b9b5f3f28e82c"
+    }
+  ],
+  "checks": [
+    {
+      "module": "sports",
+      "check": "normal-owner-login",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "controlled-2000ms-response-delivery-delay-layout-search-focus-and-no-document-navigation",
+      "width": 1366,
+      "height": 900,
+      "box": {
+        "x": 83,
+        "y": 274.5,
+        "width": 1200,
+        "height": 351
+      },
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "controlled-2000ms-response-delivery-delay-layout-search-focus-and-no-document-navigation",
+      "width": 1024,
+      "height": 768,
+      "box": {
+        "x": 24,
+        "y": 208.5,
+        "width": 976,
+        "height": 351
+      },
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "controlled-2000ms-response-delivery-delay-layout-search-focus-and-no-document-navigation",
+      "width": 768,
+      "height": 1024,
+      "box": {
+        "x": 24,
+        "y": 306.5,
+        "width": 720,
+        "height": 411
+      },
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "controlled-2000ms-response-delivery-delay-layout-search-focus-and-no-document-navigation",
+      "width": 390,
+      "height": 844,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844
+      },
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "normal-owner-login",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "controlled-2000ms-response-delivery-delay-layout-search-focus-and-no-document-navigation",
+      "width": 1366,
+      "height": 900,
+      "box": {
+        "x": 83,
+        "y": 320,
+        "width": 1200,
+        "height": 260
+      },
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "controlled-2000ms-response-delivery-delay-layout-search-focus-and-no-document-navigation",
+      "width": 1024,
+      "height": 768,
+      "box": {
+        "x": 24,
+        "y": 254,
+        "width": 976,
+        "height": 260
+      },
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "controlled-2000ms-response-delivery-delay-layout-search-focus-and-no-document-navigation",
+      "width": 768,
+      "height": 1024,
+      "box": {
+        "x": 24,
+        "y": 371,
+        "width": 720,
+        "height": 282
+      },
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "controlled-2000ms-response-delivery-delay-layout-search-focus-and-no-document-navigation",
+      "width": 390,
+      "height": 844,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844
+      },
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "normal-owner-login",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "controlled-2000ms-response-delivery-delay-layout-search-focus-and-no-document-navigation",
+      "width": 1366,
+      "height": 900,
+      "box": {
+        "x": 123,
+        "y": 273,
+        "width": 1120,
+        "height": 354
+      },
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "controlled-2000ms-response-delivery-delay-layout-search-focus-and-no-document-navigation",
+      "width": 1024,
+      "height": 768,
+      "box": {
+        "x": 24,
+        "y": 207,
+        "width": 976,
+        "height": 354
+      },
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "controlled-2000ms-response-delivery-delay-layout-search-focus-and-no-document-navigation",
+      "width": 768,
+      "height": 1024,
+      "box": {
+        "x": 24,
+        "y": 335,
+        "width": 720,
+        "height": 354
+      },
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "controlled-2000ms-response-delivery-delay-layout-search-focus-and-no-document-navigation",
+      "width": 390,
+      "height": 844,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844
+      },
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "complete": true,
+  "previewVersionVerification": {
+    "host": "https://steamfoot-booking-j53sgb7he-rock7652-2111s-projects.vercel.app",
+    "expectedDeploymentId": "dpl_DycpUGHmLpSWeGkEb5Yzf8PiviBQ",
+    "expectedSourceCommit": "d5098faffeb601e8de47bd07df9a1479e1d14c70",
+    "htmlDeploymentId": null,
+    "method": "immutable deployment hostname checked against Vercel deployment metadata; assert HTML data-dpl-id when provided; actual new preview/readiness UI selectors required"
+  },
+  "appCI": {
+    "commit": "d5098faffeb601e8de47bd07df9a1479e1d14c70",
+    "runId": 41260565621,
+    "conclusion": "success",
+    "filesPassed": 1574,
+    "filesSkipped": 30,
+    "testsPassed": 15051,
+    "testsSkipped": 257
+  },
+  "previewDeployment": {
+    "id": "dpl_DycpUGHmLpSWeGkEb5Yzf8PiviBQ",
+    "sourceSha": "d5098faffeb601e8de47bd07df9a1479e1d14c70",
+    "state": "READY",
+    "environment": "preview",
+    "region": "hnd1"
+  },
+  "countsBefore": {
+    "purchases": 125,
+    "entries": 933,
+    "bookings": 621,
+    "payments": 90,
+    "ledger": 126
+  },
+  "countsAfter": {
+    "purchases": 125,
+    "entries": 933,
+    "bookings": 621,
+    "payments": 90,
+    "ledger": 126
+  },
+  "countScope": {
+    "courses": [
+      "sports-live-flow-store",
+      "store-lubymusic"
+    ],
+    "beauty": "beauty-hosted-20261021"
+  },
+  "cleanup": {
+    "usersSuspendedAndPasswordsCleared": 3,
+    "staffInactive": 3,
+    "privateInputFilesDeleted": true
+  },
+  "productionChanged": false,
+  "previewShareAccess": {
+    "maximumAllowedDeployments": 2,
+    "currentCandidateLinksCreated": 1,
+    "ttlSeconds": 82800,
+    "oldKnownLinkRevoked": true,
+    "initialAutomaticReviewRejectedNewCreationUntilOldLinkRevocationWasProven": true,
+    "noProtectionSettingChanged": true
+  },
+  "measurementLimitations": [
+    "Cloud Chromium through the existing environment proxy, synthetic single-person cohorts; not production RUM, real iPad/Safari or large-list testing",
+    "Preview milliseconds cover layout and known identity/search availability only; live financial values remain unavailable until the separate complete marker",
+    "Controlled 2000ms upstream response delivery delay is functional testing and excluded from natural timings",
+    "Preview HTML omitted data-dpl-id, so the runner verifies the immutable hostname against the deployment API and checks the new UI markers; the initial null-attribute assertion failure is preserved"
+  ],
+  "initialIdentityCheck": {
+    "commit": "d5098faffeb601e8de47bd07df9a1479e1d14c70",
+    "scope": "normal owner login; isolated sports/music/beauty fixtures; no submitted mutation; controlled-delay checks separated from natural timings",
+    "samples": [],
+    "checks": [
+      {
+        "module": "sports",
+        "check": "normal-owner-login",
+        "pass": true
+      }
+    ],
+    "errors": [],
+    "complete": false,
+    "failure": "Expected values to be strictly equal:\n+ actual - expected\n\n+ null\n- 'dpl_DycpUGHmLpSWeGkEb5Yzf8PiviBQ'\n"
+  }
+}
