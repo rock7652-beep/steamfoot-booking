@@ -14,7 +14,7 @@ description: 接續蒸管家既有開發、修復或跨模組需求時，核對�
 
 ## 確認影響再動手
 - 列出受影響入口、門市／模組、角色、共用元件、資料及通知；共用呈現不等於共用方案、扣堂或退款規則。引用適用的現行文件，不複製第二份業務規則。
-- 涉及 UI 時依任務範圍採用本 repo 的 steamfoot-ui-review；只讀盤點不因此啟動實作或操作驗收。準備交付或發布時用 steamfoot-release-check，只讀取相關 Skill。
+- 涉及 UI 時依任務範圍採用本 repo 的 [steamfoot-ui-review](../steamfoot-ui-review/SKILL.md)，以 [操作情境](../../../docs/operation-experience-scenarios.md) 定義完整資料可用與任務完成條件；只讀盤點不因此啟動實作或操作驗收。準備交付或發布時用 steamfoot-release-check，只讀取相關 Skill。
 - 若涉及 Cloudflare，先以目前路由／設定／問題證據確認它是否為本次必要依賴；無關則記錄不適用，必要但存取受阻則只暫停依賴部分。不得把歷史跳過當永久豁免，也不要求所有任務一律檢查 Cloudflare。
 - 發現停發中的通知，保留其狀態並核對原因與原決策；不得為了測試或「恢復正常」自行啟用。
 
