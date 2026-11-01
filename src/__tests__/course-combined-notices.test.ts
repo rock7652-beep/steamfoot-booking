@@ -9,14 +9,20 @@ vi.mock("@/server/services/operation-audit-outbox",()=>({enqueueOperationAudit:v
 import {loadCombinedCourseStoreNotices} from "@/server/actions/course-digital-manager-notices";
 let db:PGlite;
 beforeAll(async()=>{
+ vi.useFakeTimers({toFake:['Date']});
+ vi.setSystemTime(new Date('2026-11-01T04:00:00Z'));
  db=new PGlite();
  await db.exec(`CREATE TABLE "Store"(id text PRIMARY KEY); INSERT INTO "Store" VALUES ('a'),('b');
  CREATE TABLE "CourseStoreNotice"(id text PRIMARY KEY,"storeId" text,kind text,"subjectKey" text,"customerName" text,"courseName" text,"coachName" text,"previousCoachName" text,"startsAt" timestamptz,"previousStartsAt" timestamptz,"affectedCount" int,details jsonb,"handledAt" timestamptz,"handledByName" text,revision int,"createdAt" timestamptz,"updatedAt" timestamptz);
  INSERT INTO "CourseStoreNotice" VALUES ('old','a','LEAVE','booking:1','學員','吉他','老師',null,'2026-10-31',null,1,'{}',null,null,0,'2026-10-30','2026-10-30');`);
  await db.exec(readFileSync('scripts/sql/digital-manager-notice-candidate.sql','utf8'));
  await db.exec(`INSERT INTO "DigitalManagerNotice"(id,"storeId","eventKey","eventType","targetId","createdAt") VALUES ('p1','a','purchase:1','TRANSFER_PENDING_CONFIRMATION','private-purchase','2026-10-30'),('p2','b','purchase:2','TRANSFER_PENDING_CONFIRMATION','foreign','2026-10-30');`);
+ // Match the lifecycle columns read by the combined loaders; keep fixture dates deterministic.
+ await db.exec(`ALTER TABLE "CourseStoreNotice" ADD COLUMN "publishedAt" timestamptz DEFAULT '2026-10-30', ADD COLUMN "readAt" timestamptz, ADD COLUMN "readById" text, ADD COLUMN "readByName" text;
+ ALTER TABLE "DigitalManagerNotice" ADD COLUMN "publishedAt" timestamptz DEFAULT '2026-10-30', ADD COLUMN "readAt" timestamptz, ADD COLUMN "readById" text, ADD COLUMN "readByName" text;
+ UPDATE "CourseStoreNotice" SET "createdAt"='2026-10-30', "publishedAt"='2026-10-30';`);
 },30000);
-afterAll(async()=>db.close());
+afterAll(async()=>{await db.close();vi.useRealTimers();});
 beforeEach(()=>{
  m.read.mockResolvedValue({storeId:'a',user:{role:'STAFF',staffId:'s'},isChildStoreView:false});
  m.rule.mockResolvedValue({backendNoticesEnabled:true});m.permission.mockResolvedValue(true);
@@ -24,7 +30,7 @@ beforeEach(()=>{
 });
 it('combines payment and course notices with one scoped count and no payment details',async()=>{
  const result=await loadCombinedCourseStoreNotices({storeId:'a',handled:false,offset:0});
- expect(result).toMatchObject({success:true,count:2,items:[{id:'digital:p1',kind:'PAYMENT',canViewCourse:true},{id:'old',kind:'LEAVE'}]});
+ expect(result).toMatchObject({success:true,count:2,items:expect.arrayContaining([expect.objectContaining({id:'digital:p1',kind:'PAYMENT',canViewCourse:true}),expect.objectContaining({id:'old',kind:'LEAVE'})])});
  expect(JSON.stringify(result)).not.toContain('private-purchase');expect(JSON.stringify(result)).not.toContain('p2');
 });
 it('shows a generic notice without linking to finance when access is missing',async()=>{

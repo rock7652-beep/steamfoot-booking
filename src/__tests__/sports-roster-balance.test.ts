@@ -1,7 +1,7 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
-const m=vi.hoisted(()=>({session:vi.fn(),cards:vi.fn(),rule:vi.fn(),templates:vi.fn()}));
-vi.mock('@/lib/course-db',()=>({coursePrisma:{courseSession:{findFirst:m.session},coursePointCard:{findMany:m.cards},courseTemplate:{findMany:m.templates}}}));
+const m=vi.hoisted(()=>({session:vi.fn(),cards:vi.fn(),rule:vi.fn(),templates:vi.fn(),sessionBatch:vi.fn()}));
+vi.mock('@/lib/course-db',()=>({coursePrisma:{courseSession:{findFirst:m.session,findMany:m.sessionBatch},coursePointCard:{findMany:m.cards},courseTemplate:{findMany:m.templates}}}));
 vi.mock('@/server/services/sports-staging-schedule',()=>({readSportsSessionRule:m.rule}));
 import {readSportsRosterBalances} from '@/server/services/sports-roster-balance';
 const card=(id:string,remaining:number,held=0)=>({id,remaining,storeId:'store',sportsMode:'ASSIGNED',sportsSubjectId:'dance',sportsCost:1,unit:'SESSION',planId:'plan',templateIds:['old'],nameSnapshot:'十堂舞蹈',requestKey:'normal',termSessionIds:[],members:[{customerId:'a'},{customerId:'b'}],bookings:[{pointCost:held}]});
@@ -32,4 +32,14 @@ it('uses joined member/hold reads only for the ordinary read client, retaining t
  const {coursePrisma}=await import('@/lib/course-db');
  await readSportsRosterBalances('store','session',['a']);expect(m.cards.mock.calls[0][0].relationLoadStrategy).toBe('join');
  const tx={...coursePrisma} as unknown as Parameters<typeof readSportsRosterBalances>[3];m.cards.mockClear();await readSportsRosterBalances('store','session',['a'],tx);expect(m.cards.mock.calls[0][0]).not.toHaveProperty('relationLoadStrategy');
+});
+
+import {withCourseCalendarRead} from '@/server/services/course-calendar-read-scope';
+it('uses one month card read but checks each class date and never reuses a transaction balance',async()=>{
+ const {coursePrisma}=await import('@/lib/course-db');
+ const a={id:'a',templateId:'current',startsAt:new Date('2099-10-28'),pointCost:1,template:{musicSubjectId:'dance'}},b={...a,id:'b',startsAt:new Date('2099-12-28')};m.sessionBatch.mockResolvedValue([a,b]);m.cards.mockResolvedValue([{...card('rights',10,3),expiresAt:new Date('2099-11-01')}]);
+ const result=await withCourseCalendarRead('store',['a','b'],()=>Promise.all(['a','b'].map(id=>readSportsRosterBalances('store',id,['a'],coursePrisma,['a','b']))));
+ expect(result[0].get('a')).toMatchObject({remaining:10,available:7});expect(result[1].size).toBe(0);expect(result[0].has('b')).toBe(false);expect(m.cards).toHaveBeenCalledOnce();expect(m.sessionBatch).toHaveBeenCalledOnce();
+ m.cards.mockClear();const tx={...coursePrisma} as unknown as Parameters<typeof readSportsRosterBalances>[3];
+ await withCourseCalendarRead('store',['a'],()=>Promise.all([1,2].map(()=>readSportsRosterBalances('store','a',['a'],tx,['a','b']))));expect(m.cards).toHaveBeenCalledTimes(2);
 });

@@ -1,3 +1,4 @@
+// Historical PR #1478 on-open loading benchmark; page-preloaded calendars use calendar-roster-preload-browser.mjs.
 // Hosted synthetic-store QA. Inputs are chmod-600 temporary files; never commit credentials.
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);

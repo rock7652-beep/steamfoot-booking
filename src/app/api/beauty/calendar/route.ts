@@ -13,7 +13,7 @@ export async function GET(request:NextRequest){
   const slug=z.string().min(1).max(100).parse(p.get('store'));
   const native=z.enum(['0','1']).parse(p.get('native')??'0')==='1';
   if(native&&calendar!=='month')throw new AppError('VALIDATION','原版課表須讀取完整月份');
-  const at=performance.now(),data=await withReadRequestMemo(()=>beautyCalendar(date,calendar,native,slug));
-  return NextResponse.json({success:true,data:{date:data.date,calendar:data.calendar,items:data.items,calendarDays:data.calendarDays,rentals:data.rentals}},{headers:{...headers,'Server-Timing':`calendar;dur=${(performance.now()-at).toFixed(1)}`}});
+  const at=performance.now(),data=await withReadRequestMemo(()=>native?beautyCalendar(date,calendar,true,slug,true):beautyCalendar(date,calendar,false,slug));
+  return NextResponse.json({success:true,data:{date:data.date,calendar:data.calendar,items:data.items,calendarDays:data.calendarDays,rentals:data.rentals,rosterSnapshots:data.rosterSnapshots}},{headers:{...headers,'Server-Timing':`calendar;dur=${(performance.now()-at).toFixed(1)}`}});
  }catch(e){const r=handleActionError(e);return NextResponse.json({success:false,error:r.success?'讀取失敗':r.error},{status:403,headers});}
 }

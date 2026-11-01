@@ -1,12 +1,13 @@
 "use server";
-import {readCourseDetailMusicStore} from "@/server/queries/course-detail-music-store";
-import {readCourseSessionDetail} from "@/server/queries/course-session-detail";
+import {readAuthorizedCourseSessionDetail} from '@/server/queries/authorized-course-session-detail';
+import {readCourseDetailMusicStore} from '@/server/queries/course-detail-music-store';
+import {withReadRequestMemo,isReadRequestMemoActive} from '@/server/services/read-request-memo';
+import {withPermissionRequestSession} from '@/lib/permission-request-session';
 import {measureMusicRead} from "@/lib/music-read-timing";
 import {measureMusicCheckout,withCourseCheckoutRequest,musicCheckoutShouldDeferSnapshot} from "@/server/services/music-checkout-request";
 import {readPurchasedCourseRoster,readPurchasedCourseCards,readCommittedCourseRoster} from '@/server/queries/course-purchase-roster';
 import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
 
-import {courseChargeSnapshot} from "@/lib/course-charge-settings";
 import {Prisma as CoursePrismaValue} from "../../../generated/course-client";
 import {assertChargeProviders} from "@/server/services/course-charge";
 import {requireStoreFeature} from "@/lib/feature-gate";
@@ -808,99 +809,9 @@ export async function stopFutureCourseLessons(input: unknown) {
 
 export async function loadCourseSessionDetail(sessionId: string, rosterOnly = false, trialOnly = false) {
   try {
-    const { user, storeId } = await measureMusicRead("detail.authorize",()=>courseManager("booking.read"));
-    id.parse(sessionId);
-    const { getCourseRoster, getCourseCards } =
-      await import("@/server/queries/course-members");
-    const { checkPermission } = await import("@/lib/permissions");
-    const trialSettingsPromise=import("@/lib/shop-config").then(m=>m.getTrialSettings(storeId));
-    // Roster balances and session policies are independent after authorization.
-    // Await them together so either failure rejects this read; no cross-request cache.
-    const [roster, {permissions, session, musicStore, waitlistSetting, nativeSports, waitlistRows, sportsRule, waitlistPolicy, compatibleTemplateIds, sharedCardState, teachingTemplates}] = await Promise.all([
-      measureMusicRead("detail.roster",()=>getCourseRoster(storeId,sessionId)),
-      (async()=>{
-        const [permissions, session, musicStore, waitlistSetting, nativeSports, waitlistRows] = await measureMusicRead("detail.primary",()=>Promise.all([
-          Promise.all((["wallet.read","booking.create","wallet.create","transaction.create","trial.create","trial.confirm","transaction.void","customer.read"] as const).map(p=>checkPermission(user.role,user.staffId,p))),
-          readCourseSessionDetail(storeId,sessionId),
-          readCourseDetailMusicStore(storeId),
-          coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{autoPromoteStopMinutes:true,enabled:true}}),
-          sportsNativePreview(storeId),
-          coursePrisma.courseWaitlistEntry.findMany({
-            where: { storeId, sessionId, status: "WAITING" },
-            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-            select: { id: true, customerId: true, customerName: true, groupKey: true, createdAt: true },
-          }),
-        ]));
-        if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
-        const {readSportsSessionRule}=await import("@/server/services/sports-staging-schedule");
-        const {sessionWaitlistPolicy}=await import("@/server/services/sports-session-waitlist");
-        const [sportsRule, waitlistPolicy, compatibleTemplateIds, sharedCardState] = await measureMusicRead("detail.policies",()=>Promise.all([
-          nativeSports ? readSportsSessionRule(coursePrisma,storeId,sessionId) : null,
-          sessionWaitlistPolicy(coursePrisma,storeId,sessionId,session.template),
-          musicItemTemplateIds(coursePrisma, storeId, session.templateId),
-          musicStore ? "ENABLED" as const : getCourseSharedCardState(storeId),
-        ]));
-        const teachingTemplates=sportsRule?.enrollment==="ASSIGNED"?await (await import("@/server/services/sports-teaching-templates")).readSportsTeachingTemplates(coursePrisma,storeId,session.template.musicSubjectId):[];
-        return {permissions, session, musicStore, waitlistSetting, nativeSports, waitlistRows, sportsRule, waitlistPolicy, compatibleTemplateIds, sharedCardState, teachingTemplates};
-      })(),
-    ]);
-    const [canReadCards,canCreate,canBuy,canPay,canTrial,canCollectTrial,canCorrectTrial,canReadCustomers] = permissions;
-    const canPurchase=canBuy&&canPay;
-    const {resolveSportsEntitlement}=await import("@/lib/sports-entitlement");
-    const cardRights=(card:{planId?:string;unit:string;templateIds:string[];sportsMode?:string;sportsSubjectId?:string|null;sportsCost?:number|null;templateRestricted?:boolean})=>resolveSportsEntitlement({...card,planId:card.planId??""},{templateId:session.templateId,subjectId:session.template.musicSubjectId??null,pointCost:session.pointCost,enrollment:sportsRule?.enrollment==="ASSIGNED"?"ASSIGNED":sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null,compatibleTemplateIds:teachingTemplates});
-    const [cards, pendingMakeups,trialCustomers] = await Promise.all([
-      canCreate && !rosterOnly && !trialOnly ? getCourseCards(storeId,undefined,nativeSports?{where:{closedAt:null,expiresAt:{gte:session.startsAt},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:session.templateId}},...(teachingTemplates.length?[{sportsMode:"LEGACY" as const,unit:"SESSION",templateIds:{hasSome:teachingTemplates}}]:[]),...(session.template.musicSubjectId?[{sportsMode:"ASSIGNED" as const,sportsSubjectId:session.template.musicSubjectId}]:[])]},entries:false}:undefined) : [],
-      canCreate && musicStore && !rosterOnly && !trialOnly ? coursePrisma.courseBooking.findMany({
-        where:{storeId,status:"CANCELLED",bookingKind:"CARD",musicOpeningMakeupEntitlementId:null,absenceKind:"STUDENT_LEAVE",cardId:{not:null},NOT:[{card:{is:{requestKey:{startsWith:"music-leave-makeup:"}}}},{card:{is:{requestKey:{startsWith:"yjy-pilot-card:"}}}},{card:{is:{requestKey:{startsWith:"yjy-pilot-makeup:"}}}}],session:{templateId:session.templateId,startsAt:{lt:session.startsAt},template:{classType:{not:"GROUP"}}}},
-        select:{id:true,customerId:true,cardId:true,session:{select:{startsAt:true}}},orderBy:{session:{startsAt:"asc"}},
-      }).then(async leaves => {
-        const used = await coursePrisma.courseBooking.findMany({where:{storeId,makeupForBookingId:{in:leaves.map(leave=>leave.id)},OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]},select:{makeupForBookingId:true}});
-        const nativeLeaves = await Promise.all(leaves.map(async leave=>await nativeLeaveWasDebited(coursePrisma,storeId,leave.id)?leave.id:null));
-        const linked = new Set([...used.map(item=>item.makeupForBookingId), ...nativeLeaves]);
-        return leaves.filter(leave=>!linked.has(leave.id)).map(leave=>({id:leave.id,customerId:leave.customerId,cardId:leave.cardId!,date:leave.session.startsAt.toISOString()}));
-      }) : [],
-      !rosterOnly && canCreate && canReadCustomers ? prisma.customer.findMany({where:{...(await import("@/lib/manager-visibility")).getManagerCustomerWhere(user.role,user.staffId,storeId),storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
-    ]);
-    return {
-      success: true as const,
-      data: {
-        roster,
-        customers:trialCustomers,
-        sharedCardState,
-        canPurchase,
-        pendingMakeups,
-        waitlist: waitlistRows.map((row, index, all) => {
-          const groups = [...new Map(all.map(item => [item.groupKey, item.createdAt])).entries()]
-            .sort((a, b) => a[1].getTime() - b[1].getTime() || a[0].localeCompare(b[0]));
-          return {
-            id: row.id,
-            customerId: row.customerId,
-            customerName: row.customerName,
-            groupKey: row.groupKey,
-            position: groups.findIndex(([key]) => key === row.groupKey) + 1,
-            createdAt: row.createdAt.toISOString(),
-          };
-        }),
-        trial: {
-          settings: await trialSettingsPromise.then(settings=>{
-            const snapshot=courseChargeSnapshot.safeParse(session.chargeSnapshot);
-            return snapshot.success?{...settings,trialEnabled:settings.trialEnabled&&snapshot.data.trialPrice!==null,trialDefaultPrice:snapshot.data.trialPrice??settings.trialDefaultPrice}:settings;
-          }),
-          canCreate: canCreate && canTrial,
-          canCollect: canCollectTrial,
-          canCorrect: canCorrectTrial,
-          customers: trialCustomers,
-        },
-        session: { templateId:session.templateId,compatibleTemplateIds:sportsRule?.enrollment==="ASSIGNED"?teachingTemplates:compatibleTemplateIds,startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && waitlistPolicy.waitlistEnabled, waitlistStopMinutes: waitlistPolicy.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
-        cards: cards.filter((card) => (!musicStore || card.unit === "SESSION")&&(!sportsRule||cardRights(card).eligible)).map((card) => ({
-          ...card,
-          entries: canReadCards ? card.entries : [],
-        })),
-      },
-    };
-  } catch (error) {
-    return handleActionError(error);
-  }
+    const actor = await measureMusicRead("detail.authorize",()=>courseManager("booking.read"));
+    return await readAuthorizedCourseSessionDetail(actor,sessionId,rosterOnly,trialOnly);
+  } catch (error) { return handleActionError(error); }
 }
 
 export async function loadCourseRosterQuick(sessionId: string) {
@@ -936,6 +847,54 @@ export async function loadCourseRosterQuick(sessionId: string) {
   }
 }
 
+/** Only the teacher field; the caller supplies an authorized server store. */
+async function writeCourseTeacherNote(storeId:string,data:{sessionId:string;note:string;expectedNote?:string}){
+  const result=await coursePrisma.courseSession.updateMany({where:{id:data.sessionId,storeId,cancelledAt:null,...(data.expectedNote!==undefined?{teacherNote:data.expectedNote}:{})},data:{teacherNote:data.note}});
+  if(!result.count){
+    const current=await coursePrisma.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null},select:{teacherNote:true}});
+    if(!current)throw new AppError("NOT_FOUND","找不到本店課程");
+    if(current.teacherNote!==data.note)return {success:false as const,error:"教師備註已由其他人更新，輸入已保留，請重新核對",currentValue:current.teacherNote};
+  }
+  return {success:true as const};
+}
+
+/** One transport, two ordered phases. Never put the write inside read memo. */
+export async function saveMusicTeacherNoteWithRoster(input:unknown){
+  try{
+    const data=z.object({sessionId:id,note:z.string().trim().max(1000),expectedNote:z.string().max(1000)}).strict().parse(input);
+    if(isReadRequestMemoActive())throw new AppError("VALIDATION","此操作需要獨立寫入請求");
+    const actor=await courseManager("booking.update");
+    const [music,nativeSports]=await Promise.all([isMusicCourseStore(coursePrisma,actor.storeId),sportsNativePreview(actor.storeId)]);
+    if(!music||nativeSports)throw new AppError("FORBIDDEN","此入口僅適用音樂課程教師備註");
+    let saved;
+    try{saved=await writeCourseTeacherNote(actor.storeId,data);}
+    catch(error){
+      if(error instanceof AppError)throw error;
+      // A connection can disappear after the database committed. Do not invite
+      // another write until the caller has checked the authoritative note.
+      return {success:false as const,uncertain:true as const,error:"結果待確認，輸入已保留，請重新開啟名單核對後再操作"};
+    }
+    if(!saved.success)return saved;
+    // The write has committed. A failed/denied projection cannot make it an
+    // unsaved write or disclose a partial roster. Start a fresh read-only memo.
+    try{
+      return await withReadRequestMemo(()=>withPermissionRequestSession(async()=>{
+        const reader=await courseManager("booking.read");
+        if(reader.storeId!==actor.storeId||reader.user.id!==actor.user.id)throw new AppError("FORBIDDEN","操作範圍已變更，請重新開啟名單");
+        if(!await readCourseDetailMusicStore(reader.storeId))throw new AppError("FORBIDDEN","音樂課程權限已變更，請重新開啟名單");
+        const result=await readAuthorizedCourseSessionDetail(reader,data.sessionId,true,false);
+        return {success:true as const,sync:{state:"ready" as const,snapshot:{sessionId:data.sessionId,data:result.data}}};
+      }));
+    }catch(error){
+      const failed=handleActionError(error);
+      return {success:true as const,sync:{state:"failed" as const,error:failed.success?"名單同步未完成，請重新讀取":failed.error}};
+    }
+  }catch(error){
+    const failed=handleActionError(error);
+    return {success:false as const,error:failed.success?"操作失敗，請重新核對":failed.error};
+  }
+}
+
 export async function saveCourseRosterNote(input: unknown) {
   try {
     const data=z.object({
@@ -964,10 +923,13 @@ export async function saveCourseRosterNote(input: unknown) {
       if(data.expectedNote === undefined) refresh();
       return {success:true as const};
     } else {
-      const result=await coursePrisma.courseSession.updateMany({where:{id:data.sessionId,storeId,cancelledAt:null,...(data.expectedNote!==undefined?{teacherNote:data.expectedNote}:{})},data:{teacherNote:data.note}});
-      if(!result.count){const current=await coursePrisma.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null},select:{teacherNote:true}});if(!current)throw new AppError("NOT_FOUND","找不到本店課程");if(current.teacherNote!==data.note)return {success:false as const,error:"教師備註已由其他人更新，輸入已保留，請重新核對",currentValue:current.teacherNote};}
+      const saved=await writeCourseTeacherNote(storeId,data);
+      if(!saved.success)return saved;
     }
-    if(!(await (await import("@/lib/sports-native-preview")).sportsNativePreview(storeId)))refresh();return {success:true as const};
+    // Compare-and-save editors already invalidate and reconcile the calendar.
+    // Avoid making the action render it once more before that client refresh.
+    if(data.expectedNote === undefined && !(await sportsNativePreview(storeId))) refresh();
+    return {success:true as const};
   } catch(error) {return handleActionError(error);}
 }
 

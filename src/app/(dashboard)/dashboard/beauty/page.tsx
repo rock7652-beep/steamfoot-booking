@@ -1,3 +1,5 @@
+import {withBeautyReadScope} from "@/server/beauty/request-scope";
+import {traceBeautyRead} from '@/server/beauty/read-timing';
 import {redirectOperations} from "@/lib/operations-navigation-server";
 import {beautyDashboardScope} from '@/lib/beauty/dashboard-scope';
 import {operationsArea,legacyOperationsHref} from "@/lib/operations-navigation";
@@ -45,7 +47,10 @@ import { FEATURES } from "@/lib/feature-flags";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { toLocalDateStr, toLocalMonthStr } from "@/lib/date-utils";
 import { isReadOnlyStoreTarget } from "@/lib/store-read-only";
-export default async function BeautyPage({
+export default function BeautyPage(props:Parameters<typeof BeautyPageContent>[0]) {
+  return withBeautyReadScope(()=>BeautyPageContent(props));
+}
+async function BeautyPageContent({
   searchParams,
 }: {
   searchParams: Promise<{
@@ -116,8 +121,7 @@ export default async function BeautyPage({
         : toLocalMonthStr();
   let financialDates:ReturnType<typeof courseAnalysisRange>|undefined;
   if(tab==='營運'){try{financialDates=courseAnalysisRange(q.dateFrom||q.dateTo?{startDate:q.dateFrom,endDate:q.dateTo}:q);beautyAnalysisBounds(financialDates);}catch{return <PageShell><p role="alert">請選擇有效且不超過一年的收支日期。</p></PageShell>;}}
-  const [data, store, view] = await Promise.all([
-    beautyDashboard(
+  const loadDashboard=()=>beautyDashboard(
       date,
       month,
       q.calendar === "week" || q.calendar === "month" ? q.calendar : "day",
@@ -125,7 +129,11 @@ export default async function BeautyPage({
       tab==='技師管理',
       tab==='班表',
       tab==='收費方式',
-    ),
+      tab==='班表',
+      tab!=='班表',
+    );
+  const [data, store, view] = await Promise.all([
+    tab==='班表' ? traceBeautyRead('dashboard.calendar',loadDashboard).then(result=>result.value) : loadDashboard(),
     prisma.store.findUniqueOrThrow({
       where: { id: a.storeId },
       select: { id:true,name:true,slug: true },

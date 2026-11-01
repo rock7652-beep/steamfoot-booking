@@ -1,0 +1,292 @@
+{
+  "commit": "0270b4fbb005e8d3316f2328f7b726e01b5fc749",
+  "origin": "https://steamfoot-booking-otbnhkask-rock7652-2111s-projects.vercel.app",
+  "method": "all calendar rosters before calendar-ready; no deliberate idle before click; abort opening detail reads for 500ms; compare full snapshot with original API; no business writes",
+  "calendars": [
+    {
+      "module": "sports",
+      "firstReady": "true",
+      "readyMs": 7575,
+      "count": 61
+    },
+    {
+      "module": "beauty",
+      "firstReady": "true",
+      "readyMs": 2998,
+      "count": 11
+    },
+    {
+      "module": "music",
+      "firstReady": "true",
+      "readyMs": 18271,
+      "count": 149
+    }
+  ],
+  "openings": [
+    {
+      "module": "sports",
+      "label": "first-open",
+      "clickToCompleteMs": 23,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "reopen",
+      "clickToCompleteMs": 12,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "responsive-1366",
+      "clickToCompleteMs": 13,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "responsive-1024",
+      "clickToCompleteMs": 13,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "responsive-768",
+      "clickToCompleteMs": 14,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "responsive-390",
+      "clickToCompleteMs": 13,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "month-switch-mixed-trial-card",
+      "clickToCompleteMs": 14,
+      "initialDetailRequests": 0,
+      "rows": 2
+    },
+    {
+      "module": "beauty",
+      "label": "first-open",
+      "clickToCompleteMs": 493,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "reopen",
+      "clickToCompleteMs": 16,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "responsive-1366",
+      "clickToCompleteMs": 15,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "responsive-1024",
+      "clickToCompleteMs": 12,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "responsive-768",
+      "clickToCompleteMs": 14,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "responsive-390",
+      "clickToCompleteMs": 15,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "first-open",
+      "clickToCompleteMs": 35,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "reopen",
+      "clickToCompleteMs": 20,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "responsive-1366",
+      "clickToCompleteMs": 19,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "responsive-1024",
+      "clickToCompleteMs": 24,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "responsive-768",
+      "clickToCompleteMs": 26,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "responsive-390",
+      "clickToCompleteMs": 18,
+      "initialDetailRequests": 0,
+      "rows": 1
+    }
+  ],
+  "checks": [
+    {
+      "module": "sports",
+      "check": "full-payload-parity",
+      "hash": "c5e163049c8c9ca1a53d458b0caa96cdd7cdf6ea21963b127d6bd69905259fed",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "responsive-bounds",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "responsive-bounds",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "responsive-bounds",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "responsive-bounds",
+      "width": 390,
+      "height": 844,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "month-switch-complete-mixed-roster-parity",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "full-payload-parity",
+      "hash": "a1f0e488f4ddd635e596c91aaabebecb7f5be7c05561c51fa2c2a49e33a16c1e",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "responsive-bounds",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "responsive-bounds",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "responsive-bounds",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "responsive-bounds",
+      "width": 390,
+      "height": 844,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "full-payload-parity",
+      "hash": "5970d2069f6c216143591e9310e987564f5985100006604d842553652972d55b",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "responsive-bounds",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "responsive-bounds",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "responsive-bounds",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "responsive-bounds",
+      "width": 390,
+      "height": 844,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "complete": true,
+  "deploymentId": "dpl_FY2cA16YcR3TVCuJbR2NqUsRMV9x",
+  "sourceCommit": "0270b4fbb005e8d3316f2328f7b726e01b5fc749",
+  "limits": [
+    "Music November cohosted pilot imports are intentionally blocked by their exact branch guard; September existing synthetic group fixture was used instead.",
+    "Cold calendar-ready includes every selected roster and is not sub-second.",
+    "Real Safari/iPad and production logged-in stores were not exercised."
+  ],
+  "cleanup": {
+    "qaUsersSuspendedAndPasswordCleared": 3,
+    "qaStaffInactive": 3,
+    "privateInputFilesRemoved": true,
+    "olderCandidateShareRevoked": true,
+    "activeCandidateShareTTLSeconds": 82800
+  },
+  "businessCountsBeforeAndAfter": {
+    "CoursePurchase": 125,
+    "CoursePointEntry": 933,
+    "CourseBooking": 621,
+    "BeautyPayment": 90,
+    "BeautyLedger": 126
+  }
+}

@@ -144,3 +144,18 @@ it('keeps distinct grants while sharing one verified store/membership per reques
  expect(m.readStore).toHaveBeenCalledTimes(1);expect(m.staff.findFirst).toHaveBeenCalledTimes(1);expect(m.store.findFirst).toHaveBeenCalledTimes(1);
  m.staff.findFirst.mockResolvedValue(null);await expect(withBeautyReadScope(()=>beautyManager('customer.read'))).rejects.toThrow('停用');
 });
+
+// The page entry and dashboard query retain the same read authorization in one request.
+import {beautyPageManager} from '@/server/beauty/page-access';
+it('shares page and dashboard authorization only within the same fresh read request',async()=>{
+ const user={id:'u',storeId:'s',staffId:'staff',role:'MANAGER'} as Parameters<typeof beautyPageManager>[0];
+ await withBeautyReadScope(async()=>{
+  const pageActor=await beautyPageManager(user);
+  const dashboardActor=await beautyManager('booking.read');
+  expect(dashboardActor).toBe(pageActor);
+ });
+ expect(m.permission).toHaveBeenCalledOnce();expect(m.store.findFirst).toHaveBeenCalledOnce();expect(m.staff.findFirst).toHaveBeenCalledOnce();
+ m.staff.findFirst.mockResolvedValue(null);
+ await expect(withBeautyReadScope(()=>beautyPageManager(user))).rejects.toThrow('停用');
+ expect(m.permission).toHaveBeenCalledTimes(2);
+});

@@ -1,7 +1,7 @@
 "use client";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
-import type {CourseRosterSource,NativeRosterBooking} from "./roster-source";
+import type {CourseRosterSource,NativeRosterBooking,CourseRosterSnapshot,TeacherNoteSnapshotLease} from "./roster-source";
 import {CourseRosterList,type CourseRosterDisplayRow} from "./roster-list";
 import bookingLayout from "./sports-booking-layout.module.css";
 import {startSportsBackgroundSync} from "@/lib/sports-background-sync";
@@ -58,6 +58,7 @@ import {
   loadCourseSessionDetail,
   loadCourseRosterQuick,
   saveCourseRosterNote,
+  saveMusicTeacherNoteWithRoster,
   markCourseTeacherAttendance,
   createCourseBooking,
   loadCourseStudentPurchase,
@@ -138,6 +139,9 @@ export function CourseRoster({
   roomId = "",
   initialAssignedCoach = "all",
   previewBookings,
+  initialSnapshot,
+  onSnapshotInvalidated,
+  beginTeacherNoteSnapshot,
 }: {
   source?:CourseRosterSource;
   sessionId: string;
@@ -150,7 +154,7 @@ export function CourseRoster({
   allowTrialActions?: boolean;
   view?: RosterView;
   onDone?: () => void;
-  onCommitted?: () => void;
+  onCommitted?: () => void | Promise<boolean | null | void>;
   onSessionCancelled?: () => void;
   onAttendanceOptimistic?: (bookingId: string, status: "ATTENDED" | "NO_SHOW" | "CANCELLED" | "RESERVED" | null, leave?:boolean) => void;
   onTeacherAttendanceOptimistic?: (status: "SCHEDULED" | "LEAVE" | "NO_SHOW" | null) => void;
@@ -165,11 +169,21 @@ export function CourseRoster({
   coachId?: string;
   roomId?: string;
   initialAssignedCoach?: string;
+  initialSnapshot?:CourseRosterSnapshot;
+  onSnapshotInvalidated?:()=>void;
+  beginTeacherNoteSnapshot?:(sessionId:string)=>TeacherNoteSnapshotLease|null;
   previewBookings?:readonly {id:string;customerName:string;status:string}[];
 }) {
+  const initial=initialSnapshot?.sessionId===sessionId?initialSnapshot:source?.snapshot?.sessionId===sessionId?source.snapshot:undefined;
+  const seed=initial?.data;
+  const seededRead=useRef(initial);
   const personnelText = useCoursePersonnelText();
   const [sourceReadFailed,setSourceReadFailed]=useState(false);
   const canEdit=canEditProp&&!sourceReadFailed;
+  const [readStatus,setReadStatus]=useState<{sessionId:string;error:string;retrying:boolean}|null>(null);
+  const readFailure=readStatus?.sessionId===sessionId?readStatus:null;
+  const retryFullRead=useRef<()=>Promise<unknown>>(()=>Promise.resolve(null));
+  const retryLock=useRef<object|null>(null);
   const router = useRouter();
   const sportsDetailReader=usePanelReader("sports-session-detail",readSportsSessionDetail,"",0);
   const musicDetailReader=usePanelReader("music-session-detail",readCourseSessionDetailClient,"",0);
@@ -204,7 +218,8 @@ export function CourseRoster({
   const [makeupPending,setMakeupPending]=useState(false);
   const pending = transitionPending || uncertain || makeupPending;
   const bulkPending = pending || savingBookingIds.length > 0;
-  useEffect(()=>{onBusyChange?.(bulkPending);return()=>onBusyChange?.(false);},[bulkPending,onBusyChange]);
+  const ownerBusy=view==="roster"?transitionPending||makeupPending||savingBookingIds.length>0:bulkPending;
+  useEffect(()=>{onBusyChange?.(ownerBusy);return()=>onBusyChange?.(false);},[ownerBusy,onBusyChange]);
   const [batchMode, setBatchMode] = useState(false);
   const [paymentMenu, setPaymentMenu] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -214,18 +229,18 @@ export function CourseRoster({
   const [showCancelled, setShowCancelled] = useState(false);
   const [expandedLessonIds, setExpandedLessonIds] = useState<string[]>([]);
   const [openActionMenu, setOpenActionMenu] = useState<{ bookingId?: string; kind?:"status"|"more"; attendance?:boolean; top: number; left: number } | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [sharedCardState, setSharedCardState] = useState<FeaturePresentationState>("ENABLED");
+  const [loaded, setLoaded] = useState(!!seed);
+  const [sharedCardState, setSharedCardState] = useState<FeaturePresentationState>(seed?.sharedCardState??"ENABLED");
   useEffect(() => {
     if (sharedCardState !== "ENABLED" && companionEditor?.add) setCompanionEditor(null);
   }, [sharedCardState, companionEditor]);
   const [roster, setRoster] = useState<
     NativeRosterBooking[]
-  >([]);
-  const [pendingMakeups, setPendingMakeups] = useState<Array<{id:string;customerId:string | null;cardId:string;date:string}>>([]);
-  const [waitlist, setWaitlist] = useState<Array<{id:string;customerId:string | null;customerName:string;groupKey:string;position:number;createdAt:string}>>([]);
+  >(()=>seed?.roster??[]);
+  const [pendingMakeups, setPendingMakeups] = useState<Array<{id:string;customerId:string | null;cardId:string;date:string}>>(()=>seed?.pendingMakeups??[]);
+  const [waitlist, setWaitlist] = useState<Array<{id:string;customerId:string | null;customerName:string;groupKey:string;position:number;createdAt:string}>>(()=>seed?.waitlist??[]);
   const [makeupForBookingId, setMakeupForBookingId] = useState("");
-  const [cards, setCards] = useState<CourseCardView[]>([]);
+  const [cards, setCards] = useState<CourseCardView[]>(()=>seed?.cards??[]);
   const [learnerCustomers,setLearnerCustomers]=useState<Array<{id:string;name:string;phone:string}>>([]);
   useEffect(()=>setLearnerCustomers([]),[sessionId]);
   const [session, setSession] = useState<{
@@ -237,14 +252,14 @@ export function CourseRoster({
     teacherMakeupForSessionId:string|null;
     compatibleTemplateIds?: string[]; waitlistStopMinutes:number;
     waitlistEnabled?:boolean;
-  } | null>(null);
+  } | null>(()=>seed?.session??null);
   const [trial, setTrial] = useState<
     Extract<
       Awaited<ReturnType<typeof loadCourseSessionDetail>>,
       { success: true }
     >["data"]["trial"] | null
-  >(null);
-  const [canPurchase, setCanPurchase] = useState(false);
+  >(()=>seed?.trial??null);
+  const [canPurchase, setCanPurchase] = useState(seed?.canPurchase??false);
   const [purchaseFor, setPurchaseFor] = useState<string | null>(null);
   const [purchaseOptions, setPurchaseOptions] = useState<Extract<Awaited<ReturnType<typeof loadCourseStudentPurchase>>, {success:true}>["data"] | null>(null);
   const [purchasePlanId, setPurchasePlanId] = useState("");
@@ -302,6 +317,9 @@ export function CourseRoster({
   const activeNoteEditor = useRef(editingNote);
   activeNoteEditor.current = editingNote;
   const [noteDraft,setNoteDraft]=useState("");
+  // An uncertain teacher write still blocks resubmission, but the user must
+  // be able to leave the editor and reopen the roster to check the outcome.
+  const noteCloseBlocked=pending&&!(uncertain&&!transitionPending&&!makeupPending&&musicLayout&&!source&&view==="roster"&&editingNote&&!editingNote.bookingId);
   const infoGuard = useCustomerPanelGuard(source?.confirmDiscard!==false);
   const [infoBooking,setInfoBooking]=useState<{id:string;sessionId:string}|null>(null);
   const [infoView, setInfoView] = useState<"notes" | "history">("notes");
@@ -328,6 +346,7 @@ export function CourseRoster({
       // Also invalidate any refresh that started while the write was pending.
       ++readVersion.current;
       setRoster(rows => rows.map(row => row.id === bookingId ? {...row, notes: notes ?? ""} : row));
+      onCommitted?.();
     };
     return {
       // OperationScope already isolates this retained editor by account/store.
@@ -342,6 +361,7 @@ export function CourseRoster({
         savedGeneration = generation;
         // Reads already in flight must not restore a pre-save note afterward.
         ++readVersion.current;
+        onSnapshotInvalidated?.();
         const result = await (source?.note??saveCourseRosterNote)({sessionId, bookingId, note: notes ?? "", expectedNote: expected ?? ""});
         // A filter can unmount the row while the same roster remains open.
         // Record the committed note even if its editor is no longer mounted.
@@ -360,6 +380,43 @@ export function CourseRoster({
     };
   }
 
+  function saveMusicTeacherNote(value:string,expected:string,lease:TeacherNoteSnapshotLease){
+    const scope=operationScope.current;
+    if(scope.locked||scope.uncertain||scope.inFlight.size){lease.dispose();return;}
+    scope.locked=true;const version=++readVersion.current;
+    const current=()=>rosterMounted.current&&operationScope.current===scope&&readVersion.current===version;
+    setNoteError("");setMessage("儲存中…");
+    start(async()=>{
+      let saved=false;
+      const recover=()=>{
+        if(lease.invalidate()){
+          publishMusicFinanceChange("general",undefined,onCommitted?{calendarRefreshOwned:true}:undefined);
+          void Promise.resolve(onCommitted?.()).catch(()=>{});
+        }
+        if(current()){
+          setMessage("備註已儲存，名單同步未完成，請重新讀取");
+          setReadStatus({sessionId,error:"備註已儲存，名單同步未完成，請重新讀取",retrying:false});
+        }
+      };
+      try{
+        let result;
+        try{result=await saveMusicTeacherNoteWithRoster({sessionId,note:value,expectedNote:expected});if(typeof result?.success!=="boolean")throw Error('Unconfirmed write');}
+        catch{lease.invalidate();if(current()){scope.uncertain=true;setNoteError("結果待確認，輸入已保留，請重新開啟名單核對後再操作");setMessage("結果待確認，請重新開啟名單核對後再操作");}return;}
+        if(!current()){if(result.success)recover();return;}
+        if(!result.success){lease.invalidate();if("uncertain" in result&&result.uncertain)scope.uncertain=true;setNoteError(result.error??"備註尚未儲存");setMessage(result.error??"備註尚未儲存");return;}
+        saved=true;setEditingNote(null);setMessage("備註已儲存，正在更新名單");
+        if(result.sync?.state!=="ready"||result.sync.snapshot.sessionId!==sessionId||!lease.accept(result.sync.snapshot)){recover();return;}
+        const data=result.sync.snapshot.data;
+        // The old seed remains consumed until the parent delivers its new snapshot.
+        setRoster(data.roster);setSession(data.session);setCards(data.cards);setTrial(data.trial);setWaitlist(data.waitlist??[]);setCanPurchase(data.canPurchase);setSharedCardState(data.sharedCardState??"ENABLED");setLoaded(true);setReadStatus(null);
+        publishMusicFinanceChange("general",undefined,{calendarRefreshOwned:true});setMessage("備註已儲存");
+      }catch{if(saved)recover();}
+      finally{scope.locked=false;lease.dispose();}
+    });
+  }
+
+  function notifyRosterChanged(){onSnapshotInvalidated?.();publishMusicFinanceChange("general",undefined,onCommitted?{calendarRefreshOwned:true}:undefined);onCommitted?.();}
+
   async function load(reportError = true): Promise<"loaded" | "failed" | "stale"> {
     if(sportsNative)sportsDetailReader.clear();
     const scope = operationScope.current;
@@ -369,9 +426,10 @@ export function CourseRoster({
       const result = source?await source.read(sessionId):await (musicLayout?musicPanelRead("roster-quick",[sessionId],()=>loadCourseRosterQuick(sessionId)):loadCourseRosterQuick(sessionId));
       if (!isCurrent()) return "stale";
       if (!result.success) {
-        if (reportError) setMessage(result.error);
+        if (reportError)setReadStatus({sessionId,error:result.error,retrying:false});
         return "failed";
       }
+      setReadStatus(null);
       setRoster(result.data.roster);
       setSharedCardState(result.data.sharedCardState ?? "ENABLED");
       setWaitlist(result.data.waitlist ?? []);
@@ -380,7 +438,7 @@ export function CourseRoster({
       return "loaded";
     } catch {
       if (!isCurrent()) return "stale";
-      if (reportError) setMessage("讀取失敗，現有名單已保留，請重試");
+      if (reportError)setReadStatus({sessionId,error:"讀取失敗，現有名單已保留，請重試",retrying:false});
       return "failed";
     }
   }
@@ -390,21 +448,29 @@ export function CourseRoster({
   const sourceSync=source?.sync;
   const sourceReadBlocked=useRef(false);sourceReadBlocked.current=!!source?.readBlocked;
   const sourceRead=source?.read;
-  const sourceSnapshot=source?.snapshot;
+  const sourceSnapshot=source?.snapshot??initialSnapshot;
+  const appliedSnapshot=useRef(seed);
   useEffect(()=>{
-    if(!sourceSnapshot||sourceSnapshot.sessionId!==sessionId)return;
+    if(!sourceSnapshot||sourceSnapshot.sessionId!==sessionId||sourceSnapshot.data===appliedSnapshot.current)return;
+    const scope=operationScope.current;
+    if(scope.locked||scope.inFlight.size||scope.uncertain||editingNote)return;
     ++readVersion.current;
-    sourceVersion.current=sourceSnapshot.data.readVersion;
     const current=sourceSnapshot.data;
+    appliedSnapshot.current=current;
+    setReadStatus(null);setSourceReadFailed(false);
+    sourceVersion.current="readVersion" in current?current.readVersion:undefined;
     setRoster(current.roster);setSession(current.session);setCards(current.cards);
+    setWaitlist(current.waitlist??[]);setTrial(current.trial);setCanPurchase(current.canPurchase);
     setSharedCardState(current.sharedCardState??"ENABLED");setLoaded(true);
-  },[sourceSnapshot,sessionId]);
+  },[sourceSnapshot,sessionId,operationFeedback,editingNote]);
   useEffect(() => {
     let active = true;
     let readInFlight = false;
-    let initialDetailLoaded = false;
+    const preloaded=seededRead.current?.sessionId===sessionId?seededRead.current.data:undefined;
+    seededRead.current=undefined;
+    let initialDetailLoaded = !!preloaded;
 
-    sourceVersion.current=undefined;
+    sourceVersion.current=preloaded&&"readVersion" in preloaded?preloaded.readVersion:undefined;
     const refresh = (checkVersion=false) => {
       if(cancelledSession.current === sessionId)return Promise.resolve(null);
       if (sourceReadBlocked.current || (sportsNative && (readInFlight || operationScope.current.uncertain)) || operationScope.current.locked || operationScope.current.inFlight.size > 0) return Promise.resolve(null);
@@ -415,9 +481,10 @@ export function CourseRoster({
 
         .then((result) => {
           if (sourceReadBlocked.current || !active || version !== readVersion.current || currentSession.current !== sessionId) return null;
-          if(result.success&&"unchanged" in result&&result.unchanged){setSourceReadFailed(false);return true;}
+          if(result.success&&"unchanged" in result&&result.unchanged){setSourceReadFailed(false);setReadStatus(null);return true;}
           if (result.success&&result.data) {
             initialDetailLoaded = true;
+            setReadStatus(null);
             setSourceReadFailed(false);sourceVersion.current="readVersion" in result.data?result.data.readVersion as string|undefined:undefined;
             setSession(result.data.session);
             setTrial(result.data.trial);
@@ -433,17 +500,22 @@ export function CourseRoster({
             return true;
           } else {
             if(sourceRead)setSourceReadFailed(true);
-            setMessage("error" in result?result.error:"名單回應不完整");
+            setReadStatus({sessionId,error:"error" in result?result.error:"名單回應不完整",retrying:false});
             return false;
           }
         })
         .catch(() => {
-          if (active && version === readVersion.current){if(sourceRead)setSourceReadFailed(true);setMessage("讀取失敗，現有名單已保留，請重試");}
+          if (active && version === readVersion.current){if(sourceRead)setSourceReadFailed(true);setReadStatus({sessionId,error:"讀取失敗，現有名單已保留，請重試",retrying:false});}
           return false;
         }).finally(() => { readInFlight = false; });
     };
+    retryFullRead.current=()=>{
+      if(sportsNative)sportsDetailReader.clear();else if(musicLayout)musicDetailReader.clear();
+      return refresh();
+    };
     const unsubscribe = isMusicPreviewPage() ? subscribeMusicFinanceChange(() => { void refresh(true); }) : () => {};
-    void refresh();
+    if(preloaded)setRequestKey(current=>current||crypto.randomUUID());
+    else void refresh();
     const refreshVisibleRoster = () => {
       if (view === "roster" && document.visibilityState === "visible") {
         void refresh();
@@ -482,6 +554,7 @@ export function CourseRoster({
     const bookingId = quickAttendance ? updates[0].bookingId : null;
     if (scope.locked || scope.uncertain ||
         (bookingId ? scope.inFlight.has(bookingId) || !musicLayout && scope.inFlight.size > 0 : scope.inFlight.size > 0)) return;
+    onSnapshotInvalidated?.();
     if (bookingId) scope.inFlight.add(bookingId);
     else scope.locked = true;
     const sequence = ++scope.sequence;
@@ -562,8 +635,8 @@ export function CourseRoster({
           return;
         }
         outcome = "saved";
-        if(sessionCancelled){cancelledSession.current=sessionId;setRoster([]);setMessage(successMessage);feedback({phase:"saved",message:successMessage});publishMusicFinanceChange();onSessionCancelled?.();return;}
-        publishMusicFinanceChange();
+        if(sessionCancelled){cancelledSession.current=sessionId;setRoster([]);setMessage(successMessage);feedback({phase:"saved",message:successMessage});notifyRosterChanged();onSessionCancelled?.();return;}
+        notifyRosterChanged();
         if (teacherStatus) {
           // A teacher change also refunds/restores every booking. Read those
           // committed rows before publishing the new class state or success.
@@ -586,7 +659,6 @@ export function CourseRoster({
           setSession(old=>old?{...old,teacherNote:current.teacherNote,teacherAttendance:current.teacherAttendance,teacherAttendanceReason:current.teacherAttendanceReason,waitlistStopMinutes:current.waitlistStopMinutes}:old);
           setLoaded(true);projectionApplied=true;
         }
-        if(sportsNative)onCommitted?.();
         feedback({ phase: "saved", message: "" });
         if (sequence === scope.sequence && !scope.uncertain) setMessage(successMessage);
         if (!bookingId) {
@@ -607,7 +679,7 @@ export function CourseRoster({
             }
           }
           if (!bookingId && isCurrent()) {
-            if(!sportsNative&&!projectionApplied)router.refresh();
+            if(!sportsNative&&!projectionApplied&&!onCommitted)router.refresh();
             if (outcome === "saved" && !scope.uncertain && view !== "roster") onDone?.();
           }
         }
@@ -844,16 +916,29 @@ export function CourseRoster({
         )
       : [];
 
+  async function retryRosterRead(){
+    const scope=operationScope.current;
+    if(bulkPending||retryLock.current===scope)return;
+    retryLock.current=scope;
+    setReadStatus(previous=>previous?.sessionId===sessionId?{...previous,retrying:true}:previous);
+    try{await retryFullRead.current();}
+    finally{
+      if(retryLock.current===scope)retryLock.current=null;
+      if(rosterMounted.current&&operationScope.current===scope)setReadStatus(previous=>previous?.sessionId===sessionId?{...previous,retrying:false}:previous);
+    }
+  }
+  const readNotice=readFailure&&<div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900"><span>{readFailure.error}</span><button type="button" className={button} disabled={readFailure.retrying||bulkPending} onClick={()=>void retryRosterRead()}>{readFailure.retrying?"重新讀取中…":"重新讀取名單"}</button></div>;
+
   if (!loaded) {
     if(view==="roster"&&previewBookings)return <section aria-busy="true" className="space-y-2">
-      <p role="status" className="text-sm text-earth-600">{message||"正在核對最新名單…"}</p>
+      {readNotice||<p role="status" className="text-sm text-earth-600">{message||"正在核對最新名單…"}</p>}
       <ul className="divide-y divide-earth-100 rounded-xl border border-earth-200 bg-white">
         {previewBookings.filter(b=>b.status!=="CANCELLED").map(b=><li key={b.id} className="min-h-14 px-4 py-3 text-sm font-semibold text-earth-800">{b.customerName}</li>)}
       </ul>
     </section>;
     return (
       <div className="flex min-h-40 items-center justify-center text-earth-600">
-        {message || "讀取中…"}
+        {readNotice || message || "讀取中…"}
       </div>
     );
   }
@@ -1249,7 +1334,8 @@ export function CourseRoster({
 
   return (
 
-    <section data-live-music-roster={musicLayout?'true':undefined} className={`flex min-h-0 w-full flex-col gap-2 ${!musicLayout ? sportsRoster.root : ""} ${musicLayout ? "" : "flex-1 overflow-hidden"}`}>
+    <section data-roster-ready="true" data-live-music-roster={musicLayout?'true':undefined} className={`flex min-h-0 w-full flex-col gap-2 ${!musicLayout ? sportsRoster.root : ""} ${musicLayout ? "" : "flex-1 overflow-hidden"}`}>
+      {readNotice}
       {!source&&<aside className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 text-sm" aria-label={`教師資訊：${teacherName}、${courseName}、${roomName}`}>
         <span className="text-xs text-earth-500">{musicLayout ? personnelText("教師") : personnelText("授課教練")}</span><strong>{teacherName}</strong>
         {teacherPhone && <a className="inline-flex min-h-11 items-center text-primary-700" href={`tel:${teacherPhone}`}>{teacherPhone}</a>}
@@ -1673,7 +1759,7 @@ export function CourseRoster({
         </div>
       )}
 
-      {editingNote && <ModalPanel open onClose={() => {if(!pending)setEditingNote(null);}} labelledById={noteEditorTitleId} width={512}>
+      {editingNote && <ModalPanel open onClose={() => {if(!noteCloseBlocked)setEditingNote(null);}} labelledById={noteEditorTitleId} width={512}>
         <form className="min-h-0 w-full overflow-y-auto p-5" onSubmit={(event)=>{event.preventDefault();const target=editingNote;
           if(musicLayout&&target.bookingId){
             if(noteWritePending.current)return;
@@ -1691,7 +1777,11 @@ export function CourseRoster({
             });
             return;
           }
-          if(sportsNative){setNoteError("");start(async()=>{++readVersion.current;setMessage("儲存中…");try{const result=await (source?.note??saveCourseRosterNote)({sessionId,bookingId:target.bookingId,note:noteDraft,expectedNote:target.value});if(!result.success){setNoteError(result.error??"備註尚未儲存");setMessage(result.error??"備註尚未儲存");return;}if(target.bookingId)setRoster(rows=>rows.map(row=>row.id===target.bookingId?{...row,notes:noteDraft}:row));else setSession(old=>old?{...old,teacherNote:noteDraft}:old);setEditingNote(null);setMessage("備註已儲存");}catch{setNoteError("連線失敗，輸入已保留");setMessage("連線失敗，輸入已保留");}});return;}
+          if(sportsNative){setNoteError("");start(async()=>{++readVersion.current;setMessage("儲存中…");try{const result=await (source?.note??saveCourseRosterNote)({sessionId,bookingId:target.bookingId,note:noteDraft,expectedNote:target.value});if(!result.success){setNoteError(result.error??"備註尚未儲存");setMessage(result.error??"備註尚未儲存");return;}onSnapshotInvalidated?.();if(target.bookingId)setRoster(rows=>rows.map(row=>row.id===target.bookingId?{...row,notes:noteDraft}:row));else setSession(old=>old?{...old,teacherNote:noteDraft}:old);setEditingNote(null);setMessage("備註已儲存，課表同步中…");try{const synced=await onCommitted?.();setMessage(synced===false||synced===null?"備註已儲存，課表同步未完成，請重新讀取":"備註已儲存");}catch{setMessage("備註已儲存，課表同步未完成，請重新讀取");}}catch{setNoteError("連線失敗，輸入已保留");setMessage("連線失敗，輸入已保留");}});return;}
+          if(musicLayout&&!source&&view==="roster"&&!target.bookingId){
+            const lease=beginTeacherNoteSnapshot?.(sessionId);
+            if(lease){saveMusicTeacherNote(noteDraft,target.value,lease);return;}
+          }
           run(()=>{
           if(target.bookingId) {
             // A newer save through the existing details editor also supersedes
@@ -1704,7 +1794,7 @@ export function CourseRoster({
           {noteError&&<p role="alert" className="mb-2 text-red-700">{noteError}</p>}
           <h3 id={noteEditorTitleId} className="text-lg font-semibold">{editingNote.name} · {editingNote.bookingId ? "本次備註" : personnelText("教師備註")}</h3>
           <textarea className={`${field} mt-3 min-h-28`} value={noteDraft} maxLength={1000} onChange={(event)=>setNoteDraft(event.target.value)} placeholder="記錄本次上課需要留意的事項" />
-          <div className="mt-4 flex justify-end gap-2"><button type="button" disabled={pending} className={reminderButton} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton.replace("min-h-10", "min-h-11")} disabled={pending}>儲存</button></div>
+          <div className="mt-4 flex justify-end gap-2"><button type="button" disabled={!!noteCloseBlocked} className={reminderButton} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton.replace("min-h-10", "min-h-11")} disabled={pending}>儲存</button></div>
         </form>
       </ModalPanel>}
       {purchaseFor && <ModalPanel open pending={purchasePending} width={1100} labelledById="course-roster-purchase-title" onClose={()=>{++purchaseRead.current;setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>
@@ -1712,7 +1802,7 @@ export function CourseRoster({
           <div className="flex items-center justify-between gap-3 border-b border-earth-200 p-3"><div><h3 id="course-roster-purchase-title" className="font-semibold">學員繳費 · {purchaseOptions?.customerName ?? roster.find((row) => row.id === purchaseFor)?.customerName}</h3></div><button type="button" className={button} disabled={purchasePending} onClick={() => {++purchaseRead.current;setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>關閉</button></div>
           <div className="min-h-0 overflow-y-auto p-4">
             {purchaseError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{purchaseError}</p>}
-            <CoursePurchaseRecoveryNotice recovery={purchaseRecovery} disabled={purchasePending} onCommitted={()=>{setPurchasePlanId("");setPurchaseSummary({paid:null,valid:false});setPurchaseKey(crypto.randomUUID());setMessage("購買已完成，正在更新名單");void load(false).then(status=>{if(status==="loaded")setMessage("購買已完成，名單已更新");else if(status==="failed")setMessage("購買已完成，名單同步失敗；請重新讀取名單，勿再次付款。");});}}/>
+            <CoursePurchaseRecoveryNotice recovery={purchaseRecovery} disabled={purchasePending} onCommitted={()=>{onSnapshotInvalidated?.();onCommitted?.();setPurchasePlanId("");setPurchaseSummary({paid:null,valid:false});setPurchaseKey(crypto.randomUUID());setMessage("購買已完成，正在更新名單");void load(false).then(status=>{if(status==="loaded")setMessage("購買已完成，名單已更新");else if(status==="failed")setMessage("購買已完成，名單同步失敗；請重新讀取名單，勿再次付款。");});}}/>
             {!purchaseOptions && !purchaseError && <p role="status">讀取購買方案中…</p>}
             {purchaseOptions && <form id="course-roster-purchase-form" className="grid min-w-0 grid-cols-1 items-start gap-3 @min-[40rem]/member:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]" onSubmit={(event) => {
               event.preventDefault();
@@ -1784,7 +1874,7 @@ export function CourseRoster({
           courseMode
           saveAction={(data) => collectCourseTrial({ ...data, requestKey })}
           onCollected={() => {
-            publishMusicFinanceChange();
+            notifyRosterChanged();
             setPaymentBooking(null);
             void load();
             if(!isMusicPreviewPage())router.refresh();
@@ -1814,7 +1904,7 @@ export function CourseRoster({
             })
           }
           onCorrected={() => {
-            publishMusicFinanceChange();
+            notifyRosterChanged();
             setPaymentBooking(null);
             void load();
             if(!isMusicPreviewPage())router.refresh();
@@ -1822,7 +1912,7 @@ export function CourseRoster({
         />
       )}
 
-      {companionEditor && (!companionEditor.add || sharedCardState === "ENABLED") && <CourseCompanionEditor {...companionEditor} onClose={() => setCompanionEditor(null)} onSaved={() => {publishMusicFinanceChange();void load(); router.refresh();}} />}
+      {companionEditor && (!companionEditor.add || sharedCardState === "ENABLED") && <CourseCompanionEditor {...companionEditor} onClose={() => setCompanionEditor(null)} onSaved={() => {notifyRosterChanged();void load(); router.refresh();}} />}
       {openActionMenu && typeof document !== "undefined" && createPortal(<>
         <div data-roster-action-menu className="fixed z-[141] flex max-h-[calc(100dvh-1rem)] w-48 flex-col gap-1 overflow-y-auto overscroll-contain rounded-lg border border-earth-200 bg-white p-2 text-sm shadow-xl" role="menu" style={{ top: openActionMenu.top, left: openActionMenu.left }}>
           {actionBooking && source ? <>{!source.hideDetailAction&&<button type="button" role="menuitem" className={button} onClick={()=>{setOpenActionMenu(null);setInfoBookingId(actionBooking.id);}}>預約詳情</button>}{(openActionMenu.kind==="status"&&source.statusActions?source.statusActions(actionBooking):source.actions(actionBooking)).map(action=><button key={action.label} type="button" role="menuitem" className={`${button} ${action.danger?"text-red-700":""}`} disabled={sourceReadFailed||rowPending(actionBooking.id)} onClick={()=>{setOpenActionMenu(null);action.onSelect();}}>{action.label}</button>)}</> : actionBooking && sportsNative ? <>

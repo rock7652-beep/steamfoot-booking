@@ -37,7 +37,7 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
       };
     };
     window.addEventListener(MUSIC_PURCHASE_START, beginPurchase);
-    const applyFinanceChange = (kind:import('@/lib/music-finance-sync').MusicFinanceChange) => {
+    const applyFinanceChange = (kind:import('@/lib/music-finance-sync').MusicFinanceChange, context?:import('@/lib/music-finance-sync').MusicFinanceContext) => {
         epoch++;
         const snapshot = kind === "purchase" ? incoming : null;
         incoming = null;
@@ -48,8 +48,12 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
         for (const cache of registry.values()) cache.clear();
         registry.clear();
         // Keep the open roster's authoritative write response mounted. Other
-        // tabs still invalidate normally; this page refreshes once on close.
-        if(document.querySelector('[data-live-music-roster="true"]')){deferredRosterRefresh=true;return;}
+        // tabs still invalidate normally. A local commit with a calendar owner
+        // already refreshes that calendar; external changes still defer to close.
+        if(document.querySelector('[data-live-music-roster="true"]')){
+          if(!context?.calendarRefreshOwned)deferredRosterRefresh=true;
+          return;
+        }
         if (snapshot) purchaseSeeds.install(snapshot);
         setRevision(value => value + 1);
         window.dispatchEvent(new Event("customer-search-invalidated"));

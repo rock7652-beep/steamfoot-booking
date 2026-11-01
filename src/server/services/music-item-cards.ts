@@ -1,3 +1,4 @@
+import {courseCalendarRead} from './course-calendar-read-scope';
 import {coursePrisma} from "@/lib/course-db";
 import 'server-only';
 import {purchaseOrder,sumItemBalances,type ItemBalance} from '@/lib/item-entitlement';
@@ -11,13 +12,16 @@ import type {Prisma} from '../../../generated/course-client';
 /** Native paid rights only; source-bound opening/makeup rights keep their dedicated flows.
  * joinRead is used only by the ordinary-client balance projection below.
  * Attendance binding and transaction callers retain their original strategy. */
-export async function musicItemCards(tx:Prisma.TransactionClient,storeId:string,customerIds:string[],session:{id:string;templateId:string;startsAt:Date},excludeBookingId?:string,joinRead=false){
- const cards=await tx.coursePointCard.findMany({...(joinRead?{relationLoadStrategy:"join" as const}:{}),where:{storeId,closedAt:null,unit:'SESSION',expiresAt:{gte:new Date()},members:{some:{customerId:{in:customerIds}}}},include:{members:true,musicOpeningState:{select:MUSIC_OPENING_SELECT},bookings:{where:{status:'RESERVED',...(excludeBookingId?{id:{not:excludeBookingId}}:{})},select:{pointCost:true}}}});
+export async function musicItemCards(tx:Prisma.TransactionClient,storeId:string,customerIds:string[],session:{id:string;templateId:string;startsAt:Date},excludeBookingId?:string,joinRead=false,calendarCustomerIds?:string[]){
+ const calendar=calendarCustomerIds&&!excludeBookingId?courseCalendarRead(tx,storeId,session.id):undefined;
+ const once=<T>(key:string,read:()=>Promise<T>):Promise<T>=>calendar?calendar.once(key,read):read();
+ const allCards=await once('music-balance-cards',()=>tx.coursePointCard.findMany({...(joinRead?{relationLoadStrategy:"join" as const}:{}),where:{storeId,closedAt:null,unit:'SESSION',expiresAt:{gte:new Date()},members:{some:{customerId:{in:calendar?[...new Set(calendarCustomerIds)]:customerIds}}}},include:{members:true,musicOpeningState:{select:MUSIC_OPENING_SELECT},bookings:{where:{status:'RESERVED',...(excludeBookingId?{id:{not:excludeBookingId}}:{})},select:{pointCost:true}}}}));
+ const cards=calendar?allCards.filter(card=>!!card.expiresAt&&card.expiresAt>=new Date()&&card.members.some(member=>!!member.customerId&&customerIds.includes(member.customerId))):allCards;
  if(!cards.length)return cards;
  const [purchases,aliases,joins]=await Promise.all([
-  tx.coursePurchase.findMany({where:{storeId,cardId:{in:cards.map(c=>c.id)},status:'CONFIRMED',voidedAt:null},select:{cardId:true,createdAt:true}}),
+  once("music-balance-purchases",()=>tx.coursePurchase.findMany({where:{storeId,cardId:{in:allCards.map(c=>c.id)},status:'CONFIRMED',voidedAt:null},select:{cardId:true,createdAt:true}})),
   musicItemTemplateIds(tx,storeId,session.templateId),
-  tx.courseSession.findMany({where:{storeId,id:{in:cards.flatMap(c=>c.musicJoinSessionId?[c.musicJoinSessionId]:[])}},select:{id:true,startsAt:true}}),
+  once("music-balance-joins",()=>tx.courseSession.findMany({where:{storeId,id:{in:allCards.flatMap(c=>c.musicJoinSessionId?[c.musicJoinSessionId]:[])}},select:{id:true,startsAt:true}})),
  ]);
  const result:typeof cards=[];
  for(const card of purchaseOrder(cards,purchases)){
@@ -33,8 +37,8 @@ export async function musicItemCards(tx:Prisma.TransactionClient,storeId:string,
  }
  return result;
 }
-export async function readMusicItemBalances(tx:Prisma.TransactionClient,storeId:string,customerIds:string[],session:{id:string;templateId:string;startsAt:Date}){
- const rows=await musicItemCards(tx,storeId,customerIds,session,undefined,tx===coursePrisma);
+export async function readMusicItemBalances(tx:Prisma.TransactionClient,storeId:string,customerIds:string[],session:{id:string;templateId:string;startsAt:Date},calendarCustomerIds?:string[]){
+ const rows=await musicItemCards(tx,storeId,customerIds,session,undefined,tx===coursePrisma,calendarCustomerIds);
  const result=new Map<string,ItemBalance&{byUnit:ItemBalance[]}>();
  for(const id of new Set(customerIds)){
   const byUnit=sumItemBalances(rows.filter(c=>c.members.some(m=>m.customerId===id)).map(c=>({id:c.id,remaining:c.remaining,available:Math.max(0,c.remaining-c.bookings.reduce((n,b)=>n+b.pointCost,0)),cost:1,unit:c.unit,planName:c.nameSnapshot})));

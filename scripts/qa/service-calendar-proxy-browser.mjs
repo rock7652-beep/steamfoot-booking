@@ -1,3 +1,4 @@
+// Historical PR #1478 on-open loading benchmark; page-preloaded calendars use calendar-roster-preload-browser.mjs.
 // Cloud Chromium QA only; this does not control the user's local Browser app.
 // Inputs are chmod-600 temporary files and are removed after testing.
 import {createRequire} from 'node:module';

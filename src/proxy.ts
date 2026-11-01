@@ -570,6 +570,12 @@ function withDomainCookie(response: NextResponse, storeId: string | undefined): 
   return response;
 }
 
+// Keep document-navigation renewal unchanged. Rewriting an identical context
+// cookie during an Action makes Next treat even a pure read as route invalidation.
+function shouldSetStoreContextCookie(req: NextRequest, name: string, value: string): boolean {
+  return req.method !== "POST" || !req.headers.has("next-action") || req.cookies.get(name)?.value !== value;
+}
+
 /**
  * Store-scoped rewrite: 把 /s/[slug]/... 改寫成內部路徑，
  * 注入 store context 供 Server Components / Server Actions 讀取。
@@ -579,6 +585,7 @@ function withDomainCookie(response: NextResponse, storeId: string | undefined): 
  * 的 `headers()` 才能讀到。原本只寫 response.headers 等於對 server 不存在，
  * 導致 PR-E2 strict gate 收到 null slug → 全部 LIFF page 顯示「無法確認分店」。
  */
+
 function storeRewrite(
   req: NextRequest,
   internalPath: string,
@@ -605,7 +612,7 @@ function storeRewrite(
   // B7-4.5: 僅注入 store-slug cookie，storeId 由 page-level DB resolver 提供
   // 註：PR-E2 後 LIFF resolveStoreSlugForLiff 已不讀此 cookie；保留是給其他路徑
   //     （legacy customer / auth）用，並維持既有行為。
-  response.cookies.set("store-slug", slug, {
+  if (shouldSetStoreContextCookie(req, "store-slug", slug)) response.cookies.set("store-slug", slug, {
     path: "/",
     httpOnly: false,
     sameSite: "lax",
@@ -615,7 +622,7 @@ function storeRewrite(
   // 真正生效的是上方 request.headers，這裡只是觀察用。
   response.headers.set("x-next-pathname", req.nextUrl.pathname);
   response.headers.set("x-store-slug", slug);
-  if (domainStoreId) {
+  if (domainStoreId && shouldSetStoreContextCookie(req, "domain-store-id", domainStoreId)) {
     response.cookies.set("domain-store-id", domainStoreId, {
       path: "/",
       httpOnly: true,
@@ -640,7 +647,7 @@ function hqRewrite(
   url.search = req.nextUrl.search;
   const requestHeaders = nonStoreRequestHeaders(req);
   const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
-  response.cookies.set("store-slug", "__hq__", {
+  if (shouldSetStoreContextCookie(req, "store-slug", "__hq__")) response.cookies.set("store-slug", "__hq__", {
     path: "/",
     httpOnly: false,
     sameSite: "lax",
@@ -648,7 +655,7 @@ function hqRewrite(
   });
   // HQ 不設 store-id cookie（ADMIN 用 active-store-id 切換）
   response.headers.set("x-next-pathname", req.nextUrl.pathname);
-  if (domainStoreId) {
+  if (domainStoreId && shouldSetStoreContextCookie(req, "domain-store-id", domainStoreId)) {
     response.cookies.set("domain-store-id", domainStoreId, {
       path: "/",
       httpOnly: true,

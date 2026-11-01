@@ -1,3 +1,4 @@
+// Historical PR #1478 on-open loading benchmark; page-preloaded calendars use calendar-roster-preload-browser.mjs.
 import {createRequire} from 'node:module';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {X509Certificate,createHash} from 'node:crypto';

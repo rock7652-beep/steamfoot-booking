@@ -1,3 +1,4 @@
+import {courseCalendarRead} from './course-calendar-read-scope';
 import {memoizeCourseReadRequest} from "./course-read-request-memo";
 import {readSportsSessionRuleRow} from "./sports-session-rule-read";
 import { sportsTeachingTemplateId } from "./sports-teaching-rule";
@@ -21,8 +22,11 @@ export async function readSportsSessionRule(
   sessionId: string,
 ) {
   return memoizeCourseReadRequest(tx,JSON.stringify(["sports-rule",storeId,sessionId]),async()=>{
-    if (!(await sportsRulesAvailable(tx, storeId))) return null;
-    await assertSportsProductionReady(tx, storeId);
+    const calendar=courseCalendarRead(tx,storeId,sessionId);
+    const available=()=>sportsRulesAvailable(tx,storeId);
+    if (!(await (calendar?calendar.once('sports-rules-available',available):available()))) return null;
+    const ready=()=>assertSportsProductionReady(tx,storeId);
+    await (calendar?calendar.once('sports-rules-ready',ready):ready());
     return readSportsSessionRuleRow(tx,storeId,sessionId);
   });
 }
