@@ -61,7 +61,7 @@ import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { Fragment, useId, useMemo, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
+import { Fragment, useOptimistic, useId, useMemo, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
@@ -396,16 +396,18 @@ export function CourseWorkspace({
     }catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");return false;}
     finally{calendarReadsInFlight.current--;if(request===calendarRequest.current)setCalendarReading(false);}
   },[sportsNative,canCreate,sportsCalendarReader,calendarSource]);
-  const calendarDataReady=calendarMonthReady(sportsNative,nativeDate,nativeCalendar?.month??loadedDate.slice(0,7));
-  useEffect(()=>{if(!calendarDataReady&&calendarTargetMonth.current!==nativeDate.slice(0,7)){
+  const [calendarNavigating,startCalendarNavigation]=useTransition();
+  const requestedDate = sportsNative?nativeDate:params.get("date");
+  const committedDate=requestedDate&&parseTaipeiDateTime(requestedDate,"00:00")?requestedDate:loadedDate;
+  const [selectedDate,selectCalendarDate]=useOptimistic(committedDate,(_previous:string,next:string)=>next);
+  const calendarDataReady=calendarMonthReady(sportsNative||businessProfile==="MUSIC",selectedDate,nativeCalendar?.month??loadedDate.slice(0,7));
+  useEffect(()=>{if(sportsNative&&!calendarDataReady&&calendarTargetMonth.current!==nativeDate.slice(0,7)){
     if(!calendarSource)setNativeDate(nativeDate);
     void refreshNativeCalendar(nativeDate,true);
-  }},[calendarDataReady,nativeDate,calendarSource,setNativeDate,refreshNativeCalendar]);
+  }},[sportsNative,calendarDataReady,nativeDate,calendarSource,setNativeDate,refreshNativeCalendar]);
   useSportsCalendarScroll(sportsNative&&view==="schedule","window",undefined,calendarDataReady&&!calendarReading);
   const [transitionPending, startTransition] = useTransition();
-  const refreshWorkspace=useCallback(()=>{if(sportsNative)void refreshNativeCalendar(nativeDateRef.current);else startTransition(()=>router.refresh());},[sportsNative,refreshNativeCalendar,router,startTransition]);
-  const requestedDate = sportsNative?nativeDate:params.get("date");
-  const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
+  const refreshWorkspace=useCallback(()=>{if(sportsNative)void refreshNativeCalendar(nativeDateRef.current);else startCalendarNavigation(()=>router.refresh());},[sportsNative,refreshNativeCalendar,router,startCalendarNavigation]);
   const requestedScheduleMode = params.get("scheduleView");
   const [scheduleMode, setScheduleMode] = useSportsCalendarState<CourseScheduleMode>(sportsNative,"mode",
     requestedScheduleMode === "day" || requestedScheduleMode === "week" || requestedScheduleMode === "month"
@@ -491,7 +493,7 @@ export function CourseWorkspace({
   useEffect(() => {
     // Keep the calendar current even with the day sheet closed. Nested roster
     // dialogs own their reads; never refresh their parent during a transaction.
-    if (calendarSource?.readBlocked || view !== "schedule" || (panel !== null && panel !== "day") || courseDialog || dirty || pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain) return;
+    if (calendarSource?.readBlocked || view !== "schedule" || (panel !== null && panel !== "day") || courseDialog || dirty || pending || calendarNavigating || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain) return;
     if (sportsNative) {
       return startSportsBackgroundSync(
         () => refreshNativeCalendar(nativeDateRef.current,false,true),
@@ -502,7 +504,7 @@ export function CourseWorkspace({
     const refresh = () => {
       if (document.visibilityState !== "visible" || Date.now() - backgroundRefreshRequestedAt.current < 15_000) return;
       backgroundRefreshRequestedAt.current = Date.now();
-      startTransition(() => {
+      startCalendarNavigation(() => {
         refreshWorkspace();
         setLastUpdated(new Date());
       });
@@ -517,7 +519,7 @@ export function CourseWorkspace({
       window.removeEventListener("pageshow", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [calendarSource?.readBlocked, panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition, sportsNative, refreshNativeCalendar, refreshWorkspace]);
+  }, [calendarSource?.readBlocked, panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, calendarNavigating, startCalendarNavigation, sportsNative, refreshNativeCalendar, refreshWorkspace]);
   useCourseDraftGuard(!sportsNative&&dirty,!sportsNative&&!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
   const scheduleOpenIntent=useRef(false);
   // Only form metadata is warmed; prices and balances keep their own live reads.
@@ -702,11 +704,15 @@ export function CourseWorkspace({
     const next = new URLSearchParams(window.location.search);
     const unchanged=next.get("date")===date&&window.location.pathname===pathname;
     next.set("date", date);
-    if (date.slice(0, 7) === loadedDate.slice(0, 7)) {
+    if (date.slice(0, 7) === loadedDate.slice(0, 7) && !calendarNavigating) {
       // All sessions for this month are already loaded. Keep the open sheet,
       // filters and scroll position instead of remounting through navigation.
       if(!unchanged)window.history.replaceState(null, "", `${pathname}?${next}`);
-    } else startTransition(() => router.replace(`${pathname}?${next}`, { scroll: false }));
+    } else startCalendarNavigation(() => {
+      selectCalendarDate(date);
+      // Even returning to the loaded month must supersede an older in-flight navigation.
+      return router.replace(`${pathname}?${next}`, { scroll: false });
+    });
   }
   function open(next: typeof panel) {
     if (pending) return;
@@ -1049,7 +1055,7 @@ export function CourseWorkspace({
                   <button
                     key={mode}
                     type="button"
-                    disabled={pending}
+                    disabled={pending||inlineBusy}
                     onClick={() => changeScheduleMode(mode)}
                     className={`${styles.touchControl} min-h-8 rounded-md px-2 text-sm ${
                       scheduleMode === mode
@@ -1064,7 +1070,7 @@ export function CourseWorkspace({
               <div className="inline-flex items-center gap-1">
                 <button
                   className={`${styles.touchControl} ${button} min-h-9 px-2.5`}
-                  disabled={pending}
+                  disabled={pending||inlineBusy}
                   aria-label={
                     scheduleMode === "month"
                       ? "上個月"
@@ -1088,14 +1094,14 @@ export function CourseWorkspace({
                 </button>
                 <button
                   className={`${styles.touchControl} ${button} min-h-9 px-2`}
-                  disabled={pending}
+                  disabled={pending||inlineBusy}
                   onClick={() => go(today)}
                 >
                   今天
                 </button>
                 <button
                   className={`${styles.touchControl} ${button} min-h-9 px-2.5`}
-                  disabled={pending}
+                  disabled={pending||inlineBusy}
                   aria-label={
                     scheduleMode === "month"
                       ? "下個月"
@@ -1125,7 +1131,7 @@ export function CourseWorkspace({
                 aria-label="課表日期"
                 type="date"
                 defaultValue={selectedDate}
-                disabled={pending}
+                disabled={pending||inlineBusy}
                 onChange={(event) => {
                   const date = event.target.value;
                   if (parseTaipeiDateTime(date, "00:00")) go(date);
@@ -1140,12 +1146,12 @@ export function CourseWorkspace({
             {(cashbookShortcut || canCreate || canEdit) && (
               <div data-calendar-actions className={calendarHeader ? styles.calendarActions : calendarSource?"flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-4 gap-y-2":businessProfile === "MUSIC"?"ml-auto flex shrink-0 gap-1":"flex shrink-0 gap-2"}>
                 {calendarSource&&scheduleMode==="month"&&<ServiceCalendarLegend/>}{cashbookShortcut}
-                {sportsNative&&!calendarSource&&<button type="button" className={`${button} min-h-11`} disabled={pending||calendarReading} onClick={()=>setSportsAttendanceOpen(true)}>出席狀況</button>}
+                {sportsNative&&!calendarSource&&<button type="button" className={`${button} min-h-11`} disabled={pending||calendarReading||!calendarDataReady} onClick={()=>setSportsAttendanceOpen(true)}>出席狀況</button>}
 
                 {canCreate && (
                   <button
                     className={`${primary} min-h-9`}
-                    disabled={pending}
+                    disabled={pending||!calendarDataReady}
                     onPointerEnter={prefetchSportsSchedule}
                     onFocus={prefetchSportsSchedule}
                     onTouchStart={prefetchSportsSchedule}
@@ -1169,7 +1175,7 @@ export function CourseWorkspace({
                 <button className="ml-auto text-xs" type="button" onClick={()=>calendarSource?.move?calendarSource.move.onCancel():setMoveClipboard(null)}>取消</button>
               </div>
             )}
-          <CalendarMonthBoundary ready={calendarDataReady} date={selectedDate} loading={calendarReading} error={error} onRetry={()=>void refreshNativeCalendar(selectedDate,true)}>
+          <CalendarMonthBoundary ready={calendarDataReady} date={selectedDate} loading={calendarReading||calendarNavigating} error={sportsNative?error:""} onRetry={()=>{if(sportsNative)void refreshNativeCalendar(selectedDate,true);else go(selectedDate);}}>
           {scheduleMode === "month" ? (
             <>
               {businessProfile === "MUSIC" ? (

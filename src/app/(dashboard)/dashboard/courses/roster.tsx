@@ -177,6 +177,10 @@ export function CourseRoster({
   const personnelText = useCoursePersonnelText();
   const [sourceReadFailed,setSourceReadFailed]=useState(false);
   const canEdit=canEditProp&&!sourceReadFailed;
+  const [readStatus,setReadStatus]=useState<{sessionId:string;error:string;retrying:boolean}|null>(null);
+  const readFailure=readStatus?.sessionId===sessionId?readStatus:null;
+  const retryFullRead=useRef<()=>Promise<unknown>>(()=>Promise.resolve(null));
+  const retryLock=useRef<object|null>(null);
   const router = useRouter();
   const sportsDetailReader=usePanelReader("sports-session-detail",readSportsSessionDetail,"",0);
   const musicDetailReader=usePanelReader("music-session-detail",readCourseSessionDetailClient,"",0);
@@ -381,9 +385,10 @@ export function CourseRoster({
       const result = source?await source.read(sessionId):await (musicLayout?musicPanelRead("roster-quick",[sessionId],()=>loadCourseRosterQuick(sessionId)):loadCourseRosterQuick(sessionId));
       if (!isCurrent()) return "stale";
       if (!result.success) {
-        if (reportError) setMessage(result.error);
+        if (reportError)setReadStatus({sessionId,error:result.error,retrying:false});
         return "failed";
       }
+      setReadStatus(null);
       setRoster(result.data.roster);
       setSharedCardState(result.data.sharedCardState ?? "ENABLED");
       setWaitlist(result.data.waitlist ?? []);
@@ -392,7 +397,7 @@ export function CourseRoster({
       return "loaded";
     } catch {
       if (!isCurrent()) return "stale";
-      if (reportError) setMessage("讀取失敗，現有名單已保留，請重試");
+      if (reportError)setReadStatus({sessionId,error:"讀取失敗，現有名單已保留，請重試",retrying:false});
       return "failed";
     }
   }
@@ -411,6 +416,7 @@ export function CourseRoster({
     ++readVersion.current;
     const current=sourceSnapshot.data;
     appliedSnapshot.current=current;
+    setReadStatus(null);setSourceReadFailed(false);
     sourceVersion.current="readVersion" in current?current.readVersion:undefined;
     setRoster(current.roster);setSession(current.session);setCards(current.cards);
     setWaitlist(current.waitlist??[]);setTrial(current.trial);setCanPurchase(current.canPurchase);
@@ -434,9 +440,10 @@ export function CourseRoster({
 
         .then((result) => {
           if (sourceReadBlocked.current || !active || version !== readVersion.current || currentSession.current !== sessionId) return null;
-          if(result.success&&"unchanged" in result&&result.unchanged){setSourceReadFailed(false);return true;}
+          if(result.success&&"unchanged" in result&&result.unchanged){setSourceReadFailed(false);setReadStatus(null);return true;}
           if (result.success&&result.data) {
             initialDetailLoaded = true;
+            setReadStatus(null);
             setSourceReadFailed(false);sourceVersion.current="readVersion" in result.data?result.data.readVersion as string|undefined:undefined;
             setSession(result.data.session);
             setTrial(result.data.trial);
@@ -452,14 +459,18 @@ export function CourseRoster({
             return true;
           } else {
             if(sourceRead)setSourceReadFailed(true);
-            setMessage("error" in result?result.error:"名單回應不完整");
+            setReadStatus({sessionId,error:"error" in result?result.error:"名單回應不完整",retrying:false});
             return false;
           }
         })
         .catch(() => {
-          if (active && version === readVersion.current){if(sourceRead)setSourceReadFailed(true);setMessage("讀取失敗，現有名單已保留，請重試");}
+          if (active && version === readVersion.current){if(sourceRead)setSourceReadFailed(true);setReadStatus({sessionId,error:"讀取失敗，現有名單已保留，請重試",retrying:false});}
           return false;
         }).finally(() => { readInFlight = false; });
+    };
+    retryFullRead.current=()=>{
+      if(sportsNative)sportsDetailReader.clear();else if(musicLayout)musicDetailReader.clear();
+      return refresh();
     };
     const unsubscribe = isMusicPreviewPage() ? subscribeMusicFinanceChange(() => { void refresh(true); }) : () => {};
     if(preloaded)setRequestKey(current=>current||crypto.randomUUID());
@@ -864,16 +875,29 @@ export function CourseRoster({
         )
       : [];
 
+  async function retryRosterRead(){
+    const scope=operationScope.current;
+    if(bulkPending||retryLock.current===scope)return;
+    retryLock.current=scope;
+    setReadStatus(previous=>previous?.sessionId===sessionId?{...previous,retrying:true}:previous);
+    try{await retryFullRead.current();}
+    finally{
+      if(retryLock.current===scope)retryLock.current=null;
+      if(rosterMounted.current&&operationScope.current===scope)setReadStatus(previous=>previous?.sessionId===sessionId?{...previous,retrying:false}:previous);
+    }
+  }
+  const readNotice=readFailure&&<div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900"><span>{readFailure.error}</span><button type="button" className={button} disabled={readFailure.retrying||bulkPending} onClick={()=>void retryRosterRead()}>{readFailure.retrying?"重新讀取中…":"重新讀取名單"}</button></div>;
+
   if (!loaded) {
     if(view==="roster"&&previewBookings)return <section aria-busy="true" className="space-y-2">
-      <p role="status" className="text-sm text-earth-600">{message||"正在核對最新名單…"}</p>
+      {readNotice||<p role="status" className="text-sm text-earth-600">{message||"正在核對最新名單…"}</p>}
       <ul className="divide-y divide-earth-100 rounded-xl border border-earth-200 bg-white">
         {previewBookings.filter(b=>b.status!=="CANCELLED").map(b=><li key={b.id} className="min-h-14 px-4 py-3 text-sm font-semibold text-earth-800">{b.customerName}</li>)}
       </ul>
     </section>;
     return (
       <div className="flex min-h-40 items-center justify-center text-earth-600">
-        {message || "讀取中…"}
+        {readNotice || message || "讀取中…"}
       </div>
     );
   }
@@ -1270,6 +1294,7 @@ export function CourseRoster({
   return (
 
     <section data-roster-ready="true" data-live-music-roster={musicLayout?'true':undefined} className={`flex min-h-0 w-full flex-col gap-2 ${!musicLayout ? sportsRoster.root : ""} ${musicLayout ? "" : "flex-1 overflow-hidden"}`}>
+      {readNotice}
       {!source&&<aside className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 text-sm" aria-label={`教師資訊：${teacherName}、${courseName}、${roomName}`}>
         <span className="text-xs text-earth-500">{musicLayout ? personnelText("教師") : personnelText("授課教練")}</span><strong>{teacherName}</strong>
         {teacherPhone && <a className="inline-flex min-h-11 items-center text-primary-700" href={`tel:${teacherPhone}`}>{teacherPhone}</a>}

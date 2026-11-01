@@ -264,3 +264,26 @@ it.each([true,false])('invalidates prepared rosters after a confirmed native not
  expect(invalidate).toHaveBeenCalledTimes(success?1:0);expect(committed).toHaveBeenCalledTimes(success?1:0);
  if(success)expect(host.querySelector('button[title="更新的教師備註"]')).not.toBeNull();else{expect(input.value).toBe('更新的教師備註');expect(document.body.textContent).toContain('版本衝突，保留輸入');}
 });
+
+it('retains the roster on read failure, offers a deduplicated retry and clears only the read error on success',async()=>{
+ await render(true);const original=row();m.load.mockRejectedValueOnce(Error('offline'));
+ await act(async()=>window.dispatchEvent(new Event('focus')));
+ expect(row()).toBe(original);expect(host.textContent).toContain('讀取失敗，現有名單已保留，請重試');
+ const read=deferred<ReturnType<typeof data>>();m.load.mockReturnValueOnce(read.promise);
+ const retry=()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='重新讀取名單')!;
+ await act(async()=>{retry().click();retry().click();});expect(m.load).toHaveBeenCalledTimes(3);expect(host.textContent).toContain('重新讀取中…');
+ await act(async()=>read.resolve(data('核對後備註')));expect(host.textContent).not.toContain('讀取失敗');expect(host.textContent).not.toContain('重新讀取名單');expect(row().textContent).toContain('核對後備註');expect(m.status).not.toHaveBeenCalled();
+});
+it('an initial failed roster read can retry without a route reload or a write',async()=>{
+ m.load.mockRejectedValueOnce(Error('offline'));await render(true);expect(host.querySelector('[data-roster-ready]')).toBeNull();
+ m.load.mockResolvedValueOnce(data());await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='重新讀取名單')!.click());
+ expect(host.querySelector('[data-roster-ready="true"]')).not.toBeNull();expect(m.refresh).not.toHaveBeenCalled();expect(m.status).not.toHaveBeenCalled();
+});
+it('keeps a failed retry available and ignores its late response after switching sessions',async()=>{
+ await render(true);m.load.mockRejectedValueOnce(Error('offline'));await act(async()=>window.dispatchEvent(new Event('focus')));
+ const retry=()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='重新讀取名單')!;
+ m.load.mockRejectedValueOnce(Error('still offline'));await act(async()=>retry().click());expect(retry().disabled).toBe(false);
+ const old=deferred<ReturnType<typeof data>>();m.load.mockReturnValueOnce(old.promise);await act(async()=>retry().click());
+ m.load.mockResolvedValueOnce(data('乙課正確備註'));await render(true,'session-b');await act(async()=>old.resolve(data('甲課過期備註')));
+ expect(host.textContent).toContain('乙課正確備註');expect(host.textContent).not.toContain('甲課過期備註');expect(host.textContent).not.toContain('讀取失敗');
+});

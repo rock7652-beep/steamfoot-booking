@@ -12,7 +12,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { CourseWorkspace, type CourseCalendarSource } from "@/app/(dashboard)/dashboard/courses/workspace";
 
-const m = vi.hoisted(() => ({ query: "", nativeRead: vi.fn(), detail:vi.fn(), roster:vi.fn(), router: { refresh: vi.fn() } }));
+const m = vi.hoisted(() => ({ query: "", nativeRead: vi.fn(), detail:vi.fn(), roster:vi.fn(), router: { refresh: vi.fn(),replace:vi.fn() } }));
 vi.mock("@/lib/course-session-detail-client",()=>({readCourseSessionDetailClient:m.detail}));
 vi.mock("@/lib/sports-calendar-client",()=>({readSportsCalendar:m.nativeRead}));
 vi.mock("next/navigation", () => ({
@@ -152,4 +152,15 @@ it('opens with all prepared data and never starts a detail read on the click',as
   expect(m.detail).not.toHaveBeenCalled();expect(m.roster.mock.lastCall?.[0].initialSnapshot).toEqual({sessionId:'session',data});
   await act(async()=>m.roster.mock.lastCall?.[0].onSnapshotInvalidated());expect(host.querySelector('[data-calendar-rosters-ready="false"]')).not.toBeNull();
  }finally{window.history.replaceState(null,'',original);}
+});
+
+it('music date navigation stays responsive and hides unmatched month data until the route commits',async()=>{
+ let finish!:()=>void;const route=new Promise<void>(resolve=>{finish=resolve;});m.router.replace.mockReturnValue(route);
+ await render('MUSIC');const date=()=>host.querySelector<HTMLInputElement>('[aria-label="課表日期"]')!;
+ const choose=async(value:string)=>act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(date(),value);date().dispatchEvent(new Event('change',{bubbles:true}));date().dispatchEvent(new Event('input',{bubbles:true}));});
+ await choose('2026-11-17');expect(date().disabled).toBe(false);expect(date().value).toBe('2026-11-17');expect(host.querySelector('[aria-label="課表載入"]')).not.toBeNull();
+ await choose('2026-12-17');expect(date().disabled).toBe(false);expect(m.router.replace.mock.calls.at(-1)![0]).toContain('date=2026-12-17');
+ // Returning to the already loaded month still dispatches a navigation to supersede the pending route.
+ await choose('2026-10-17');expect(m.router.replace.mock.calls.at(-1)![0]).toContain('date=2026-10-17');
+ await act(async()=>finish());m.router.replace.mockReset();
 });
