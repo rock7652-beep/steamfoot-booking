@@ -125,6 +125,7 @@ export default async function BeautyPage({
       tab==='技師管理',
       tab==='班表',
       tab==='收費方式',
+      tab==='班表',
     ),
     prisma.store.findUniqueOrThrow({
       where: { id: a.storeId },

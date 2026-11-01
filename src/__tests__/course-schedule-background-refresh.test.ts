@@ -1,3 +1,4 @@
+import {preparedRoster} from "./fixtures/prepared-roster";
 vi.mock("@/server/actions/course-browse", () => ({ loadCourseCustomerSearchIndex: vi.fn().mockResolvedValue({success:true,data:[],complete:true}), searchCourseCustomers: vi.fn().mockResolvedValue({success:true,data:[]}) }));
 vi.mock('@/server/actions/course-charge',()=>({loadCourseChargeOptions:vi.fn().mockResolvedValue({success:true,rows:[],enabled:true,defaultTrialPrice:499})}));
 vi.mock("@/server/actions/course-rental", () => ({ createRentalCustomer: vi.fn() }));
@@ -11,7 +12,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { CourseWorkspace, type CourseCalendarSource } from "@/app/(dashboard)/dashboard/courses/workspace";
 
-const m = vi.hoisted(() => ({ query: "", nativeRead: vi.fn(), detail:vi.fn(), router: { refresh: vi.fn() } }));
+const m = vi.hoisted(() => ({ query: "", nativeRead: vi.fn(), detail:vi.fn(), roster:vi.fn(), router: { refresh: vi.fn() } }));
 vi.mock("@/lib/course-session-detail-client",()=>({readCourseSessionDetailClient:m.detail}));
 vi.mock("@/lib/sports-calendar-client",()=>({readSportsCalendar:m.nativeRead}));
 vi.mock("next/navigation", () => ({
@@ -24,7 +25,7 @@ vi.mock("@/server/actions/course", () => ({}));
 vi.mock("@/components/admin/course-display-order", () => ({ useCourseDisplayOrder: () => ({ ranks: new Map(), compare: () => 0, rowProps: () => ({}), handle: () => null }) }));
 vi.mock("@/components/admin/course-status-button", () => ({ useCourseStatusRows: (rows: unknown[]) => [rows, vi.fn(), [], vi.fn()], CourseStatusButton: () => null }));
 vi.mock("@/components/admin/course-batch-selection", () => ({ CourseBatchBar: () => null }));
-vi.mock("@/app/(dashboard)/dashboard/courses/roster", () => ({ CourseRoster: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/roster", () => ({ CourseRoster: (props:unknown) => {m.roster(props);return null;} }));
 vi.mock("@/app/(dashboard)/dashboard/courses/rental-panel", () => ({ RentalPanel: () => null, RentalHistory: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/music-schedule-wizard", () => ({ MusicScheduleWizard: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/daily-attendance-list", () => ({ DailyAttendanceList: () => null }));
@@ -138,4 +139,17 @@ it('does not restore router history again when selecting an already active calen
 it('preserves the latest browser view and other query fields during an immediate date change',async()=>{
  const original=window.location.href;m.query='date=2026-10-17&scheduleView=month';window.history.replaceState(null,'','/s/sports-test/admin/dashboard/courses?date=2026-10-17&scheduleView=day&keep=review');
  try{await render('MUSIC');await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='日表')!.click());await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent?.trim()==='›')!.click());const query=new URLSearchParams(window.location.search);expect(query.get('date')).toBe('2026-10-18');expect(query.get('scheduleView')).toBe('day');expect(query.get('keep')).toBe('review');}finally{window.history.replaceState(null,'',original);}
+});
+
+
+it('opens with all prepared data and never starts a detail read on the click',async()=>{
+ const original=window.location.href;m.query='date=2026-10-17&scheduleView=day';window.history.replaceState(null,'','/s/sports-test/admin/dashboard/courses?'+m.query);
+ const data=preparedRoster(),rosterSnapshots={storeId:'store-a',details:{session:data}};
+ try{
+  await act(async()=>root.render(createElement(CourseWorkspace,{...props,rosterSnapshots,canCreate:false,canEdit:false,businessProfile:'MUSIC',rooms:[{id:'room',name:'Room',category:'',isActive:true,capacity:2}],coaches:[{id:'coach',displayName:'Coach',phone:'',status:'ACTIVE',courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:[]}],sessions:[{id:'session',templateId:'template',nameSnapshot:'Teaching A',startsAt:'2026-10-17T02:00:00Z',endsAt:'2026-10-17T03:00:00Z',coachId:'coach',roomId:'room',capacity:2,pointCost:1,bookings:[]}]})));
+  expect(host.querySelector('[data-calendar-rosters-ready="true"]')).not.toBeNull();
+  await act(async()=>host.querySelector<HTMLButtonElement>('[data-calendar-session="session"]')!.click());
+  expect(m.detail).not.toHaveBeenCalled();expect(m.roster.mock.lastCall?.[0].initialSnapshot).toEqual({sessionId:'session',data});
+  await act(async()=>m.roster.mock.lastCall?.[0].onSnapshotInvalidated());expect(host.querySelector('[data-calendar-rosters-ready="false"]')).not.toBeNull();
+ }finally{window.history.replaceState(null,'',original);}
 });

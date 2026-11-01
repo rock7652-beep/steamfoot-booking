@@ -1,3 +1,4 @@
+import {preloadCourseCalendarRosters} from "@/server/services/course-calendar-rosters";
 import {createCoursePageTiming,coursePageTimingVisible} from "@/server/services/course-page-timing";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { presentCourseTemplates, sportsCourseName, sportsTeachingName, courseDisplayName } from "@/lib/course-template-presentation";
@@ -353,10 +354,9 @@ export default async function CoursesPage({
   }
   const writable =
     canCreate && writableStore;
-  const showLubyReplica = view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview"
-    && (await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } }))?.slug === "lubymusic";
   timing.mark("post_calendar");
   const [labelSnapshot,presentationPlans,presentationModes] = await (presentationPromise??readPresentation());
+  const rosterSnapshots=view==="schedule"&&(sportsNative||businessProfile==="MUSIC")?await timing.read("rosters",()=>preloadCourseCalendarRosters(storeId,sessions.map(session=>session.id))):undefined;
   timing.mark("presentation");
   return (
     <CustomerLabelsSeed initial={labelSnapshot}>
@@ -402,6 +402,7 @@ export default async function CoursesPage({
         rentalCustomers={rentalCustomers}
         rentalPermissions={{...rentalPermissions,collect:rentalPermissions.collect&&writable,correct:rentalPermissions.correct&&writable,customerCreate:rentalPermissions.customerCreate&&writable,edit:canEdit && writableStore}}
         cashbookShortcut={<CashbookShortcut readOnly={!writableStore} />}
+        rosterSnapshots={rosterSnapshots}
         sportsNative={sportsNative}
         schedulingModes={presentationModes??undefined}
         businessProfile={businessProfile}

@@ -1,9 +1,8 @@
 "use client";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
-import type {CourseRosterSource,NativeRosterBooking} from "./roster-source";
+import type {CourseRosterSource,NativeRosterBooking,CourseRosterSnapshot} from "./roster-source";
 import {CourseRosterList,type CourseRosterDisplayRow} from "./roster-list";
-import {CourseRosterPreview,type RosterPreviewBooking} from "./roster-preview";
 import bookingLayout from "./sports-booking-layout.module.css";
 import {startSportsBackgroundSync} from "@/lib/sports-background-sync";
 import {readCourseSessionDetailClient} from "@/lib/course-session-detail-client";
@@ -46,7 +45,7 @@ import {
   collectCourseTrial,
   voidCourseTrialPayment,
 } from "@/server/actions/course-trial";
-import { useCallback, useEffect, useLayoutEffect, useId, useMemo, useRef, useState, useTransition, type ComponentProps } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition, type ComponentProps } from "react";
 import { createPortal } from "react-dom";
 import type { SaveState } from "@/hooks/use-responsive-action";
 import { formatTWDateTime, toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
@@ -139,6 +138,8 @@ export function CourseRoster({
   roomId = "",
   initialAssignedCoach = "all",
   previewBookings,
+  initialSnapshot,
+  onSnapshotInvalidated,
 }: {
   source?:CourseRosterSource;
   sessionId: string;
@@ -166,8 +167,13 @@ export function CourseRoster({
   coachId?: string;
   roomId?: string;
   initialAssignedCoach?: string;
-  previewBookings?:readonly RosterPreviewBooking[];
+  initialSnapshot?:CourseRosterSnapshot;
+  onSnapshotInvalidated?:()=>void;
+  previewBookings?:readonly {id:string;customerName:string;status:string}[];
 }) {
+  const initial=initialSnapshot?.sessionId===sessionId?initialSnapshot:source?.snapshot?.sessionId===sessionId?source.snapshot:undefined;
+  const seed=initial?.data;
+  const seededRead=useRef(initial);
   const personnelText = useCoursePersonnelText();
   const [sourceReadFailed,setSourceReadFailed]=useState(false);
   const canEdit=canEditProp&&!sourceReadFailed;
@@ -205,7 +211,8 @@ export function CourseRoster({
   const [makeupPending,setMakeupPending]=useState(false);
   const pending = transitionPending || uncertain || makeupPending;
   const bulkPending = pending || savingBookingIds.length > 0;
-  useEffect(()=>{onBusyChange?.(bulkPending);return()=>onBusyChange?.(false);},[bulkPending,onBusyChange]);
+  const ownerBusy=view==="roster"?transitionPending||makeupPending||savingBookingIds.length>0:bulkPending;
+  useEffect(()=>{onBusyChange?.(ownerBusy);return()=>onBusyChange?.(false);},[ownerBusy,onBusyChange]);
   const [batchMode, setBatchMode] = useState(false);
   const [paymentMenu, setPaymentMenu] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -215,27 +222,18 @@ export function CourseRoster({
   const [showCancelled, setShowCancelled] = useState(false);
   const [expandedLessonIds, setExpandedLessonIds] = useState<string[]>([]);
   const [openActionMenu, setOpenActionMenu] = useState<{ bookingId?: string; kind?:"status"|"more"; attendance?:boolean; top: number; left: number } | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [initialReadRetry,setInitialReadRetry]=useState(0);
-  const rosterSearchInput=useRef<HTMLInputElement>(null);
-  const previewSearchSelection=useRef<{start:number|null;end:number|null}|null>(null);
-  useLayoutEffect(()=>{
-    if(!loaded||!previewSearchSelection.current)return;
-    const input=rosterSearchInput.current,selection=previewSearchSelection.current;
-    previewSearchSelection.current=null;
-    if(input){input.focus();input.setSelectionRange(selection.start,selection.end);}
-  },[loaded]);
-  const [sharedCardState, setSharedCardState] = useState<FeaturePresentationState>("ENABLED");
+  const [loaded, setLoaded] = useState(!!seed);
+  const [sharedCardState, setSharedCardState] = useState<FeaturePresentationState>(seed?.sharedCardState??"ENABLED");
   useEffect(() => {
     if (sharedCardState !== "ENABLED" && companionEditor?.add) setCompanionEditor(null);
   }, [sharedCardState, companionEditor]);
   const [roster, setRoster] = useState<
     NativeRosterBooking[]
-  >([]);
-  const [pendingMakeups, setPendingMakeups] = useState<Array<{id:string;customerId:string | null;cardId:string;date:string}>>([]);
-  const [waitlist, setWaitlist] = useState<Array<{id:string;customerId:string | null;customerName:string;groupKey:string;position:number;createdAt:string}>>([]);
+  >(()=>seed?.roster??[]);
+  const [pendingMakeups, setPendingMakeups] = useState<Array<{id:string;customerId:string | null;cardId:string;date:string}>>(()=>seed?.pendingMakeups??[]);
+  const [waitlist, setWaitlist] = useState<Array<{id:string;customerId:string | null;customerName:string;groupKey:string;position:number;createdAt:string}>>(()=>seed?.waitlist??[]);
   const [makeupForBookingId, setMakeupForBookingId] = useState("");
-  const [cards, setCards] = useState<CourseCardView[]>([]);
+  const [cards, setCards] = useState<CourseCardView[]>(()=>seed?.cards??[]);
   const [learnerCustomers,setLearnerCustomers]=useState<Array<{id:string;name:string;phone:string}>>([]);
   useEffect(()=>setLearnerCustomers([]),[sessionId]);
   const [session, setSession] = useState<{
@@ -247,14 +245,14 @@ export function CourseRoster({
     teacherMakeupForSessionId:string|null;
     compatibleTemplateIds?: string[]; waitlistStopMinutes:number;
     waitlistEnabled?:boolean;
-  } | null>(null);
+  } | null>(()=>seed?.session??null);
   const [trial, setTrial] = useState<
     Extract<
       Awaited<ReturnType<typeof loadCourseSessionDetail>>,
       { success: true }
     >["data"]["trial"] | null
-  >(null);
-  const [canPurchase, setCanPurchase] = useState(false);
+  >(()=>seed?.trial??null);
+  const [canPurchase, setCanPurchase] = useState(seed?.canPurchase??false);
   const [purchaseFor, setPurchaseFor] = useState<string | null>(null);
   const [purchaseOptions, setPurchaseOptions] = useState<Extract<Awaited<ReturnType<typeof loadCourseStudentPurchase>>, {success:true}>["data"] | null>(null);
   const [purchasePlanId, setPurchasePlanId] = useState("");
@@ -338,6 +336,7 @@ export function CourseRoster({
       // Also invalidate any refresh that started while the write was pending.
       ++readVersion.current;
       setRoster(rows => rows.map(row => row.id === bookingId ? {...row, notes: notes ?? ""} : row));
+      onCommitted?.();
     };
     return {
       // OperationScope already isolates this retained editor by account/store.
@@ -352,6 +351,7 @@ export function CourseRoster({
         savedGeneration = generation;
         // Reads already in flight must not restore a pre-save note afterward.
         ++readVersion.current;
+        onSnapshotInvalidated?.();
         const result = await (source?.note??saveCourseRosterNote)({sessionId, bookingId, note: notes ?? "", expectedNote: expected ?? ""});
         // A filter can unmount the row while the same roster remains open.
         // Record the committed note even if its editor is no longer mounted.
@@ -369,6 +369,8 @@ export function CourseRoster({
       },
     };
   }
+
+  function notifyRosterChanged(){onSnapshotInvalidated?.();publishMusicFinanceChange();onCommitted?.();}
 
   async function load(reportError = true): Promise<"loaded" | "failed" | "stale"> {
     if(sportsNative)sportsDetailReader.clear();
@@ -400,21 +402,28 @@ export function CourseRoster({
   const sourceSync=source?.sync;
   const sourceReadBlocked=useRef(false);sourceReadBlocked.current=!!source?.readBlocked;
   const sourceRead=source?.read;
-  const sourceSnapshot=source?.snapshot;
+  const sourceSnapshot=source?.snapshot??initialSnapshot;
+  const appliedSnapshot=useRef(seed);
   useEffect(()=>{
-    if(!sourceSnapshot||sourceSnapshot.sessionId!==sessionId)return;
+    if(!sourceSnapshot||sourceSnapshot.sessionId!==sessionId||sourceSnapshot.data===appliedSnapshot.current)return;
+    const scope=operationScope.current;
+    if(scope.locked||scope.inFlight.size||scope.uncertain||editingNote)return;
     ++readVersion.current;
-    sourceVersion.current=sourceSnapshot.data.readVersion;
     const current=sourceSnapshot.data;
+    appliedSnapshot.current=current;
+    sourceVersion.current="readVersion" in current?current.readVersion:undefined;
     setRoster(current.roster);setSession(current.session);setCards(current.cards);
+    setWaitlist(current.waitlist??[]);setTrial(current.trial);setCanPurchase(current.canPurchase);
     setSharedCardState(current.sharedCardState??"ENABLED");setLoaded(true);
-  },[sourceSnapshot,sessionId]);
+  },[sourceSnapshot,sessionId,operationFeedback,editingNote]);
   useEffect(() => {
     let active = true;
     let readInFlight = false;
-    let initialDetailLoaded = false;
+    const preloaded=seededRead.current?.sessionId===sessionId?seededRead.current.data:undefined;
+    seededRead.current=undefined;
+    let initialDetailLoaded = !!preloaded;
 
-    sourceVersion.current=undefined;
+    sourceVersion.current=preloaded&&"readVersion" in preloaded?preloaded.readVersion:undefined;
     const refresh = (checkVersion=false) => {
       if(cancelledSession.current === sessionId)return Promise.resolve(null);
       if (sourceReadBlocked.current || (sportsNative && (readInFlight || operationScope.current.uncertain)) || operationScope.current.locked || operationScope.current.inFlight.size > 0) return Promise.resolve(null);
@@ -453,7 +462,8 @@ export function CourseRoster({
         }).finally(() => { readInFlight = false; });
     };
     const unsubscribe = isMusicPreviewPage() ? subscribeMusicFinanceChange(() => { void refresh(true); }) : () => {};
-    void refresh();
+    if(preloaded)setRequestKey(current=>current||crypto.randomUUID());
+    else void refresh();
     const refreshVisibleRoster = () => {
       if (view === "roster" && document.visibilityState === "visible") {
         void refresh();
@@ -477,7 +487,7 @@ export function CourseRoster({
       window.removeEventListener("focus", refreshVisibleRoster);
       document.removeEventListener("visibilitychange", refreshVisibleRoster);
     };
-  }, [sessionId, view, sportsNative,musicLayout,sportsDetailReader,musicDetailReader,refreshVersion,sourceRead,sourceSync,invalidateRosterRead,initialReadRetry]);
+  }, [sessionId, view, sportsNative,musicLayout,sportsDetailReader,musicDetailReader,refreshVersion,sourceRead,sourceSync,invalidateRosterRead]);
 
   function run(
     action: () => Promise<{ success: boolean; error?: string;rosterSnapshot?:import('@/lib/course-purchase-roster').CoursePurchaseRosterSnapshot }>,
@@ -492,6 +502,7 @@ export function CourseRoster({
     const bookingId = quickAttendance ? updates[0].bookingId : null;
     if (scope.locked || scope.uncertain ||
         (bookingId ? scope.inFlight.has(bookingId) || !musicLayout && scope.inFlight.size > 0 : scope.inFlight.size > 0)) return;
+    onSnapshotInvalidated?.();
     if (bookingId) scope.inFlight.add(bookingId);
     else scope.locked = true;
     const sequence = ++scope.sequence;
@@ -572,8 +583,8 @@ export function CourseRoster({
           return;
         }
         outcome = "saved";
-        if(sessionCancelled){cancelledSession.current=sessionId;setRoster([]);setMessage(successMessage);feedback({phase:"saved",message:successMessage});publishMusicFinanceChange();onSessionCancelled?.();return;}
-        publishMusicFinanceChange();
+        if(sessionCancelled){cancelledSession.current=sessionId;setRoster([]);setMessage(successMessage);feedback({phase:"saved",message:successMessage});notifyRosterChanged();onSessionCancelled?.();return;}
+        notifyRosterChanged();
         if (teacherStatus) {
           // A teacher change also refunds/restores every booking. Read those
           // committed rows before publishing the new class state or success.
@@ -596,7 +607,6 @@ export function CourseRoster({
           setSession(old=>old?{...old,teacherNote:current.teacherNote,teacherAttendance:current.teacherAttendance,teacherAttendanceReason:current.teacherAttendanceReason,waitlistStopMinutes:current.waitlistStopMinutes}:old);
           setLoaded(true);projectionApplied=true;
         }
-        if(sportsNative)onCommitted?.();
         feedback({ phase: "saved", message: "" });
         if (sequence === scope.sequence && !scope.uncertain) setMessage(successMessage);
         if (!bookingId) {
@@ -617,7 +627,7 @@ export function CourseRoster({
             }
           }
           if (!bookingId && isCurrent()) {
-            if(!sportsNative&&!projectionApplied)router.refresh();
+            if(!sportsNative&&!projectionApplied&&!onCommitted)router.refresh();
             if (outcome === "saved" && !scope.uncertain && view !== "roster") onDone?.();
           }
         }
@@ -855,13 +865,12 @@ export function CourseRoster({
       : [];
 
   if (!loaded) {
-    if(view==="roster"&&previewBookings)return <CourseRosterPreview
-      bookings={previewBookings} query={memberQuery} onQueryChange={setMemberQuery}
-      onSearchInteraction={input=>{previewSearchSelection.current=input?{start:input.selectionStart,end:input.selectionEnd}:null;}}
-      message={message} onRetry={source?.readBlocked?undefined:()=>{setMessage("");setInitialReadRetry(value=>value+1);}}
-      teacherName={teacherName} teacherPhone={teacherPhone} teacherLabel={musicLayout?personnelText("教師"):personnelText("授課教練")}
-      source={source?.labels} sportsNative={sportsNative} musicLayout={musicLayout}
-    />;
+    if(view==="roster"&&previewBookings)return <section aria-busy="true" className="space-y-2">
+      <p role="status" className="text-sm text-earth-600">{message||"正在核對最新名單…"}</p>
+      <ul className="divide-y divide-earth-100 rounded-xl border border-earth-200 bg-white">
+        {previewBookings.filter(b=>b.status!=="CANCELLED").map(b=><li key={b.id} className="min-h-14 px-4 py-3 text-sm font-semibold text-earth-800">{b.customerName}</li>)}
+      </ul>
+    </section>;
     return (
       <div className="flex min-h-40 items-center justify-center text-earth-600">
         {message || "讀取中…"}
@@ -1335,7 +1344,6 @@ export function CourseRoster({
           className="min-h-11 min-w-48 flex-1 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:max-w-[14rem]"
           value={memberQuery}
           onChange={(event) => { setMemberQuery(event.target.value); resetFilterSelection(); }}
-          ref={rosterSearchInput}
           placeholder="搜尋姓名或手機"
           aria-label={source?"搜尋顧客或手機":"搜尋上課學員"}
         />}
@@ -1724,7 +1732,7 @@ export function CourseRoster({
           <div className="flex items-center justify-between gap-3 border-b border-earth-200 p-3"><div><h3 id="course-roster-purchase-title" className="font-semibold">學員繳費 · {purchaseOptions?.customerName ?? roster.find((row) => row.id === purchaseFor)?.customerName}</h3></div><button type="button" className={button} disabled={purchasePending} onClick={() => {++purchaseRead.current;setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>關閉</button></div>
           <div className="min-h-0 overflow-y-auto p-4">
             {purchaseError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{purchaseError}</p>}
-            <CoursePurchaseRecoveryNotice recovery={purchaseRecovery} disabled={purchasePending} onCommitted={()=>{setPurchasePlanId("");setPurchaseSummary({paid:null,valid:false});setPurchaseKey(crypto.randomUUID());setMessage("購買已完成，正在更新名單");void load(false).then(status=>{if(status==="loaded")setMessage("購買已完成，名單已更新");else if(status==="failed")setMessage("購買已完成，名單同步失敗；請重新讀取名單，勿再次付款。");});}}/>
+            <CoursePurchaseRecoveryNotice recovery={purchaseRecovery} disabled={purchasePending} onCommitted={()=>{onSnapshotInvalidated?.();onCommitted?.();setPurchasePlanId("");setPurchaseSummary({paid:null,valid:false});setPurchaseKey(crypto.randomUUID());setMessage("購買已完成，正在更新名單");void load(false).then(status=>{if(status==="loaded")setMessage("購買已完成，名單已更新");else if(status==="failed")setMessage("購買已完成，名單同步失敗；請重新讀取名單，勿再次付款。");});}}/>
             {!purchaseOptions && !purchaseError && <p role="status">讀取購買方案中…</p>}
             {purchaseOptions && <form id="course-roster-purchase-form" className="grid min-w-0 grid-cols-1 items-start gap-3 @min-[40rem]/member:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]" onSubmit={(event) => {
               event.preventDefault();
@@ -1796,7 +1804,7 @@ export function CourseRoster({
           courseMode
           saveAction={(data) => collectCourseTrial({ ...data, requestKey })}
           onCollected={() => {
-            publishMusicFinanceChange();
+            notifyRosterChanged();
             setPaymentBooking(null);
             void load();
             if(!isMusicPreviewPage())router.refresh();
@@ -1826,7 +1834,7 @@ export function CourseRoster({
             })
           }
           onCorrected={() => {
-            publishMusicFinanceChange();
+            notifyRosterChanged();
             setPaymentBooking(null);
             void load();
             if(!isMusicPreviewPage())router.refresh();
@@ -1834,7 +1842,7 @@ export function CourseRoster({
         />
       )}
 
-      {companionEditor && (!companionEditor.add || sharedCardState === "ENABLED") && <CourseCompanionEditor {...companionEditor} onClose={() => setCompanionEditor(null)} onSaved={() => {publishMusicFinanceChange();void load(); router.refresh();}} />}
+      {companionEditor && (!companionEditor.add || sharedCardState === "ENABLED") && <CourseCompanionEditor {...companionEditor} onClose={() => setCompanionEditor(null)} onSaved={() => {notifyRosterChanged();void load(); router.refresh();}} />}
       {openActionMenu && typeof document !== "undefined" && createPortal(<>
         <div data-roster-action-menu className="fixed z-[141] flex max-h-[calc(100dvh-1rem)] w-48 flex-col gap-1 overflow-y-auto overscroll-contain rounded-lg border border-earth-200 bg-white p-2 text-sm shadow-xl" role="menu" style={{ top: openActionMenu.top, left: openActionMenu.left }}>
           {actionBooking && source ? <>{!source.hideDetailAction&&<button type="button" role="menuitem" className={button} onClick={()=>{setOpenActionMenu(null);setInfoBookingId(actionBooking.id);}}>預約詳情</button>}{(openActionMenu.kind==="status"&&source.statusActions?source.statusActions(actionBooking):source.actions(actionBooking)).map(action=><button key={action.label} type="button" role="menuitem" className={`${button} ${action.danger?"text-red-700":""}`} disabled={sourceReadFailed||rowPending(actionBooking.id)} onClick={()=>{setOpenActionMenu(null);action.onSelect();}}>{action.label}</button>)}</> : actionBooking && sportsNative ? <>

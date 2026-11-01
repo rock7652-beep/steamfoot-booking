@@ -1,4 +1,5 @@
 "use client";
+import type {CalendarRosterSnapshots} from "./roster-source";
 import {sportsSchedulePreview} from "@/lib/sports-schedule-preview";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
@@ -168,7 +169,7 @@ export type Session = {
   rescheduleKind?: string | null;
   rescheduledAt?: string | null;
 };
-export type CourseCalendarSnapshot={month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:Props["cancelledBookings"];staffAvailabilityExceptions:Props["staffAvailabilityExceptions"]};
+export type CourseCalendarSnapshot={rosterSnapshots?:CalendarRosterSnapshots;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:Props["cancelledBookings"];staffAvailabilityExceptions:Props["staffAvailabilityExceptions"]};
 export type CourseCatalogSource={rentalModule?:"course"|"beauty";order?:import("@/lib/course-display-order").CourseOrderWriter;status:CatalogStatusDriver;save:(kind:"room"|"template",input:Record<string,unknown>)=>Promise<{success:true;data:Room|Template}|{success:false;error:string}>};
 export type CourseCalendarSource={
  readBlocked?:boolean;
@@ -183,6 +184,7 @@ export type CourseCalendarSource={
  assignmentStaff:{id:string;name:string}[];
 };
 type Props = {
+  rosterSnapshots?:CalendarRosterSnapshots;
   calendarSource?:CourseCalendarSource;
   catalogSource?:CourseCatalogSource;
   schedulingModes?:CourseSchedulingModes;
@@ -287,6 +289,7 @@ function WaitlistFields({
 }
 
 export function CourseWorkspace({
+  rosterSnapshots,
   calendarSource,
   catalogSource,
   storeId,
@@ -356,7 +359,7 @@ export function CourseWorkspace({
   const explicitDate=params.get("date"),explicitMode=params.get("scheduleView");
   const [nativeDate,setNativeDate]=useSportsCalendarDate(sportsNative,loadedDate,explicitDate,pathname,!calendarSource);
   const [nativeCalendarWarning,setNativeCalendarWarning]=useState(initialSportsCalendarWarning);
-  const [nativeCalendar,setNativeCalendar]=useState<{schedulingModes?:CourseSchedulingModes;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
+  const [nativeCalendar,setNativeCalendar]=useState<{rosterSnapshots?:CalendarRosterSnapshots;schedulingModes?:CourseSchedulingModes;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
   const sportsCalendarReader=usePanelReader(calendarSource?"service-native-calendar":"sports-calendar",calendarSource?.read??readSportsCalendar,storeId??"",0);
   const calendarRequest=useRef(0);
   const calendarReadsInFlight=useRef(0);
@@ -367,6 +370,10 @@ export function CourseWorkspace({
   const confirmedSessionSource=useMemo(()=>(nativeCalendar?.sessions??sourceSessions).map(row=>({...row,receiptStoreId:storeId})),[nativeCalendar?.sessions,sourceSessions,storeId]);
   const confirmedScheduleSessions=useConfirmedSettingsRows(confirmedSessionSource,row=>row.id);
   const sessions:Session[]=confirmedScheduleSessions.rows.filter(row=>row.receiptStoreId===storeId);
+  const rawPreparedRosters=nativeCalendar?.rosterSnapshots??rosterSnapshots;
+  const [invalidatedRosters,setInvalidatedRosters]=useState<CalendarRosterSnapshots|undefined>();
+  const preparedRosters=rawPreparedRosters&&rawPreparedRosters.storeId===storeId&&rawPreparedRosters!==invalidatedRosters?rawPreparedRosters:undefined;
+  const invalidatePreparedRosters=useCallback(()=>{setInvalidatedRosters(rawPreparedRosters);++calendarRequest.current;setCalendarReading(false);},[rawPreparedRosters]);
   const cancelledBookings=nativeCalendar?.cancelledBookings??sourceCancelledBookings;
   const calendarDays=nativeCalendar?.calendarDays??sourceCalendarDays;
   const staffAvailabilityExceptions=nativeCalendar?.staffAvailabilityExceptions??sourceStaffAvailabilityExceptions;
@@ -395,7 +402,8 @@ export function CourseWorkspace({
     void refreshNativeCalendar(nativeDate,true);
   }},[calendarDataReady,nativeDate,calendarSource,setNativeDate,refreshNativeCalendar]);
   useSportsCalendarScroll(sportsNative&&view==="schedule","window",undefined,calendarDataReady&&!calendarReading);
-  const refreshWorkspace=useCallback(()=>{if(sportsNative)void refreshNativeCalendar(nativeDateRef.current);else router.refresh();},[sportsNative,refreshNativeCalendar,router]);
+  const [transitionPending, startTransition] = useTransition();
+  const refreshWorkspace=useCallback(()=>{if(sportsNative)void refreshNativeCalendar(nativeDateRef.current);else startTransition(()=>router.refresh());},[sportsNative,refreshNativeCalendar,router,startTransition]);
   const requestedDate = sportsNative?nativeDate:params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
   const requestedScheduleMode = params.get("scheduleView");
@@ -442,7 +450,6 @@ export function CourseWorkspace({
     setNewRoomId(room.id);
   }, pathname);
   const [newRoomId, setNewRoomId] = useState<string | null>(null);
-  const [transitionPending, startTransition] = useTransition();
   const submitLock=useRef(false);
   const pending = transitionPending || roomCreate.pending || roomSave.pending || templateSave.pending;
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -1017,6 +1024,7 @@ export function CourseWorkspace({
   const weekFilters = <><button type="button" popoverTarget={sportsFilterPanelId} className={`${button} min-h-11 whitespace-nowrap`}>篩選{scheduleFiltered ? "（已套用）" : ""}</button><div id={sportsFilterPanelId} popover="auto" aria-label="課表篩選" className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[min(44rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-earth-200 bg-white p-4 shadow-xl backdrop:bg-black/20"><div className="mb-3 flex items-center justify-between"><strong>課表篩選</strong><button type="button" popoverTarget={sportsFilterPanelId} popoverTargetAction="hide" className="min-h-11 rounded-lg px-3">完成</button></div>{calendarSource?<div className="flex flex-wrap items-center gap-3">{serviceFilters}</div>:scheduleFilters}</div></>;
   return (
     <>
+      {rawPreparedRosters&&<span hidden data-calendar-rosters-ready={calendarDataReady&&!calendarReading&&preparedRosters&&preparedRosters.storeId===storeId&&sessions.filter(session=>!isRentalSession(session)).every(session=>preparedRosters.details[calendarSource?`booking:${session.id}`:session.id])?"true":"false"} data-calendar-rosters-count={sessions.filter(session=>!isRentalSession(session)).length}/>}
       {!panel && <CourseConflicts items={conflicts}/>}
       {sportsNative&&<span hidden data-operation-background-refresh/>}
       {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onReview={()=>{setCourseDialog({sessionId:moveClipboard.sessionId,kind:"roster"});setMoveTarget(null);}} onSaved={(date,patches)=>{const ensure=date.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7));++calendarRequest.current;setNativeCalendar(previous=>({...previous??{month:loadedDate.slice(0,7),sessions:sourceSessions,cancelledBookings:sourceCancelledBookings,calendarDays:sourceCalendarDays,staffAvailabilityExceptions:sourceStaffAvailabilityExceptions},sessions:applySportsMovePatches(previous?.sessions??sourceSessions,patches??[])}));setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date,ensure);}}/>}
@@ -1214,7 +1222,7 @@ export function CourseWorkspace({
                       const color = session.servicePalette?serviceCalendarPresentation(!!session.isTrial,session.previewKind === "RENTAL").dot: businessProfile === "MUSIC" ? musicScheduleColors(session).dot : courseClassPresentation(type, !!(session.isTrial || allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode), session.previewKind === "RENTAL").dot;
                       const primary = type === "PRIVATE" ? scheduleRosterBookings(session.bookings).map(booking => booking.customerName).join("、") || session.nameSnapshot : session.nameSnapshot;
                       const label = `${session.previewFaded ? `【${session.previewFaded}】` : ""}${formatTWDateTime(new Date(session.startsAt)).slice(11)}${sportsNative?`–${formatTWDateTime(new Date(session.endsAt)).slice(11)}`:""} ${primary}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
-                      return <button type="button" disabled={pending} key={session.id} data-sports-schedule-kind={sportsColor?.kind} title={label} aria-label={sportsNative&&session.previewFaded?`排課 ${label}`:`開啟 ${label} 上課名單`} onClick={() => {go(date);if(sportsNative&&session.previewFaded){if(moveClipboard){pasteMove({date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}openSchedule({single:true,date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 ${sportsColor?`rounded border px-1 ${sportsColor.card} ${session.previewFaded?"opacity-40":""}`:"text-earth-800 hover:text-primary-700"} focus-visible:ring-2 focus-visible:ring-primary-500`}>{!sportsNative&&<span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />}<span className="truncate">{label}</span></button>;
+                      return <button type="button" disabled={pending||calendarReading} key={session.id} data-sports-schedule-kind={sportsColor?.kind} title={label} aria-label={sportsNative&&session.previewFaded?`排課 ${label}`:`開啟 ${label} 上課名單`} onClick={() => {go(date);if(sportsNative&&session.previewFaded){if(moveClipboard){pasteMove({date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}openSchedule({single:true,date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 ${sportsColor?`rounded border px-1 ${sportsColor.card} ${session.previewFaded?"opacity-40":""}`:"text-earth-800 hover:text-primary-700"} focus-visible:ring-2 focus-visible:ring-primary-500`}>{!sportsNative&&<span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />}<span className="truncate">{label}</span></button>;
                     })}
                     {list.length > visibleCount && <button type="button" className={`${styles.monthAction} relative text-xs text-primary-800 hover:underline`} onClick={() => {go(date);open("day");}} aria-label={`查看 ${date} 全部 ${list.length} 筆`}>另 {list.length-visibleCount} 筆</button>}
                     {!list.length && scheduleFiltered && sessions.some(session => toLocalDateStr(new Date(session.startsAt)) === date) && <span className="pointer-events-none mt-1 text-xs text-earth-400">無符合課程</span>}
@@ -1266,12 +1274,13 @@ export function CourseWorkspace({
               onPasteMove={pasteMove}
               onSelectDate={go}
               onOpenSession={(sessionId, date) => {
+                if(calendarReading||pending)return;
                 go(date);
                 if(calendarSource){calendarSource.onOpen(sessionId);return;}
                 // Start the fresh read on this click, alongside mounting the dialog.
                 // TTL 0 shares only an in-flight request, never a completed balance.
                 const opening=sessions.find(session=>session.id===sessionId);
-                if(opening&&!isRentalSession(opening)){
+                if(opening&&!isRentalSession(opening)&&!preparedRosters?.details[sessionId]){
                   if(sportsNative)sportsRosterReader.prefetch(sessionId,true,false);
                   else if(businessProfile==="MUSIC")musicRosterReader.prefetch(sessionId,true,false);
                 }
@@ -2547,6 +2556,8 @@ export function CourseWorkspace({
                   sportsNative={sportsNative}
                   key={`${dialogSession.id}-${kind}`}
                   sessionId={dialogSession.id}
+                  onSnapshotInvalidated={invalidatePreparedRosters}
+                  initialSnapshot={kind==="roster"&&preparedRosters&&preparedRosters.storeId===storeId&&preparedRosters.details[dialogSession.id]?{sessionId:dialogSession.id,data:preparedRosters.details[dialogSession.id]}:undefined}
                   previewBookings={kind==="roster"?dialogSession.bookings:undefined}
                   capacity={dialogSession.capacity}
                   canCreate={canCreate&&dialogModeAllowed}
@@ -2564,9 +2575,9 @@ export function CourseWorkspace({
                   courseName={dialogSession.nameSnapshot}
                   onDone={() => {setRosterRevision(v=>v+1);inlineDirty.current=false;setCourseDialog({sessionId:dialogSession.id,kind:"roster"});}}
                   refreshVersion={sportsNative&&kind==="roster"?rosterRevision:0}
-                  onBusyChange={sportsNative&&kind!=="roster"?setInlineBusy:undefined}
+                  onBusyChange={setInlineBusy}
 
-                  onCommitted={sportsNative?refreshWorkspace:undefined}
+                  onCommitted={sportsNative||preparedRosters?refreshWorkspace:undefined}
                   onAttendanceOptimistic={showPendingAttendance}
                   onTeacherAttendanceOptimistic={status=>setPendingTeacherAttendance(previous=>{if(status)return {...previous,[dialogSession.id]:status};const next={...previous};delete next[dialogSession.id];return next;})}
                   onMemberBookingReadyChange={setMemberBookingReady}

@@ -1,3 +1,4 @@
+import {preparedRoster} from "./fixtures/prepared-roster";
 // Native cases keep the real HTTP protocol with their existing fetch fixtures.
 vi.mock("@/lib/sports-session-detail-client",async()=>({readSportsSessionDetail:(await vi.importActual<typeof import("@/lib/course-session-detail-client")>("@/lib/course-session-detail-client")).readCourseSessionDetailClient}));
 // UI state fixtures use the shared read transport; the real HTTP protocol is tested separately.
@@ -723,39 +724,18 @@ it.each([false,true])('shows the calendar names without financial or attendance 
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.load.mockImplementationOnce(()=>new Promise(()=>{}));
  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'preview-only',capacity:3,canCreate:true,canEdit:true,musicLayout,previewBookings:[{id:'present',customerName:'A學員',status:'RESERVED'},{id:'cancelled',customerName:'取消學員',status:'CANCELLED'}]})));
- expect(host.textContent).toContain('A學員');expect(host.textContent).not.toContain('取消學員');expect(host.textContent).toContain('正在核對最新名單');expect([...host.querySelectorAll<HTMLButtonElement>('button')].every(button=>button.disabled)).toBe(true);expect(host.querySelector('[data-roster-ready="true"]')).toBeNull();expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).not.toBeNull();expect(host.textContent).toContain(musicLayout?'本期剩餘／課程進度':'課後剩餘');
+ expect(host.textContent).toContain('A學員');expect(host.textContent).not.toContain('取消學員');expect(host.textContent).toContain('正在核對最新名單');expect(host.querySelectorAll('button')).toHaveLength(0);
  await act(async()=>root.unmount());host.remove();
 });
 
-it('keeps search and its focus while the full roster replaces the preview, then enables current attendance',async()=>{
- Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
- let finish!:(value:unknown)=>void;m.load.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+it.each([false,true])('renders the calendar-preloaded full roster on first render without an opening request; music=%s',async musicLayout=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.load.mockClear();
+ const fetch=vi.fn().mockRejectedValue(new Error('opening must not fetch'));vi.stubGlobal('fetch',fetch);
+ const data=preparedRoster();
  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
  try{
-  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'pending-to-ready',capacity:3,canCreate:true,canEdit:true,musicLayout:true,teacherName:'測試老師',previewBookings:[{id:'a',customerName:'甲學員',status:'RESERVED'},{id:'b',customerName:'乙學員',status:'RESERVED'}]})));
-  expect(host.textContent).toContain('測試老師');expect(host.textContent).toContain('電話核對中');expect(host.textContent).not.toContain('未留電話');
-  const input=host.querySelector<HTMLInputElement>('input[placeholder="搜尋姓名或手機"]')!;
-  await act(async()=>{input.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'甲');input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new KeyboardEvent('keyup',{bubbles:true,key:'甲'}));});
-  expect(host.querySelector('[data-roster-preview] ul')?.textContent).toContain('甲學員');expect(host.querySelector('[data-roster-preview] ul')?.textContent).not.toContain('乙學員');
-  expect([...host.querySelectorAll<HTMLButtonElement>('button')].every(button=>button.disabled)).toBe(true);
-  await act(async()=>{finish({success:true,data:{session:{startsAt:'2026-11-08T02:00:00Z',pointCost:1,teacherAttendance:'SCHEDULED',teacherNote:''},roster:['甲學員','乙學員'].map((name,index)=>({id:index?'b':'a',customerId:index?'cb':'ca',customerName:name,customerPhone:'0912345678',sharedCard:false,bookingSource:'店長建立',status:'RESERVED',bookingKind:'CARD',checkedInAt:null,trialPayments:[],planName:'十堂方案',termCount:10,termLessons:[],termPrivateLeaves:[],absenceCount:0,absenceHistory:[],available:9,unit:'SESSION',notes:'',pointCost:1})),cards:[],trial:null}});});
-  const live=host.querySelector<HTMLInputElement>('[data-roster-ready="true"] input[placeholder="搜尋姓名或手機"]')!;
-  expect(live.value).toBe('甲');expect(document.activeElement).toBe(live);expect(live.selectionStart).toBe(1);
-  expect(host.querySelector('[data-roster-preview]')).toBeNull();expect(host.querySelector<HTMLButtonElement>('button[aria-label="甲學員：點名"]')?.disabled).toBe(false);
- }finally{await act(async()=>root.unmount());host.remove();}
-});
-
-it('retains the beauty preview on failure and retries the full read before enabling any operations',async()=>{
- Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
- const read=vi.fn().mockResolvedValueOnce({success:false,error:'暫時無法核對'}).mockImplementation(()=>new Promise(()=>{}));
- const source={read,note:vi.fn(),actions:()=>[],labels:{list:'預約名單',pending:'待服務',attended:'已完成',unit:'次'}};
- const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
- try{
-  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'beauty-preview',capacity:1,canCreate:false,canEdit:true,sportsNative:true,source,previewBookings:[{id:'b',customerName:'顧客甲',status:'RESERVED',customerPhone:'0912345678'}]})));
-  expect(host.textContent).toContain('顧客甲');expect(host.textContent).toContain('本次使用');expect(host.textContent).toContain('可用次數');expect(host.querySelector('[role="alert"]')?.textContent).toBe('暫時無法核對');
-  expect([...host.querySelectorAll<HTMLButtonElement>('button')].filter(button=>!button.disabled).map(button=>button.textContent)).toEqual(['重新讀取名單']);
-  await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==='重新讀取名單')!.click());
-  expect(read).toHaveBeenCalledTimes(2);expect(host.querySelector('[role="alert"]')).toBeNull();expect(host.textContent).toContain('顧客甲');
-  expect([...host.querySelectorAll<HTMLButtonElement>('button')].every(button=>button.disabled)).toBe(true);
- }finally{await act(async()=>root.unmount());host.remove();}
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'prepared',capacity:2,canCreate:true,canEdit:true,sportsNative:!musicLayout,musicLayout,initialSnapshot:{sessionId:'prepared',data},previewBookings:[{id:'outdated',customerName:'不應使用姓名摘要',status:'RESERVED'}]})));
+  expect(host.querySelector('[data-roster-ready="true"]')).not.toBeNull();expect(host.textContent).toContain('課表已讀好的備註');expect(host.textContent).toContain('已預讀學員');expect(host.querySelector('a[href="tel:0912000000"]')).not.toBeNull();expect(host.textContent).not.toContain('核對中');expect(host.textContent).not.toContain('不應使用姓名摘要');
+  expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).not.toBeNull();expect(m.load).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled();
+ }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
 });

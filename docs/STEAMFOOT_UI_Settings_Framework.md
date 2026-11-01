@@ -652,6 +652,7 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 - `PanelReadProvider` 僅掛在帳號／門市／模組／權限 keyed OperationScope 內；**禁止** module global、localStorage 或跨使用者共享個資快取。額外門市、權限或 loader 捕捉的變數，以及 server 資料修訂，必須納入 scopeVersion。
 - **SHOULD** 對可預讀入口用 pointer enter、focus 與 touch intent；同鍵的預讀與開啟共用 in-flight 請求。錯誤與 `{success:false}` 不快取，實際開啟可重試。
 - 一般表單 metadata 預設最多 15 秒快取；餘額、退款選項、動態名額、授課費修訂與停用影響等權威讀取使用 TTL 0 或強制 revalidate。預約摘要可先顯示有限 stale snapshot，但必須等新 authoritative payload 才啟用相關操作；所有寫入仍經 server 授權、狀態與額度檢查。
+- 課表名單依使用者 2026-11-01 決策，在開啟課表及換月份階段先完成當前範圍的完整預約明細讀取；完整資料隨課表傳入同帳號／門市／權限的工作區，點開課次直接呈現，不以核對中摘要作為正常流程。資料僅存於該次課表狀態，不作跨使用者或後端授權快取；異動時作廢並重讀，點名／扣堂／收款提交仍重新核對當下權限、狀態與額度。
 - **MUST** 在修改成功後 invalidate／clear 受影響資源或改變 server revision；失效前的請求不得寫回 cache。關閉、卸載、換顧客／交易或切日期時，舊回應不得覆蓋目前畫面。
 - 背景更新不得覆蓋已輸入的草稿。已預載的編輯表單保留單次初始化；需要更新時由 mutation callback、重試或重新開啟取得。
 - 全站指統一所有現有視窗的載入策略，不代表第一次網路請求零等待、WebSocket 即時推播或全站完成真機驗收。盤點與例外見 `docs/panel-loading-inventory.md`。

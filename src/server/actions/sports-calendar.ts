@@ -1,4 +1,5 @@
 "use server";
+import {preloadCourseCalendarRosters} from "@/server/services/course-calendar-rosters";
 import { sportsTeachingName } from "@/lib/course-template-presentation";
 import {z} from "zod";
 import {courseManagerRead} from "@/server/services/course-access";
@@ -37,5 +38,6 @@ export async function loadSportsCalendar(input:unknown){try{
  });
  const [year,month]=first.split('-').map(Number),days=new Date(Date.UTC(year,month,0)).getUTCDate();
  const calendarDays=Object.fromEntries(Array.from({length:days+12},(_,i)=>{const d=addTaiwanDuration(first,i-6,"DAY"),r=resolvedCourseHours(d,hours as Parameters<typeof resolvedCourseHours>[1],special as Parameters<typeof resolvedCourseHours>[2]);return[d,{status:r.status,reason:r.reason,periods:r.periods.map(p=>({openTime:p.openTime,closeTime:p.closeTime}))}];}));
- return {success:true as const,data:{schedulingModes:schedulingModes??undefined,month:first.slice(0,7),sessions:[...rows,...rentals.map(r=>({id:`rental:${r.id}`,rentalId:r.id,sportsPalette:true,rentalCancelled:!!r.cancelledAt,templateId:"",nameSnapshot:r.customerName,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),coachId:"",roomId:r.roomId,capacity:0,pointCost:0,bookings:[],previewKind:"RENTAL" as const}))],cancelledBookings,calendarDays,staffAvailabilityExceptions:exceptions.map(e=>({...e,date:e.date.toISOString().slice(0,10)}))}};
+ const rosterSnapshots=await preloadCourseCalendarRosters(storeId,sessions.map(session=>session.id));
+ return {success:true as const,data:{rosterSnapshots,schedulingModes:schedulingModes??undefined,month:first.slice(0,7),sessions:[...rows,...rentals.map(r=>({id:`rental:${r.id}`,rentalId:r.id,sportsPalette:true,rentalCancelled:!!r.cancelledAt,templateId:"",nameSnapshot:r.customerName,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),coachId:"",roomId:r.roomId,capacity:0,pointCost:0,bookings:[],previewKind:"RENTAL" as const}))],cancelledBookings,calendarDays,staffAvailabilityExceptions:exceptions.map(e=>({...e,date:e.date.toISOString().slice(0,10)}))}};
 }catch(e){return handleActionError(e);}}

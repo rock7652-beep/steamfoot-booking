@@ -1,3 +1,4 @@
+vi.mock("@/server/services/course-calendar-rosters",()=>({preloadCourseCalendarRosters:async(storeId:string)=>({storeId,details:{}})}));
 import {beforeEach,it,expect,vi} from "vitest";
 const m=vi.hoisted(()=>({scope:vi.fn(),sessions:vi.fn(),sessionQuery:vi.fn(),entitlement:vi.fn()}));
 vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:m.scope}));
