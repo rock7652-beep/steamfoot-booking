@@ -219,3 +219,29 @@ it('batches month participants without changing either learner’s complete fina
  expect(batched[0][0].customerPhone).toBe('0911-111-111');expect(batched[1].find(r=>r.bookingKind==='TRIAL')).toMatchObject({trialPrice:350,planName:'體驗（不使用方案）'});
  expect(batched[0].some(r=>r.customerId==='trial')).toBe(false);
 });
+
+it('batches complete and incomplete group periods without changing any roster fields',async()=>{
+ const a=lesson('first',0),b=lesson('second',1);
+ const first=row('first',a,card('first',[a],8));
+ const second=row('second',b,card('second',[b],8));
+ second.session.requestKey='other-series';
+ const source=[first,second];
+ const sessions=source.map(r=>({id:r.sessionId,...r.session}));
+ db.sessionCount.mockImplementation(async(q:{where:{requestKey:string}})=>q.where.requestKey==='series'?8:7);
+ db.sessionBatch.mockImplementation(async(q:{select:{id?:boolean}})=>q.select.id?sessions:[
+  ...Array.from({length:8},(_,requestIndex)=>({requestKey:'series',templateId:'guitar',requestIndex})),
+  ...Array.from({length:7},(_,requestIndex)=>({requestKey:'other-series',templateId:'guitar',requestIndex})),
+ ]);
+ db.bookings.mockImplementation(async(q:{where:{sessionId:string|{in:string[]}};select:{sessionId?:boolean}})=>{
+  const selected=source.filter(r=>typeof q.where.sessionId==='string'?r.sessionId===q.where.sessionId:q.where.sessionId.in.includes(r.sessionId));
+  return q.select.sessionId?selected.map(({session,...r})=>{void session;return r;}):selected.map(({sessionId,...r})=>{void sessionId;return r;});
+ });
+ const ids=source.map(r=>r.sessionId);
+ const original=await Promise.all(ids.map(id=>getCourseRoster('music-store',id)));
+ expect(original[0][0].groupCohortProgress).toEqual({index:5,count:8});
+ expect(original[1][0].groupCohortProgress).toBeNull();
+ db.sessionCount.mockClear();
+ const batched=await withReadRequestMemo(()=>withCourseCalendarRead('music-store',ids,()=>Promise.all(ids.map(id=>getCourseRoster('music-store',id)))));
+ expect(batched).toEqual(original);
+ expect(db.sessionCount).not.toHaveBeenCalled();expect(db.sessionBatch).toHaveBeenCalledTimes(2);
+});

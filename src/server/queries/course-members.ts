@@ -2,6 +2,7 @@ import {courseCalendarRead} from '@/server/services/course-calendar-read-scope';
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {isReadRequestMemoActive} from "@/server/services/read-request-memo";
 import {readCourseSessionDetail} from "./course-session-detail";
+import {readCourseGroupTermCount} from "./course-group-term-count";
 import {AppError} from "@/lib/errors";
 import { fixedMusicPeriodsEnabled, readMusicLessonAssignments } from "@/server/services/music-lesson-periods";
 import {measureMusicRead} from "@/lib/music-read-timing";
@@ -155,11 +156,8 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   const nativeCandidates=musicNativeWorkflowEnabled(storeId)?[...new Set(readBookings.filter(b=>b.card?.unit==="SESSION"&&b.card.musicValidityDays&&!b.card.requestKey.startsWith("yjy-")&&!b.card.requestKey.startsWith("music-leave-makeup:")).map(b=>b.card!.id))]:[];
   const groupSession = bookings[0]?.session;
   const groupTermLessons = groupSession?.template.classType === "GROUP" ? groupSession.template.musicTermLessons : null;
-  const groupTermStart = groupSession && groupTermLessons ? Math.floor(groupSession.requestIndex / groupTermLessons) * groupTermLessons : null;
   const [termSessionCount, customers, absenceHistory, confirmedPurchases,nativePurchases,nativeLeaveIds,compatibleItemTemplates,pilotData,canCreateShared,fixedAssignments,balanceRead] = await Promise.all([
-    groupSession && groupTermStart !== null && groupTermLessons
-    ? once(JSON.stringify(["term-count",groupSession.requestKey,groupSession.templateId,groupTermStart,groupTermLessons]),()=>coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}}))
-    : Promise.resolve(0),
+    readCourseGroupTermCount(storeId,sessionId,groupSession),
     once("roster-customers",()=>prisma.customer.findMany({
     relationLoadStrategy:"join",
     where: { storeId, id: { in: readBookings.map((b) => b.customerId).filter((id): id is string => !!id) } },
