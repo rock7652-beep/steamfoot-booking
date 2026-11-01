@@ -1,3 +1,4 @@
+import {courseCalendarRead} from '@/server/services/course-calendar-read-scope';
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {isReadRequestMemoActive} from "@/server/services/read-request-memo";
 import {readCourseSessionDetail} from "./course-session-detail";
@@ -97,7 +98,8 @@ const ROSTER_SESSION_SELECT={startsAt:true,templateId:true,requestKey:true,reque
 type RosterSession=Prisma.CourseSessionGetPayload<{select:typeof ROSTER_SESSION_SELECT}>;
 
 export async function getCourseRoster(storeId: string, sessionId: string) {
-  const scoped=isReadRequestMemoActive();
+  const calendar=courseCalendarRead(coursePrisma,storeId,sessionId);
+  const scoped=!!calendar||isReadRequestMemoActive();
   const selectHead={
       id: true,
       customerId: true,
@@ -128,9 +130,10 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   } as const satisfies Prisma.CourseBookingSelect;
   const where={storeId,sessionId};
   const orderBy:Prisma.CourseBookingOrderByWithRelationInput[]=[{createdAt:"asc"},{id:"asc"}];
+  const allRows=calendar?await calendar.once('roster-bookings',()=>coursePrisma.courseBooking.findMany({where:{storeId,sessionId:{in:[...calendar.sessionIds]}},select:{...selectHead,sessionId:true,...selectTail},orderBy})):undefined;
   const bookings=await (async()=>{
     if(!scoped)return coursePrisma.courseBooking.findMany({where,select:{...selectHead,session:{select:ROSTER_SESSION_SELECT},...selectTail},orderBy});
-    const rows=await coursePrisma.courseBooking.findMany({where,select:{...selectHead,...selectTail},orderBy});
+    const rows=allRows?allRows.filter(row=>row.sessionId===sessionId).map(({sessionId: _sessionId,...row})=>{void _sessionId;return row;}):await coursePrisma.courseBooking.findMany({where,select:{...selectHead,...selectTail},orderBy});
     if(!rows.length)return [];
     // Share only the detail/policy readers' exact session scalars in this HTTP
     // scope. Card/GRANT/payment/history strategy and ordering remain unchanged.
@@ -144,42 +147,46 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     });
   })();
   if(!bookings.length)return [];
-  const hasCards = bookings.some(booking => !!booking.card);
-  const nativeCandidates=musicNativeWorkflowEnabled(storeId)?[...new Set(bookings.filter(b=>b.card?.unit==="SESSION"&&b.card.musicValidityDays&&!b.card.requestKey.startsWith("yjy-")&&!b.card.requestKey.startsWith("music-leave-makeup:")).map(b=>b.card!.id))]:[];
+  // Batch-only supersets are private to this fresh, authorized month read.
+  // The original per-booking projection below still selects each learner's own rights.
+  const readBookings=allRows??bookings;
+  const once=<T>(key:string,read:()=>Promise<T>):Promise<T>=>calendar?calendar.once(key,read):read();
+  const hasCards = readBookings.some(booking => !!booking.card);
+  const nativeCandidates=musicNativeWorkflowEnabled(storeId)?[...new Set(readBookings.filter(b=>b.card?.unit==="SESSION"&&b.card.musicValidityDays&&!b.card.requestKey.startsWith("yjy-")&&!b.card.requestKey.startsWith("music-leave-makeup:")).map(b=>b.card!.id))]:[];
   const groupSession = bookings[0]?.session;
   const groupTermLessons = groupSession?.template.classType === "GROUP" ? groupSession.template.musicTermLessons : null;
   const groupTermStart = groupSession && groupTermLessons ? Math.floor(groupSession.requestIndex / groupTermLessons) * groupTermLessons : null;
   const [termSessionCount, customers, absenceHistory, confirmedPurchases,nativePurchases,nativeLeaveIds,compatibleItemTemplates,pilotData,canCreateShared,fixedAssignments,balanceRead] = await Promise.all([
     groupSession && groupTermStart !== null && groupTermLessons
-    ? coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}})
+    ? once(JSON.stringify(["term-count",groupSession.requestKey,groupSession.templateId,groupTermStart,groupTermLessons]),()=>coursePrisma.courseSession.count({where:{storeId,requestKey:groupSession.requestKey,templateId:groupSession.templateId,cancelledAt:null,requestIndex:{gte:groupTermStart,lt:groupTermStart+groupTermLessons}}}))
     : Promise.resolve(0),
-    prisma.customer.findMany({
+    once("roster-customers",()=>prisma.customer.findMany({
     relationLoadStrategy:"join",
-    where: { storeId, id: { in: bookings.map((b) => b.customerId).filter((id): id is string => !!id) } },
+    where: { storeId, id: { in: readBookings.map((b) => b.customerId).filter((id): id is string => !!id) } },
     select: { id: true, phone: true, serviceNote: true, notes: true, assignedStaff: { select: { id: true, displayName: true, storeId: true } } },
-  }),
-  coursePrisma.courseBooking.findMany({
-    where: {storeId,bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null,customerId:{in:bookings.map(b=>b.customerId).filter((id): id is string => !!id)},OR:[{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},{status:"NO_SHOW"}]},
+  })),
+  once("roster-absence-history",()=>coursePrisma.courseBooking.findMany({
+    where: {storeId,bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null,customerId:{in:readBookings.map(b=>b.customerId).filter((id): id is string => !!id)},OR:[{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},{status:"NO_SHOW"}]},
     select:{customerId:true,status:true,absenceKind:true,session:{select:{startsAt:true}}},
     orderBy:{session:{startsAt:"desc"}},
-  }),
-  hasCards ? coursePrisma.coursePurchase.findMany({
-    where: { storeId, customerId: { in: bookings.map((item) => item.customerId).filter((id): id is string => !!id) }, status: "CONFIRMED", voidedAt: null, cardId: { not: null } },
+  })),
+  hasCards ? once("roster-confirmed-purchases",()=>coursePrisma.coursePurchase.findMany({
+    where: { storeId, customerId: { in: readBookings.map((item) => item.customerId).filter((id): id is string => !!id) }, status: "CONFIRMED", voidedAt: null, cardId: { not: null } },
     select: { customerId: true, cardId: true, points: true, price: true, paymentMethod: true, confirmedAt: true },
-  }) : [],
-    nativeCandidates.length?coursePrisma.coursePurchase.groupBy({by:["cardId"],where:{storeId,cardId:{in:nativeCandidates},status:"CONFIRMED",confirmedAt:{not:null},voidedAt:null},_count:{id:true}}):[],
-    hasCards ? nativeDeductedLeaveIds(coursePrisma,storeId) : [],
+  })) : [],
+    nativeCandidates.length?once("roster-native-purchases",()=>coursePrisma.coursePurchase.groupBy({by:["cardId"],where:{storeId,cardId:{in:nativeCandidates},status:"CONFIRMED",confirmedAt:{not:null},voidedAt:null},_count:{id:true}})):[],
+    hasCards ? once("roster-native-leave-ids",()=>nativeDeductedLeaveIds(coursePrisma,storeId)) : [],
     hasCards && bookings[0]?musicItemTemplateIds(coursePrisma,storeId,bookings[0].session.templateId):[] as string[],
-    (async()=>{
-  const pilotCards=new Set((await Promise.all(bookings.filter(b=>b.card?.requestKey?.startsWith("yjy-pilot-card:")).map(async b=>await isMusicPilotCard(coursePrisma,storeId,b.card)?b.card!.id:null))).filter((id):id is string=>id!==null));
+    once("roster-pilot-evidence",async()=>{
+  const pilotCards=new Set((await Promise.all(readBookings.filter(b=>b.card?.requestKey?.startsWith("yjy-pilot-card:")).map(async b=>await isMusicPilotCard(coursePrisma,storeId,b.card)?b.card!.id:null))).filter((id):id is string=>id!==null));
       return {pilotCards};
-    })(),
-    bookings.some(b => !isMusicOpeningMakeupBooking(b) && !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
+    }),
+    readBookings.some(b => !isMusicOpeningMakeupBooking(b) && !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
     ? getCourseSharedCardState(storeId).then(state=>state === "ENABLED") : false,
-    readMusicLessonAssignments(coursePrisma,storeId,[...new Set(bookings.flatMap(b=>[b.id,...(b.card?.bookings.map(item=>item.id)??[])]))]),
+    once("roster-lesson-assignments",()=>readMusicLessonAssignments(coursePrisma,storeId,[...new Set(readBookings.flatMap(b=>[b.id,...(b.card?.bookings.map(item=>item.id)??[])]))])),
     (async()=>{
       const nativeSports=await sportsNativePreview(storeId);
-      const balances= nativeSports? (await import("@/server/services/sports-roster-balance")).readSportsRosterBalances(storeId,sessionId,bookings.filter(b=>b.bookingKind!=="TRIAL"&&b.customerId).map(b=>b.customerId!)) : (await import("@/server/services/music-item-cards")).readMusicItemBalances(coursePrisma,storeId,bookings.filter(b=>b.customerId&&b.bookingKind!=="TRIAL"&&!b.card?.musicOpeningStateRequired).map(b=>b.customerId!),{...bookings[0].session,id:sessionId});
+      const balances= nativeSports? (await import("@/server/services/sports-roster-balance")).readSportsRosterBalances(storeId,sessionId,bookings.filter(b=>b.bookingKind!=="TRIAL"&&b.customerId).map(b=>b.customerId!),coursePrisma,allRows?.filter(b=>b.bookingKind!=="TRIAL"&&b.customerId).map(b=>b.customerId!)) : (await import("@/server/services/music-item-cards")).readMusicItemBalances(coursePrisma,storeId,bookings.filter(b=>b.customerId&&b.bookingKind!=="TRIAL"&&!b.card?.musicOpeningStateRequired).map(b=>b.customerId!),{...bookings[0].session,id:sessionId},allRows?.filter(b=>b.customerId&&b.bookingKind!=="TRIAL"&&!b.card?.musicOpeningStateRequired).map(b=>b.customerId!));
       return {nativeSports,balances:await balances};
     })(),
   ]);
@@ -193,10 +200,10 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   const nativeDebitedBookings=new Set(nativeLeaveIds);
   const groupTermComplete = !!groupTermLessons && termSessionCount === groupTermLessons;
   const groupCohortProgress = groupTermComplete && groupSession && groupTermLessons ? {index:groupSession.requestIndex % groupTermLessons+1,count:groupTermLessons} : null;
-  const renewalCards = confirmedPurchases.length ? await coursePrisma.coursePointCard.findMany({
+  const renewalCards = confirmedPurchases.length ? await once("roster-renewal-cards",()=>coursePrisma.coursePointCard.findMany({
     where: { storeId, id: { in: confirmedPurchases.map((purchase) => purchase.cardId).filter((value): value is string => !!value) }, closedAt: null },
-    select: { id: true, createdAt: true, remaining: true, templateIds:true,plan: { select: { templateIds: true } }, bookings: { where: { customerId: { in: bookings.map((item) => item.customerId).filter((id): id is string => !!id) }, OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, select: { id:true, customerId: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } },
-  }) : [];
+    select: { id: true, createdAt: true, remaining: true, templateIds:true,plan: { select: { templateIds: true } }, bookings: { where: { customerId: { in: readBookings.map((item) => item.customerId).filter((id): id is string => !!id) }, OR: [{ status: { not: "CANCELLED" } }, { absenceKind: "GROUP_LEAVE_FORFEITED" }] }, select: { id:true, customerId: true, status: true, absenceKind: true, session: { select: { startsAt: true } } } } },
+  })) : [];
   const fixedById = new Map(fixedAssignments.map(a=>[a.bookingId,a]));
   return bookings.map(({ card, checkedInAt, musicOpeningMakeupEntitlementId, musicOpeningTermKey, musicOpeningLessonOrdinal, musicOpeningSourceLessonKey, ...b }) => {
     const openingMakeup = isMusicOpeningMakeupBooking({ ...b, musicOpeningMakeupEntitlementId });

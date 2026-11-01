@@ -8,13 +8,13 @@ const db = vi.hoisted(() => ({
   purchases: vi.fn(),
   cards: vi.fn(),
   sessionCount: vi.fn(),
-  sessionDetail:vi.fn(),
+  sessionDetail:vi.fn(),sessionBatch:vi.fn(),
   balances:vi.fn(async()=>new Map()),
 }));
 vi.mock("@/lib/course-db", () => ({
   coursePrisma: {
     courseBooking: { findMany: (query: { where: { sessionId?: string } }) => query.where.sessionId ? db.bookings(query) : db.absences(query), groupBy: db.leaveCounts },
-    courseSession: { count: db.sessionCount,findFirst:db.sessionDetail },
+    courseSession: { count: db.sessionCount,findFirst:db.sessionDetail,findMany:db.sessionBatch },
     courseTemplate: { findFirst: async () => null, findMany: async () => [] },
     coursePurchase: { findMany: db.purchases },
     coursePointCard: { findMany: db.cards },
@@ -192,4 +192,30 @@ it('does not read session metadata for an empty scoped roster and rejects a miss
  db.bookings.mockResolvedValue([]);await expect(withReadRequestMemo(()=>getCourseRoster('music-store','empty'))).resolves.toEqual([]);expect(db.sessionDetail).not.toHaveBeenCalled();
  const current=lesson('first',0);db.bookings.mockResolvedValue([row('first',current,card('first',[current],4))]);db.sessionDetail.mockResolvedValue(null);
  await expect(withReadRequestMemo(()=>getCourseRoster('music-store','session-0'))).rejects.toMatchObject({code:'NOT_FOUND'});
+});
+
+import {withCourseCalendarRead} from '@/server/services/course-calendar-read-scope';
+it('batches month participants without changing either learner’s complete financial and period projection',async()=>{
+ const history=[lesson('first',0),lesson('first',1,'NO_SHOW')];
+ const first=row('first',history[0],card('first',history,10),'PRIVATE');
+ const second=row('first',history[1],card('first',history,10),'PRIVATE');
+ const trial={...row('trial',lesson('trial',1),card('trial',[],20),'PRIVATE'),card:null,cardId:null,bookingKind:'TRIAL',trialPrice:350};
+ const source=[first,second,trial];
+ const sessionRows=source.map(r=>({id:r.sessionId,...r.session}));db.sessionBatch.mockResolvedValue(sessionRows);
+ db.bookings.mockImplementation(async(q:{where:{sessionId:string|{in:string[]}};select:{sessionId?:boolean}})=>{
+  const selected=source.filter(r=>typeof q.where.sessionId==='string'?r.sessionId===q.where.sessionId:q.where.sessionId.in.includes(r.sessionId));
+  return q.select.sessionId?selected.map(({session,...r})=>{void session;return r;}):selected.map(({sessionId,...r})=>{void sessionId;return r;});
+ });
+ db.customers.mockResolvedValue([{id:'first',phone:'0911-111-111',serviceNote:'A'}, {id:'trial',phone:'0922-222-222',serviceNote:'B'}]);
+ db.absences.mockResolvedValue([{customerId:'first',absenceKind:null,status:'NO_SHOW',session:{startsAt:day(8)}}]);
+ db.purchases.mockResolvedValue([{customerId:'first',cardId:'card-first',points:10,price:3000,paymentMethod:'CASH',confirmedAt:day(1)}]);
+ const ids=['session-0','session-1','empty'];
+ const original=await Promise.all(ids.map(id=>getCourseRoster('music-store',id)));
+ for(const mock of [db.bookings,db.customers,db.absences,db.purchases,db.cards,db.sessionCount])mock.mockClear();
+ const batched=await withReadRequestMemo(()=>withCourseCalendarRead('music-store',ids,()=>Promise.all(ids.map(id=>getCourseRoster('music-store',id)))));
+ expect(batched).toEqual(original);
+ expect({bookings:db.bookings.mock.calls.length,customers:db.customers.mock.calls.length,absences:db.absences.mock.calls.length,purchases:db.purchases.mock.calls.length,sessions:db.sessionBatch.mock.calls.length}).toEqual({bookings:1,customers:1,absences:1,purchases:1,sessions:1});
+ expect(db.cards.mock.calls.filter(call=>call[0].where.id)).toHaveLength(1);
+ expect(batched[0][0].customerPhone).toBe('0911-111-111');expect(batched[1].find(r=>r.bookingKind==='TRIAL')).toMatchObject({trialPrice:350,planName:'體驗（不使用方案）'});
+ expect(batched[0].some(r=>r.customerId==='trial')).toBe(false);
 });
