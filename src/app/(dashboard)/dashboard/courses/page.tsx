@@ -29,7 +29,7 @@ import {
 } from "@/lib/date-utils";
 import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
-import { MusicTypesShowcase } from "./showcase/music-types-showcase";
+import { MusicTypesShowcaseEntry as MusicTypesShowcase } from "./non-calendar-view-entries";
 import { resolvedCourseHours } from "@/lib/course-business-hours";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
@@ -207,9 +207,9 @@ export default async function CoursesPage({
       }));
   const businessHoursPromise = timing.read("business_hours",()=>prisma.businessHours.findMany({ where: { storeId } }));
   const rosterPromise = view === "schedule" && writableStore && (sportsNative || businessProfile === "MUSIC")
-    ? Promise.all([sessionsPromise, businessHoursPromise]).then(([rows, hours]) => {
+    ? businessHoursPromise.then(hours => {
         if (businessProfile === "MUSIC" && hours.length > 0 && hours.every(row => row.segments == null)) return undefined;
-        return timing.read("rosters", () => preloadCourseCalendarRosters(storeId, rows.map(session => session.id)));
+        return timing.read("rosters", () => preloadCourseCalendarRosters(storeId, sessionsPromise.then(rows => rows.map(session => session.id))));
       })
     : Promise.resolve(undefined);
   // Observe failure now; the final await still propagates it before rendering.

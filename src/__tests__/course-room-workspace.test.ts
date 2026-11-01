@@ -5,20 +5,22 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import { CourseWorkspace } from "@/app/(dashboard)/dashboard/courses/workspace";
 import { courseRoomInput } from "@/lib/course-room-input";
+import {shareCalendarRosterMetadata} from '@/server/services/course-calendar-transfer';
+import {preparedRoster} from './fixtures/prepared-roster';
 vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: vi.fn() }));
 vi.mock("@/app/(dashboard)/dashboard/courses/sports-attendance-panel", () => ({ SportsAttendancePanel: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/sports-cancel-course", () => ({ SportsCancelCourse: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/sports-move-confirm", () => ({ SportsMoveConfirm: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/sports-schedule-fields", () => ({ SportsScheduleFields: (props: unknown) => { m.schedule(props); return null; } }));
 vi.mock("@/components/admin/course-customer-picker", () => ({ CourseCustomerPicker: () => null }));
-const m = vi.hoisted(() => ({ refresh: vi.fn(), fetch: vi.fn(), schedule: vi.fn(), search: "view=rooms&action=create" }));
+const m = vi.hoisted(() => ({ refresh: vi.fn(), fetch: vi.fn(), schedule: vi.fn(), roster:vi.fn(), search: "view=rooms&action=create" }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/s/music-test/admin/dashboard/courses", useSearchParams: () => new URLSearchParams(m.search) }));
 vi.mock("@/server/actions/course-slot-matches", () => ({ getMusicSlotMatches: vi.fn() }));
 vi.mock("@/server/actions/course", () => ({}));
 vi.mock("@/components/admin/course-display-order", () => ({ useCourseDisplayOrder: () => ({ ranks: new Map(), compare: () => 0, rowProps: () => ({}), handle: () => null }) }));
 vi.mock("@/components/admin/course-status-button", () => ({ useCourseStatusRows: (rows: unknown[]) => [rows, vi.fn(), [], vi.fn()], CourseStatusButton: () => null }));
 vi.mock("@/components/admin/course-batch-selection", () => ({ CourseBatchBar: () => null }));
-vi.mock("@/app/(dashboard)/dashboard/courses/roster", () => ({ CourseRoster: ({onBusyChange}:{onBusyChange?:(busy:boolean)=>void}) => createElement("div",null,createElement("button",{onClick:()=>onBusyChange?.(true)},"start-roster-save"),createElement("button",{onClick:()=>onBusyChange?.(false)},"finish-roster-save")) }));
+vi.mock("@/app/(dashboard)/dashboard/courses/roster", () => ({ CourseRoster: (props:{onBusyChange?:(busy:boolean)=>void;initialSnapshot?:unknown}) => {m.roster(props);return createElement("div",null,createElement("button",{onClick:()=>props.onBusyChange?.(true)},"start-roster-save"),createElement("button",{onClick:()=>props.onBusyChange?.(false)},"finish-roster-save"));} }));
 vi.mock("@/app/(dashboard)/dashboard/courses/rental-panel", () => ({ RentalPanel: () => null, RentalHistory: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/music-schedule-wizard", () => ({ MusicScheduleWizard: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/daily-attendance-list", () => ({ DailyAttendanceList: () => null }));
@@ -125,4 +127,23 @@ it('disables roster close while a save is pending and restores it after confirma
   await act(async()=>find('finish-roster-save').click());expect(find('關閉').disabled).toBe(false);
   await act(async()=>find('關閉').click());expect(document.querySelector('[role="dialog"]')).toBeNull();
  }finally{await act(async()=>root.unmount());host.remove();m.search='view=rooms&action=create';}
+});
+
+it('makes complete metadata-shared rosters available on first open and accepts a later snapshot without fetching',async()=>{
+ m.search='view=schedule&date=2026-10-10&scheduleView=day';m.roster.mockClear();m.fetch.mockReset();vi.stubGlobal('fetch',m.fetch);
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ const session={id:'packed-session',templateId:'t',nameSnapshot:'完整名單',startsAt:'2026-10-10T04:00:00.000Z',endsAt:'2026-10-10T05:00:00.000Z',coachId:'',roomId:'',capacity:8,pointCost:1,bookings:[]};
+ const data=preparedRoster('packed-learner');data.session.startsAt=session.startsAt;
+ const render=()=>createElement(CourseWorkspace,{...props,view:'schedule' as const,businessProfile:'MUSIC' as const,sessions:[session],rosterSnapshots:shareCalendarRosterMetadata({storeId:'store-a',details:{'packed-session':data}})});
+ const open=()=>host.querySelector<HTMLElement>('[data-calendar-session="packed-session"]')!.click();
+ try{
+  await act(async()=>root.render(render()));
+  expect(host.querySelector('[data-calendar-rosters-ready="true"]')).toBeTruthy();
+  await act(async()=>open());
+  expect(m.roster.mock.calls.at(-1)![0].initialSnapshot).toStrictEqual({sessionId:'packed-session',data});
+  await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(b=>b.textContent==='關閉')!.click());
+  data.session.teacherNote='最新教師備註';await act(async()=>root.render(render()));await act(async()=>open());
+  expect(m.roster.mock.calls.at(-1)![0].initialSnapshot).toStrictEqual({sessionId:'packed-session',data});
+  expect(m.fetch).not.toHaveBeenCalled();
+ }finally{await act(async()=>root.unmount());host.remove();m.search='view=rooms&action=create';vi.unstubAllGlobals();}
 });
