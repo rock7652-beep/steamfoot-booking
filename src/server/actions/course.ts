@@ -386,7 +386,7 @@ export async function updateCourseSession(input: unknown) {
             await tx.courseScheduleSeries.update({ where: { id: rule.id }, data: { excludedDates: [...excluded] } });
           }
         }
-        if(bookings.length&&(range.startsAt.getTime()!==session.startsAt.getTime()||range.endsAt.getTime()!==session.endsAt.getTime()||data.coachId!==session.coachId))await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${session.id}`,kind:"MOVE",customerName:data.nameSnapshot,courseName:data.nameSnapshot,coachId:data.coachId,previousCoachId:session.coachId,startsAt:range.startsAt,previousStartsAt:session.startsAt,affectedCount:bookings.length,details:{students:bookings.map(b=>b.customerName)}});
+        if(bookings.length&&(range.startsAt.getTime()!==session.startsAt.getTime()||range.endsAt.getTime()!==session.endsAt.getTime()||data.coachId!==session.coachId||data.nameSnapshot!==session.nameSnapshot||data.roomId!==session.roomId||data.capacity!==session.capacity||data.pointCost!==session.pointCost||(data.templateId??session.templateId)!==session.templateId))await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${session.id}`,kind:range.startsAt.getTime()!==session.startsAt.getTime()||range.endsAt.getTime()!==session.endsAt.getTime()?"MOVE":"UPDATE",customerName:data.nameSnapshot,courseName:data.nameSnapshot,coachId:data.coachId,previousCoachId:session.coachId,startsAt:range.startsAt,previousStartsAt:session.startsAt,affectedCount:bookings.length,details:{students:bookings.map(b=>b.customerName)}});
         return data.capacity > session.capacity ? session.id : null;
       },
       { timeout: 15000 },
@@ -1090,7 +1090,7 @@ export async function moveCourseSessions(input: unknown) {
       }
       for(const change of changes){
         const students=await tx.courseBooking.findMany({where:{storeId,sessionId:change.session.id,status:{not:"CANCELLED"}},select:{customerName:true}});
-        if(students.length)await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${change.session.id}`,kind:"MOVE",customerName:change.session.nameSnapshot,courseName:change.session.nameSnapshot,coachId:d.coachId,previousCoachId:change.session.coachId,startsAt:change.startsAt,previousStartsAt:change.session.startsAt,affectedCount:students.length,details:{students:students.map(s=>s.customerName)}});
+        if(students.length)await recordCourseStoreNotice(tx,{storeId,userId:user.id,name:user.name??"門市人員"},{subjectKey:`session:${change.session.id}`,kind:change.startsAt.getTime()!==change.session.startsAt.getTime()?"MOVE":"UPDATE",customerName:change.session.nameSnapshot,courseName:change.session.nameSnapshot,coachId:d.coachId,previousCoachId:change.session.coachId,startsAt:change.startsAt,previousStartsAt:change.session.startsAt,affectedCount:students.length,details:{students:students.map(s=>s.customerName)}});
       }
       if(source.templateId.startsWith("teaching:")){const {captureTeachingTuitionFees}=await import("@/server/services/music-teaching-item");await captureTeachingTuitionFees(tx,storeId,source.requestKey,selectedIds);}
       const updated=await tx.courseSession.findMany({where:{storeId,id:{in:selectedIds},cancelledAt:null},include:{bookings:true}});

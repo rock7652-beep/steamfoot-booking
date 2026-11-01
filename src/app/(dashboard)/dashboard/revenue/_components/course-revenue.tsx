@@ -27,13 +27,13 @@ import { CourseTransactionActions } from "./course-transaction-actions";
 function RevenueLink({resolveHref,href,...props}:ComponentProps<typeof Link>&{resolveHref?:CourseRevenueSource["href"]}){return <Link {...props} href={resolveHref?resolveHref(String(href)):href}/>;}
 const money = (amount: number) => `NT$ ${amount.toLocaleString()}`;
 export async function CourseRevenue({ source,storeId, params, readOnly, canRefund, canConfirm, canEdit, canVoid, basePath = "/dashboard/revenue" }: {
-  source?:CourseRevenueSource;storeId: string; params: { kind?:string;dataScope?:string;summary?: string; dateFrom?: string; dateTo?: string; page?: string; trialPage?: string; status?: string; staff?: string };
+  source?:CourseRevenueSource;storeId: string; params: { purchaseId?:string;kind?:string;dataScope?:string;summary?: string; dateFrom?: string; dateTo?: string; page?: string; trialPage?: string; status?: string; staff?: string };
   canEdit: boolean; canVoid: boolean; readOnly: boolean; canRefund: boolean; canConfirm: boolean;
   basePath?: "/dashboard/revenue" | "/dashboard/transactions";
   canDataExport?: boolean;
 }) {
   const legacy=musicDataScope(storeId,params.dataScope)==="legacy";
-  const scopeQuery:Record<string,string>={...operationsSavedQuery(params),...(legacy?{dataScope:"legacy"}:{}),...(params.kind?{kind:params.kind}:{})};
+  const scopeQuery:Record<string,string>={...operationsSavedQuery(params),...(params.purchaseId?{purchaseId:params.purchaseId.slice(0,100)}:{}),...(legacy?{dataScope:"legacy"}:{}),...(params.kind?{kind:params.kind}:{})};
   if(legacy){readOnly=true;canRefund=false;canConfirm=false;canEdit=false;canVoid=false;}
   const today = toLocalDateStr();
   const validDate = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s).valueOf()) && new Date(s).toISOString().slice(0, 10) === s;
@@ -64,7 +64,7 @@ export async function CourseRevenue({ source,storeId, params, readOnly, canRefun
   const staff = params.staff?.slice(0, 100) || undefined;
   const sourceSnapshot=source?await source.read({from,to,status,staff,page:Math.max(1,Math.floor(Number(params.page)||1))}):null;
   const [musicDetail,receiptTotals,staffRows]=await Promise.all([
-    source?null:getMusicRevenueTransactions(storeId,{from,to,status,staff,page:params.page,dataScope:params.dataScope}),
+    source?null:getMusicRevenueTransactions(storeId,{from,to,status,staff,page:params.page,dataScope:params.dataScope,purchaseId:params.purchaseId?.slice(0,100)}),
     sourceSnapshot?sourceSnapshot.receiptTotals:getCourseReceiptTotals(storeId,from,to,params.dataScope),
     sourceSnapshot?sourceSnapshot.staffRows:prisma.staff.findMany({where:{storeId},select:{id:true,userId:true,displayName:true,status:true,user:{select:{role:true}}}}),
   ]);
@@ -109,11 +109,11 @@ export async function CourseRevenue({ source,storeId, params, readOnly, canRefun
           <RevenueLink resolveHref={source?.href} href={basePath} className="flex h-11 items-center justify-center self-end rounded-lg border border-earth-200 px-3 text-sm text-earth-600">清除</RevenueLink>
         </InstantFilterForm>{source&&<p className="mt-2 text-sm text-earth-600">共 {count} 筆購買紀錄</p>}
       </div>
-      {showPlans&&<>{!source?<CourseRevenueTransactions initial={detail} input={{from,to,status,staff,page:params.page,dataScope:params.dataScope}} live={musicNativeWorkflowEnabled(storeId)} basePath={basePath} canRefund={canRefund} canConfirm={canConfirm} canEdit={canEdit} canVoid={canVoid} staffRows={staffRows}/>:rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} className="rounded-none border-0" /> : <EmptyRow title="沒有符合條件的交易" hint="調整日期或篩選條件重新查詢" />}
+      {showPlans&&<>{!source?<CourseRevenueTransactions initial={detail} input={{from,to,status,staff,page:params.page,dataScope:params.dataScope,purchaseId:params.purchaseId?.slice(0,100)}} live={musicNativeWorkflowEnabled(storeId)} basePath={basePath} canRefund={canRefund} canConfirm={canConfirm} canEdit={canEdit} canVoid={canVoid} staffRows={staffRows}/>:rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} className="rounded-none border-0" /> : <EmptyRow title="沒有符合條件的交易" hint="調整日期或篩選條件重新查詢" />}
       {source && pages > 1 && <div className="flex justify-between p-3 text-sm"><span>第 {page} / {pages} 頁</span><div className="flex gap-4">{page > 1 && <RevenueLink resolveHref={source?.href} href={href(page - 1)}>上一頁</RevenueLink>}{page < pages && <RevenueLink resolveHref={source?.href} href={href(page + 1)}>下一頁</RevenueLink>}</div></div>}
     </>}
       {showTrials&&<CourseTrialTransactions embedded storeId={storeId} range={range} readOnly={readOnly} page={Math.max(1,Number(params.trialPage)||1)} basePath={basePath} query={{...scopeQuery,dateFrom:from,dateTo:to,status:status??"",staff:staff??""}} status={status} staff={staff} dataScope={params.dataScope}/>}
     </section></div>
   </PageShell>);
-  return source?ledger:<MusicRevenueLive key={JSON.stringify([storeId,from,to,status,staff,params.page,params.dataScope])} initial={{totals:receiptTotals,transactions:detail}} input={{from,to,status,staff,page:params.page,dataScope:params.dataScope}} enabled={musicNativeWorkflowEnabled(storeId)}>{ledger}</MusicRevenueLive>;
+  return source?ledger:<MusicRevenueLive key={JSON.stringify([storeId,from,to,status,staff,params.page,params.dataScope])} initial={{totals:receiptTotals,transactions:detail}} input={{from,to,status,staff,page:params.page,dataScope:params.dataScope,purchaseId:params.purchaseId?.slice(0,100)}} enabled={musicNativeWorkflowEnabled(storeId)}>{ledger}</MusicRevenueLive>;
 }

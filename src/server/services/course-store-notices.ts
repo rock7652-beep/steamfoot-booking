@@ -1,4 +1,5 @@
 import "server-only";
+import {producesStoreNotice} from "@/lib/receivable-notice";
 import type {Prisma} from "../../../generated/course-client";
 import type {CourseActor} from "./course-booking";
 import {courseNoticeNeedsFollowup,type CourseNoticeKind} from "@/lib/course-store-notices";
@@ -12,6 +13,7 @@ type StoreNoticeInput={
 export async function recordCourseStoreNotice(tx:Prisma.TransactionClient,actor:CourseActor,inputOrLoad:StoreNoticeInput|(()=>Promise<StoreNoticeInput>)) {
  // The store's digital manager keeps receiving events independently of legacy switches.
  const input=typeof inputOrLoad==="function"?await inputOrLoad():inputOrLoad;
+ if(!producesStoreNotice(input.kind))return;
  if(input.kind==="BOOKING"&&!actor.customerId)return;
  const coaches=await tx.$queryRaw<Array<{id:string;displayName:string}>>`SELECT id,"displayName" FROM "Staff" WHERE "storeId"=${actor.storeId} AND (id=${input.coachId} OR id=${input.previousCoachId??input.coachId})`;
  const coachName=coaches.find(c=>c.id===input.coachId)?.displayName??"未指派";

@@ -9,11 +9,11 @@ import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {NotificationSwitch} from "./notification-switch";
 import {DigitalManagerIcon} from "./digital-manager-icon";
 import {playStoreNoticeSound} from "@/lib/store-notice-sound";
-import {NOTICE_RETENTION_TEXT} from "@/lib/store-notice-lifecycle";
+import {NOTICE_RETENTION_TEXT,noticeSection} from "@/lib/store-notice-lifecycle";
 import {markNoticeRead} from '@/lib/notice-read-performance';
-const NOTICE_TITLE="數位管家｜門市提醒";
+const NOTICE_TITLE="數位店長｜門市提醒";
 function noticeTime(value:string){return formatTWDateTime(new Date(value));}
-function compactNotice(n:StoreNoticeItem){return n.kind==="PAYMENT"||n.kind==="LEAD"||n.kind==="SUPPORT"||n.kind==="VIP"||n.kind==="REMINDER"||n.kind==="DIGEST";}
+function compactNotice(n:StoreNoticeItem){return n.kind==="RECEIVABLE"||n.kind==="PAYMENT"||n.kind==="LEAD"||n.kind==="SUPPORT"||n.kind==="VIP"||n.kind==="REMINDER"||n.kind==="DIGEST";}
 export function StoreNoticeBell({storeId,namespace,initialEnabled=false,initialSummary,loadNotices,markNotice,markAllNotices,onViewTarget,closeOnViewTarget=false,targetLabel="查看預約",refreshKey=0,labels=STORE_NOTICE_LABELS}:{
  storeId:string;namespace:"course"|"steamfoot"|"beauty";initialEnabled?:boolean;
  initialSummary?:InitialStoreNoticeSummary|null;
@@ -30,6 +30,7 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,initialS
  const [offset,setOffset]=useState(0),[expanded,setExpanded]=useState<string|null>(null),[error,setError]=useState("");
  const [rowError,setRowError]=useState<Record<string,string>>({}),[pending,setPending]=useState<string|null>(null),[sound,setSound]=useState(true),[loading,setLoading]=useState(true);
  const [undo,setUndo]=useState<StoreNoticeItem|null>(null);const heading=useId();
+ const [feedback,setFeedback]=useState('');
  const reader=usePanelReader(`${namespace}-store-notices`,loadNotices,storeId,0);
  const [countKnown,setCountKnown]=useState(!!initial);
  const skipTargetCloseRead=useRef(false);
@@ -87,9 +88,10 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,initialS
  useEffect(()=>{if(initialTiming)markNoticeRead(namespace,'initial',initialTiming);},[initialTiming,namespace]);
  useEffect(()=>{if(!countKnown)return;let second=0;const first=requestAnimationFrame(()=>{second=requestAnimationFrame(()=>markNoticeRead(namespace,'paint'));});return()=>{cancelAnimationFrame(first);cancelAnimationFrame(second);};},[countKnown,count,namespace]);
  async function toggle(n:StoreNoticeItem) {
-  if(busy.current||!canHandle)return;busy.current=true;generation.current++;reader.clear();setPending(n.id);setRowError({});setError("");
+  if(busy.current||!canHandle)return;busy.current=true;generation.current++;reader.clear();setPending(n.id);setRowError({});setError("");setFeedback('');
   const previous=items,oldCount=count;const target=!n.handledAt;
-  setItems(list=>list.map(i=>i.id===n.id?{...i,handledAt:target?new Date().toISOString():null}:i));setCount(c=>Math.max(0,c+(target?-1:1)));
+  const leavesSection=!handled&&target||handled&&!target&&noticeSection(new Date(n.publishedAt??n.createdAt))==='latest';
+  setItems(list=>leavesSection?list.filter(i=>i.id!==n.id):list.map(i=>i.id===n.id?{...i,handledAt:target?new Date().toISOString():null}:i));setCount(c=>Math.max(0,c+(target?-1:1)));
   try{const r=await markNotice({storeId,id:n.id,handled:target,revision:n.revision});if(!mounted.current)return;
    if(r.success&&r.storeId!==storeId)return;
    if(!r.success){setItems(previous);setCount(oldCount);setRowError({[n.id]:r.error});if(!previous.some(i=>i.id===n.id))setError(r.error);}
@@ -99,17 +101,18 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,initialS
  }
  async function markAll() {
   if(busy.current||!canHandle||!markAllNotices)return;
-  busy.current=true;generation.current++;reader.clear();setPending("all");setError("");setUndo(null);
-  let failure="";
+  busy.current=true;generation.current++;reader.clear();setPending("all");setError("");setUndo(null);setFeedback('');
+  let failure="",reloadOnNewPage=false;
   try {
    const r=await markAllNotices({storeId});
    if(!mounted.current)return;
    if(!r.success)failure=r.error;
-   else if(r.storeId===storeId){setUndo(null);}
+   else if(r.storeId===storeId){setUndo(null);if(!handled){setItems([]);if(offset!==0){reloadOnNewPage=true;setOffset(0);}setExpanded(null);}setCount(c=>Math.max(0,c-r.count));setFeedback(handled?'已全部標為已讀':'已移至歷史訊息');}
   }catch{failure="儲存結果未確認，請重試核對";}
-  finally{busy.current=false;if(mounted.current){setPending(null);reader.clear();await load();if(failure&&mounted.current)setError(failure);}}
+  finally{busy.current=false;if(mounted.current){setPending(null);reader.clear();if(!reloadOnNewPage)await load();if(failure&&mounted.current)setError(failure);}}
  }
  useEffect(()=>{if(!undo)return;const timer=setTimeout(()=>setUndo(null),7000);return()=>clearTimeout(timer);},[undo]);
+ useEffect(()=>{if(!feedback)return;const timer=setTimeout(()=>setFeedback(''),5000);return()=>clearTimeout(timer);},[feedback]);
  if(!enabled)return null;
  return <>
   <button type="button" title={NOTICE_TITLE} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-primary-800 hover:bg-earth-50" aria-label={countKnown?`${NOTICE_TITLE}，${count} 筆未讀`:NOTICE_TITLE} aria-expanded={open} onClick={()=>{if(open)void load();else setOpen(true);if(sound)armAudio();}}>
@@ -132,15 +135,15 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,initialS
        <button type="button" className={`${rosterStatusButtonClassName} ${n.handledAt?"text-primary-700":"text-earth-400"}`} disabled={!canHandle||!!pending} aria-label={`${n.handledAt?"標為未讀":"標為已讀"}：${n.customerName}`} aria-pressed={!!n.handledAt} onClick={()=>void toggle(n)}><svg className="h-5 w-5" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.8" stroke="currentColor" strokeWidth={n.handledAt?2.4:1.8}/></svg></button>
        <button className="min-h-11 min-w-0 flex-1 text-left" aria-expanded={expanded===n.id} onClick={()=>setExpanded(expanded===n.id?null:n.id)}>
         <span className="flex flex-wrap items-center gap-x-2"><strong className="break-words text-earth-900">{n.customerName}</strong><span className="text-primary-700">{labels[n.kind]??STORE_NOTICE_LABELS[n.kind]}</span>{<span className="text-earth-600">{noticeTime(n.publishedAt??n.createdAt)}</span>}{n.affectedCount>1&&<span className="text-earth-500">{n.affectedCount} 人</span>}</span>
-        {!compactNotice(n)&&<span className="block break-words text-earth-600">{n.previousStartsAt?`${noticeTime(n.previousStartsAt)} → `:""}{noticeTime(n.startsAt)}{n.coachName&&<>・{n.previousCoachName&&n.previousCoachName!==n.coachName?`${n.previousCoachName} → `:""}{n.coachName}</>}</span>}
+        {n.kind==='RECEIVABLE'&&n.amountDue!==undefined&&<span className="block text-earth-600">尚欠 NT$ {n.amountDue.toLocaleString('zh-TW')}</span>}{!compactNotice(n)&&<span className="block break-words text-earth-600">{n.previousStartsAt?`${noticeTime(n.previousStartsAt)} → `:""}{noticeTime(n.startsAt)}{n.coachName&&<>・{n.previousCoachName&&n.previousCoachName!==n.coachName?`${n.previousCoachName} → `:""}{n.coachName}</>}</span>}
        </button>
       </div>
       {rowError[n.id]&&<p role="alert" className="px-3 pb-2 text-red-700">{rowError[n.id]}</p>}
-      {expanded===n.id&&<div className="space-y-1 bg-earth-50 px-4 py-2 pl-14 text-earth-600">{!compactNotice(n)&&<><p>{n.courseName}</p><p>異動：{noticeTime(n.publishedAt??n.createdAt)}</p></>}{n.handledAt&&<p>{n.handledByName}・{noticeTime(n.handledAt)} 已讀</p>}{compactNotice(n)&&!n.canViewCourse&&<p>{n.kind==="PAYMENT"?"需要付款管理權限":n.kind==="REMINDER"||n.kind==="DIGEST"?"需要門市查閱權限":"需要顧客查閱權限"}</p>}{!!n.details&&typeof n.details==="object"&&"students" in n.details&&Array.isArray(n.details.students)&&<p className="break-words">{n.details.students.filter(s=>typeof s==="string").join("、")}</p>}{n.canViewCourse&&onViewTarget&&<button type="button" className="min-h-11 px-2 font-semibold text-primary-700 underline" onClick={()=>{if(typeof closeOnViewTarget==='function'?closeOnViewTarget(n):closeOnViewTarget){skipTargetCloseRead.current=true;setOpen(false);}onViewTarget(n,canHandle);}}>{n.kind==='PAYMENT'?"查看待核帳":n.kind==='LEAD'||n.kind==='SUPPORT'||n.kind==='VIP'?"查看顧客需求":n.kind==='DIGEST'?"查看門市":targetLabel}</button>}</div>}
+      {expanded===n.id&&<div className="space-y-1 bg-earth-50 px-4 py-2 pl-14 text-earth-600">{!compactNotice(n)&&<><p>{n.courseName}</p><p>異動：{noticeTime(n.publishedAt??n.createdAt)}</p></>}{n.kind==='RECEIVABLE'&&<p>訊息到期隱藏後，欠款仍保留在收款紀錄。</p>}{n.handledAt&&<p>{n.handledByName}・{noticeTime(n.handledAt)} 已讀</p>}{compactNotice(n)&&!n.canViewCourse&&<p>{n.kind==="PAYMENT"||n.kind==="RECEIVABLE"?"需要付款管理權限":n.kind==="REMINDER"||n.kind==="DIGEST"?"需要門市查閱權限":"需要顧客查閱權限"}</p>}{!!n.details&&typeof n.details==="object"&&"students" in n.details&&Array.isArray(n.details.students)&&<p className="break-words">{n.details.students.filter(s=>typeof s==="string").join("、")}</p>}{n.canViewCourse&&onViewTarget&&<button type="button" className="min-h-11 px-2 font-semibold text-primary-700 underline" onClick={()=>{if(typeof closeOnViewTarget==='function'?closeOnViewTarget(n):closeOnViewTarget){skipTargetCloseRead.current=true;setOpen(false);}onViewTarget(n,canHandle);}}>{n.kind==='RECEIVABLE'?"查看收款":n.kind==='PAYMENT'?"查看待核帳":n.kind==='LEAD'||n.kind==='SUPPORT'||n.kind==='VIP'?"查看顧客需求":n.kind==='DIGEST'?"查看門市":targetLabel}</button>}</div>}
      </div>)}
      {(offset>0||more)&&<div className="flex justify-between p-2"><button disabled={offset===0||!!pending} className="min-h-11 px-3 disabled:opacity-30" onClick={()=>setOffset(v=>Math.max(0,v-50))}>上一頁</button><button disabled={!more||!!pending} className="min-h-11 px-3 disabled:opacity-30" onClick={()=>setOffset(v=>v+50)}>下一頁</button></div>}
     </div>
-    {undo&&<div role="status" className="flex shrink-0 items-center justify-between border-t border-earth-200 px-3 text-sm">已讀<button disabled={!!pending} className="min-h-11 px-3 font-semibold text-primary-700" onClick={()=>void toggle(undo)}>復原</button></div>}
+    {pending&&pending!=='all'?<p role="status" className="shrink-0 border-t border-earth-200 px-3 py-2 text-sm text-earth-600">儲存中…</p>:undo?<div role="status" className="flex shrink-0 items-center justify-between border-t border-earth-200 px-3 text-sm">{handled?'已讀':'已移至歷史訊息'}<button disabled={!!pending} className="min-h-11 px-3 font-semibold text-primary-700" onClick={()=>void toggle(undo)}>復原</button></div>:feedback?<p role="status" className="shrink-0 border-t border-earth-200 px-3 py-2 text-sm text-primary-800">{feedback}</p>:null}
    </div>
   </RightSheet>,document.body)}
 

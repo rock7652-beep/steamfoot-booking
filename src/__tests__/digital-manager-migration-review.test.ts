@@ -79,3 +79,30 @@ it.each([true,false])('checks policy boundaries against the actual IndustryModul
   await expect(verifyDigitalManagerPolicyBoundary(client)).rejects.toThrow('policies_rejected');
  }finally{await db.close();}
 },30000);
+it('accepts only the reviewed new policy when explicitly selecting the new action-policy version',async()=>{
+ const db=new PGlite();
+ try{
+  await db.exec(baseline);
+  await db.exec(readFileSync('prisma/migrations/20261021040000_steamfoot_store_notices/migration.sql','utf8'));
+  await db.exec(`CREATE ROLE steamfoot_beauty_prod_20261025 LOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT; GRANT SELECT(id,"industryModule") ON "Store" TO steamfoot_beauty_prod_20261025;`);
+  await db.exec(readFileSync('prisma/reconciliation/20261030_digital_manager_scoped_with_beauty_review.sql','utf8'));
+  await db.exec(`CREATE TABLE "CourseStoreNotice"(id text PRIMARY KEY,"storeId" text,"subjectKey" text,kind text);
+   ALTER TABLE "Booking" ADD COLUMN "updatedAt" timestamptz, ADD COLUMN "expectedAmount" int;
+   ALTER TABLE "CourseBooking" ADD COLUMN notes text,ADD COLUMN "customerName" text;
+   ALTER TABLE "DigitalButlerLead" ADD COLUMN "submittedAnswers" jsonb;
+   ALTER TABLE "Transaction" ADD COLUMN "bookingId" text,ADD COLUMN "unregisteredParticipantId" text;
+   CREATE TABLE "BookingParticipant"("storeId" text,"completedAt" timestamptz,status text,"expectedAmount" int);
+   CREATE TABLE "CourseTrialPayment"("storeId" text,"bookingId" text,status text,"voidedAt" timestamptz);
+   CREATE TABLE "CoursePurchase"("storeId" text,"confirmedAt" timestamptz,status text,"voidedAt" timestamptz);
+   CREATE TABLE "BeautyPayment"("storeId" text,"appointmentId" text,kind text);
+   CREATE TABLE "BeautyAppointment"("storeId" text,"endsAt" timestamptz,status text,"cardId" text);
+   SELECT set_config('beauty_migration.app_role','steamfoot_beauty_prod_20261025',false);`);
+  const client={$queryRawUnsafe:async(sql:string,...args:unknown[])=>(await db.query(sql,args)).rows};
+  await expect(verifyDigitalManagerPolicyBoundary(client)).resolves.toBeUndefined();
+  await db.exec(readFileSync('scripts/sql/store-notice-action-policy.sql','utf8'));
+  await expect(verifyDigitalManagerPolicyBoundary(client)).rejects.toThrow('policies_rejected');
+  await expect(verifyDigitalManagerPolicyBoundary(client,{actionPolicy:true})).resolves.toBeUndefined();
+  await db.exec('ALTER POLICY beauty_digital_manager_read ON "DigitalManagerNotice" USING(true)');
+  await expect(verifyDigitalManagerPolicyBoundary(client,{actionPolicy:true})).rejects.toThrow('policies_rejected');
+ }finally{await db.close();}
+},30000);

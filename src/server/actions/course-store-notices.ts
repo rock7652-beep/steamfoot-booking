@@ -1,5 +1,6 @@
 "use server";
 import { courseDisplayName } from "@/lib/course-template-presentation";
+import {SILENT_STORE_NOTICE_KINDS} from "@/lib/receivable-notice";
 import {noticeWindow} from "@/lib/store-notice-lifecycle";
 import {z} from "zod";
 import {coursePrisma} from "@/lib/course-db";
@@ -16,12 +17,12 @@ export async function loadCourseStoreNotices(input:unknown) {
   const {storeId,user,isChildStoreView}=await courseManagerRead("booking.read");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
   if(d.summaryOnly){
-   const count=await coursePrisma.courseStoreNotice.count({where:{storeId,readAt:null,publishedAt:{gt:window.retainedAfter,lte:window.now}}});
+   const count=await coursePrisma.courseStoreNotice.count({where:{storeId,kind:{notIn:[...SILENT_STORE_NOTICE_KINDS]},readAt:null,publishedAt:{gt:window.retainedAfter,lte:window.now}}});
    return {success:true as const,storeId,enabled:true,items:[] as CourseNoticeItem[],count,canHandle:false,more:false};
   }
   const [rows,count,canHandle]=await Promise.all([
-   coursePrisma.courseStoreNotice.findMany({where:{storeId,publishedAt:{gt:window.after,lte:window.through}},orderBy:[{publishedAt:"desc"},{id:"desc"}],skip:d.offset,take:51}),
-   coursePrisma.courseStoreNotice.count({where:{storeId,readAt:null,publishedAt:{gt:window.retainedAfter,lte:window.now}}}),
+   coursePrisma.courseStoreNotice.findMany({where:{storeId,kind:{notIn:[...SILENT_STORE_NOTICE_KINDS]},publishedAt:{gt:window.after,lte:window.through},...(d.handled?{OR:[{readAt:{not:null}},{publishedAt:{lte:window.latestAfter}}]}:{readAt:null})},orderBy:[{publishedAt:"desc"},{id:"desc"}],skip:d.offset,take:51}),
+   coursePrisma.courseStoreNotice.count({where:{storeId,kind:{notIn:[...SILENT_STORE_NOTICE_KINDS]},readAt:null,publishedAt:{gt:window.retainedAfter,lte:window.now}}}),
    isChildStoreView?Promise.resolve(false):checkPermission(user.role,user.staffId,"booking.update")]);
   const items:CourseNoticeItem[]=rows.slice(0,50).map(r=>({...r,courseName:courseDisplayName(r.courseName),customerName:r.subjectKey.startsWith("session:")?courseDisplayName(r.customerName):r.customerName,canViewCourse:!isChildStoreView && /^(session|booking):.+/.test(r.subjectKey),kind:r.kind as CourseNoticeKind,startsAt:r.startsAt.toISOString(),previousStartsAt:r.previousStartsAt?.toISOString()??null,handledAt:r.readAt?.toISOString()??null,handledByName:r.readByName,publishedAt:r.publishedAt.toISOString(),createdAt:r.createdAt.toISOString(),updatedAt:r.updatedAt.toISOString()}));
   return {success:true as const,storeId,enabled:true,items,count,canHandle,more:rows.length>50};
@@ -34,7 +35,8 @@ export async function loadCourseStoreNoticeTarget(input:unknown) {
   const {storeId,user}=await courseManager("booking.read");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
   const notice=d.id.startsWith('digital:')?await (async()=>{
-   const rows=await coursePrisma.$queryRaw<Array<{targetId:string}>>`SELECT "targetId" FROM public."DigitalManagerNotice" WHERE id=${d.id.slice(8)} AND "storeId"=${storeId} AND "eventType"='INCOMPLETE_SERVICE_REMINDER' AND "eventKey" LIKE 'course-incomplete-attendance:%'`;
+   const rows=await coursePrisma.$queryRaw<Array<{targetId:string;eventType:string}>>`SELECT "targetId","eventType" FROM public."DigitalManagerNotice" WHERE id=${d.id.slice(8)} AND "storeId"=${storeId} AND (("eventType"='INCOMPLETE_SERVICE_REMINDER' AND "eventKey" LIKE 'course-incomplete-attendance:%') OR ("eventType"='OUTSTANDING_PAYMENT' AND "eventKey" LIKE 'course-receivable:trial:%'))`;
+   if(rows[0]?.eventType==='OUTSTANDING_PAYMENT'&&!await checkPermission(user.role,user.staffId,"transaction.read"))throw new AppError("FORBIDDEN","需要付款查閱權限");
    return rows[0]?{subjectKey:`booking:${rows[0].targetId}`}:null;
   })():await coursePrisma.courseStoreNotice.findFirst({where:{id:d.id,storeId},select:{subjectKey:true}});
   if(!notice)throw new AppError("NOT_FOUND","找不到通知");

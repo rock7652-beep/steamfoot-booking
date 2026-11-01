@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {recordBeautyStoreNotice} from '@/server/beauty/store-notices';
 import type {Prisma} from '../../generated/beauty-client';
 let db:PGlite;
-beforeAll(async()=>{db=new PGlite();await db.exec(`CREATE ROLE beauty_notice_test;CREATE TABLE "BeautySetting"("storeId" text PRIMARY KEY,notifications boolean NOT NULL DEFAULT false);CREATE TABLE "CourseStoreNotice"(id text PRIMARY KEY,"storeId" text,"subjectKey" text,kind text,"customerName" text,"courseName" text,"coachName" text,"previousCoachName" text,"startsAt" timestamptz,"previousStartsAt" timestamptz,"affectedCount" int,details jsonb,"handledAt" timestamptz,"handledById" text,"handledByName" text,revision int,"createdAt" timestamptz,"updatedAt" timestamptz,UNIQUE("storeId","subjectKey"));INSERT INTO "BeautySetting" VALUES('store',false);SET beauty_migration.app_role='beauty_notice_test';`);const sql=readFileSync('scripts/sql/beauty-backend-notices-candidate.sql','utf8');await db.exec(sql);await db.exec(sql);},30000);
+beforeAll(async()=>{db=new PGlite();await db.exec(`CREATE ROLE beauty_notice_test;CREATE TABLE "BeautySetting"("storeId" text PRIMARY KEY,notifications boolean NOT NULL DEFAULT false);CREATE TABLE "CourseStoreNotice"(id text PRIMARY KEY,"storeId" text,"subjectKey" text,kind text,"customerName" text,"courseName" text,"coachName" text,"previousCoachName" text,"startsAt" timestamptz,"previousStartsAt" timestamptz,"affectedCount" int,details jsonb,"handledAt" timestamptz,"handledById" text,"handledByName" text,revision int,"createdAt" timestamptz,"updatedAt" timestamptz,UNIQUE("storeId","subjectKey"));INSERT INTO "BeautySetting" VALUES('store',false);SET beauty_migration.app_role='beauty_notice_test';`);const sql=readFileSync('scripts/sql/beauty-backend-notices-candidate.sql','utf8');await db.exec(sql);await db.exec(sql);await db.exec(readFileSync('scripts/sql/store-notice-action-policy.sql','utf8').match(/ALTER TABLE public."CourseStoreNotice" DROP CONSTRAINT[\s\S]*?;\n\n/)![0]);},30000);
 afterAll(async()=>db.close());
 function adapter(sql:{query:(s:string,args?:unknown[])=>Promise<unknown>}){return {beautyTechnician:{findMany:async()=>[{id:'tech',name:'技師'}]},$executeRaw:async(strings:TemplateStringsArray,...args:unknown[])=>{let text=strings[0];for(let i=0;i<args.length;i++)text+='$'+(i+1)+strings[i+1];return sql.query(text,args);}} as unknown as Prisma.TransactionClient;}
 const actor={storeId:'store',userId:'owner',name:'店長',manager:true},b={id:'booking',personName:'顧客',serviceName:'做臉',technicianId:'tech',startsAt:new Date('2099-01-01T02:00Z'),isTrial:false};
@@ -15,6 +15,10 @@ it('captures a customer same-day booking despite the legacy disabled setting',as
 });
 it('uses the shared table, coalesces one item and preserves the first move origin',async()=>{const tx=adapter(db);await recordBeautyStoreNotice(tx,{...actor,manager:false,customerId:'customer'},true,b,'BOOKING');expect((await db.query('SELECT * FROM "CourseStoreNotice"')).rows[0]).toMatchObject({subjectKey:'beauty:booking',kind:'BOOKING',handledByName:'店長',revision:0});const next={...b,startsAt:new Date('2099-01-02T02:00Z')};await recordBeautyStoreNotice(tx,actor,true,next,'MOVE',{startsAt:b.startsAt,technicianId:'tech'});await recordBeautyStoreNotice(tx,actor,true,{...next,startsAt:new Date('2099-01-03T02:00Z')},'MOVE',{startsAt:next.startsAt,technicianId:'tech'});const rows=(await db.query<Record<string,unknown>>('SELECT * FROM "CourseStoreNotice"')).rows;expect(rows).toHaveLength(1);expect(rows[0]).toMatchObject({kind:'MOVE',revision:2,handledAt:null});expect(new Date(rows[0].previousStartsAt as string).getTime()).toBe(+b.startsAt);});
 it('rolls notice creation back with the caller transaction',async()=>{await expect(db.transaction(async sql=>{await recordBeautyStoreNotice(adapter(sql),actor,true,{...b,id:'rolled-back'},'MOVE');throw Error('booking failed');})).rejects.toThrow('booking failed');expect((await db.query('SELECT id FROM "CourseStoreNotice" WHERE "subjectKey"=\'beauty:rolled-back\'')).rows).toHaveLength(0);});
+it('labels staff or location changes at the same time as content updates',async()=>{
+ await recordBeautyStoreNotice(adapter(db),actor,true,{...b,id:'staff-change'},'MOVE',{startsAt:b.startsAt,technicianId:'previous-tech'});
+ expect((await db.query(`SELECT kind,"handledAt" FROM "CourseStoreNotice" WHERE "subjectKey"='beauty:staff-change'`)).rows).toEqual([{kind:'UPDATE',handledAt:null}]);
+});
 it('notifies customer same-day bookings without notifying manager-created bookings',async()=>{
  const tx=adapter(db),now=new Date();
  await recordBeautyStoreNotice(tx,{storeId:'store',userId:'customer-user',customerId:'customer'},true,{...b,id:'today-customer',startsAt:now},'BOOKING');
@@ -28,8 +32,8 @@ it('keeps a public trial pending even when it is not today',async()=>{
  expect((await db.query(`SELECT "handledAt" FROM "CourseStoreNotice" WHERE "subjectKey"='beauty:public-trial'`)).rows[0]).toMatchObject({handledAt:null});
 });
 
-it('accepts Beauty completion/no-show outcomes while retaining the existing course-kind boundary',async()=>{
- const tx=adapter(db);await recordBeautyStoreNotice(tx,actor,true,{...b,id:'completed'},'COMPLETE');await recordBeautyStoreNotice(tx,actor,true,{...b,id:'missed'},'NO_SHOW');
- expect((await db.query("SELECT kind FROM \"CourseStoreNotice\" WHERE \"subjectKey\" IN ('beauty:completed','beauty:missed') ORDER BY kind")).rows).toEqual([{kind:'COMPLETE'},{kind:'NO_SHOW'}]);
+it('suppresses completion, no-show and restore while accepting content updates',async()=>{
+ const tx=adapter(db);await recordBeautyStoreNotice(tx,actor,true,{...b,id:'completed'},'COMPLETE');await recordBeautyStoreNotice(tx,actor,true,{...b,id:'missed'},'NO_SHOW');await recordBeautyStoreNotice(tx,actor,true,{...b,id:'restored'},'RESTORE');await recordBeautyStoreNotice(tx,actor,true,{...b,id:'changed'},'UPDATE');
+ expect((await db.query("SELECT kind FROM \"CourseStoreNotice\" WHERE \"subjectKey\" IN ('beauty:completed','beauty:missed','beauty:restored','beauty:changed') ORDER BY kind")).rows).toEqual([{kind:'UPDATE'}]);
  await expect(db.query("INSERT INTO \"CourseStoreNotice\" (id,\"storeId\",\"subjectKey\",kind) VALUES ('invalid-course','store','course:one','COMPLETE')")).rejects.toThrow();
 });

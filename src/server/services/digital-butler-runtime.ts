@@ -1,4 +1,6 @@
 import { Prisma, type DigitalButlerStepType } from "@prisma/client";
+import {isRenewalInterestRequest} from '@/lib/digital-manager-demand';
+import {recordLeadRenewalInterest} from './digital-manager-notices';
 import { prisma } from "@/lib/db";
 import {
   hashDigitalButlerSensitiveValue,
@@ -668,6 +670,7 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
           where: { id_storeId: { id: existing.id, storeId: input.storeId } },
           data: { updatedAt: new Date() },
         });
+        if(isRenewalInterestRequest(input.submittedAnswers.requestType))await recordLeadRenewalInterest(tx,{storeId:input.storeId,leadId:existing.id,conversationId:input.conversationId});
         leadResult = { leadId: existing.id, created: false };
         return;
       }

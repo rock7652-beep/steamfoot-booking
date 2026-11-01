@@ -1,5 +1,6 @@
 // Review-only scoped migration runner. Not registered in ci-migrate or enabled for production.
 import {verifyStoreNoticeLifecycleReadiness} from './store-notice-lifecycle-readiness.mjs';
+import {verifyStoreNoticeActionPolicy,storeNoticeActionSources,STORE_NOTICE_ACTION_POLICY_HASH} from './store-notice-action-policy-readiness.mjs';
 import {createHash} from 'node:crypto';
 import {readFileSync,mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
@@ -36,14 +37,15 @@ const triggerExpected=[
  ['steamfoot_plan_payment_notice','Transaction','record_steamfoot_plan_payment_notice','7d29c43af9769d73bd422010db0a4152'],
 ];
 /** Exact enum type and policy definitions; no accepted-hash expansion for text fixtures. */
-export async function verifyDigitalManagerPolicyBoundary(tx){
+export async function verifyDigitalManagerPolicyBoundary(tx,{actionPolicy=false}={}){
  const [industryType]=await tx.$queryRawUnsafe(`SELECT t.typname,n.nspname,t.typtype::text AS kind FROM pg_attribute a JOIN pg_type t ON t.oid=a.atttypid JOIN pg_namespace n ON n.oid=t.typnamespace WHERE a.attrelid='public.\"Store\"'::regclass AND a.attname='industryModule' AND NOT a.attisdropped`);
  if(industryType?.typname!=='IndustryModule'||industryType.nspname!=='public'||industryType.kind!=='e')fail('industry_type_rejected');
  const policies=await tx.$queryRawUnsafe(`SELECT tablename,policyname,cmd,roles::text[] AS roles,md5(coalesce(qual,'<NULL>')) AS qual,md5(coalesce(with_check,'<NULL>')) AS check FROM pg_policies WHERE schemaname='public' AND tablename IN ('DigitalManagerNotice','DigitalManagerActivation') ORDER BY tablename,policyname`);
- if(policies.length!==6||policies.some((p,i)=>JSON.stringify(p.roles)!==JSON.stringify(['steamfoot_beauty_prod_20261025'])||JSON.stringify([p.tablename,p.policyname,p.cmd,p.qual,p.check])!==JSON.stringify(policyExpected[i])))fail('policies_rejected');
+ const expected=policyExpected.map(row=>actionPolicy&&['beauty_digital_manager_read','beauty_digital_manager_update'].includes(row[1])?[...row.slice(0,3),STORE_NOTICE_ACTION_POLICY_HASH,row[2]==='UPDATE'?STORE_NOTICE_ACTION_POLICY_HASH:row[4]]:row);
+ if(policies.length!==6||policies.some((p,i)=>JSON.stringify(p.roles)!==JSON.stringify(['steamfoot_beauty_prod_20261025'])||JSON.stringify([p.tablename,p.policyname,p.cmd,p.qual,p.check])!==JSON.stringify(expected[i])))fail('policies_rejected');
 }
-export async function verifyDigitalManagerPostflight(tx,sql=verifyReviewFiles().sql,{lifecycle=false}={}){
- if(lifecycle)await verifyStoreNoticeLifecycleReadiness(tx);
+export async function verifyDigitalManagerPostflight(tx,sql=verifyReviewFiles().sql,{lifecycle=false,actionPolicy=false}={}){
+ if(lifecycle)await verifyStoreNoticeLifecycleReadiness(tx,{readArchive:actionPolicy});
  const tables=await tx.$queryRawUnsafe(`SELECT c.relname AS name,c.relrowsecurity AS rls,c.relforcerowsecurity AS forced,
   md5((SELECT string_agg(a.attname || ':' || format_type(a.atttypid,a.atttypmod) || ':' || a.attnotnull::text || ':' || coalesce(pg_get_expr(d.adbin,d.adrelid),'<NULL>'),'|' ORDER BY a.attnum) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped ${lifecycle?`AND a.attname NOT IN ('publishedAt','readAt','readById','readByName')`:''})) AS columns,
   md5((SELECT string_agg(x.conname || ':' || x.contype::text || ':' || pg_get_constraintdef(x.oid) || ':' || x.convalidated::text,'|' ORDER BY x.conname) FROM pg_constraint x WHERE x.conrelid=c.oid ${lifecycle?`AND NOT (x.contype='n' AND x.conkey=ARRAY[(SELECT a.attnum FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='publishedAt')])`:''})) AS constraints,
@@ -53,11 +55,13 @@ export async function verifyDigitalManagerPostflight(tx,sql=verifyReviewFiles().
   FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('DigitalManagerActivation','DigitalManagerNotice') ORDER BY c.relname`);
  const expected=[['DigitalManagerActivation','16925753649f65b714a73d8922707a12','bcfa9795d00ded5ecd086a9f3160cd20','88bbe74feccb2aa14801f718c9451ff3'],['DigitalManagerNotice','8a49d81a26c84b01cf5745debb9f42ff','0ae80852487b38e60f56a0c8414864d2','12f0ae0ccf8d0cf426d7b0366050131f']];
  if(tables.length!==2||tables.some((r,i)=>!r.rls||r.forced||r.public_access||r.client_access||JSON.stringify([r.name,r.columns,r.constraints,r.indexes])!==JSON.stringify(expected[i])))fail('tables_rejected');
- await verifyDigitalManagerPolicyBoundary(tx);
+ if(actionPolicy)await verifyStoreNoticeActionPolicy(tx);
+ await verifyDigitalManagerPolicyBoundary(tx,{actionPolicy});
  const triggers=await tx.$queryRawUnsafe(`SELECT t.tgname,c.relname,p.proname,t.tgenabled::text AS enabled,md5(pg_get_triggerdef(t.oid)) AS hash FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_proc p ON p.oid=t.tgfoid WHERE n.nspname='public' AND NOT t.tgisinternal AND t.tgname IN ('course_incomplete_notice_resolution','course_session_incomplete_notice_resolution','digital_manager_lead_notice','digital_manager_vip_notice','steamfoot_incomplete_notice_resolution','steamfoot_plan_payment_notice') ORDER BY t.tgname`);
  if(triggers.length!==6||triggers.some((r,i)=>r.enabled!=='O'||JSON.stringify([r.tgname,r.relname,r.proname,r.hash])!==JSON.stringify(triggerExpected[i])))fail('triggers_rejected');
  const expectedFunctions=Object.fromEntries([...sql.matchAll(/CREATE OR REPLACE FUNCTION public\.([a-z_]+)\(\) RETURNS trigger[\s\S]*?AS \$notice\$([\s\S]*?)\$notice\$;/g)].map(m=>[m[1],md5(m[2])]));
  if(Object.keys(expectedFunctions).length!==7)fail('function_source_rejected');
+ if(actionPolicy){const {lead,vip}=storeNoticeActionSources();expectedFunctions.record_digital_manager_lead_notice=md5(lead);expectedFunctions.record_digital_manager_vip_notice=md5(vip);}
  const funcs=await tx.$queryRawUnsafe(`SELECT p.proname,md5(p.prosrc) AS hash,p.prosecdef,p.proconfig,has_function_privilege('anon',p.oid,'EXECUTE') AS anon_access,has_function_privilege('authenticated',p.oid,'EXECUTE') AS authenticated_access FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname IN ('record_steamfoot_store_notice','record_steamfoot_plan_payment_notice','record_digital_manager_lead_notice','record_digital_manager_vip_notice','resolve_steamfoot_incomplete_notice','resolve_course_incomplete_notice','resolve_course_session_incomplete_notices')`);
  if(funcs.length!==7||funcs.some(f=>f.prosecdef||f.anon_access||f.authenticated_access||f.hash!==expectedFunctions[f.proname]||JSON.stringify(f.proconfig)!==JSON.stringify(['search_path=pg_catalog, public'])))fail('functions_rejected');
  const [grants]=await tx.$queryRawUnsafe(`SELECT has_table_privilege('steamfoot_beauty_prod_20261025','public."DigitalManagerNotice"','SELECT') AND has_table_privilege('steamfoot_beauty_prod_20261025','public."DigitalManagerNotice"','INSERT') AND has_table_privilege('steamfoot_beauty_prod_20261025','public."DigitalManagerActivation"','SELECT') AND has_table_privilege('steamfoot_beauty_prod_20261025','public."DigitalManagerActivation"','INSERT') AND (SELECT bool_and(has_column_privilege('steamfoot_beauty_prod_20261025','public."DigitalManagerNotice"',c,'UPDATE')) FROM unnest(ARRAY['handledAt','handledById','handledByName','revision','updatedAt']) c) AND has_column_privilege('steamfoot_beauty_prod_20261025','public."DigitalManagerActivation"','activatedAt','UPDATE') AND NOT has_table_privilege('steamfoot_beauty_prod_20261025','public."DigitalManagerNotice"','DELETE,TRUNCATE,REFERENCES,TRIGGER') AND NOT has_table_privilege('steamfoot_beauty_prod_20261025','public."DigitalManagerActivation"','DELETE,TRUNCATE,REFERENCES,TRIGGER') AND (SELECT bool_and(NOT has_column_privilege('steamfoot_beauty_prod_20261025','public."DigitalManagerNotice"',c,'UPDATE')) FROM unnest(ARRAY['id','storeId','eventKey','eventType','targetId','createdAt']) c) AND NOT has_column_privilege('steamfoot_beauty_prod_20261025','public."DigitalManagerActivation"','storeId','UPDATE') AS ok`);
@@ -65,12 +69,12 @@ export async function verifyDigitalManagerPostflight(tx,sql=verifyReviewFiles().
 }
 async function history(tx){const [r]=await tx.$queryRawUnsafe(`SELECT md5(coalesce(jsonb_agg(to_jsonb(m) ORDER BY id),'[]'::jsonb)::text) AS fingerprint FROM public._prisma_migrations m WHERE migration_name<>$1`,DIGITAL_MANAGER_REVIEW_TARGET);return r.fingerprint;}
 /** Read-only readiness candidate for a separately guarded application deployment. */
-export async function verifyDigitalManagerReadiness(prisma,{lifecycle=false}={}){
+export async function verifyDigitalManagerReadiness(prisma,{lifecycle=false,actionPolicy=false}={}){
  const {sql}=verifyReviewFiles();
  const failed=await prisma.$queryRawUnsafe(`SELECT migration_name FROM public._prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL`);if(failed.length)fail('failed_history_rejected');
  const applied=await prisma.$queryRawUnsafe(`SELECT checksum,finished_at,rolled_back_at,applied_steps_count FROM public._prisma_migrations WHERE migration_name=$1`,DIGITAL_MANAGER_REVIEW_TARGET);
  if(applied.length!==1||applied[0].checksum!==DIGITAL_MANAGER_REVIEW_CHECKSUM||!applied[0].finished_at||applied[0].rolled_back_at||applied[0].applied_steps_count!==1)fail('readiness_ledger_rejected');
- await verifyDigitalManagerPostflight(prisma,sql,{lifecycle});
+ await verifyDigitalManagerPostflight(prisma,sql,{lifecycle,actionPolicy});
  return true;
 }
 /** Private core: caller selects an explicitly guarded production or local context. */

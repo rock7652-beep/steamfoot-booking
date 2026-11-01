@@ -1,3 +1,6 @@
+const receivableState=vi.hoisted(()=>new Map());
+vi.mock('@/server/services/store-receivable-notices',()=>({readReceivableNoticeState:async()=>receivableState}));
+beforeEach(()=>receivableState.clear());
 import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({read:vi.fn(),write:vi.fn(),active:vi.fn(),writeStore:vi.fn(),module:vi.fn(),permission:vi.fn(),raw:vi.fn(),exec:vi.fn(),transaction:vi.fn(),audit:vi.fn()}));
 vi.mock("@/lib/db",()=>({prisma:{$queryRaw:m.raw,$transaction:m.transaction}}));
@@ -9,6 +12,16 @@ import {markAllSteamfootStoreNotices,loadSteamfootStoreNotices,markSteamfootStor
 const tx={$queryRaw:m.raw,$executeRaw:m.exec};
 const actor={id:"u",name:"店長",role:"OWNER",storeId:"s",staffId:"staff"};
 const date=new Date('2030-01-11T02:00:00Z');
+it('shows current due only to finance readers, without making a read mark settle the debt',async()=>{
+ receivableState.set('digital:debt',{amount:500,targetId:'booking',customerName:'收款顧客'});
+ const row={id:'digital:debt',kind:'RECEIVABLE',customerName:'顧客',courseName:'',coachName:'',previousCoachName:null,startsAt:date,previousStartsAt:null,affectedCount:1,details:{},handledAt:null,handledByName:null,revision:0,createdAt:date,updatedAt:date};
+ m.raw.mockImplementation(async(strings:TemplateStringsArray)=>strings.join('').includes('count(*)')?[{count:1}]:[row]);
+ m.permission.mockImplementation(async(_role,_staff,p)=>p!=='transaction.read');
+ expect(await loadSteamfootStoreNotices({storeId:'s',handled:false})).toMatchObject({success:true,items:[{amountDue:undefined,customerName:'顧客',canViewCourse:false}]});
+ m.permission.mockImplementation(async(_role,_staff,p)=>p!=='transaction.create');
+ expect(await loadSteamfootStoreNotices({storeId:'s',handled:false})).toMatchObject({success:true,items:[{targetId:'booking',amountDue:500,customerName:'收款顧客',canViewCourse:true}]});
+ expect(m.exec).not.toHaveBeenCalled();
+});
 beforeEach(()=>{
  vi.resetAllMocks();m.read.mockResolvedValue(actor);m.write.mockResolvedValue(actor);m.active.mockResolvedValue('s');m.writeStore.mockResolvedValue('s');m.module.mockResolvedValue('steamfoot');m.permission.mockResolvedValue(true);m.transaction.mockImplementation(async run=>run(tx));m.raw.mockResolvedValue([]);
 });

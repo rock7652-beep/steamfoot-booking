@@ -36,12 +36,12 @@ export default async function DigitalButlerLeadsPage({ searchParams }: PageProps
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) notFound();
   const params = await searchParams;
   const activeStoreId = await getActiveStoreForRead(user);
-  const courseStore = activeStoreId && await getStoreIndustryModule(activeStoreId) === "course" ? activeStoreId : null;
+  const moduleStore = activeStoreId && ["course","beauty"].includes(await getStoreIndustryModule(activeStoreId)) ? activeStoreId : null;
   const focusedLead = params.leadId
     ? await prisma.digitalButlerLead.findFirst({
         where: {
           id: params.leadId,
-          storeId: courseStore ?? { in: await getAccessibleStoreIds(user) },
+          storeId: moduleStore ?? { in: await getAccessibleStoreIds(user) },
         },
         select: { storeId: true },
       })

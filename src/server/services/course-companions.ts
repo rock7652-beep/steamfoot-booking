@@ -1,3 +1,4 @@
+import {recordCourseStoreNotice} from './course-store-notices';
 import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
 import { readSportsSessionRule } from "./sports-staging-schedule";
 import { isMusicCourseStore } from "./course-business-profile";
@@ -92,5 +93,6 @@ export async function changeCompanionUsage(tx: Prisma.TransactionClient, actor: 
   }
   const updated = await tx.courseBooking.update({where: {id: booking.id}, data: {cardId, bookingKind: card ? "CARD" : "TRIAL", trialPrice, pointCost, customerId, customerName: customers[0]?.name ?? booking.customerName}});
   await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","actorNameSnapshot","storeId",module,"targetType","targetId",action,summary,"beforeJson","afterJson","createdAt") VALUES (${auditId},${actor.userId},${actor.name},${actor.storeId},'COURSE','CourseBooking',${booking.id},'CHANGE_COMPANION_USAGE','變更同行使用方式',${JSON.stringify({cardId: booking.cardId, customerId: booking.customerId, status: booking.status, pointCost: booking.pointCost})}::jsonb,${JSON.stringify({input, cardId, customerId, pointCost, returnedPoints: changedCard && debited ? booking.pointCost : 0})}::jsonb,NOW())`;
+  if(booking.cardId!==cardId||booking.customerId!==customerId||booking.trialPrice!==trialPrice||booking.pointCost!==pointCost)await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${booking.id}`,kind:"UPDATE",customerName:updated.customerName,courseName:booking.session.nameSnapshot,coachId:booking.session.coachId,startsAt:booking.session.startsAt});
   return updated;
 }
