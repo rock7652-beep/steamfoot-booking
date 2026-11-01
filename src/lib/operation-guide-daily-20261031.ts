@@ -44,7 +44,7 @@ export const dailyOperationGuides20261031: OperationGuide[] = [
   {
     "id": "DM01",
     "category": "care",
-    "title": "數位管家數位管家的待辦與 LINE 通知有什麼不同？",
+    "title": "數位管家的門市待辦與 LINE 通知有什麼不同？",
     "summary": "後台持續收集本店待辦；LINE 另依本店總開關及個人偏好，不會互相代替。",
     "answer": "在頂欄鈴噹核對待確認付款、未完成服務、真人客服催辦與每日待辦；原業務操作仍要進正確資料處理。",
     "path": "後台頂欄 → 數位管家 → 待處理／已處理",
