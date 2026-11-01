@@ -251,3 +251,16 @@ it('starts a fresh roster read on the opening click, shares only its in-flight r
  await click('測試關閉');await click('測試開啟');expect(m.load).toHaveBeenCalledTimes(2);expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeNull();
  await act(async()=>second.resolve(data('新查核資料')));expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).not.toBeNull();
 });
+
+it.each([true,false])('invalidates prepared rosters after a confirmed native note save only: success=%s',async success=>{
+ const write=deferred<{success:boolean;error?:string}>(),invalidate=vi.fn(),committed=vi.fn();m.save.mockReturnValue(write.promise);
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:store-a:course:editable'},createElement(CourseRoster,{sessionId:'session-a',sportsNative:true,capacity:10,canCreate:false,canEdit:true,teacherName:'老師',onSnapshotInvalidated:invalidate,onCommitted:committed}))));
+ await act(async()=>host.querySelector<HTMLButtonElement>('button[title="教師提醒"]')!.click());
+ const input=document.querySelector<HTMLTextAreaElement>('textarea[placeholder="記錄本次上課需要留意的事項"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'更新的教師備註');input.dispatchEvent(new Event('input',{bubbles:true}));});
+ await act(async()=>input.closest('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(invalidate).not.toHaveBeenCalled();expect(committed).not.toHaveBeenCalled();
+ await act(async()=>write.resolve(success?{success:true}:{success:false,error:'版本衝突，保留輸入'}));
+ expect(invalidate).toHaveBeenCalledTimes(success?1:0);expect(committed).toHaveBeenCalledTimes(success?1:0);
+ if(success)expect(host.querySelector('button[title="更新的教師備註"]')).not.toBeNull();else{expect(input.value).toBe('更新的教師備註');expect(document.body.textContent).toContain('版本衝突，保留輸入');}
+});

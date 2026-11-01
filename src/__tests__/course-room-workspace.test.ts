@@ -18,12 +18,13 @@ vi.mock("@/server/actions/course", () => ({}));
 vi.mock("@/components/admin/course-display-order", () => ({ useCourseDisplayOrder: () => ({ ranks: new Map(), compare: () => 0, rowProps: () => ({}), handle: () => null }) }));
 vi.mock("@/components/admin/course-status-button", () => ({ useCourseStatusRows: (rows: unknown[]) => [rows, vi.fn(), [], vi.fn()], CourseStatusButton: () => null }));
 vi.mock("@/components/admin/course-batch-selection", () => ({ CourseBatchBar: () => null }));
-vi.mock("@/app/(dashboard)/dashboard/courses/roster", () => ({ CourseRoster: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/roster", () => ({ CourseRoster: ({onBusyChange}:{onBusyChange?:(busy:boolean)=>void}) => createElement("div",null,createElement("button",{onClick:()=>onBusyChange?.(true)},"start-roster-save"),createElement("button",{onClick:()=>onBusyChange?.(false)},"finish-roster-save")) }));
 vi.mock("@/app/(dashboard)/dashboard/courses/rental-panel", () => ({ RentalPanel: () => null, RentalHistory: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/music-schedule-wizard", () => ({ MusicScheduleWizard: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/daily-attendance-list", () => ({ DailyAttendanceList: () => null }));
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 window.scrollTo=vi.fn();
+HTMLElement.prototype.scrollTo=vi.fn();
 const props = { storeId: "store-a", selectedDate: "2026-10-10", today: "2026-10-10", nowIso: "2026-10-10T01:00:00Z", calendarDays: {}, rooms: [], templates: [], sessions: [], cancelledBookings: [], coaches: [], canCreate: true, canEdit: true, view: "rooms" as const, staffAvailability: [], staffAvailabilityExceptions: [] };
 it.each(["MUSIC", "FITNESS"] as const)("%s saves locally, keeps rejected input, and preserves the next draft during props synchronization", async businessProfile => {
   vi.stubGlobal("fetch", m.fetch); m.refresh.mockReset(); m.fetch.mockReset();
@@ -110,4 +111,18 @@ it("shows confirmed scheduled sessions before the slow calendar read completes",
   await act(async()=>root.render(render()));
   expect(host.textContent).toContain("已確認舞蹈課");
  }finally{await act(async()=>root.unmount());host.remove();m.search="view=rooms&action=create";}
+});
+
+it('disables roster close while a save is pending and restores it after confirmation',async()=>{
+ m.search='view=schedule&date=2026-10-10&scheduleView=day';const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ const session={id:'pending-note-session',templateId:'template',nameSnapshot:'教師備註測試',startsAt:'2026-10-10T04:00:00.000Z',endsAt:'2026-10-10T05:00:00.000Z',coachId:'',roomId:'',capacity:8,pointCost:1,bookings:[],sportsPalette:true};
+ try{
+  await act(async()=>root.render(createElement(CourseWorkspace,{...props,view:'schedule',businessProfile:'FITNESS',sportsNative:true,sessions:[session]})));
+  await act(async()=>host.querySelector<HTMLElement>('[data-calendar-session="pending-note-session"]')!.click());
+  const find=(text:string)=>[...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(b=>b.textContent===text)!;
+  await act(async()=>find('start-roster-save').click());expect(find('關閉').disabled).toBe(true);
+  await act(async()=>find('關閉').click());expect(find('finish-roster-save')).toBeTruthy();
+  await act(async()=>find('finish-roster-save').click());expect(find('關閉').disabled).toBe(false);
+  await act(async()=>find('關閉').click());expect(document.querySelector('[role="dialog"]')).toBeNull();
+ }finally{await act(async()=>root.unmount());host.remove();m.search='view=rooms&action=create';}
 });
