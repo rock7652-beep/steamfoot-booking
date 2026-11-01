@@ -4,6 +4,9 @@ const m=vi.hoisted(()=>({manager:vi.fn(),feature:vi.fn(),transaction:vi.fn(),aud
 vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:m.transaction,audit:m.audit}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
 vi.mock('next/cache',()=>({revalidatePath:vi.fn()}));
+// These acceptance cases exercise the PGlite business transaction. Error-log
+// delivery is external I/O and must not outlive the test worker's teardown.
+vi.mock('@/lib/error-logger',()=>({logError:vi.fn(),categorizeError:()=> 'UNKNOWN'}));
 import {saveBeautyDisplayOrder} from '@/server/actions/beauty-display-order';
 let db:PGlite;
 beforeAll(async()=>{db=new PGlite();await db.exec(`CREATE TABLE "CourseDisplayOrder" ("storeId" text,kind text,ids text[],revision int,primary key("storeId",kind));CREATE TABLE "CourseRoom" (id text primary key,"storeId" text);INSERT INTO "CourseRoom" VALUES ('a','A'),('b','A'),('foreign','B');`);});

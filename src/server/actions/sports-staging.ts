@@ -86,7 +86,7 @@ export async function prepareSportsStagingPurchaseIntent(payload: unknown) {
     return await prepareCoursePurchaseIntent(await stagingPurchaseInput(payload, a));
   } catch (e) { return handleActionError(e); }
 }
-export async function loadSportsStaging(formOnly = false): Promise<
+export async function loadSportsStaging(formOnly = false, scheduleOptionsOnly = false): Promise<
   { success: true; data: SportsSnapshot } | { success: false; error: string }
 > {
   try {
@@ -112,7 +112,7 @@ export async function loadSportsStaging(formOnly = false): Promise<
         where: { storeId },
         orderBy: { name: "asc" },
       }),
-      coursePrisma.coursePointPlan.findMany({
+      formOnly && scheduleOptionsOnly ? [] : coursePrisma.coursePointPlan.findMany({
         where: { storeId },
         orderBy: { name: "asc" },
       }),
@@ -133,7 +133,7 @@ export async function loadSportsStaging(formOnly = false): Promise<
         orderBy: { startsAt: "asc" },
         take: 501,
       }),
-      coursePrisma.coursePointCard.findMany({
+      formOnly && scheduleOptionsOnly ? [] : coursePrisma.coursePointCard.findMany({
         where: { storeId, closedAt: null, expiresAt: { gte: new Date() } },
         include: { members: true, bookings: { where: { status: "RESERVED" } } },
       }),

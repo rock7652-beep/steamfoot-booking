@@ -5,6 +5,7 @@ import type {CourseRosterSource,NativeRosterBooking} from "./roster-source";
 import {CourseRosterList,type CourseRosterDisplayRow} from "./roster-list";
 import bookingLayout from "./sports-booking-layout.module.css";
 import {startSportsBackgroundSync} from "@/lib/sports-background-sync";
+import {readCourseSessionDetailClient} from "@/lib/course-session-detail-client";
 import {readSportsSessionDetail} from "@/lib/sports-session-detail-client";
 import {readCoursePurchaseOptions} from "@/lib/course-purchase-options-client";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
@@ -136,6 +137,7 @@ export function CourseRoster({
   coachId = "",
   roomId = "",
   initialAssignedCoach = "all",
+  previewBookings,
 }: {
   source?:CourseRosterSource;
   sessionId: string;
@@ -163,12 +165,14 @@ export function CourseRoster({
   coachId?: string;
   roomId?: string;
   initialAssignedCoach?: string;
+  previewBookings?:readonly {id:string;customerName:string;status:string}[];
 }) {
   const personnelText = useCoursePersonnelText();
   const [sourceReadFailed,setSourceReadFailed]=useState(false);
   const canEdit=canEditProp&&!sourceReadFailed;
   const router = useRouter();
   const sportsDetailReader=usePanelReader("sports-session-detail",readSportsSessionDetail,"",0);
+  const musicDetailReader=usePanelReader("music-session-detail",readCourseSessionDetailClient,"",0);
   useEffect(()=>{
     if(!musicLayout)return;
     return()=>{window.dispatchEvent(new Event('music-roster-closed'));};
@@ -178,6 +182,7 @@ export function CourseRoster({
   const rosterParams = useSearchParams();
   const [companionEditor, setCompanionEditor] = useState<{bookingId: string; add?: boolean} | null>(null);
   const readVersion = useRef(0);
+  const invalidateRosterRead=useCallback(()=>{++readVersion.current;},[]);
   // A new session owns its locks and feedback. Late responses from a closed
   // session cannot unlock or relabel the current roster, even after A → B → A.
   const operationScope = useRef({ sessionId, locked: false, uncertain: false, inFlight: new Set<string>(), sequence: 0 });
@@ -406,7 +411,7 @@ export function CourseRoster({
       if(checkVersion && !sourceRead && musicLayout && isMusicPreviewPage() && view === "roster" && initialDetailLoaded)return quickLoad.current().then(()=>null).catch(()=>null);
       readInFlight = true;
       const version = ++readVersion.current;
-      return (sourceSync&&checkVersion?sourceSync(sessionId,sourceVersion.current):sourceRead?sourceRead(sessionId):sportsNative?sportsDetailReader.read(sessionId,view === "roster",view === "trial-booking"):musicLayout?musicPanelRead("session-detail",[sessionId,view === "roster",view === "trial-booking"],()=>loadCourseSessionDetail(sessionId, view === "roster", view === "trial-booking")):loadCourseSessionDetail(sessionId, view === "roster", view === "trial-booking"))
+      return (sourceSync&&checkVersion?sourceSync(sessionId,sourceVersion.current):sourceRead?sourceRead(sessionId):sportsNative?sportsDetailReader.read(sessionId,view === "roster",view === "trial-booking"):musicLayout?musicDetailReader.read(sessionId,view === "roster",view === "trial-booking"):loadCourseSessionDetail(sessionId, view === "roster", view === "trial-booking"))
 
         .then((result) => {
           if (sourceReadBlocked.current || !active || version !== readVersion.current || currentSession.current !== sessionId) return null;
@@ -456,13 +461,13 @@ export function CourseRoster({
     document.addEventListener("visibilitychange", refreshVisibleRoster);
     return () => {
       active = false;
-      ++readVersion.current;
+      invalidateRosterRead();
       unsubscribe();
       if (timer) window.clearInterval(timer);
       window.removeEventListener("focus", refreshVisibleRoster);
       document.removeEventListener("visibilitychange", refreshVisibleRoster);
     };
-  }, [sessionId, view, sportsNative,musicLayout,sportsDetailReader,refreshVersion,sourceRead,sourceSync]);
+  }, [sessionId, view, sportsNative,musicLayout,sportsDetailReader,musicDetailReader,refreshVersion,sourceRead,sourceSync,invalidateRosterRead]);
 
   function run(
     action: () => Promise<{ success: boolean; error?: string;rosterSnapshot?:import('@/lib/course-purchase-roster').CoursePurchaseRosterSnapshot }>,
@@ -840,6 +845,12 @@ export function CourseRoster({
       : [];
 
   if (!loaded) {
+    if(view==="roster"&&previewBookings)return <section aria-busy="true" className="space-y-2">
+      <p role="status" className="text-sm text-earth-600">{message||"正在核對最新名單…"}</p>
+      <ul className="divide-y divide-earth-100 rounded-xl border border-earth-200 bg-white">
+        {previewBookings.filter(b=>b.status!=="CANCELLED").map(b=><li key={b.id} className="min-h-14 px-4 py-3 text-sm font-semibold text-earth-800">{b.customerName}</li>)}
+      </ul>
+    </section>;
     return (
       <div className="flex min-h-40 items-center justify-center text-earth-600">
         {message || "讀取中…"}

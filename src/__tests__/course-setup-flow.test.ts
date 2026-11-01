@@ -91,3 +91,13 @@ it('preserves settings editors on window focus but keeps refresh on other guide 
  m.refresh.mockClear();await act(async()=>window.dispatchEvent(new Event('focus')));
  expect(m.refresh).toHaveBeenCalledOnce();
 });
+
+it.each(['','view=schedule'])('leaves calendar focus and date synchronization to its own reader: %s',async search=>{
+ m.search=search;m.refresh.mockClear();
+ const props={steps:courseSetupSteps(counts,false),preference:{mode:'never' as const},login:'test',localSections:true};
+ await act(async()=>root.render(createElement(CourseSetupGuide,props)));
+ await act(async()=>window.dispatchEvent(new Event('focus')));
+ m.search=(search?search+'&':'')+'date=2026-11-07';
+ await act(async()=>root.render(createElement(CourseSetupGuide,props)));
+ expect(m.refresh).not.toHaveBeenCalled();
+});

@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const queryRaw = vi.fn();
+const nativeGate=vi.hoisted(()=>vi.fn(async()=>false));
+vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:nativeGate}));
 
 vi.mock("@/lib/db", () => ({
   prisma: { $queryRaw: (...args: unknown[]) => queryRaw(...args) },
 }));
 
 describe("store industry module firewall", () => {
-  beforeEach(() => queryRaw.mockReset());
+  beforeEach(() => {queryRaw.mockReset();nativeGate.mockReset().mockResolvedValue(false);});
 
   it("isolates COURSE from both existing modules", async () => {
     queryRaw.mockResolvedValue([{ industryModule: "COURSE" }]);
@@ -63,4 +65,26 @@ it("preserves Beauty identity and rejects routing it through Steamfoot or Course
  await expect(requireStoreIndustryModule("beauty-store","beauty")).resolves.toBeUndefined();
  await expect(requireSteamfootStore("beauty-store")).rejects.toMatchObject({code:"FORBIDDEN"});
  await expect(requireCourseStore("beauty-store")).rejects.toMatchObject({code:"FORBIDDEN"});
+});
+
+import {withReadRequestMemo,rememberVerifiedStaffRead} from "@/server/services/read-request-memo";
+it("validates the same-request live auth store module, keeps another store fresh, and rechecks next request",async()=>{
+ queryRaw.mockReset();queryRaw.mockResolvedValue([{industryModule:"BEAUTY"}]);
+ const {getStoreIndustryModule}=await import("@/lib/industry-module-server");
+ await withReadRequestMemo(async()=>{
+  rememberVerifiedStaffRead({userId:"u",role:"OWNER",staffId:"st",storeId:"s",industryModule:"COURSE"});
+  expect(await getStoreIndustryModule("s")).toBe("course");expect(queryRaw).not.toHaveBeenCalled();
+  expect(await getStoreIndustryModule("another")).toBe("beauty");expect(queryRaw).toHaveBeenCalledOnce();
+ });
+ expect(await withReadRequestMemo(()=>getStoreIndustryModule("s"))).toBe("beauty");expect(queryRaw).toHaveBeenCalledTimes(2);
+});
+it.each(["SPA","UNKNOWN"])("retains module denial for authenticated metadata %s",async industryModule=>{
+ const {getStoreIndustryModule}=await import("@/lib/industry-module-server");
+ await expect(withReadRequestMemo(async()=>{rememberVerifiedStaffRead({userId:"u",role:"OWNER",staffId:"st",storeId:"s",industryModule});return getStoreIndustryModule("s");})).rejects.toMatchObject({code:"FORBIDDEN"});
+});
+it("keeps production activation and preview isolation denial ahead of verified metadata reuse",async()=>{
+ queryRaw.mockClear();nativeGate.mockClear();nativeGate.mockRejectedValueOnce(new Error("module activation denied"));
+ const {getStoreIndustryModule}=await import("@/lib/industry-module-server");
+ await expect(withReadRequestMemo(async()=>{rememberVerifiedStaffRead({userId:"u",role:"OWNER",staffId:"st",storeId:"s",industryModule:"COURSE"});return getStoreIndustryModule("s");})).rejects.toThrow("module activation denied");
+ expect(nativeGate).toHaveBeenCalledWith("s");expect(queryRaw).not.toHaveBeenCalled();
 });

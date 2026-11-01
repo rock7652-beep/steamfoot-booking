@@ -44,3 +44,9 @@ it('performance Preview requires the exact branch, repository, opt-ins and both 
  expect(assertReviewedReleaseEnvironment(env)).toBe('sports-redesign-preview');
  for(const [key,value] of [['VERCEL_GIT_COMMIT_REF','perf/sports-course-loading-other'],['SPORTS_REDESIGN_PREVIEW',''],['SPORTS_REDESIGN_STAGING',''],['VERCEL_ENV','production'],['VERCEL_GIT_REPO_OWNER','other'],['DIRECT_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'],['DATABASE_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres']])expect(()=>assertSportsRedesignPreviewEnvironment({...env,[key]:value})).toThrow();
 });
+
+ it('silver lily calendar preview keeps the same database and provenance boundary',()=>{
+ const env={...safe,VERCEL_GIT_COMMIT_REF:'fix/silverlily-calendar-loading-20261031'};
+ expect(assertReviewedReleaseEnvironment(env)).toBe('sports-redesign-preview');
+ for(const [key,value] of [['SPORTS_REDESIGN_PREVIEW',''],['SPORTS_REDESIGN_STAGING',''],['VERCEL_ENV','production'],['VERCEL_GIT_COMMIT_REF','fix/silverlily-calendar-loading-20261031-other'],['DATABASE_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'],['DIRECT_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres']])expect(()=>assertReviewedReleaseEnvironment({...env,[key]:value})).toThrow();
+ });

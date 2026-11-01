@@ -16,6 +16,7 @@ it('music item A sums A1+A2, excludes B and keeps FIFO independent of product or
 it('only binds rights at attendance and never silently marks the learner attended',async()=>{
  await bindMusicAttendanceCard(db(),{storeId:'store',userId:'staff'},'booking');
  expect(f.booking).toMatchObject({cardId:'a1',bookingKind:'CARD'});
+ expect(f.tx.coursePointCard.findMany.mock.calls[0][0]).not.toHaveProperty('relationLoadStrategy');
  expect(f.tx.courseBooking.update).toHaveBeenCalledExactlyOnceWith({where:{id:'booking'},data:{cardId:'a1',bookingKind:'CARD',pointCost:1}});
  await bindMusicAttendanceCard(db(),{storeId:'store',userId:'staff'},'booking');
  expect(f.tx.coursePointEntry.create).toHaveBeenCalledOnce();

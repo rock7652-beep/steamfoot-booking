@@ -1,10 +1,12 @@
+// UI state fixtures use the shared read transport; the real HTTP protocol is tested separately.
+vi.mock("@/lib/course-session-detail-client",()=>({readCourseSessionDetailClient:(...args:unknown[])=>m.load(...args)}));
 vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null}),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:vi.fn()}));
 vi.mock("@/server/actions/music-roster-attendance",()=>({correctMusicRosterAttendance:vi.fn()}));
 vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 // @vitest-environment jsdom
 /** Real CourseRoster failure/concurrency tests using synthetic data.
  * These establish DOM/state behavior, not browser geometry or live DB writes. */
-import { act, createElement } from "react";
+import { act, createElement, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("@/server/actions/course-purchase-intent", () => ({ prepareCoursePurchaseIntent: vi.fn(), getCoursePurchaseIntent: vi.fn(), getPendingCoursePurchaseIntent: vi.fn(), cancelCoursePurchaseIntent: vi.fn(), acknowledgeCoursePurchaseIntent: vi.fn() }));
@@ -235,4 +237,17 @@ it('uses the version port in the background and retains the same rows when uncha
  sync.mockResolvedValueOnce({success:true,version:'version-b',unchanged:false,data:{...data('背景更新').data,readVersion:'version-b'}});
  await act(async()=>vi.advanceTimersByTimeAsync(3100));expect(read).toHaveBeenCalledOnce();expect(host.textContent).toContain('背景更新');
  vi.useRealTimers();
+});
+
+import {usePanelReader} from '@/components/operations/panel-read-cache';
+import {readCourseSessionDetailClient} from '@/lib/course-session-detail-client';
+it('starts a fresh roster read on the opening click, shares only its in-flight request, and rechecks after reopening',async()=>{
+ const first=deferred<ReturnType<typeof data>>(),second=deferred<ReturnType<typeof data>>();m.load.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+ function ClickRoster(){const [open,setOpen]=useState(false);const reader=usePanelReader('music-session-detail',readCourseSessionDetailClient,'',0);return createElement('div',null,createElement('button',{onClick:()=>{reader.prefetch('session-a',true,false);setOpen(true);}},'測試開啟'),createElement('button',{onClick:()=>setOpen(false)},'測試關閉'),open?createElement(CourseRoster,{sessionId:'session-a',capacity:1,canCreate:false,canEdit:false,musicLayout:true}):null);}
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:click-test:course'},createElement(ClickRoster))));
+ const click=(label:string)=>act(async()=>{[...host.querySelectorAll('button')].find(button=>button.textContent===label)!.click();});
+ await click('測試開啟');expect(m.load).toHaveBeenCalledOnce();expect(m.load).toHaveBeenCalledWith('session-a',true,false);expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeNull();
+ await act(async()=>first.resolve(data()));expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).not.toBeNull();
+ await click('測試關閉');await click('測試開啟');expect(m.load).toHaveBeenCalledTimes(2);expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeNull();
+ await act(async()=>second.resolve(data('新查核資料')));expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).not.toBeNull();
 });

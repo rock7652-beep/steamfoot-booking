@@ -1,4 +1,6 @@
 import {digitalManagerCronPreviewPathAllowed} from "../scripts/digital-manager-cron-preview-scope.mjs";
+import {calendarProxyReadOperation,traceCalendarProxyRead} from "@/lib/calendar-proxy-read-timing";
+import {measureMusicRead} from "@/lib/music-read-timing";
 import { isRetiredModuleRoute } from "@/lib/retired-module-routes";
 import { legacyOperationsDestination } from "@/lib/operations-navigation";
 import { beautySandboxRewriteUrl } from "../scripts/beauty-sandbox-qa-scope.mjs";
@@ -661,6 +663,10 @@ function hqRewrite(
 // excluded from proxy. Normal deployments retain the old exclusions verbatim.
 const legacyProxyExclusion = /^\/(?:robots\.txt$|sitemap\.xml$|api\/line\/webhook|api\/cron|_next\/static|_next\/image|favicon\.ico)/;
 export function proxy(...args: Parameters<typeof authenticatedProxy>) {
+  const operation=calendarProxyReadOperation(args[0].method,args[0].nextUrl);
+  return operation?traceCalendarProxyRead(operation,()=>dispatchProxy(...args)):dispatchProxy(...args);
+}
+function dispatchProxy(...args: Parameters<typeof authenticatedProxy>) {
   const [req] = args;
   if ((req.nextUrl.pathname.startsWith("/api/cron/") || req.nextUrl.pathname === "/api/health/reminders-cron") && !digitalManagerCronPreviewPathAllowed(req.nextUrl.pathname)) return NextResponse.json({error:"Unauthorized"},{status:401});
   if (req.nextUrl.pathname === "/beauty-public-preview" || req.nextUrl.pathname.startsWith("/beauty-public-preview/")) {
@@ -766,9 +772,11 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   if (legacyProxyExclusion.test(req.nextUrl.pathname)) return NextResponse.next();
   const host = req.headers.get("host")?.split(":")[0] ?? "";
   const retirement = retiredStoreBoundary(req, DOMAIN_STORE_MAP[host]);
+  const profiling=calendarProxyReadOperation(req.method,req.nextUrl);
+  const authenticate=()=>profiling?measureMusicRead("proxy.authentication",async()=>authenticatedProxy(...args)):authenticatedProxy(...args);
   return retirement
-    ? retirement.then(response => response ?? authenticatedProxy(...args))
-    : authenticatedProxy(...args);
+    ? (profiling?measureMusicRead("proxy.retiredStore",()=>retirement):retirement).then(response => response ?? authenticate())
+    : authenticate();
 }
 
 // Match the existing application region in vercel.json. This proxy also runs

@@ -11,7 +11,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { CourseWorkspace, type CourseCalendarSource } from "@/app/(dashboard)/dashboard/courses/workspace";
 
-const m = vi.hoisted(() => ({ query: "", nativeRead: vi.fn(), router: { refresh: vi.fn() } }));
+const m = vi.hoisted(() => ({ query: "", nativeRead: vi.fn(), detail:vi.fn(), router: { refresh: vi.fn() } }));
+vi.mock("@/lib/course-session-detail-client",()=>({readCourseSessionDetailClient:m.detail}));
 vi.mock("@/lib/sports-calendar-client",()=>({readSportsCalendar:m.nativeRead}));
 vi.mock("next/navigation", () => ({
   useRouter: () => m.router,
@@ -38,7 +39,7 @@ let host: HTMLDivElement, root: Root;
 const elementScrollDescriptor=Object.getOwnPropertyDescriptor(HTMLElement.prototype,"scrollTo");
 beforeEach(() => {
   vi.clearAllMocks(); vi.useFakeTimers(); vi.setSystemTime(new Date(props.nowIso));
-  m.query = "";
+  m.query = "";m.detail.mockResolvedValue({success:false,error:"fixture"});
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   vi.stubGlobal("ResizeObserver",class {observe(){}unobserve(){}disconnect(){}});
   vi.stubGlobal("matchMedia",vi.fn().mockReturnValue({matches:false,media:"",onchange:null,addListener:vi.fn(),removeListener:vi.fn(),addEventListener:vi.fn(),removeEventListener:vi.fn(),dispatchEvent:vi.fn()}));
@@ -119,4 +120,22 @@ it.each(["month","week","day"] as const)("music %s uses the same 60-second calen
  await tick(59_999);expect(m.router.refresh).not.toHaveBeenCalled();
  await tick(1);expect(m.router.refresh).toHaveBeenCalledTimes(1);
  await tick(60_000);expect(m.router.refresh).toHaveBeenCalledTimes(2);
+});
+
+it('keeps the just-selected day view when opening a class before search params have caught up',async()=>{
+ const original=window.location.href;const path='/s/sports-test/admin/dashboard/courses';m.query='date=2026-10-17&scheduleView=month';window.history.replaceState(null,'',path+'?'+m.query);
+ try{
+  await act(async()=>root.render(createElement(CourseWorkspace,{...props,canCreate:false,canEdit:false,businessProfile:'MUSIC',rooms:[{id:'room',name:'Room',category:'',isActive:true,capacity:2}],coaches:[{id:'coach',displayName:'Coach',phone:'',status:'ACTIVE',courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:[]}],sessions:[{id:'session',templateId:'template',nameSnapshot:'Teaching A',startsAt:'2026-10-17T02:00:00Z',endsAt:'2026-10-17T03:00:00Z',coachId:'coach',roomId:'room',capacity:2,pointCost:1,bookings:[]}]})));
+  await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='日表')!.click());expect(new URLSearchParams(window.location.search).get('scheduleView')).toBe('day');
+  const card=host.querySelector<HTMLButtonElement>('[data-calendar-session="session"]');expect(card).not.toBeNull();await act(async()=>card!.click());
+  expect(new URLSearchParams(window.location.search).get('scheduleView')).toBe('day');expect(host.querySelector('[role="dialog"][aria-labelledby="course-operation-title"]')).not.toBeNull();expect(m.router.refresh).not.toHaveBeenCalled();
+ }finally{window.history.replaceState(null,'',original);}
+});
+it('does not restore router history again when selecting an already active calendar view',async()=>{
+ const original=window.location.href;m.query='date=2026-10-17&scheduleView=day';window.history.replaceState(null,'','/s/sports-test/admin/dashboard/courses?'+m.query);
+ try{await render('MUSIC');const replace=vi.spyOn(window.history,'replaceState');await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='日表')!.click());expect(replace).not.toHaveBeenCalled();}finally{window.history.replaceState(null,'',original);}
+});
+it('preserves the latest browser view and other query fields during an immediate date change',async()=>{
+ const original=window.location.href;m.query='date=2026-10-17&scheduleView=month';window.history.replaceState(null,'','/s/sports-test/admin/dashboard/courses?date=2026-10-17&scheduleView=day&keep=review');
+ try{await render('MUSIC');await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='日表')!.click());await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent?.trim()==='›')!.click());const query=new URLSearchParams(window.location.search);expect(query.get('date')).toBe('2026-10-18');expect(query.get('scheduleView')).toBe('day');expect(query.get('keep')).toBe('review');}finally{window.history.replaceState(null,'',original);}
 });

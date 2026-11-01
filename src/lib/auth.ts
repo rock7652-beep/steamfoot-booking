@@ -1,4 +1,5 @@
 import {measureMusicRead} from "@/lib/music-read-timing";
+import {rememberVerifiedStaffRead} from "@/server/services/read-request-memo";
 import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 import NextAuth from "next-auth";
 import { recordStaffLogin } from "@/server/services/staff-login-audit";
@@ -1517,10 +1518,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const stamp = user ? user.staffSessionStamp : appToken.staffSessionStamp;
         if (!id || !stamp) return null;
         const current = await measureMusicRead("session.staffState",()=>prisma.user.findUnique({
+          relationLoadStrategy:"join",
           where: { id },
           select: {
             id: true, role: true, status: true, passwordHash: true, updatedAt: true,
-            staff: { select: { id: true, storeId: true, status: true, store: { select: { slug: true, industryModule: true } } } },
+            staff: { select: { id: true, storeId: true, status: true, store: { select: { slug: true, name:true, operatingStatus:true, industryModule: true } } } },
           },
         }));
         // DB failures propagate through Auth.js; never reuse stale privileges.
@@ -1529,6 +1531,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (appToken.customerReviewDigest && (!reviewTarget || current.role !== "OWNER" ||
           current.staff?.id !== reviewTarget.staffId || current.staff.storeId !== reviewTarget.storeId ||
           current.staff.store.slug !== reviewTarget.slug || current.staff.store.industryModule !== reviewTarget.industryModule)) return null;
+        if(current.role!=="ADMIN"&&current.staff?.status==="ACTIVE")rememberVerifiedStaffRead({userId:current.id,role:current.role,staffId:current.staff.id,storeId:current.staff.storeId,industryModule:current.staff.store.industryModule,...(typeof current.staff.store.name==="string"&&typeof current.staff.store.operatingStatus==="string"?{store:{slug:current.staff.store.slug,name:current.staff.store.name,operatingStatus:current.staff.store.operatingStatus}}:{})});
         appToken.sub = current.id;
         appToken.role = current.role;
         appToken.staffSessionStamp = stamp;

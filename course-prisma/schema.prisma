@@ -1,5 +1,6 @@
 generator courseClient {
   provider = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
   output   = "../generated/course-client"
 }
 

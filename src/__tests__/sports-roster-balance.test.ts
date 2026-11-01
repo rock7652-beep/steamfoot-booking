@@ -19,3 +19,17 @@ it('shows insufficient remaining without pretending a booking or debit occurred'
 it('does no queries for an empty list and returns no inferred rights without a rule',async()=>{expect((await readSportsRosterBalances('store','session',[])).size).toBe(0);expect(m.session).not.toHaveBeenCalled();m.rule.mockResolvedValue(null);m.cards.mockResolvedValue([card('card',10)]);expect((await readSportsRosterBalances('store','session',['a'])).size).toBe(0);});
 
 it('A1兩堂加A2十堂顯示12；其他項目及共用關聯不重複',async()=>{m.cards.mockResolvedValue([card('a1',2),card('a2',10),{...card('b',20),sportsSubjectId:'other'}]);const result=await readSportsRosterBalances('store','session',['a']);expect(result.get('a')).toMatchObject({remaining:12,available:12});});
+it('shares only session metadata and always re-reads current cards and held amounts',async()=>{
+ const {withReadRequestMemo}=await import('@/server/services/read-request-memo');
+ m.cards.mockResolvedValueOnce([card('card',10,3)]).mockResolvedValueOnce([card('card',8,2)]);
+ await withReadRequestMemo(async()=>{
+  expect((await readSportsRosterBalances('store','session',['a'])).get('a')).toMatchObject({remaining:10,available:7});
+  expect((await readSportsRosterBalances('store','session',['a'])).get('a')).toMatchObject({remaining:8,available:6});
+ });
+ expect(m.session).toHaveBeenCalledTimes(1);expect(m.templates).toHaveBeenCalledTimes(1);expect(m.cards).toHaveBeenCalledTimes(2);
+});
+it('uses joined member/hold reads only for the ordinary read client, retaining transaction reads',async()=>{
+ const {coursePrisma}=await import('@/lib/course-db');
+ await readSportsRosterBalances('store','session',['a']);expect(m.cards.mock.calls[0][0].relationLoadStrategy).toBe('join');
+ const tx={...coursePrisma} as unknown as Parameters<typeof readSportsRosterBalances>[3];m.cards.mockClear();await readSportsRosterBalances('store','session',['a'],tx);expect(m.cards.mock.calls[0][0]).not.toHaveProperty('relationLoadStrategy');
+});

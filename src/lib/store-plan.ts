@@ -24,6 +24,7 @@
  * 供 server component / server action 使用。
  */
 import { cache } from "react";
+import {memoizeReadRequest} from "@/server/services/read-request-memo";
 import { sportsNativePreview } from "@/lib/sports-native-preview";
 import { prisma } from "@/lib/db";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -132,10 +133,13 @@ export async function getStoreForPlanByStoreId(
   client: Pick<Prisma.TransactionClient, "store"> = prisma,
 ): Promise<StorePlanFields> {
 
-  const store = client===prisma&&(await sportsNativePreview(storeId))?await readPreviewPlan(storeId):await client.store.findUnique({
+  const read=async()=>client===prisma&&(await sportsNativePreview(storeId))?await readPreviewPlan(storeId):await client.store.findUnique({
     where: { id: storeId },
     select: STORE_PLAN_SELECT,
   });
+  // Only an explicitly scoped HTTP read may share the ordinary reader's result.
+  // Transaction readers always query their own connection and snapshot.
+  const store=await (client===prisma?memoizeReadRequest(`store.plan:${storeId}`,read):read());
   if (!store) throw new Error(`Store not found: ${storeId}`);
   return store;
 }

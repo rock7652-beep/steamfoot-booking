@@ -1,3 +1,5 @@
+import {memoizeCourseReadRequest} from "./course-read-request-memo";
+import {readSportsSessionRuleRow} from "./sports-session-rule-read";
 import { sportsTeachingTemplateId } from "./sports-teaching-rule";
 import "server-only";
 import {assertSportsProductionReady,sportsRulesAvailable} from "./sports-production-readiness";
@@ -18,18 +20,11 @@ export async function readSportsSessionRule(
   storeId: string,
   sessionId: string,
 ) {
-  if (!(await sportsRulesAvailable(tx, storeId))) return null;
-  await assertSportsProductionReady(tx, storeId);
-  const rows = await tx.$queryRaw<
-    Array<{
-      frequency: string;
-      enrollment: string;
-      planId: string | null;
-      trialPrice: number;
-      payload: SportsScheduleRule;
-    }>
-  >`SELECT frequency,enrollment,"planId","trialPrice",payload FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId} AND "sessionId"=${sessionId}`;
-  return rows[0] ?? null;
+  return memoizeCourseReadRequest(tx,JSON.stringify(["sports-rule",storeId,sessionId]),async()=>{
+    if (!(await sportsRulesAvailable(tx, storeId))) return null;
+    await assertSportsProductionReady(tx, storeId);
+    return readSportsSessionRuleRow(tx,storeId,sessionId);
+  });
 }
 export async function attachSportsSessionRules(
   tx: Prisma.TransactionClient,

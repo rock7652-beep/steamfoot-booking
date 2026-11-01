@@ -5,7 +5,7 @@ import {GET} from '@/app/(dashboard)/dashboard/courses/schedule-options/route';
 beforeEach(()=>m.load.mockReset());
 it('uses the same form-only authorized loader and disallows shared caching',async()=>{
  m.load.mockResolvedValue({success:true,data:{storeId:'store'}});const response=await GET();
- expect(m.load).toHaveBeenCalledExactlyOnceWith(true);expect(await response.json()).toEqual({success:true,data:{storeId:'store'}});
+ expect(m.load).toHaveBeenCalledExactlyOnceWith(true,true);expect(await response.json()).toEqual({success:true,data:{storeId:'store'}});
  expect(response.headers.get('Cache-Control')).toBe('private, no-store');expect(response.headers.get('Vary')).toBe('Cookie');expect(response.headers.get('Server-Timing')).toMatch(/^scheduleoptions;dur=\d+$/);
 });
 it('preserves authorization rejection without returning metadata',async()=>{

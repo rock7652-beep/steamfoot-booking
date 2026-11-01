@@ -27,6 +27,11 @@ it("管理讀取無計酬權限仍拒絕，不洩漏費率",async()=>{
 it("授權管理讀取保留計酬設定",async()=>{
  m.finance=true;const result=await loadSportsStaging();expect(result.success).toBe(true);if(result.success)expect(result.data.fees[0].compensation).toEqual({mode:"HOUR",value:700});expect(m.manager).toHaveBeenCalledWith("teacher.compensation.read");
 });
+it('原生排課選項不讀取方案與已購卡片，保留原有權限檢查',async()=>{
+ const result=await loadSportsStaging(true,true);expect(result.success).toBe(true);if(!result.success)return;
+ expect(result.data.fees).toEqual([]);expect(result.data.students).toEqual([]);expect(m.plans).not.toHaveBeenCalled();
+ expect(m.manager.mock.calls.map(c=>c[0])).toEqual(['booking.read','plans.edit','customer.read','wallet.read','transaction.read']);
+});
 it.each(["booking.read","customer.read","wallet.read","transaction.read","plans.edit"])("排課仍檢查必要權限 %s",async permission=>{
  m.denied=permission;expect((await loadSportsStaging(true)).success).toBe(false);expect(m.compensation).not.toHaveBeenCalled();
 });

@@ -2,7 +2,7 @@
 import {courseChargeSnapshot} from "@/lib/course-charge-settings";
 import {resolveScheduleCharge} from "@/server/services/course-charge";
 import {assertCourseSchedulingMode} from "@/server/services/course-scheduling-modes";
-import { sportsCourseName, courseDisplayName } from "@/lib/course-template-presentation";
+import { sportsCourseName, sportsTeachingName, courseDisplayName } from "@/lib/course-template-presentation";
 import {sportsSeriesTable} from "@/lib/sports-series-storage";
 import type {SportsMovePatch} from "@/lib/sports-move-patch";
 import {sportsMoveBlockedReason} from "@/server/services/sports-move-eligibility";
@@ -737,9 +737,7 @@ export async function createCourseSchedule(input: unknown) {
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
-        // Regular classes use the teaching item in every enrollment mode.
-        // A pricing name is relevant only to an explicitly priced trial.
-        const sportsPlanName=data.isTrial&&data.sportsStaging&&data.sportsStaging.enrollment!=="OPEN"?await tx.coursePointPlan.findFirst({where:{storeId,...(data.sportsStaging.planId?{id:data.sportsStaging.planId}:{templateIds:{has:template.id}})},select:{name:true}}):null;
+        // Every sports class, including trials, is named after its teaching item.
         if(musicScheduling)await tx.courseSession.updateMany({where:{storeId,rescheduleShadowHidden:false,rescheduledFromStartsAt:{not:null},OR:occurrences.map(range=>({rescheduledFromStartsAt:{lt:range.endsAt},rescheduledFromEndsAt:{gt:range.startsAt},OR:[{rescheduledFromRoomId:data.roomId},{rescheduledFromCoachId:data.coachId}]}))},data:{rescheduleShadowHidden:true}});
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
@@ -751,7 +749,7 @@ export async function createCourseSchedule(input: unknown) {
             scheduleType:data.scheduleType,
             scheduleFrequency:data.scheduleFrequency,
             templateId: template.id,
-            nameSnapshot: musicScheduling ? source?.nameSnapshot ?? template.musicSubject?.name ?? template.name : sportsCourseName(source?.nameSnapshot ?? sportsPlanName?.name ?? template.name, template.id),
+            nameSnapshot: musicScheduling ? source?.nameSnapshot ?? template.musicSubject?.name ?? template.name : data.sportsStaging ? sportsTeachingName(template.name, template.musicSubject?.name) : sportsCourseName(source?.nameSnapshot ?? template.name, template.id),
             roomId: room.id,
             coachId: data.coachId,
             pointCost: source?.pointCost ?? template.pointCost,
@@ -832,7 +830,7 @@ export async function createCourseSchedule(input: unknown) {
       include: { bookings: true, template: { select: { musicScheduleMode: true, musicSubject: { select: { name: true } } } } },
     });
     const sessions = savedSessions.map(session => ({
-      id: session.id, templateId: session.templateId, nameSnapshot: session.nameSnapshot,
+      id: session.id, templateId: session.templateId, nameSnapshot: data.sportsStaging ? sportsTeachingName(session.nameSnapshot, session.template?.musicSubject?.name) : session.nameSnapshot,
       startsAt: session.startsAt.toISOString(), endsAt: session.endsAt.toISOString(),
       coachId: session.coachId, roomId: session.roomId, capacity: session.capacity,
       pointCost: session.pointCost, isTrial: session.isTrial, requestKey: session.requestKey,

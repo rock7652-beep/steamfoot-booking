@@ -1,6 +1,6 @@
 import {createCoursePageTiming,coursePageTimingVisible} from "@/server/services/course-page-timing";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
-import { presentCourseTemplates, sportsCourseName, courseDisplayName } from "@/lib/course-template-presentation";
+import { presentCourseTemplates, sportsCourseName, sportsTeachingName, courseDisplayName } from "@/lib/course-template-presentation";
 import { CourseRoomsPage } from "./rooms-page";
 import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
 import { musicSessionWhere, musicDataScope } from "@/server/services/music-data-scope";
@@ -217,6 +217,7 @@ export default async function CoursesPage({
           bookingAudience: true, scheduleType:true, scheduleFrequency:true, enrollmentMode:true,
           nameSnapshot: true,
           templateId: true,
+          template: { select: { musicSubject: { select: { name: true } } } },
           startsAt: true,
           endsAt: true,
           coachId: true,
@@ -409,9 +410,9 @@ export default async function CoursesPage({
         waitlistEnabled={waitlistEnabled}
         waitlistDefaultLimit={waitlistDefaultLimit}
         waitlistDefaultStopMinutes={waitlistDefaultStopMinutes}
-        sessions={[...sessions.map((s) => ({
+        sessions={[...sessions.map(({template, ...s}) => ({
           ...s,
-          nameSnapshot: sportsCourseName(s.nameSnapshot, s.templateId),
+          nameSnapshot: sportsNative ? sportsTeachingName(s.nameSnapshot, template?.musicSubject?.name) : sportsCourseName(s.nameSnapshot, s.templateId),
           sportsPalette:sportsNative,
           isFixed: sportsNative ? sportsFixedRows.some(r=>r.sessionId===s.id&&r.frequency!=="SINGLE") : s.scheduleType === "FIXED" || s.scheduleType === "LEGACY" && (recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED"),
           sportsEnrollment:sportsNative?sportsFixedRows.find(r=>r.sessionId===s.id)?.enrollment:undefined,
