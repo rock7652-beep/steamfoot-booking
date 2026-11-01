@@ -90,7 +90,7 @@ it("native sports schedule dialog receives the current store scheduling modes", 
   await act(async()=>root.render(createElement(CourseWorkspace,{...props,view:"schedule",businessProfile:"FITNESS",sportsNative:true,
    schedulingModes:{selfBookingEnabled:false,assignedSchedulingEnabled:true},
    sportsData:{storeId:"store-a",date:"2026-10-10",subjects:[],fees:[],lessons:[],students:[],customers:[],coaches:[],rooms:[]}})));
-  await vi.waitFor(()=>expect(m.schedule).toHaveBeenCalled());
+  expect(m.schedule).toHaveBeenCalled();
   expect(m.schedule.mock.calls.at(-1)![0]).toMatchObject({schedulingModes:{selfBookingEnabled:false,assignedSchedulingEnabled:true}});
  } finally {await act(async()=>root.unmount());host.remove();m.search="view=rooms&action=create";}
 });

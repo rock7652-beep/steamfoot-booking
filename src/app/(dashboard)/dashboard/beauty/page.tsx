@@ -1,3 +1,4 @@
+import {withBeautyReadScope} from "@/server/beauty/request-scope";
 import {traceBeautyRead} from '@/server/beauty/read-timing';
 import {redirectOperations} from "@/lib/operations-navigation-server";
 import {beautyDashboardScope} from '@/lib/beauty/dashboard-scope';
@@ -46,7 +47,10 @@ import { FEATURES } from "@/lib/feature-flags";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { toLocalDateStr, toLocalMonthStr } from "@/lib/date-utils";
 import { isReadOnlyStoreTarget } from "@/lib/store-read-only";
-export default async function BeautyPage({
+export default function BeautyPage(props:Parameters<typeof BeautyPageContent>[0]) {
+  return withBeautyReadScope(()=>BeautyPageContent(props));
+}
+async function BeautyPageContent({
   searchParams,
 }: {
   searchParams: Promise<{

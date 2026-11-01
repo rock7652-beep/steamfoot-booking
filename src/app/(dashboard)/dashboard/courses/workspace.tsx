@@ -28,8 +28,7 @@ import {SportsCancelCourse} from "./sports-cancel-course";
 import {SportsMoveConfirm} from "./sports-move-confirm";
 import {SportsScheduleDialog} from "./sports-schedule-dialog";
 import type {SportsScheduleSource} from "./sports-schedule-fields";
-import dynamic from "next/dynamic";
-const SportsScheduleLoader=dynamic(()=>import("./sports-schedule-loader").then(m=>m.SportsScheduleLoader));
+import {SportsScheduleLoader} from "./sports-schedule-loader";
 import {readSportsScheduleOptions,SPORTS_SCHEDULE_OPTIONS_TTL} from "@/lib/sports-schedule-options-client";
 import { SportsSessionNameField } from "./sports-session-name-field";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
@@ -53,9 +52,7 @@ import { CourseCustomerPicker } from "@/components/admin/course-customer-picker"
 import { CourseScheduleToolbar } from "@/components/admin/course-schedule-toolbar";
 import { courseScheduleFormFields, courseScheduleCreatedDates } from "@/lib/course-schedule-form";
 import { MultiDateCalendar } from "@/components/admin/multi-date-calendar";
-import type {RentalPermissions,RentalCustomer} from "./rental-panel";
-const RentalPanel=dynamic(()=>import("./rental-panel").then(m=>m.RentalPanel));
-const RentalHistory=dynamic(()=>import("./rental-panel").then(m=>m.RentalHistory));
+import {RentalPanel,RentalHistory,type RentalPermissions,type RentalCustomer} from "./rental-panel";
 import {useCourseDisplayOrder} from "@/components/admin/course-display-order";
 import type {CourseOrderSnapshot} from "@/lib/course-display-order";
 
@@ -67,7 +64,7 @@ import {CourseConflicts,type ConflictItem} from "@/components/admin/course-confl
 import { Fragment, useId, useMemo, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
-const MusicScheduleWizard=dynamic(()=>import("./music-schedule-wizard").then(m=>m.MusicScheduleWizard));
+import { MusicScheduleWizard } from "./music-schedule-wizard";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { DailyAttendanceList, type DailyAttendanceRow } from "./daily-attendance-list";
 import {

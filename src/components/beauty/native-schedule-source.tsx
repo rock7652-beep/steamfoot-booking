@@ -8,8 +8,7 @@ import {bookBeautyParty,readBeautySlots} from '@/server/actions/beauty';
 import {orderCourseRows} from '@/lib/course-display-order';
 import {useState} from 'react';
 import {SportsScheduleDialog} from '@/app/(dashboard)/dashboard/courses/sports-schedule-dialog';
-import dynamic from 'next/dynamic';
-const SportsScheduleFields=dynamic(()=>import('@/app/(dashboard)/dashboard/courses/sports-schedule-fields').then(m=>m.SportsScheduleFields));
+import {SportsScheduleFields} from '@/app/(dashboard)/dashboard/courses/sports-schedule-fields';
 
 async function measureBooking<T>(operation:'availability'|'submit',work:()=>Promise<T>){
  const at=performance.now();try{return await work();}finally{try{performance.measure?.('beauty.booking.'+operation,{start:at,end:performance.now()});}catch{/* Observability cannot change the booking result. */}}
