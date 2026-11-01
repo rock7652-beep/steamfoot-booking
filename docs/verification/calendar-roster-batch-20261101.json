@@ -1,0 +1,713 @@
+{
+  "commit": "07d5202a9a410ec7d4f5140ce90ef3d14266a338",
+  "origin": "https://steamfoot-booking-gyoe1m20d-rock7652-2111s-projects.vercel.app",
+  "method": "paired baseline/candidate normal login, 3 navigations each, alternate deployment order; compare all prepared month payloads, zero click detail reads, no business writes",
+  "calendars": [
+    {
+      "module": "sports",
+      "deployment": "baseline",
+      "sample": 0,
+      "warmup": true,
+      "firstReady": "true",
+      "readyMs": 7181,
+      "count": 61,
+      "payloadHash": "2c8531841e4bf31462ac037b13945438d449c461e8f62c43de418d849ade1e1c",
+      "preparedEntries": 61
+    },
+    {
+      "module": "sports",
+      "deployment": "candidate",
+      "sample": 0,
+      "warmup": true,
+      "firstReady": "true",
+      "readyMs": 1484,
+      "count": 61,
+      "payloadHash": "2c8531841e4bf31462ac037b13945438d449c461e8f62c43de418d849ade1e1c",
+      "preparedEntries": 61
+    },
+    {
+      "module": "sports",
+      "deployment": "candidate",
+      "sample": 1,
+      "warmup": false,
+      "firstReady": "true",
+      "readyMs": 1368,
+      "count": 61,
+      "payloadHash": "2c8531841e4bf31462ac037b13945438d449c461e8f62c43de418d849ade1e1c",
+      "preparedEntries": 61
+    },
+    {
+      "module": "sports",
+      "deployment": "baseline",
+      "sample": 1,
+      "warmup": false,
+      "firstReady": "true",
+      "readyMs": 6810,
+      "count": 61,
+      "payloadHash": "2c8531841e4bf31462ac037b13945438d449c461e8f62c43de418d849ade1e1c",
+      "preparedEntries": 61
+    },
+    {
+      "module": "sports",
+      "deployment": "baseline",
+      "sample": 2,
+      "warmup": false,
+      "firstReady": "true",
+      "readyMs": 6690,
+      "count": 61,
+      "payloadHash": "2c8531841e4bf31462ac037b13945438d449c461e8f62c43de418d849ade1e1c",
+      "preparedEntries": 61
+    },
+    {
+      "module": "sports",
+      "deployment": "candidate",
+      "sample": 2,
+      "warmup": false,
+      "firstReady": "true",
+      "readyMs": 2387,
+      "count": 61,
+      "payloadHash": "2c8531841e4bf31462ac037b13945438d449c461e8f62c43de418d849ade1e1c",
+      "preparedEntries": 61
+    },
+    {
+      "module": "music",
+      "deployment": "baseline",
+      "sample": 0,
+      "warmup": true,
+      "firstReady": "true",
+      "readyMs": 22741,
+      "count": 149,
+      "payloadHash": "4667e04307e280b3beacf0f25b38feb79f099269dd4b7d6e4019a096eb39a24c",
+      "preparedEntries": 149
+    },
+    {
+      "module": "music",
+      "deployment": "candidate",
+      "sample": 0,
+      "warmup": true,
+      "firstReady": "true",
+      "readyMs": 2782,
+      "count": 149,
+      "payloadHash": "4667e04307e280b3beacf0f25b38feb79f099269dd4b7d6e4019a096eb39a24c",
+      "preparedEntries": 149
+    },
+    {
+      "module": "music",
+      "deployment": "candidate",
+      "sample": 1,
+      "warmup": false,
+      "firstReady": "true",
+      "readyMs": 2401,
+      "count": 149,
+      "payloadHash": "4667e04307e280b3beacf0f25b38feb79f099269dd4b7d6e4019a096eb39a24c",
+      "preparedEntries": 149
+    },
+    {
+      "module": "music",
+      "deployment": "baseline",
+      "sample": 1,
+      "warmup": false,
+      "firstReady": "true",
+      "readyMs": 22453,
+      "count": 149,
+      "payloadHash": "4667e04307e280b3beacf0f25b38feb79f099269dd4b7d6e4019a096eb39a24c",
+      "preparedEntries": 149
+    },
+    {
+      "module": "music",
+      "deployment": "baseline",
+      "sample": 2,
+      "warmup": false,
+      "firstReady": "true",
+      "readyMs": 23104,
+      "count": 149,
+      "payloadHash": "4667e04307e280b3beacf0f25b38feb79f099269dd4b7d6e4019a096eb39a24c",
+      "preparedEntries": 149
+    },
+    {
+      "module": "music",
+      "deployment": "candidate",
+      "sample": 2,
+      "warmup": false,
+      "firstReady": "true",
+      "readyMs": 2474,
+      "count": 149,
+      "payloadHash": "4667e04307e280b3beacf0f25b38feb79f099269dd4b7d6e4019a096eb39a24c",
+      "preparedEntries": 149
+    },
+    {
+      "module": "beauty",
+      "deployment": "baseline",
+      "sample": 0,
+      "warmup": true,
+      "firstReady": "true",
+      "readyMs": 2312,
+      "count": 11,
+      "payloadHash": "2f40cf2ba208de5e24ec8f587d78fb7f3af58216cae8aa2eaec734dbb44afd91",
+      "preparedEntries": 101
+    },
+    {
+      "module": "beauty",
+      "deployment": "candidate",
+      "sample": 0,
+      "warmup": true,
+      "firstReady": "true",
+      "readyMs": 2213,
+      "count": 11,
+      "payloadHash": "2f40cf2ba208de5e24ec8f587d78fb7f3af58216cae8aa2eaec734dbb44afd91",
+      "preparedEntries": 101
+    },
+    {
+      "module": "beauty",
+      "deployment": "candidate",
+      "sample": 1,
+      "warmup": false,
+      "firstReady": "true",
+      "readyMs": 2085,
+      "count": 11,
+      "payloadHash": "2f40cf2ba208de5e24ec8f587d78fb7f3af58216cae8aa2eaec734dbb44afd91",
+      "preparedEntries": 101
+    },
+    {
+      "module": "beauty",
+      "deployment": "baseline",
+      "sample": 1,
+      "warmup": false,
+      "firstReady": "true",
+      "readyMs": 2213,
+      "count": 11,
+      "payloadHash": "2f40cf2ba208de5e24ec8f587d78fb7f3af58216cae8aa2eaec734dbb44afd91",
+      "preparedEntries": 101
+    },
+    {
+      "module": "beauty",
+      "deployment": "baseline",
+      "sample": 2,
+      "warmup": false,
+      "firstReady": "true",
+      "readyMs": 2057,
+      "count": 11,
+      "payloadHash": "2f40cf2ba208de5e24ec8f587d78fb7f3af58216cae8aa2eaec734dbb44afd91",
+      "preparedEntries": 101
+    },
+    {
+      "module": "beauty",
+      "deployment": "candidate",
+      "sample": 2,
+      "warmup": false,
+      "firstReady": "true",
+      "readyMs": 2201,
+      "count": 11,
+      "payloadHash": "2f40cf2ba208de5e24ec8f587d78fb7f3af58216cae8aa2eaec734dbb44afd91",
+      "preparedEntries": 101
+    }
+  ],
+  "openings": [
+    {
+      "module": "sports",
+      "label": "baseline-0",
+      "clickToCompleteMs": 23,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "candidate-0",
+      "clickToCompleteMs": 26,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "candidate-1",
+      "clickToCompleteMs": 17,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "baseline-1",
+      "clickToCompleteMs": 26,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "baseline-2",
+      "clickToCompleteMs": 43,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "candidate-2",
+      "clickToCompleteMs": 22,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "candidate-responsive-1366",
+      "clickToCompleteMs": 13,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "candidate-responsive-1024",
+      "clickToCompleteMs": 15,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "candidate-responsive-768",
+      "clickToCompleteMs": 11,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "candidate-responsive-390",
+      "clickToCompleteMs": 15,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "sports",
+      "label": "candidate-month-switch-mixed-trial-card",
+      "clickToCompleteMs": 18,
+      "initialDetailRequests": 0,
+      "rows": 2
+    },
+    {
+      "module": "music",
+      "label": "baseline-0",
+      "clickToCompleteMs": 32,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "candidate-0",
+      "clickToCompleteMs": 35,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "candidate-1",
+      "clickToCompleteMs": 21,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "baseline-1",
+      "clickToCompleteMs": 32,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "baseline-2",
+      "clickToCompleteMs": 25,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "candidate-2",
+      "clickToCompleteMs": 22,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "candidate-responsive-1366",
+      "clickToCompleteMs": 19,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "candidate-responsive-1024",
+      "clickToCompleteMs": 22,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "candidate-responsive-768",
+      "clickToCompleteMs": 19,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "music",
+      "label": "candidate-responsive-390",
+      "clickToCompleteMs": 20,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "baseline-0",
+      "clickToCompleteMs": 643,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "candidate-0",
+      "clickToCompleteMs": 472,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "candidate-1",
+      "clickToCompleteMs": 449,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "baseline-1",
+      "clickToCompleteMs": 405,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "baseline-2",
+      "clickToCompleteMs": 438,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "candidate-2",
+      "clickToCompleteMs": 390,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "candidate-responsive-1366",
+      "clickToCompleteMs": 13,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "candidate-responsive-1024",
+      "clickToCompleteMs": 14,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "candidate-responsive-768",
+      "clickToCompleteMs": 13,
+      "initialDetailRequests": 0,
+      "rows": 1
+    },
+    {
+      "module": "beauty",
+      "label": "candidate-responsive-390",
+      "clickToCompleteMs": 13,
+      "initialDetailRequests": 0,
+      "rows": 1
+    }
+  ],
+  "checks": [
+    {
+      "module": "sports",
+      "sample": 0,
+      "check": "all-month-prepared-payloads-equal-baseline",
+      "entries": 61,
+      "hash": "2c8531841e4bf31462ac037b13945438d449c461e8f62c43de418d849ade1e1c",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "sample": 1,
+      "check": "all-month-prepared-payloads-equal-baseline",
+      "entries": 61,
+      "hash": "2c8531841e4bf31462ac037b13945438d449c461e8f62c43de418d849ade1e1c",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "sample": 2,
+      "check": "all-month-prepared-payloads-equal-baseline",
+      "entries": 61,
+      "hash": "2c8531841e4bf31462ac037b13945438d449c461e8f62c43de418d849ade1e1c",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "responsive-bounds",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "responsive-bounds",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "responsive-bounds",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "responsive-bounds",
+      "width": 390,
+      "height": 844,
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "check": "mixed-month-roster-equals-authoritative",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "sample": 0,
+      "check": "all-month-prepared-payloads-equal-baseline",
+      "entries": 149,
+      "hash": "4667e04307e280b3beacf0f25b38feb79f099269dd4b7d6e4019a096eb39a24c",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "sample": 1,
+      "check": "all-month-prepared-payloads-equal-baseline",
+      "entries": 149,
+      "hash": "4667e04307e280b3beacf0f25b38feb79f099269dd4b7d6e4019a096eb39a24c",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "sample": 2,
+      "check": "all-month-prepared-payloads-equal-baseline",
+      "entries": 149,
+      "hash": "4667e04307e280b3beacf0f25b38feb79f099269dd4b7d6e4019a096eb39a24c",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "responsive-bounds",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "responsive-bounds",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "responsive-bounds",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "module": "music",
+      "check": "responsive-bounds",
+      "width": 390,
+      "height": 844,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "sample": 0,
+      "check": "all-month-prepared-payloads-equal-baseline",
+      "entries": 101,
+      "hash": "2f40cf2ba208de5e24ec8f587d78fb7f3af58216cae8aa2eaec734dbb44afd91",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "sample": 1,
+      "check": "all-month-prepared-payloads-equal-baseline",
+      "entries": 101,
+      "hash": "2f40cf2ba208de5e24ec8f587d78fb7f3af58216cae8aa2eaec734dbb44afd91",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "sample": 2,
+      "check": "all-month-prepared-payloads-equal-baseline",
+      "entries": 101,
+      "hash": "2f40cf2ba208de5e24ec8f587d78fb7f3af58216cae8aa2eaec734dbb44afd91",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "responsive-bounds",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "responsive-bounds",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "responsive-bounds",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "check": "responsive-bounds",
+      "width": 390,
+      "height": 844,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "complete": true,
+  "baselineSource": "26323a8ffdd137a0628d88bf64a46b055c4b60bd",
+  "baselineDeployment": "dpl_E7G9RTfvZ41x9P6JoMgS35vCXXsy",
+  "candidateSource": "07d5202a9a410ec7d4f5140ce90ef3d14266a338",
+  "candidateDeployment": "dpl_AemBiWFJwHy6dCamRrsikwo57KMT",
+  "backendMetrics": [
+    {
+      "sessions": 149,
+      "elapsedMs": 432,
+      "sharedReads": 37
+    },
+    {
+      "sessions": 149,
+      "elapsedMs": 467,
+      "sharedReads": 37
+    },
+    {
+      "sessions": 149,
+      "elapsedMs": 559,
+      "sharedReads": 37
+    },
+    {
+      "sessions": 49,
+      "elapsedMs": 189,
+      "sharedReads": 20
+    },
+    {
+      "sessions": 50,
+      "elapsedMs": 186,
+      "sharedReads": 20
+    },
+    {
+      "sessions": 61,
+      "elapsedMs": 166,
+      "sharedReads": 20
+    },
+    {
+      "sessions": 61,
+      "elapsedMs": 190,
+      "sharedReads": 20
+    },
+    {
+      "sessions": 61,
+      "elapsedMs": 222,
+      "sharedReads": 20
+    }
+  ],
+  "summary": {
+    "sports": {
+      "baselineMs": [
+        7181,
+        6810,
+        6690
+      ],
+      "candidateMs": [
+        1484,
+        1368,
+        2387
+      ],
+      "baselineMedianMs": 6810,
+      "candidateMedianMs": 1484,
+      "medianReductionPercent": 78.2
+    },
+    "music": {
+      "baselineMs": [
+        22741,
+        22453,
+        23104
+      ],
+      "candidateMs": [
+        2782,
+        2401,
+        2474
+      ],
+      "baselineMedianMs": 22741,
+      "candidateMedianMs": 2474,
+      "medianReductionPercent": 89.1
+    },
+    "beauty": {
+      "baselineMs": [
+        2312,
+        2213,
+        2057
+      ],
+      "candidateMs": [
+        2213,
+        2085,
+        2201
+      ],
+      "baselineMedianMs": 2213,
+      "candidateMedianMs": 2201,
+      "medianReductionPercent": 0.5
+    }
+  },
+  "cleanup": {
+    "qaUsersSuspendedAndPasswordsCleared": 3,
+    "qaStaffInactive": 3,
+    "privateAuthFileRemoved": true,
+    "baselineShareRevoked": true,
+    "candidateShareTTLSeconds": 82800
+  },
+  "scopedBusinessCountsBeforeAfter": {
+    "CoursePurchase": 125,
+    "CoursePointEntry": 933,
+    "CourseBooking": 621,
+    "BeautyPayment": 90,
+    "BeautyLedger": 126
+  },
+  "limits": [
+    "Three paired navigations per module, including first sample, through a remote Chromium/proxy; not a latency SLA or physical Safari/iPad acceptance.",
+    "Server preload timings start after authorization; exclude other page reads, transport and rendering.",
+    "The cohosted isolated November music pilot imports retain their exact-branch guard; September existing fixtures were used. Production read-only check found zero yjy-pilot-card records in store-lubymusic.",
+    "Beauty full-page latency is effectively unchanged in this small sample; no speedup claimed."
+  ],
+  "ci": {
+    "source": "07d5202a9a410ec7d4f5140ce90ef3d14266a338",
+    "runId": 41267652332,
+    "testsPassed": 15066,
+    "testsSkipped": 257,
+    "jobs": "lint/typecheck/targeted/full Vitest passed",
+    "postgres": [
+      "sports-shared-card/notification acceptance passed",
+      "music makeup database audit passed"
+    ]
+  }
+}

@@ -1,5 +1,7 @@
 # Calendar-owned complete rosters (PR #1479)
 
+> Historical per-session preloading stage. The latest batch implementation and paired verification are recorded in [calendar-roster-batch-20261101.md](calendar-roster-batch-20261101.md).
+
 ## Acceptance boundary
 
 The calendar prepares every non-rental session's full roster before returning its page/month result. Opening a class consumes that exact snapshot on the first render and issues no initial detail request. The prior draft's name-only preview and `核對中` layout were rejected and removed; their timings do not establish this requirement.
