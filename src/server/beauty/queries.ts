@@ -1,3 +1,4 @@
+import {beautyReadStep} from './read-timing';
 import {preloadBeautyCalendarRosters} from "./calendar-rosters";
 import {readBeautyChargeCosts} from './charge-finance';
 import {beautyChargeRulesEnabled,readChargeCatalogForUi} from './charge-runtime';
@@ -202,9 +203,10 @@ export async function beautyDashboard(
   nativeCalendar=false,
   includeChargeCatalog=true,
   includeRosterSnapshots=false,
+  includeFinancialOverview=true,
 ) {
-  const a = await beautyManager("booking.read"),
-    u = await getCurrentUser();
+  const a = await beautyReadStep("dashboard.authorization",()=>beautyManager("booking.read")),
+    u = await beautyReadStep("dashboard.identity",()=>getCurrentUser());
   const can = async (p: Parameters<typeof checkPermission>[2]) =>
     !!u && (await checkPermission(u.role, u.staffId, p));
   const [
@@ -215,7 +217,7 @@ export async function beautyDashboard(
     feePermission,
     settingsAccess,
     writeAccess,
-  ] = await Promise.all([
+  ] = await beautyReadStep("dashboard.permissions",()=>Promise.all([
     can("customer.read"),
     can("wallet.read"),
     can("staff.view"),
@@ -223,19 +225,13 @@ export async function beautyDashboard(
     can("teacher.compensation.read"),
     can("business_hours.view"),
     can("booking.create"),
-  ]);
-  const customerAccess =
-      customerPermission &&
-      (await hasStoreFeature(a.storeId, FEATURES.CUSTOMER_MANAGEMENT)),
-    planAccess =
-      planPermission &&
-      (await hasStoreFeature(a.storeId, FEATURES.PLAN_MANAGEMENT)),
-    staffAccess =
-      staffPermission &&
-      (await hasStoreFeature(a.storeId, FEATURES.STAFF_MANAGEMENT)),
-    feeAccess =
-      feePermission &&
-      (await hasStoreFeature(a.storeId, FEATURES.SERVICE_FEE_CALCULATOR));
+  ]));
+  const [customerAccess,planAccess,staffAccess,feeAccess]=await beautyReadStep("dashboard.features",()=>Promise.all([
+    customerPermission?hasStoreFeature(a.storeId,FEATURES.CUSTOMER_MANAGEMENT):false,
+    planPermission?hasStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT):false,
+    staffPermission?hasStoreFeature(a.storeId,FEATURES.STAFF_MANAGEMENT):false,
+    feePermission?hasStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR):false,
+  ]));
   const manage = Object.fromEntries(
     await Promise.all(
       [
@@ -271,17 +267,6 @@ export async function beautyDashboard(
   const range=nativeCalendar?beautyNativeCalendarRange(date):beautyScheduleRange(date,calendar),
     financialRange = financialDates?{start:dayRange(financialDates.startDate).start,end:dayRange(financialDates.endDate).end}:monthRange(month);
   const reportAccess = await can("report.read");
-  const analytics = reportAccess
-    ? await beautyPrisma.beautyAppointment.groupBy({
-        by: ["status", "serviceName"],
-        where: {
-          storeId: a.storeId,
-          startsAt: { gte: financialRange.start, lte: financialRange.end },
-        },
-        _count: { id: true },
-        _sum: { price: true },
-      })
-    : [];
   const [
     services,
     techs,
@@ -293,7 +278,8 @@ export async function beautyDashboard(
     payments,
     policy,
     report,
-  ] = await Promise.all([
+    analytics,
+  ] = await beautyReadStep("dashboard.data",()=>Promise.all([
     beautyPrisma.beautyService.findMany({
       where: { storeId: a.storeId },
       orderBy: { name: "asc" },
@@ -343,7 +329,7 @@ export async function beautyDashboard(
       },
       orderBy: { startsAt: "asc" },
     }),
-    financeAccess
+    includeFinancialOverview&&financeAccess
       ? beautyPrisma.beautyPayment.findMany({
           where: {
             storeId: a.storeId,
@@ -353,22 +339,37 @@ export async function beautyDashboard(
         })
       : [],
     settings(beautyPrisma as unknown as Prisma.TransactionClient, a.storeId),
-    feeAccess
+    includeFinancialOverview&&feeAccess
       ? settlement(
           beautyPrisma as unknown as Prisma.TransactionClient,
           a.storeId,
           month,
         )
       : null,
-  ]);
-  const purchases = financeAccess
-    ? await beautyPrisma.beautyPurchase.findMany({
+    beautyReadStep("dashboard.analytics",async()=>includeFinancialOverview&&reportAccess
+    ? beautyPrisma.beautyAppointment.groupBy({
+        by: ["status", "serviceName"],
+        where: {
+          storeId: a.storeId,
+          startsAt: { gte: financialRange.start, lte: financialRange.end },
+        },
+        _count: { id: true },
+        _sum: { price: true },
+      })
+    : []),
+  ]));
+  const calendarDates=Array.from({length:nativeCalendar?Math.floor((+range.end-+range.start)/86400000)+1:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
+  // These reads depend on the authorized main data, not on one another.
+  // Await the whole group so a failure cannot leave detached reads behind.
+  const [purchases,held,[calendarHours,calendarSpecials,customerVisits,orderRows],[rentals,technicianAssignments,assignmentStaff,costs,charges,rosterSnapshots,chargeCatalog]]=await Promise.all([
+    beautyReadStep("dashboard.purchases",async()=>includeFinancialOverview&&financeAccess
+    ? beautyPrisma.beautyPurchase.findMany({
         where: { storeId: a.storeId, status: "PENDING" },
         orderBy: { createdAt: "asc" },
       })
-    : [];
-  const held = cards.length
-    ? await beautyPrisma.beautyAppointment.groupBy({
+    : []),
+    beautyReadStep("dashboard.held",async()=>cards.length
+    ? beautyPrisma.beautyAppointment.groupBy({
         by: ["cardId"],
         where: {
           storeId: a.storeId,
@@ -377,17 +378,14 @@ export async function beautyDashboard(
         },
         _count: { id: true },
       })
-    : [];
-  const [calendarHours,calendarSpecials,customerVisits,orderRows]=await Promise.all([
+    : []),
+    beautyReadStep("dashboard.calendar_metadata",()=>Promise.all([
     prisma.businessHours.findMany({where:{storeId:a.storeId}}),
     prisma.specialBusinessDay.findMany({where:{storeId:a.storeId,date:{gte:range.start,lte:range.end}}}),
     customerAccess&&customers.length?beautyPrisma.beautyAppointment.groupBy({by:["customerId"],where:{storeId:a.storeId,customerId:{in:customers.map(c=>c.id)},status:"COMPLETED",startsAt:{lte:new Date()}},_max:{startsAt:true}}):[],
     beautyPrisma.$queryRaw<Array<{kind:"room"|"subject"|"plan"|"staff";ids:string[];revision:number}>>`SELECT kind,ids,revision FROM "CourseDisplayOrder" WHERE "storeId"=${a.storeId} AND kind IN ('room','subject','plan','staff')`,
-  ]);
-  const calendarDates=Array.from({length:nativeCalendar?Math.floor((+range.end-+range.start)/86400000)+1:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
-  const calendarDays=Object.fromEntries(calendarDates.map(d=>[d,resolvedCourseHours(d,calendarHours,calendarSpecials)]));
-  const displayOrders=Object.fromEntries(orderRows.filter(r=>(r.kind!=="plan"||planAccess)&&(r.kind!=="staff"||staffAccess)).map(r=>[r.kind,{ids:r.ids,revision:r.revision}]));
-  const [rentals,technicianAssignments,assignmentStaff,costs,charges,rosterSnapshots,chargeCatalog]=await Promise.all([
+  ])),
+    beautyReadStep("dashboard.remaining",()=>Promise.all([
     beautyPrisma.$queryRaw<{id:string;roomId:string;startsAt:Date;endsAt:Date;occupiedStartsAt:Date;occupiedEndsAt:Date;customerName:string;customerPhone:string;customerId:string|null}[]>`SELECT id,"roomId","startsAt","endsAt","occupiedStartsAt","occupiedEndsAt","customerName","customerPhone","customerId" FROM "CourseRental" WHERE "storeId"=${a.storeId} AND "cancelledAt" IS NULL AND "occupiedStartsAt"<${range.end} AND "occupiedEndsAt">${range.start} ORDER BY "startsAt"`,
     includeTechnicianAssignments&&staffAccess?beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,status:'RESERVED',occupiedEndsAt:{gt:new Date()}},select:{id:true,technicianId:true,serviceName:true,startsAt:true,endsAt:true,locationId:true},orderBy:{startsAt:'asc'}}):[],
     customerAccess?prisma.staff.findMany({where:{storeId:a.storeId,status:"ACTIVE",user:{status:"ACTIVE",role:{not:"CUSTOMER"}}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}):[],
@@ -395,7 +393,10 @@ export async function beautyDashboard(
     financeAccess?serviceCharges(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId,items.filter(b=>!b.cardId)):[],
     includeRosterSnapshots?preloadBeautyCalendarRosters(a.storeId,items,calendarDates):undefined,
     includeChargeCatalog&&beautyChargeRulesEnabled(a.storeId)&&planAccess&&staffAccess?readChargeCatalogForUi(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId):undefined,
+  ])),
   ]);
+  const calendarDays=Object.fromEntries(calendarDates.map(d=>[d,resolvedCourseHours(d,calendarHours,calendarSpecials)]));
+  const displayOrders=Object.fromEntries(orderRows.filter(r=>(r.kind!=="plan"||planAccess)&&(r.kind!=="staff"||staffAccess)).map(r=>[r.kind,{ids:r.ids,revision:r.revision}]));
   const planSaleCosts=Object.fromEntries(plans.map(p=>[p.id,costs.get('plan:'+p.id)??null]));
   const currentCustomerLabels=new Map(customers.map(c=>[c.id,c]));
   return {

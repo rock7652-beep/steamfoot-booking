@@ -63,13 +63,13 @@ export default async function CoursesPage({
     query.view === "operations"
   )
     return <CourseSharedHub view={query.view} panel={query.panel} panelQuery={query.panelQuery} />;
-  const user = await getCurrentUser();
+  const user = routeUser;
   if (
     !user ||
     !(await checkPermission(user.role, user.staffId, "booking.read"))
   )
     redirect("/dashboard");
-  const storeId = await getActiveStoreForRead(user);
+  const storeId = routeStoreId;
   if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
     redirect("/dashboard");
   // Native sports uses the existing schedule, catalog and fee interfaces.
@@ -137,16 +137,24 @@ export default async function CoursesPage({
   const scheduleEnd = dayRange(
     addTaiwanDuration(addTaiwanDuration(firstOfMonth, 1, "MONTH"), 6, "DAY"),
   ).end;
-  const rentals = musicDataScope(storeId,query.dataScope)==="legacy" ? [] : await timing.read("rentals",()=>coursePrisma.courseRental.findMany({where:{storeId,startsAt:{lte:scheduleEnd},endsAt:{gte:scheduleStart}},orderBy:{startsAt:"asc"}}));
-  const rentalPermissionCodes=["customer.read","customer.create","cashbook.create","cashbook.create","transaction.void"] as const;
-  const rentalChecks=await Promise.all(rentalPermissionCodes.map(p=>checkPermission(user.role,user.staffId,p)));
-  const rentalPermissions={customerRead:rentalChecks[0],customerCreate:rentalChecks[1],collect:rentalChecks[2],correct:rentalChecks[3]&&rentalChecks[4],edit:false};
-  const rentalCustomers=rentalPermissions.customerRead?await timing.read("rental_customers",()=>prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,NOT:{user:{is:{status:"SUSPENDED"}}}},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}})):[];
-  const cancelledBookings = await timing.read("cancelled_bookings",()=>coursePrisma.courseBooking.findMany({
+  const loadRentalContext = async () => {
+    const [rentals, customerContext, cancelledBookings] = await Promise.all([
+      musicDataScope(storeId,query.dataScope)==="legacy" ? [] : timing.read("rentals",()=>coursePrisma.courseRental.findMany({where:{storeId,startsAt:{lte:scheduleEnd},endsAt:{gte:scheduleStart}},orderBy:{startsAt:"asc"}})),
+      (async () => {
+        const rentalPermissionCodes=["customer.read","customer.create","cashbook.create","cashbook.create","transaction.void"] as const;
+        const rentalChecks=await Promise.all(rentalPermissionCodes.map(p=>checkPermission(user.role,user.staffId,p)));
+        const rentalPermissions={customerRead:rentalChecks[0],customerCreate:rentalChecks[1],collect:rentalChecks[2],correct:rentalChecks[3]&&rentalChecks[4],edit:false};
+        const rentalCustomers=rentalPermissions.customerRead?await timing.read("rental_customers",()=>prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,NOT:{user:{is:{status:"SUSPENDED"}}}},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}})):[];
+        return { rentalPermissions, rentalCustomers };
+      })(),
+      timing.read("cancelled_bookings",()=>coursePrisma.courseBooking.findMany({
     where: { storeId, status: "CANCELLED", session: { cancelledAt: null, startsAt: { gte: scheduleStart, lte: scheduleEnd } } },
     select: { id: true, customerName: true, sessionId: true, absenceKind: true, notes: true },
     orderBy: { updatedAt: "desc" },
-  }));
+  })),
+    ]);
+    return { rentals, ...customerContext, cancelledBookings };
+  };
   timing.mark("pre_calendar");
   const [
     rooms,
@@ -159,6 +167,7 @@ export default async function CoursesPage({
     specialDays,
     staffAvailability,
     staffAvailabilityExceptions,
+    rentalContext,
   ] = await Promise.all([
       timing.read("rooms",()=>coursePrisma.courseRoom.findMany({
         where: { storeId },
@@ -263,19 +272,23 @@ export default async function CoursesPage({
       timing.read("availability_exceptions",()=>prisma.$queryRaw<{staffId:string;date:Date;type:string;segments:unknown;reason:string|null}[]>`
         SELECT "staffId",date,type,segments,reason FROM "CourseStaffAvailabilityException"
         WHERE "storeId"=${storeId} AND date>=${scheduleStart}::date AND date<=${scheduleEnd}::date`),
+      loadRentalContext(),
     ]);
+  const {rentals,rentalPermissions,rentalCustomers,cancelledBookings}=rentalContext;
   timing.mark("calendar_batch");
+  const rosterPromise=view==="schedule"&&writableStore&&(sportsNative||businessProfile==="MUSIC")?timing.read("rosters",()=>preloadCourseCalendarRosters(storeId,sessions.map(session=>session.id))):Promise.resolve(undefined);
+  // A later metadata failure must not leave a rejected in-flight roster read unobserved.
+  void rosterPromise.catch(()=>{});
   const rosterCustomers = await timing.read("roster_customers",()=>prisma.customer.findMany({ where: { storeId, id: { in: [...new Set(sessions.flatMap(session => session.bookings.map(booking => booking.customerId).filter((id): id is string => !!id)))] } }, select: { id: true, assignedStaffId: true } }));
   const assignedByCustomer = new Map(rosterCustomers.map(customer => [customer.id, customer.assignedStaffId]));
-  // Sports overlaps independent reads; other modules retain their original read order.
+  // Labels depend on the selected roster; plans and scheduling modes are independent.
   const readPresentation = async()=>{
     const labels=()=>timing.read("labels",async()=>await checkPermission(user.role,user.staffId,"customer.read") ? customerLabelSnapshot(rosterCustomers.map(c=>c.id)) : EMPTY_LABELS);
     const plans=()=>timing.read("plans",()=>coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}}));
     const modes=()=>timing.read("scheduling_modes",()=>coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}}));
-    if(sportsNative)return Promise.all([labels(),plans(),modes()]);
-    return [await labels(),await plans(),await modes()] as const;
+    return Promise.all([labels(),plans(),modes()]);
   };
-  const presentationPromise = sportsNative ? readPresentation() : null;
+  const presentationPromise = readPresentation();
   // Attach a handler now; the original rejection is still propagated by the later await.
   if(presentationPromise)void presentationPromise.catch(()=>{});
 
@@ -304,32 +317,35 @@ export default async function CoursesPage({
       },
     ),
   );
-  const waitlistFeatureAvailable = await timing.read("waitlist_feature",()=>hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST));
-  const waitlistStoreSetting = waitlistFeatureAvailable
-    ? await timing.read("waitlist_setting",()=>coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId }, select: { enabled: true, defaultLimit: true, autoPromoteStopMinutes: true } }))
-    : null;
-  const waitlistEnabled = waitlistFeatureAvailable && (waitlistStoreSetting?.enabled ?? false);
-  const waitlistDefaultLimit = waitlistStoreSetting?.defaultLimit ?? 5;
-  const waitlistDefaultStopMinutes = waitlistStoreSetting?.autoPromoteStopMinutes ?? 240;
-  const displayOrders=await timing.read("display_orders",()=>readCourseOrders(storeId));
-  rooms.splice(0,rooms.length,...orderCourseRows(rooms,displayOrders.room?.ids??[]));
-  coaches.splice(0,coaches.length,...orderCourseRows(coaches,displayOrders.staff?.ids??[]));
-  const subjectRanks=new Map((displayOrders.subject?.ids??[]).map((id,i)=>[id,i]));
-  templates.sort((a,b)=>(subjectRanks.get(a.musicSubjectId??"")??999999)-(subjectRanks.get(b.musicSubjectId??"")??999999));
-  const sportsFixedRows=sportsNative?await timing.read("sports_rules",()=>coursePrisma.$queryRaw<Array<{sessionId:string;frequency:string;enrollment?:string}>>`SELECT "sessionId",frequency,enrollment FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`):[];
-  if(view === "catalog" && businessProfile === "MUSIC") {
-    const subjects=await coursePrisma.musicSubject.findMany({where:{storeId},orderBy:[{isActive:"desc"},{category:"asc"},{name:"asc"}]});
-    const writable=user.role==="ADMIN"||user.storeId===storeId;
-    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog storeId={storeId} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>{const t=templates.find(t=>t.musicSubjectId===s.id);return {...s,classType:t?.classType??"PRIVATE",musicTeacherShare:Number(t?.musicTeacherShare??0.6),musicScheduleMode:t?.musicScheduleMode??"FIXED",durationMinutes:t?.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES,capacity:t?.capacity??1,visibility:t?.visibility??"PUBLIC",precautions:t?.precautions??"",updatedAt:s.updatedAt.toISOString()};})} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
-  }
-  const recurringKeys = businessProfile === "MUSIC" && sessions.length
+  const [waitlistStoreSetting,displayOrders,sportsFixedRows,recurringKeys]=await Promise.all([
+    (async()=>{
+      const available=await timing.read("waitlist_feature",()=>hasStoreFeature(storeId,FEATURES.COURSE_WAITLIST));
+      return available?timing.read("waitlist_setting",()=>coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{enabled:true,defaultLimit:true,autoPromoteStopMinutes:true}})):null;
+    })(),
+    timing.read("display_orders",()=>readCourseOrders(storeId)),
+    sportsNative?timing.read("sports_rules",()=>coursePrisma.$queryRaw<Array<{sessionId:string;frequency:string;enrollment?:string}>>`SELECT "sessionId",frequency,enrollment FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`):[],
+    (async()=>businessProfile === "MUSIC" && sessions.length
     ? new Set((await coursePrisma.courseSession.groupBy({
         by: ["requestKey"],
         where: { storeId, cancelledAt: null, requestKey: { in: [...new Set(sessions.map((session) => session.requestKey))] } },
         _count: { id: true },
         having: { id: { _count: { gt: 1 } } },
       })).map((row) => row.requestKey))
-    : new Set<string>();
+    : new Set<string>())(),
+  ]);
+  const waitlistEnabled=waitlistStoreSetting?.enabled??false;
+  const waitlistDefaultLimit=waitlistStoreSetting?.defaultLimit??5;
+  const waitlistDefaultStopMinutes=waitlistStoreSetting?.autoPromoteStopMinutes??240;
+  rooms.splice(0,rooms.length,...orderCourseRows(rooms,displayOrders.room?.ids??[]));
+  coaches.splice(0,coaches.length,...orderCourseRows(coaches,displayOrders.staff?.ids??[]));
+  const subjectRanks=new Map((displayOrders.subject?.ids??[]).map((id,i)=>[id,i]));
+  templates.sort((a,b)=>(subjectRanks.get(a.musicSubjectId??"")??999999)-(subjectRanks.get(b.musicSubjectId??"")??999999));
+
+  if(view === "catalog" && businessProfile === "MUSIC") {
+    const subjects=await coursePrisma.musicSubject.findMany({where:{storeId},orderBy:[{isActive:"desc"},{category:"asc"},{name:"asc"}]});
+    const writable=user.role==="ADMIN"||user.storeId===storeId;
+    return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog storeId={storeId} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>{const t=templates.find(t=>t.musicSubjectId===s.id);return {...s,classType:t?.classType??"PRIVATE",musicTeacherShare:Number(t?.musicTeacherShare??0.6),musicScheduleMode:t?.musicScheduleMode??"FIXED",durationMinutes:t?.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES,capacity:t?.capacity??1,visibility:t?.visibility??"PUBLIC",precautions:t?.precautions??"",updatedAt:s.updatedAt.toISOString()};})} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
+  }
   const biweeklyKeys = new Set<string>();
   if (recurringKeys.size) {
     const recurringDates = await coursePrisma.courseSession.findMany({
@@ -355,9 +371,9 @@ export default async function CoursesPage({
   const writable =
     canCreate && writableStore;
   timing.mark("post_calendar");
-  const [labelSnapshot,presentationPlans,presentationModes] = await (presentationPromise??readPresentation());
-  const rosterSnapshots=view==="schedule"&&writableStore&&(sportsNative||businessProfile==="MUSIC")?await timing.read("rosters",()=>preloadCourseCalendarRosters(storeId,sessions.map(session=>session.id))):undefined;
+  const [[labelSnapshot,presentationPlans,presentationModes],rosterSnapshots] = await Promise.all([presentationPromise,rosterPromise]);
   timing.mark("presentation");
+  if(view==="schedule")console.info("[COURSE_CALENDAR_PAGE_PERF]",JSON.stringify({profile:businessProfile,...timing.snapshot()}));
   return (
     <CustomerLabelsSeed initial={labelSnapshot}>
     {coursePageTimingVisible(query.perf,storeId,user.role)&&<script id="course-read-timing" type="application/json" dangerouslySetInnerHTML={{__html:JSON.stringify(timing.snapshot())}}/>}
