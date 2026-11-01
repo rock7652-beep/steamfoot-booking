@@ -58,6 +58,7 @@ import {
   loadCourseSessionDetail,
   loadCourseRosterQuick,
   saveCourseRosterNote,
+  saveMusicTeacherNoteWithRoster,
   markCourseTeacherAttendance,
   createCourseBooking,
   loadCourseStudentPurchase,
@@ -316,6 +317,9 @@ export function CourseRoster({
   const activeNoteEditor = useRef(editingNote);
   activeNoteEditor.current = editingNote;
   const [noteDraft,setNoteDraft]=useState("");
+  // An uncertain teacher write still blocks resubmission, but the user must
+  // be able to leave the editor and reopen the roster to check the outcome.
+  const noteCloseBlocked=pending&&!(uncertain&&!transitionPending&&!makeupPending&&musicLayout&&!source&&view==="roster"&&editingNote&&!editingNote.bookingId);
   const infoGuard = useCustomerPanelGuard(source?.confirmDiscard!==false);
   const [infoBooking,setInfoBooking]=useState<{id:string;sessionId:string}|null>(null);
   const [infoView, setInfoView] = useState<"notes" | "history">("notes");
@@ -396,15 +400,13 @@ export function CourseRoster({
       };
       try{
         let result;
-        try{result=await saveCourseRosterNote({sessionId,note:value,expectedNote:expected});if(typeof result?.success!=="boolean")throw Error('Unconfirmed write');}
+        try{result=await saveMusicTeacherNoteWithRoster({sessionId,note:value,expectedNote:expected});if(typeof result?.success!=="boolean")throw Error('Unconfirmed write');}
         catch{lease.invalidate();if(current()){scope.uncertain=true;setNoteError("結果待確認，輸入已保留，請重新開啟名單核對後再操作");setMessage("結果待確認，請重新開啟名單核對後再操作");}return;}
         if(!current()){if(result.success)recover();return;}
-        if(!result.success){lease.invalidate();setNoteError(result.error??"備註尚未儲存");setMessage(result.error??"備註尚未儲存");return;}
+        if(!result.success){lease.invalidate();if("uncertain" in result&&result.uncertain)scope.uncertain=true;setNoteError(result.error??"備註尚未儲存");setMessage(result.error??"備註尚未儲存");return;}
         saved=true;setEditingNote(null);setMessage("備註已儲存，正在更新名單");
-        const detail=await readCourseSessionDetailClient(sessionId,true,false);
-        if(!current()){recover();return;}
-        if(!detail.success||!lease.accept({sessionId,data:detail.data})){recover();return;}
-        const data=detail.data;
+        if(result.sync?.state!=="ready"||result.sync.snapshot.sessionId!==sessionId||!lease.accept(result.sync.snapshot)){recover();return;}
+        const data=result.sync.snapshot.data;
         // The old seed remains consumed until the parent delivers its new snapshot.
         setRoster(data.roster);setSession(data.session);setCards(data.cards);setTrial(data.trial);setWaitlist(data.waitlist??[]);setCanPurchase(data.canPurchase);setSharedCardState(data.sharedCardState??"ENABLED");setLoaded(true);setReadStatus(null);
         publishMusicFinanceChange("general",undefined,{calendarRefreshOwned:true});setMessage("備註已儲存");
@@ -1757,7 +1759,7 @@ export function CourseRoster({
         </div>
       )}
 
-      {editingNote && <ModalPanel open onClose={() => {if(!pending)setEditingNote(null);}} labelledById={noteEditorTitleId} width={512}>
+      {editingNote && <ModalPanel open onClose={() => {if(!noteCloseBlocked)setEditingNote(null);}} labelledById={noteEditorTitleId} width={512}>
         <form className="min-h-0 w-full overflow-y-auto p-5" onSubmit={(event)=>{event.preventDefault();const target=editingNote;
           if(musicLayout&&target.bookingId){
             if(noteWritePending.current)return;
@@ -1792,7 +1794,7 @@ export function CourseRoster({
           {noteError&&<p role="alert" className="mb-2 text-red-700">{noteError}</p>}
           <h3 id={noteEditorTitleId} className="text-lg font-semibold">{editingNote.name} · {editingNote.bookingId ? "本次備註" : personnelText("教師備註")}</h3>
           <textarea className={`${field} mt-3 min-h-28`} value={noteDraft} maxLength={1000} onChange={(event)=>setNoteDraft(event.target.value)} placeholder="記錄本次上課需要留意的事項" />
-          <div className="mt-4 flex justify-end gap-2"><button type="button" disabled={pending} className={reminderButton} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton.replace("min-h-10", "min-h-11")} disabled={pending}>儲存</button></div>
+          <div className="mt-4 flex justify-end gap-2"><button type="button" disabled={!!noteCloseBlocked} className={reminderButton} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton.replace("min-h-10", "min-h-11")} disabled={pending}>儲存</button></div>
         </form>
       </ModalPanel>}
       {purchaseFor && <ModalPanel open pending={purchasePending} width={1100} labelledById="course-roster-purchase-title" onClose={()=>{++purchaseRead.current;setPurchaseFor(null);setPurchaseOptions(null);setPurchaseError("");}}>

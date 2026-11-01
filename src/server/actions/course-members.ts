@@ -1,5 +1,8 @@
 "use server";
 import {readAuthorizedCourseSessionDetail} from '@/server/queries/authorized-course-session-detail';
+import {readCourseDetailMusicStore} from '@/server/queries/course-detail-music-store';
+import {withReadRequestMemo,isReadRequestMemoActive} from '@/server/services/read-request-memo';
+import {withPermissionRequestSession} from '@/lib/permission-request-session';
 import {measureMusicRead} from "@/lib/music-read-timing";
 import {measureMusicCheckout,withCourseCheckoutRequest,musicCheckoutShouldDeferSnapshot} from "@/server/services/music-checkout-request";
 import {readPurchasedCourseRoster,readPurchasedCourseCards,readCommittedCourseRoster} from '@/server/queries/course-purchase-roster';
@@ -844,6 +847,54 @@ export async function loadCourseRosterQuick(sessionId: string) {
   }
 }
 
+/** Only the teacher field; the caller supplies an authorized server store. */
+async function writeCourseTeacherNote(storeId:string,data:{sessionId:string;note:string;expectedNote?:string}){
+  const result=await coursePrisma.courseSession.updateMany({where:{id:data.sessionId,storeId,cancelledAt:null,...(data.expectedNote!==undefined?{teacherNote:data.expectedNote}:{})},data:{teacherNote:data.note}});
+  if(!result.count){
+    const current=await coursePrisma.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null},select:{teacherNote:true}});
+    if(!current)throw new AppError("NOT_FOUND","找不到本店課程");
+    if(current.teacherNote!==data.note)return {success:false as const,error:"教師備註已由其他人更新，輸入已保留，請重新核對",currentValue:current.teacherNote};
+  }
+  return {success:true as const};
+}
+
+/** One transport, two ordered phases. Never put the write inside read memo. */
+export async function saveMusicTeacherNoteWithRoster(input:unknown){
+  try{
+    const data=z.object({sessionId:id,note:z.string().trim().max(1000),expectedNote:z.string().max(1000)}).strict().parse(input);
+    if(isReadRequestMemoActive())throw new AppError("VALIDATION","此操作需要獨立寫入請求");
+    const actor=await courseManager("booking.update");
+    const [music,nativeSports]=await Promise.all([isMusicCourseStore(coursePrisma,actor.storeId),sportsNativePreview(actor.storeId)]);
+    if(!music||nativeSports)throw new AppError("FORBIDDEN","此入口僅適用音樂課程教師備註");
+    let saved;
+    try{saved=await writeCourseTeacherNote(actor.storeId,data);}
+    catch(error){
+      if(error instanceof AppError)throw error;
+      // A connection can disappear after the database committed. Do not invite
+      // another write until the caller has checked the authoritative note.
+      return {success:false as const,uncertain:true as const,error:"結果待確認，輸入已保留，請重新開啟名單核對後再操作"};
+    }
+    if(!saved.success)return saved;
+    // The write has committed. A failed/denied projection cannot make it an
+    // unsaved write or disclose a partial roster. Start a fresh read-only memo.
+    try{
+      return await withReadRequestMemo(()=>withPermissionRequestSession(async()=>{
+        const reader=await courseManager("booking.read");
+        if(reader.storeId!==actor.storeId||reader.user.id!==actor.user.id)throw new AppError("FORBIDDEN","操作範圍已變更，請重新開啟名單");
+        if(!await readCourseDetailMusicStore(reader.storeId))throw new AppError("FORBIDDEN","音樂課程權限已變更，請重新開啟名單");
+        const result=await readAuthorizedCourseSessionDetail(reader,data.sessionId,true,false);
+        return {success:true as const,sync:{state:"ready" as const,snapshot:{sessionId:data.sessionId,data:result.data}}};
+      }));
+    }catch(error){
+      const failed=handleActionError(error);
+      return {success:true as const,sync:{state:"failed" as const,error:failed.success?"名單同步未完成，請重新讀取":failed.error}};
+    }
+  }catch(error){
+    const failed=handleActionError(error);
+    return {success:false as const,error:failed.success?"操作失敗，請重新核對":failed.error};
+  }
+}
+
 export async function saveCourseRosterNote(input: unknown) {
   try {
     const data=z.object({
@@ -872,8 +923,8 @@ export async function saveCourseRosterNote(input: unknown) {
       if(data.expectedNote === undefined) refresh();
       return {success:true as const};
     } else {
-      const result=await coursePrisma.courseSession.updateMany({where:{id:data.sessionId,storeId,cancelledAt:null,...(data.expectedNote!==undefined?{teacherNote:data.expectedNote}:{})},data:{teacherNote:data.note}});
-      if(!result.count){const current=await coursePrisma.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null},select:{teacherNote:true}});if(!current)throw new AppError("NOT_FOUND","找不到本店課程");if(current.teacherNote!==data.note)return {success:false as const,error:"教師備註已由其他人更新，輸入已保留，請重新核對",currentValue:current.teacherNote};}
+      const saved=await writeCourseTeacherNote(storeId,data);
+      if(!saved.success)return saved;
     }
     // Compare-and-save editors already invalidate and reconcile the calendar.
     // Avoid making the action render it once more before that client refresh.
