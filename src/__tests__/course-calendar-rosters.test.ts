@@ -1,4 +1,4 @@
-import {it,expect,vi,beforeEach} from 'vitest';
+import {it,expect,vi,beforeEach,afterEach} from 'vitest';
 vi.mock('server-only',()=>({}));
 const m=vi.hoisted(()=>({actor:vi.fn(),detail:vi.fn()}));
 vi.mock('@/server/services/course-access',()=>({courseManager:m.actor}));
@@ -7,6 +7,7 @@ vi.mock('@/server/services/read-request-memo',()=>({withReadRequestMemo:(read:()
 vi.mock('@/lib/permission-request-session',()=>({withPermissionRequestSession:(read:()=>unknown)=>read()}));
 import {preloadCourseCalendarRosters} from '@/server/services/course-calendar-rosters';
 beforeEach(()=>vi.clearAllMocks());
+afterEach(()=>vi.restoreAllMocks());
 it('loads complete roster-only data for every session before returning the calendar snapshot',async()=>{
  m.actor.mockResolvedValue({storeId:'s'});m.detail.mockImplementation(async(_actor:unknown,id:string)=>({success:true,data:{roster:[{id,available:10,planName:'十堂'}],trial:{canCollect:true},session:{pointCost:1}}}));
  const result=await preloadCourseCalendarRosters('s',['a','b']);expect(result.storeId).toBe('s');expect(Object.keys(result.details)).toEqual(['a','b']);
@@ -15,4 +16,11 @@ it('loads complete roster-only data for every session before returning the calen
 });
 it('rejects a changed store before reading any detail',async()=>{
  m.detail.mockClear();m.actor.mockResolvedValue({storeId:'other'});await expect(preloadCourseCalendarRosters('s',['a'])).rejects.toThrow('店家已切換');expect(m.detail).not.toHaveBeenCalled();
+});
+it('logs failed preload diagnostics without returning a partial snapshot or leaking detail errors',async()=>{
+ const log=vi.spyOn(console,'info').mockImplementation(()=>{});
+ m.actor.mockResolvedValue({storeId:'s'});m.detail.mockResolvedValue({success:false,error:'private failure'});
+ await expect(preloadCourseCalendarRosters('s',['private-session'])).rejects.toThrow('private failure');
+ expect(log).toHaveBeenCalledWith('[calendar-roster-preload]',expect.objectContaining({sessions:1,completed:false,authorizationMs:expect.any(Number),elapsedMs:expect.any(Number),reads:[]}));
+ expect(JSON.stringify(log.mock.calls)).not.toMatch(/private-/);
 });
