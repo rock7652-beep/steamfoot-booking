@@ -42,22 +42,22 @@ describe("2026-10-20 backend incremental inventory", () => {
     expect(text("E08")).toContain("返回清單");
   });
   it("records a complete 10-commit audit while preserving the previous scoped alignment", () => {
-    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "utf8"));
+    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state-20261025.json", "utf8"));
     expect(state.auditDateTaipei).toBe("2026-10-25");
     expect(state.lastInventoriedMainCommit).toBe("4efcd72bf513953521665f2556f719d1f73b5e8c");
     expect(state.reviewedMainCommitCount).toBe(237);
     expect(state.newGuideIds).toEqual(["C177"]);
     expect(state.updatedGuideIds).toHaveLength(9);
-    expect(state.cumulativeDraftNewGuideIds).toHaveLength(15);
+    expect(state.cumulativeDraftNewGuideIds).toHaveLength(14);
     expect(state.cumulativeDraftUpdatedGuideIds).toHaveLength(74);
     expect(state.cumulativeDraftUpdatedGuideIds.some((id: string) => state.cumulativeDraftNewGuideIds.includes(id))).toBe(false);
-    expect(state.backendInteractionPendingCount).toBe(94);
+    expect(state.backendInteractionPendingCount).toBe(93);
     expect(state.frontendInteractionPendingGuideIds).toEqual([]);
     expect(state.authenticatedAcceptance.guideIdsCleared).toEqual([]);
     expect(state.scopedProductionAlignment.productionCommit).toBe("8d717d5dc45da6fbd4e2984afea48165140281b3");
     expect(state.currentAuditReuse.guideIds).toHaveLength(12);
     expect(state.backendInterfaceFollowups[0].status).toBe("not-connected-to-visible-entry");
-    expect(operationGuides).toHaveLength(203);
+    expect(operationGuides).toHaveLength(216);
     expect(guideCategories).toHaveLength(15);
   });
 });

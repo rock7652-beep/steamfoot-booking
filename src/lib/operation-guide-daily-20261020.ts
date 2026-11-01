@@ -10,10 +10,27 @@ export const dailyOperationGuides20261020: OperationGuide[] = [
     keywords: "新版運動 出席狀況 請假 曠課 未到 取消標記 恢復待點名 操作人 固定課待補課 尚未扣堂",
     steps: ["在課表選正確日期，開啟「出席狀況」，核對學員、課程、請假／曠課與操作人。", "確認為誤標且有修改權限時，點該列 ×；先讀還回額度及回收補課資格的確認內容。只是查看請按「返回」。", "確認取消標記後，回原課次核對已恢復待點名、額度及補課紀錄；尚未收到確定結果時先重讀原紀錄，不再次點名來刷新畫面。"],
     important: "永久固定課先留位置，出席或未到結算時才核對有效適用方案；無足額方案會拒絕，尚未扣堂。永久固定課未到扣抵並保留待補課，不是一般 7 日補課券，也不是音樂團體請假規則。",
-    details: ["本視窗只列當日請假與曠課，不是完整出席名冊；正常點名仍在原上課名單。操作人顯示讀取失敗或未記錄時，不可猜測誰操作。", "取消曠課會依原扣抵返還並回收尚未使用的補課資格；補課券已使用或預約、請假已安排補課時會阻擋，先核對原補課，不能強制還點。", "曠課更正出席不再扣第二次；出席更正曠課保留原扣抵並核對補課資格。恢復待點名後，永久位置與課卡重新分開，下次結算再核對有效方案。", "全堂學員皆請假或曠課時可釋放當次時段並保留淡化提示；不代表整個固定系列已結束。單次、體驗、原固定期課與音樂仍按各自規則處理。", "本題不提供尚未接入可見入口的「固定學員／待補課」面板操作；需要安排補課或停課時先交管理者核對，不另建顧客、重複系列或自行發券。"],
+    details: [
+  "一般待點名預約結算時，會重新核對同授課項目有效方案，依先買先扣選擇可用卡；已完成、期初來源及專用補課權益不任意換卡。無足額權益會拒絕，尚未記錄出席或扣堂；處理見 C179，不手動補點。",
+  "原生運動名單的待點名圓圈直接送出出席，後端確認後才顯示勾選；已處理標記再點開恢復狀態、未出席不扣堂、未出席扣堂。右側更多操作另放學員資料、繳費與取消本堂／後續課程。名單剩餘與可用額度分開；固定學員的點名前核對方案不是已欠款。同教學項目的舊堂數卡須由既存項目關聯驗證，不能只按名稱或選到的售價方案判定；點數舊卡、效期、占用及共用資格仍依原規則。",
+  "本視窗只列當日請假與曠課，不是完整出席名冊；正常點名仍在原上課名單。操作人顯示讀取失敗或未記錄時，不可猜測誰操作。",
+  "取消曠課會依原扣抵返還並回收尚未使用的補課資格；補課券已使用或預約、請假已安排補課時會阻擋，先核對原補課，不能強制還點。",
+  "曠課更正出席不再扣第二次；出席更正曠課保留原扣抵並核對補課資格。恢復待點名後，永久位置與課卡重新分開，下次結算再核對有效方案。",
+  "全堂學員皆請假或曠課時可釋放當次時段並保留淡化提示；不代表整個固定系列已結束。單次、體驗、原固定期課與音樂仍按各自規則處理。",
+  "本題不提供尚未接入可見入口的「固定學員／待補課」面板操作；需要安排補課或停課時先交管理者核對，不另建顧客、重複系列或自行發券。"
+],
     success: "原紀錄、待點名狀態及扣還額度一致，沒有重複扣抵、補點或刪除歷史。",
     modules: ["course"], permission: "booking.update", additionalPermissions: ["booking.read"], feature: null, kind: "howto", verification: "source-reviewed",
-    sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/app/(dashboard)/dashboard/courses/sports-attendance-panel.tsx", "src/app/(dashboard)/dashboard/courses/roster.tsx", "src/server/actions/sports-attendance-evidence.ts", "src/server/services/course-booking.ts", "src/server/services/sports-permanent-series.ts"],
+    sources: [
+  "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+  "src/app/(dashboard)/dashboard/courses/sports-attendance-panel.tsx",
+  "src/app/(dashboard)/dashboard/courses/roster.tsx",
+  "src/server/actions/sports-attendance-evidence.ts",
+  "src/server/services/course-booking.ts",
+  "src/server/services/sports-permanent-series.ts",
+  "src/server/services/course-item-attendance.ts",
+  "src/lib/item-entitlement.ts"
+],
   },
   {
     id: "C175", category: "booking", title: "新版運動剪下課程後，如何貼上與核對調課結果？",
