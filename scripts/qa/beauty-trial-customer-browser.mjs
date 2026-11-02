@@ -12,7 +12,7 @@ const root=process.cwd(),output=process.env.QA_OUTPUT_DIR||'/tmp/beauty-trial-cu
 mkdirSync(output,{recursive:true});
 await build({entryPoints:['scripts/qa/beauty-trial-customer-fixture.tsx'],bundle:true,jsx:'automatic',format:'iife',outfile:path.join(output,'fixture.js'),alias:{'@':path.join(root,'src')},define:{'process.env.NODE_ENV':'"development"','process.env':'{}'},plugins:[{name:'isolated-ports',setup(builder){
  builder.onResolve({filter:/^@\/server\//},args=>({path:path.join(root,'src',args.path.slice(2)+'.ts'),namespace:'server-stub'}));
- builder.onLoad({filter:/.*/,namespace:'server-stub'},args=>({contents:[...readFileSync(args.path,'utf8').matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(\w+)/g)].map(match=>['assignBeautyNativeCard','prepareBeautyPlanPurchaseIntentAtomic','readBeautyPlanPurchaseIntent','acknowledgeBeautyPlanPurchaseIntent'].includes(match[1])?`export const ${match[1]}=(input)=>window.qaPlanAction('${match[1]}',input);`:match[1]==='saveCourseRental'?`export const saveCourseRental=(...args)=>window.qaRentalSave(...args);`:`export const ${match[1]}=(...args)=>{if('${match[1]}'==='collectBeautyPayment'){window.collectionSaved=args;return Promise.resolve({success:true});}throw Error("Unexpected server action in synthetic UI")};`).join('\n'),loader:'js'}));
+ builder.onLoad({filter:/.*/,namespace:'server-stub'},args=>({contents:[...readFileSync(args.path,'utf8').matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(\w+)/g)].map(match=>['voidBeautyNativeTransaction','assignBeautyNativeCard','prepareBeautyPlanPurchaseIntentAtomic','readBeautyPlanPurchaseIntent','acknowledgeBeautyPlanPurchaseIntent'].includes(match[1])?`export const ${match[1]}=(input)=> '${match[1]}'==='voidBeautyNativeTransaction'?window.qaVoid(input):window.qaPlanAction('${match[1]}',input);`:match[1]==='saveCourseRental'?`export const saveCourseRental=(...args)=>window.qaRentalSave(...args);`:`export const ${match[1]}=(...args)=>{if('${match[1]}'==='collectBeautyPayment'){window.collectionSaved=args;return Promise.resolve({success:true});}throw Error("Unexpected server action in synthetic UI")};`).join('\n'),loader:'js'}));
  builder.onResolve({filter:/^next\/dynamic$/},()=>({path:'dynamic',namespace:'qa-dynamic'}));
  builder.onLoad({filter:/.*/,namespace:'qa-dynamic'},()=>({contents:'export default ()=>()=>null;',loader:'js'}));
  builder.onResolve({filter:/^next\/navigation$/},()=>({path:'navigation',namespace:'qa'}));
@@ -94,6 +94,15 @@ try{
   await page.locator('button[aria-label="查看 購買測試顧客 的有效方案"]').filter({hasText:'5 次'}).waitFor();
   assert.equal(await page.evaluate(()=>window.qaPurchaseCount),1);assert.equal(await page.getByRole('button',{name:'確認完成並繼續購買',exact:true}).count(),0);
   await page.getByRole('button',{name:'關閉',exact:true}).click();
+  await page.getByRole('button',{name:'作廢預覽',exact:true}).click();
+  await page.getByRole('button',{name:'查看 作廢測試顧客 的 全身按摩5次 交易',exact:true}).click();
+  await page.getByRole('button',{name:'作廢交易',exact:true}).click();
+  await page.getByRole('heading',{name:'作廢交易',exact:true}).waitFor();
+  const voidDialog=page.getByRole('dialog');const voidBox=await voidDialog.boundingBox();if(width>=768){assert.ok(voidBox.width<=520);assert.ok(voidBox.height<500);}
+  const reason=page.getByLabel('作廢原因（必填）',{exact:true});await reason.fill('誤建測試');await page.screenshot({path:path.join(output,`void-${width}.png`),fullPage:true});
+  await page.getByRole('button',{name:'確認作廢',exact:true}).click();await page.getByRole('status').filter({hasText:'交易已作廢'}).waitFor();
+  assert.equal((await page.evaluate(()=>window.voidSubmitted)).reason,'誤建測試');assert.equal((await page.evaluate(()=>window.voidSubmitted)).expectedStoreId,'synthetic');
+  await page.getByRole('button',{name:'關閉',exact:true}).click();
   await page.getByRole('button',{name:'卡片預覽'}).click();await page.waitForTimeout(150);
   let rawCardClicks=0;
   for(const mode of ['day','week']){
@@ -109,7 +118,7 @@ try{
    await page.screenshot({path:path.join(output,`calendar-${mode}-${width}.png`),fullPage:true});
   }
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-  results.push({width,height,rawCardClicks,keyboardCards:true,planDefaultsCash:true,compactCharge:true,compactMove:true,directCollection:true,freeRental:true,rentalPreservesDraft:true,overflow:false,preservedOnResize:true,trialSubmission:true,serviceHasNoPricing:true,serviceCreate90:true,purchaseCompletionImmediate:true});await page.close();
+  results.push({width,height,rawCardClicks,keyboardCards:true,planDefaultsCash:true,compactCharge:true,compactMove:true,directCollection:true,freeRental:true,rentalPreservesDraft:true,overflow:false,preservedOnResize:true,trialSubmission:true,serviceHasNoPricing:true,serviceCreate90:true,purchaseCompletionImmediate:true,compactVoid:true});await page.close();
  }
  assert.deepEqual(errors,[]);writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,errors},null,2));console.log(JSON.stringify({output,results,errors},null,2));
 }catch(error){console.error(JSON.stringify({errors}));for(const context of browser.contexts())for(const page of context.pages()){writeFileSync(path.join(output,'failure.html'),await page.content());await page.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error;}finally{await browser.close();}

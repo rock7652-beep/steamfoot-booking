@@ -99,7 +99,7 @@ export const beautyOperationGuides: OperationGuide[] = [
     details: [
       planActivationGuideDetail,
       "未具名的同行者可以單次預約，不能直接使用別人的方案。",
-      "方案退款會結清該張方案並清零剩餘，需先處理所有占用；退款紀錄不等於銀行已退刷。",
+      "方案退款會結清該張方案並清零剩餘，需先處理所有占用；退款紀錄不等於銀行已退刷。誤建且未使用的方案可從營運交易明細選「作廢交易」，填原因後確認；系統同時核對原購買完成狀態，不需另開頁面確認。已有預約、扣次或退款仍需先處理原紀錄。",
     ],
     modules: ["beauty"],
     permission: "wallet.read",

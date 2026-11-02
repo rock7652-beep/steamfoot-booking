@@ -8,6 +8,7 @@ import {requirePermission} from '@/lib/permissions';
 import {requireStoreFeature} from '@/lib/feature-gate';
 import {FEATURES} from '@/lib/feature-flags';
 import {key} from '@/lib/beauty/contracts';
+import {beautyServiceIdentity} from '@/lib/beauty/service-identity';
 import {nativeBeautyService} from '@/lib/beauty/native-service';
 import {settingsSaveUncertain} from '@/server/services/settings-save-error';
 import type {Prisma} from '../../../generated/beauty-client';
@@ -20,6 +21,11 @@ export async function saveBeautyNativeService(input:unknown){
   const receipt=await beautyTransaction(a,tx=>command(tx,a,d.requestKey,{operation:'native-service',...d},async()=>{
    const prior=d.id?await tx.beautyService.findFirst({where:{storeId:a.storeId,id:d.id}}):null;
    if(d.id&&(!prior||prior.revision!==d.revision))throw new AppError('CONFLICT','服務已更新，請重新開啟');
+   if(d.active){
+    const peers=await tx.beautyService.findMany({where:{storeId:a.storeId,active:true,duration:d.duration},select:{id:true,name:true,duration:true}});
+    const duplicate=peers.find(s=>s.id!==d.id&&beautyServiceIdentity(s.name,s.duration)===beautyServiceIdentity(d.name,d.duration));
+    if(duplicate)throw new AppError('CONFLICT',`已有相同服務「${duplicate.name}」，請沿用此服務；方案請在收費方式建立。`);
+   }
    const current=d.id?await tx.beautyTechnician.findMany({where:{storeId:a.storeId,serviceIds:{has:d.id}}}):[];
    if(d.rule&&JSON.stringify(current.map(t=>t.id).sort())!==JSON.stringify([...d.rule.expectedCoachIds].sort()))throw new AppError('CONFLICT','可服務技師已更新，請重新核對');
    if(d.rule&&new Set(d.rule.coachIds).size!==d.rule.coachIds.length)throw new AppError('VALIDATION','技師不可重複');

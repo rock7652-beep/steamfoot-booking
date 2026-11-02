@@ -11,6 +11,7 @@ const key='00000000-0000-4000-8000-000000000001';
 let services:Record<string,unknown>[],tech:Record<string,unknown>;
 const tx={
  beautyService:{
+  findMany:vi.fn(async({where})=>services.filter(s=>s.duration===where.duration)),
   create:vi.fn(async({data})=>{const row={...data,defaultRate:null,id:'new90',revision:0};services.push(row);return row;}),
   findFirst:vi.fn(async()=>services[0]??null),
   count:vi.fn(async({where})=>where.id.in.length),
@@ -44,4 +45,11 @@ it('does not turn a saved qualification into a bookable technician until pay is 
  const allocationInput={services:[service],technicians:[tech],locationIds:['bed'],occupied:[],date:'2026-11-03',startsAt:new Date('2026-11-03T01:00:00Z'),people:[{serviceId:'new90',preference:'ANY'}],hours:[{start:'08:00',end:'18:00'}],onUnavailable:(value:string)=>issue.push(value)};
  expect(allocateParty(allocationInput as unknown as Parameters<typeof allocateParty>[0])).toBeNull();
  expect(issue[0]).toContain('計酬設定');
+});
+
+it('prevents duplicate 60 minute names while preserving a different duration variant',async()=>{
+ services=[{id:'existing60',name:'全身按摩60',duration:60}];
+ expect(await saveBeautyNativeService({...input,name:'全身按摩60分鐘',duration:60})).toMatchObject({success:false,error:expect.stringContaining('已有相同服務')});
+ expect(tx.beautyService.create).not.toHaveBeenCalled();
+ expect(await saveBeautyNativeService(input)).toMatchObject({success:true});
 });
