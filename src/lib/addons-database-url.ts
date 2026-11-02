@@ -1,8 +1,12 @@
 import {buildDatabaseUrl} from './database-url';
 
+export class AddOnsDatabaseConfigurationError extends Error {
+ constructor(){super('附加項目專用連線尚未完成設定');this.name='AddOnsDatabaseConfigurationError';}
+}
+
 /** No fallback to DATABASE_URL: these credentials belong only to shared add-ons. */
 export function addOnsDatabaseSelection(env:Record<string,string|undefined>=process.env){
- const fail=()=>new Error('附加項目專用連線尚未完成設定');
+ const fail=()=>new AddOnsDatabaseConfigurationError();
  const value=env.ADDONS_DATABASE_URL,role=env.ADDONS_DATABASE_ROLE,project=env.ADDONS_DATABASE_PROJECT_REF;
  if(!value||!role||!/^steamfoot_addons_[a-z0-9_]+$/.test(role)||!project||!/^[a-z0-9]{20}$/.test(project))throw fail();
  let url:URL;try{url=new URL(value);}catch{throw fail();}
@@ -23,3 +27,4 @@ export function addOnsDatabaseSelection(env:Record<string,string|undefined>=proc
  if(pooled||url.port==='6543')effective.searchParams.set('pgbouncer','true');
  return {url:effective.toString(),role};
 }
+
