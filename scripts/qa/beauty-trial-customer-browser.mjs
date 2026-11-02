@@ -31,16 +31,16 @@ try{
    if(new URL(route.request().url()).pathname==='/api/beauty/collection-read'){await new Promise(resolve=>setTimeout(resolve,800));return route.fulfill({contentType:'application/json',body:JSON.stringify({success:true,data:[{id:'collection',revision:1,personName:'收款測試',serviceName:'30分鐘肩頸按摩',price:250,discount:{kind:'AMOUNT',value:0},reduction:0,netPrice:250,collected:0,due:250}]})});}
    return route.abort();
   });
-  await page.goto('https://synthetic.invalid/');await page.getByRole('button',{name:'新增體驗課 1'}).click();
+  await page.goto('https://synthetic.invalid/');await page.getByLabel('安排類型',{exact:true}).selectOption('trial');await page.getByRole('button',{name:'新增顧客 1'}).click();
   await page.getByLabel('新增顧客姓名',{exact:true}).fill('體驗測試顧客');await page.getByLabel('新增顧客電話',{exact:true}).fill('0900000003');
-  assert.equal(await page.getByLabel('服務類型 1',{exact:true}).inputValue(),'__trial__');
+  assert.equal(await page.getByLabel('安排類型',{exact:true}).inputValue(),'trial');assert.equal(await page.getByLabel('服務類型 1',{exact:true}).count(),0);
   assert.equal(await page.getByRole('button',{name:'確認預約',exact:true}).isDisabled(),true);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:path.join(output,`trial-${width}.png`),fullPage:true});
   await page.setViewportSize({width:Math.max(360,width-160),height});assert.equal(await page.getByLabel('新增顧客姓名',{exact:true}).inputValue(),'體驗測試顧客');
   await page.getByRole('button',{name:'建立並選用',exact:true}).click();await page.getByRole('button',{name:'確認預約',exact:true}).click();
   const submitted=await page.evaluate(()=>window.submitted);assert.equal(submitted.people[0].isTrial,true);assert.equal(submitted.people[0].phone,'0900000003');assert.equal(submitted.people[0].customerId,'synthetic-new');assert.equal(submitted.people[0].cardId,null);
-  assert.equal(await page.getByLabel('服務類型 1',{exact:true}).inputValue(),'__trial__');
+  assert.equal(await page.getByLabel('安排類型',{exact:true}).inputValue(),'trial');assert.equal(await page.getByLabel('服務類型 1',{exact:true}).count(),0);
   await page.setViewportSize({width,height});await page.getByRole('button',{name:'服務項目預覽',exact:true}).click();
   await page.getByRole('heading',{name:'新增服務項目'}).waitFor();
   assert.equal(await page.locator('[name="sportsCompensationMode"], [name="sportsCompensationValue"], [name="price"], [name="trialPrice"]').count(),0);
@@ -69,11 +69,26 @@ try{
   await moveDialog.getByLabel('原因／備註',{exact:true}).fill('顧客改期');await page.screenshot({path:path.join(output,`move-${width}.png`),fullPage:true});await moveDialog.getByRole('button',{name:'確認',exact:true}).click();await page.getByRole('status').filter({hasText:'操作完成：改期'}).waitFor();
   assert.equal((await page.evaluate(()=>window.moveSaved)).time,'12:30');
   await page.getByRole('button',{name:'直接收款預覽',exact:true}).click();const collectionDialog=page.getByRole('dialog');await collectionDialog.getByRole('heading',{name:'服務收款'}).waitFor();
-  assert.equal(await collectionDialog.getByLabel('本次收款',{exact:true}).isDisabled(),true);await page.evaluate(()=>{window.collectionModal=document.querySelector('[role="dialog"]');});
-  await collectionDialog.getByLabel('本次收款 收款測試',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.collectionModal===document.querySelector('[role="dialog"]')),true);
+  assert.equal(await collectionDialog.getByLabel('本次收款',{exact:true}).isDisabled(),true);assert.equal(await collectionDialog.getByLabel('付款方式',{exact:true}).isEnabled(),true);await collectionDialog.getByLabel('付款方式',{exact:true}).selectOption('BANK_TRANSFER');await page.evaluate(()=>{window.collectionModal=document.querySelector('[role="dialog"]');});
+  await collectionDialog.getByLabel('本次收款 收款測試',{exact:true}).waitFor();assert.equal(await collectionDialog.getByLabel('付款方式',{exact:true}).inputValue(),'BANK_TRANSFER');assert.equal(await page.evaluate(()=>window.collectionModal===document.querySelector('[role="dialog"]')),true);
   await page.screenshot({path:path.join(output,`collection-${width}.png`),fullPage:true});await collectionDialog.getByRole('button',{name:'確認收款',exact:true}).click();await page.getByRole('status').filter({hasText:'操作完成：收款'}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-  results.push({width,height,compactCharge:true,compactMove:true,directCollection:true,freeRental:true,rentalPreservesDraft:true,overflow:false,preservedOnResize:true,trialSubmission:true,serviceHasNoPricing:true,serviceFailurePreservesDraft:true});await page.close();
+  await page.getByRole('button',{name:'卡片預覽'}).click();await page.waitForTimeout(150);
+  let rawCardClicks=0;
+  for(const mode of ['day','week']){
+   if(mode==='week'){await page.getByRole('button',{name:'切換日週'}).click();await page.waitForTimeout(150);}
+   for(const id of ['card-20','card-30','card-60']){
+    const card=page.locator(`[data-calendar-session="${id}"]`).first();await card.scrollIntoViewIfNeeded();const box=await card.boundingBox();
+    for(let attempt=0;attempt<3;attempt++){
+     await page.mouse.move(box.x+box.width/2,box.y-5);await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.up();rawCardClicks++;
+     assert.equal(await page.evaluate(()=>window.cardClicks.length),rawCardClicks);assert.equal(await page.evaluate(()=>window.cardClicks.at(-1)),id);
+    }
+    await card.focus();assert.equal(await card.locator('..').locator('[data-service-card-summary]').isVisible(),true);await page.keyboard.press('Enter');rawCardClicks++;assert.equal(await page.evaluate(()=>window.cardClicks.length),rawCardClicks);
+   }
+   await page.screenshot({path:path.join(output,`calendar-${mode}-${width}.png`),fullPage:true});
+  }
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  results.push({width,height,rawCardClicks,keyboardCards:true,compactCharge:true,compactMove:true,directCollection:true,freeRental:true,rentalPreservesDraft:true,overflow:false,preservedOnResize:true,trialSubmission:true,serviceHasNoPricing:true,serviceFailurePreservesDraft:true});await page.close();
  }
  assert.deepEqual(errors,[]);writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,errors},null,2));console.log(JSON.stringify({output,results,errors},null,2));
 }catch(error){console.error(JSON.stringify({errors}));for(const context of browser.contexts())for(const page of context.pages()){writeFileSync(path.join(output,'failure.html'),await page.content());await page.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error;}finally{await browser.close();}

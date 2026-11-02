@@ -44,3 +44,15 @@ it('blocks switching and double submits while reporting pending with the shared 
  expect(m.save).toHaveBeenCalledOnce();expect(field('[aria-label="安排類型"]').disabled).toBe(true);expect(m.guard).toHaveBeenLastCalledWith(true,true);
  await act(async()=>finish({success:false,error:'衝突'}));expect(field('[aria-label="安排類型"]').disabled).toBe(false);expect(m.guard).toHaveBeenLastCalledWith(true,false);
 });
+it('selects trial once at the top, preserves the customer/time draft and omits plan copy',async()=>{
+ const data={...source,customers:[{id:'customer',name:'測試顧客',phone:'0900000001'}]};
+ await act(async()=>root.render(createElement(ServiceScheduleFields,{source:data,rental,date:'2026-11-03',seed:{time:'12:30',customerId:'customer'},onGuard:m.guard,onCreated:m.created})));
+ await mode('trial');expect(field('[aria-label="顧客姓名 1"]').value).toContain('測試顧客');expect(field('[aria-label="預約開始時間"]').value).toBe('12:30');expect(host.querySelector('[aria-label="服務類型 1"]')).toBeNull();expect(host.textContent).toContain('體驗 NT$ 150');expect(host.textContent).not.toContain('本期剩餘');expect(host.textContent).not.toContain('先買先扣');expect(host.textContent).not.toContain('方案使用');
+ await mode('service');expect(field('[aria-label="顧客姓名 1"]').value).toContain('測試顧客');expect(field('[aria-label="預約開始時間"]').value).toBe('12:30');expect(host.textContent).toContain('NT$ 250');
+});
+it('keeps a companion type independent while the first guest follows the top-level trial choice',async()=>{
+ const data={...source,customers:[{id:'customer',name:'測試顧客',phone:'0900000001'}]};
+ await act(async()=>root.render(createElement(ServiceScheduleFields,{source:data,rental,date:'2026-11-03',seed:{time:'12:30',customerId:'customer'},onGuard:m.guard,onCreated:m.created})));
+ await mode('trial');await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='＋新增同行者')!.click());
+ expect(field('[aria-label="服務類型 2"]').value).toBe('__trial__');await set('[aria-label="服務類型 2"]','');expect(field('[aria-label="服務類型 2"]').value).toBe('');expect(host.querySelector('[aria-label="服務類型 1"]')).toBeNull();expect(host.textContent).toContain('應收 NT$ 400');
+});
