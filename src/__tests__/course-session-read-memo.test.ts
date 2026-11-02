@@ -2,7 +2,7 @@ import {beforeEach,expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({session:vi.fn(),raw:vi.fn(),first:vi.fn(),templates:vi.fn(),mode:vi.fn(),available:vi.fn(),ready:vi.fn()}));
 vi.mock('@/lib/course-db',()=>({coursePrisma:{courseSession:{findFirst:m.session},courseTemplate:{findFirst:m.first,findMany:m.templates},courseBookingRule:{findUnique:m.mode},$queryRaw:m.raw}}));
 vi.mock('@/lib/sports-native-preview',()=>({sportsNativePreview:async()=>true}));
-vi.mock('@/server/services/sports-production-readiness',()=>({sportsRulesAvailable:m.available,assertSportsProductionReady:m.ready}));
+vi.mock('@/server/services/sports-production-readiness',()=>({sportsRulesAvailable:m.available,assertSportsBookingReadReady:m.ready}));
 import {coursePrisma} from '@/lib/course-db';
 import {withReadRequestMemo} from '@/server/services/read-request-memo';
 import {readCourseSessionDetail} from '@/server/queries/course-session-detail';

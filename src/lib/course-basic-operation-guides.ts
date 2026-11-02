@@ -172,12 +172,12 @@ export const courseBasicOperationGuides: OperationGuide[] = [
   {
     id: "C137", category: "money", title: "銀行轉帳資料與體驗價格在哪裡設定？",
     summary: "在收款與體驗分別維護銀行資訊及體驗設定，付款聯繫沿用店家官方 LINE。", answer: "設定收款資料不會自動核帳，會員回報轉帳後仍需店家確認實際入帳。",
-    path: "設定 → 收款與體驗", keywords: "銀行 轉帳 帳號 體驗價格 調整範圍 官方LINE",
+    path: "設定 → 收款與體驗", keywords: "銀行 轉帳 帳號 體驗價格 調整範圍 官方LINE 附加項目 加購 免費 圖片 收退款 教學項目 適用 群組 課次 預覽",
     steps: ["在銀行轉帳資訊核對銀行名稱、代碼與帳號，修改後儲存。", "在體驗設定核對預設價格與可調整範圍，另行儲存。", "重新開啟確認；付款聯繫資訊需到店家資料核對官方 LINE。"],
     important: "銀行資訊與體驗價格是不同設定；每區都需確認儲存成功。",
-    details: ["銀行編輯需要方案編輯權限，體驗設定另受對應權限限制；沒有按鈕時請有權限者處理。", "體驗設定套用新體驗單，不表示已收款或已完成出席；不要拿舊交易金額驗證新預設。"],
+    details: ["運動／音樂附加項目須先由總部開通，再由門市啟用。到左側店務管理的「附加項目」設定加購或免費品項、圖片，並在群組指定適用教學項目；各課次自動沿用，不必逐堂設定。未指定時不提供選購，可用顧客畫面預覽切換教學項目確認內容。個人項目每項一份；共同商品由整筆預約選取數量，不隨人數自動增加，不增加課程時間、名額或扣堂；變更適用項目不回寫已成立訂單。會員一般預約與運動公開體驗可在確認時另選共同商品；候補不建立商品單。顧客送出只建立商品應收，不表示已付款。", "到課表的學員預約詳情展開附加項目，調整品項後另行確認已收款；退款在更多操作。確認按鈕只記錄實際款項，不會自動扣款或退款，也不會改學費或方案；取消預約後仍須另核對退款，有附加歷史不能直接刪除。音樂初版限具全店財務範圍的人員，附加抽成尚未計算。", "銀行編輯需要方案編輯權限，體驗設定另受對應權限限制；沒有按鈕時請有權限者處理。", "體驗設定套用新體驗單，不表示已收款或已完成出席；不要拿舊交易金額驗證新預設。"],
     success: "銀行與體驗設定保留正確，新流程顯示對應資訊。",
     permission: "plans.edit", feature: null, modules: ["course"], kind: "howto", verification: "source-reviewed",
-    sources: ["src/app/(dashboard)/dashboard/courses/settings-workspace.tsx", "src/server/actions/course-settings.ts"],
+    sources: ["src/app/(dashboard)/dashboard/courses/settings-workspace.tsx", "src/server/actions/course-settings.ts", "src/server/actions/course-add-ons.ts", "src/components/add-ons/booking.tsx"],
   },
 ];

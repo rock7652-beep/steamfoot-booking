@@ -683,6 +683,7 @@ interface DashboardShellProps {
   };
   /** Store-scoped industry UI. Formal stores always remain steamfoot. */
   industryModuleId?: IndustryModuleId;
+  steamfootAddOnsEnabled?: boolean;
 }
 
 export default function DashboardShell({
@@ -714,6 +715,7 @@ export default function DashboardShell({
   activeStoreId,
   viewMode,
   industryModuleId = "steamfoot",
+  steamfootAddOnsEnabled = false,
 }: DashboardShellProps) {
   const personnelText = useCoursePersonnelText();
   const rawPathname = usePathname();
@@ -842,7 +844,7 @@ export default function DashboardShell({
       const beautyItem = (label:keyof typeof icons, permission:NavItem["permission"], feature?:FeatureKey):NavItem => ({label,icon:icons[label],href:`/dashboard/beauty?tab=${encodeURIComponent(label)}`,permission,requiredFeature:feature});
       return [
         {id:"store-daily",label:"日常工作",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("首頁","booking.read"),beautyItem("班表","booking.read",FEATURES.BASIC_BOOKING),beautyItem("顧客管理","customer.read",FEATURES.CUSTOMER_MANAGEMENT),beautyItem("顧客經營","customer.read",FEATURES.CUSTOMER_CARE),operationsItem,beautyItem("分析","report.read",FEATURES.BASIC_REPORTS),entry("/dashboard/work-orders"),entry("/dashboard/inventory")]},
-        {id:"store-management",label:"店務管理",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("位置管理","business_hours.view"),beautyItem("服務項目","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("收費方式","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("技師管理","staff.view",FEATURES.STAFF_MANAGEMENT),entry("/dashboard/staff"),{...entry("/dashboard/settings"),href:"/dashboard/image-announcements",label:"圖片公告",icon:<ImageAnnouncementIcon />,permission:"business_hours.view",requiredFeature:undefined},beautyItem("設定","business_hours.view")]},
+        {id:"store-management",label:"店務管理",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("位置管理","business_hours.view"),beautyItem("服務項目","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("收費方式","plans.edit",FEATURES.PLAN_MANAGEMENT),...(steamfootAddOnsEnabled?[{href:"/dashboard/add-ons",label:"加購商品",permission:"add_ons.manage" as const,requiredFeature:FEATURES.ADD_ONS,icon:<ServiceCatalogIcon/>}]:[]),beautyItem("技師管理","staff.view",FEATURES.STAFF_MANAGEMENT),entry("/dashboard/staff"),{...entry("/dashboard/settings"),href:"/dashboard/image-announcements",label:"圖片公告",icon:<ImageAnnouncementIcon />,permission:"business_hours.view",requiredFeature:undefined},beautyItem("設定","business_hours.view")]},
       ];
     }
 
@@ -867,6 +869,7 @@ export default function DashboardShell({
       { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", label: sportsNative ? "收費方式" : course && musicEnabled ? "收費方式" : "方案管理", requiredFeature: FEATURES.PLAN_MANAGEMENT },
       entry("/dashboard/staff"),
     ];
+    if (steamfootAddOnsEnabled) management.splice(2,0,{href:"/dashboard/add-ons",label:"附加項目",permission:"add_ons.manage",requiredFeature:FEATURES.ADD_ONS,icon:<ServiceCatalogIcon/>});
     if (course) management.push(
       { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: (musicEnabled || sportsNative) ? "教學項目" : "課程管理", icon: <ServiceCatalogIcon /> },
       { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <LocationIcon /> },
@@ -899,7 +902,7 @@ export default function DashboardShell({
       { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: musicEnabled ? daily.filter(item => !["/dashboard/work-orders", "/dashboard/inventory"].includes(item.href)) : daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
     ];
-  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModuleId, musicEnabled, sportsNative, effectiveFeatures, canOpenCourseSettings, personnelText, permissions]);
+  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModuleId, musicEnabled, sportsNative, effectiveFeatures, canOpenCourseSettings, personnelText, permissions, steamfootAddOnsEnabled]);
 
   const featureAccess = (item: NavItem) => {
     const features = item.alternativeFeatures ?? (item.requiredFeature ? [item.requiredFeature] : []);

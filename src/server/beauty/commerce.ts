@@ -1,3 +1,5 @@
+import {addOnSnapshots,addOnTotals} from "@/lib/beauty/add-ons";
+import {baseServiceCollected} from "@/lib/beauty/add-on-finance";
 import {readBeautyServiceCost} from './charge-finance';
 import {assertOnlineConfirmationSettled} from './online-confirm-guard';
 import {beautySaleAllocation} from '@/lib/beauty/sale-allocation';
@@ -61,7 +63,7 @@ export async function collect(
       const b = await tx.beautyAppointment.findFirst({
         where: { id, storeId: a.storeId },
       });
-      if (!b || b.cardId || b.status === "CANCELLED")
+      if (!b || b.cardId&&addOnTotals(addOnSnapshots.parse(b.addOnItems??[])).price===0 || b.status === "CANCELLED")
         throw new AppError("VALIDATION", "此服務不適用單次收款");
       const existing = await tx.beautyPayment.findMany({
         where: {
@@ -73,14 +75,14 @@ export async function collect(
       });
       const [current]=await serviceCharges(tx,a.storeId,[b],existing.map(p=>({...p,appointmentId:id})));
       const expected=d.quotes?.[i];
-      if(expected&&(expected.revision!==b.revision||expected.price!==b.price||expected.collected!==current.collected))throw new AppError("CONFLICT","應收或收款已更新，請重新開啟核對");
+      if(expected&&(expected.revision!==b.revision||expected.price!==current.price||expected.collected!==current.collected))throw new AppError("CONFLICT","應收或收款已更新，請重新開啟核對");
       const offer=expected?.discount;
       if(offer&&!options.canDiscount)throw new AppError("FORBIDDEN","沒有調整優惠的權限");
-      let quote;try{quote=calculateCourseCheckout(b.price,(offer??current.discount).kind,(offer??current.discount).value);}catch{throw new AppError("VALIDATION","請核對有效折扣或折抵金額");}
+      let quote;try{quote=calculateCourseCheckout(current.price,(offer??current.discount).kind,(offer??current.discount).value);}catch{throw new AppError("VALIDATION","請核對有效折扣或折抵金額");}
       if(current.collected+d.amounts[i]>quote.paid)throw new AppError("CONFLICT","收款超過本次應收");
       const discountChanged=!!offer&&(offer.kind!==current.discount.kind||offer.value!==current.discount.value);
       if(d.amounts[i]===0&&!discountChanged)continue;
-      if(discountChanged)await audit(tx,a,"SERVICE_DISCOUNT",JSON.stringify({...offer,price:b.price,before:current.discount,netPrice:quote.paid,revision:b.revision+1}),b.id);
+      if(discountChanged)await audit(tx,a,"SERVICE_DISCOUNT",JSON.stringify({...offer,price:current.price,before:current.discount,netPrice:quote.paid,revision:b.revision+1}),b.id);
       const p = await tx.beautyPayment.create({
         data: {
           storeId: a.storeId,
@@ -92,7 +94,7 @@ export async function collect(
           actorUserId: a.userId!,
         },
       });
-      if(p.amount>0&&beautyChargeRulesEnabled(a.storeId)){
+      if(!b.cardId&&p.amount>0&&beautyChargeRulesEnabled(a.storeId)){
         const storeCost=await readBeautyServiceCost(tx,a.storeId,b.id);
         const frozen=await beautySaleAllocations(tx,a.storeId,existing.filter(row=>row.kind==='SALE').map(row=>row.id));
         const allocation=beautyServiceCollectionAllocation(p.amount,storeCost,existing,frozen);
@@ -108,7 +110,7 @@ export async function collect(
         `服務收款：${b.serviceName} / ${d.note}`,
         true,
       );
-      if (b.status === "COMPLETED") {
+      if (b.status === "COMPLETED" && !b.cardId) {
         if (
           (
             await tx.beautyPayment.aggregate({
@@ -128,9 +130,9 @@ export async function collect(
             fee: serviceFee(
               b.rate,
               b.price,
-              existing.reduce((s, p) => s + p.amount, 0) + p.amount,
+              baseServiceCollected(b.price,existing.reduce((s, p) => s + p.amount, 0) + p.amount,b.addOnItems),
               1,
-              b.duration,
+              b.baseServiceDuration??b.duration,
             ),
             revision: { increment: 1 },
           },
@@ -233,6 +235,7 @@ export async function refund(
       where: { id: d.paymentId, storeId: a.storeId, kind: "SALE",...(await beautyPaymentVisibility(tx,a.storeId)) },
     });
     if (!p) throw new AppError("NOT_FOUND", "找不到原收款");
+    if(p.sharedGoodsOrderId)throw new AppError("BUSINESS_RULE","共同商品請由原商品單退款，不影響個人服務");
     await assertOnlineConfirmationSettled(tx,a.storeId,{cardId:p.cardId});
     const refunds = await tx.beautyPayment.aggregate({
       where: { storeId: a.storeId, originalPaymentId: p.id, kind: "REFUND" },
@@ -419,3 +422,5 @@ export async function voidFee(
   );
   return { id: r.id };
 }
+
+export {cash as recordBeautyCash};

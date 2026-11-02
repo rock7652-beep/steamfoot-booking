@@ -11,6 +11,7 @@ type Input={purchaseId:string;requestKey:string;expectedRevision:number;reason:s
 export async function correctBeautyTransaction(tx:Tx,a:BeautyActor,input:Input&{operation:'edit'|'void';note?:string;revenueStaffId?:string|null}){
  return command(tx,a,input.requestKey,input,async()=>{
   const payment=await tx.beautyPayment.findFirst({where:{storeId:a.storeId,id:input.purchaseId,kind:'SALE'}});
+  if(payment?.sharedGoodsOrderId)throw new AppError('BUSINESS_RULE','共同商品請由原商品單處理退款，保留原收款紀錄');
   const request=payment?null:await tx.beautyPurchase.findFirst({where:{storeId:a.storeId,id:input.purchaseId}});
   const row=payment??request;
   if(!row)throw new AppError('NOT_FOUND','找不到本店交易');

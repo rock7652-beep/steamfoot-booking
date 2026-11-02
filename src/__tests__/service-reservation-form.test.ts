@@ -9,7 +9,7 @@ const card={id:'soon',name:'快到期方案',memberIds:['customer','other'],serv
 function source():ServiceReservationSource{return {services:[{id:'s1',name:'做臉',duration:60,buffer:15,price:1000,trialPrice:500,revision:7},{id:'s2',name:'按摩',duration:90,buffer:15,price:1500,trialPrice:null,revision:2}],technicians:[{id:'t1',name:'技師甲',serviceIds:['s1','s2']},{id:'t2',name:'技師乙',serviceIds:['s1','s2']}],locations:[{id:'r1',name:'床位甲'},{id:'r2',name:'床位乙'}],customers:[{id:'customer',name:'同名顧客',phone:'0900000001'},{id:'other',name:'同名顧客',phone:'0900000002'}],cards:[{...card,id:'later',expiresAt:'2027-02-01T15:59:59Z'},card],policyRevision:3,readAvailability:read,submit,createCustomer};}
 beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-27T00:00:00Z"));vi.clearAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement('div');document.body.append(host);root=createRoot(host);read.mockImplementation(async intent=>({success:true,data:{slots:['14:00','15:00'],arrangement:intent.people.map((p: {specifiedTechnicianId:string;specifiedLocationId:string},i:number)=>({technicianId:p.specifiedTechnicianId||`t${i+1}`,locationId:p.specifiedLocationId||`r${i+1}`,technicianName:i?'技師乙':'技師甲',locationName:i?'床位乙':'床位甲'}))}}));submit.mockResolvedValue({success:true});createCustomer.mockResolvedValue({success:true,customer:{id:'new',name:'新顧客',phone:'0900000003'}});});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.useRealTimers();});
-async function mount(seed:{roomId?:string;coachId?:string;customerId?:string}={},data=source()){await act(async()=>root.render(createElement(ServiceReservationForm,{source:data,date:'2026-10-28',seed:{time:'14:00',...seed},onGuard:guard,onCreated:created})));}
+async function mount(seed:{roomId?:string;coachId?:string;customerId?:string}={},data=source(),bookingType?:'regular'|'trial'){await act(async()=>root.render(createElement(ServiceReservationForm,{source:data,bookingType,date:'2026-10-28',seed:{time:'14:00',...seed},onGuard:guard,onCreated:created})));}
 function input(label:string){return host.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;}
 function button(text:string){return [...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent===text)!;}
 async function set(label:string,value:string){const element=input(label);await act(async()=>{Object.getOwnPropertyDescriptor(element.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value')!.set!.call(element,value);element.dispatchEvent(new Event(element.tagName==='SELECT'?'change':'input',{bubbles:true}));});}
@@ -132,6 +132,30 @@ it('requires confirmation when the server finds a customer absent from the searc
  await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='選用既有顧客 已建檔顧客')!.click());await tick();expect(read.mock.calls.at(-1)![0].people[0].customerId).toBe('new-existing');
 });
 
+
+it('preserves selected add-ons through new trial customer creation and includes their price, duration and identity in the submitted booking',async()=>{
+ const data={...source(),itemEntitlements:true};
+ data.services[0].trialDuration=30;
+ data.services[0].addOnGroups=[{id:'extras',title:'加做服務',required:false,multiple:true,options:[{id:'head',name:'頭部放鬆',price:200,duration:15,active:true}]}];
+ await mount({},data,'trial');
+ await act(async()=>host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+ await act(async()=>button('＋新增顧客').click());
+ await set('新增顧客姓名','新顧客');await set('新增顧客電話','0900000003');
+ expect(button('確認預約').disabled).toBe(true);
+ await act(async()=>button('建立並選用').click());await tick();
+ expect(host.textContent).toContain('14:00–14:45');expect(host.textContent).toContain('應收 NT$ 700');
+ expect(read.mock.calls.at(-1)![0].people[0]).toMatchObject({customerId:'new',isTrial:true,addOnIds:['head']});
+ await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(submit.mock.calls[0][0].people[0]).toMatchObject({customerId:'new',isTrial:true,cardId:null,addOnIds:['head']});
+});
+it('clears the previous service add-ons and recalculates availability when the main service changes',async()=>{
+ const data=source();data.services[0].addOnGroups=[{id:'extras',title:'加做服務',required:false,multiple:true,options:[{id:'head',name:'頭部放鬆',price:200,duration:15,active:true}]}];
+ await mount({customerId:'customer'},data);
+ await act(async()=>host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());await tick();
+ expect(read.mock.calls.at(-1)![0].people[0].addOnIds).toEqual(['head']);
+ await set('服務項目 1','s2');expect(button('確認預約').disabled).toBe(true);await tick();
+ expect(read.mock.calls.at(-1)![0].people[0]).toMatchObject({serviceId:'s2',addOnIds:[]});expect(host.textContent).toContain('14:00–15:30');
+});
 it('passes committed cards to the calendar immediately without waiting for another read',async()=>{
  const sessions=[{id:'committed-booking',nameSnapshot:'做臉',startsAt:'2026-10-28T06:00:00Z'}];
  submit.mockResolvedValue({success:true,data:{ids:['committed-booking'],sessions}});

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
   writable: vi.fn(),
+  legacyTransaction:vi.fn(),dedicatedTransaction:vi.fn(),lock:vi.fn(),kick:vi.fn(),
   link: vi.fn(),
   session: vi.fn(),
   account: vi.fn(),
@@ -15,7 +16,10 @@ const m = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/subscription-guard", () => ({ assertStoreSubscriptionWritable: m.writable }));
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/course-db", () => ({ coursePrisma: {} }));
+vi.mock("@/lib/course-db", () => ({ coursePrisma: {$transaction:m.legacyTransaction} }));
+vi.mock("@/lib/addons-course-db",()=>({addonsCoursePrisma:{$transaction:m.dedicatedTransaction}}));
+vi.mock("@/server/services/course-store-lock",()=>({lockCourseStore:m.lock}));
+vi.mock("@/server/services/course-coach-notification-kick",()=>({kickCoachNotifications:m.kick}));
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: { findFirst: m.account },
@@ -36,7 +40,7 @@ vi.mock("@/server/services/member-request-store", () => ({
 vi.mock("@/server/services/central-member-resolver", () => ({
   resolveCentralMemberCustomerForStore: m.resolve,
 }));
-import { courseMember, courseAccount, courseManager, courseManagerRead } from "@/server/services/course-access";
+import { courseTransaction, courseMember, courseAccount, courseManager, courseManagerRead } from "@/server/services/course-access";
 import {withReadRequestMemo} from "@/server/services/read-request-memo";
 beforeEach(() => {
   vi.clearAllMocks();
@@ -123,4 +127,24 @@ it.each([{userId:'another'},{role:'STAFF'},{staffId:'another'},{storeId:'another
 it('shares exact fresh auth membership with the read counterpart while retaining independent grants',async()=>{
  await withReadRequestMemo(async()=>{rememberVerifiedStaffRead({userId:'u',role:'OWNER',staffId:'st',storeId:'s',industryModule:'COURSE'});await courseManagerRead('booking.read');await courseManager('wallet.read');});expect(m.staff).not.toHaveBeenCalled();expect(m.permission).toHaveBeenCalledTimes(2);expect(m.module).toHaveBeenCalledTimes(2);
  m.staff.mockResolvedValueOnce(null);await expect(withReadRequestMemo(()=>courseManagerRead('booking.read'))).rejects.toThrow('工作權限已停用');expect(m.staff).toHaveBeenCalledOnce();
+});
+
+
+describe('booking transaction connection boundary',()=>{
+ it.each([false,true])('routes sharedGoods=%s with work and audit on the same connection',async selected=>{
+  const tx={source:selected?'dedicated':'legacy'};
+  const chosen=selected?m.dedicatedTransaction:m.legacyTransaction;
+  chosen.mockImplementation(async work=>work(tx));
+  const work=vi.fn(async value=>{expect(value).toBe(tx);return 'booked';});
+  const audit=vi.fn(async(result,value)=>{expect(result).toBe('booked');expect(value).toBe(tx);});
+  expect(await courseTransaction('s',work,audit,selected)).toBe('booked');
+  expect(chosen).toHaveBeenCalledWith(expect.any(Function),{timeout:15000});
+  expect(selected?m.legacyTransaction:m.dedicatedTransaction).not.toHaveBeenCalled();
+  expect(m.lock).toHaveBeenCalledWith(tx,'s');expect(audit).toHaveBeenCalledOnce();
+ });
+ it('propagates a dedicated transaction failure without retrying on the main client',async()=>{
+  const error=new Error('denied');m.dedicatedTransaction.mockRejectedValue(error);
+  await expect(courseTransaction('s',vi.fn(),undefined,true)).rejects.toBe(error);
+  expect(m.legacyTransaction).not.toHaveBeenCalled();expect(m.kick).not.toHaveBeenCalled();
+ });
 });

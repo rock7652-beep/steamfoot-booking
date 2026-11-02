@@ -1,3 +1,5 @@
+import {persistCustomerBookingGoods,type BookingGoodsTx} from "./customer-booking-goods";
+import type {CustomerBookingGoodsInput} from "@/lib/customer-booking-goods";
 import {assertCourseSchedulingMode} from "./course-scheduling-modes";
 import {courseChargeSettings,courseChargeSnapshot} from "@/lib/course-charge-settings";
 import { resolveSportsEntitlement, sportsEntitlementSnapshot, type SportsEntitlementFields } from "@/lib/sports-entitlement";
@@ -123,6 +125,7 @@ export async function reserveCourseMembers(
     cardId: string;
     customerIds: string[];
     companionNames?: string[];
+    sharedGoods?:CustomerBookingGoodsInput;
     requestKey: string;
     notes?: string;
     makeupForBookingId?: string | null;
@@ -139,9 +142,10 @@ export async function reserveCourseMembers(
     return fail("請選擇 1 至 20 位不重複的上課人");
   const limits = await getStoreLimitsByStoreId(actor.storeId);
   const batchKey = createHash("sha256")
-    .update(JSON.stringify(input.companionNames?.length ? [input.requestKey, customers, input.companionNames] : [input.requestKey, customers]))
+    .update(JSON.stringify(input.sharedGoods?.selections.length?[input.requestKey,customers,input.companionNames??[],input.sharedGoods]:input.companionNames?.length ? [input.requestKey, customers, input.companionNames] : [input.requestKey, customers]))
     .digest("hex");
   return courseTransaction(actor.storeId, async (tx) => {
+    const prior=input.sharedGoods?.selections.length?await tx.courseBooking.findUnique({where:{storeId_requestKey:{storeId:actor.storeId,requestKey:`${batchKey}:${customers[0]}`}}}):null;
     const bookings = [];
     const companionNames = input.companionNames ?? [];
     if (companionNames.length && (!actor.customerId || customers.length !== 1 || customers[0] !== actor.customerId || companionNames.length > 2))
@@ -175,8 +179,9 @@ export async function reserveCourseMembers(
         requestKey: `${batchKey}:companion:${index + 1}`, notes: input.notes,
       }, limits.maxMonthlyBookings));
     }
+    if(!prior)await persistCustomerBookingGoods(tx as unknown as BookingGoodsTx,actor.storeId,input.sessionId,bookings[0]?.id,input.sharedGoods);
     return bookings;
-  });
+  },undefined,!!input.sharedGoods?.selections.length);
 }
 
 export async function reserveTrialCourse(actor: CourseActor, input: { sessionId: string; customerId: string|null; requestKey: string; notes?: string; allowOverCapacity?:boolean; trialPrice: number;customerName?:string }) {

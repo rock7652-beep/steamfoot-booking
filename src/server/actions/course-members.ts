@@ -4,6 +4,7 @@ import {readCourseDetailMusicStore} from '@/server/queries/course-detail-music-s
 import {withReadRequestMemo,isReadRequestMemoActive} from '@/server/services/read-request-memo';
 import {withPermissionRequestSession} from '@/lib/permission-request-session';
 import {measureMusicRead} from "@/lib/music-read-timing";
+import {customerBookingGoodsInput} from "@/lib/customer-booking-goods";
 import {measureMusicCheckout,withCourseCheckoutRequest,musicCheckoutShouldDeferSnapshot} from "@/server/services/music-checkout-request";
 import {readPurchasedCourseRoster,readPurchasedCourseCards,readCommittedCourseRoster} from '@/server/queries/course-purchase-roster';
 import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
@@ -117,6 +118,7 @@ async function refreshUnlessMusicRoster(storeId: string) {
   if (!music) refresh();
 }
 const bookingInput = z.object({
+  sharedGoods:customerBookingGoodsInput.optional(),
   bookingKind: z.never().optional(),
   musicOpeningMakeupEntitlementId: z.never().optional(),
   makeupForBookingId: id.nullable().optional(),

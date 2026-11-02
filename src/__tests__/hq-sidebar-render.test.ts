@@ -19,12 +19,12 @@ import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { FEATURES } from "@/lib/feature-flags";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 
-function render(module: "steamfoot" | "course" | "spa" | "beauty", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : [], hiddenInventory = false, canOpenCourseSettings = isOwner, auditGranted = false) {
+function render(module: "steamfoot" | "course" | "spa" | "beauty", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : [], hiddenInventory = false, canOpenCourseSettings = isOwner, auditGranted = false, steamfootAddOnsEnabled = false) {
   context.path = path;
   context.search = "";
   return renderToStaticMarkup(createElement(DashboardShell, {
     industryModule: module, industryModuleId: module, musicEnabled, isOwner,
-    canOpenCourseSettings,
+    canOpenCourseSettings, steamfootAddOnsEnabled,
     courseNoticeStoreId: selected,
     canViewAudit: auditGranted || (path.startsWith("/hq") && !selected),
     operationGuidePreview: true,
@@ -220,4 +220,14 @@ it('beauty exposes shared work orders and inventory while respecting hidden enti
  const enabled=render('beauty','a','/s/a/admin/dashboard/beauty');expect(enabled).toContain('工單');expect(enabled).toContain('進銷存');
  expect(render('beauty','a','/s/a/admin/dashboard/beauty',false,false,['booking.read'])).not.toContain('>進銷存<');
  const hidden=render('beauty','a','/s/a/admin/dashboard/beauty',false,true,[...ALL_PERMISSIONS],true);expect(hidden).not.toContain('>進銷存<');
+});
+
+it('shows Steamfoot add-ons beside plan management only with rollout, module and edit permission',()=>{
+ const enabled=render('steamfoot','a','/s/a/admin/dashboard',false,true,[...ALL_PERMISSIONS],false,true,false,true);
+ expect(enabled).toContain('/s/a/admin/dashboard/add-ons');
+ expect(enabled.indexOf('/s/a/admin/dashboard/plans')).toBeLessThan(enabled.indexOf('/s/a/admin/dashboard/add-ons'));
+ expect(render('steamfoot','a','/s/a/admin/dashboard')).not.toContain('/dashboard/add-ons');
+ expect(render('steamfoot','a','/s/a/admin/dashboard',false,false,['booking.read'],false,false,false,true)).not.toContain('/dashboard/add-ons');
+ expect(render('course','a','/s/a/admin/dashboard',false,true,[...ALL_PERMISSIONS],false,true,false,true)).toContain('/dashboard/add-ons');
+ expect(render('beauty','a','/s/a/admin/dashboard',false,true,[...ALL_PERMISSIONS],false,true,false,true)).toContain('/dashboard/add-ons');
 });

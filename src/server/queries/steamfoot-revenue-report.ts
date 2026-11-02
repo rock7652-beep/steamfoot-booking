@@ -32,7 +32,7 @@ export async function getSteamfootRevenueReport(storeId:string,filters:ReportFil
   });
   for(const c of cash){
    const id=`cashbook:${c.id}`,date=c.entryDate.toISOString().slice(0,10),refund=c.type==='EXPENSE';
-   const receiptSource=c.id.startsWith('inventory:')?'INVENTORY':'CASHBOOK',receiptKind=refund?(['銷貨退款','工單退款'].includes(c.category??'')?'REFUND':'CORRECTION'):'INCOME';
+   const receiptSource=c.id.startsWith('inventory:')?'INVENTORY':'CASHBOOK',receiptKind=refund?(['銷貨退款','工單退款','附加項目退款'].includes(c.category??'')?'REFUND':'CORRECTION'):'INCOME';
    meta.set(id,{receiptSource,receiptKind,sourceId:c.id,sourceCreatedAt:c.createdAt.toISOString()});
    const unit=isRetailCashbookCategory(c.category)||c.category==='銷貨退款'?'RETAIL':'OTHER',amount=Number(c.amount)*(refund?-1:1);
    rows.push({id,transactionNo:c.id,transactionDate:date,storeName:store.name,customerName:access.customers?c.customer?.name??'未關聯顧客':'顧客',customerPhone:access.customers?c.customer?.phone??'':'',customerId:access.customers?c.customerId:null,coachName:c.staff?.displayName??null,coachRole:c.staff?.user.role??null,staffId:c.staffId,planName:c.category??'其他收入',planType:unit,unit,grossAmount:amount,discountAmount:0,netAmount:amount,paymentMethod:c.paymentMethod,paymentSplits:[],status:receiptKind==='CORRECTION'?'REVERSED':refund?'REFUNDED':'SUCCESS',refund,isFirstPurchase:false,note:access.customers?c.note:null,createdByName:c.createdBy.name,createdAt:parseTaipeiDateTime(date,'00:00')!.toISOString()});

@@ -13,6 +13,7 @@ datasource db {
 // Additive independent module. Shared identities and CourseRoom spaces are
 // referenced by store-scoped SQL FKs in the reviewed candidate, never copied.
 model BeautySetting {
+  serviceAddOnsEnabled Boolean @default(false)
   backendNoticesEnabled Boolean @default(true)
   bookableUntilDate String?
   storeId           String  @id
@@ -29,6 +30,8 @@ model BeautySetting {
 }
 
 model BeautyService {
+  imageId String?
+  addOnGroups Json @default("[]")
   // Nullable additions preserve historical data; activated only after reviewed schema rollout.
   singleChargeName String?
   singlePriceConfigured Boolean?
@@ -132,6 +135,10 @@ model BeautyGroup {
 }
 
 model BeautyAppointment {
+  serviceImageId String?
+  addOnItems Json @default("[]")
+  // Nullable: old appointments retain their original fee calculation.
+  baseServiceDuration Int?
   chargeRuleSnapshot Json?
   id                    String      @id @default(cuid())
   storeId               String
@@ -186,6 +193,7 @@ model BeautyLedger {
 }
 
 model BeautyPayment {
+  sharedGoodsOrderId String?
   id                String   @id @default(cuid())
   storeId           String
   appointmentId     String?
@@ -268,4 +276,26 @@ model BeautyTransactionRevision {
  createdAt DateTime @default(now()) @db.Timestamptz(3)
  @@id([storeId, transactionId, revision])
  @@index([storeId, voidedAt])
+}
+
+model BeautyServiceImage {
+  id String @id
+  storeId String
+  content Bytes
+  thumbnail Bytes
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([storeId])
+}
+
+model BeautySharedGoodsOrder {
+ id String @id @default(cuid())
+ storeId String
+ groupId String
+ items Json @default("[]")
+ total Int @default(0)
+ revision Int @default(1)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ @@unique([storeId,groupId])
+ @@unique([storeId,id])
 }

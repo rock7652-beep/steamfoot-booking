@@ -46,6 +46,7 @@ export type CourseSettingsWorkspaceProps = {
   panelContent?: ReactNode;
   storeId: string; name: string; planLabel: string; address: string; mapUrl: string; lineOfficialUrl: string;
   bankName: string; bankCode: string; bankAccountNumber: string; bookingLeadMinutes: number; cancellationLeadMinutes: number;
+  canAddOns?:boolean;
   canEdit: boolean; canPayment: boolean; canStaff: boolean; canPlans: boolean;
   canTrial?: boolean; canHours?: boolean; canDutyRead?: boolean; canDutyManage?: boolean; canReminders?: boolean; canCare?: boolean;
   // Destination permissions only; HQ feature presentation comes from the shared provider.
@@ -240,6 +241,7 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
         {!props.source&&<Row title="值班聯動" summary={props.dutyEnabled ? "已啟用・排課需符合值班" : "未啟用"} href={props.canDutyManage ? "/dashboard/settings/duty" : undefined} action="值班設定" controls={props.canDutyManage ? <DutySchedulingToggle key={props.storeId} storeId={props.storeId} onSaved={enabled=>confirmedDuty.confirm({id:"duty",enabled})} enabled={props.dutyEnabled ?? false} course compact /> : undefined} />}
        </>}</SectionGuard></section>
       <section hidden={active !== "payment"} aria-label="收款與體驗"><SectionGuard section="payment" context={context}>{props.moduleContent ? props.moduleContent.sections.payment : <>
+        {!props.source&&props.canAddOns&&<Row title="附加項目" summary="加購與免費項目・另外計費" href="/dashboard/add-ons"/>}
         {props.canPayment ? <Row title="銀行轉帳資訊" summary={props.bankAccountNumber ? `${props.bankName || "銀行帳戶"}・末四碼 ${props.bankAccountNumber.slice(-4)}` : "未設定"} expanded={expandedRow === "payment-bank"} onEdit={() => openRow("payment-bank")}>
           {editor({ section: "payment", bankName: props.bankName, bankCode: props.bankCode, bankAccountNumber: props.bankAccountNumber }, true)}
           <p className="mt-2 text-sm text-earth-500">付款聯繫：{props.lineOfficialUrl ? "沿用店家官方 LINE" : "尚未設定官方 LINE"} <button type="button" className="min-h-10 px-2 text-primary-700 underline" onClick={() => select("store")}>前往店家資料</button></p>

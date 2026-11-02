@@ -1,3 +1,8 @@
+import {prepareBeautyBookingGoods,persistBeautyBookingGoods} from './booking-shared-goods';
+import {isBeautyServiceAddOnsEnabled} from '@/server/services/add-on-access';
+import {baseServiceCollected} from "@/lib/beauty/add-on-finance";
+import {resolveAddOns,addOnTotals,addOnSnapshots} from "@/lib/beauty/add-ons";
+import {serviceDuration} from "@/lib/beauty/service-duration";
 import {beautyRetiredSettings} from '@/lib/beauty/retired-settings';
 import {beautyServiceStoreCost} from '@/lib/beauty/sale-allocation';
 import {readBeautyChargeFinance} from './charge-finance';
@@ -66,6 +71,7 @@ export async function settings(tx: Tx, storeId: string) {
       revision: 0,
       notifications: false,
       backendNoticesEnabled:true,
+      serviceAddOnsEnabled:false,
       selfBooking,
       selfCancel: true,
       selfReschedule: true,
@@ -171,7 +177,7 @@ export async function findAllocation(
   if (!startsAt) throw new AppError("VALIDATION", "日期時間無效");
   const availability=loaded??await loadAvailability(tx,a,d.date,excludeIds);
   const {
-    services,
+    services:rawServices,
     technicians,
     locations,
     occupied,
@@ -182,6 +188,10 @@ export async function findAllocation(
     memberSlots,
     rentalOccupancy=[],
   } = availability;
+  const addOnsEnabled=!!serviceSnapshot||await isBeautyServiceAddOnsEnabled(a.storeId,tx);
+  if(!addOnsEnabled&&d.people.some(p=>p.addOnIds?.length))throw new AppError('FORBIDDEN','附加選購已關閉，請重新確認服務');
+  const services=addOnsEnabled?rawServices:rawServices.map(s=>({...s,addOnGroups:[]}));
+
   if (
     !allowPast &&
     (startsAt.getTime() <= Date.now() + policy.leadMinutes * 60000 ||
@@ -221,13 +231,17 @@ export async function findAllocation(
       }
     }
   }
+  for(const person of d.people){
+    const service=services.find(s=>s.id===person.serviceId);
+    try{if(!serviceSnapshot)resolveAddOns(service?.addOnGroups,person.addOnIds);}catch(error){throw new AppError("VALIDATION",error instanceof Error?error.message:"請核對附加項目");}
+  }
   let arrangementIssue:string|undefined;
   const result = allocateParty({
     onUnavailable:reason=>{arrangementIssue??=reason;},
     date: d.date,
     startsAt,
     people:d.people.map((p,i)=>({...p,...(chargeSnapshots?{allowedTechnicianIds:chargeAllowedIds(chargeSnapshots[i],a.storeId,p.serviceId)}:{}),isTrial:p.isTrial??d.isTrial??false,...(d.expectedArrangement?{specifiedTechnicianId:d.expectedArrangement[i].technicianId,specifiedLocationId:d.expectedArrangement[i].locationId}:{})})),
-    services:serviceSnapshot?services.map(s=>s.id===serviceSnapshot.serviceId?{...s,duration:serviceSnapshot.duration,buffer:serviceSnapshot.buffer,trialDuration:null}:s):services,
+    services:serviceSnapshot?services.map(s=>s.id===serviceSnapshot.serviceId?{...s,duration:serviceSnapshot.duration,buffer:serviceSnapshot.buffer,trialDuration:null,addOnGroups:[]}:s):services,
     technicians,
     locationIds: locations
       .filter((l) => !onlyLocation || l.id === onlyLocation)
@@ -302,6 +316,7 @@ export async function reserveParty(
   },
 ) {
   return command(tx, a, d.requestKey, d, async () => {
+    const sharedGoods=await prepareBeautyBookingGoods(a.storeId,d.sharedGoods);
     let groupCustomerId = a.customerId ?? (a.manager?d.people[0]?.customerId??null:null);
     if (entry?.channel === "LINE") {
       groupCustomerId = entry.customerId ?? crypto.randomUUID();
@@ -407,6 +422,7 @@ export async function reserveParty(
       if (p.cardId) {
         await assertCard(tx, a, p.cardId, p.customerId, p.serviceId, startsAt, undefined, p.pendingIdentity?groupCustomerId:undefined);
       }
+      const extras=resolveAddOns(s.addOnGroups,p.addOnIds);
       const item = await tx.beautyAppointment.create({
         data: {
           storeId: a.storeId,
@@ -416,6 +432,9 @@ export async function reserveParty(
           personPhone: p.phone,
           serviceId: s.id,
           serviceName: s.name,
+          addOnItems: extras,
+          serviceImageId:s.imageId,
+          baseServiceDuration: serviceDuration(s,p.isTrial??d.isTrial),
           technicianId: allocation.technicianId,
           locationId: allocation.locationId,
           preference: p.preference,
@@ -461,6 +480,7 @@ export async function reserveParty(
         },
       });
     }
+    await persistBeautyBookingGoods(tx,a,group.id,sharedGoods);
     if (entry) {
       const n =
         await tx.$executeRaw`UPDATE "TrialBookingLink" SET "consumedAt"=NOW() WHERE id=${entry.linkId} AND "storeId"=${a.storeId} AND "consumedAt" IS NULL AND "expiresAt">NOW()`;
@@ -552,6 +572,10 @@ export async function transition(
       await tx.beautyLedger.create({data:{storeId:a.storeId,cardId:card.id,appointmentId:b.id,kind:'RESERVE',delta:0,actorUserId:a.userId}});
       b.cardId=card.id;
     }
+  }
+  if(input.target==='COMPLETED'&&b.cardId&&addOnTotals(addOnSnapshots.parse(b.addOnItems??[])).price>0){
+    const {serviceCharges}=await import('./service-charges');const [charge]=await serviceCharges(tx,a.storeId,[b]);
+    if(charge.due>0)throw new AppError('VALIDATION','附加項目尚有未收款，請先完成收款，尚未扣次');
   }
   if(b.isTrial&&b.status==='CANCELLED'&&input.target!=='CANCELLED')await assertBeautyTrialEligibility(tx,a.storeId,{serviceId:b.serviceId,customerId:b.customerId,phone:b.personPhone},b.id);
   if (input.target === "RESERVED") {
@@ -670,9 +694,9 @@ export async function transition(
       ? serviceFee(
           b.rate,
           card?.listPrice ?? b.price,
-          card?.paid ?? paid,
+          card?.paid ?? baseServiceCollected(b.price,paid,b.addOnItems),
           card?.sessions ?? 1,
-          b.duration,
+          b.baseServiceDuration??b.duration,
         )
       : 0;
   // Technician disbursement is handled by the shop. Historical FEE rows remain
@@ -716,6 +740,8 @@ export function publicReceipt(b: BeautyAppointment) {
   return {
     id: b.id,
     serviceName: b.serviceName,
+    addOnItems: b.addOnItems,
+    serviceImageId:b.serviceImageId,
     startsAt: b.startsAt.toISOString(),
     endsAt: b.endsAt.toISOString(),
     status: b.status,

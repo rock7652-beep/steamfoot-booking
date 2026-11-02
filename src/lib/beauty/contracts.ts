@@ -1,4 +1,7 @@
 import { z } from "zod";
+import {sharedGoodsSelection} from "@/lib/add-ons";
+export const bookingSharedGoods=z.object({revision:z.number().int().nonnegative(),selections:sharedGoodsSelection});
+import {addOnGroups, selectedAddOnIds} from "./add-ons";
 import { normalizePhone } from "@/lib/normalize";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
 export const key = z.string().min(1).max(100);
@@ -22,6 +25,8 @@ export const period = z
   .object({ start: clock, end: clock })
   .refine((p) => p.end > p.start, "結束時間須晚於開始時間");
 export const serviceInput = z.object({
+  addOnGroups: addOnGroups.optional(),
+  imageId: key.nullable().optional(),
   defaultRate:rate.nullable().optional(),
   id: key.optional(),
   revision: z.number().int().nonnegative().default(0),
@@ -98,6 +103,7 @@ const phone = z
   .transform(normalizePhone)
   .pipe(z.string().regex(/^09\d{8}$/, "請填寫有效手機"));
 export const personInput = z.object({
+  addOnIds: selectedAddOnIds,
   name: z.string().trim().min(1).max(80),
   phone: z.union([phone,z.literal("")]),
   pendingIdentity: z.boolean().optional(),
@@ -113,6 +119,7 @@ export const personInput = z.object({
 });
 export const partyInput = z
   .object({
+    sharedGoods:bookingSharedGoods.optional(),
     requestKey: z.string().uuid(),
     policyRevision: z.number().int().nonnegative().default(0),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -141,6 +148,7 @@ export const publicTrialAvailabilityInput = z.object({
   isTrial: z.literal(true),
   people: z.array(z.object({
     phone,
+    addOnIds: selectedAddOnIds,
     serviceId: key,
     serviceRevision: z.number().int().nonnegative().default(0),
     preference,

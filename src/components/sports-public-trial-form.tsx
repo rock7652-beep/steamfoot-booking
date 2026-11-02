@@ -1,4 +1,7 @@
 "use client";
+import {CustomerBookingGoodsField,CustomerBookingGoodsSummary} from "@/components/add-ons/customer-booking-goods";
+import {bookingGoodsInput,bookingGoodsTotal,type CustomerBookingGoodsDraft} from "@/lib/customer-booking-goods";
+
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { SportsTrialSlot } from "@/server/services/sports-public-trial";
 import { bookPublicSportsTrial } from "@/server/actions/sports-public-trial";
@@ -17,6 +20,7 @@ const courseKey = (slot: SportsTrialSlot) => slot.courseId ?? slot.name;
 const clock = (value: string) => formatTWDateTime(new Date(value)).slice(11);
 
 export function SportsPublicTrialForm({ slug, slots, entry, lineEntryHref, contactUrl, address, mapUrl, submitTrial = bookPublicSportsTrial }: Props) {
+  const [goods,setGoods]=useState<CustomerBookingGoodsDraft>();
   const id = useId(), requestKey = useRef<string | null>(null), lock = useRef(false), heading = useRef<HTMLHeadingElement>(null);
   const [course, setCourse] = useState(""), [date, setDate] = useState(""), [sessionId, setSessionId] = useState("");
   const [name, setName] = useState(""), [phone, setPhone] = useState("");
@@ -50,7 +54,7 @@ export function SportsPublicTrialForm({ slug, slots, entry, lineEntryHref, conta
     <dl><dt>體驗日期</dt><dd>{toLocalDateStr(new Date(selected.startsAt))}</dd><dt>上課時間</dt><dd>{clock(selected.startsAt)}–{clock(selected.endsAt)}</dd>
       <dt>課程時長</dt><dd>{Math.round((+new Date(selected.endsAt) - +new Date(selected.startsAt)) / 60000)} 分鐘</dd><dt>預約人數</dt><dd>1 位</dd>
       {address && <><dt>上課地點</dt><dd>{address}</dd></>}</dl>
-    <div className={ui.receiptTotal}><span>體驗費用</span><strong>NT$ {selected.price.toLocaleString()}</strong></div></section>;
+    <CustomerBookingGoodsSummary draft={goods?.scope===JSON.stringify([slug,sessionId])?goods:undefined}/><div className={ui.receiptTotal}><span>預約總額</span><strong>NT$ {(selected.price+bookingGoodsTotal(goods,slug,sessionId)).toLocaleString()}</strong></div></section>;
   if (stage === "success") return <section role="status" className={styles.success}>
     <span className={ui.successMark} aria-hidden="true">✓</span><h2 tabIndex={-1} ref={heading}>體驗預約成功</h2><p className={ui.note}>期待與你一起開始。請保留以下預約資訊，依約到店。</p>{summary}
     <div className={styles.card}><h3>到店前再確認</h3><p>請穿著適合活動的服裝，課程用品與付款方式請向門市確認。</p><p>提醒依店家設定發送，請加入本店官方 LINE 並保持未封鎖。</p>
@@ -67,7 +71,7 @@ export function SportsPublicTrialForm({ slug, slots, entry, lineEntryHref, conta
     try {
       requestKey.current ??= crypto.randomUUID();
       const result = await submitTrial(slug, { sessionId, name, phone, consent: true,
-        expectedPrice: selected.price, requestKey: requestKey.current, entry });
+        sharedGoods:bookingGoodsInput(goods,slug,sessionId),expectedPrice: selected.price, requestKey: requestKey.current, entry });
       if (result.success) { setUncertain(false); setStage("success"); }
       else { setUncertain(false); setError(result.error); }
     } catch { setUncertain(true); setError("連線中斷，請按「確認原預約結果」重試，避免重複預約。"); }
@@ -80,7 +84,8 @@ export function SportsPublicTrialForm({ slug, slots, entry, lineEntryHref, conta
     </div>}
     {!slots.length ? <div className={ui.empty}><h2>下一次體驗，期待與你見面</h2><p>目前沒有開放預約的體驗課程，請聯繫店家安排。</p>{contact && <a href={contact}>聯繫店家</a>}</div> : <>
       <fieldset disabled={pending || uncertain}>
-        {stage === "service" ? <>
+
+      {stage === "service" ? <>
           <section className={ui.formSection} aria-label="體驗課程"><h3><span className={ui.stepNumber}>01</span>選一堂想嘗試的課</h3>
             <div className={ui.choices}>{courses.map(item => <button key={item.key} type="button" className={ui.choice} aria-pressed={course === item.key}
               onClick={() => edit(() => { setCourse(item.key); setDate(""); setSessionId(""); })}>
@@ -95,7 +100,7 @@ export function SportsPublicTrialForm({ slug, slots, entry, lineEntryHref, conta
             {!date ? <p className={ui.note}>選擇日期後，會顯示當天的課程時段與剩餘名額。</p> : <div className={ui.slotList}>{dayOffers.map(slot => <button type="button" className={ui.slotButton} key={slot.id} aria-pressed={sessionId === slot.id} onClick={() => edit(() => setSessionId(slot.id))}>
               <strong>{clock(slot.startsAt)}–{clock(slot.endsAt)}</strong><span>剩餘 {slot.remaining} 位 · NT$ {slot.price.toLocaleString()}</span>
             </button>)}</div>}
-          </section>{summary}
+          </section>{selected&&<CustomerBookingGoodsField slug={slug} sessionId={sessionId} draft={goods} disabled={pending||uncertain} onChange={next=>edit(()=>setGoods(next))}/>}{summary}
         </> : <>{summary}<section className={ui.formSection}><h3>留下聯絡資料</h3><div className={styles.grid}>
           <div className={styles.field}><label htmlFor={`${id}-name`}>姓名</label><input id={`${id}-name`} required maxLength={50} autoComplete="name" value={name} onChange={e => edit(() => setName(e.target.value))} /></div>
           <div className={styles.field}><label htmlFor={`${id}-phone`}>手機</label><input id={`${id}-phone`} required type="tel" inputMode="tel" autoComplete="tel-national" maxLength={30} placeholder="09xxxxxxxx" value={phone} onChange={e => edit(() => setPhone(e.target.value))} /></div>

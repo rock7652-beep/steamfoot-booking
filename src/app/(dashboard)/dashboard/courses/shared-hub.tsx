@@ -67,17 +67,18 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
       ? await settingsStep("read_waitlist", () => coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId } }))
       : null;
     const music = !!musicGrant;
+    const canAddOns=process.env.COURSE_ADD_ONS_ENABLED==='1'&&!readOnly&&await checkPermission(user.role,user.staffId,'add_ons.manage')&&await hasStoreFeature(storeId,FEATURES.ADD_ONS)&&(!music||await (await import("@/server/services/music-finance-access")).readMusicFinanceScope(user,storeId)===null);
     const subscription = store?.currentSubscription ?? store?.subscriptions[0];
     const subscriptionSummary = subscription ? effectiveStateLabel(computeLifecycle(subscription, toLocalDateStr()).state) + (subscription.expiresAt ? " · 到期日 " + subscription.expiresAt.toISOString().slice(0, 10) : " · 未設定到期日") : "尚無訂閱紀錄；續約或調整方案請聯絡總部。";
     // Direct panel queries must not render protected server content for a hidden/locked
     // feature, an unauthorized account or a read-only store view.
-    const featurePanelAllowed = panel === "reminders" ? !readOnly && canEdit && lineReminder
+    const featurePanelAllowed = panel === "addons" ? canAddOns : panel === "reminders" ? !readOnly && canEdit && lineReminder
       : panel === "referral" ? !readOnly && canPayment && referralShare
       : panel === "butler" ? !readOnly && canPayment && digitalButler
       : true;
     body = (<>
       {!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide storeId={storeId} key={`setup:${storeId}`} manual {...await settingsStep("read_setup", () => getCourseSetup(storeId,user.id))} localSections/>}
-      <CourseSettingsWorkspace
+      <CourseSettingsWorkspace canAddOns={canAddOns}
         publicTrialHref={store?.slug ? resolveBookingLineEntry(store.slug)?.url??null : null}
         native={(await sportsNativePreview(storeId))} music={music}
         panelContent={featurePanelAllowed ? <CourseSettingsPanelContent panel={panel} query={panelQuery} /> : null}

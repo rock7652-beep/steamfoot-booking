@@ -1,4 +1,6 @@
 "use server";
+import {addonsPrisma} from '@/lib/addons-db';
+import {persistCustomerBookingGoods} from "@/server/services/customer-booking-goods";
 
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { createFinancialTransaction } from "@/server/services/financial-transaction";
@@ -360,6 +362,7 @@ export async function createBooking(
         canonicalCustomerId: effectiveCustomerId,
         bookingType: data.bookingType,
         servicePlanId: data.servicePlanId,
+        sharedGoods:data.sharedGoods,
         treatmentIds: data.treatmentIds,
         bookingDate: data.bookingDate,
         slotTime: data.slotTime,
@@ -624,7 +627,8 @@ export async function createBooking(
     }
 
     // ── 9. 建立預約（不扣堂，狀態 = PENDING）
-    const booking = await prisma.$transaction(async (tx) => {
+    const booking = await (data.sharedGoods?.selections.length?addonsPrisma:prisma).$transaction(async (tx) => {
+      if(data.sharedGoods?.selections.length)await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
       // 所有會改變時段容量的入口共用同一 transaction advisory lock。
       // 取得鎖後才重新讀取容量，避免兩個請求同時通過
       // transaction 外的舊快照後造成超賣。同一顧客可以在同時段
@@ -754,6 +758,8 @@ export async function createBooking(
         }
       }
 
+      if(data.sharedGoods?.selections.length&&data.bookingType!=="FIRST_TRIAL")throw new AppError("VALIDATION","此入口目前只開放首次體驗的商品選購");
+      await persistCustomerBookingGoods(tx,storeId,created.id,undefined,data.sharedGoods);
       if (activeSubmission) {
         await finalizeBookingSubmissionSuccess(tx, {
           ...activeSubmission,

@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/steamfoot-addons-integrated-20261101
+
+
+ Test Files  55 passed (55)
+      Tests  337 passed (337)
+   Start at  12:27:36
+   Duration  25.78s (transform 5.85s, setup 0ms, import 9.73s, tests 28.84s, environment 4.84s)
+

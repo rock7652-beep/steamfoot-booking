@@ -1,0 +1,14 @@
+{
+  "testFiles": 58,
+  "testCases": 356,
+  "suiteCommand": "vitest run --maxWorkers=2 (file list in external delivery package)",
+  "typecheck": "tsc --noEmit --incremental false: passed",
+  "lint": "new rehearsal test passed; previous changed-file lint evidence retained",
+  "combinedSqlSequence": "passed, 2 repetitions",
+  "cloudAcceptanceCases": 22,
+  "cloudAcceptanceStatus": "PENDING",
+  "newCloudBuilds": 0,
+  "productionWrites": false,
+  "publicPush": false,
+  "mainRefObserved": "ec4638a0fc85ea4aa9d4263b2333a42c53901d8b"
+}

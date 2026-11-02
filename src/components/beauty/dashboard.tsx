@@ -10,6 +10,7 @@ import type {BeautyCalendarData} from '@/lib/beauty/calendar-read';
 import {useCourseDraftGuard} from "@/components/admin/use-course-draft-guard";
 import {RosterToolbar} from '@/components/admin/roster-primitives';
 import dynamic from "next/dynamic";
+const BeautyAddOnStatistics=dynamic(()=>import('./add-on-statistics').then(m=>m.BeautyAddOnStatistics));
 const BeautyNativeRoster=dynamic(()=>import("./native-roster-source").then(m=>m.BeautyNativeRoster));
 const RentalPanel=dynamic(()=>import("@/app/(dashboard)/dashboard/courses/rental-panel").then(m=>m.RentalPanel));
 import {BeautyScheduleWorkspace} from './schedule-workspace';
@@ -221,7 +222,7 @@ export function BeautyDashboard({
       {tab==='顧客管理'&&<BeautyNativeCustomerWorkspace data={data} readOnly={readOnly} planPurchaseRecoveryEnabled={planPurchaseRecoveryEnabled} collectionRecoveryEnabled={collectionRecoveryEnabled}/>}
       {tab==='顧客經營'&&careContent}
       {tab==='分析'&&analyticsContent}
-      {tab==='營運'&&operationsContent}
+      {tab==='營運'&&<>{operationsContent}<BeautyAddOnStatistics key={data.storeId} storeId={data.storeId}/></>}
       {['位置管理','服務項目','收費方式','技師管理'].includes(tab)&&<fieldset disabled={pending} aria-busy={pending} className="min-w-0">{pending&&<p role="status" className="py-2 text-sm text-earth-500">更新資料中…</p>}<BeautyManagementList key={tab} tab={tab} data={data} canEdit={!readOnly&&canEditTab} onEdit={(kind,draft)=>{if(!pending&&(draft||(!readOnly&&canEditTab)))setEditor({kind,draft:draft as Record<string,unknown>|undefined});}}/></fieldset>}
       {tab==='設定'&&settingsContent}
       {statusDraft&&<RightSheet open presentation="centered" className="fitness-management-editor" width={520} fitContent labelledById="beauty-status-title" closeOnEscape={!pending} onClose={()=>{if(!pending)setStatusDraft(null);}}><form className="space-y-3 p-4" onSubmit={e=>{e.preventDefault();if(!pending&&!readOnly&&data.manage.update&&statusDraft.reason.trim())run(async()=>{const r=await changeBeautyStatus('manager',statusDraft);if(r.success)setStatusDraft(null);return r;});}}><h2 id="beauty-status-title" className="font-semibold">確認服務狀態變更</h2><p>{data.items.find(b=>b.id===statusDraft.id)?.personName} · {data.items.find(b=>b.id===statusDraft.id)?.serviceName}</p><p>{({COMPLETED:'服務完成',CANCELLED:'取消此服務分項',NO_SHOW:'標記未到',RESERVED:'恢復／更正回預約'})[statusDraft.target]}</p><label>操作原因<textarea className={field} required maxLength={500} disabled={pending} value={statusDraft.reason} onChange={e=>setStatusDraft({...statusDraft,reason:e.target.value})}/></label>{error&&<p role="alert" className="text-red-700">{error}</p>}<div className="flex justify-end gap-3"><button type="button" className={button} disabled={pending} onClick={()=>{setStatusDraft(null);}}>返回</button><button className={button+' !bg-primary-700 !text-white'} disabled={pending||readOnly||!data.manage.update||!statusDraft.reason.trim()}>{pending?'處理中…':'確認'}</button></div></form></RightSheet>}

@@ -28,6 +28,7 @@ const errors=[],results=[];
 try{
  for(const [width,height] of [[1366,900],[1920,1080],[1024,768],[768,1024],[420,900]]){
   const page=await browser.newPage({viewport:{width,height}});page.on('pageerror',e=>errors.push(e.message));
+  page.on('dialog',async dialog=>{if(dialog.type()==='confirm'&&dialog.message()==='尚有未儲存的修改，要放棄並關閉嗎？')await dialog.accept();else{errors.push('Unexpected dialog: '+dialog.message());await dialog.dismiss();}});
   await page.route('**/*',async route=>{
    if(route.request().url()==='https://synthetic.invalid/')return route.fulfill({contentType:'text/html',body:html});
    if(new URL(route.request().url()).pathname==='/api/beauty/collection-read'){await new Promise(resolve=>setTimeout(resolve,800));return route.fulfill({contentType:'application/json',body:JSON.stringify({success:true,data:[{id:'collection',revision:1,personName:'收款測試',serviceName:'30分鐘肩頸按摩',price:250,discount:{kind:'AMOUNT',value:0},reduction:0,netPrice:250,collected:0,due:250}]})});}

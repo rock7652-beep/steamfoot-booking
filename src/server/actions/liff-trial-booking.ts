@@ -1,4 +1,5 @@
 "use server";
+import {customerBookingGoodsInput} from "@/lib/customer-booking-goods";
 
 /**
  * submitLiffTrialBooking — LIFF 顧客自助體驗預約 server action (PR-D1A)
@@ -37,6 +38,7 @@ import { bookingSubmissionRequestKeySchema } from "@/lib/validators/booking-subm
 import { bookingSubmissionExists } from "@/server/services/booking-submission";
 
 const InputSchema = z.object({
+  sharedGoods:customerBookingGoodsInput.optional(),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "invalid_date_format"),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/, "invalid_slot_format"),
   requestKey: bookingSubmissionRequestKeySchema.optional(),
@@ -135,6 +137,7 @@ export async function submitLiffTrialBooking(
         const settings = await getTrialSettings(storeId);
         const trialPlan = await ensureTrialPlan(storeId, settings.trialDefaultPrice);
         const replay = await createBooking({
+          sharedGoods:parsed.data.sharedGoods,
           customerId,
           bookingDate,
           slotTime,
@@ -210,6 +213,7 @@ export async function submitLiffTrialBooking(
   }
 
   const bookingInput = {
+    sharedGoods:parsed.data.sharedGoods,
     customerId,
     bookingDate,
     slotTime,

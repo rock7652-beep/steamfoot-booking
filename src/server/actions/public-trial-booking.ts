@@ -1,4 +1,8 @@
 "use server";
+import {addonsPrisma} from '@/lib/addons-db';
+import {AppError} from "@/lib/errors";
+import {persistCustomerBookingGoods} from "@/server/services/customer-booking-goods";
+import {customerBookingGoodsInput} from "@/lib/customer-booking-goods";
 
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -43,6 +47,7 @@ const DEFAULT_STORE_SLUG: PublicTrialStoreSlug = "zhubei";
 const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶", "未命名"];
 
 const InputSchema = z.object({
+  sharedGoods:customerBookingGoodsInput.optional(),
   noticeAccepted: z.literal(true, { errorMap: () => ({ message: "請先閱讀並勾選蒸足前須知與貼心提醒。" }) }),
   name: z.string().trim().min(1, "請輸入姓名").max(50).refine(
     (name) => !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(name),
@@ -448,8 +453,12 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     }
 
     const expectedAmount = settings.trialDefaultPrice * data.people;
-    const booking = await prisma.$transaction(
+    const booking = await (data.sharedGoods?.selections.length?addonsPrisma:prisma).$transaction(
       async (tx) => {
+        if(data.sharedGoods?.selections.length){
+          await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${store.id} FOR UPDATE`;
+          if(await tx.booking.findFirst({where:{storeId:store.id,customerId:customer.id,bookingType:'FIRST_TRIAL',bookingStatus:{in:['PENDING','CONFIRMED']}},select:{id:true}}))throw new AppError('CONFLICT','已有首次體驗預約，請先確認原預約結果');
+        }
         const aggregate = await tx.booking.aggregate({
           where: {
             storeId: store.id,
@@ -499,6 +508,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
           },
           select: { id: true },
         });
+        await persistCustomerBookingGoods(tx,store.id,created.id,undefined,data.sharedGoods);
         if (chatLink) {
           const claimed = await tx.trialBookingLink.updateMany({
             where: {
@@ -590,6 +600,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       notificationSetup,
     };
   } catch (error) {
+    if(error instanceof AppError)return {status:"invalid_input",message:error.message};
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return { status: "slot_full" };
     console.error("[public-trial-booking] submit failed", error);
     return { status: "service_unavailable" };

@@ -1,3 +1,4 @@
+import {addonsCoursePrisma} from '@/lib/addons-course-db';
 import "server-only";
 import {memoizeReadRequest,verifiedStaffRead} from "./read-request-memo";
 import {measureMusicRead} from "@/lib/music-read-timing";
@@ -129,8 +130,9 @@ export async function courseTransaction<T>(
   storeId: string,
   work: (tx: Prisma.TransactionClient) => Promise<T>,
   audit?: (result: T, tx: Prisma.TransactionClient) => Promise<unknown>,
+  sharedGoods = false,
 ) {
-  const result=await measureMusicCheckout("transaction.total",()=>coursePrisma.$transaction(
+  const result=await measureMusicCheckout("transaction.total",()=>(sharedGoods?addonsCoursePrisma:coursePrisma).$transaction(
     async (tx) => {
       await settingsStep("db_lock", () => lockCourseStore(tx, storeId));
       const value = await settingsStep("db_work", () => work(tx));

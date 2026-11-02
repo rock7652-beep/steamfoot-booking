@@ -1,4 +1,6 @@
 "use client";
+import {BeautyAddOnChoices} from "./add-on-fields";
+import {addOnGroups} from "@/lib/beauty/add-ons";
 import {serviceDuration} from "@/lib/beauty/service-duration";
 import {BeautyMemberBookingForm} from "./member-booking-form";
 import {BeautyPublicBookingForm, type PublicBookingInfo} from "./public-booking-form";
@@ -12,6 +14,7 @@ import {useCourseDraftGuard} from "@/components/admin/use-course-draft-guard";
 import { toLocalDateStr } from "@/lib/date-utils";
 import type { PartyInput } from "@/lib/beauty/contracts";
 export type BeautyBookingCatalog = {
+  sharedGoodsCatalog?:{revision:number;groups:import("@/lib/add-ons").AddOnGroup[]}|null;
   trialUsedServiceIds?:string[];
   policy?: {
     revision: number;
@@ -25,6 +28,8 @@ export type BeautyBookingCatalog = {
   services: {
     id: string;
     name: string;
+    addOnGroups?: unknown;
+    imageId?:string|null;
     duration: number;
     trialDuration?:number|null;
     price: number;
@@ -346,6 +351,7 @@ function BeautyDetailedBookingForm({
                   onChange={(e) =>
                     change(i, {
                       serviceId: e.target.value,
+                      addOnIds: [],
                       specifiedTechnicianId: null,
                       cardId: null,
                     })
@@ -361,6 +367,7 @@ function BeautyDetailedBookingForm({
                     ))}
                 </select>
               </label>
+              <BeautyAddOnChoices groups={catalog.services.find(s=>s.id===p.serviceId)?.addOnGroups} selected={p.addOnIds} onChange={addOnIds=>change(i,{addOnIds})}/>
               {mode !== "manager" && <>              <label>
                 技師性別（必選）
                 <select
@@ -505,7 +512,7 @@ function BeautyDetailedBookingForm({
           共{people.length}位，{trial ? "體驗" : "一般"}原價合計 NT$
           {people.reduce((sum, p) => {
             const s = catalog.services.find((s) => s.id === p.serviceId);
-            return sum + (s ? (trial ? (s.trialPrice ?? 0) : s.price) : 0);
+            return sum + (p.cardId?0:(s ? (trial ? (s.trialPrice ?? 0) : s.price) : 0)) + (addOnGroups.safeParse(s?.addOnGroups??[]).data??[]).flatMap(g=>g.options).filter(o=>p.addOnIds?.includes(o.id)).reduce((n,o)=>n+o.price,0);
           }, 0)}
           {time&&` · ${time}`}
         </p>

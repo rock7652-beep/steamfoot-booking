@@ -448,7 +448,7 @@ async function readBeautyCollectionCore(ids:unknown){
   const wanted=z.array(key).min(1).max(12).refine(a=>new Set(a).size===a.length).parse(ids);
   return beautyTransaction(a,async tx=>{
    const rows=await tx.beautyAppointment.findMany({where:{storeId:a.storeId,id:{in:wanted}}});
-   if(rows.length!==wanted.length||rows.some(b=>b.cardId||b.status==='CANCELLED'))throw new AppError('CONFLICT','服務已更新或不適用收款，請重新開啟');
+   if(rows.length!==wanted.length||rows.some(b=>b.status==='CANCELLED'||b.cardId&&(!Array.isArray(b.addOnItems)||!b.addOnItems.some(item=>item&&typeof item==='object'&&!Array.isArray(item)&&typeof item.price==='number'&&item.price>0))))throw new AppError('CONFLICT','服務已更新或不適用收款，請重新開啟');
    return serviceCharges(tx,a.storeId,wanted.map(id=>rows.find(b=>b.id===id)!));
   });
  });

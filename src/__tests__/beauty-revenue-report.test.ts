@@ -1,10 +1,10 @@
 import {beforeEach,it,expect,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
-const m=vi.hoisted(()=>({scope:vi.fn(),feature:vi.fn(),payments:vi.fn(),cards:vi.fn(),bookings:vi.fn(),audits:vi.fn(),first:vi.fn(),people:vi.fn(),staff:vi.fn(),store:vi.fn()}));
+const m=vi.hoisted(()=>({scope:vi.fn(),feature:vi.fn(),payments:vi.fn(),cards:vi.fn(),bookings:vi.fn(),audits:vi.fn(),first:vi.fn(),people:vi.fn(),staff:vi.fn(),store:vi.fn(),goods:vi.fn(),groups:vi.fn()}));
 vi.mock('@/server/beauty/access',()=>({requireBeauty:m.scope}));
 vi.mock('@/lib/feature-gate',()=>({hasStoreFeature:m.feature}));
 vi.mock('@/lib/db',()=>({prisma:{customer:{findMany:m.people},staff:{findMany:m.staff},store:{findUniqueOrThrow:m.store}}}));
-vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{$transaction:async(work:(tx:unknown)=>unknown)=>work({beautyTransactionRevision:{findMany:async()=>[]},beautyPayment:{findMany:m.payments},beautyCard:{findMany:m.cards},beautyAppointment:{findMany:m.bookings},beautyEvent:{findMany:m.audits},$queryRaw:m.first})}}));
+vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{$transaction:async(work:(tx:unknown)=>unknown)=>work({beautyTransactionRevision:{findMany:async()=>[]},beautySharedGoodsOrder:{findMany:m.goods},beautyGroup:{findMany:m.groups},beautyPayment:{findMany:m.payments},beautyCard:{findMany:m.cards},beautyAppointment:{findMany:m.bookings},beautyEvent:{findMany:m.audits},$queryRaw:m.first})}}));
 import {getBeautyRevenueReport} from '@/server/queries/beauty-revenue-report';
 import {moduleStaffRevenueSummary} from '@/lib/module-revenue-report';
 const sale={id:'sale',kind:'SALE',amount:1000,cardId:'card',appointmentId:null,originalPaymentId:null,method:'BANK_TRANSFER',note:'備註',actorUserId:'operator',createdAt:new Date('2026-09-30T16:30Z')};
@@ -40,3 +40,10 @@ it('keeps cross-month refund rounding and owner filters consistent with the orig
  expect(m.payments).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:'s',kind:'REFUND',originalPaymentId:{in:['sale']}})}));
 });
 it('can skip first-purchase scanning for a classification-only report without changing frozen amounts',async()=>{const report=await getBeautyRevenueReport('s',filters,{customers:false,includeFirstPurchase:false});expect(m.first).not.toHaveBeenCalled();expect(report.kpi.netRevenue).toBe(1000);});
+
+it('classifies shared goods as retail and keeps refunded amounts in goods revenue',async()=>{
+ m.cards.mockResolvedValue([]);m.goods.mockResolvedValue([{id:'goods',groupId:'g'}]);m.groups.mockResolvedValue([{id:'g',customerId:'c',contactName:'聯絡人'}]);m.audits.mockResolvedValue([]);
+ const goods={...sale,cardId:null,sharedGoodsOrderId:'goods',amount:160,note:'共同商品：茶 × 2'};
+ m.payments.mockImplementation(async({where})=>where.kind==='REFUND'?[{...goods,id:'refund',kind:'REFUND',amount:-80,originalPaymentId:'sale'}]:where.createdAt?[goods,{...goods,id:'refund',kind:'REFUND',amount:-80,originalPaymentId:'sale'}]:[goods]);
+ const report=await getBeautyRevenueReport('s',filters,{customers:true,includeFirstPurchase:false});expect(report.data).toHaveLength(2);expect(report.data.every(r=>r.unit==='RETAIL')).toBe(true);expect(report.data[0]).toMatchObject({planName:'共同商品：茶 × 2',customerName:'原顧客',staffId:null});expect(report.kpi).toMatchObject({netRevenue:80});expect(report.summary[0]).toMatchObject({otherRevenue:80,packageRevenue:0});
+});

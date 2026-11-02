@@ -1,0 +1,10 @@
+'use client';
+import {useState} from 'react';
+import {toLocalDateStr} from '@/lib/date-utils';
+import {readBeautyAddOnStatistics} from '@/server/actions/beauty-add-ons';
+type Row={id:string;name:string;reserved:number;completed:number;cancelled:number;noShow:number;freeCompleted:number;completedListAmount:number};
+export function BeautyAddOnStatistics({storeId}:{storeId:string}){
+ const [from,setFrom]=useState(toLocalDateStr),[to,setTo]=useState(toLocalDateStr),[rows,setRows]=useState<Row[]|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ async function read(){if(busy)return;setBusy(true);setError('');setRows(null);try{const r=await readBeautyAddOnStatistics({storeId,from,to});if(r.success&&r.data)setRows(r.data);else setError('error' in r?String(r.error):'查詢失敗');}catch{setError('查詢失敗，請重試');}finally{setBusy(false);}}
+ return <details className="min-w-0 rounded-lg border border-earth-200 p-3"><summary className="min-h-11 cursor-pointer py-2 font-semibold">附加項目統計</summary><p>按服務日期統計；金額為已完成項目的原價小計，並非實收營收。附加項目抽成尚未計算。</p><div className="flex flex-wrap items-end gap-3"><label>開始日期<input type="date" disabled={busy} className="block min-h-11 rounded border p-2" value={from} onChange={e=>{setFrom(e.target.value);setRows(null);}}/></label><label>結束日期<input type="date" disabled={busy} className="block min-h-11 rounded border p-2" value={to} onChange={e=>{setTo(e.target.value);setRows(null);}}/></label><button type="button" className="min-h-11 rounded border px-3" disabled={busy} onClick={read}>{busy?'查詢中…':'查詢'}</button></div>{error&&<p role="alert">{error}</p>}{rows&&<div className="overflow-x-auto"><table className="w-full text-left"><thead><tr>{['品項','預約中','已完成','已取消','未到','免費完成份數','完成原價小計'].map(h=><th className="whitespace-nowrap p-3" key={h}>{h}</th>)}</tr></thead><tbody>{rows.map(r=><tr key={r.id}>{[r.name,r.reserved,r.completed,r.cancelled,r.noShow,r.freeCompleted,`$${r.completedListAmount.toLocaleString()}`].map((v,i)=><td className="p-3" key={i}>{v}</td>)}</tr>)}</tbody></table>{!rows.length&&<p>此期間沒有附加項目紀錄。</p>}</div>}</details>;
+}

@@ -1,5 +1,10 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({audit:vi.fn(),service:vi.fn(),defaults:vi.fn(),count:vi.fn(),save:vi.fn(),technician:vi.fn(),inheritors:vi.fn(),appointments:vi.fn()}));
+const m=vi.hoisted(()=>({audit:vi.fn(),service:vi.fn(),defaults:vi.fn(),count:vi.fn(),save:vi.fn(),technician:vi.fn(),inheritors:vi.fn(),appointments:vi.fn(),dbNull:Object.freeze({runtimeDbNull:true})}));
+vi.mock('@/lib/generated-prisma-runtime',()=>({loadBeautyPrismaRuntime:()=>({Prisma:{DbNull:m.dbNull}})}));
+vi.mock('@/server/services/add-on-access',()=>({requireBeautyServiceAddOnManagement:vi.fn()}));
+vi.mock('@/lib/permissions',()=>({requirePermission:vi.fn()}));
+vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:vi.fn()}));
+vi.mock('@/server/beauty/charge-runtime',()=>({beautyChargeRulesEnabled:()=>false,beautyChargeEditingEnabled:()=>false,maintainCatalogCharge:vi.fn(),initializeEmptyBeautyOpening:vi.fn()}));
 vi.mock('@/server/beauty/access',()=>({audit:m.audit}));
 import {persistBeautyCatalog} from '@/server/beauty/catalog';
 const a={storeId:'a',userId:'owner',manager:true};
@@ -14,6 +19,7 @@ it('saves qualifications independently from missing pay while preserving configu
 it('blocks default removal while qualified technicians still inherit, then permits it after individual overrides exist',async()=>{
  await expect(persistBeautyCatalog(tx as never,a,'service',{...service,defaultRate:null})).rejects.toThrow('仍有技師沿用');expect(m.save).not.toHaveBeenCalled();
  m.inheritors.mockResolvedValue([{rates:{s:{mode:'FIXED',value:400}}}]);await persistBeautyCatalog(tx as never,a,'service',{...service,defaultRate:null});expect(m.save).toHaveBeenCalledOnce();
+ expect(m.save.mock.calls[0][0].data.defaultRate).toBe(m.dbNull);
 });
 it('preserves defaults on legacy partial edits that omit the field',async()=>{
  const {defaultRate,...input}=service;expect(defaultRate).toBeDefined();await persistBeautyCatalog(tx as never,a,'service',input);expect(m.save.mock.calls[0][0].data).not.toHaveProperty('defaultRate');expect(m.inheritors).not.toHaveBeenCalled();

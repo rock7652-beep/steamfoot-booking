@@ -15,8 +15,9 @@ export async function refundBeautyNativeTransaction(input:unknown){
   const a=await beautyManager('transaction.refund',true);await requireStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
   if(a.storeId!==d.expectedStoreId)throw new AppError('CONFLICT','目前門市已切換，請重新開啟退款');
   await beautyTransaction(a,async tx=>{
-   const p=await tx.beautyPayment.findFirst({where:{id:d.purchaseId,storeId:a.storeId,kind:'SALE'},select:{cardId:true}});
+   const p=await tx.beautyPayment.findFirst({where:{id:d.purchaseId,storeId:a.storeId,kind:'SALE'},select:{cardId:true,sharedGoodsOrderId:true}});
    if(!p)throw new AppError('NOT_FOUND','找不到本店原收款');
+   if(p.sharedGoodsOrderId)return (await import('@/server/beauty/shared-goods')).refundBeautyGoodsFromTransaction(tx,a,d);
    if(p.cardId){await beautyManager('wallet.read');await requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT);}
    return refund(tx,a,refundInput.parse({...d,paymentId:d.purchaseId}),{remaining:d.expectedRemaining,refundedAmount:d.expectedRefundedAmount});
   });
@@ -42,7 +43,7 @@ async function correct(input:unknown,operation:'edit'|'void'){
   const a=await beautyManager(operation==='edit'?'transaction.create':'transaction.void',true);await requireStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
   if(a.storeId!==d.expectedStoreId)throw new AppError('CONFLICT','目前門市已切換，請重新開啟交易');
   await beautyTransaction(a,async tx=>{
-   const sale=await tx.beautyPayment.findFirst({where:{storeId:a.storeId,id:d.purchaseId,kind:'SALE'},select:{cardId:true}});
+   const sale=await tx.beautyPayment.findFirst({where:{storeId:a.storeId,id:d.purchaseId,kind:'SALE'},select:{cardId:true,sharedGoodsOrderId:true}});
    if(sale?.cardId){await beautyManager('wallet.read');await requireStoreFeature(a.storeId,FEATURES.PLAN_MANAGEMENT);}
    return (await import('@/server/beauty/transaction-correction')).correctBeautyTransaction(tx,a,{...d,operation});
   });

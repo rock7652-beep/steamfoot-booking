@@ -1,8 +1,10 @@
 import { parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
+import {resolveAddOns,addOnTotals} from "./add-ons";
 import {serviceDuration} from "./service-duration";
 import { rate, type Rate } from "./contracts";
 export type Range = { start: number; end: number };
 export type Service = {
+  addOnGroups?: unknown;
   defaultRate?:unknown;
   id: string;
   name: string;
@@ -30,6 +32,7 @@ export type Occupancy = Range & {
   status: string;
 };
 export type Person = {
+  addOnIds?: string[];
   /** Trusted server-resolved per-charge restriction; absent preserves legacy allocation. */
   allowedTechnicianIds?: readonly string[];
   isTrial?:boolean;
@@ -117,7 +120,7 @@ export function allocateParty(input: {
   const choices = input.people.map((p) => {
     const s = input.services.find((s) => s.id === p.serviceId && s.active);
     if (!s) return null;
-    const duration=serviceDuration(s,p.isTrial);
+    const duration=serviceDuration(s,p.isTrial)+addOnTotals(resolveAddOns(s.addOnGroups,p.addOnIds)).duration;
     const end = start + (duration + s.buffer) * 60000;
     if (!containsPeriod(day, start, end, input.hours)){input.onUnavailable?.('服務與整理時間超出營業時段，請調整開始時間');return null;}
     const techs = ordered.filter(

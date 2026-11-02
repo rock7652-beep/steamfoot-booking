@@ -1,3 +1,5 @@
+vi.mock('@/server/services/add-on-access',()=>({isBeautyServiceAddOnsEnabled:async()=>true}));
+vi.mock('@/server/beauty/shared-goods-catalog',()=>({readBeautyGoodsCatalog:async()=>({enabled:true,revision:3,groups:[{id:'drinks',title:'飲品',kind:'SHARED_GOODS',required:false,multiple:true,options:[{id:'tea',name:'茶',price:80,duration:0,active:true}]}]})}));
 vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
 vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
@@ -68,6 +70,10 @@ it.each([{trial:false,override:150,expected:300},{trial:true,override:150,expect
  expect(JSON.parse(finance[3]!)).toEqual({storeCost:expected});
  expect(f.tx.beautyAppointment.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({isTrial:trial,price:trial?500:1000})}));
 });
+
+it('reserves the service and one group-owned goods order together, without changing service price or duration',async()=>{const f=fixture(),create=vi.fn().mockResolvedValue({id:'goods'});Object.assign(f.tx,{beautySharedGoodsOrder:{create}});await reserveParty(f.tx,actor,{...request,requestKey:crypto.randomUUID(),policyRevision:0,isTrial:false,contactName:'顧客',phone:'0900000000',sharedGoods:{revision:3,selections:[{id:'tea',quantity:2}]}} as BookingPartyInput);expect(create).toHaveBeenCalledExactlyOnceWith({data:expect.objectContaining({storeId:'store',groupId:'g',total:160})});expect(f.tx.beautyAppointment.create).toHaveBeenCalledWith({data:expect.objectContaining({price:1000,duration:60,addOnItems:[]})});expect(f.tx).not.toHaveProperty('beautyPayment');});
+it('a stale goods revision rejects before creating a group or service booking',async()=>{const f=fixture();await expect(reserveParty(f.tx,actor,{...request,requestKey:crypto.randomUUID(),sharedGoods:{revision:2,selections:[{id:'tea',quantity:2}]}} as BookingPartyInput)).rejects.toThrow('價格已更新');expect(f.tx.beautyGroup.create).not.toHaveBeenCalled();expect(f.tx.beautyAppointment.create).not.toHaveBeenCalled();});
+
 it('books one person with another qualified technician when the former charge-selected technician is occupied',async()=>{
  const f=fixture();vi.mocked(f.tx.beautyAppointment.findMany).mockResolvedValue([{id:'busy',customerId:'another',technicianId:'b',locationId:'other-room',startsAt:new Date(date+'T09:00:00+08:00'),occupiedEndsAt:new Date(date+'T13:00:00+08:00'),duration:60,status:'RESERVED'}] as never);
  for(const isTrial of [false,true])expect((await findAllocation(f.tx,actor,{...request,people:[{...person,isTrial}]})).result[0].technicianId).toBe('a');

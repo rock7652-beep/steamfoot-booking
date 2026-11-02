@@ -1,4 +1,7 @@
 "use client";
+import {CustomerBookingGoodsField} from "@/components/add-ons/customer-booking-goods";
+import {bookingGoodsInput,type CustomerBookingGoodsDraft} from "@/lib/customer-booking-goods";
+
 import {coursePlanModeAllowed} from "@/lib/course-scheduling-modes";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
@@ -150,6 +153,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
     [recordFilter, setRecordFilter] = useState("all"),
     [recordEdit, setRecordEdit] = useState<string | null>(null);
   const page = requestedPage === "shared" && !sharingVisible ? "plans" : role !== "coach" && requestedPage === "bookings" ? "schedule" : requestedPage;
+  const [goods,setGoods]=useState<CustomerBookingGoodsDraft>();
   const [selectedSession, setSession] = useState<Session | null>(null),
     [cardId, setCardId] = useState(""),
     [learners, setLearners] = useState<string[]>([]),
@@ -421,6 +425,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
     (()=>{const rights=rightsFor(s,c);return rights.eligible?rights.cost:0;})();
   function book(s: Session) {
     if (!selfBookingEnabled && !s.waitlistPosition) { setError(COURSE_SELF_BOOKING_DISABLED_MESSAGE); return; }
+    setGoods(undefined);
     setSession(s);
     const options = eligible(s);
     setCardId((options.find(c => c.available >= amount(s,c)) ?? options[0])?.id ?? "");
@@ -1259,6 +1264,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                                 requestKey: key,
                               })
                             : createMemberCourseBooking({
+                                sharedGoods:bookingGoodsInput(goods,currentStoreSlug,session.id),
                                 sessionId: session.id,
                                 cardId,
                                 customerIds: companionMode ? [p.customerId] : authorizedLearners,
@@ -1289,6 +1295,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
           }
         >
           <h2>{session.name}</h2>
+          {!coach&&!p.readOnly&&selfBookingEnabled&&!waitlistMode&&!waitlistAlready&&<CustomerBookingGoodsField slug={currentStoreSlug} sessionId={session.id} draft={goods} disabled={pending} onChange={next=>{setKey(crypto.randomUUID());setGoods(next);}}/>}
           <p>
             {formatTWDateTime(new Date(session.startsAt))} · {session.coach} · {session.room}
           </p>

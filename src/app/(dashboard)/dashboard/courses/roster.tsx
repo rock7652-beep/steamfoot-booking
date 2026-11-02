@@ -1,4 +1,7 @@
 "use client";
+import dynamic from "next/dynamic";
+import type {CourseAddOnCapabilities} from "@/server/services/course-add-ons";
+const CourseBookingAddOns=dynamic(()=>import("@/components/add-ons/course-booking").then(m=>m.CourseBookingAddOns),{loading:()=> <p role="status">讀取附加項目中…</p>});
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import type {CourseRosterSource,NativeRosterBooking,CourseRosterSnapshot,TeacherNoteSnapshotLease} from "./roster-source";
@@ -217,8 +220,9 @@ export function CourseRoster({
   const uncertain = operationScope.current.uncertain;
   const [makeupPending,setMakeupPending]=useState(false);
   const pending = transitionPending || uncertain || makeupPending;
-  const bulkPending = pending || savingBookingIds.length > 0;
-  const ownerBusy=view==="roster"?transitionPending||makeupPending||savingBookingIds.length>0:bulkPending;
+  const [addOnsBusy,setAddOnsBusy]=useState(false);
+  const bulkPending = pending || savingBookingIds.length > 0 || addOnsBusy;
+  const ownerBusy=view==="roster"?transitionPending||makeupPending||savingBookingIds.length>0||addOnsBusy:bulkPending;
   useEffect(()=>{onBusyChange?.(ownerBusy);return()=>onBusyChange?.(false);},[ownerBusy,onBusyChange]);
   const [batchMode, setBatchMode] = useState(false);
   const [paymentMenu, setPaymentMenu] = useState<string | null>(null);
@@ -244,6 +248,7 @@ export function CourseRoster({
   const [learnerCustomers,setLearnerCustomers]=useState<Array<{id:string;name:string;phone:string}>>([]);
   useEffect(()=>setLearnerCustomers([]),[sessionId]);
   const [session, setSession] = useState<{
+    addOns?:CourseAddOnCapabilities|null;
     startsAt: string;
     pointCost: number;
     teacherNote: string;
@@ -321,16 +326,17 @@ export function CourseRoster({
   // be able to leave the editor and reopen the roster to check the outcome.
   const noteCloseBlocked=pending&&!(uncertain&&!transitionPending&&!makeupPending&&musicLayout&&!source&&view==="roster"&&editingNote&&!editingNote.bookingId);
   const infoGuard = useCustomerPanelGuard(source?.confirmDiscard!==false);
+  const allowInfoLeave=infoGuard.allowLeave;
   const [infoBooking,setInfoBooking]=useState<{id:string;sessionId:string}|null>(null);
   const [infoView, setInfoView] = useState<"notes" | "history">("notes");
   const infoBookingId=infoBooking?.sessionId===sessionId?infoBooking.id:null;
   const setInfoBookingId=useCallback((id:string|null)=>{setInfoView("notes");setInfoBooking(id?{id,sessionId}:null);},[sessionId]);
   useEffect(()=>{
     if(!infoBookingId || !musicLayout)return;
-    const escape=(event:KeyboardEvent)=>{if(event.key!=="Escape" || document.querySelector('[role="dialog"][aria-label="顧客標籤"]'))return;event.preventDefault();event.stopImmediatePropagation();setInfoBookingId(null);};
+    const escape=(event:KeyboardEvent)=>{if(event.key!=="Escape" || document.querySelector('[role="dialog"][aria-label="顧客標籤"]'))return;event.preventDefault();event.stopImmediatePropagation();if(allowInfoLeave())setInfoBookingId(null);};
     document.addEventListener("keydown",escape,true);
     return ()=>document.removeEventListener("keydown",escape,true);
-  },[infoBookingId,musicLayout,setInfoBookingId]);
+  },[infoBookingId,musicLayout,setInfoBookingId,allowInfoLeave]);
   const [studentLeave, setStudentLeave]=useState<{id:string;name:string;deductSeparate?:boolean}|null>(null);
   const [teacherDialog,setTeacherDialog]=useState<"NO_SHOW"|"LEAVE"|"SCHEDULED"|null>(null);
   const [teacherReason,setTeacherReason]=useState("");
@@ -1596,6 +1602,7 @@ export function CourseRoster({
               {booking.sharedCard && <p className="text-earth-600">共卡：與授權成員共用餘額</p>}
               {!source&&booking.bookingKind === "TRIAL" && <div className="flex min-h-11 flex-wrap items-center justify-between gap-2"><span>{payment ? `已收 NT$ ${payment.amount.toLocaleString("zh-TW")}` : booking.trialPrice == null ? "待收款" : `待收 NT$ ${booking.trialPrice.toLocaleString("zh-TW")}`}</span>{!payment && trial?.canCollect && booking.status !== "CANCELLED" && <button type="button" className={primaryButton} onClick={() => { if (infoGuard.allowLeave()) { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); } }}>收款</button>}</div>}
             </section>
+            {!source&&session?.addOns&&<CourseBookingAddOns key={session.addOns.storeId+":"+session.addOns.module+":"+sessionId+":"+booking.id} {...session.addOns} bookingId={sessionId} participantId={booking.id} blocked={pending||savingBookingIds.length>0} onBusy={setAddOnsBusy} onUpdated={()=>{}}/>}
             <RetainedNoteEditor confirmDiscard={source?.confirmDiscard} quiet stateKey={`inline-roster-note:${note.scopeKey}`} title="本次備註" hint="" placeholder={source?"記錄本次服務需要留意的事項":"記錄本次上課需要留意的事項"} maxLength={note.maxLength} value={booking.notes || null} canEdit={canEdit && booking.status !== "CANCELLED"} save={note.save} onSaved={note.onSaved}/>
             <div className="flex flex-wrap gap-2 border-t border-earth-100 pt-2">{source?source.actions(booking).map(action=><button key={action.label} type="button" className={reminderButton} onClick={()=>{if(infoGuard.allowLeave()){setInfoBookingId(null);action.onSelect();}}}>{action.label}</button>):<><button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) setInfoView("history"); }}>預約紀錄</button>{payment && trial?.canCorrect && <button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) setPaymentMenu(booking.id); }}>收款更正</button>}{canPurchase && booking.customerId && <button type="button" className={reminderButton} onClick={() => { if (infoGuard.allowLeave()) void openStudentPurchase(booking.id); }}>學員繳費</button>}</>}</div>
             {!source&&<details className="border-t border-earth-100"><summary className="min-h-11 cursor-pointer py-3 text-earth-600">預約來源</summary><p>{booking.bookingSource}{booking.operatorName && ` · ${booking.operatorName}`}</p>{booking.createdAt && <p>{formatTWDateTime(new Date(booking.createdAt))}</p>}{!!booking.operatorCustomerId && booking.operatorCustomerId !== booking.customerId && !booking.companionIndex && <p>代約：{booking.operatorName || "已授權成員"} 替 {booking.customerName} 預約</p>}</details>}

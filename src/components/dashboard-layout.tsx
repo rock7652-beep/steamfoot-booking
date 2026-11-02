@@ -138,7 +138,7 @@ async function readDashboardLayout({
       if (!await prisma.staff.findFirst({where:{id:user.staffId ?? "",storeId:activeStoreId!,userId:user.id,status:"ACTIVE"}})) notFound();
     }
     const requestedPath = (await headers()).get("x-next-pathname") ?? "";
-    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:image-announcements\/?$|work-orders(?:\/|$)|inventory(?:\/|$)|image-announcements\/?$|courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/(?:duty|trial|referral-share|digital-butler)\/?$|staff(?:\/[^/]+\/edit)?\/?$|teachers\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth(?:\/consumption)?\/?$|digital-butler\/leads\/?$|reconciliation\/?$|store-revenue\/?$|service-fee-calculator\/?$|guide\/?$|frontend-preview\/?$|device-preview\/?$|operation-audits\/?$)/.test(requestedPath)) {
+    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:add-ons\/?$|settings\/add-ons\/?$|image-announcements\/?$|work-orders(?:\/|$)|inventory(?:\/|$)|image-announcements\/?$|courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/(?:duty|trial|referral-share|digital-butler)\/?$|staff(?:\/[^/]+\/edit)?\/?$|teachers\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth(?:\/consumption)?\/?$|digital-butler\/leads\/?$|reconciliation\/?$|store-revenue\/?$|service-fee-calculator\/?$|guide\/?$|frontend-preview\/?$|device-preview\/?$|operation-audits\/?$)/.test(requestedPath)) {
       redirect("/dashboard/courses");
     }
   }
@@ -257,6 +257,7 @@ async function readDashboardLayout({
     <OperationAuditAccessProvider allowed={canViewAudit} hq={auditScope?.hq ?? false}>
     <CoursePersonnelLabelProvider key={effectiveStoreId??"hq"} storeId={effectiveStoreId??""} label={industryModule==="course" && effectiveStoreId ? await readCoursePersonnelLabel(effectiveStoreId) : null}>
     <DashboardShell
+      steamfootAddOnsEnabled={(industryModule==='steamfoot'&&process.env.STEAMFOOT_ADD_ONS_ENABLED==='1'&&process.env.BOOKING_PARTICIPANTS_ENABLED==='true')||(industryModule==='course'&&process.env.COURSE_ADD_ONS_ENABLED==='1')||(industryModule==='beauty'&&process.env.BEAUTY_MODULE_ENABLED==='1')}
       canViewAudit={canViewAudit}
       courseNoticeStoreId={effectiveStoreId}
       noticeInitiallyEnabled={noticeInitiallyEnabled}

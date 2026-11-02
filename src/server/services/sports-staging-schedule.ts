@@ -3,7 +3,7 @@ import {memoizeCourseReadRequest} from "./course-read-request-memo";
 import {readSportsSessionRuleRow} from "./sports-session-rule-read";
 import { sportsTeachingTemplateId } from "./sports-teaching-rule";
 import "server-only";
-import {assertSportsProductionReady,sportsRulesAvailable} from "./sports-production-readiness";
+import {assertSportsProductionReady,assertSportsBookingReadReady,sportsRulesAvailable} from "./sports-production-readiness";
 import {
   requireSportsStaging,
   sportsStagingEnabled,
@@ -25,8 +25,8 @@ export async function readSportsSessionRule(
     const calendar=courseCalendarRead(tx,storeId,sessionId);
     const available=()=>sportsRulesAvailable(tx,storeId);
     if (!(await (calendar?calendar.once('sports-rules-available',available):available()))) return null;
-    const ready=()=>assertSportsProductionReady(tx,storeId);
-    await (calendar?calendar.once('sports-rules-ready',ready):ready());
+    const ready=()=>assertSportsBookingReadReady(tx,storeId);
+    await (calendar?calendar.once('sports-rules-booking-read-ready',ready):ready());
     return readSportsSessionRuleRow(tx,storeId,sessionId);
   });
 }

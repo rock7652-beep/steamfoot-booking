@@ -1,3 +1,4 @@
+import {customerBookingGoodsInput} from "@/lib/customer-booking-goods";
 import { z } from "zod";
 
 export const createBookingSchema = z.object({
@@ -5,6 +6,7 @@ export const createBookingSchema = z.object({
   // createBooking 內已有 customer.findUnique → NOT_FOUND + 跨店存取檢查作為
   // 真正安全邊界；ID 格式不該是驗證關卡。（PR-2 體驗預約需求；shared validator
   // 刻意放寬，非 silent scope creep。）
+  sharedGoods:customerBookingGoodsInput.optional(),
   customerId: z.string().min(1),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),

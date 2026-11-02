@@ -1,5 +1,7 @@
 import {beautyReadStep} from './read-timing';
 import {preloadBeautyCalendarRosters} from "./calendar-rosters";
+import {publicBeautyGoodsCatalog} from './booking-shared-goods';
+import {isBeautyServiceAddOnsEnabled} from '@/server/services/add-on-access';
 import {readBeautyChargeCosts} from './charge-finance';
 import {beautyChargeRulesEnabled,readChargeCatalogForUi} from './charge-runtime';
 import {beautyScheduleRange,beautyNativeCalendarRange} from '@/lib/beauty/calendar';
@@ -50,6 +52,8 @@ async function privateBeautyCatalog(store:{id:string;name:string;slug:string},wo
         id: true,
         name: true,
         category: true,
+        addOnGroups: true,
+        imageId: true,
         duration: true,
         trialDuration:true,
         price: true,
@@ -69,7 +73,8 @@ async function privateBeautyCatalog(store:{id:string;name:string;slug:string},wo
   );
   return {
     store,
-    services,
+    ...(!work?{sharedGoodsCatalog:await publicBeautyGoodsCatalog(store.id)}:{}),
+    services:await isBeautyServiceAddOnsEnabled(store.id)?services:services.map(s=>({...s,addOnGroups:[]})),
     techs,
     policy: {
       revision: policy.revision,
@@ -175,6 +180,7 @@ export async function beautyPortalForActor(a:BeautyActor,work:boolean,month=toLo
       groupId: b.groupId,
       technicianId: b.technicianId,
       notes: b.notes,
+
       locationId:b.locationId,
       cardId:b.cardId,
     })),
@@ -390,7 +396,7 @@ export async function beautyDashboard(
     includeTechnicianAssignments&&staffAccess?beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,status:'RESERVED',occupiedEndsAt:{gt:new Date()}},select:{id:true,technicianId:true,serviceName:true,startsAt:true,endsAt:true,locationId:true},orderBy:{startsAt:'asc'}}):[],
     customerAccess?prisma.staff.findMany({where:{storeId:a.storeId,status:"ACTIVE",user:{status:"ACTIVE",role:{not:"CUSTOMER"}}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}):[],
     planAccess&&financeAccess&&beautyChargeRulesEnabled(a.storeId)?readBeautyChargeCosts(beautyPrisma,a.storeId,plans.map(p=>({kind:'plan',id:p.id}))):new Map<string,number|null>(),
-    financeAccess?serviceCharges(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId,items.filter(b=>!b.cardId)):[],
+    financeAccess?serviceCharges(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId,items.filter(b=>!b.cardId||Array.isArray(b.addOnItems)&&b.addOnItems.length>0)):[],
     includeRosterSnapshots?preloadBeautyCalendarRosters(a.storeId,items,calendarDates):undefined,
     includeChargeCatalog&&beautyChargeRulesEnabled(a.storeId)&&planAccess&&staffAccess?readChargeCatalogForUi(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId):undefined,
   ])),
@@ -419,6 +425,8 @@ export async function beautyDashboard(
     calendar,
     analytics,
     manage,
+    ...({sharedGoodsHistoryGroups:financeAccess&&items.length>0?(await beautyPrisma.beautySharedGoodsOrder.findMany({where:{storeId:a.storeId,groupId:{in:items.map(i=>i.groupId)}},select:{groupId:true}})).map(o=>o.groupId):[]} as {sharedGoodsHistoryGroups?:string[]}),
+    ...({addOnsEnabled:await isBeautyServiceAddOnsEnabled(a.storeId),sharedGoodsEnabled:nativeCalendar&&financeAccess?(await (await import('./shared-goods-catalog')).readBeautyGoodsCatalog(a.storeId)).enabled:false,serviceAddOnsLocalEnabled:policy.serviceAddOnsEnabled,serviceAddOnsRevision:policy.revision,canManageServiceAddOns:await can('add_ons.manage')} as {addOnsEnabled?:boolean;sharedGoodsEnabled?:boolean;serviceAddOnsLocalEnabled?:boolean;serviceAddOnsRevision?:number;canManageServiceAddOns?:boolean}),
     date,
     month,
     services:services.map(s=>({...s,defaultRate:feeAccess?s.defaultRate:undefined})),
@@ -489,7 +497,7 @@ export async function beautyCalendar(date:string,calendar:'day'|'week'|'month',n
  const currentPeople=customerAccess&&u&&linkedCustomerIds.length?await prisma.customer.findMany({where:{...getManagerCustomerWhere(u.role,u.staffId,a.storeId),storeId:a.storeId,mergedIntoCustomerId:null,id:{in:linkedCustomerIds}},select:{id:true,name:true,phone:true}}):[];
  const currentCustomerLabels=new Map(currentPeople.map(c=>[c.id,c]));
  const financeAccess=await can('transaction.read')&&await hasStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
- const charges=financeAccess?await serviceCharges(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId,rows.filter(b=>!b.cardId)):[];
+ const charges=financeAccess?await serviceCharges(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId,rows.filter(b=>!b.cardId||Array.isArray(b.addOnItems)&&b.addOnItems.length>0)):[];
  const dates=Array.from({length:native?Math.floor((+range.end-+range.start)/86400000)+1:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
  const rosterSnapshots=includeRosterSnapshots?await preloadBeautyCalendarRosters(a.storeId,rows,dates):undefined;
  return {rosterSnapshots,date,calendar,rentals:rentals.map(r=>({...r,customerName:customerAccess?currentCustomerLabels.get(r.customerId??'')?.name??r.customerName:"空間租借",customerPhone:customerAccess?currentCustomerLabels.get(r.customerId??'')?.phone??r.customerPhone:"",customerId:customerAccess?r.customerId:null,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),occupiedStartsAt:r.occupiedStartsAt.toISOString(),occupiedEndsAt:r.occupiedEndsAt.toISOString()})),calendarDays:Object.fromEntries(dates.map(d=>[d,resolvedCourseHours(d,hours,specials)])),items:rows.map(b=>({...publicReceipt(b),personName:currentCustomerLabels.get(b.customerId??'')?.name??b.personName,...(charges.find(c=>c.id===b.id)?{paymentStatus:servicePaymentLabel(charges.find(c=>c.id===b.id)!)}:b.cardId&&planAccess?{paymentStatus:'使用方案'}:{}),serviceId:b.serviceId,buffer:b.buffer,occupiedEndsAt:b.occupiedEndsAt.toISOString(),revision:b.revision,groupId:b.groupId,technicianId:b.technicianId,locationId:b.locationId,cardId:planAccess?b.cardId:null,personPhone:customerAccess?currentCustomerLabels.get(b.customerId??'')?.phone??b.personPhone:'',customerId:customerAccess?b.customerId:null,notes:customerAccess?b.notes:'',fee:feeAccess?b.fee:null}))};

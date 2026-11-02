@@ -9,13 +9,14 @@ export const inventoryReceiptReversalWhere:Prisma.CashbookEntryWhereInput={
   {id:{contains:':correction:'}},
  ],
 };
-export const cashbookRevenueWhere:Prisma.CashbookEntryWhereInput={OR:[{type:'INCOME'},inventoryReceiptReversalWhere]};
+export const cashbookRevenueWhere:Prisma.CashbookEntryWhereInput={OR:[{type:'INCOME'},inventoryReceiptReversalWhere,{type:'EXPENSE',id:{startsWith:'addon:'},category:'附加項目退款'}]};
 export async function readCashbookRevenue(tx:Pick<Prisma.TransactionClient,'cashbookEntry'>,where:Prisma.CashbookEntryWhereInput){
  const rows=await tx.cashbookEntry.groupBy({by:['type','category'],where:{AND:[where,cashbookRevenueWhere]},_sum:{amount:true}});
- let retail=0,otherIncome=0,inventoryRefund=0,inventoryReversal=0;
+ let retail=0,otherIncome=0,inventoryRefund=0,inventoryReversal=0,addOnRefund=0;
  for(const row of rows){const amount=Number(row._sum.amount??0);
   if(row.type==='INCOME'){if(isRetailCashbookCategory(row.category))retail+=amount;else otherIncome+=amount;}
+  else if(row.category==='附加項目退款')addOnRefund+=amount;
   else if(['銷貨退款','工單退款'].includes(row.category??''))inventoryRefund+=amount;else inventoryReversal+=amount;
  }
- return {retail,otherIncome,inventoryRefund,inventoryReversal,cashbookRefund:inventoryRefund+inventoryReversal};
+ return {retail,otherIncome,inventoryRefund,inventoryReversal,cashbookRefund:inventoryRefund+inventoryReversal+addOnRefund};
 }

@@ -1,4 +1,5 @@
 export const COURSE_SETTINGS_PANELS = {
+  addons:{title:"附加項目",section:"payment",href:"/dashboard/settings/add-ons",width:880},
   line:{title:"LINE 官方帳號",section:"notifications",href:"/dashboard/settings/line-official-accounts",width:1040},
   payment:{title:"銀行與收款資料",section:"payment",href:"/dashboard/settings/payment",width:880},
   labels: {title:"顧客標籤",section:"notifications",href:"/dashboard/settings/customer-labels",width:880},

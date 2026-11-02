@@ -96,6 +96,11 @@ export async function hasStoreFeature(
   feature: FeatureKey,
 ): Promise<boolean> {
   if (!isFeatureKey(feature)) return false;
+  if (feature === FEATURES.ADD_ONS || feature === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
+    if(feature===FEATURES.BEAUTY_SERVICE_ADD_ONS && (await prisma.store.findUnique({where:{id:storeId},select:{industryModule:true}}))?.industryModule!=="BEAUTY")return false;
+    const grant = await prisma.storeFeatureEntitlement.findUnique({where:{uq_store_feature_entitlement:{storeId,featureKey:feature}},select:{status:true,startsAt:true,expiresAt:true}});
+    return resolveEffectiveEntitlement(false, grant).enabled;
+  }
   if (feature === FEATURES.STORE_OPERATION_AUDIT) {
     const { isStoreOperationAuditEnabled } = await import("@/server/services/store-operation-audit-access");
     return isStoreOperationAuditEnabled(storeId);
@@ -176,6 +181,12 @@ export async function hasCurrentStoreFeature(feature: FeatureKey): Promise<boole
 /** Shares the same entitlement dates and effective authorization as server actions. */
 export async function getStoreFeaturePresentation(storeId: string, feature: FeatureKey): Promise<FeaturePresentationState> {
   if (!isFeatureKey(feature)) return "HIDDEN";
+  if (feature === FEATURES.ADD_ONS || feature === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
+    if(feature===FEATURES.BEAUTY_SERVICE_ADD_ONS && (await prisma.store.findUnique({where:{id:storeId},select:{industryModule:true}}))?.industryModule!=="BEAUTY")return "HIDDEN";
+    const grant = await prisma.storeFeatureEntitlement.findUnique({where:{uq_store_feature_entitlement:{storeId,featureKey:feature}},select:{status:true,startsAt:true,expiresAt:true}});
+    const resolution = resolveEffectiveEntitlement(false, grant);
+    return resolution.source === "HIDDEN" || !grant ? "HIDDEN" : resolution.enabled ? "ENABLED" : "LOCKED";
+  }
   if (feature === FEATURES.STORE_OPERATION_AUDIT) return await hasStoreFeature(storeId, feature) ? "ENABLED" : "HIDDEN";
   if (feature === FEATURES.SHARED_CARD) {
     const { getCourseSharedCardState } = await import("@/server/services/course-shared-card");
@@ -212,7 +223,11 @@ export const getStoreFeaturePresentations = cache(async (storeId: string): Promi
   return Object.fromEntries(Object.values(FEATURES).map(feature => {
     const raw = grants.get(feature), grant = active(raw);
     let state: FeaturePresentationState;
-    if (feature === FEATURES.STORE_OPERATION_AUDIT) {
+    if (feature === FEATURES.ADD_ONS || feature === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
+      if(feature===FEATURES.BEAUTY_SERVICE_ADD_ONS && store?.industryModule!=="BEAUTY")return [feature,"HIDDEN"];
+      const resolution = resolveEffectiveEntitlement(false, raw ?? null, now);
+      state = resolution.source === "HIDDEN" || !raw ? "HIDDEN" : resolution.enabled ? "ENABLED" : "LOCKED";
+    } else if (feature === FEATURES.STORE_OPERATION_AUDIT) {
       // Audit expiry is exclusive, matching the uncached authorization policy.
       state = grant?.status === "ENABLED" && (!grant.expiresAt || grant.expiresAt > now) ? "ENABLED" : "HIDDEN";
     } else if (feature === FEATURES.SHARED_CARD) {

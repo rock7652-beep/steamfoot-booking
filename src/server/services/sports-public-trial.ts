@@ -1,3 +1,5 @@
+import {customerBookingGoodsInput} from "@/lib/customer-booking-goods";
+import {persistCustomerBookingGoods,type BookingGoodsTx} from "./customer-booking-goods";
 import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
@@ -12,7 +14,7 @@ import { getConfiguredStoreLine, storeLineIdentityProvider } from "@/lib/store-l
 import { courseSchedulingModeAllowed } from "@/lib/course-scheduling-modes";
 import { courseTransaction } from "./course-access";
 import { reserveCourseInTransaction } from "./course-booking";
-import { assertSportsProductionReady } from "./sports-production-readiness";
+import { assertSportsProductionReady, assertSportsBookingReadReady } from "./sports-production-readiness";
 import { readSportsSessionRule } from "./sports-staging-schedule";
 import { resolveTrialBookingChatLink } from "./trial-booking-chat-link";
 import { onboardCourseLineMember } from "./course-line-onboarding";
@@ -69,6 +71,7 @@ export async function readSportsPublicTrial(slug: string) {
 }
 
 const inputSchema = z.object({
+  sharedGoods:customerBookingGoodsInput.optional(),
   sessionId: z.string().min(1).max(100), requestKey: z.string().uuid(),
   expectedPrice: z.number().int().min(0).max(1000000),
   name: z.string().trim().min(1).max(50), phone: z.string().transform(normalizePhone).pipe(z.string().regex(/^09\d{8}$/)),
@@ -134,15 +137,16 @@ export async function submitSportsPublicTrial(slug: string, input: unknown) {
     const currentSettings = await tx.$queryRaw<Array<Awaited<ReturnType<typeof getTrialSettings>>>>`SELECT "trialEnabled","trialDefaultPrice"::int AS "trialDefaultPrice","trialAllowPriceEdit","trialMinPrice"::int AS "trialMinPrice","trialMaxPrice"::int AS "trialMaxPrice" FROM "ShopConfig" WHERE "storeId"=${store.id}`;
     const pricing = currentSettings[0] ?? settings;
     if (!pricing.trialEnabled) throw new AppError("FORBIDDEN", "店家體驗功能已關閉");
-    await assertSportsProductionReady(tx, store.id);
+    await assertSportsBookingReadReady(tx, store.id);
     const rule = await readSportsSessionRule(tx, store.id, d.sessionId);
     const session = await tx.courseSession.findFirst({ where: { id: d.sessionId, storeId: store.id }, select: { chargeSnapshot: true } });
     if (!rule || rule.enrollment !== "OPEN" || rule.planId !== null || !session || quotedPrice(session.chargeSnapshot, rule.trialPrice, pricing) !== d.expectedPrice)
       throw new AppError("CONFLICT", "體驗課程或價格已更新，請重新整理後再選擇");
-    await reserveCourseInTransaction(tx, { storeId: store.id, userId: member.userId, name: member.name, customerId: member.id }, {
+    const booking=await reserveCourseInTransaction(tx, { storeId: store.id, userId: member.userId, name: member.name, customerId: member.id }, {
       sessionId: d.sessionId, customerId: member.id, cardId: null, trialPrice: d.expectedPrice, requestKey: key, groupKey: fingerprint,
     }, limits.maxMonthlyBookings, { sportsMemberTrial: true });
+    if(d.sharedGoods?.selections.length)await persistCustomerBookingGoods(tx as unknown as BookingGoodsTx,store.id,d.sessionId,booking.id,d.sharedGoods);
     await tx.$executeRaw`UPDATE "TrialBookingLink" SET "consumedAt"=NOW() WHERE id=${entry.linkId} AND "storeId"=${store.id}`;
-  });
+  },undefined,!!d.sharedGoods?.selections.length);
   return receipt;
 }
