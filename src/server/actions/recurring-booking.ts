@@ -236,9 +236,10 @@ export async function createRecurringBookings(
           specialDayMap: specialMap,
           businessHoursMap: hoursMap,
         });
-        if (rule.closed) eligibility("CLOSED_DAY", `${date} 為公休或進修日`, occurrenceIndex, date);
+
         const dayOverrides = overrides.filter((item) => item.date.toISOString().slice(0, 10) === date);
         const slot = applySlotOverrides(rule, dayOverrides).find((item) => item.startTime === data.slotTime);
+        if (rule.closed && !slot) eligibility("CLOSED_DAY", `${date} 為公休或進修日`, occurrenceIndex, date);
         if (!slot) eligibility("SLOT_INVALID", `${date} ${data.slotTime} 不是有效時段`, occurrenceIndex, date);
         if (!slot.isEnabled) eligibility("SLOT_DISABLED", `${date} ${data.slotTime} 時段已關閉`, occurrenceIndex, date);
         if (config.dutySchedulingEnabled && !(data.skipDutyCheck && getEffectiveActorRole(user) === "ADMIN") && !dutyDates.has(date)) {

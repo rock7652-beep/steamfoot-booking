@@ -16,6 +16,9 @@ beforeAll(async()=>{
  CREATE TABLE "CourseStoreNotice"(id text PRIMARY KEY,"storeId" text,kind text,"subjectKey" text,"customerName" text,"courseName" text,"coachName" text,"previousCoachName" text,"startsAt" timestamptz,"previousStartsAt" timestamptz,"affectedCount" int,details jsonb,"handledAt" timestamptz,"handledByName" text,revision int,"createdAt" timestamptz,"updatedAt" timestamptz);
  INSERT INTO "CourseStoreNotice" VALUES ('old','a','LEAVE','booking:1','學員','吉他','老師',null,'2026-10-31',null,1,'{}',null,null,0,'2026-10-30','2026-10-30');`);
  await db.exec(readFileSync('scripts/sql/digital-manager-notice-candidate.sql','utf8'));
+ // Publication time is independent from old event dates; exercise the current read schema.
+ await db.exec(`ALTER TABLE "CourseStoreNotice" ADD COLUMN "publishedAt" timestamptz NOT NULL DEFAULT (now()-interval '2 hours'), ADD COLUMN "readAt" timestamptz, ADD COLUMN "readByName" text;
+ ALTER TABLE "DigitalManagerNotice" ADD COLUMN "publishedAt" timestamptz NOT NULL DEFAULT (now()-interval '1 hour'), ADD COLUMN "readAt" timestamptz, ADD COLUMN "readByName" text;`);
  await db.exec(`INSERT INTO "DigitalManagerNotice"(id,"storeId","eventKey","eventType","targetId","createdAt") VALUES ('p1','a','purchase:1','TRANSFER_PENDING_CONFIRMATION','private-purchase','2026-10-30'),('p2','b','purchase:2','TRANSFER_PENDING_CONFIRMATION','foreign','2026-10-30');`);
  // Match the lifecycle columns read by the combined loaders; keep fixture dates deterministic.
  await db.exec(`ALTER TABLE "CourseStoreNotice" ADD COLUMN "publishedAt" timestamptz DEFAULT '2026-10-30', ADD COLUMN "readAt" timestamptz, ADD COLUMN "readById" text, ADD COLUMN "readByName" text;

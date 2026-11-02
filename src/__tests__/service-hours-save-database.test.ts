@@ -78,9 +78,9 @@ it("template copies overrides while retaining closed exceptions; weekly edits pr
 });
 it("closed and training copies retain future slot overrides for reopening",async()=>{
  for(const status of ["closed","training"]){
-  await db.exec(`TRUNCATE "SpecialBusinessDay","SlotOverride";INSERT INTO "SlotOverride" VALUES ('source','s','2030-10-10','12:00','disabled',NULL,NULL,now()),('future','s','2030-10-17','12:00','capacity_change',4,'保留',now());`);
+  await db.exec(`TRUNCATE "SpecialBusinessDay","SlotOverride";INSERT INTO "SlotOverride" VALUES ('source','s','2030-10-10','12:00','disabled',NULL,NULL,now()),('future','s','2030-10-17','12:00','capacity_change',4,'保留',now()),('old-enabled','s','2030-10-17','13:00','enabled',4,'加開',now());`);
   expect(await saveServiceHours(await input({mode:"copy",weeks:1,status,periods:[]}))).toMatchObject({success:true,data:{count:1}});
-  expect((await db.query<Record<string,unknown>>('SELECT capacity,reason FROM "SlotOverride"')).rows).toEqual([{capacity:4,reason:"保留"}]);
+  expect((await db.query<Record<string,unknown>>('SELECT capacity,reason FROM "SlotOverride"')).rows).toEqual(status==="closed"?[{capacity:4,reason:"保留"}]:[{capacity:4,reason:"保留"},{capacity:4,reason:"加開"}]);
  }
 });
 it("single-slot reductions protect bookings; committed cache failure returns a warning",async()=>{

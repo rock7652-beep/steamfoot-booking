@@ -42,7 +42,7 @@ export async function saveServiceHours(input:unknown){
 
    const [logged]=await tx.$queryRaw<Array<{actorUserId:string;afterJson:{count:number;skipped:Array<{date:string;reason:string}>;operationId:string|null;date:string}}>>`SELECT "actorUserId","afterJson" FROM "AuditLog" WHERE id=${key} AND "targetId"=${storeId}`;
    const state=await readServiceHoursState(tx,storeId);
-   if(logged){if(logged.actorUserId!==user.id||logged.afterJson.date!==d.date)throw new AppError("CONFLICT","儲存請求不一致，請重新開啟設定");return {...serviceHoursReceipt(state,d.date),...logged.afterJson};}
+   if(logged){if(logged.actorUserId!==user.id||logged.afterJson.date!==d.date)throw new AppError("CONFLICT","儲存請求不一致，請重新開啟設定");return {...serviceHoursReceipt(state,d.date,industry==="steamfoot"),...logged.afterJson};}
    if(serviceHoursRevision(state)!==receipt.expectedRevision)throw new AppError("CONFLICT","營業資料已更新，請重新開啟核對；本次修改尚未儲存");
    const next:ServiceHoursState={hours:[...state.hours],specials:[...state.specials],overrides:[...state.overrides]};
    const dow=d.mode==="weekly"?d.dayOfWeek??new Date(d.date+"T00:00:00Z").getUTCDay():new Date(d.date+"T00:00:00Z").getUTCDay(),sourceOverrides=state.overrides.filter(o=>serviceDate(o)===d.date);
@@ -69,7 +69,7 @@ export async function saveServiceHours(input:unknown){
     next.specials=[...next.specials.filter(s=>!dates.includes(serviceDate(s))),...before.specialDays.map(s=>({...s,date:new Date(s.date+"T00:00:00Z")}))];next.overrides=[...next.overrides.filter(s=>!dates.includes(serviceDate(s))),...before.slotOverrides.map(s=>({...s,date:new Date(s.date+"T00:00:00Z")}))];touchSpecials=true;touchOverrides=true;count=dates.length;
    }else if(d.mode==="slots"){
     const rule=serviceDayRule(state,d.date);if(rule.closed&&d.changes.some(c=>c.action!=="disable"))throw new AppError("VALIDATION","此日為全天休息，請先設定當日開放時段");
-    for(const c of d.changes){next.overrides=next.overrides.filter(o=>serviceDate(o)!==d.date||o.startTime!==c.startTime);if(c.action!=="reset")next.overrides.push({date:new Date(d.date+"T00:00:00Z"),startTime:c.startTime,type:c.action==="disable"?"disabled":c.action==="capacity"?"capacity_change":"enabled",capacity:c.capacity??null,reason:c.reason??null});}count=d.changes.length;
+    for(const c of d.changes){next.overrides=next.overrides.filter(o=>serviceDate(o)!==d.date||o.startTime!==c.startTime);if(c.action!=="reset")next.overrides.push({date:new Date(d.date+"T00:00:00Z"),startTime:c.startTime,type:c.action==="disable"?"disabled":c.action==="capacity"?(sourceOverrides.find(o=>o.startTime===c.startTime)?.type==="enabled"?"enabled":"capacity_change"):"enabled",capacity:c.capacity??null,reason:c.reason??null});}count=d.changes.length;
    }else if(touchSpecials){
     next.specials=next.specials.filter(s=>!dates.includes(serviceDate(s))||d.mode==="template"&&s.type!=="custom");
     if(!["permanent","template"].includes(d.mode)&&(d.status!=="open"||d.mode==="dates"))next.specials.push(...dates.map(date=>({id:crypto.randomUUID(),date:new Date(date+"T00:00:00Z"),type:open?"custom":d.status,reason:d.reason||null,openTime:open?periods[0]?.openTime??null:null,closeTime:open?periods.at(-1)?.closeTime??null:null,slotInterval:open?periods[0]?.slotInterval??60:null,defaultCapacity:open?periods[0]?.defaultCapacity??6:null,segments:open?periods:[]})));
@@ -79,6 +79,8 @@ export async function saveServiceHours(input:unknown){
     const overrideDates=d.mode==="template"?dates.slice(1):d.mode==="copy"&&["closed","training"].includes(d.status)?[d.date]:dates;next.overrides=next.overrides.filter(o=>!overrideDates.includes(serviceDate(o)));
     if(d.mode==="dates"||d.mode==="template")for(const date of overrideDates)if(d.mode==="template"||date===d.date||d.includeSlotOverrides)next.overrides.push(...sourceOverrides.map(o=>({...o,date:new Date(date+"T00:00:00Z")})));
    }
+   // Explicitly closing copied dates must not leave old enabled exceptions open.
+   if(industry==="steamfoot"&&d.mode==="copy"&&d.status==="closed")next.overrides=next.overrides.filter(o=>!dates.includes(serviceDate(o))||o.type!=="enabled");
    const bookings=industry==="beauty"?await tx.$queryRaw<Array<{bookingDate:Date;startTime:string;endTime:string;people:number}>>`SELECT (("startsAt" AT TIME ZONE 'Asia/Taipei')::date)::timestamp AS "bookingDate",to_char("startsAt" AT TIME ZONE 'Asia/Taipei','HH24:MI') AS "startTime",CASE WHEN ("occupiedEndsAt" AT TIME ZONE 'Asia/Taipei')::date>("startsAt" AT TIME ZONE 'Asia/Taipei')::date THEN '24:00' ELSE to_char("occupiedEndsAt" AT TIME ZONE 'Asia/Taipei','HH24:MI') END AS "endTime",1 AS people FROM "BeautyAppointment" WHERE "storeId"=${storeId} AND status='RESERVED' AND "startsAt">=${new Date(toLocalDateStr()+"T00:00:00+08:00")}`:await tx.$queryRaw<Array<{bookingDate:Date;startTime:string;endTime?:string;people:number}>>`SELECT "bookingDate","slotTime" AS "startTime",people FROM "Booking" WHERE "storeId"=${storeId} AND "bookingStatus" IN ('PENDING','CONFIRMED') AND "bookingDate">=${new Date(toLocalDateStr()+"T00:00:00Z")}`;
    const grouped=new Map<string,number>();
    for(const b of bookings){const date=serviceDate({date:b.bookingDate});if(!dates.includes(date)&&!(["weekly","permanent","template"].includes(d.mode)&&(d.weeklyDays?d.weeklyDays.some(day=>day.dayOfWeek===b.bookingDate.getUTCDay()):b.bookingDate.getUTCDay()===dow)))continue;
@@ -93,7 +95,7 @@ export async function saveServiceHours(input:unknown){
    const confirmed=await readServiceHoursState(tx,storeId);
    if(operationId){const before={dates,...serial(state,dates)},after={expectedRevision:serviceHoursRevision({...confirmed,hours:[],specials:confirmed.specials.filter(s=>dates.includes(serviceDate(s))),overrides:confirmed.overrides.filter(o=>dates.includes(serviceDate(o)))})};await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${operationId},${user.id},'BusinessHours',${storeId},'COPY_SERVICE_HOURS_TO_DATES',${JSON.stringify(before)}::jsonb,${JSON.stringify(after)}::jsonb,now())`;}
    const metadata={date:d.date,count,skipped,operationId};await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"afterJson","createdAt") VALUES (${key},${user.id},'BusinessHours',${storeId},'SETTINGS_SAVE_CONFIRMED',${JSON.stringify(metadata)}::jsonb,now())`;
-   return {...serviceHoursReceipt(confirmed,d.date),...metadata};
+   return {...serviceHoursReceipt(confirmed,d.date,industry==="steamfoot"),...metadata};
   };
   const data=await prisma.$transaction(work,{timeout:20000});let syncWarning=false;try{revalidateBusinessHoursInRoute();}catch{syncWarning=true;}return {success:true as const,storeId,data,syncWarning};
  }catch(error){return {...handleActionError(error),uncertain:settingsSaveUncertain(error)};}

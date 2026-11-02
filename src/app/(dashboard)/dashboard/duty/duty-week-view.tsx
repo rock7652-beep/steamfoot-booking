@@ -37,6 +37,7 @@ interface Props {
   businessHours: BusinessHourInfo[];
   specialDays: SpecialDayInfo[];
   canManage: boolean;
+  slotsByDate: Record<string, string[]>;
   course?: boolean;
 }
 
@@ -53,48 +54,7 @@ function formatDateShort(dateStr: string): string {
   return `${parseInt(m)}/${parseInt(d)}`;
 }
 
-/** 產生某天的所有營業時段 */
-function getSlotsForDay(
-  dateStr: string,
-  businessHours: BusinessHourInfo[],
-  specialDays: SpecialDayInfo[]
-): string[] | "closed" {
-  const d = new Date(dateStr + "T00:00:00Z");
-  const dow = d.getUTCDay();
-
-  const special = specialDays.find((s) => s.date === dateStr);
-  const bh = businessHours.find((b) => b.dayOfWeek === dow);
-
-  if (special && (special.type === "closed" || special.type === "training")) {
-    return "closed";
-  }
-  if (!special && bh && !bh.isOpen) {
-    return "closed";
-  }
-
-  const openTime = special?.type === "custom" ? special.openTime : (bh?.openTime ?? null);
-  const closeTime = special?.type === "custom" ? special.closeTime : (bh?.closeTime ?? null);
-  const interval = (special?.type === "custom" ? special.slotInterval : null) ?? bh?.slotInterval ?? 60;
-
-  if (!openTime || !closeTime) return "closed";
-
-  const slots: string[] = [];
-  const [oh, om] = openTime.split(":").map(Number);
-  const [ch, cm] = closeTime.split(":").map(Number);
-  let cursor = oh * 60 + om;
-  const end = ch * 60 + cm;
-
-  while (cursor < end) {
-    const h = Math.floor(cursor / 60);
-    const m = cursor % 60;
-    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    cursor += interval;
-  }
-
-  return slots;
-}
-
-export function DutyWeekView({ weekStart, assignments, businessHours, specialDays, canManage, course = false }: Props) {
+export function DutyWeekView({ weekStart, assignments, businessHours, specialDays, slotsByDate, canManage, course = false }: Props) {
   const router = useRouter();
   const [navStart, setNavStart] = useState<number | null>(null);
 
@@ -111,7 +71,7 @@ export function DutyWeekView({ weekStart, assignments, businessHours, specialDay
   const allSlots = new Set<string>();
   for (const date of weekDates) {
     const courseSlots = course ? courseDutyIntervals(date, businessHours.map(h=>({...h,segments:h.segments})), specialDays.map(s=>({...s,segments:s.segments,date:new Date(s.date+"T00:00:00Z")}))).map(s=>s.slotTime) : [];
-    const slots = course ? (courseSlots.length ? courseSlots : "closed") : getSlotsForDay(date, businessHours, specialDays);
+    const slots = course ? (courseSlots.length ? courseSlots : "closed") : (slotsByDate[date]?.length ? slotsByDate[date] : "closed");
     if (slots === "closed") {
       daySlotsMap.set(date, "closed");
     } else {
