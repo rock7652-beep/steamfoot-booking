@@ -1396,7 +1396,7 @@ export function CourseRoster({
         </details>
       )}
 
-      {<RosterToolbar label="上課統計">
+      {!(source?.compactSingle&&roster.length===1)&&<RosterToolbar label="上課統計">
         <button
           className={`${button} ${!showCancelled && !rosterFiltered ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
           aria-pressed={!showCancelled && !rosterFiltered}
@@ -1555,7 +1555,7 @@ export function CourseRoster({
           </section>
 
         </div>
-      ) : <CourseRosterList disabled={sourceReadFailed} labels={source?{identity:"顧客／電話",owner:source.labels.owner??"技師／位置",cost:"本次使用",balance:"可用次數",balanceDescription:"方案剩餘次數扣除所有已預約保留次數",scroll:"預約名單捲動區"}:sportsNative?{cost:"本堂用量",balance:"本期剩餘",balanceDescription:"目前方案未扣用的餘額；可用額度另扣除已預約保留，點名時重新核對。"}:{balanceDescription:postClassBalanceDescription}} empty={rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"} footer={!sportsNative&&activeRows.length>0?<p className="px-3 py-1 text-sm text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額</p>:undefined} rows={searchedRows.map((booking):CourseRosterDisplayRow=>{
+      ) : <CourseRosterList separateIdentity={!!source?.compactSingle&&roster.length===1} disabled={sourceReadFailed} labels={source?{identity:"顧客／電話",owner:source.labels.owner??"技師／位置",cost:"本次使用",balance:"可用次數",balanceDescription:"方案剩餘次數扣除所有已預約保留次數",scroll:"預約名單捲動區"}:sportsNative?{cost:"本堂用量",balance:"本期剩餘",balanceDescription:"目前方案未扣用的餘額；可用額度另扣除已預約保留，點名時重新核對。"}:{balanceDescription:postClassBalanceDescription}} empty={rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"} footer={!sportsNative&&activeRows.length>0?<p className="px-3 py-1 text-sm text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額</p>:undefined} rows={searchedRows.map((booking):CourseRosterDisplayRow=>{
         const leave=["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"");
         const deducted=(booking.absenceKind==="GROUP_LEAVE_FORFEITED"||booking.leaveDeductsWithMakeup)||booking.status==="NO_SHOW";
         const label=booking.absenceKind==="TEACHER_ABSENT"?"本堂免扣":booking.status==="ATTENDED"?"已出席":leave?((booking.absenceKind==="GROUP_LEAVE_FORFEITED"||booking.leaveDeductsWithMakeup)?"缺席・扣堂":"缺席・不扣堂"):booking.status==="NO_SHOW"?(booking.bookingKind==="TRIAL"?"缺席":"缺席・扣堂"):booking.status==="CANCELLED"?"已取消":"待點名";

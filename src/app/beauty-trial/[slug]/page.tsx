@@ -27,7 +27,7 @@ export default async function Page({
     ? `${Math.min(...durations)}${Math.min(...durations) !== Math.max(...durations) ? `–${Math.max(...durations)}` : ""} 分鐘`
     : undefined;
   return (
-    <PublicTrialPage mode="beauty" storeName={data.store.name}
+    <PublicTrialPage deferVisit mode="beauty" storeName={data.store.name}
       prices={trialServices.map(service => Number(service.trialPrice))}
       durationLabel={durationLabel}
       address={presentation?.address} mapUrl={presentation?.mapUrl} contactUrl={presentation?.contactUrl}>
