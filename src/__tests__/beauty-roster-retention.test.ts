@@ -54,3 +54,19 @@ it.each(['開顧客','開購買方案'])('retains the actual dashboard roster mo
  await act(async()=>button('返回原名單').click());
  expect(host.querySelector('[data-native-roster-port]')).toBe(original);expect(original.textContent).toContain('保留的搜尋與篩選');expect(original.scrollTop).toBe(180);expect(m.rosterProps).toMatchObject({suspended:false});expect(original.closest('[data-right-sheet]')?.getAttribute('aria-hidden')).toBe('false');expect(m.refresh).not.toHaveBeenCalled();expect(m.push).not.toHaveBeenCalled();
 });
+
+it.each(['success','failed','unknown'])('shows immediate feedback and prevents duplicate attendance until authority settles: %s',async outcome=>{
+ await open();let resolve!:(v:unknown)=>void;m.status.mockReturnValue(new Promise(r=>{resolve=r;}));
+ const attendance=m.rosterProps!.onAttendance as (id:string,revision:number,choice:string)=>void;
+ await act(async()=>{attendance('a',7,'ATTENDED');attendance('a',7,'ATTENDED');});
+ expect(m.status).toHaveBeenCalledOnce();expect(m.rosterProps).toMatchObject({pendingId:'a',busy:true});
+ expect(document.querySelector('[role=status]')?.textContent).toContain('正在更新服務狀態與堂數');
+ expect(m.rosterProps?.snapshot).toBeUndefined();
+ const roster={roster:nativeRows(),session:{startsAt:item.startsAt},cards:[],trial:null,canPurchase:false};
+ await act(async()=>resolve(outcome==='failed'?{success:false,error:'版本衝突'}:{success:true,refresh:outcome==='unknown'?{success:false,error:'讀取失敗'}:{success:true,data:{roster,calendar:{date:data.date,calendar:'day',calendarDays:{},items:[{...item,status:'COMPLETED',revision:8}]}}}}));
+ expect(m.rosterProps?.pendingId).toBeNull();
+ expect(host.textContent).not.toContain('正在更新服務狀態與堂數');
+ if(outcome==='success')expect(m.rosterProps?.snapshot).toMatchObject({sessionId:'booking:a',data:roster});
+ else expect(host.textContent).toContain(outcome==='failed'?'版本衝突':'最新狀態尚未核對');
+ expect(m.refresh).not.toHaveBeenCalled();
+});

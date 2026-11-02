@@ -37,3 +37,9 @@ it('lets profile-only editors preserve all technician and compensation settings'
 });
 
 it('does not reveal technician compensation in a profile-only save receipt',async()=>{m.service.mockResolvedValue({...service,defaultRate:service.defaultRate});const basic={...input,rule:undefined};const result=await saveBeautyNativeService(basic);expect(result).toMatchObject({success:true,data:{sportsRule:{compensation:null}}});if(result.success)expect((result.data as {catalogSnapshot:object}).catalogSnapshot).not.toHaveProperty('defaultRate');});
+
+it('preserves an unset compensation default while editing a saved service',async()=>{
+ m.service.mockResolvedValue({...service,defaultRate:null});
+ expect(await saveBeautyNativeService(input)).toMatchObject({success:true,data:{sportsRule:{compensation:null}}});
+ expect(m.persist.mock.calls[0][3].defaultRate).toBeUndefined();
+});

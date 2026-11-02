@@ -173,7 +173,8 @@
       "fix/beauty-collection-calendar-remount": false,
       "fix/beauty-service-create-20261102": false,
       "fix/beauty-void-flow-20261102": false,
-      "fix/beauty-void-pending-label-20261102": false
+      "fix/beauty-void-pending-label-20261102": false,
+      "fix/beauty-attendance-feedback-20261102": false
     }
   }
 }
