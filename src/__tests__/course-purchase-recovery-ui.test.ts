@@ -268,3 +268,11 @@ it('retains the exact durable key if automatic completion acknowledgement fails'
  await act(async()=>button('購買').click());
  expect(received).toHaveBeenCalledWith(expect.objectContaining({success:true}));expect(sessionStorage.length).toBe(1);expect(send).toHaveBeenCalledOnce();expect(button('購買').disabled).toBe(true);
 });
+
+it('keeps normal Beauty checkout phases quiet but retains unresolved purchase recovery',async()=>{
+ const recovery={enabled:true,view:{kind:'intent',intent:prepared},busy:false,confirmed:false} as ReturnType<typeof useCoursePurchaseRecovery>;
+ await act(async()=>root.render(createElement(CoursePurchaseRecoveryNotice,{recovery,disabled:true,automaticCompletion:true,onCommitted:()=>{}})));
+ expect(host.textContent).toBe('');
+ await act(async()=>root.render(createElement(CoursePurchaseRecoveryNotice,{recovery,disabled:false,automaticCompletion:true,onCommitted:()=>{}})));
+ expect(host.textContent).toContain('待確認購買');
+});

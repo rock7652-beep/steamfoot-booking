@@ -636,11 +636,12 @@ export function CourseWorkspace({
   const [editTemplateId,setEditTemplateId]=useState("");
   const [notice, setNotice] = useState("");
   function finishSportsSchedule(date:string,created?:Session[]){
+    const immediate=!!created?.length&&!!calendarSource?.schedule.reservation;
     for(const row of created??[])confirmedScheduleSessions.confirm({...row,receiptStoreId:storeId});
     setDirty(false);setPanel(null);setNativeDate(date);nativeDateRef.current=date;calendarSource?.onDateChange?.(date);
-    setNotice(created?.length?"已新增預約":"新增成功，正在同步課表…");
+    setNotice(immediate?"已新增預約":"新增成功，正在同步課表…");
     sportsCalendarReader.clear();
-    void refreshNativeCalendar(date,true,true).then(ok=>setNotice(created?.length?"":ok?"新增成功。":"新增成功，但課表同步未完成，請重新整理；請勿重複新增。"));
+    void refreshNativeCalendar(date,true,true).then(ok=>setNotice(immediate?"":ok?"新增成功。":"新增成功，但課表同步未完成，請重新整理；請勿重複新增。"));
   }
 
   const [error, setError] = useState("");

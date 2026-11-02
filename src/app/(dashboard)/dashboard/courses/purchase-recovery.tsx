@@ -195,7 +195,7 @@ export function CoursePurchaseRecoveryNotice({ recovery, disabled, onCommitted, 
   automaticCompletion?:boolean;recovery: ReturnType<typeof useCoursePurchaseRecovery>; disabled: boolean; onCommitted: () => void;
 }) {
   if (!recovery.enabled || recovery.view.kind === "inactive" || recovery.view.kind === "none-known") return null;
-  if(automaticCompletion&&(recovery.view.kind==="checking"||recovery.view.kind==="intent"&&recovery.view.intent.status==="COMMITTED"))return null;
+  if(automaticCompletion&&(recovery.view.kind==="checking"||recovery.view.kind==="intent"&&(recovery.view.intent.status==="COMMITTED"||disabled&&recovery.view.intent.status==="PREPARED")))return null;
   if (recovery.view.kind === "checking") return <p role="status" className="rounded-lg bg-earth-50 p-3 text-sm">正在確認購買狀態…</p>;
   const state = recovery.view;
   const pending = disabled || recovery.busy;
