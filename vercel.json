@@ -177,7 +177,8 @@
       "fix/beauty-attendance-feedback-20261102": false,
       "fix/beauty-rental-fit-20261102": false,
       "fix/beauty-schema-compat-20261102": false,
-      "fix/beauty-rental-charge-flow-20261102": false
+      "fix/beauty-rental-charge-flow-20261102": false,
+      "fix/liff-makeup-plan-choice-20261102": false
     }
   }
 }
