@@ -11,7 +11,7 @@
 | 音樂學員課程／逐期紀錄 | music-periods → music-period-read GET | 獨立讀取且no-store，沿用逐期資格、customer.read及booking.read／wallet.read檢查；只讀取原紀錄，取消／補課／更正保留原action；Date欄位在傳輸後還原，關閉與換學員晚到隔離 |
 | 原生運動顧客持有方案 | course-card-browse → scoped card-read GET | 共用 panel reader、TTL 0及關閉／換人晚到隔離，避免 Server Action 排隊；首頁未篩選時，以同一份全量權威卡投影算合計、只回傳20列，歷史／搜尋／換頁仍獨立查全量合計；原服務兩項權限與可見範圍不變 |
 | 運動／音樂名單原地繳費 | course-purchase-options → scoped GET → 共用購課選項服務 | 獨立於 Server Action 操作佇列，panel reader TTL 0、同門市預約／購課與收款權限重新核對；關閉／切課晚到隔離，成功購買仍由權威名單重讀，不把選項當餘額 |
-| 美業核對收款／恢復狀態 | beauty-service-collection → collection-read POST → 原 quote／intent read | 名單隨同權限資料帶入完整收費摘要，付款方式立即可選；同一視窗內用單一載入提示，panel reader TTL 0 重新核對後才可確認收款。唯讀 HTTP 避免 Next Action layout 回傳，仍逐次核對店家／權限／功能／對象；寫入保留原 action。班表座標不作工作區重掛載識別，明確切換對象仍關閉舊財務視窗，晚到讀取不得回填 |
+| 美業核對收款／恢復狀態 | beauty-service-collection → collection-read POST → 原 quote／intent read | 名單隨同權限資料帶入完整收費摘要，付款方式立即可選；同一視窗直接採用已授權名單的完整報價；背景 panel reader TTL 0 核對，報價變動或錯誤即阻擋，既有未確認收款請求仍須先恢復核對。純讀取使用 READ ONLY／RepeatableRead，不排入 Store 寫入鎖；送出仍依版本、已收款及原請求核對。唯讀 HTTP 避免 Next Action layout 回傳，仍逐次核對店家／權限／功能／對象；寫入保留原 action。班表座標不作工作區重掛載識別，明確切換對象仍關閉舊財務視窗，晚到讀取不得回填 |
 | 預約詳情 | booking-detail-cache → client-read-cache | 先摘要／有限舊值，每次 authoritative revalidate；修改後失效 |
 | 蒸足新增／補課 | steam-booking-form | intent 在途預讀、TTL 0 完整表單（包含名額），提交後失效；切換日期亦讀取最新名額 |
 | 體驗新增 | trial-booking-form、steam-day-slots | 表單 intent 預讀；時段 TTL 0，日期／關閉世代保護 |
@@ -37,6 +37,7 @@
 | 入口 | 處理 |
 | --- | --- |
 | 現金收支編輯、方案表單、獎金規則、SPA 方案／人員編輯、值班日編輯 | props 直接顯示，不額外等待 |
+| 美業空間租借明細 | 當前班表同店、同權限預先取得完整租借與成功付款摘要，開啟時固定該筆快照直接顯示；缺少快照才沿用原讀取。不建立持久快取，切換對象重置；異動仍由原版本、付款及現金帳檢查決定 |
 | 課程工作台課次、今日名單、音樂科目、方案購買／交易操作、SPA 營收操作 | props 直接顯示；mutation 沿用後端版本與額度檢查、router.refresh |
 | 共用設定中心、課程設定、工時／數位管家等設定面板 | RSC／DashboardLink 路由預讀，面板內容由伺服器提供，保留 dirty/pending guard |
 | CourseStatusButton 停用／下架確認 | 不快取權威 impact，使用者操作時新查；避免預讀造成錯誤影響數量 |

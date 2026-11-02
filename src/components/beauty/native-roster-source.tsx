@@ -32,8 +32,8 @@ export function BeautyNativeRoster({allowPreparedSnapshot=true,onSnapshotInvalid
   const b=row.service;if(!b)return [];
   const actions:{label:string;onSelect:()=>void;danger?:boolean}[]=[];
   if(row.customerId&&data.access.customerAccess)actions.push({label:'顧客資料',onSelect:()=>onCustomer(row.customerId!)});
-  if(!busy&&!goods&&data.access.financeAccess&&(data.sharedGoodsEnabled||data.sharedGoodsHistoryGroups?.includes(data.items.find(i=>i.id===row.id)?.groupId??'')))actions.push({label:'共同商品',onSelect:()=>setGoods(row.id)});
-  if(readOnly||busy||goods)return actions;
+  if(!busy&&!technicianBusy&&!goods&&data.access.financeAccess&&(data.sharedGoodsEnabled||data.sharedGoodsHistoryGroups?.includes(data.items.find(i=>i.id===row.id)?.groupId??'')))actions.push({label:'共同商品',onSelect:()=>setGoods(row.id)});
+  if(readOnly||busy||technicianBusy||goods)return actions;
   if(data.manage.collect&&beautyRosterCanUsePlan(row))actions.push({label:'單次收款',onSelect:()=>onMoney('collect',[row.id],b.collectionQuote?[b.collectionQuote]:undefined)});
   if(data.manage.card&&row.customerId)actions.push({label:'購買方案',onSelect:()=>onMoney('card',[row.customerId!])});
   if(data.manage.update){if(row.status!=='CANCELLED'){
