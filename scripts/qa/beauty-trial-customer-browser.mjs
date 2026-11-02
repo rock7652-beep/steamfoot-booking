@@ -83,7 +83,7 @@ try{
      await page.mouse.move(box.x+box.width/2,box.y-5);await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.up();rawCardClicks++;
      assert.equal(await page.evaluate(()=>window.cardClicks.length),rawCardClicks);assert.equal(await page.evaluate(()=>window.cardClicks.at(-1)),id);
     }
-    await card.focus();assert.equal(await card.locator('..').locator('[data-service-card-summary]').isVisible(),true);await page.keyboard.press('Enter');rawCardClicks++;assert.equal(await page.evaluate(()=>window.cardClicks.length),rawCardClicks);
+    await card.evaluate(node=>node.blur());await card.focus();assert.equal(await page.locator('[data-service-card-summary]').isVisible(),true);await page.locator('[data-service-card-summary]').evaluate(node=>{const r=node.getBoundingClientRect();{if(r.left<7||r.top<7||r.right>innerWidth-7||r.bottom>innerHeight-7)throw Error('Summary outside viewport');}node.style.pointerEvents='auto';const points=[[r.left+4,r.top+4],[r.right-4,r.bottom-4]];const visible=points.every(([x,y])=>node.contains(document.elementFromPoint(x,y)));node.style.pointerEvents='none';if(!visible)throw Error('Summary covered or clipped');});await page.screenshot({path:path.join(output,`summary-${mode}-${id}-${width}.png`),fullPage:true});await page.keyboard.press('Escape');assert.equal(await page.locator('[data-service-card-summary]').count(),0);await card.evaluate(node=>node.blur());await card.focus();await page.keyboard.press('Enter');rawCardClicks++;assert.equal(await page.evaluate(()=>window.cardClicks.length),rawCardClicks);
    }
    await page.screenshot({path:path.join(output,`calendar-${mode}-${width}.png`),fullPage:true});
   }

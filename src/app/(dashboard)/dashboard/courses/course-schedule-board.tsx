@@ -15,6 +15,7 @@ import {musicScheduleColors} from "@/lib/music-schedule-colors";
 import { courseClassPresentation } from "@/lib/course-class-presentation";
 
 import React from "react";
+import {ServiceCardSummary} from "@/components/admin/service-card-summary";
 import {RightSheet} from "@/components/admin/right-sheet";
 import {courseWeekOverlaps} from "@/lib/course-week-overlaps";
 import { scheduleLanes } from "@/lib/course-schedule-lanes";
@@ -319,6 +320,8 @@ function SessionCard({
   readOnly?: boolean;
 }) {
   const personnelText = useCoursePersonnelText();
+  const [summaryAnchor,setSummaryAnchor]=React.useState<HTMLElement|null>(null);
+  const closeSummary=React.useCallback(()=>setSummaryAnchor(null),[]);
   const copy = adaptiveCopy(session, templates, coaches, rooms, businessProfile, personnelText);
   const seats = openSeats(session);
   const musicDense = dense && businessProfile === "MUSIC";
@@ -360,7 +363,11 @@ function SessionCard({
     <>
     <button
       type="button"
-      onClick={onOpen}
+      onPointerEnter={event=>{if(session.service&&dense&&event.pointerType!=='touch')setSummaryAnchor(event.currentTarget);}}
+      onPointerLeave={closeSummary}
+      onFocus={event=>{if(session.service&&dense)setSummaryAnchor(event.currentTarget);}}
+      onBlur={closeSummary}
+      onClick={()=>{closeSummary();onOpen();}}
       tabIndex={session.sportsPalette&&session.previewFaded?-1:undefined}
       disabled={readOnly}
       className={`@container/week-card data-[week-card]:px-1 w-full rounded-md border text-left transition ${dense ? (weekPixelHeight!==undefined&&weekPixelHeight<40||serviceWeek&&(servicePixelHeight??0)<40)?"flex h-full items-center overflow-hidden px-1.5":"flex h-full items-start overflow-hidden px-1.5 py-0.5" : "p-2"} ${session.servicePalette?serviceCalendarPresentation(!!trialClass,rental,session.service?.status==='COMPLETED').card:session.sportsPalette?sportsCalendarPresentation(session).card:businessProfile === "MUSIC" ? tone.fill :"hover:border-primary-300 hover:bg-primary-50/40 border-earth-300 bg-white"} focus:outline-none focus:ring-1 focus:ring-primary-300 ${session.previewFaded ? session.sportsPalette?"opacity-40":"border-dashed bg-earth-50 [filter:saturate(.55)]" : ""}`}
@@ -492,13 +499,13 @@ function SessionCard({
       </>}
       </div>
     </button>
-    {session.service&&dense&&<div aria-hidden="true" data-service-card-summary className="pointer-events-none absolute bottom-full left-0 z-40 mb-1 hidden w-max max-w-72 space-y-1 rounded-lg border border-earth-200 bg-white p-3 text-sm leading-5 text-earth-900 shadow-lg group-hover/service-card:block group-focus-within/service-card:block">
+    {session.service&&dense&&summaryAnchor&&<ServiceCardSummary anchor={summaryAnchor} onClose={closeSummary}>
       <p className="font-semibold">{session.service.personName}</p><p>{session.nameSnapshot}</p>
       <p>{hhmm(session.startsAt)}–{hhmm(session.service.endsAt)} · {presentation.label}</p>
       <p>{copy.room} · {copy.coach}</p>
       {session.service.buffer>0&&<p>整理至 {hhmm(session.service.occupiedEndsAt)}</p>}
       <p>{session.service.paymentStatus}</p>
-    </div>}
+    </ServiceCardSummary>}
     </>
   );
 }
