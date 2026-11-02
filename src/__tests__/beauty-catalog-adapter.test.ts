@@ -1,5 +1,6 @@
 import {beforeEach,it,expect,vi} from 'vitest';
 const m=vi.hoisted(()=>({catalog:vi.fn(),plan:vi.fn(),location:vi.fn(),refresh:vi.fn()}));
+vi.mock('next/navigation',()=>({useRouter:()=>({refresh:m.refresh})}));
 vi.mock('@/server/actions/beauty-service-price',()=>({saveBeautyServicePrice:vi.fn()}));
 vi.mock('@/server/actions/beauty-native-plan',()=>({saveBeautyNativePlan:m.plan}));
 vi.mock('@/server/actions/beauty-native-service',()=>({saveBeautyNativeService:vi.fn()}));
@@ -8,7 +9,8 @@ vi.mock('@/server/actions/beauty',()=>({saveBeautyCatalog:m.catalog,saveBeautyLo
 vi.mock('@/app/(dashboard)/dashboard/courses/workspace',()=>({CourseWorkspace:()=>null}));
 vi.mock('@/app/(dashboard)/dashboard/courses/member-workspace',()=>({CourseMemberWorkspace:()=>null}));
 import {nativeBeautyPlan} from '@/lib/beauty/native-plan';
-import {createBeautyCatalogAdapter} from '@/components/beauty/catalog-adapter';
+import {createBeautyCatalogAdapter,BeautyCourseCatalog} from '@/components/beauty/catalog-adapter';
+import {nativeBeautyService} from '@/lib/beauty/native-service';
 import type {BeautyDashboardData} from '@/server/beauty/queries';
 const service={id:'service',revision:4,name:'做臉',category:'保養',duration:60,buffer:15,price:1000,trialPrice:500,active:true};
 const plan={chargeTechnicianRule:null,storeId:'store',expiryReminder:{enabled:false,days:[14,7]},id:'scheme',revision:3,name:'七次方案',sessions:7,price:6500,validDays:80,serviceIds:['service'],allowShared:true,customerPurchasable:false,active:true,lowBalanceEnabled:true,lowBalanceThreshold:2};
@@ -67,3 +69,11 @@ it.each([{lowBalanceEnabled:true,lowBalanceThreshold:null},{lowBalanceEnabled:fa
  expect(m.plan.mock.calls[0][0]).not.toHaveProperty('lowBalanceEnabled');expect(m.plan.mock.calls[0][0]).not.toHaveProperty('lowBalanceThreshold');
 });
 it('new charge mode keeps legacy advanced editing from changing global qualifications or using the old pricing writer',async()=>{const a=createBeautyCatalogAdapter('收費方式',{...data,chargeRulesActive:true},true,m.refresh);expect(a.form.canEditCoaches).toBe(false);expect(a.form.servicePricing).toBeUndefined();const value=a.form.values!({sportsMode:'LEGACY',subjectId:'service',name:plan.name,points:7,price:6500,validDays:80,coachIds:['forged'],isActive:true,allowShared:true,customerPurchasable:false},a.products[0]);expect(value).not.toHaveProperty('qualification');});
+
+it.each([{mode:'FIXED',value:180},{mode:'PERCENT',value:50,base:'LIST'},null])('service profile ignores compensation fields and preserves existing financial data: %j',defaultRate=>{
+ const original={...service,defaultRate};
+ const view=BeautyCourseCatalog({tab:'服務項目',data:{...data,services:[original],techs:[{id:'tech',serviceIds:['service']}],manage:{technician:true},access:{feeAccess:true}} as unknown as BeautyDashboardData,canEdit:true});
+ const form=new FormData();for(const [key,value] of Object.entries({name:'新名稱',category:'按摩',duration:'30',buffer:'5',active:'yes',sportsCompensationMode:'SHARE',sportsCompensationValue:'99'}))form.set(key,value);form.append('sportsCoachIds','tech');
+ const input=view.props.catalog.values(form,nativeBeautyService(original,['tech']));
+ expect(input.rule).toEqual({coachIds:['tech'],expectedCoachIds:['tech'],defaultRate});expect(input).not.toHaveProperty('price');expect(input).not.toHaveProperty('trialPrice');
+});

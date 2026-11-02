@@ -58,7 +58,7 @@ it('retains the same draft after an uncertain save and prevents closing until it
 it('groups prices before costs and keeps blank inheritance distinct from an explicit zero trial fee',async()=>{
  const save=vi.fn<BeautyChargePort['save']>().mockResolvedValue({success:true});
  mount({perChargeTechnicians:true,save},{...savedSingle,storeCost:300,trialPrice:750,trialStoreCost:150});
- expect([...document.querySelectorAll('[aria-label="價格與分帳"] input')].map(n=>n.getAttribute('name'))).toEqual(['price','trialPrice','storeCost','trialStoreCost']);
+ expect([...document.querySelectorAll('[aria-label="價格與分帳"] input')].map(n=>n.getAttribute('name'))).toEqual(['price','trialPrice','trialDuration','storeCost','trialStoreCost']);
  expect(document.querySelectorAll('[name="price"]')).toHaveLength(1);
  expect(document.querySelector('[data-charge-allocation]')?.textContent).toContain('一般服務：店家 $300／所屬店長 $700');
  expect(document.querySelector('[data-charge-allocation]')?.textContent).toContain('體驗：店家 $150／所屬店長 $600');
@@ -74,3 +74,13 @@ it('does not send trial fee fields for a multi-session plan',async()=>{
 });
 
 it('shows a readable validation message rather than a raw JSON array when no technician is selected',async()=>{mount({perChargeTechnicians:true,save:vi.fn()});fill('name','按摩');fill('price','1000');await submit();const message=document.querySelector('[role="alert"]')?.textContent??'';expect(message).toContain('至少');expect(message).not.toContain('"code"');expect(message).not.toContain('"path"');});
+
+it('keeps optional sections collapsed with summaries and preserves their saved values on a normal price edit',async()=>{
+ const save=vi.fn<BeautyChargePort['save']>().mockResolvedValue({success:true});
+ mount({perChargeTechnicians:true,save},{...savedSingle,storeCost:300,trialPrice:250,trialStoreCost:0,trialMinutes:30});
+ for(const selector of ['[data-charge-trial]','[data-charge-profit]','[data-charge-technicians]'])expect(document.querySelector<HTMLDetailsElement>(selector)!.open).toBe(false);
+ expect(document.querySelector('[data-charge-trial] summary')?.textContent).toContain('250');expect(document.querySelector('[data-charge-profit] summary')?.textContent).toContain('體驗店家 NT$ 0');expect(document.querySelector('[data-charge-technicians] summary')?.textContent).toContain('已選 1 位');
+ expect(document.querySelector('select[aria-label="收費類型"]')).toBeNull();expect(document.querySelector('select[aria-label="服務項目"]')).toBeNull();
+ fill('price','1100');await submit();expect(save).toHaveBeenCalledWith(expect.objectContaining({price:1100,storeCost:300,trialPrice:250,trialStoreCost:0,trialMinutes:30,technicianIds:['t']}));
+});
+it('opens technician choices when saving without a selection',async()=>{mount({perChargeTechnicians:true,save:vi.fn()});fill('name','按摩');fill('price','1000');await submit();expect(document.querySelector<HTMLDetailsElement>('[data-charge-technicians]')!.open).toBe(true);expect(document.querySelector('[role="alert"]')?.textContent).toContain('至少');});

@@ -1,4 +1,5 @@
 "use client";
+import {BeautyMoveDialog} from "./move-dialog";
 import {SportsMoveConfirm} from '@/app/(dashboard)/dashboard/courses/sports-move-confirm';
 import type {CourseMoveClipboard} from '@/app/(dashboard)/dashboard/courses/course-schedule-board';
 import {readBeautyNativeCalendar} from '@/lib/beauty/native-calendar';
@@ -104,6 +105,7 @@ export function BeautyDashboard({
   const [moneyPanel, updateMoneyPanel] = useState<{
       kind: "collect" | "refund" | "card" | "move" | "link";
       ids: string[];
+      initialCharges?:import('@/server/beauty/service-charges').ServiceCharge[];
     } | null>(null);
   const [pendingId,setPendingId]=useState<string|null>(null),[syncNeeded,setSyncNeeded]=useState(false);
   useCourseDraftGuard(false,identityBusy||collectionBusy||!!pendingId||(pending&&!!(moneyPanel||statusDraft)));
@@ -213,8 +215,8 @@ export function BeautyDashboard({
       {tab==='班表'&&<BeautyScheduleWorkspace suspended={!!(listOpen||selectedId||detailId||moneyPanel||statusDraft||booking||rental)||!!(calendarSync?.base===incoming&&calendarSync.pending)} cashbookShortcut={cashbookShortcut} move={cut?{clipboard:cut.clipboard,onPaste:setPaste,onCancel:()=>{setCut(null);setPaste(null);}}:undefined} data={data} slug={slug} onLoaded={value=>setCalendarState({base:incoming,value})} onOpen={id=>id.startsWith("rental:")?(data.access.customerAccess?setRental({id:id.slice(7)}):setError("沒有檢視租借顧客資料的權限")):setSelectedId(id)} onRoster={()=>setListOpen(true)} onDateChange={date=>{++calendarGeneration.current;setCalendarSync(null);if(date.slice(0,7)===data.date.slice(0,7))setCalendarState(old=>{const current=old?.base===incoming?old.value:incoming;return current.date===date?old:{base:incoming,value:{date,calendar:current.calendar,items:current.items,calendarDays:current.calendarDays,rentals:current.rentals,rosterSnapshots:current.rosterSnapshots}};});const q=new URLSearchParams(window.location.search);q.set('date',date);window.history.replaceState(null,'','?'+q);}} readOnly={readOnly}/>}
       {(listOpen||selectedId)&&<RightSheet open={(!moneyPanel||moneyPanel.kind==='collect')&&!statusDraft&&!detailId} presentation="centered" className="fitness-management-editor" fitContent width={1200} labelledById="beauty-roster-title" closeOnEscape={!pending&&!rosterBusy&&!pendingId&&!collectionBusy} onClose={()=>closeRoster()}>
       <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-primary-50/60 px-4"><div className="flex items-center gap-3">{selectedId&&listOpen&&<button className={button} disabled={pending} onClick={()=>closeRoster(true)}>返回清單</button>}<h2 id="beauty-roster-title" className="font-semibold">預約清單</h2></div><button className={button} disabled={pending||!!pendingId||collectionBusy} onClick={()=>closeRoster()}>關閉</button></header>
-      <section className="flex min-h-0 flex-1 flex-col p-4" aria-label="預約清單">{error&&<p role="alert" className="text-sm text-red-700">{error}</p>}{syncNeeded&&<button type="button" className={button} disabled={!!pendingId} onClick={()=>void syncRoster()}>重新讀取核對</button>}<BeautyNativeRoster allowPreparedSnapshot={data.rosterSnapshots!==invalidatedRosterSnapshots} onSnapshotInvalidated={()=>setInvalidatedRosterSnapshots(data.rosterSnapshots)} onCommitted={()=>void syncCalendar(data.date,true)} collectionRecoveryEnabled={collectionRecoveryEnabled} suspended={!!detailId||!!statusDraft||!!moneyPanel} onCut={cutBooking} pendingId={pendingId} snapshot={rosterSnapshot} busy={pending||!!pendingId||syncNeeded||collectionBusy} data={data} bookingId={selectedId} readOnly={readOnly} onBusyChange={setRosterBusy} onAttendance={attendance} onStatus={status} onMoney={(kind,ids)=>{if(!pending&&!pendingId&&!syncNeeded&&!mutationLock.current)setMoneyPanel({kind,ids});}} onCustomer={setDetailId}/></section></RightSheet>}
-      {moneyPanel?.kind==='collect'&&<BeautyCollectionDialog ids={moneyPanel.ids} storeId={data.storeId} collectionRecoveryEnabled={collectionRecoveryEnabled&&!readOnly} canDiscount={!readOnly&&!!data.manage.discount} onGuard={onCollectionGuard} onClose={closeMoney} onSaved={()=>{setMoneyPanel(null);toast.success('已更新帳務');void syncRoster();}}/>}
+      <section className="flex min-h-0 flex-1 flex-col p-4" aria-label="預約清單">{error&&<p role="alert" className="text-sm text-red-700">{error}</p>}{syncNeeded&&<button type="button" className={button} disabled={!!pendingId} onClick={()=>void syncRoster()}>重新讀取核對</button>}<BeautyNativeRoster allowPreparedSnapshot={data.rosterSnapshots!==invalidatedRosterSnapshots} onSnapshotInvalidated={()=>setInvalidatedRosterSnapshots(data.rosterSnapshots)} onCommitted={()=>void syncCalendar(data.date,true)} collectionRecoveryEnabled={collectionRecoveryEnabled} suspended={!!detailId||!!statusDraft||!!moneyPanel} onCut={cutBooking} pendingId={pendingId} snapshot={rosterSnapshot} busy={pending||!!pendingId||syncNeeded||collectionBusy} data={data} bookingId={selectedId} readOnly={readOnly} onBusyChange={setRosterBusy} onAttendance={attendance} onStatus={status} onMoney={(kind,ids,initialCharges)=>{if(!pending&&!pendingId&&!syncNeeded&&!mutationLock.current)setMoneyPanel({kind,ids,initialCharges});}} onCustomer={setDetailId}/></section></RightSheet>}
+      {moneyPanel?.kind==='collect'&&<BeautyCollectionDialog initialCharges={moneyPanel.initialCharges} ids={moneyPanel.ids} storeId={data.storeId} collectionRecoveryEnabled={collectionRecoveryEnabled&&!readOnly} canDiscount={!readOnly&&!!data.manage.discount} onGuard={onCollectionGuard} onClose={closeMoney} onSaved={()=>{setMoneyPanel(null);toast.success('已更新帳務');void syncRoster();}}/>}
       {cut&&paste&&<SportsMoveConfirm key={cut.requestKey+JSON.stringify(paste)} clipboard={cut.clipboard} seed={paste} rooms={data.locations.filter(l=>l.isActive)} coaches={data.techs.filter(t=>t.active).map(t=>({id:t.id,displayName:t.name}))} onClose={()=>setPaste(null)} source={{save:async target=>moveBeautyAppointment('manager',{id:cut.clipboard.sessionId,revision:cut.revision,requestKey:cut.requestKey,date:target.date,time:target.time,technicianId:target.coachId,locationId:target.roomId,reason:'班表剪下貼上改期'}),read:()=>readBeautyMoveResult(cut.clipboard.sessionId)}} onSaved={date=>{setPaste(null);setCut(null);toast.success('已改期');void syncCalendar(date);}}/>}
       {tab==='顧客管理'&&<BeautyNativeCustomerWorkspace data={data} readOnly={readOnly} planPurchaseRecoveryEnabled={planPurchaseRecoveryEnabled} collectionRecoveryEnabled={collectionRecoveryEnabled}/>}
       {tab==='顧客經營'&&careContent}
@@ -246,7 +248,8 @@ export function BeautyDashboard({
       {moneyPanel?.kind==='card'&&<BeautyNativeCustomerWorkspace key={moneyPanel.ids[0]} data={data} readOnly={readOnly} customerId={moneyPanel.ids[0]} initialAction="assign" panelOnly planPurchaseRecoveryEnabled={planPurchaseRecoveryEnabled} collectionRecoveryEnabled={collectionRecoveryEnabled} rosterSessionId={rosterSession} onPurchasedRoster={snapshot=>{setInvalidatedRosterSnapshots(data.rosterSnapshots);void syncCalendar(data.date,true);if(snapshot&&snapshot.sessionId===activeRoster.current){setRosterSnapshot(snapshot);setSyncNeeded(false);}else{window.dispatchEvent(new Event("customer-search-invalidated"));if(!snapshot)void syncRoster();}}} onClose={closeMoney}/>}
       {moneyPanel?.kind==='link'&&(()=>{const b=data.items.find(b=>b.id===moneyPanel.ids[0]);return b&&<RightSheet open presentation="centered" fitContent width={700} labelledById="beauty-identity-title" closeOnEscape={!identityBusy} onClose={closeMoney}><header className="flex items-center justify-between gap-2 border-b p-4"><h2 id="beauty-identity-title" className="font-semibold">補顧客資料 · {b.personName} · {b.serviceName}</h2><button type="button" className={button} disabled={identityBusy} onClick={closeMoney}>關閉</button></header><section className="p-4"><CompanionSlot displayPosition={Number(/^同行者 (\d+)$/.exec(b.personName)?.[1]??1)+1} bookingId={b.id} slot={{position:2,revision:b.revision,customerId:b.customerId,name:null}} embedded canEdit={!readOnly&&data.manage.update&&data.access.customerAccess} canCreate={data.manage.customer} blocked={pending} onBusy={setIdentityBusy} onUpdated={()=>{setMoneyPanel(null);router.refresh();}} source={{scope:'beauty-companion-phone',find:findBeautyCompanionByPhone,attach:attachBeautyCompanion,create:createBeautyCompanion}}/></section></RightSheet>;})()}
 
-      {moneyPanel && moneyPanel.kind!=='collect' && moneyPanel.kind!=='card' && moneyPanel.kind!=='link' && (
+      {moneyPanel?.kind==='move'&&(()=>{const appointment=data.items.find(row=>row.id===moneyPanel.ids[0]);return appointment&&<BeautyMoveDialog key={appointment.id} startsAt={appointment.startsAt} date={data.date} technicians={data.techs} locations={data.locations} pending={pending} error={error} onClose={closeMoney} onSubmit={input=>run(()=>moveBeautyAppointment('manager',{requestKey:moneyRequest,id:appointment.id,revision:appointment.revision,...input}),()=>{setSelectedId(null);setListOpen(false);const query=new URLSearchParams(params.toString());query.set('tab','班表');query.set('date',input.date);query.set('bookingId',appointment.id);router.push(`?${query}`);})}/>;})()}
+      {moneyPanel && moneyPanel.kind!=='collect' && moneyPanel.kind!=='card' && moneyPanel.kind!=='link' && moneyPanel.kind!=='move' && (
         <RightSheet
           open
           presentation="centered"
@@ -274,22 +277,7 @@ export function BeautyDashboard({
                     reason: note,
                   }),
                 );
-              if (moneyPanel.kind === "move") {
-                const b = data.items.find((b) => b.id === moneyPanel.ids[0])!;
-                run(() =>
-                  moveBeautyAppointment("manager", {
-                    requestKey,
-                    id: b.id,
-                    revision: b.revision,
-                    date: f.get("date"),
-                    time: f.get("time"),
-                    technicianId: f.get("technicianId") || null,
-                    locationId: f.get("locationId") || null,
-                    reason: note,
-                  }),
-                  ()=>{setSelectedId(null);setListOpen(false);const query=new URLSearchParams(params.toString());query.set('tab','班表');query.set('date',String(f.get('date')));query.set('bookingId',b.id);router.push(`?${query}`);},
-                );
-              }
+
             }}
           >
             <h2 id="beauty-money-title">
@@ -302,47 +290,7 @@ export function BeautyDashboard({
               }
             </h2>
             {moneyPanel.kind === "refund" && <label className="block">金額<input required className={field} type="number" min={1} name="amount" /></label>}
-            {moneyPanel.kind === "move" && (
-              <>
-                <label>
-                  日期
-                  <input
-                    type="date"
-                    required
-                    className={field}
-                    name="date"
-                    defaultValue={data.date}
-                  />
-                </label>
-                <label>
-                  時間
-                  <input type="time" required className={field} name="time" />
-                </label>
-                <label>
-                  技師
-                  <select className={field} name="technicianId">
-                    <option value="">保留偏好，自動安排</option>
-                    {data.techs.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  位置
-                  <select className={field} name="locationId">
-                    <option value="">自動安排</option>
-                    {data.locations.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </>
-            )}
-            {moneyPanel.kind !== "move" && (
+            {(
               <label>
                 付款方式
                 <select className={field} name="method">

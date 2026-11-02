@@ -262,7 +262,7 @@ function adaptiveCopy(
 export function ServiceCalendarLegend(){return <div aria-label="預約型態圖例" className="flex flex-wrap items-center gap-x-5 gap-y-2 py-1 text-sm text-earth-700">{[[false,false],[true,false],[false,true]].map(([trial,rental])=>{const p=serviceCalendarPresentation(trial,rental);return <span key={p.label} className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap"><i aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${p.dot}`}/>{p.label}</span>;})}</div>;}
 function ServiceCleanup({session,minuteHeight}:{session:Session;minuteHeight:number}){
  if(!session.service||session.service.buffer<=0)return null;
- return <div aria-label={`整理至 ${hhmm(session.service.occupiedEndsAt)}`} className="pointer-events-none absolute left-0 right-0 top-full overflow-hidden border border-earth-200 text-[11px] text-earth-600" style={{marginTop:2,height:Math.max(8,session.service.buffer*minuteHeight-2),background:'repeating-linear-gradient(135deg,#f5f5f4,#f5f5f4 5px,#e7e5e4 5px,#e7e5e4 7px)'}}>整理至 {hhmm(session.service.occupiedEndsAt)}</div>;
+ return <div aria-label={`整理至 ${hhmm(session.service.occupiedEndsAt)}`} className="pointer-events-none absolute left-0 right-0 top-full overflow-hidden border border-earth-200" style={{marginTop:2,height:Math.max(8,session.service.buffer*minuteHeight-2),background:'repeating-linear-gradient(135deg,#f5f5f4,#f5f5f4 5px,#e7e5e4 5px,#e7e5e4 7px)'}}><span className="sr-only">整理至 {hhmm(session.service.occupiedEndsAt)}</span></div>;
 }
 
 /** Weekly cards show a short summary; the button opens complete booking details. */
@@ -357,6 +357,7 @@ function SessionCard({
   const serviceWeekDescription=serviceWeek&&session.service?[`${hhmm(session.startsAt)}–${hhmm(session.service.endsAt)}`,session.service.personName,session.nameSnapshot,copy.coach,copy.room,({RESERVED:'已預約',COMPLETED:'已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[session.service.status],session.service.paymentStatus,session.service.groupLabel,session.service.groupProgress].filter(Boolean).join(' · '):undefined;
   const musicContext = businessProfile === "MUSIC" ? [teacherState, substitute ? `代課${originalCoach ? `${personnelText(" · 原老師 ")}${originalCoach}` : ""}` : moved ? "調課" : changed ? "異動" : "", fixed && session.isBiweekly ? "隔週" : fixed && session.previewFrequencyUnknown ? "固定" : "", destination ? `→ ${hhmm(session.previewDestinationStartsAt!)}` : ""].filter(Boolean).join(" · ") : teacherState;
   return (
+    <>
     <button
       type="button"
       onClick={onOpen}
@@ -374,7 +375,7 @@ function SessionCard({
     >
       <div data-schedule-card-content className={`min-w-0 w-full ${dense && !brief ? "will-change-transform" : ""}`}>
       {session.service ? serviceWeek?<ServiceWeekCardContent session={session} height={servicePixelHeight??96} resource={showWeekResource?`${copy.room} · ${copy.coach}`:resourceView==='coach'?copy.room:copy.coach}/>:<div className="space-y-0.5 text-sm leading-5">
-        {servicePixelHeight!==undefined&&servicePixelHeight<44?<div className="flex items-center gap-1"><span className="shrink-0 tabular-nums">{hhmm(session.startsAt)}</span><strong className="min-w-0 flex-1 truncate">{session.service.personName}</strong><span>·</span><strong className="min-w-0 flex-1 truncate">{session.nameSnapshot}</strong>{session.service.status==='COMPLETED'&&<span className="ml-auto">✓</span>}</div>:<>
+        {servicePixelHeight!==undefined&&servicePixelHeight<44?<div className="flex items-center gap-1"><span className="shrink-0 tabular-nums">{hhmm(session.startsAt)}–{hhmm(session.service.endsAt)}</span><strong className="min-w-0 flex-1 truncate">{session.service.personName}</strong><span>·</span><strong className="min-w-0 flex-1 truncate">{session.nameSnapshot}</strong>{session.service.status==='COMPLETED'&&<span className="ml-auto">✓</span>}</div>:<>
         <div className="flex items-center justify-between gap-1 text-[13px] tabular-nums"><span>{hhmm(session.startsAt)}–{hhmm(session.service.endsAt)}</span><span>{servicePixelHeight!==undefined&&servicePixelHeight<76?<span className="inline-flex items-center gap-1">{session.service.status==='COMPLETED'?<span aria-label="已完成">✓</span>:session.service.status==='NO_SHOW'?'未到':null}{session.service.paymentStatus&&<span className="rounded border border-current/20 px-1 text-xs">{session.service.paymentStatus}</span>}</span>:({RESERVED:'已預約',COMPLETED:'✓ 已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[session.service.status]}</span></div>
         {servicePixelHeight!==undefined&&servicePixelHeight<76?<div className="flex min-w-0 items-center gap-1"><strong className="min-w-0 flex-1 truncate">{session.service.personName}</strong><span>·</span><strong className="min-w-0 flex-1 truncate">{session.nameSnapshot}</strong></div>:<><div className="flex min-w-0 items-center justify-between gap-1"><strong className="min-w-0 truncate">{session.nameSnapshot}</strong>{session.service.paymentStatus&&<span className="shrink-0 rounded border border-current/20 px-1 text-xs">{session.service.paymentStatus}</span>}</div><span className="block truncate">{session.service.personName} · {resourceView === 'coach' ? copy.room : copy.coach}</span>{session.service.groupLabel&&<span className="inline-block text-xs">{session.service.groupLabel} · {session.service.groupProgress}</span>}</>}
         {session.service.buffer>0&&!dense&&<span className="block text-xs text-earth-500">整理至 {hhmm(session.service.occupiedEndsAt)}</span>}
@@ -491,6 +492,14 @@ function SessionCard({
       </>}
       </div>
     </button>
+    {session.service&&dense&&<div aria-hidden="true" data-service-card-summary className="pointer-events-none absolute bottom-full left-0 z-40 mb-1 hidden w-max max-w-72 space-y-1 rounded-lg border border-earth-200 bg-white p-3 text-sm leading-5 text-earth-900 shadow-lg group-hover/service-card:block group-focus-within/service-card:block">
+      <p className="font-semibold">{session.service.personName}</p><p>{session.nameSnapshot}</p>
+      <p>{hhmm(session.startsAt)}–{hhmm(session.service.endsAt)} · {presentation.label}</p>
+      <p>{copy.room} · {copy.coach}</p>
+      {session.service.buffer>0&&<p>整理至 {hhmm(session.service.occupiedEndsAt)}</p>}
+      <p>{session.service.paymentStatus}</p>
+    </div>}
+    </>
   );
 }
 
@@ -722,7 +731,7 @@ export function CourseScheduleBoard({
                   toLocalDateStr(new Date(session.rescheduledFromStartsAt)) === date &&
                   Number(hhmm(session.rescheduledFromStartsAt).slice(0, 2)) === hour);
                 return <div key={`${date}:${hour}`} className="relative border-b border-r border-earth-100 bg-white" style={{height:hourHeight}}>
-                  <div className="absolute inset-0 grid grid-rows-2">{["00","30"].map(minute => {
+                  <div className="absolute inset-0 z-0 grid grid-rows-2">{["00","30"].map(minute => {
                     const time = `${String(hour).padStart(2,"0")}:${minute}`;
                     const day = calendarDays?.[date];
                     const periods = normalizeAvailabilityPeriods(day ? day.periods : storePeriods);
@@ -751,13 +760,13 @@ export function CourseScheduleBoard({
                     const lane=weekLanes.get(group.id)??{lane:0,count:1};
                     const occupiedEnd=groupOccupationEnd(group);
                     const cleanupHeight=Math.max(0,(Date.parse(occupiedEnd)-Date.parse(group.endsAt))/60000*hourHeight/60);
-                    return <div key={group.id} className="absolute z-10" style={{left:`calc(${lane.lane*100/lane.count}% + 4px)`,width:`calc(${100/lane.count}% - 8px)`,top:Number(hhmm(group.startsAt).slice(3,5))*hourHeight/60+2,height:pixelHeight}}>
+                    return <div key={group.id} className="group/service-card absolute z-10 hover:z-30 focus-within:z-30" style={{left:`calc(${lane.lane*100/lane.count}% + 4px)`,width:`calc(${100/lane.count}% - 8px)`,top:Number(hhmm(group.startsAt).slice(3,5))*hourHeight/60+2,height:pixelHeight}}>
                       {group.sessions.length===1?<><SessionCard showWeekResource={allWeekResources} weekPixelHeight={pixelHeight} serviceWeek={serviceMode} servicePixelHeight={serviceMode?pixelHeight:undefined} session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView={resourceView} businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id]??0} readOnly={readOnly} onOpen={()=>openCard(session,date)}/><ServiceCleanup session={session} minuteHeight={hourHeight/60}/></>:<>
                         <button type="button" data-week-group={group.id} data-week-group-ids={group.sessions.map(row=>row.id).join(',')} aria-haspopup="dialog" aria-expanded={!!overlapSelection&&!detailOpen&&!!selectedGroup&&selectedGroup.id===group.id} aria-label={`${date} ${hhmm(group.startsAt)}–${hhmm(group.endsAt)}，共${groupCount(group.sessions)}，查看時段清單`} title={group.sessions.map(row=>`${hhmm(row.startsAt)} ${itemName(row)}`).join(' · ')} onClick={event=>{overlapTrigger.current=event.currentTarget;setOverlapSelection({ids:group.sessions.map(row=>row.id),date,startsAt:group.startsAt,endsAt:group.endsAt});}} className="flex h-full w-full flex-col justify-start overflow-hidden rounded-md border border-primary-300 bg-primary-50 px-1 py-0.5 text-left text-sm leading-4 text-primary-950 hover:bg-primary-100 focus-visible:outline-2 focus-visible:outline-primary-600">
                           <span className="flex w-full min-w-0 items-center gap-1"><span className="shrink-0 text-xs tabular-nums">{hhmm(group.startsAt)}</span><strong className="min-w-0 truncate">共{groupCount(group.sessions)}</strong><span aria-hidden="true" className="ml-auto">›</span></span>
                           {pixelHeight>=56?group.sessions.slice(0,2).map(row=><span key={row.id} className="block w-full truncate text-[13px]"><span className="tabular-nums">{hhmm(row.startsAt)}</span> {itemName(row)}</span>):pixelHeight>=38&&<span className="flex w-full min-w-0 gap-1">{group.sessions.slice(0,2).map(row=><span key={row.id} className="min-w-0 flex-1 truncate">{row.startsAt!==group.startsAt?`${hhmm(row.startsAt)} `:""}{itemName(row)}</span>)}</span>}
                         </button>
-                        {cleanupHeight>0&&<div aria-label={`整理至 ${hhmm(occupiedEnd)}`} className="pointer-events-none absolute left-0 right-0 top-full overflow-hidden border border-earth-200 text-[11px] text-earth-600" style={{marginTop:2,height:Math.max(8,cleanupHeight-2),background:'repeating-linear-gradient(135deg,#f5f5f4,#f5f5f4 5px,#e7e5e4 5px,#e7e5e4 7px)'}}>整理至 {hhmm(occupiedEnd)}</div>}
+                        {cleanupHeight>0&&<div aria-label={`整理至 ${hhmm(occupiedEnd)}`} className="pointer-events-none absolute left-0 right-0 top-full overflow-hidden border border-earth-200" style={{marginTop:2,height:Math.max(8,cleanupHeight-2),background:'repeating-linear-gradient(135deg,#f5f5f4,#f5f5f4 5px,#e7e5e4 5px,#e7e5e4 7px)'}}>整理至 {hhmm(occupiedEnd)}</div>}
                       </>}
                     </div>;
                   })}
@@ -1096,7 +1105,7 @@ export function CourseScheduleBoard({
                       className="relative border-b border-r border-earth-100" style={{height:hourHeight}}
                     >
                       {timelineDense && resource.id !== "__none" && (
-                        <div className="absolute inset-0 grid grid-rows-2">
+                        <div className="absolute inset-0 z-0 grid grid-rows-2">
                           {["00","30"].map((minute)=>{
                             const startTime=`${time.slice(0,2)}:${minute}`;
                              const duration=moveClipboard?.durationMinutes ?? (sportsNative?30:availabilityDuration);
@@ -1176,7 +1185,7 @@ export function CourseScheduleBoard({
                         {list.map((session) => (
                           <div
                             key={session.id}
-                            className={timelineDense ? `absolute left-1 right-1 z-10 ${sportsNative&&session.previewFaded?"pointer-events-none":"pointer-events-auto"}` : "pointer-events-auto"}
+                            className={timelineDense ? `group/service-card absolute left-1 right-1 z-10 hover:z-30 focus-within:z-30 ${sportsNative&&session.previewFaded?"pointer-events-none":"pointer-events-auto"}` : "pointer-events-auto"}
                             style={timelineDense ? {
                               left: `calc(${(dayLanes.get(session.id)?.lane ?? 0) * 100 / (dayLanes.get(session.id)?.count ?? 1)}% + 4px)`,
                               right: "auto",
