@@ -117,12 +117,12 @@ jobs:
       - run: npm ci
       - name: Exercise makeup reservation, attendance, cancellation, concurrency and isolation
         run: npx vitest run src/__tests__/course-student-makeup.pg.test.ts src/__tests__/music-leave-entitlement.pg.test.ts --maxWorkers=1 --reporter=default --reporter=json --outputFile=music-makeup-pg-results.json
-      - name: Require all eight makeup database tests without skips
+      - name: Require all nine makeup database tests without skips
         run: |
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
             const r = JSON.parse(readFileSync("music-makeup-pg-results.json", "utf8"));
-            if (!r.success || r.numTotalTests !== 8 || r.numPassedTests !== 8 || r.numPendingTests !== 0) throw new Error("All eight makeup database scenarios must pass without skips");
+            if (!r.success || r.numTotalTests !== 9 || r.numPassedTests !== 9 || r.numPendingTests !== 0) throw new Error("All nine makeup database scenarios must pass without skips");
           '
       - name: Exercise notification rescheduling and rollback against PostgreSQL
         run: npx vitest run src/__tests__/course-booking-notification.pg.test.ts --reporter=default --reporter=json --outputFile=course-notification-pg-results.json

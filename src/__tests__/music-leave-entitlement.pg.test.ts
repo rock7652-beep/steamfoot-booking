@@ -96,6 +96,18 @@ const stores:string[]=[];
   expect(await db!.coursePointCard.findUnique({where:{storeId_requestKey:{storeId:f.storeId,requestKey:'music-leave-makeup:'+next.id}}})).toMatchObject({remaining:1,expiresAt:new Date('2027-04-01T15:59:59.999Z')});
   expect(await db!.coursePurchase.findUnique({where:{id:f.purchase.id}})).toEqual(f.purchase);
  });
+ it('serializes concurrent leave retries into one binding, debit and makeup grant',async()=>{
+  const f=await fixture();
+  const result=await Promise.all([f.run(tx=>settleCourseBooking(tx,f.actor,f.booking.id,'STUDENT_LEAVE')),f.run(tx=>settleCourseBooking(tx,f.actor,f.booking.id,'STUDENT_LEAVE'))]);
+  expect(result[0].id).toBe(result[1].id);
+  expect(await db!.courseBooking.findUnique({where:{id:f.booking.id}})).toMatchObject({status:'CANCELLED',absenceKind:'STUDENT_LEAVE',bookingKind:'CARD',cardId:f.card.id,pointCost:1});
+  expect(await db!.coursePointCard.findUnique({where:{id:f.card.id}})).toMatchObject({remaining:7});
+  expect(await db!.coursePointEntry.count({where:{bookingId:f.booking.id,kind:'RESERVE'}})).toBe(1);
+  expect(await db!.coursePointEntry.count({where:{bookingId:f.booking.id,kind:'DEBIT'}})).toBe(1);
+  const coupon=await db!.coursePointCard.findUniqueOrThrow({where:{storeId_requestKey:{storeId:f.storeId,requestKey:'music-leave-makeup:'+f.booking.id}}});
+  expect(coupon.remaining).toBe(1);
+  expect(await db!.coursePointEntry.count({where:{cardId:coupon.id,kind:'GRANT'}})).toBe(1);
+ });
  it('rolls binding and reservation entries back when leave settlement is rejected',async()=>{
   const f=await fixture();await db!.courseSession.update({where:{id:f.sessions[0].id},data:{teacherAttendance:'LEAVE'}});
   await expect(f.run(tx=>settleCourseBooking(tx,f.actor,f.booking.id,'STUDENT_LEAVE'))).rejects.toThrow('教師未授課');
