@@ -1,3 +1,4 @@
+import {readBeautyPublicCalendar} from "./public-calendar";
 import {beautyRentalSnapshots} from './rental-snapshots';
 import {beautyReadStep} from './read-timing';
 import {preloadBeautyCalendarRosters} from "./calendar-rosters";
@@ -42,7 +43,8 @@ export async function publicBeautyCatalog(slug: string) {
   });
   if (!store) throw new AppError("NOT_FOUND", "找不到店家");
   await requireBeauty(store.id);
-  return privateBeautyCatalog(store);
+  const [catalog,publicCalendar]=await Promise.all([privateBeautyCatalog(store),readBeautyPublicCalendar(store.id)]);
+  return {...catalog,publicCalendar};
 }
 // Only called after public or member access has verified this store.
 async function privateBeautyCatalog(store:{id:string;name:string;slug:string},work=false){

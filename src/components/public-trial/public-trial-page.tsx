@@ -21,8 +21,8 @@ export function PublicTrialVisit({ mode, address, mapUrl, contactUrl }: PublicTr
 }
 
 /** Shared public-facing shell; prices/content come from this store's catalog. */
-export function PublicTrialPage({ mode, storeName, prices, durationLabel, children, ...place }: {
-  mode: "sports" | "beauty"; storeName: string; prices: number[]; durationLabel?: string; children: ReactNode;
+export function PublicTrialPage({ mode, storeName, prices, durationLabel, children, deferVisit=false, ...place }: {
+  mode: "sports" | "beauty"; storeName: string; prices: number[]; durationLabel?: string; children: ReactNode; deferVisit?:boolean;
 } & PublicTrialPlace) {
   const min = prices.length ? Math.min(...prices) : null, max = prices.length ? Math.max(...prices) : null;
   const price = min === null ? "選擇項目後顯示" : `NT$ ${min.toLocaleString("zh-TW")}${min !== max ? " 起" : ""}`;
@@ -43,13 +43,13 @@ export function PublicTrialPage({ mode, storeName, prices, durationLabel, childr
         <div className={styles.sectionTitle}><h2>預約你的第一次體驗</h2><span>{mode === "sports" ? "課程與時段" : "服務與時段"}</span></div>
         {children}
       </main>
-      <div className={styles.footerContent}><PublicTrialVisit mode={mode} {...place} />
+      <div className={styles.footerContent}>{!deferVisit&&<><PublicTrialVisit mode={mode} {...place} />
         <section className={styles.faq} aria-label="預約常見問題"><h2>預約前，你可能想知道</h2>
           <details><summary>預約成功後，要做什麼？</summary><p>保留頁面上的預約資訊，依約到店即可。付款方式與服務注意事項請向門市確認。</p></details>
           <details><summary>臨時需要改期或取消？</summary><p>請依預約頁的店家規則操作，或透過本店官方 LINE 聯繫門市。需要確認預約結果時，請勿重複送出新預約。</p></details>
           <details><summary>沒有看到合適的時段？</summary><p>可選擇其他日期或項目，或直接聯繫門市。未開放的時段不代表門市休息，實際安排以門市回覆為準。</p></details>
         </section>
-        <footer className={styles.footer}><span>{storeName}</span><span>預約服務由蒸管家提供</span><a href="/privacy">隱私權政策</a></footer>
+        </>}<footer className={styles.footer}><span>{storeName}</span><span>預約服務由蒸管家提供</span><a href="/privacy">隱私權政策</a></footer>
       </div>
     </div>
   </div>;

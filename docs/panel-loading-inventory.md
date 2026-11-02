@@ -14,6 +14,7 @@
 | 美業核對收款／恢復狀態 | beauty-service-collection → collection-read POST → 原 quote／intent read | 名單隨同權限資料帶入完整收費摘要，付款方式立即可選；同一視窗直接採用已授權名單的完整報價；背景 panel reader TTL 0 核對，報價變動或錯誤即阻擋，既有未確認收款請求仍須先恢復核對。純讀取使用 READ ONLY／RepeatableRead，不排入 Store 寫入鎖；送出仍依版本、已收款及原請求核對。唯讀 HTTP 避免 Next Action layout 回傳，仍逐次核對店家／權限／功能／對象；寫入保留原 action。班表座標不作工作區重掛載識別，明確切換對象仍關閉舊財務視窗，晚到讀取不得回填 |
 | 預約詳情 | booking-detail-cache → client-read-cache | 先摘要／有限舊值，每次 authoritative revalidate；修改後失效 |
 | 蒸足新增／補課 | steam-booking-form | intent 在途預讀、TTL 0 完整表單（包含名額），提交後失效；切換日期亦讀取最新名額 |
+| 美業公開體驗日期與時段 | 第一頁確認服務與聯絡資料，第二頁點日期自動讀取時段；營業及特殊公休由已授權店家 catalog 投影為公開開放狀態，公休淡化不可選，不以滿額當公休。選日／返回取消舊讀取世代，失敗保留資料原頁重試；第三頁才核對到店與提醒資訊，送出仍沿用原後端資格、衝突與原請求檢查 |
 | 體驗新增 | trial-booking-form、steam-day-slots | 表單 intent 預讀；時段 TTL 0，日期／關閉世代保護 |
 | 一般顧客 | customer-detail | 清單姓名／電話／同門市標籤直接顯示，intent 預讀、15 秒快取；頁面 rows／pathname 修訂隔離、修改後失效，現有 request gate；摘要無寫入操作 |
 | SPA 顧客列表 | spa-customer-profile | 15 秒 bounded 快取，server rows 修訂及修改 callback 失效 |

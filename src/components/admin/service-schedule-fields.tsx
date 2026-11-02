@@ -7,8 +7,8 @@ import type {RentalModule} from '@/server/services/rental-module';
 export type ServiceRentalSource={module:RentalModule;rooms:RentalRoom[];customers:RentalCustomer[];permissions:RentalPermissions};
 type Guard={dirty:boolean;pending:boolean};
 /** Share the existing service and rental forms, preserving each draft when switching. */
-export function ServiceScheduleFields({source,rental,date,seed={},onGuard,onCreated}:{source:ServiceReservationSource;rental:ServiceRentalSource;date:string;seed?:{time?:string;roomId?:string;coachId?:string;customerId?:string;durationMinutes?:number};onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string,sessions?:import("@/app/(dashboard)/dashboard/courses/workspace").Session[])=>void}){
- const [mode,setMode]=useState<'service'|'trial'|'rental'>('service');
+export function ServiceScheduleFields({source,rental,date,seed={},onGuard,onCreated}:{source:ServiceReservationSource;rental:ServiceRentalSource;date:string;seed?:{serviceId?:string;isTrial?:boolean;time?:string;roomId?:string;coachId?:string;customerId?:string;durationMinutes?:number};onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string,sessions?:import("@/app/(dashboard)/dashboard/courses/workspace").Session[])=>void}){
+ const [mode,setMode]=useState<'service'|'trial'|'rental'>(seed.isTrial?'trial':'service');
  const [rentalOpened,setRentalOpened]=useState(false);
  const [serviceGuard,setServiceGuard]=useState<Guard>({dirty:false,pending:false});
  const [rentalGuard,setRentalGuard]=useState<Guard>({dirty:false,pending:false});

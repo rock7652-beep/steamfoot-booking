@@ -11,6 +11,7 @@ export type CalendarRosterSnapshots={storeId:string;details:Record<string,Course
 export type CourseRosterData=Omit<Detail,'roster'|'trial'|'customers'>&{customers?:Detail['customers'];roster:NativeRosterBooking[];trial:null;readVersion?:string};
 export type CourseRosterSource={
  header?:(rows:NativeRosterBooking[])=>ReactNode;
+ compactSingle?:boolean;
  confirmDiscard?:boolean;
  sync?:(id:string,version?:string)=>Promise<{success:true;version:string;unchanged:boolean;data?:CourseRosterData}|{success:false;error:string}>;
  readBlocked?:boolean;

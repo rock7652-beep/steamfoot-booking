@@ -14,6 +14,7 @@ import {useCourseDraftGuard} from "@/components/admin/use-course-draft-guard";
 import { toLocalDateStr } from "@/lib/date-utils";
 import type { PartyInput } from "@/lib/beauty/contracts";
 export type BeautyBookingCatalog = {
+  publicCalendar?:import("@/lib/beauty/public-calendar").BeautyPublicCalendar;
   sharedGoodsCatalog?:{revision:number;groups:import("@/lib/add-ons").AddOnGroup[]}|null;
   trialUsedServiceIds?:string[];
   policy?: {
