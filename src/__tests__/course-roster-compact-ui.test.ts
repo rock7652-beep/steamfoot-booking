@@ -733,6 +733,7 @@ it('records an unbound music leave without first marking attendance or inventing
  vi.stubGlobal('requestAnimationFrame',(callback:FrameRequestCallback)=>{callback(0);return 1;});
  const data=preparedRoster('deferred-leave');
  Object.assign(data.roster[0],{bookingKind:'UNPAID',cardId:null,pointCost:0,cardRemaining:null,planName:'待繳費',available:8});
+ const other={...data.roster[0],id:'other-learner',customerId:'other-customer',customerName:'另一位學員'};data.roster.push(other);
  const committed={...data.roster[0],status:'CANCELLED',absenceKind:'STUDENT_LEAVE',bookingKind:'CARD',cardId:'synthetic-card',pointCost:1,cardRemaining:7,leaveDeductsWithMakeup:true,sportsBalance:{remaining:7,available:7,cost:1,unit:'SESSION',planName:'十堂方案'}};
  let finish!:(value:unknown)=>void;m.status.mockReturnValue(new Promise(resolve=>{finish=resolve;}));
  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
@@ -749,9 +750,12 @@ it('records an unbound music leave without first marking attendance or inventing
   await act(async()=>{confirm.click();confirm.click();});
   expect(m.status).toHaveBeenCalledExactlyOnceWith({returnRoster:true,bookingId:'deferred-leave',status:'STUDENT_LEAVE'});
   expect(m.correction).not.toHaveBeenCalled();
+  expect(host.querySelector<HTMLButtonElement>('button[aria-label="另一位學員：點名"]')!.disabled).toBe(false);
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="另一位學員 更多操作"]')!.click());
+  expect(document.querySelector('[role="menu"]')).not.toBeNull();
   expect(host.textContent?.replace(/\s/g,'')).toContain('本期剩餘8堂');
   expect(host.textContent).not.toContain('已記錄 已預讀學員 請假');
-  await act(async()=>finish({success:true,rosterSnapshot:{sessionId:'policy-leave',data:{roster:[committed],teacherNote:'',teacherAttendance:'SCHEDULED',teacherAttendanceReason:'',waitlist:[],waitlistStopMinutes:0}}}));
+  await act(async()=>finish({success:true,rosterSnapshot:{sessionId:'policy-leave',data:{roster:[committed,other],teacherNote:'',teacherAttendance:'SCHEDULED',teacherAttendanceReason:'',waitlist:[],waitlistStopMinutes:0}}}));
   expect(host.textContent?.replace(/\s/g,'')).toContain('本期剩餘7堂');
   expect(host.textContent).toContain('請假・扣堂另補');
  }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}

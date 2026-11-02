@@ -81,6 +81,7 @@ const primaryButton =
   "min-h-10 rounded-lg border border-primary-700 bg-primary-700 px-3 py-1.5 text-sm text-white disabled:opacity-50";
 const field =
   "min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
+type ConfirmedRosterUpdate={bookingId:string;status:"ATTENDED"|"NO_SHOW"|"CANCELLED"|"RESERVED";absenceKind?:string|null};
 
 type RosterView = "roster" | "member-booking" | "trial-booking";
 
@@ -544,14 +545,15 @@ export function CourseRoster({
   function run(
     action: () => Promise<{ success: boolean; error?: string;rosterSnapshot?:import('@/lib/course-purchase-roster').CoursePurchaseRosterSnapshot }>,
     successMessage = "已完成",
-    confirmedUpdates?: {bookingId:string;status:"ATTENDED"|"NO_SHOW"|"CANCELLED"|"RESERVED";absenceKind?:string|null} | {bookingId:string;status:"ATTENDED"|"NO_SHOW"|"CANCELLED"|"RESERVED";absenceKind?:string|null}[],
+    confirmedUpdates?: ConfirmedRosterUpdate | ConfirmedRosterUpdate[] | {bookingId:string;readCommitted:true},
     teacherStatus?:"SCHEDULED"|"LEAVE"|"NO_SHOW",
     sessionCancelled = false,
   ) {
     const scope = operationScope.current;
-    const updates = confirmedUpdates ? Array.isArray(confirmedUpdates) ? confirmedUpdates : [confirmedUpdates] : [];
-    const quickAttendance = view === "roster" && updates.length === 1 && !teacherStatus;
-    const bookingId = quickAttendance ? updates[0].bookingId : null;
+    const targets = confirmedUpdates ? Array.isArray(confirmedUpdates) ? confirmedUpdates : [confirmedUpdates] : [];
+    const updates = targets.filter((item):item is ConfirmedRosterUpdate=>"status" in item);
+    const quickAttendance = view === "roster" && targets.length === 1 && !teacherStatus;
+    const bookingId = quickAttendance ? targets[0].bookingId : null;
     if (scope.locked || scope.uncertain ||
         (bookingId ? scope.inFlight.has(bookingId) || !musicLayout && scope.inFlight.size > 0 : scope.inFlight.size > 0)) return;
     onSnapshotInvalidated?.();
@@ -559,7 +561,7 @@ export function CourseRoster({
     else scope.locked = true;
     const sequence = ++scope.sequence;
     const isCurrent = () => rosterMounted.current && scope === operationScope.current;
-    const affectedIds = teacherStatus ? roster.map(row => row.id) : updates.map(row => row.bookingId);
+    const affectedIds = teacherStatus ? roster.map(row => row.id) : targets.map(row => row.bookingId);
     const feedback = (state: SaveState) => {
       if (!isCurrent()) return;
       setOperationFeedback(previous => {
@@ -1702,7 +1704,7 @@ export function CourseRoster({
       )}
 
       {studentLeave && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label="學員請假">
-        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"><h3 className="text-lg font-semibold">記錄 {studentLeave.name} {musicLayout ? "請假" : "缺席・不扣堂"}？</h3><p className="mt-2 text-sm text-earth-600">{studentLeave.policyBased ? "依目前有效方案與店家請假規則處理扣堂及補課；送出完成後，請核對剩餘堂數與補課結果。" : studentLeave.deductSeparate ? "本堂扣除一堂普通課，另給一堂補課；補課沿用原方案期限，請從有效方案選擇「補課」。" : musicLayout && classType === "GROUP" ? personnelText("團體課請假會扣一堂且不補課；保留請假日期、累計缺課，老師照原課計費。") : "保留本堂請假日期與紀錄；未扣堂，可在方案期限內另約補課，並計入累計缺課次數。"}</p><div className="mt-5 flex justify-end gap-2"><button className={button} onClick={()=>setStudentLeave(null)}>返回</button><button className={primaryButton} disabled={pending} onClick={()=>{const booking=studentLeave;setStudentLeave(null);run(()=>updateCourseBookingStatus({returnRoster:!source,bookingId:booking.id,status:"STUDENT_LEAVE"}),`已記錄 ${booking.name} 請假`,booking.policyBased?undefined:{bookingId:booking.id,status:"CANCELLED",absenceKind:!booking.deductSeparate && musicLayout && classType==="GROUP"?"GROUP_LEAVE_FORFEITED":"STUDENT_LEAVE"});}}>確認請假</button></div></div>
+        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"><h3 className="text-lg font-semibold">記錄 {studentLeave.name} {musicLayout ? "請假" : "缺席・不扣堂"}？</h3><p className="mt-2 text-sm text-earth-600">{studentLeave.policyBased ? "依目前有效方案與店家請假規則處理扣堂及補課；送出完成後，請核對剩餘堂數與補課結果。" : studentLeave.deductSeparate ? "本堂扣除一堂普通課，另給一堂補課；補課沿用原方案期限，請從有效方案選擇「補課」。" : musicLayout && classType === "GROUP" ? personnelText("團體課請假會扣一堂且不補課；保留請假日期、累計缺課，老師照原課計費。") : "保留本堂請假日期與紀錄；未扣堂，可在方案期限內另約補課，並計入累計缺課次數。"}</p><div className="mt-5 flex justify-end gap-2"><button className={button} onClick={()=>setStudentLeave(null)}>返回</button><button className={primaryButton} disabled={pending} onClick={()=>{const booking=studentLeave;setStudentLeave(null);run(()=>updateCourseBookingStatus({returnRoster:!source,bookingId:booking.id,status:"STUDENT_LEAVE"}),`已記錄 ${booking.name} 請假`,booking.policyBased?{bookingId:booking.id,readCommitted:true}:{bookingId:booking.id,status:"CANCELLED",absenceKind:!booking.deductSeparate && musicLayout && classType==="GROUP"?"GROUP_LEAVE_FORFEITED":"STUDENT_LEAVE"});}}>確認請假</button></div></div>
       </div>}
       {teacherDialog && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label={personnelText("老師出勤紀錄")}>
         <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"><h3 className="text-lg font-semibold">{teacherDialog === "SCHEDULED" ? "恢復授課" : `記錄${personnelText(musicLayout ? personnelText("教師") : personnelText("教練"))}${teacherDialog === "NO_SHOW" ? "曠課" : "請假"}`}</h3><p className="mt-2 text-sm text-earth-600">{teacherDialog === "SCHEDULED" ? `恢復全班 ${count} 位學員為待點名，不自動重扣額度；原始操作紀錄保留。` : `影響全班 ${count} 位學員：返還本堂已扣額度、釋放預留，不計學員缺席；體驗收款保留。`}</p>{teacherDialog !== "SCHEDULED" && <textarea className={`${field} mt-3 min-h-20`} placeholder="原因（選填）" value={teacherReason} maxLength={500} onChange={event=>setTeacherReason(event.target.value)} />}<div className="mt-5 flex justify-end gap-2"><button className={button} onClick={()=>setTeacherDialog(null)}>返回</button><button className={primaryButton} disabled={pending} onClick={()=>{const status=teacherDialog;setTeacherDialog(null);run(()=>markCourseTeacherAttendance({sessionId,status,reason:teacherReason,expectedStatus:session?.teacherAttendance ?? "SCHEDULED"}),musicLayout?personnelText("教師出勤紀錄已更新"):personnelText("教練出勤紀錄已更新"),undefined,status);}}>儲存</button></div></div>

@@ -617,7 +617,11 @@ export async function updateCourseBookingStatus(input: unknown) {
 
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
     if(!(await (await import("@/lib/sports-native-preview")).sportsNativePreview(actor.storeId))){
-      if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
+      // The roster consumes an independently authorized post-commit snapshot.
+      // Invalidate other views after responding, without attaching a full
+      // dashboard render to this single-row leave transaction.
+      if (!data.member && data.returnRoster && data.status === "STUDENT_LEAVE") after(refresh);
+      else if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
       else refresh();
     }
     const rosterSnapshot=data.returnRoster&&!data.member?await measureMusicCheckout("attendance.rosterSnapshot",()=>readCommittedCourseRoster(actor.storeId,settledSessionId)):null;

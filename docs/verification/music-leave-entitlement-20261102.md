@@ -171,3 +171,14 @@
 - 實際CourseRoster＋合成read adapter的Chromium五尺寸1366×900、1920×1080、1024×768、768×1024及900×700內580px容器，新增項目、置中、確認窗可達、返回關閉、無整頁溢出與pageerror皆通過；保留HQ學員與返回課程URL。證據/tmp/music-roster-alignment/leave-results.json、leave-menu-*.png、leave-confirm-*.png。此為本機模擬尺寸，非登入後或真機驗收；沒有呼叫交易adapter。
 - 另唯讀核對隔離project ttworfzgwejdeolegkxl的qa1482-20261102-booking仍為RESERVED／UNPAID／cardId null／0點；原卡remaining8、DEBIT0、makeupCards0，未改測試案例。合成教師驗後停用仍待完成。
 - 本節與上一節對齊修正均只在本機，未推送／重建／合併／正式發布。要讓本人從目前普通登入工作階段點到新入口，需將兩項UI修正集中更新同一受限Preview；仍依已批准的次數／費用限制，不自行追加建置。
+
+## 2026-11-02 20:31 本人完成A交易及回報等待／操作鎖定
+
+- 本人在33f9b3ad預覽對QA1482合成未綁卡預約送出請假，截圖顯示已記錄、普通堂數7、待補1、請假扣堂另補。隔離project ttworfzgwejdeolegkxl唯讀對帳：booking CANCELLED/STUDENT_LEAVE、已綁qa1482-20261102-card、pointCost1；原卡remaining7；RESERVE1、DEBIT1；唯一music-leave-card:e81d95589b29dce0ff1e175db833e413 remaining1、GRANT1、到期2027-01-10T15:59:59.999Z與原卡相同；原普通assignment第1期第1堂REGULAR且未釋放；原購買CONFIRMED／6400、未作廢。記為HQ Staging Admin角色A人工操作＋權威結果通過，不能代替一般店長、重送或B改期限／補課續驗。
+- 本人另回報按請假後慢、等待時不能操作。相符runtime request plbx6-1793622665776-89c75021b91e：course-attendance-perf總1116ms，transaction.total451ms、attendance.rosterSnapshot470ms；同POST附帶calendar page重算2049.1ms／layout2169.3ms，另有GET calendar2641.9ms／layout2328.9ms。這些是單次伺服器階段，不是瀏覽器端到端中位數，不據此承諾實際省幾秒。
+- 本機最小修正1：run支援只識別bookingId、以提交後結果核對的readCommitted target；單筆依方案請假走既有音樂逐列inFlight／儲存回饋，而非全域startTransition。只鎖該學員，不預填status／absenceKind／堂數；其他學員選單／搜尋仍可用。既有批次、教師全班操作與unknown-result防護不變。
+- 本機最小修正2：staff、returnRoster=true、STUDENT_LEAVE的成功交易在after(refresh)做原/dashboard、/dashboard/courses、/book失效，不再把整頁RSC重算掛在請假回應。仍執行booking.update／獨立booking.read、交易、稽核、候補／低餘額排程；顧客和非returnRoster入口保留原同步失效。沒有刪除cache invalidation、權限或資料核對；已查閱目前安裝Next 16.2.2的after官方隨附文件。
+- 先以實際UI regression重現等待時另一位學員按鈕disabled，/tmp/music-leave-pending-red-20261102.log；server action測試重現同步三路revalidate，/tmp/music-leave-refresh-red-20261102.log。修正後五檔115項通過（完整名單、逐列錯誤／備註、批次失效、新請假失效測試），型別、變更ESLint及diff check通過；新測試驗提交／snapshot、延後仍執行完整失效、顧客／非名單行為不變、拒絕不成功。
+- 實際CourseRoster本機＋合成延遲Promise，以Chromium模擬1366×900、1920×1080、1024×768、768×1024、900×700五案，請假等待中可開另一學員選單、搜尋／清除；回應前維持原8堂，resolve後才呈現7堂與扣堂另補。證據/tmp/music-roster-alignment/responsive-results.json及pending-*.png。這是模擬等待互動驗證，不是實體裝置、真實慢網路或hosted速度改善。
+- /tmp/music-leave-responsive-focused-20261102.log、music-leave-responsive-typecheck-20261102.log、music-leave-responsive-lint-20261102.log。本節改動未全量重跑、未推送／建置／正式部署；33f9b3ad全量結果不充當此本機版本結果。待集中必要更新並依單次建置／費用限制處理。
+- 本人這次已完成的QA1482請假不重做／不回滾。B原卡期限調整後補課、補課再次請假重約與一般角色仍待實際驗收；合成教師驗後停用仍待完成。
