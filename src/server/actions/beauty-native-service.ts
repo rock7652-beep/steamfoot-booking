@@ -34,7 +34,7 @@ export async function saveBeautyNativeService(input:unknown){
    // Qualification edits never change compensation. New nullable defaults stay omitted;
    // do not round-trip a JSON null sentinel through the native runtime.
    if(d.rule&&prior)for(const t of current.filter(t=>!d.rule!.coachIds.includes(t.id)))await persistBeautyCatalog(tx,a,'technician',{...t,serviceIds:t.serviceIds.filter(id=>id!==prior.id)});
-   const saved=await persistBeautyCatalog(tx,a,'service',{...prior,id:prior?.id,revision:prior?.revision??0,name:d.name,category:d.category,duration:d.duration,buffer:d.buffer,active:d.active,price:prior?.price??0,trialPrice:prior?.trialPrice??null,...(d.rule&&prior?.defaultRate?{defaultRate:prior.defaultRate}:{})});
+   const saved=await persistBeautyCatalog(tx,a,'service',{...prior,id:prior?.id,revision:prior?.revision??0,name:d.name,category:d.category,duration:d.duration,buffer:d.buffer,active:d.active,price:prior?.price??0,trialPrice:prior?.trialPrice??null,defaultRate:prior?.defaultRate??undefined});
    const service=nativeBeautyService({...saved.record as object,...(d.rule?{}:{defaultRate:undefined})},selected.map(t=>t.id));
    if(d.rule){
     const ids=new Set(selected.map(t=>t.id));
