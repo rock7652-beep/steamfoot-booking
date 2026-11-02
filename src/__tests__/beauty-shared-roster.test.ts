@@ -59,7 +59,7 @@ it('passes read-only restrictions to the original roster entry',async()=>{
 });
 it('follows a successful move to its new date and current booking rather than refreshing the empty old date',async()=>{
  await open();await act(async()=>button('原名單改期操作').click());
- const form=document.querySelector<HTMLFormElement>('form:has(#beauty-money-title)')!;for(const [key,value] of Object.entries({date:'2026-10-27',time:'13:00',note:'合成改期'}))(form.elements.namedItem(key) as HTMLInputElement).value=value;
+ const form=document.querySelector<HTMLFormElement>('[aria-labelledby="beauty-move-title"] form')!;for(const [key,value] of Object.entries({date:'2026-10-27',time:'13:00',note:'合成改期'}))(form.elements.namedItem(key) as HTMLInputElement).value=value;
  await act(async()=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));expect(m.move).toHaveBeenCalledWith('manager',expect.objectContaining({id:'a',date:'2026-10-27',time:'13:00'}));expect(m.push.mock.calls[0][0]).toContain('date=2026-10-27');expect(m.push.mock.calls[0][0]).toContain('bookingId=a');expect(m.refresh).not.toHaveBeenCalled();
 });
 it('clears a closed deep link and can reopen the same booking from a notice',async()=>{
