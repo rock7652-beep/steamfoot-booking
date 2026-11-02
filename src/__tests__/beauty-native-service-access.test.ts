@@ -9,7 +9,7 @@ import {saveBeautyNativeService} from '@/server/actions/beauty-native-service';
 import {nativeBeautyService} from '@/lib/beauty/native-service';
 const service={id:'s',storeId:'a',revision:4,name:'做臉',category:'保養',duration:60,buffer:15,price:1000,trialPrice:500,active:true,defaultRate:{mode:'FIXED',value:300}};
 const tech={id:'t',revision:3,serviceIds:['s'],rates:{s:{mode:'FIXED',value:300}}};
-const tx={beautyService:{findFirst:m.service},beautyTechnician:{findMany:m.techs}};
+const tx={beautyService:{findFirst:m.service,findMany:vi.fn(async()=>[])},beautyTechnician:{findMany:m.techs}};
 const input={id:'s',revision:4,expectedStoreId:'a',requestKey:'00000000-0000-4000-8000-000000000001',name:'新做臉',category:'保養',duration:90,buffer:15,active:true,rule:{coachIds:['t'],expectedCoachIds:['t'],defaultRate:{mode:'PERCENT',value:50,base:'LIST'}}};
 beforeEach(()=>{vi.clearAllMocks();m.manager.mockResolvedValue({storeId:'a'});m.permission.mockResolvedValue({});m.feature.mockResolvedValue(undefined);m.service.mockResolvedValue(service);m.techs.mockImplementation(async({where})=>where.id?where.id.in.map(()=>tech):[tech]);m.transaction.mockImplementation((_a,work)=>work(tx));m.command.mockImplementation((_tx,_a,_key,_intent,work)=>work());m.persist.mockImplementation(async(_tx,_a,kind,v)=>({record:kind==='service'?{...service,...v,id:'s',revision:5}:v}));});
 it('uses the original catalog transaction and preserves customer prices while editing actual technician rules',async()=>{
