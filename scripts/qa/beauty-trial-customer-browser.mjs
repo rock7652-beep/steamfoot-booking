@@ -61,7 +61,7 @@ try{
   const rental=await page.evaluate(()=>window.rentalSubmitted);assert.equal(rental.module,'beauty');assert.equal(rental.input.roomId,'bed');assert.equal(rental.input.amount,0);assert.equal(rental.input.time,'12:30');
   await page.getByRole('button',{name:'簡化收費預覽',exact:true}).click();
   const chargeDialog=page.getByRole('dialog');await chargeDialog.getByRole('heading',{name:'編輯收費方式'}).waitFor();
-  assert.equal(await chargeDialog.locator('[data-charge-trial]').evaluate(el=>el.open),false);assert.equal(await chargeDialog.locator('[data-charge-profit]').evaluate(el=>el.open),false);assert.equal(await chargeDialog.locator('[data-charge-technicians]').evaluate(el=>el.open),false);
+  assert.equal(await chargeDialog.locator('[data-charge-trial]').evaluate(el=>el.open),false);assert.equal(await chargeDialog.locator('[data-charge-profit]').evaluate(el=>el.open),false);assert.equal(await chargeDialog.locator('[data-service-qualified-technicians]').count(),1);
   const chargeBox=await chargeDialog.boundingBox();if(width>=768){assert.ok(chargeBox.width<=680);assert.ok(chargeBox.height<650);}
   await page.screenshot({path:path.join(output,`charge-${width}.png`),fullPage:true});await chargeDialog.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('status').filter({hasText:'操作完成：收費設定'}).waitFor();
   assert.equal((await page.evaluate(()=>window.chargeSaved)).trialPrice,250);
@@ -73,6 +73,8 @@ try{
   await collectionDialog.getByLabel('本次收款 收款測試',{exact:true}).waitFor();assert.equal(await collectionDialog.getByLabel('付款方式',{exact:true}).inputValue(),'BANK_TRANSFER');assert.equal(await page.evaluate(()=>window.collectionModal===document.querySelector('[role="dialog"]')),true);
   await page.screenshot({path:path.join(output,`collection-${width}.png`),fullPage:true});await collectionDialog.getByRole('button',{name:'確認收款',exact:true}).click();await page.getByRole('status').filter({hasText:'操作完成：收款'}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.getByRole('button',{name:'方案現金預覽'}).click();const planMethod=page.locator('[name="paymentMethod"]');assert.equal(await planMethod.inputValue(),'CASH');await page.getByRole('button',{name:'確認方案表單',exact:true}).waitFor();
+  await planMethod.selectOption('BANK_TRANSFER');await page.locator('[name="transferLastFour"]').fill('0123');await planMethod.selectOption('CASH');await page.screenshot({path:path.join(output,`plan-cash-${width}.png`),fullPage:true});await page.getByRole('button',{name:'確認方案表單',exact:true}).click();await page.getByRole('status').filter({hasText:'現金購買表單確認完成'}).waitFor();assert.equal((await page.evaluate(()=>window.planPaymentSaved)).paymentMethod,'CASH');
   await page.getByRole('button',{name:'卡片預覽'}).click();await page.waitForTimeout(150);
   let rawCardClicks=0;
   for(const mode of ['day','week']){
@@ -88,7 +90,7 @@ try{
    await page.screenshot({path:path.join(output,`calendar-${mode}-${width}.png`),fullPage:true});
   }
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-  results.push({width,height,rawCardClicks,keyboardCards:true,compactCharge:true,compactMove:true,directCollection:true,freeRental:true,rentalPreservesDraft:true,overflow:false,preservedOnResize:true,trialSubmission:true,serviceHasNoPricing:true,serviceFailurePreservesDraft:true});await page.close();
+  results.push({width,height,rawCardClicks,keyboardCards:true,planDefaultsCash:true,compactCharge:true,compactMove:true,directCollection:true,freeRental:true,rentalPreservesDraft:true,overflow:false,preservedOnResize:true,trialSubmission:true,serviceHasNoPricing:true,serviceFailurePreservesDraft:true});await page.close();
  }
  assert.deepEqual(errors,[]);writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,errors},null,2));console.log(JSON.stringify({output,results,errors},null,2));
 }catch(error){console.error(JSON.stringify({errors}));for(const context of browser.contexts())for(const page of context.pages()){writeFileSync(path.join(output,'failure.html'),await page.content());await page.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error;}finally{await browser.close();}
