@@ -89,6 +89,11 @@ try{
   const balanceButton=page.locator('button[aria-label="查看 購買測試顧客 的有效方案"]');
   for(const expected of ['5 次','5 次','4 次']){await page.getByRole('button',{name:'模擬方案背景更新',exact:true}).click();await balanceButton.filter({hasText:expected}).waitFor();}
 
+  await page.getByRole('button',{name:'恢復購買預覽',exact:true}).click();
+  await page.getByRole('region',{name:'持有方案'}).filter({hasText:'全身按摩5次'}).waitFor();
+  await page.locator('button[aria-label="查看 購買測試顧客 的有效方案"]').filter({hasText:'5 次'}).waitFor();
+  assert.equal(await page.evaluate(()=>window.qaPurchaseCount),1);assert.equal(await page.getByRole('button',{name:'確認完成並繼續購買',exact:true}).count(),0);
+  await page.getByRole('button',{name:'關閉',exact:true}).click();
   await page.getByRole('button',{name:'卡片預覽'}).click();await page.waitForTimeout(150);
   let rawCardClicks=0;
   for(const mode of ['day','week']){

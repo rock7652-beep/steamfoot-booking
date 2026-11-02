@@ -346,21 +346,36 @@ export function CourseMemberWorkspace({
         setError(panel === "assign" ? CHECKOUT_OUTCOME_UNCONFIRMED : "連線中斷，請重試");
       } finally {submitting.current=false;setPending(false);}
   }
-  const recoverCompletedPurchase=useEffectEvent(async(alive:()=>boolean)=>{
+  const [completingPurchaseScope,setCompletingPurchaseScope]=useState("");
+  const automaticCompletionScope=JSON.stringify([!!source?.automaticPurchaseCompletion,panel,previewStoreId,person?.id||purchaseCustomerId]);
+  const automaticScopeRef=useRef(automaticCompletionScope);automaticScopeRef.current=automaticCompletionScope;
+  useEffect(()=>{automaticScopeRef.current=automaticCompletionScope;return()=>{automaticScopeRef.current='';};},[automaticCompletionScope]);
+  const recoverCompletedPurchase=useEffectEvent(async(expectedScope:string)=>{
+    setCompletingPurchaseScope(expectedScope);
     const next=await purchaseRecovery.acknowledge('COMMITTED');
-    if(!alive()||next?.kind!=='none-known')return;
+    if(automaticScopeRef.current!==expectedScope||next?.kind!=='none-known')return;
+    const customerId=person?.id||purchaseCustomerId;
+    if(customerId&&source?.browseCards){
+      try{
+        const result=await source.browseCards({customerId});
+        if(automaticScopeRef.current!==expectedScope)return;
+        if(result.success){
+          setCheckoutCards({customerId,result,revision:cardRevision+1});
+          if(result.totals){const available=result.totals.filter(t=>t.unit==='SESSION').reduce((sum,t)=>sum+t.available,0);setBalanceReceipts(old=>({storeId:previewStoreId,values:{...(old.storeId===previewStoreId?old.values:{}),[customerId]:{available,ids:result.rows.map(card=>card.id)}}}));}
+        }
+      }catch{/* The purchase stays completed; the normal reader can retry. */}
+    }
+    if(automaticScopeRef.current!==expectedScope)return;
     setDirty(false);setCardRevision(n=>n+1);setNotice('');
     window.dispatchEvent(new Event('customer-search-invalidated'));
     if(source?.purchaseCompleted){source.purchaseCompleted();return;}
     if(person){setPanel('person');setPersonTab('info');}else setPanel(null);
     router.refresh();
   });
-  const completedPurchaseKey=source?.automaticPurchaseCompletion&&panel==='assign'&&purchaseRecovery.view.kind==='intent'&&purchaseRecovery.view.intent.status==='COMMITTED'?JSON.stringify([previewStoreId,person?.id||purchaseCustomerId,purchaseRecovery.view.intent.requestKey]):'';
+  const completedPurchaseKey=source?.automaticPurchaseCompletion&&panel==='assign'&&purchaseRecovery.view.kind==='intent'&&purchaseRecovery.view.intent.status==='COMMITTED'?JSON.stringify([automaticCompletionScope,purchaseRecovery.view.intent.requestKey]):'';
   useEffect(()=>{
-    if(!completedPurchaseKey)return;
-    let alive=true;void recoverCompletedPurchase(()=>alive);
-    return()=>{alive=false;};
-  },[completedPurchaseKey]);
+    if(completedPurchaseKey)void recoverCompletedPurchase(automaticCompletionScope);
+  },[completedPurchaseKey,automaticCompletionScope]);
   const order=useCourseDisplayOrder("plan",plans,displayOrder,(!catalogSource||!!catalogSource.order)&&canEdit&&!search&&status==="all"&&templateFilter==="all"&&purchaseFilter==="all"&&sharedFilter==="all"&&!hideTestData&&!busyIds.length,p=>p.isActive,catalogSource?.order);
   const filteredPlans = plans
     .filter(
@@ -826,7 +841,7 @@ export function CourseMemberWorkspace({
                 form="course-member-form"
                 type="submit"
                 className={`${button} ${panel === "plan" && !music ? fitnessEditorSave : music ? "min-w-28" : "w-full"} !bg-primary-700 !text-white`}
-                disabled={pending || formPending || (panel === "card" && (!sharingEnabled || cardLoading || !!cardError || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid || purchaseRecovery.blocked))}
+                disabled={pending || formPending || (panel === "card" && (!sharingEnabled || cardLoading || !!cardError || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid || purchaseRecovery.blocked || completingPurchaseScope===automaticCompletionScope))}
               >
                 {pending || formPending ? "儲存中…" : panel === "assign" ? music ? "儲存學費" : "確認結帳" : panel === "card" ? "儲存共卡成員" : formUncertain ? "重試確認儲存結果" : "儲存"}
               </button></div>
