@@ -121,3 +121,23 @@
 因此可縮減 hosted 至：一個僅本隔離店正常授權角色，從方案管理調期限及原生補課入口預約，再用名單「請假／WAIVED」並合法重約，重新載入確認結果；另確認未綁卡 STUDENT_LEAVE 實際使用的呼叫入口，不能用語義為免扣堂的 WAIVED 當作同一政策驗收。無須在線上重跑全部並發壓力、帳本故障注入或 UI 尺寸矩陣；這些交易邊界已有本機真 SQL 證據。hosted 最小入口仍須正常身分與精確版隔離環境，不冒用舊 Preview。
 
 下一步：父線核對本機新 head 與補驗證據，安排已獲確認範圍的後續階段；本輪不推送、不啟用預覽。
+
+## 已批准精確 Preview scope：本機備妥，連線／登入尚缺
+
+本人已直接同意最小受限 Preview 方案，父線已核實該批准，不需重問同一批准。本輪在 `22d393f8` 上準備新的本機 scope／反例；仍未 push，未修改平台 env、SSO、分享、預算或應用帳號。
+
+- 僅在 `scripts/sports-shared-card-preview-scope.mjs` exact allowlist 與 `scripts/music-native-workflow-scope.mjs` integration array 加入 `fix/music-leave-entitlement-20261102`；仍限 Preview、原 repo、`store-lubymusic`、雙隔離 URL，排除其他 provider。不改 production main、其他店、原生 release 或歷史 importer 資格。
+- 先測新正例失敗三項，修改後五檔 **97 項通過**；另 `node --test scripts/music-native-workflow-scope.test.mjs` **4 項通過**。測試含正式／混合連線、錯 repo、相似分支與 provider metadata 拒絕，並用既有 Prisma／subprocess tripwire 證明 migration dispatcher 不做 DB／migration。四個變更 JS／TS 檔 ESLint、TypeScript、diff 通過。紀錄 `/tmp/music-preview-scope-red-20261102.log`、`/tmp/music-preview-scope-green-20261102.log`、`/tmp/music-preview-native-node-20261102.log`、`/tmp/music-preview-scope-lint-20261102.log`、`/tmp/music-preview-scope-tsc-20261102.log`。
+- 另一 reviewer 唯讀快審未發現新增擴權／繞 gate 問題。這不代表 Preview 已可建置或可登入。
+
+阻擋（不是追加批准問題）：Vercel 原 project `prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR` 的通用 Preview `DATABASE_URL`（env ID `n9GgF0K3wpdb1B2R`）與 `DIRECT_URL`（`d4sWjrCWSSpV35DS`）都是 sensitive。既有整合分支只列功能旗標，沒有它自己的 DB override；讀取上述兩筆只取得 metadata，回應 decrypted=false、未提供 value。不是 403／auto-review 拒絕，但沒有可用值可逐條驗證及建立本分支變數。本機目前只找到 `.env.example`，DATABASE_URL、DIRECT_URL、SPORTS_PERF_ENV_DIR 亦未注入。沒有解碼密文、改 sensitive 類型或換來源繞保護；未建立兩筆新變數，也未使用未驗證的預設連線建置。
+
+可獨立完成的隔離證據：透過 Supabase project API 明確指定已核准 ref `ttworfzgwejdeolegkxl`，確認名稱 steamfoot-preview、ACTIVE_HEALTHY、DB host=db.ttworfzgwejdeolegkxl.supabase.co；未呼叫正式 project。隨後僅查該 project 的 metadata：store-lubymusic ACTIVE／TRIAL 且 business.music 啟用，兩個 assignment triggers 均啟用且非 SECURITY DEFINER，兩個必要 indexes 存在，assignment RLS 開啟、anon／authenticated 均無表讀寫權限。沒有查顧客或建立測試帳號。
+
+現有 Preview guard body MD5 `768e23b82b7eac3f7f0dbfd6a7829074`、release body MD5 `46fe6e73eb29cca414cec99ee7ac7f9a`，逐一吻合 repo 的 `scripts/music-fixed-periods.sql`；release 也吻合 production SQL。Preview guard 保留 archive guard，與 production guard（MD5 `53a2251f06d94a2cf79e28b7bceb7c85`）不是同一版本；Preview 的 trigger 函數 EXECUTE 權限仍為 true，與 production 腳本 revoke 不同。沒有改 schema 或權限，也不把上述 metadata 說成 production schema 已完整一致。此證據不能替代兩筆實際 URL 的安全檢查。
+
+登入亦尚未具備：執行環境沒有 VERCEL_OIDC_TOKEN／VERCEL_TOKEN／既有 automation bypass；可用的是免費本機 Playwright／Chromium，未確認有合法 Vercel SSO 工作階段。Vercel web_fetch 工具會建立／重用 23 小時分享，與本次「不分享」限制衝突，因此沒有呼叫。沒有啟用新的 bypass、公開連結或付費瀏覽器工具，沒有先建立無法使用的應用帳號。
+
+最小解法：由父線提供已獲授權的隔離雙連線安全來源（例如僅告知受控 secret 檔路徑／注入環境，不把值貼聊天或提交 Git），供受控程序驗兩個既有 URL 與 ref 後設定本精確分支；並提供原 team/project 的合法正常 SSO 工作階段。取得後即可承接已批准的同一次集中推送／自動建置，不需重問同一批准。若仍無合法身分或 URL 不能證明隔離，就保持受阻，不消耗唯一一次建置。
+
+下一步：父線補齊安全連線來源與合法登入工作階段，執行者再接續已批准的受限 Preview；目前未推送或建置。

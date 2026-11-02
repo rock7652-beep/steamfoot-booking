@@ -10,9 +10,20 @@ it.each(['review/plan-management-sports-performance','fix/calendar-restored-mont
  expect(assertReviewedReleaseEnvironment(scoped)).toBe('sports-redesign-preview');
  for(const mutation of [{VERCEL_ENV:'production'},{VERCEL_GIT_COMMIT_REF:'main'},{VERCEL_GIT_REPO_OWNER:'other'},{VERCEL_GIT_REPO_SLUG:'other'},{SPORTS_REDESIGN_PREVIEW:''},{SPORTS_REDESIGN_STAGING:''},{DATABASE_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'},{DIRECT_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'},{WORKERS_CI_BRANCH:'main'}])expect(()=>assertSportsRedesignPreviewEnvironment({...scoped,...mutation})).toThrow();
 });
-it.each(['review/plan-management-sports-performance','fix/silverlily-calendar-loading-20261031'])('music capability %s stays confined to the existing isolated store and authorizes neither imports nor releases',(branch)=>{
+it.each(['review/plan-management-sports-performance','fix/silverlily-calendar-loading-20261031','fix/music-leave-entitlement-20261102'])('music capability %s stays confined to the existing isolated store and authorizes neither imports nor releases',(branch)=>{
  const scoped={...safe,VERCEL_GIT_COMMIT_REF:branch};
  expect(musicNativeWorkflowEnabled('store-lubymusic',scoped)).toBe(true);expect(musicNativeWorkflowEnabled('another-store',scoped)).toBe(false);
- for(const mutation of [{VERCEL_ENV:'production'},{VERCEL_GIT_COMMIT_REF:'main'},{VERCEL_GIT_REPO_OWNER:'other'},{VERCEL_GIT_REPO_SLUG:'other'},{DATABASE_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'},{DIRECT_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'},{CF_PAGES_BRANCH:'main'}])expect(musicNativeWorkflowEnabled('store-lubymusic',{...scoped,...mutation})).toBe(false);
+ for(const mutation of [{VERCEL_ENV:'production'},{VERCEL_GIT_COMMIT_REF:'main'},{VERCEL_GIT_REPO_OWNER:'other'},{VERCEL_GIT_REPO_SLUG:'other'},{DATABASE_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'},{DIRECT_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'},{CF_PAGES_BRANCH:'main'},{WORKERS_CI_BRANCH:'main'},{VERCEL:'0'}])expect(musicNativeWorkflowEnabled('store-lubymusic',{...scoped,...mutation})).toBe(false);
  expect(()=>assertMusicOpeningPreviewEnvironment(safe)).toThrow();expect(()=>assertMusicNativeReleaseEnvironment(safe)).toThrow();
+});
+
+it('music leave Preview uses only its exact store and no global sports or production opt-in',()=>{
+ const scoped:NodeJS.ProcessEnv={...safe,VERCEL_GIT_COMMIT_REF:'fix/music-leave-entitlement-20261102'};
+ delete scoped.SPORTS_REDESIGN_PREVIEW;delete scoped.SPORTS_REDESIGN_STAGING;
+ expect(assertReviewedReleaseEnvironment(scoped)).toBe('sports-shared-card-preview');
+ expect(musicNativeWorkflowEnabled('store-lubymusic',scoped)).toBe(true);
+ expect(musicNativeWorkflowEnabled('another-store',scoped)).toBe(false);
+ expect(musicNativeWorkflowEnabled('store-lubymusic',{...scoped,VERCEL_GIT_COMMIT_REF:scoped.VERCEL_GIT_COMMIT_REF+'-other'})).toBe(false);
+ expect(()=>assertMusicOpeningPreviewEnvironment(scoped)).toThrow();
+ expect(()=>assertMusicNativeReleaseEnvironment(scoped)).toThrow();
 });
