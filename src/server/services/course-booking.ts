@@ -494,8 +494,10 @@ export async function settleCourseBooking(
     if(!booking?.cardId) return fail("學員尚未有可扣抵方案");
   }
 
-  // Sports never issue makeup rights; music leave keeps its separate policy.
-  if(!actor.customerId&&booking.bookingKind==="UNPAID"&&!booking.cardId&&(target==="ATTENDED"||target==="NO_SHOW")&&await isMusicCourseStore(tx,actor.storeId)){
+  // Paid automatic music lessons may still be unbound at leave settlement.
+  // Reuse item/expiry/availability selection before applying music leave policy.
+  // Do not bind a previously settled unpaid leave on retry after a later sale.
+  if(!actor.customerId&&booking.bookingKind==="UNPAID"&&!booking.cardId&&(target==="ATTENDED"||target==="NO_SHOW"||(target==="STUDENT_LEAVE"&&booking.status==="RESERVED"))&&await isMusicCourseStore(tx,actor.storeId)){
     const {bindMusicAttendanceCard}=await import("./music-item-cards");
     await bindMusicAttendanceCard(tx,actor,bookingId);
     booking=await tx.courseBooking.findFirst({where:{id:bookingId,storeId:actor.storeId},include:{session:true,card:{include:{members:true,musicOpeningState:{select:MUSIC_OPENING_SELECT}}}}});

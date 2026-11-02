@@ -9,7 +9,18 @@ function fail(message:string):never {throw new AppError("VALIDATION",message);}
 
 /** Native purchases are independently proven; never classify them as imported cards. */
 export async function isNativeMusicLeaveCard(tx:Prisma.TransactionClient,storeId:string,card:Card|null|undefined) {
-  if (!musicNativeWorkflowEnabled(storeId) || !card || card.unit!=="SESSION" || !card.musicValidityDays || card.requestKey?.startsWith("yjy-") || card.requestKey?.startsWith(NATIVE_MAKEUP_PREFIX)) return false;
+  if (!musicNativeWorkflowEnabled(storeId) || !card || card.unit!=="SESSION" || card.requestKey?.startsWith("yjy-") || card.requestKey?.startsWith(NATIVE_MAKEUP_PREFIX)) return false;
+  // Manual expiry deliberately clears relative activation days. Recover only
+  // the policy identity from the immutable, store/card-scoped adjustment audit;
+  // never restore relative expiry or rewrite an already-issued makeup's date.
+  if (!card.musicValidityDays) {
+    const proof=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "AuditLog"
+      WHERE "storeId"=${storeId} AND "targetType"='CoursePointCard' AND "targetId"=${card.id}
+        AND action='CARD_EXPIRY'
+        AND jsonb_typeof("beforeJson"->'musicValidityDays')='number'
+        AND "beforeJson"->'musicValidityDays' > '0'::jsonb LIMIT 1`;
+    if (!proof.length) return false;
+  }
   const purchases=await tx.coursePurchase.count({where:{storeId,cardId:card.id,status:"CONFIRMED",confirmedAt:{not:null},voidedAt:null}});
   return purchases===1;
 }
