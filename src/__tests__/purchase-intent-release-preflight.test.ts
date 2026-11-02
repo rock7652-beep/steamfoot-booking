@@ -1,4 +1,5 @@
 import {describe,expect,it,vi} from 'vitest';
+import {PGlite} from '@electric-sql/pglite';
 import {BEAUTY_BASE_TABLES,BEAUTY_INTENT_COLUMNS,validateBeautySchema,purchaseIntentAccessPreflight,inactiveBeautyAdditionsPreflight} from '../../scripts/purchase-intent-release-preflight.mjs';
 const base=BEAUTY_BASE_TABLES.map((relname:string)=>({relname,relrowsecurity:true}));
 const installed=[...base,...Object.keys(BEAUTY_INTENT_COLUMNS).map(relname=>({relname,relrowsecurity:true}))];
@@ -58,3 +59,23 @@ it('checks unused closed additions using only read queries and skips absent addi
 it.each(['enabled','services_used','appointments_used','images_used','goods_used'])('rejects active or used additive data: %s',async key=>{await expect(inactiveBeautyAdditionsPreflight(additiveClient({[key]:true}),[...installed,...additions])).rejects.toThrow('compatible application');});
 it.each([{relrowsecurity:false},{browser_access:true},{browser_access:null}])('retains strict additive access boundaries %j',async access=>{await expect(inactiveBeautyAdditionsPreflight(additiveClient({},access),[...installed,...additions])).rejects.toThrow('privileges');});
 it('propagates missing columns and permission errors instead of allowing an unverified release',async()=>{const db=additiveClient();db.query.mockRejectedValueOnce(Error('permission denied'));await expect(inactiveBeautyAdditionsPreflight(db,[...installed,...additions])).rejects.toThrow('permission denied');});
+
+it('accepts real ordinary duration snapshots while rejecting extensions, add-ons and images',async()=>{
+ const db=new PGlite();
+ try{
+  await db.exec(`CREATE TABLE "BeautySetting"("serviceAddOnsEnabled" boolean);
+   CREATE TABLE "BeautyService"("addOnGroups" jsonb,"imageId" text);
+   CREATE TABLE "BeautyAppointment"("addOnItems" jsonb,"serviceImageId" text,"baseServiceDuration" integer,duration integer);
+   CREATE TABLE "BeautyServiceImage"(id text); ALTER TABLE "BeautyServiceImage" ENABLE ROW LEVEL SECURITY;
+   CREATE TABLE "BeautySharedGoodsOrder"(id text); ALTER TABLE "BeautySharedGoodsOrder" ENABLE ROW LEVEL SECURITY;
+   INSERT INTO "BeautyAppointment" VALUES('[]',NULL,60,60),('[]',NULL,30,30);`);
+  const client={query:(sql:string,params?:string[])=>db.query(sql,params)};
+  await expect(inactiveBeautyAdditionsPreflight(client,[...installed,...additions])).resolves.toBeUndefined();
+  await db.exec(`UPDATE "BeautyAppointment" SET duration=75 WHERE "baseServiceDuration"=60;`);
+  await expect(inactiveBeautyAdditionsPreflight(client,[...installed,...additions])).rejects.toThrow('compatible application');
+  await db.exec(`UPDATE "BeautyAppointment" SET duration="baseServiceDuration","addOnItems"='[{"id":"head"}]';`);
+  await expect(inactiveBeautyAdditionsPreflight(client,[...installed,...additions])).rejects.toThrow('compatible application');
+  await db.exec(`UPDATE "BeautyAppointment" SET "addOnItems"='[]',"serviceImageId"='image';`);
+  await expect(inactiveBeautyAdditionsPreflight(client,[...installed,...additions])).rejects.toThrow('compatible application');
+ }finally{await db.close();}
+});

@@ -60,10 +60,12 @@ export async function inactiveBeautyAdditionsPreflight(client,rows){
    FROM pg_class c WHERE c.oid=to_regclass($1)`,[`public."${table}"`]);
   if(result.rows.length!==1||result.rows[0].relrowsecurity!==true||result.rows[0].browser_access!==false)throw Error('Beauty additive privileges not verified');
  }
+ // Ordinary bookings also save their unextended base duration. That snapshot
+ // alone is not additive usage; a changed duration still requires review.
  const result=await client.query(`SELECT
   EXISTS(SELECT 1 FROM "BeautySetting" WHERE "serviceAddOnsEnabled") AS enabled,
   EXISTS(SELECT 1 FROM "BeautyService" WHERE "addOnGroups"<>'[]'::jsonb OR "imageId" IS NOT NULL) AS services_used,
-  EXISTS(SELECT 1 FROM "BeautyAppointment" WHERE "addOnItems"<>'[]'::jsonb OR "serviceImageId" IS NOT NULL OR "baseServiceDuration" IS NOT NULL) AS appointments_used,
+  EXISTS(SELECT 1 FROM "BeautyAppointment" WHERE "addOnItems"<>'[]'::jsonb OR "serviceImageId" IS NOT NULL OR ("baseServiceDuration" IS NOT NULL AND "baseServiceDuration"<>duration)) AS appointments_used,
   EXISTS(SELECT 1 FROM "BeautyServiceImage") AS images_used,
   EXISTS(SELECT 1 FROM "BeautySharedGoodsOrder") AS goods_used`);
  if(result.rows.length!==1||['enabled','services_used','appointments_used','images_used','goods_used'].some(key=>result.rows[0][key]!==false))throw Error('Beauty additive features require their compatible application release');
