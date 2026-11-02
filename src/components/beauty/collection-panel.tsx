@@ -8,42 +8,45 @@ import {COURSE_PAYMENT_LABELS} from '@/lib/course-checkout';
 import type {ServiceCharge} from '@/server/beauty/service-charges';
 import {BeautyCollectionRecoveryNotice,useBeautyCollectionRecovery} from './collection-recovery';
 const button='min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-base disabled:opacity-50';
-export type BeautyCollectionPanelProps={ids:string[];storeId?:string;collectionRecoveryEnabled?:boolean;canDiscount:boolean;onClose:()=>void;onSaved:()=>void;onGuard:(dirty:boolean,pending:boolean)=>void;modal?:boolean;withinModal?:boolean};
+export type BeautyCollectionPanelProps={ids:string[];initialCharges?:ServiceCharge[];storeId?:string;collectionRecoveryEnabled?:boolean;canDiscount:boolean;onClose:()=>void;onSaved:()=>void;onGuard:(dirty:boolean,pending:boolean)=>void;modal?:boolean;withinModal?:boolean};
 type Props=BeautyCollectionPanelProps;
 export function BeautyCollectionPanel(props:Props){
  // A different target owns a new draft, quote and request identity. The roster stays mounted.
  return <CollectionDraft key={JSON.stringify([props.storeId,props.ids])} {...props}/>;
 }
-function CollectionDraft({ids,storeId,collectionRecoveryEnabled=false,canDiscount,onClose,onSaved,onGuard,modal=false,withinModal=false}:Props){
+function CollectionDraft({ids,initialCharges,storeId,collectionRecoveryEnabled=false,canDiscount,onClose,onSaved,onGuard,modal=false,withinModal=false}:Props){
  const read=useCallback((wanted:string[])=>readBeautyCollectionQuote(wanted,storeId),[storeId]);
  const reader=usePanelReader('beauty-service-collection',read,storeId??'',0),key=JSON.stringify(ids);
  const target=useRef(ids).current;
- const [charges,setCharges]=useState<ServiceCharge[]|null>(null),[values,setValues]=useState<Record<string,ServiceCollectionValue>>({}),[error,setError]=useState(''),[retry,setRetry]=useState(0),[pending,setPending]=useState(false),[dirty,setDirty]=useState(false);
+ const [charges,setCharges]=useState<ServiceCharge[]|null>(()=>initialCharges?.length===ids.length&&new Set(initialCharges.map(c=>c.id)).size===ids.length&&initialCharges.every(c=>ids.includes(c.id))?initialCharges:null),[values,setValues]=useState<Record<string,ServiceCollectionValue>>({}),[error,setError]=useState(''),[retry,setRetry]=useState(0),[pending,setPending]=useState(false),[dirty,setDirty]=useState(false);
+ const [quoteReady,setQuoteReady]=useState(false),[paymentMethod,setPaymentMethod]=useState('CASH');
+ const initial=useRef(charges),edited=useRef(false);
  const lock=useRef(false),request=useRef(crypto.randomUUID());
  const recovery=useBeautyCollectionRecovery(storeId,ids,collectionRecoveryEnabled);
  useEffect(()=>{onGuard(dirty,pending||recovery.busy);return()=>onGuard(false,false);},[dirty,pending,recovery.busy,onGuard]);
- useEffect(()=>{let active=true;reader.clear();reader.read(JSON.parse(key)).then(r=>{if(active){if(r.success){if(r.data.length!==target.length||new Set(r.data.map(c=>c.id)).size!==target.length||!r.data.every(c=>target.includes(c.id))){setError('收款對象不符，請關閉後重新開啟');return;}setCharges(r.data);}else setError(r.error);}}).catch(()=>{if(active)setError('讀取收款資料失敗，請重試');});return()=>{active=false;};},[key,retry,reader,target]);
+ useEffect(()=>{let active=true;setQuoteReady(false);if(retry)reader.clear();reader.read(JSON.parse(key)).then(r=>{if(active){if(r.success){if(r.data.length!==target.length||new Set(r.data.map(c=>c.id)).size!==target.length||!r.data.every(c=>target.includes(c.id))){setError('收款對象不符，請關閉後重新開啟');return;}if(edited.current&&initial.current&&JSON.stringify(initial.current)!==JSON.stringify(r.data)){setError('收款資料已更新，請保留本次輸入並關閉重開核對最新金額。');return;}setCharges(r.data);setQuoteReady(true);}else setError(r.error);}}).catch(()=>{if(active)setError('讀取收款資料失敗，請重試');});return()=>{active=false;};},[key,retry,reader,target]);
  const update=useCallback((v:ServiceCollectionValue)=>setValues(old=>{const prior=old[v.id];return prior&&prior.amount===v.amount&&prior.valid===v.valid&&prior.discount.kind===v.discount.kind&&Object.is(prior.discount.value,v.discount.value)?old:{...old,[v.id]:v};}),[]);
  const valid=!!charges&&charges.length===ids.length&&charges.every(c=>ids.includes(c.id))&&charges.every(c=>values[c.id]?.valid)&&charges.some(c=>{const v=values[c.id];return v&&(v.amount>0||v.discount.kind!==c.discount.kind||v.discount.value!==c.discount.value);});
  const settled=!!charges&&charges.length===ids.length&&charges.every(c=>c.due===0);
  const needsPayment=charges?.some(c=>(values[c.id]?.amount??c.due)>0)??false;
- const method=needsPayment?<label className="block">付款方式<select name="method" required className="min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base">{Object.entries(COURSE_PAYMENT_LABELS).filter(([k])=>k!=='DISCOUNT').map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>:null;
+ const method=<label className="block">付款方式<select aria-label="付款方式" name="method" value={paymentMethod} onChange={event=>setPaymentMethod(event.target.value)} disabled={pending||recovery.busy} required className="min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base">{Object.entries(COURSE_PAYMENT_LABELS).filter(([k])=>k!=='DISCOUNT').map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>;
  const close=()=>{if(!lock.current&&!pending&&!recovery.busy)onClose();};
- const content=<form className="min-h-0 min-w-0 space-y-3 overflow-y-auto p-4" onChangeCapture={()=>{setDirty(true);request.current=crypto.randomUUID();setError('');}} onSubmit={async e=>{e.preventDefault();if(lock.current||recovery.blocked||!valid||!charges)return;const form=new FormData(e.currentTarget);lock.current=true;setPending(true);setError('');try{const r=await recovery.submit({requestKey:request.current,ids:charges.map(c=>c.id),amounts:charges.map(c=>values[c.id].amount),quotes:charges.map(c=>({id:c.id,revision:c.revision,price:c.price,collected:c.collected,...(canDiscount?{discount:values[c.id].discount}:{})})),method:form.get('method')??'CASH',note:form.get('note')??''});if(r.success){setDirty(false);if(!recovery.enabled)onSaved();}else setError(r.error);}catch{setError('收款結果尚未確認，請勿再次收款；查無紀錄仍可能處理中。');}finally{lock.current=false;setPending(false);}}}>
+ const content=<form className="min-h-0 min-w-0 space-y-3 overflow-y-auto p-4" onChangeCapture={()=>{edited.current=true;setDirty(true);request.current=crypto.randomUUID();setError('');}} onSubmit={async e=>{e.preventDefault();if(lock.current||recovery.blocked||!quoteReady||!valid||!charges)return;const form=new FormData(e.currentTarget);lock.current=true;setPending(true);setError('');try{const r=await recovery.submit({requestKey:request.current,ids:charges.map(c=>c.id),amounts:charges.map(c=>values[c.id].amount),quotes:charges.map(c=>({id:c.id,revision:c.revision,price:c.price,collected:c.collected,...(canDiscount?{discount:values[c.id].discount}:{})})),method:form.get('method')??'CASH',note:form.get('note')??''});if(r.success){setDirty(false);if(!recovery.enabled)onSaved();}else setError(r.error);}catch{setError('收款結果尚未確認，請勿再次收款；查無紀錄仍可能處理中。');}finally{lock.current=false;setPending(false);}}}>
   {!withinModal&&<header className="flex items-center justify-between gap-2"><h2 id="beauty-collection-title" className="font-semibold">服務收款</h2><button type="button" className={button} disabled={pending||recovery.busy} onClick={close}>關閉</button></header>}
-  <BeautyCollectionRecoveryNotice recovery={recovery} disabled={pending} onConfirmed={onSaved}/>
-  {!charges&&<fieldset disabled aria-busy={!error} aria-label="收款資料載入中" className="space-y-3">
-   <p className="text-sm text-earth-600">{error?'收款資料尚未載入':'載入收款資料…'}</p>
+  {(!quoteReady||recovery.state.kind==='checking')&&!error&&<p role="status" className="text-sm text-earth-600">載入收款資料…</p>}
+  {recovery.state.kind!=='checking'&&<BeautyCollectionRecoveryNotice recovery={recovery} disabled={pending} onConfirmed={onSaved}/>}
+  {!charges&&<fieldset aria-busy={!error} aria-label="收款資料載入中" className="space-y-3">
+   <p className="text-sm text-earth-600">{error?'收款資料尚未載入':''}</p>
    <dl className="flex flex-wrap justify-between gap-2 text-sm"><div>原價 —</div><div>已收款 —</div><div>未收 —</div></dl>
-   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label>本次收款<input aria-label="本次收款" className="min-h-11 w-full rounded-lg border border-earth-200 p-2 text-base" placeholder="載入金額…" readOnly/></label><label>付款方式<select aria-label="付款方式" className="min-h-11 w-full rounded-lg border border-earth-200 p-2 text-base"><option>載入中</option></select></label></div>
+   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label>本次收款<input aria-label="本次收款" className="min-h-11 w-full rounded-lg border border-earth-200 p-2 text-base" placeholder="載入金額…" disabled readOnly/></label>{method}</div>
   </fieldset>}
   {settled&&<p role="status">本次無待收款金額。</p>}
-  <fieldset disabled={pending||settled||recovery.blocked} className="min-w-0 space-y-3">{charges?.map(c=><ServiceCollectionFields key={c.id} charge={c} compact={modal} paymentControl={modal&&charges.length===1?method:undefined} canDiscount={canDiscount} onValue={update}/>)}
-  {charges&&<>{(!modal||charges.length!==1)&&method}<details><summary className="min-h-11 cursor-pointer py-2">備註（選填）</summary><input name="note" maxLength={500} className="min-h-11 w-full rounded-lg border border-earth-200 p-2 text-base"/></details></>}
+  <fieldset disabled={pending||settled||recovery.blocked&&recovery.state.kind!=='checking'} className="min-w-0 space-y-3">{charges?.map(c=><ServiceCollectionFields key={JSON.stringify([c.id,c.revision,c.price,c.collected,c.discount])} charge={c} compact={modal} paymentControl={modal&&charges.length===1?method:undefined} canDiscount={canDiscount} onValue={update}/>)}
+  {charges&&<>{(!modal||charges.length!==1)&&needsPayment&&method}<details><summary className="min-h-11 cursor-pointer py-2">備註（選填）</summary><input name="note" maxLength={500} className="min-h-11 w-full rounded-lg border border-earth-200 p-2 text-base"/></details></>}
   </fieldset>
   {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
   {!charges&&error&&<button type="button" className={button} onClick={()=>{setError('');setRetry(n=>n+1);}}>重新讀取</button>}
-  <footer className="sticky bottom-0 flex justify-end gap-2 border-t bg-white py-3"><button type="button" className={button} disabled={pending||recovery.busy} onClick={close}>{modal?'取消':'返回'}</button><button type={settled?"button":"submit"} onClick={settled?close:undefined} className={button+' bg-primary-700 text-white'} disabled={pending||recovery.blocked||!settled&&!valid}>{pending?'儲存中…':settled?'完成':valid&&!needsPayment?'確認折抵':'確認收款'}</button></footer>
+  <footer className="sticky bottom-0 flex justify-end gap-2 border-t bg-white py-3"><button type="button" className={button} disabled={pending||recovery.busy} onClick={close}>{modal?'取消':'返回'}</button><button type={settled?"button":"submit"} onClick={settled?close:undefined} className={button+' bg-primary-700 text-white'} disabled={pending||recovery.blocked||!quoteReady||!settled&&!valid}>{pending?'儲存中…':settled?'完成':valid&&!needsPayment?'確認折抵':'確認收款'}</button></footer>
  </form>;
  return modal&&!withinModal?<ModalPanel open onClose={close} labelledById="beauty-collection-title" pending={pending||recovery.busy} width={560}>{content}</ModalPanel>:content;
 }
