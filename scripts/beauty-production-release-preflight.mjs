@@ -3,7 +3,7 @@ import {beautyProductionCaPath,verifyBeautyProductionCa} from './beauty-producti
 import {fileURLToPath} from 'node:url';
 import {beautyDatabaseSelection} from './beauty-database-scope.mjs';
 import {reviewedBeautyNotificationWorker} from './beauty-notification-release-scope.mjs';
-import {validateBeautySchema,purchaseIntentAccessPreflight} from './purchase-intent-release-preflight.mjs';
+import {validateBeautySchema,purchaseIntentAccessPreflight,inactiveBeautyAdditionsPreflight} from './purchase-intent-release-preflight.mjs';
 export const BEAUTY_PRODUCTION_ROLE='steamfoot_beauty_prod_20261025';
 export function validateBeautyProductionRelease(env){
  if(env.VERCEL_ENV!=='production'||env.VERCEL_GIT_COMMIT_REF!=='main'||env.BEAUTY_MODULE_ENABLED!=='1'||env.BEAUTY_DATABASE_MODE!=='dedicated'||!(env.BEAUTY_NOTIFICATIONS_ENABLED==='0'||env.BEAUTY_NOTIFICATIONS_ENABLED==='1'&&reviewedBeautyNotificationWorker(env))||env.BEAUTY_HOSTED_PREVIEW!==undefined||
@@ -39,6 +39,7 @@ export async function beautyProductionReleasePreflight(env=process.env,createCli
   stage='schema';
   const tables=await client.query(`SELECT relname,relrowsecurity FROM pg_class WHERE relnamespace='public'::regnamespace AND relkind='r' AND relname LIKE 'Beauty%'`);
   const schema=validateBeautySchema(tables.rows,env);
+  await inactiveBeautyAdditionsPreflight(client,tables.rows);
   if(schema.intentsInstalled){stage='intent-privileges';await purchaseIntentAccessPreflight(client,'beauty');}
   stage='privileges';
   const privileges=await client.query(`SELECT has_column_privilege(current_user,'public."User"','passwordHash','SELECT') AS secret_read,has_table_privilege(current_user,'public."BeautyPayment"','UPDATE,DELETE,TRUNCATE') AS finance_write`);
