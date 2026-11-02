@@ -75,5 +75,12 @@ it.each([{mode:'FIXED',value:180},{mode:'PERCENT',value:50,base:'LIST'},null])('
  const view=BeautyCourseCatalog({tab:'服務項目',data:{...data,services:[original],techs:[{id:'tech',serviceIds:['service']}],manage:{technician:true},access:{feeAccess:true}} as unknown as BeautyDashboardData,canEdit:true});
  const form=new FormData();for(const [key,value] of Object.entries({name:'新名稱',category:'按摩',duration:'30',buffer:'5',active:'yes',sportsCompensationMode:'SHARE',sportsCompensationValue:'99'}))form.set(key,value);form.append('sportsCoachIds','tech');
  const input=view.props.catalog.values(form,nativeBeautyService(original,['tech']));
- expect(input.rule).toEqual({coachIds:['tech'],expectedCoachIds:['tech'],defaultRate});expect(input).not.toHaveProperty('price');expect(input).not.toHaveProperty('trialPrice');
+ expect(input.rule).toEqual({coachIds:['tech'],expectedCoachIds:['tech']});expect(input).not.toHaveProperty('price');expect(input).not.toHaveProperty('trialPrice');
+});
+
+it('new 90 minute service sends qualification only without a compensation payload',()=>{
+ const view=BeautyCourseCatalog({tab:'服務項目',data:{...data,techs:[{id:'tech',serviceIds:[]}],manage:{technician:true},access:{feeAccess:true}} as unknown as BeautyDashboardData,canEdit:true});
+ const form=new FormData();for(const [key,value] of Object.entries({name:'全身按摩90',category:'按摩',duration:'90',buffer:'10',active:'yes'}))form.set(key,value);form.append('sportsCoachIds','tech');
+ expect(view.props.catalog.values(form,null)).toMatchObject({name:'全身按摩90',duration:90,buffer:10,rule:{coachIds:['tech'],expectedCoachIds:[]}});
+ expect(view.props.catalog.values(form,null).rule).not.toHaveProperty('defaultRate');
 });

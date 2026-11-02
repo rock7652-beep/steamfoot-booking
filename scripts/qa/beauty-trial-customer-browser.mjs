@@ -13,6 +13,8 @@ mkdirSync(output,{recursive:true});
 await build({entryPoints:['scripts/qa/beauty-trial-customer-fixture.tsx'],bundle:true,jsx:'automatic',format:'iife',outfile:path.join(output,'fixture.js'),alias:{'@':path.join(root,'src')},define:{'process.env.NODE_ENV':'"development"','process.env':'{}'},plugins:[{name:'isolated-ports',setup(builder){
  builder.onResolve({filter:/^@\/server\//},args=>({path:path.join(root,'src',args.path.slice(2)+'.ts'),namespace:'server-stub'}));
  builder.onLoad({filter:/.*/,namespace:'server-stub'},args=>({contents:[...readFileSync(args.path,'utf8').matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(\w+)/g)].map(match=>match[1]==='saveCourseRental'?`export const saveCourseRental=(...args)=>window.qaRentalSave(...args);`:`export const ${match[1]}=(...args)=>{if('${match[1]}'==='collectBeautyPayment'){window.collectionSaved=args;return Promise.resolve({success:true});}throw Error("Unexpected server action in synthetic UI")};`).join('\n'),loader:'js'}));
+ builder.onResolve({filter:/^next\/dynamic$/},()=>({path:'dynamic',namespace:'qa-dynamic'}));
+ builder.onLoad({filter:/.*/,namespace:'qa-dynamic'},()=>({contents:'export default ()=>()=>null;',loader:'js'}));
  builder.onResolve({filter:/^next\/navigation$/},()=>({path:'navigation',namespace:'qa'}));
  builder.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'qa'}));
  builder.onLoad({filter:/.*/,namespace:'qa'},args=>({contents:args.path==='navigation'?`export const useRouter=()=>({push:()=>{},refresh:()=>{},prefetch:()=>{}});export const usePathname=()=>'/hq/dashboard/beauty';export const useSearchParams=()=>new URLSearchParams();export const unstable_rethrow=error=>{throw error};`:`import {createElement} from 'react';export default ({children,prefetch,...props})=>createElement('a',props,children);export const useLinkStatus=()=>({pending:false});`,loader:'js',resolveDir:root}));
@@ -44,12 +46,12 @@ try{
   await page.setViewportSize({width,height});await page.getByRole('button',{name:'服務項目預覽',exact:true}).click();
   await page.getByRole('heading',{name:'新增服務項目'}).waitFor();
   assert.equal(await page.locator('[name="sportsCompensationMode"], [name="sportsCompensationValue"], [name="price"], [name="trialPrice"]').count(),0);
-  await page.getByLabel('測試技師',{exact:true}).check();await page.locator('[name="name"]').fill('30分鐘肩頸按摩');
+  await page.getByLabel('測試技師',{exact:true}).check();await page.locator('[name="name"]').fill('全身按摩90');await page.locator('[name="duration"]').fill('90');await page.locator('[name="buffer"]').fill('10');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:path.join(output,`service-${width}.png`),fullPage:true});
-  await page.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('alert').filter({hasText:'隔離測試不寫入服務'}).waitFor();
-  assert.equal(await page.locator('[name="name"]').inputValue(),'30分鐘肩頸按摩');
-  await page.getByRole('button',{name:'關閉',exact:true}).click();await page.getByRole('button',{name:'空間出租預覽',exact:true}).click();
+  await page.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('status').filter({hasText:'服務項目已建立'}).waitFor();
+  const serviceSaved=await page.evaluate(()=>window.serviceSaved);assert.equal(serviceSaved.duration,90);assert.equal(serviceSaved.buffer,10);assert.deepEqual(serviceSaved.rule,{coachIds:['tech'],expectedCoachIds:[]});assert.equal(await page.getByRole('row').filter({hasText:'全身按摩90'}).count(),1);
+  await page.getByRole('button',{name:'空間出租預覽',exact:true}).click();
   await page.getByLabel('安排類型',{exact:true}).selectOption('rental');
   assert.equal(await page.getByRole('combobox',{name:/^空間/}).inputValue(),'bed');assert.equal(await page.getByLabel('應收（元）',{exact:true}).inputValue(),'0');
   assert.equal(await page.getByLabel('日期',{exact:true}).inputValue(),'2026-11-03');assert.equal(await page.getByLabel('時間',{exact:true}).inputValue(),'12:30');

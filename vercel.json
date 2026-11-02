@@ -170,7 +170,8 @@
       "perf/sports-course-loading": false,
       "review/plan-management-sports-performance": false,
       "fix/calendar-restored-month-consistency": false,
-      "fix/beauty-collection-calendar-remount": false
+      "fix/beauty-collection-calendar-remount": false,
+      "fix/beauty-service-create-20261102": false
     }
   }
 }
