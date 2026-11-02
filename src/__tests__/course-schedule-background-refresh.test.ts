@@ -1,3 +1,4 @@
+import {preparedRoster} from "./fixtures/prepared-roster";
 vi.mock("@/server/actions/course-browse", () => ({ loadCourseCustomerSearchIndex: vi.fn().mockResolvedValue({success:true,data:[],complete:true}), searchCourseCustomers: vi.fn().mockResolvedValue({success:true,data:[]}) }));
 vi.mock('@/server/actions/course-charge',()=>({loadCourseChargeOptions:vi.fn().mockResolvedValue({success:true,rows:[],enabled:true,defaultTrialPrice:499})}));
 vi.mock("@/server/actions/course-rental", () => ({ createRentalCustomer: vi.fn() }));
@@ -11,7 +12,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { CourseWorkspace, type CourseCalendarSource } from "@/app/(dashboard)/dashboard/courses/workspace";
 
-const m = vi.hoisted(() => ({ query: "", nativeRead: vi.fn(), detail:vi.fn(), router: { refresh: vi.fn() } }));
+const m = vi.hoisted(() => ({ query: "", nativeRead: vi.fn(), detail:vi.fn(), roster:vi.fn(), router: { refresh: vi.fn(),replace:vi.fn() } }));
 vi.mock("@/lib/course-session-detail-client",()=>({readCourseSessionDetailClient:m.detail}));
 vi.mock("@/lib/sports-calendar-client",()=>({readSportsCalendar:m.nativeRead}));
 vi.mock("next/navigation", () => ({
@@ -24,7 +25,7 @@ vi.mock("@/server/actions/course", () => ({}));
 vi.mock("@/components/admin/course-display-order", () => ({ useCourseDisplayOrder: () => ({ ranks: new Map(), compare: () => 0, rowProps: () => ({}), handle: () => null }) }));
 vi.mock("@/components/admin/course-status-button", () => ({ useCourseStatusRows: (rows: unknown[]) => [rows, vi.fn(), [], vi.fn()], CourseStatusButton: () => null }));
 vi.mock("@/components/admin/course-batch-selection", () => ({ CourseBatchBar: () => null }));
-vi.mock("@/app/(dashboard)/dashboard/courses/roster", () => ({ CourseRoster: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/roster", () => ({ CourseRoster: (props:unknown) => {m.roster(props);return null;} }));
 vi.mock("@/app/(dashboard)/dashboard/courses/rental-panel", () => ({ RentalPanel: () => null, RentalHistory: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/music-schedule-wizard", () => ({ MusicScheduleWizard: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/daily-attendance-list", () => ({ DailyAttendanceList: () => null }));
@@ -138,4 +139,65 @@ it('does not restore router history again when selecting an already active calen
 it('preserves the latest browser view and other query fields during an immediate date change',async()=>{
  const original=window.location.href;m.query='date=2026-10-17&scheduleView=month';window.history.replaceState(null,'','/s/sports-test/admin/dashboard/courses?date=2026-10-17&scheduleView=day&keep=review');
  try{await render('MUSIC');await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='日表')!.click());await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent?.trim()==='›')!.click());const query=new URLSearchParams(window.location.search);expect(query.get('date')).toBe('2026-10-18');expect(query.get('scheduleView')).toBe('day');expect(query.get('keep')).toBe('review');}finally{window.history.replaceState(null,'',original);}
+});
+
+
+it.each([false,true])('opens with prepared data and keeps its refresh completion observable: native=%s',async native=>{
+ const original=window.location.href;m.query='date=2026-10-17&scheduleView=day';if(!native)vi.stubEnv('NEXT_PUBLIC_BUILD_ENV','staging');window.history.replaceState(null,'',`/s/${native?'sports-test':'lubymusic'}/admin/dashboard/courses?`+m.query);
+ const data=preparedRoster(),rosterSnapshots={storeId:'store-a',details:{session:data}};
+ try{
+  await act(async()=>root.render(createElement(CourseWorkspace,{...props,rosterSnapshots,canCreate:false,canEdit:false,sportsNative:native,businessProfile:native?'FITNESS':'MUSIC',rooms:[{id:'room',name:'Room',category:'',isActive:true,capacity:2}],coaches:[{id:'coach',displayName:'Coach',phone:'',status:'ACTIVE',courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:[]}],sessions:[{id:'session',templateId:'template',nameSnapshot:'Teaching A',startsAt:'2026-10-17T02:00:00Z',endsAt:'2026-10-17T03:00:00Z',coachId:'coach',roomId:'room',capacity:2,pointCost:1,bookings:[]}]})));
+  expect(host.querySelector('[data-calendar-rosters-ready="true"]')).not.toBeNull();
+  await act(async()=>host.querySelector<HTMLButtonElement>('[data-calendar-session="session"]')!.click());
+  expect(m.detail).not.toHaveBeenCalled();expect(m.roster.mock.lastCall?.[0].initialSnapshot).toEqual({sessionId:'session',data});
+  if(!native){
+   const lease=m.roster.mock.lastCall?.[0].beginTeacherNoteSnapshot('session');expect(lease).not.toBeNull();
+   const updated={...data,session:{...data.session,teacherNote:'只更新這堂的備註'}};
+   await act(async()=>expect(lease.accept({sessionId:'session',data:updated})).toBe(true));lease.dispose();
+   expect(m.roster.mock.lastCall?.[0].initialSnapshot.data).toBe(updated);expect(rosterSnapshots.details.session).toBe(data);
+   await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='關閉')!.click());
+   await act(async()=>host.querySelector<HTMLButtonElement>('[data-calendar-session="session"]')!.click());
+   expect(m.roster.mock.lastCall?.[0].initialSnapshot.data).toBe(updated);expect(m.router.refresh).not.toHaveBeenCalled();expect(m.detail).not.toHaveBeenCalled();
+   await act(async()=>window.dispatchEvent(new StorageEvent('storage',{key:'music-preview:lubymusic:finance-v1',newValue:'general:teacher-note-parent-external'})));expect(host.querySelector('[data-calendar-rosters-ready="false"]')).not.toBeNull();
+  }
+  const owner=m.roster.mock.lastCall?.[0].onCommitted;expect(owner).toBeTypeOf('function');
+  await act(async()=>m.roster.mock.lastCall?.[0].onSnapshotInvalidated());expect(host.querySelector('[data-calendar-rosters-ready="false"]')).not.toBeNull();
+  // Snapshot invalidation must not drop the parent owner while its read is pending.
+  expect(m.roster.mock.lastCall?.[0].onCommitted).toBe(owner);
+  if(native){
+   let finish!:(value:{success:false;error:string})=>void;const read=new Promise(resolve=>{finish=resolve;});m.nativeRead.mockReturnValue(read);
+   let completion!:Promise<boolean|null>;await act(async()=>{completion=owner();});expect(completion).toBeInstanceOf(Promise);expect(m.nativeRead).toHaveBeenCalledOnce();
+   let outcome:unknown;await act(async()=>{finish({success:false,error:'controlled sync failure'});outcome=await completion;});expect(outcome).toBe(false);expect(host.textContent).toContain('controlled sync failure');
+  }else{await act(async()=>m.roster.mock.lastCall?.[0].onCommitted());expect(m.router.refresh).toHaveBeenCalledTimes(1);}
+ }finally{window.history.replaceState(null,'',original);vi.unstubAllEnvs();}
+});
+
+it('music date navigation stays responsive and hides unmatched month data until the route commits',async()=>{
+ let finish!:()=>void;const route=new Promise<void>(resolve=>{finish=resolve;});m.router.replace.mockReturnValue(route);
+ await render('MUSIC');const date=()=>host.querySelector<HTMLInputElement>('[aria-label="課表日期"]')!;
+ const choose=async(value:string)=>act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(date(),value);date().dispatchEvent(new Event('change',{bubbles:true}));date().dispatchEvent(new Event('input',{bubbles:true}));});
+ await choose('2026-11-17');expect(date().disabled).toBe(false);expect(date().value).toBe('2026-11-17');expect(host.querySelector('[aria-label="課表載入"]')).not.toBeNull();
+ await choose('2026-12-17');expect(date().disabled).toBe(false);expect(m.router.replace.mock.calls.at(-1)![0]).toContain('date=2026-12-17');
+ // Returning to the already loaded month still dispatches a navigation to supersede the pending route.
+ await choose('2026-10-17');expect(m.router.replace.mock.calls.at(-1)![0]).toContain('date=2026-10-17');
+ await act(async()=>finish());m.router.replace.mockReset();
+});
+
+it('blocks a late parent after a cleared note and requests one fresh calendar without losing its owner',async()=>{
+ const original=window.location.href;m.query='date=2026-10-17&scheduleView=day';vi.stubEnv('NEXT_PUBLIC_BUILD_ENV','staging');window.history.replaceState(null,'','/s/lubymusic/admin/dashboard/courses?'+m.query);
+ const data=preparedRoster(),initial={storeId:'store-a',details:{session:data}};
+ const input={...props,canCreate:false,canEdit:false,sportsNative:false,businessProfile:'MUSIC' as const,rooms:[{id:'room',name:'Room',category:'',isActive:true,capacity:2}],coaches:[{id:'coach',displayName:'Coach',phone:'',status:'ACTIVE',courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:[]}],sessions:[{id:'session',templateId:'template',nameSnapshot:'Teaching A',startsAt:'2026-10-17T02:00:00Z',endsAt:'2026-10-17T03:00:00Z',coachId:'coach',roomId:'room',capacity:2,pointCost:1,bookings:[]}]};
+ try{
+  await act(async()=>root.render(createElement(CourseWorkspace,{...input,rosterSnapshots:initial})));
+  await act(async()=>host.querySelector<HTMLButtonElement>('[data-calendar-session="session"]')!.click());
+  const owner=m.roster.mock.lastCall?.[0].onCommitted,lease=m.roster.mock.lastCall?.[0].beginTeacherNoteSnapshot('session');
+  const empty={...data,session:{...data.session,teacherNote:''}};
+  await act(async()=>expect(lease.accept({sessionId:'session',data:empty})).toBe(true));lease.dispose();
+  expect(m.router.refresh).not.toHaveBeenCalled();
+  await act(async()=>root.render(createElement(CourseWorkspace,{...input,rosterSnapshots:JSON.parse(JSON.stringify(initial))})));
+  expect(host.querySelector('[data-calendar-rosters-ready="false"]')).not.toBeNull();
+  expect(m.roster.mock.lastCall?.[0].initialSnapshot).toBeUndefined();expect(m.roster.mock.lastCall?.[0].onCommitted).toBe(owner);expect(m.router.refresh).toHaveBeenCalledOnce();
+  await act(async()=>root.render(createElement(CourseWorkspace,{...input,rosterSnapshots:{...initial,details:{session:empty}}})));
+  expect(host.querySelector('[data-calendar-rosters-ready="true"]')).not.toBeNull();expect(m.roster.mock.lastCall?.[0].initialSnapshot.data.session.teacherNote).toBe('');expect(m.router.refresh).toHaveBeenCalledOnce();
+ }finally{window.history.replaceState(null,'',original);vi.unstubAllEnvs();}
 });

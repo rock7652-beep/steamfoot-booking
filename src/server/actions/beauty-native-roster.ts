@@ -38,11 +38,11 @@ export async function saveBeautyNativeRosterNote(input:unknown){
  }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?'儲存失敗':failure.error};}
 }
 
-/** Refresh only the open roster and affected business day, never the dashboard catalogs. */
+/** Refresh the open roster and prepared month after a committed mutation. Catalogs remain untouched. */
 export async function readBeautyRosterOperation(input:unknown){
  try{
   const d=z.object({sessionId:z.string().min(1).max(200),date:z.string().regex(/^20\d{2}-\d{2}-\d{2}$/)}).parse(input);
-  const [roster,calendar]=await withReadRequestMemo(()=>Promise.all([readBeautyNativeRoster(d.sessionId),beautyCalendar(d.date,'day')]));
+  const [roster,calendar]=await withReadRequestMemo(()=>Promise.all([readBeautyNativeRoster(d.sessionId),beautyCalendar(d.date,'month',true,undefined,true)]));
   if(!roster.success)return roster;
   return {success:true as const,data:{roster:roster.data,calendar}};
  }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?'讀取失敗':failure.error};}

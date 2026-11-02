@@ -1,4 +1,6 @@
 "use client";
+import type {CalendarRosterSnapshots} from "./roster-source";
+import {useTeacherNoteSnapshot} from "./use-teacher-note-snapshot";
 import {sportsSchedulePreview} from "@/lib/sports-schedule-preview";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
@@ -60,7 +62,7 @@ import {CourseStatusButton,useCourseStatusRows} from "@/components/admin/course-
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { Fragment, useId, useMemo, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
+import { Fragment, useOptimistic, useId, useMemo, useEffect, useRef, useState, useTransition, type FormEvent, useCallback, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
@@ -168,7 +170,7 @@ export type Session = {
   rescheduleKind?: string | null;
   rescheduledAt?: string | null;
 };
-export type CourseCalendarSnapshot={month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:Props["cancelledBookings"];staffAvailabilityExceptions:Props["staffAvailabilityExceptions"]};
+export type CourseCalendarSnapshot={rosterSnapshots?:CalendarRosterSnapshots;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:Props["cancelledBookings"];staffAvailabilityExceptions:Props["staffAvailabilityExceptions"]};
 export type CourseCatalogSource={rentalModule?:"course"|"beauty";order?:import("@/lib/course-display-order").CourseOrderWriter;status:CatalogStatusDriver;save:(kind:"room"|"template",input:Record<string,unknown>)=>Promise<{success:true;data:Room|Template}|{success:false;error:string}>};
 export type CourseCalendarSource={
  readBlocked?:boolean;
@@ -183,6 +185,7 @@ export type CourseCalendarSource={
  assignmentStaff:{id:string;name:string}[];
 };
 type Props = {
+  rosterSnapshots?:CalendarRosterSnapshots;
   calendarSource?:CourseCalendarSource;
   catalogSource?:CourseCatalogSource;
   schedulingModes?:CourseSchedulingModes;
@@ -287,6 +290,7 @@ function WaitlistFields({
 }
 
 export function CourseWorkspace({
+  rosterSnapshots,
   calendarSource,
   catalogSource,
   storeId,
@@ -356,7 +360,7 @@ export function CourseWorkspace({
   const explicitDate=params.get("date"),explicitMode=params.get("scheduleView");
   const [nativeDate,setNativeDate]=useSportsCalendarDate(sportsNative,loadedDate,explicitDate,pathname,!calendarSource);
   const [nativeCalendarWarning,setNativeCalendarWarning]=useState(initialSportsCalendarWarning);
-  const [nativeCalendar,setNativeCalendar]=useState<{schedulingModes?:CourseSchedulingModes;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
+  const [nativeCalendar,setNativeCalendar]=useState<{rosterSnapshots?:CalendarRosterSnapshots;schedulingModes?:CourseSchedulingModes;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
   const sportsCalendarReader=usePanelReader(calendarSource?"service-native-calendar":"sports-calendar",calendarSource?.read??readSportsCalendar,storeId??"",0);
   const calendarRequest=useRef(0);
   const calendarReadsInFlight=useRef(0);
@@ -367,6 +371,13 @@ export function CourseWorkspace({
   const confirmedSessionSource=useMemo(()=>(nativeCalendar?.sessions??sourceSessions).map(row=>({...row,receiptStoreId:storeId})),[nativeCalendar?.sessions,sourceSessions,storeId]);
   const confirmedScheduleSessions=useConfirmedSettingsRows(confirmedSessionSource,row=>row.id);
   const sessions:Session[]=confirmedScheduleSessions.rows.filter(row=>row.receiptStoreId===storeId);
+  const incomingRosters=nativeCalendar?.rosterSnapshots??rosterSnapshots;
+  const [invalidatedRosters,setInvalidatedRosters]=useState<CalendarRosterSnapshots|undefined>();
+  const teacherNoteScope=`${storeId}:${pathname}:${loadedDate}:${params.get("date")??loadedDate}`;
+  const {snapshots:rawPreparedRosters,begin:beginTeacherNoteSnapshot,invalidate:invalidateTeacherNoteSnapshot,cancelPending:cancelPendingTeacherNote,reconcileRequest:teacherNoteReconciliation}=useTeacherNoteSnapshot({incoming:incomingRosters,invalidated:invalidatedRosters,scope:teacherNoteScope,enabled:businessProfile==="MUSIC"&&!sportsNative&&incomingRosters?.storeId===storeId,onInvalidate:setInvalidatedRosters});
+  const calendarOwnsRosterRefresh=sportsNative||!!incomingRosters&&incomingRosters.storeId===storeId;
+  const preparedRosters=rawPreparedRosters&&rawPreparedRosters.storeId===storeId&&rawPreparedRosters!==invalidatedRosters&&incomingRosters!==invalidatedRosters?rawPreparedRosters:undefined;
+  const invalidatePreparedRosters=useCallback(()=>{invalidateTeacherNoteSnapshot();++calendarRequest.current;setCalendarReading(false);},[invalidateTeacherNoteSnapshot]);
   const cancelledBookings=nativeCalendar?.cancelledBookings??sourceCancelledBookings;
   const calendarDays=nativeCalendar?.calendarDays??sourceCalendarDays;
   const staffAvailabilityExceptions=nativeCalendar?.staffAvailabilityExceptions??sourceStaffAvailabilityExceptions;
@@ -389,15 +400,24 @@ export function CourseWorkspace({
     }catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");return false;}
     finally{calendarReadsInFlight.current--;if(request===calendarRequest.current)setCalendarReading(false);}
   },[sportsNative,canCreate,sportsCalendarReader,calendarSource]);
-  const calendarDataReady=calendarMonthReady(sportsNative,nativeDate,nativeCalendar?.month??loadedDate.slice(0,7));
-  useEffect(()=>{if(!calendarDataReady&&calendarTargetMonth.current!==nativeDate.slice(0,7)){
+  const [calendarNavigating,startCalendarNavigation]=useTransition();
+  const requestedDate = sportsNative?nativeDate:params.get("date");
+  const committedDate=requestedDate&&parseTaipeiDateTime(requestedDate,"00:00")?requestedDate:loadedDate;
+  const [selectedDate,selectCalendarDate]=useOptimistic(committedDate,(_previous:string,next:string)=>next);
+  const calendarDataReady=calendarMonthReady(sportsNative||businessProfile==="MUSIC",selectedDate,nativeCalendar?.month??loadedDate.slice(0,7));
+  useEffect(()=>{if(sportsNative&&!calendarDataReady&&calendarTargetMonth.current!==nativeDate.slice(0,7)){
     if(!calendarSource)setNativeDate(nativeDate);
     void refreshNativeCalendar(nativeDate,true);
-  }},[calendarDataReady,nativeDate,calendarSource,setNativeDate,refreshNativeCalendar]);
+  }},[sportsNative,calendarDataReady,nativeDate,calendarSource,setNativeDate,refreshNativeCalendar]);
   useSportsCalendarScroll(sportsNative&&view==="schedule","window",undefined,calendarDataReady&&!calendarReading);
-  const refreshWorkspace=useCallback(()=>{if(sportsNative)void refreshNativeCalendar(nativeDateRef.current);else router.refresh();},[sportsNative,refreshNativeCalendar,router]);
-  const requestedDate = sportsNative?nativeDate:params.get("date");
-  const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
+  const [transitionPending, startTransition] = useTransition();
+  const refreshWorkspace=useCallback(()=>{if(sportsNative)return refreshNativeCalendar(nativeDateRef.current);startCalendarNavigation(()=>router.refresh());},[sportsNative,refreshNativeCalendar,router,startCalendarNavigation]);
+  const handledTeacherNoteReconciliation=useRef(teacherNoteReconciliation);
+  useEffect(()=>{
+    if(handledTeacherNoteReconciliation.current===teacherNoteReconciliation)return;
+    handledTeacherNoteReconciliation.current=teacherNoteReconciliation;
+    if(teacherNoteReconciliation?.scope===teacherNoteScope&&teacherNoteReconciliation.source===incomingRosters&&!rawPreparedRosters)refreshWorkspace();
+  },[teacherNoteReconciliation,teacherNoteScope,incomingRosters,rawPreparedRosters,refreshWorkspace]);
   const requestedScheduleMode = params.get("scheduleView");
   const [scheduleMode, setScheduleMode] = useSportsCalendarState<CourseScheduleMode>(sportsNative,"mode",
     requestedScheduleMode === "day" || requestedScheduleMode === "week" || requestedScheduleMode === "month"
@@ -442,7 +462,6 @@ export function CourseWorkspace({
     setNewRoomId(room.id);
   }, pathname);
   const [newRoomId, setNewRoomId] = useState<string | null>(null);
-  const [transitionPending, startTransition] = useTransition();
   const submitLock=useRef(false);
   const pending = transitionPending || roomCreate.pending || roomSave.pending || templateSave.pending;
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -484,7 +503,7 @@ export function CourseWorkspace({
   useEffect(() => {
     // Keep the calendar current even with the day sheet closed. Nested roster
     // dialogs own their reads; never refresh their parent during a transaction.
-    if (calendarSource?.readBlocked || view !== "schedule" || (panel !== null && panel !== "day") || courseDialog || dirty || pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain) return;
+    if (calendarSource?.readBlocked || view !== "schedule" || (panel !== null && panel !== "day") || courseDialog || dirty || pending || calendarNavigating || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain) return;
     if (sportsNative) {
       return startSportsBackgroundSync(
         () => refreshNativeCalendar(nativeDateRef.current,false,true),
@@ -495,7 +514,7 @@ export function CourseWorkspace({
     const refresh = () => {
       if (document.visibilityState !== "visible" || Date.now() - backgroundRefreshRequestedAt.current < 15_000) return;
       backgroundRefreshRequestedAt.current = Date.now();
-      startTransition(() => {
+      startCalendarNavigation(() => {
         refreshWorkspace();
         setLastUpdated(new Date());
       });
@@ -510,7 +529,7 @@ export function CourseWorkspace({
       window.removeEventListener("pageshow", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [calendarSource?.readBlocked, panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, startTransition, sportsNative, refreshNativeCalendar, refreshWorkspace]);
+  }, [calendarSource?.readBlocked, panel, router, view, courseDialog, dirty, pending, roomCreate.uncertain, roomSave.uncertain, templateSave.uncertain, calendarNavigating, startCalendarNavigation, sportsNative, refreshNativeCalendar, refreshWorkspace]);
   useCourseDraftGuard(!sportsNative&&dirty,!sportsNative&&!!panel&&(pending || roomCreate.uncertain || roomSave.uncertain || templateSave.uncertain));
   const scheduleOpenIntent=useRef(false);
   // Only form metadata is warmed; prices and balances keep their own live reads.
@@ -690,16 +709,21 @@ export function CourseWorkspace({
   }
   for (const list of byDate.values()) list.sort((a,b)=>a.startsAt.localeCompare(b.startsAt)||a.id.localeCompare(b.id));
   function go(date: string) {
+    if(date!==selectedDate)cancelPendingTeacherNote();
     calendarSource?.onDateChange?.(date);
     if(sportsNative){setNativeDate(date);nativeDateRef.current=date;const month=date.slice(0,7);if(month!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date,true);else if(calendarTargetMonth.current!==month){++calendarRequest.current;calendarTargetMonth.current=month;setCalendarReading(false);}return;}
     const next = new URLSearchParams(window.location.search);
     const unchanged=next.get("date")===date&&window.location.pathname===pathname;
     next.set("date", date);
-    if (date.slice(0, 7) === loadedDate.slice(0, 7)) {
+    if (date.slice(0, 7) === loadedDate.slice(0, 7) && !calendarNavigating) {
       // All sessions for this month are already loaded. Keep the open sheet,
       // filters and scroll position instead of remounting through navigation.
       if(!unchanged)window.history.replaceState(null, "", `${pathname}?${next}`);
-    } else startTransition(() => router.replace(`${pathname}?${next}`, { scroll: false }));
+    } else startCalendarNavigation(() => {
+      selectCalendarDate(date);
+      // Even returning to the loaded month must supersede an older in-flight navigation.
+      return router.replace(`${pathname}?${next}`, { scroll: false });
+    });
   }
   function open(next: typeof panel) {
     if (pending) return;
@@ -1017,6 +1041,7 @@ export function CourseWorkspace({
   const weekFilters = <><button type="button" popoverTarget={sportsFilterPanelId} className={`${button} min-h-11 whitespace-nowrap`}>篩選{scheduleFiltered ? "（已套用）" : ""}</button><div id={sportsFilterPanelId} popover="auto" aria-label="課表篩選" className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[min(44rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-earth-200 bg-white p-4 shadow-xl backdrop:bg-black/20"><div className="mb-3 flex items-center justify-between"><strong>課表篩選</strong><button type="button" popoverTarget={sportsFilterPanelId} popoverTargetAction="hide" className="min-h-11 rounded-lg px-3">完成</button></div>{calendarSource?<div className="flex flex-wrap items-center gap-3">{serviceFilters}</div>:scheduleFilters}</div></>;
   return (
     <>
+      {incomingRosters&&<span hidden data-calendar-rosters-ready={calendarDataReady&&!calendarReading&&preparedRosters&&preparedRosters.storeId===storeId&&sessions.filter(session=>!isRentalSession(session)).every(session=>preparedRosters.details[calendarSource?`booking:${session.id}`:session.id])?"true":"false"} data-calendar-rosters-count={sessions.filter(session=>!isRentalSession(session)).length}/>}
       {!panel && <CourseConflicts items={conflicts}/>}
       {sportsNative&&<span hidden data-operation-background-refresh/>}
       {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onReview={()=>{setCourseDialog({sessionId:moveClipboard.sessionId,kind:"roster"});setMoveTarget(null);}} onSaved={(date,patches)=>{const ensure=date.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7));++calendarRequest.current;setNativeCalendar(previous=>({...previous??{month:loadedDate.slice(0,7),sessions:sourceSessions,cancelledBookings:sourceCancelledBookings,calendarDays:sourceCalendarDays,staffAvailabilityExceptions:sourceStaffAvailabilityExceptions},sessions:applySportsMovePatches(previous?.sessions??sourceSessions,patches??[])}));setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date,ensure);}}/>}
@@ -1041,7 +1066,7 @@ export function CourseWorkspace({
                   <button
                     key={mode}
                     type="button"
-                    disabled={pending}
+                    disabled={pending||inlineBusy}
                     onClick={() => changeScheduleMode(mode)}
                     className={`${styles.touchControl} min-h-8 rounded-md px-2 text-sm ${
                       scheduleMode === mode
@@ -1056,7 +1081,7 @@ export function CourseWorkspace({
               <div className="inline-flex items-center gap-1">
                 <button
                   className={`${styles.touchControl} ${button} min-h-9 px-2.5`}
-                  disabled={pending}
+                  disabled={pending||inlineBusy}
                   aria-label={
                     scheduleMode === "month"
                       ? "上個月"
@@ -1080,14 +1105,14 @@ export function CourseWorkspace({
                 </button>
                 <button
                   className={`${styles.touchControl} ${button} min-h-9 px-2`}
-                  disabled={pending}
+                  disabled={pending||inlineBusy}
                   onClick={() => go(today)}
                 >
                   今天
                 </button>
                 <button
                   className={`${styles.touchControl} ${button} min-h-9 px-2.5`}
-                  disabled={pending}
+                  disabled={pending||inlineBusy}
                   aria-label={
                     scheduleMode === "month"
                       ? "下個月"
@@ -1117,7 +1142,7 @@ export function CourseWorkspace({
                 aria-label="課表日期"
                 type="date"
                 defaultValue={selectedDate}
-                disabled={pending}
+                disabled={pending||inlineBusy}
                 onChange={(event) => {
                   const date = event.target.value;
                   if (parseTaipeiDateTime(date, "00:00")) go(date);
@@ -1132,12 +1157,12 @@ export function CourseWorkspace({
             {(cashbookShortcut || canCreate || canEdit) && (
               <div data-calendar-actions className={calendarHeader ? styles.calendarActions : calendarSource?"flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-4 gap-y-2":businessProfile === "MUSIC"?"ml-auto flex shrink-0 gap-1":"flex shrink-0 gap-2"}>
                 {calendarSource&&scheduleMode==="month"&&<ServiceCalendarLegend/>}{cashbookShortcut}
-                {sportsNative&&!calendarSource&&<button type="button" className={`${button} min-h-11`} disabled={pending||calendarReading} onClick={()=>setSportsAttendanceOpen(true)}>出席狀況</button>}
+                {sportsNative&&!calendarSource&&<button type="button" className={`${button} min-h-11`} disabled={pending||calendarReading||!calendarDataReady} onClick={()=>setSportsAttendanceOpen(true)}>出席狀況</button>}
 
                 {canCreate && (
                   <button
                     className={`${primary} min-h-9`}
-                    disabled={pending}
+                    disabled={pending||!calendarDataReady}
                     onPointerEnter={prefetchSportsSchedule}
                     onFocus={prefetchSportsSchedule}
                     onTouchStart={prefetchSportsSchedule}
@@ -1161,7 +1186,7 @@ export function CourseWorkspace({
                 <button className="ml-auto text-xs" type="button" onClick={()=>calendarSource?.move?calendarSource.move.onCancel():setMoveClipboard(null)}>取消</button>
               </div>
             )}
-          <CalendarMonthBoundary ready={calendarDataReady} date={selectedDate} loading={calendarReading} error={error} onRetry={()=>void refreshNativeCalendar(selectedDate,true)}>
+          <CalendarMonthBoundary ready={calendarDataReady} date={selectedDate} loading={calendarReading||calendarNavigating} error={sportsNative?error:""} onRetry={()=>{if(sportsNative)void refreshNativeCalendar(selectedDate,true);else go(selectedDate);}}>
           {scheduleMode === "month" ? (
             <>
               {businessProfile === "MUSIC" ? (
@@ -1214,7 +1239,7 @@ export function CourseWorkspace({
                       const color = session.servicePalette?serviceCalendarPresentation(!!session.isTrial,session.previewKind === "RENTAL").dot: businessProfile === "MUSIC" ? musicScheduleColors(session).dot : courseClassPresentation(type, !!(session.isTrial || allTemplates.find(template=>template.id===session.templateId)?.musicTrialMode), session.previewKind === "RENTAL").dot;
                       const primary = type === "PRIVATE" ? scheduleRosterBookings(session.bookings).map(booking => booking.customerName).join("、") || session.nameSnapshot : session.nameSnapshot;
                       const label = `${session.previewFaded ? `【${session.previewFaded}】` : ""}${formatTWDateTime(new Date(session.startsAt)).slice(11)}${sportsNative?`–${formatTWDateTime(new Date(session.endsAt)).slice(11)}`:""} ${primary}${coachFilter === "all" ? ` · ${allCoaches.find(coach => coach.id === session.coachId)?.displayName ?? "未指定"}` : ""}`;
-                      return <button type="button" disabled={pending} key={session.id} data-sports-schedule-kind={sportsColor?.kind} title={label} aria-label={sportsNative&&session.previewFaded?`排課 ${label}`:`開啟 ${label} 上課名單`} onClick={() => {go(date);if(sportsNative&&session.previewFaded){if(moveClipboard){pasteMove({date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}openSchedule({single:true,date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 ${sportsColor?`rounded border px-1 ${sportsColor.card} ${session.previewFaded?"opacity-40":""}`:"text-earth-800 hover:text-primary-700"} focus-visible:ring-2 focus-visible:ring-primary-500`}>{!sportsNative&&<span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />}<span className="truncate">{label}</span></button>;
+                      return <button type="button" disabled={pending||calendarReading} key={session.id} data-sports-schedule-kind={sportsColor?.kind} title={label} aria-label={sportsNative&&session.previewFaded?`排課 ${label}`:`開啟 ${label} 上課名單`} onClick={() => {go(date);if(sportsNative&&session.previewFaded){if(moveClipboard){pasteMove({date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}openSchedule({single:true,date,time:formatTWDateTime(new Date(session.startsAt)).slice(11,16),roomId:session.roomId,coachId:session.coachId});return;}setCourseDialog({sessionId:session.id,kind:"roster"});}} className={`${styles.monthAction} relative mt-0.5 flex w-full items-center gap-1 text-left text-xs leading-4 ${sportsColor?`rounded border px-1 ${sportsColor.card} ${session.previewFaded?"opacity-40":""}`:"text-earth-800 hover:text-primary-700"} focus-visible:ring-2 focus-visible:ring-primary-500`}>{!sportsNative&&<span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />}<span className="truncate">{label}</span></button>;
                     })}
                     {list.length > visibleCount && <button type="button" className={`${styles.monthAction} relative text-xs text-primary-800 hover:underline`} onClick={() => {go(date);open("day");}} aria-label={`查看 ${date} 全部 ${list.length} 筆`}>另 {list.length-visibleCount} 筆</button>}
                     {!list.length && scheduleFiltered && sessions.some(session => toLocalDateStr(new Date(session.startsAt)) === date) && <span className="pointer-events-none mt-1 text-xs text-earth-400">無符合課程</span>}
@@ -1266,12 +1291,13 @@ export function CourseWorkspace({
               onPasteMove={pasteMove}
               onSelectDate={go}
               onOpenSession={(sessionId, date) => {
+                if(calendarSource?.readBlocked||calendarReading||pending)return;
                 go(date);
                 if(calendarSource){calendarSource.onOpen(sessionId);return;}
                 // Start the fresh read on this click, alongside mounting the dialog.
                 // TTL 0 shares only an in-flight request, never a completed balance.
                 const opening=sessions.find(session=>session.id===sessionId);
-                if(opening&&!isRentalSession(opening)){
+                if(opening&&!isRentalSession(opening)&&!preparedRosters?.details[sessionId]){
                   if(sportsNative)sportsRosterReader.prefetch(sessionId,true,false);
                   else if(businessProfile==="MUSIC")musicRosterReader.prefetch(sessionId,true,false);
                 }
@@ -2547,6 +2573,9 @@ export function CourseWorkspace({
                   sportsNative={sportsNative}
                   key={`${dialogSession.id}-${kind}`}
                   sessionId={dialogSession.id}
+                  onSnapshotInvalidated={invalidatePreparedRosters}
+                  beginTeacherNoteSnapshot={businessProfile==="MUSIC"&&!sportsNative?beginTeacherNoteSnapshot:undefined}
+                  initialSnapshot={kind==="roster"&&preparedRosters&&preparedRosters.storeId===storeId&&preparedRosters.details[dialogSession.id]?{sessionId:dialogSession.id,data:preparedRosters.details[dialogSession.id]}:undefined}
                   previewBookings={kind==="roster"?dialogSession.bookings:undefined}
                   capacity={dialogSession.capacity}
                   canCreate={canCreate&&dialogModeAllowed}
@@ -2564,9 +2593,9 @@ export function CourseWorkspace({
                   courseName={dialogSession.nameSnapshot}
                   onDone={() => {setRosterRevision(v=>v+1);inlineDirty.current=false;setCourseDialog({sessionId:dialogSession.id,kind:"roster"});}}
                   refreshVersion={sportsNative&&kind==="roster"?rosterRevision:0}
-                  onBusyChange={sportsNative&&kind!=="roster"?setInlineBusy:undefined}
+                  onBusyChange={setInlineBusy}
 
-                  onCommitted={sportsNative?refreshWorkspace:undefined}
+                  onCommitted={calendarOwnsRosterRefresh?refreshWorkspace:undefined}
                   onAttendanceOptimistic={showPendingAttendance}
                   onTeacherAttendanceOptimistic={status=>setPendingTeacherAttendance(previous=>{if(status)return {...previous,[dialogSession.id]:status};const next={...previous};delete next[dialogSession.id];return next;})}
                   onMemberBookingReadyChange={setMemberBookingReady}
@@ -2621,7 +2650,7 @@ export function CourseWorkspace({
                   )}
                   {!rentalDialog && (courseDialog.kind === "roster"||sportsNative) && canCreate && dialogModeAllowed && <><button type="button" disabled={inlineBusy} className={sportsNative?button:primary} onClick={()=>changeBooking("member-booking",dialogSession.id)}>{sportsNative?"＋學員":"＋加入學員"}</button><button type="button" disabled={inlineBusy} className={button} onClick={()=>changeBooking("trial-booking",dialogSession.id)}>＋體驗客</button></>}
                   {(monthlyReturnHref(params.toString())||params.get("returnStudentId"))&&<DashboardLink className={button} aria-disabled={inlineBusy||pending} onClick={e=>{if(inlineBusy||pending)e.preventDefault();}} href={monthlyReturnHref(params.toString())??studentReturnHref(params.get("returnStudentId")!,params.get("returnStudentQuery")??"")}>{monthlyReturnHref(params.toString())?"返回月結":"返回學員"}</DashboardLink>}
-                  <button type="button" className={button} onClick={() => { setMoveChoice(null); closeRentalDialog(); }}>關閉</button>
+                  <button type="button" className={button} disabled={inlineBusy} onClick={() => { setMoveChoice(null); closeRentalDialog(); }}>關閉</button>
                 </div>
 
               </header>

@@ -3,7 +3,7 @@ import { settingsStep, traceSettingsRead } from "@/server/services/settings-timi
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { getCourseSetup } from "@/server/queries/course-setup";
 import { CourseSetupGuide } from "@/components/admin/course-setup-guide";
-import { CourseSettingsWorkspace } from "./settings-workspace";
+import { CourseSettingsWorkspaceEntry as CourseSettingsWorkspace } from "./non-calendar-view-entries";
 import { CourseSettingsPanelContent } from "./settings-panel-content";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { notFound, redirect } from "next/navigation";

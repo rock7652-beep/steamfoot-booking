@@ -1,5 +1,5 @@
 import 'server-only';
-type Stage = 'access'|'profile'|'ensure_month'|'pre_calendar'|'calendar_batch'|'post_calendar'|'presentation'|'rentals'|'rental_customers'|'cancelled_bookings'|'rooms'|'templates'|'sessions'|'coaches'|'business_hours'|'special_days'|'availability'|'availability_exceptions'|'roster_customers'|'waitlist_feature'|'waitlist_setting'|'display_orders'|'sports_rules'|'labels'|'plans'|'scheduling_modes';
+type Stage = 'access'|'profile'|'ensure_month'|'pre_calendar'|'calendar_batch'|'post_calendar'|'presentation'|'rentals'|'rental_customers'|'cancelled_bookings'|'rooms'|'templates'|'sessions'|'rosters'|'coaches'|'business_hours'|'special_days'|'availability'|'availability_exceptions'|'roster_customers'|'waitlist_feature'|'waitlist_setting'|'display_orders'|'sports_rules'|'labels'|'plans'|'scheduling_modes';
 /** Request-local wall time, including connection/permission waits; never SQL-engine-only time. */
 export function createCoursePageTiming(now:()=>number=()=>performance.now()) {
  const start=now();let checkpoint=start;

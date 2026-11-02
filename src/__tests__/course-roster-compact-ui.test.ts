@@ -1,3 +1,4 @@
+import {preparedRoster} from "./fixtures/prepared-roster";
 // Native cases keep the real HTTP protocol with their existing fetch fixtures.
 vi.mock("@/lib/sports-session-detail-client",async()=>({readSportsSessionDetail:(await vi.importActual<typeof import("@/lib/course-session-detail-client")>("@/lib/course-session-detail-client")).readCourseSessionDetailClient}));
 // UI state fixtures use the shared read transport; the real HTTP protocol is tested separately.
@@ -725,4 +726,16 @@ it.each([false,true])('shows the calendar names without financial or attendance 
  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'preview-only',capacity:3,canCreate:true,canEdit:true,musicLayout,previewBookings:[{id:'present',customerName:'A學員',status:'RESERVED'},{id:'cancelled',customerName:'取消學員',status:'CANCELLED'}]})));
  expect(host.textContent).toContain('A學員');expect(host.textContent).not.toContain('取消學員');expect(host.textContent).toContain('正在核對最新名單');expect(host.querySelectorAll('button')).toHaveLength(0);
  await act(async()=>root.unmount());host.remove();
+});
+
+it.each([false,true])('renders the calendar-preloaded full roster on first render without an opening request; music=%s',async musicLayout=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.load.mockClear();
+ const fetch=vi.fn().mockRejectedValue(new Error('opening must not fetch'));vi.stubGlobal('fetch',fetch);
+ const data=preparedRoster();
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'prepared',capacity:2,canCreate:true,canEdit:true,sportsNative:!musicLayout,musicLayout,initialSnapshot:{sessionId:'prepared',data},previewBookings:[{id:'outdated',customerName:'不應使用姓名摘要',status:'RESERVED'}]})));
+  expect(host.querySelector('[data-roster-ready="true"]')).not.toBeNull();expect(host.textContent).toContain('課表已讀好的備註');expect(host.textContent).toContain('已預讀學員');expect(host.querySelector('a[href="tel:0912000000"]')).not.toBeNull();expect(host.textContent).not.toContain('核對中');expect(host.textContent).not.toContain('不應使用姓名摘要');
+  expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).not.toBeNull();expect(m.load).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled();
+ }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
 });

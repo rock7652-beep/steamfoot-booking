@@ -1,3 +1,4 @@
+import {courseCalendarRead} from './course-calendar-read-scope';
 import {memoizeCourseReadRequest} from "./course-read-request-memo";
 import 'server-only';
 import type {Prisma} from '../../../generated/course-client';
@@ -5,6 +6,11 @@ import type {Prisma} from '../../../generated/course-client';
  * Callers pass these only as server-derived lesson evidence, never client input. */
 export async function readSportsTeachingTemplates(tx:Pick<Prisma.TransactionClient,'courseTemplate'>,storeId:string,subjectId:string|null|undefined){
  if(!subjectId)return [];
+ const calendar=courseCalendarRead(tx,storeId);
+ if(calendar){
+  const templates=await calendar.once('teaching-template-versions',()=>tx.courseTemplate.findMany({where:{storeId},select:{id:true,musicSubjectId:true,musicTrialMode:true}}));
+  return templates.filter(row=>row.musicSubjectId===subjectId).map(row=>row.id);
+ }
  return memoizeCourseReadRequest(tx,JSON.stringify(['sports-teaching',storeId,subjectId]),async()=>{
   const templates=await tx.courseTemplate.findMany({where:{storeId,musicSubjectId:subjectId},select:{id:true}});
   return templates.map(t=>t.id);

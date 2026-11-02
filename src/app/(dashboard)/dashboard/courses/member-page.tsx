@@ -24,7 +24,7 @@ import { prisma } from "@/lib/db";
 import { getCourseCustomerPage } from "@/server/queries/course-customer-page";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CoursePurchaseReview } from "./purchase-review";
-import { CourseMemberWorkspace } from "./member-workspace";
+import { CourseMemberWorkspaceEntry as CourseMemberWorkspace } from "./member-workspace-entry";
 import { hasDataExportFeature } from "@/lib/data-export-gate";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { OperationTiming } from "@/lib/operation-timing";

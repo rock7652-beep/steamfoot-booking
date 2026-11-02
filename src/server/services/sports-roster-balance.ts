@@ -1,3 +1,4 @@
+import {courseCalendarRead} from './course-calendar-read-scope';
 import {sumItemBalances,type ItemBalance} from "@/lib/item-entitlement";
 import 'server-only';
 import {readSportsTeachingTemplates} from './sports-teaching-templates';
@@ -9,19 +10,23 @@ import type {Prisma} from '../../../generated/course-client';
 
 /** Read-only preview; check-in still selects and debits under the store lock.
  * One batch for every unlinked learner, including shared-card reservations. */
-export async function readSportsRosterBalances(storeId:string,sessionId:string,customerIds:string[],reader:Prisma.TransactionClient=coursePrisma){
+export async function readSportsRosterBalances(storeId:string,sessionId:string,customerIds:string[],reader:Prisma.TransactionClient=coursePrisma,calendarCustomerIds?:string[]){
  const ids=[...new Set(customerIds)];
  const balances=new Map<string,ItemBalance & {byUnit:ItemBalance[]}>();
  const entries=new Map<string,Array<ItemBalance & {id:string}>>();
  if(!ids.length)return balances;
  const session=reader===coursePrisma?await readCourseSessionDetail(storeId,sessionId):await reader.courseSession.findFirst({where:{id:sessionId,storeId},select:{id:true,templateId:true,startsAt:true,pointCost:true,template:{select:{musicSubjectId:true}}}});
  if(!session)return balances;
- const [rule,cards,compatibleTemplateIds]=await Promise.all([
+ const calendar=calendarCustomerIds?courseCalendarRead(reader,storeId,sessionId):undefined;
+ const threshold=new Date(Math.max(Date.now(),session.startsAt.getTime()));
+ const readCards=()=>reader.coursePointCard.findMany({...(reader===coursePrisma?{relationLoadStrategy:"join" as const}:{}),where:{storeId,closedAt:null,expiresAt:{gte:calendar?new Date():threshold},members:{some:{customerId:{in:calendar?[...new Set(calendarCustomerIds)]:ids}}}},include:{members:{select:{customerId:true}},bookings:{where:{status:'RESERVED'},select:{pointCost:true}}},orderBy:[{expiresAt:'asc' as const},{id:'asc' as const}]});
+ const [rule,readRows,compatibleTemplateIds]=await Promise.all([
   readSportsSessionRule(reader,storeId,sessionId),
-  reader.coursePointCard.findMany({...(reader===coursePrisma?{relationLoadStrategy:"join" as const}:{}),where:{storeId,closedAt:null,expiresAt:{gte:new Date(Math.max(Date.now(),session.startsAt.getTime()))},members:{some:{customerId:{in:ids}}}},include:{members:{select:{customerId:true}},bookings:{where:{status:'RESERVED'},select:{pointCost:true}}},orderBy:[{expiresAt:'asc'},{id:'asc'}]}),
+  calendar?calendar.once("sports-balance-cards",readCards):readCards(),
   readSportsTeachingTemplates(reader,storeId,session.template.musicSubjectId),
  ]);
  if(!rule)return balances;
+ const cards=calendar?readRows.filter(card=>!!card.expiresAt&&card.expiresAt>=threshold&&card.members.some(member=>!!member.customerId&&ids.includes(member.customerId))):readRows;
  for(const card of cards){
   if(card.termSessionIds.length&&!card.termSessionIds.includes(session.id))continue;
   const rights=resolveSportsEntitlement({...card,templateRestricted:card.requestKey.startsWith('no-show-makeup:')},{templateId:session.templateId,subjectId:session.template.musicSubjectId,pointCost:session.pointCost,enrollment:rule.enrollment==='ASSIGNED'?'ASSIGNED':rule.enrollment==='OPEN'?'OPEN':null,legacyPlanId:rule.planId,compatibleTemplateIds});

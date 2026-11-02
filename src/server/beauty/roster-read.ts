@@ -36,7 +36,7 @@ export async function beautyRosterWhere(ctx:BeautyRosterContext,input:string):Pr
  if(target.startsWith('booking:')){const b=await beautyPrisma.beautyAppointment.findFirst({where:{id:target.slice(8),storeId:a.storeId},select:{groupId:true}});if(!b)throw new AppError('NOT_FOUND','找不到本店預約');return {groupId:b.groupId};}
  throw new AppError('VALIDATION','請從班表開啟預約清單');
 }
-export async function loadBeautyRoster(ctx:BeautyRosterContext,where:Awaited<ReturnType<typeof beautyRosterWhere>>,readVersion?:string){
+export async function loadBeautyRoster(ctx:BeautyRosterContext,where:Awaited<ReturnType<typeof beautyRosterWhere>>|{groupId:{in:string[]}},readVersion?:string){
  const {a,u,customerAccess,cardAccess}=ctx;
   const rows=await beautyReadStep('bookings',()=>beautyPrisma.beautyAppointment.findMany({relationLoadStrategy:"join",where:{...where,storeId:a.storeId},orderBy:[{startsAt:'asc'},{createdAt:'asc'},{id:'asc'}],include:{group:{select:{customerId:true,contactName:true}}}}));
   const [cards,people,techs,locations]=await beautyReadStep('metadata',()=>Promise.all([

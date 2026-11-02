@@ -16,7 +16,7 @@ vi.mock("@/components/desktop", () => ({ PageShell: ({ children }: { children: R
 vi.mock("@/lib/db", () => ({ prisma: { store: { findUnique: async () => ({ name: "虛構店", plan: "EXPERIENCE", subscriptions: [] }) }, shopConfig: { findUnique: async () => null }, storeFeatureEntitlement: { findFirst: async () => null } } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBookingRule: { findUnique: async () => null }, courseWaitlistSetting: { findUnique: async () => null } } }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NOT_FOUND"); }, redirect: () => { throw new Error("REDIRECT"); } }));
-vi.mock("@/app/(dashboard)/dashboard/courses/settings-workspace", () => ({ CourseSettingsWorkspace: m.workspace }));
+vi.mock("@/app/(dashboard)/dashboard/courses/non-calendar-view-entries", () => ({ CourseSettingsWorkspaceEntry: m.workspace }));
 vi.mock("@/app/(dashboard)/dashboard/courses/settings-panel-content", () => ({ CourseSettingsPanelContent: m.panel }));
 
 import { CourseSharedHub } from "@/app/(dashboard)/dashboard/courses/shared-hub";

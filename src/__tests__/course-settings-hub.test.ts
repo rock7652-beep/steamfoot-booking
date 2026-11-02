@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {CourseSettingsWorkspaceEntry} from '@/app/(dashboard)/dashboard/courses/non-calendar-view-entries';
 const m = vi.hoisted(() => ({ config: vi.fn(), store: vi.fn(), feature: vi.fn(), view: vi.fn(), usage: vi.fn(), rule: vi.fn() }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("not found"); }, redirect: () => { throw new Error("redirect"); } }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: async () => ({ role: "OWNER", staffId: "staff" }) }));
@@ -18,7 +19,7 @@ import { FEATURES } from "@/lib/feature-flags";
 vi.mock("@/server/queries/course-setup", () => ({getCourseSetup:async()=>null}));
 async function props() {
  const tree=await CourseSharedHub({view:"settings"});
- function find(node: unknown): Record<string,unknown> | undefined { if(!node||typeof node!=="object")return;const el=node as {type?:unknown;props?:{children?:unknown}};if(typeof el.type==="function"&&el.type.name==="CourseSettingsWorkspace")return el.props as Record<string,unknown>;for(const child of [el.props?.children].flat(Infinity)){const match=find(child);if(match)return match;} }
+ function find(node: unknown): Record<string,unknown> | undefined { if(!node||typeof node!=="object")return;const el=node as {type?:unknown;props?:{children?:unknown}};if(el.type===CourseSettingsWorkspaceEntry)return el.props as Record<string,unknown>;for(const child of [el.props?.children].flat(Infinity)){const match=find(child);if(match)return match;} }
  return find(tree)!;
 }
 beforeEach(() => {
