@@ -103,6 +103,11 @@ try{
   await page.getByRole('button',{name:'確認作廢',exact:true}).click();await page.getByRole('status').filter({hasText:'交易已作廢'}).waitFor();
   assert.equal((await page.evaluate(()=>window.voidSubmitted)).reason,'誤建測試');assert.equal((await page.evaluate(()=>window.voidSubmitted)).expectedStoreId,'synthetic');
   await page.getByRole('button',{name:'關閉',exact:true}).click();
+  await page.getByRole('button',{name:'待核帳作廢預覽',exact:true}).click();
+  await page.getByRole('button',{name:'查看 作廢測試顧客 的 全身按摩5次 交易',exact:true}).click();await page.getByRole('button',{name:'作廢交易',exact:true}).click();
+  assert.ok((await page.getByRole('dialog').innerText()).includes('待核帳金額 NT$ 5,500 · 尚未發卡'));
+  assert.equal((await page.getByRole('dialog').innerText()).includes('原實收'),false);
+  await page.getByRole('button',{name:'關閉',exact:true}).click();
   await page.getByRole('button',{name:'卡片預覽'}).click();await page.waitForTimeout(150);
   let rawCardClicks=0;
   for(const mode of ['day','week']){
