@@ -89,3 +89,35 @@
 原始日誌 `/tmp/music-main-baseline-failures.log` 第 10–14／26–29 行保存錯誤，42–46 行保存結果；三個檔案不在本次 diff。乾淨 worktree 已移除。審查不取代真實角色登入、hosted、部署專用 trigger／RLS 或正式發布驗收；維持不推送、不建預覽，等待父線既定批准。
 
 下一步：由父線審查追加測試與獨立審查紀錄，承接既有推送／建置批准；本機不再擴大修改。
+
+
+## 完整 SQL guard 串接與補課再次請假補驗
+
+本輪依父線指示僅做本機：既有 Preview scope、平台 env／保護、應用帳號皆未改；不 push、不建置。遠端 PR #1482 head 仍為 `d0666d53`，下列本機修正尚未上傳，舊 CI 不抵扣本版。
+
+在一次性 loopback PostgreSQL 16 容器的新 `music_guard_test`，把本次 PG fixture 換成 `scripts/music-production-expand.sql` 的真正 assignment table／indexes、guard／release trigger、function revoke。僅將 public namespace 替換為隨機測試 schema；再套用該 assignment 表的 production RLS／table revoke。沒有改 deployment SQL 或任何遠端資料庫。anon／authenticated 只在一次性容器內存在，隨容器移除，不是新增隔離站應用帳號。
+
+這次補驗發現原測試未覆蓋的同根缺口：補課再次請假後，canonical release trigger 對 CANCELLED＋STUDENT_LEAVE 保留舊 MAKEUP assignment，合法再預約會碰到 `MusicLesson_active_makeup` 唯一約束。縮短／延長兩案均重現 `23505`；原普通堂次 allocation 應保留，當次補課 allocation 則應釋放。原失敗紀錄 `/tmp/music-guard-red-20261102.log`。
+
+獨立 reviewer 另指出名單 UI 的 WAIVED 實際走 `correctMusicRosterAttendance`→`correctCourseAttendance`，不只 settle 路徑。已用真實 action 實作＋Prisma 交易＋SQL triggers 重現 WAIVED 成功但 releasedAt 仍 null（權限 actor 與 Next refresh stub；不是正常登入）。失敗紀錄 `/tmp/music-roster-guard-red-20261102.log`。
+
+最小修正僅在 `course-booking.ts`：
+
+- 原生獨立補課成功請假／取消後，沿既有 `releaseMusicLesson` 釋放當次 booking 的 allocation；覆蓋 settle 與 correction 兩入口。原普通堂次、補課券餘額／期限與 GRANT 不被改寫，也不刪資料庫約束。
+- correction 對已確認相同取消狀態的補課重送直接返回，不更新 booking／ledger，避免 booking trigger 再把舊 allocation 啟用。先保留 closedAt、狀態及 expectedStatus 驗證。
+- 釋放與原狀態／ledger 在同一交易，後續 ledger 拒絕時全部回滾。已有新預約時，恢復舊預約仍被 held 額度與唯一約束保護。
+
+新增證據：原方案縮短／延長後，補課請假→保留同一權益→合法再預約的並發重送；真實名單 WAIVED action→再預約→舊 WAIVED 重送不新增 ledger→恢復舊課被拒；額外強制 ledger 失敗證明取消及 release 一起回滾；真 guard 拒絕越界期別及刪歷史；anon／authenticated table／function 權限拒絕且 RLS 已啟用，暫授 SELECT 仍無可見行（授權在測試交易回滾）。
+
+最終驗證：
+
+- **11 檔／79 項通過**，含新 PG 八案、原補課四案、方案管理 PG、action 權限、原生／pilot 服務與 period guard；`/tmp/music-complete-guard-focused-20261102.log`。
+- 既有 makeup workflow 兩檔 **12 項通過，無略過**；YAML gate 從九改十二並以原 script 核 JSON 通過。沒有新增 job 或雲端執行；`/tmp/music-complete-guard-workflow-20261102.log`、同名 JSON。
+- TypeScript、變更 TS ESLint、YAML／diff 檢查通過；`/tmp/music-complete-guard-tsc-20261102.log`、`/tmp/music-complete-guard-lint-20261102.log`。
+- 另一 reviewer 複審新 service diff，未再發現明確新增阻擋問題。依要求未重跑全量；此前全量三個 baseline 失敗的證據只屬先前版本，不能宣稱本 head 全量已驗。
+
+限制：這是新增成功 transition 的修復，不會自動清理部署前已取消卻未釋放的資料；重送早退也不會修復該歷史狀態。沒有正式學員受影響證據，沒有回填。hosted 角色登入、精確部署的 runtime gate 與現有資料庫 readiness 仍未驗。
+
+因此可縮減 hosted 至：一個僅本隔離店正常授權角色，從方案管理調期限及原生補課入口預約，再用名單「請假／WAIVED」並合法重約，重新載入確認結果；另確認未綁卡 STUDENT_LEAVE 實際使用的呼叫入口，不能用語義為免扣堂的 WAIVED 當作同一政策驗收。無須在線上重跑全部並發壓力、帳本故障注入或 UI 尺寸矩陣；這些交易邊界已有本機真 SQL 證據。hosted 最小入口仍須正常身分與精確版隔離環境，不冒用舊 Preview。
+
+下一步：父線核對本機新 head 與補驗證據，安排已獲確認範圍的後續階段；本輪不推送、不啟用預覽。
