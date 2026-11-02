@@ -52,6 +52,9 @@ try{
   await page.screenshot({path:path.join(output,`service-${width}.png`),fullPage:true});
   await page.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('status').filter({hasText:'服務項目已建立'}).waitFor();
   const serviceSaved=await page.evaluate(()=>window.serviceSaved);assert.equal(serviceSaved.duration,90);assert.equal(serviceSaved.buffer,10);assert.deepEqual(serviceSaved.rule,{coachIds:['tech'],expectedCoachIds:[]});assert.equal(await page.getByRole('row').filter({hasText:'全身按摩90'}).count(),1);
+  assert.equal(await page.getByRole('columnheader',{name:'時間',exact:true}).count(),1);assert.equal(await page.getByRole('columnheader',{name:'整理時間',exact:true}).count(),1);
+  const durationCells=page.getByRole('row').filter({hasText:'全身按摩90'});assert.equal(await durationCells.getByRole('cell',{name:'90 分鐘',exact:true}).count(),1);assert.equal(await durationCells.getByRole('cell',{name:'10 分鐘',exact:true}).count(),1);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:path.join(output,`service-list-${width}.png`),fullPage:true});
   await page.getByRole('button',{name:'空間出租預覽',exact:true}).click();
   await page.getByLabel('安排類型',{exact:true}).selectOption('rental');
   assert.equal(await page.getByRole('combobox',{name:/^空間/}).inputValue(),'bed');assert.equal(await page.getByLabel('應收（元）',{exact:true}).inputValue(),'0');

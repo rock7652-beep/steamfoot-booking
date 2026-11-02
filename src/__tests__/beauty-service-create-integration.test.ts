@@ -12,12 +12,12 @@ let services:Record<string,unknown>[],tech:Record<string,unknown>;
 const tx={
  beautyService:{
   findMany:vi.fn(async({where})=>services.filter(s=>s.duration===where.duration)),
-  create:vi.fn(async({data})=>{const row={...data,defaultRate:null,id:'new90',revision:0};services.push(row);return row;}),
+  create:vi.fn(async({data})=>{const row={...data,defaultRate:data.defaultRate??null,id:'new90',revision:0};services.push(row);return row;}),
   findFirst:vi.fn(async()=>services[0]??null),
   count:vi.fn(async({where})=>where.id.in.length),
  },
  beautyTechnician:{
-  findMany:vi.fn(async()=>[tech]),findFirst:vi.fn(async()=>tech),
+  findMany:vi.fn(async({where})=>where.id?.in?.length===0?[]:[tech]),findFirst:vi.fn(async()=>tech),
   update:vi.fn(async({data})=>{tech={...tech,...data,revision:Number(tech.revision)+1};return tech;}),
  },
  beautyAppointment:{findMany:vi.fn(async()=>[])},
@@ -52,4 +52,17 @@ it('prevents duplicate 60 minute names while preserving a different duration var
  expect(await saveBeautyNativeService({...input,name:'全身按摩60分鐘',duration:60})).toMatchObject({success:false,error:expect.stringContaining('已有相同服務')});
  expect(tx.beautyService.create).not.toHaveBeenCalled();
  expect(await saveBeautyNativeService(input)).toMatchObject({success:true});
+});
+
+it.each([undefined,{coachIds:[],expectedCoachIds:[]},{coachIds:['t'],expectedCoachIds:[]}])('creates without persisting a hidden JSON null compensation sentinel: %j',async rule=>{
+ expect(await saveBeautyNativeService({...input,rule})).toMatchObject({success:true});
+ expect(tx.beautyService.create.mock.lastCall?.[0].data).not.toHaveProperty('defaultRate');
+ expect(services[0].defaultRate).toBeNull();
+});
+
+it('keeps compensation unchanged when multiple technicians are qualified for a new service',async()=>{
+ tx.beautyTechnician.findMany.mockResolvedValueOnce([tech,{...tech,id:'t2'}]);
+ expect(await saveBeautyNativeService({...input,rule:{coachIds:['t','t2'],expectedCoachIds:[]}})).toMatchObject({success:true,data:{sportsRule:{coachIds:['t','t2'],compensation:null}}});
+ expect(tx.beautyTechnician.update.mock.calls.map(([args])=>args.where.id)).toEqual(['t','t2']);
+ expect(tech.rates).toEqual({old60:{mode:'FIXED',value:300}});
 });
