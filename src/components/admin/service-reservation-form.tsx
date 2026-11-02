@@ -15,7 +15,7 @@ export type ServiceReservationSource={
  technicians:{id:string;name:string;serviceIds:string[]}[];
  locations:{id:string;name:string}[];customers:ReservationCustomer[];cards:ReservationCard[];policyRevision:number;
  readAvailability:(intent:PartyInput)=>Promise<{success:true;data:Availability}|{success:false;error:string}>;
- submit:(intent:PartyInput)=>Promise<{success:boolean;error?:string;data?:{ids:string[]}}>;
+ submit:(intent:PartyInput)=>Promise<{success:boolean;error?:string;data?:{ids:string[];sessions?:import("@/app/(dashboard)/dashboard/courses/workspace").Session[]}}>;
  createCustomer?: (input:{name:string;phone:string})=>Promise<{success:true;customer:ReservationCustomer}|{success:false;error:string}>;
  maxPeople?:number;
  itemEntitlements?:boolean;
@@ -26,7 +26,7 @@ const button='min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disa
 const trialValue='__trial__';
 
 /** Shared schedule service mode: all authoritative allocation and financial rules stay in the supplied core. */
-export function ServiceReservationForm({source,date:initialDate,seed={},bookingType,onGuard,onCreated}:{bookingType?:'regular'|'trial';source:ServiceReservationSource;date:string;seed?:{time?:string;coachId?:string;roomId?:string;customerId?:string};onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void}){
+export function ServiceReservationForm({source,date:initialDate,seed={},bookingType,onGuard,onCreated}:{bookingType?:'regular'|'trial';source:ServiceReservationSource;date:string;seed?:{time?:string;coachId?:string;roomId?:string;customerId?:string};onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string,sessions?:import("@/app/(dashboard)/dashboard/courses/workspace").Session[])=>void}){
  const [date,setDate]=useState(initialDate),[time,setTime]=useState(seed.time??'09:00');
  const initialService=source.services.find(s=>!seed.coachId||source.technicians.find(t=>t.id===seed.coachId)?.serviceIds.includes(s.id))?.id??source.services[0]?.id??'';
  const [people,setPeople]=useState<Person[]>(()=>[{key:crypto.randomUUID(),customerId:seed.customerId??'',serviceId:initialService,notes:'',technicianId:seed.coachId??'',locationId:seed.roomId??source.locations[0]?.id??''}]);
@@ -115,7 +115,7 @@ export function ServiceReservationForm({source,date:initialDate,seed={},bookingT
   event.preventDefault();if(lock.current||creating||!valid||!available)return;
   lock.current=true;setPending(true);setError('');
   submitted.current??={...intent,expectedArrangement:arranged!.map(({technicianId,locationId})=>({technicianId,locationId}))};
-  try{const r=await source.submit(submitted.current);if(!r.success){setError(r.error??'尚未完成預約');submitted.current=null;request.current=crypto.randomUUID();setAvailability(null);setRetry(v=>v+1);return;}setDirty(false);onCreated(date);}
+  try{const r=await source.submit(submitted.current);if(!r.success){setError(r.error??'尚未完成預約');submitted.current=null;request.current=crypto.randomUUID();setAvailability(null);setRetry(v=>v+1);return;}setDirty(false);if(r.data?.sessions?.length)onCreated(date,r.data.sessions);else onCreated(date);}
   catch{setError('送出結果尚未確認，請保留資料重試');}
   finally{lock.current=false;setPending(false);}
  }}>

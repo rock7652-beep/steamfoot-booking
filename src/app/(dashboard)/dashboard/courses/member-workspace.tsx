@@ -54,7 +54,7 @@ import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
 import {calculateCourseSaleAllocation} from "@/lib/course-sale-allocation";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
-import { Fragment, useEffect, useCallback,useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, useEffect,useEffectEvent, useCallback,useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
@@ -218,6 +218,8 @@ export function CourseMemberWorkspace({
   const [cardBrowse,setCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [cardRevision,setCardRevision]=useState(0);
+  const [balanceReceipts,setBalanceReceipts]=useState<{storeId:typeof previewStoreId;values:Record<string,{available:number;ids:string[]}>}>({storeId:previewStoreId,values:{}});
+
   const [checkoutCards,setCheckoutCards]=useState<(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number})|undefined>(undefined);
   const [loadedCard,setLoadedCard]=useState<CourseCardView|null>(null);
   const [cardOpening,setCardOpening]=useState(0);
@@ -269,7 +271,7 @@ export function CourseMemberWorkspace({
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
   const [servicePurchase,setServicePurchase]=useState(false);
-  const purchaseRecovery = useCoursePurchaseRecovery(person?.id || purchaseCustomerId || undefined, panel === "assign" && !servicePurchase);
+  const purchaseRecovery = useCoursePurchaseRecovery(person?.id || purchaseCustomerId || undefined, panel === "assign" && !servicePurchase,source?.automaticPurchaseCompletion);
   const onServicePurchaseGuard=useCallback((dirty:boolean,busy:boolean)=>{setDirty(dirty);setFormPending(busy);},[]);
   useCourseDraftGuard(confirmDiscard&&(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(dirty || supportGuard.dirty),(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
   function finishDraftForm(row?:Plan,syncWarning=false){publishMusicFinanceChange();if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("收費方式已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
@@ -312,11 +314,21 @@ export function CourseMemberWorkspace({
           if(receipt.success)setCheckoutReceipt(receipt.data);
           toast.success("購買成功，方案已加入");
         }
-        if(panel==="assign"&&purchaseRecovery.enabled){
+        if(panel==="assign"&&purchaseRecovery.enabled&&!source?.automaticPurchaseCompletion){
           if(result.checkoutCards)setCheckoutCards({...result.checkoutCards,revision:cardRevision+1});
           if(!result.financePublished)publishMusicFinanceChange();
           setCardRevision(n=>n+1);setDirty(false);setNotice("購買已完成，請確認後繼續購買");
           return;
+        }
+        if(panel==="assign"&&source?.automaticPurchaseCompletion){
+          if(result.checkoutCards?.result.totals){const customerId=result.checkoutCards.customerId;const available=result.checkoutCards.result.totals.filter(t=>t.unit==='SESSION').reduce((sum,t)=>sum+t.available,0);setBalanceReceipts(old=>({storeId:previewStoreId,values:{...(old.storeId===previewStoreId?old.values:{}),[customerId]:{available,ids:result.checkoutCards!.result.rows.map(card=>card.id)}}}));}
+          if(result.checkoutCards)setCheckoutCards({...result.checkoutCards,revision:cardRevision+1});
+          setCardRevision(n=>n+1);setDirty(false);setNotice('');
+          window.dispatchEvent(new Event('customer-search-invalidated'));
+          if(source.purchaseCompleted){source.purchaseCompleted();return;}
+          setCustomerCardBrowse({search:'',history:false,page:0});
+          if(person){setPanel('person');setPersonTab('info');}else setPanel(null);
+          router.refresh();return;
         }
         if(panel==="assign"&&source?.purchaseCompleted){setDirty(false);source.purchaseCompleted();return;}
         if(result.checkoutCards)setCheckoutCards({...result.checkoutCards,revision:cardRevision+1});
@@ -334,6 +346,36 @@ export function CourseMemberWorkspace({
         setError(panel === "assign" ? CHECKOUT_OUTCOME_UNCONFIRMED : "連線中斷，請重試");
       } finally {submitting.current=false;setPending(false);}
   }
+  const [completingPurchaseScope,setCompletingPurchaseScope]=useState("");
+  const automaticCompletionScope=JSON.stringify([!!source?.automaticPurchaseCompletion,panel,previewStoreId,person?.id||purchaseCustomerId]);
+  const automaticScopeRef=useRef(automaticCompletionScope);automaticScopeRef.current=automaticCompletionScope;
+  useEffect(()=>{automaticScopeRef.current=automaticCompletionScope;return()=>{automaticScopeRef.current='';};},[automaticCompletionScope]);
+  const recoverCompletedPurchase=useEffectEvent(async(expectedScope:string)=>{
+    setCompletingPurchaseScope(expectedScope);
+    const next=await purchaseRecovery.acknowledge('COMMITTED');
+    if(automaticScopeRef.current!==expectedScope||next?.kind!=='none-known')return;
+    const customerId=person?.id||purchaseCustomerId;
+    if(customerId&&source?.browseCards){
+      try{
+        const result=await source.browseCards({customerId});
+        if(automaticScopeRef.current!==expectedScope)return;
+        if(result.success){
+          setCheckoutCards({customerId,result,revision:cardRevision+1});
+          if(result.totals){const available=result.totals.filter(t=>t.unit==='SESSION').reduce((sum,t)=>sum+t.available,0);setBalanceReceipts(old=>({storeId:previewStoreId,values:{...(old.storeId===previewStoreId?old.values:{}),[customerId]:{available,ids:result.rows.map(card=>card.id)}}}));}
+        }
+      }catch{/* The purchase stays completed; the normal reader can retry. */}
+    }
+    if(automaticScopeRef.current!==expectedScope)return;
+    setDirty(false);setCardRevision(n=>n+1);setNotice('');
+    window.dispatchEvent(new Event('customer-search-invalidated'));
+    if(source?.purchaseCompleted){source.purchaseCompleted();return;}
+    if(person){setPanel('person');setPersonTab('info');}else setPanel(null);
+    router.refresh();
+  });
+  const completedPurchaseKey=source?.automaticPurchaseCompletion&&panel==='assign'&&purchaseRecovery.view.kind==='intent'&&purchaseRecovery.view.intent.status==='COMMITTED'?JSON.stringify([automaticCompletionScope,purchaseRecovery.view.intent.requestKey]):'';
+  useEffect(()=>{
+    if(completedPurchaseKey)void recoverCompletedPurchase(automaticCompletionScope);
+  },[completedPurchaseKey,automaticCompletionScope]);
   const order=useCourseDisplayOrder("plan",plans,displayOrder,(!catalogSource||!!catalogSource.order)&&canEdit&&!search&&status==="all"&&templateFilter==="all"&&purchaseFilter==="all"&&sharedFilter==="all"&&!hideTestData&&!busyIds.length,p=>p.isActive,catalogSource?.order);
   const filteredPlans = plans
     .filter(
@@ -460,7 +502,7 @@ export function CourseMemberWorkspace({
       {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar driver={catalogSource?.status} key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}:${purchaseFilter}:${sharedFilter}:${inactiveExpanded}`} canDelete={canDelete} names={Object.fromEntries(visiblePlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} states={Object.fromEntries(visiblePlans.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visiblePlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {!music && view === "plans" && planArea === "catalog" && <p className="ml-auto whitespace-nowrap text-sm text-earth-500">共 {filteredPlans.length} 筆／全部 {plans.length} 筆</p>}
 </div>
-      {view === "customers" ? panelOnly?null:<CourseCustomerList assignCustomers={source?.assignCustomers} basePath={source?.basePath} sessionUnitLabel={source?.sessionUnitLabel} sportsNative={sportsNative} music={music} customerPage={customerPage} rows={visibleCustomerRows} cards={cards} canReadCards={canReadCards}
+      {view === "customers" ? panelOnly?null:<CourseCustomerList assignCustomers={source?.assignCustomers} basePath={source?.basePath} sessionUnitLabel={source?.sessionUnitLabel} sportsNative={sportsNative} music={music} customerPage={customerPage} rows={visibleCustomerRows} cards={cards} balanceOverrides={balanceReceipts.storeId===previewStoreId?Object.fromEntries(Object.entries(balanceReceipts.values).filter(([,value])=>!value.ids.every(id=>cards.some(card=>card.id===id))).map(([id,value])=>[id,value.available])):{}} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge} canExport={canExport}
         onView={id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); }}
@@ -680,7 +722,7 @@ export function CourseMemberWorkspace({
             )}
             {panel === "assign" && source?.purchaseService && <label className="mb-3 block">消費類型<select aria-label="消費類型" className={field} value={servicePurchase?"service":"plan"} disabled={pending||formPending||formUncertain} onChange={e=>{setServicePurchase(e.target.value==="service");setDirty(false);setError("");}}><option value="plan">多次方案</option><option value="service">單次／體驗</option></select></label>}
             {panel === "assign" && servicePurchase && source?.purchaseService?.({customerId:person?.id,onGuard:onServicePurchaseGuard,onSaved:()=>{publishMusicFinanceChange();setDirty(false);setFormPending(false);setCardRevision(n=>n+1);setNotice("服務收款完成");if(person){setPanel("person");setPersonTab("info");}else setPanel(null);router.refresh();},onClose:()=>{if(canLeave()){setDirty(false);setServicePurchase(false);}}})}
-            {panel === "assign" && !servicePurchase && <CoursePurchaseRecoveryNotice recovery={purchaseRecovery} disabled={pending||formPending} onCommitted={()=>{setCardRevision(n=>n+1);publishMusicFinanceChange();if(source?.purchaseCompleted){source.purchaseCompleted();return;}open("assign");setNotice("購買已完成，方案正在更新");}}/>}
+            {panel === "assign" && !servicePurchase && <CoursePurchaseRecoveryNotice automaticCompletion={source?.automaticPurchaseCompletion} recovery={purchaseRecovery} disabled={pending||formPending} onCommitted={()=>{setCardRevision(n=>n+1);publishMusicFinanceChange();if(source?.purchaseCompleted){source.purchaseCompleted();return;}open("assign");setNotice("購買已完成，方案正在更新");}}/>}
             {panel === "assign" && !servicePurchase && (
               <form
                 id="course-member-form"
@@ -723,7 +765,7 @@ export function CourseMemberWorkspace({
                 {music&&<label className="block">教學項目<CourseOptionSelect label="教學項目" required value={purchaseSubjectId} options={purchaseItems.map(s=>({id:s.id,label:s.name}))} onChange={id=>changePurchaseSelection(()=>{setPurchaseSubjectId(id);setPlanId("");setAssignmentSummary({paid:null,valid:false});})}/></label>}
                 <label className="block">
                   {music?"收費方式":"方案"}
-                  <CourseOptionSelect label={music?"收費方式":"方案"} required value={planId} options={purchasePlans.map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? source?.sessionUnitLabel??"堂":"點"}`}))} onChange={id=>changePurchaseSelection(()=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);if(!music)setDirty(true);})}/>
+                  <CourseOptionSelect label={music?"收費方式":"方案"} required value={planId} options={purchasePlans.map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? source?.sessionUnitLabel??"堂":"點"}`}))} onChange={id=>{if(id===planId)return;changePurchaseSelection(()=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);if(!music)setDirty(true);});}}/>
 
                 </label>
                 {music ? <input type="hidden" name="expires" value="2099-12-31"/> : <label className="block" key={planId}>
@@ -799,7 +841,7 @@ export function CourseMemberWorkspace({
                 form="course-member-form"
                 type="submit"
                 className={`${button} ${panel === "plan" && !music ? fitnessEditorSave : music ? "min-w-28" : "w-full"} !bg-primary-700 !text-white`}
-                disabled={pending || formPending || (panel === "card" && (!sharingEnabled || cardLoading || !!cardError || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid || purchaseRecovery.blocked))}
+                disabled={pending || formPending || (panel === "card" && (!sharingEnabled || cardLoading || !!cardError || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid || purchaseRecovery.blocked || completingPurchaseScope===automaticCompletionScope))}
               >
                 {pending || formPending ? "儲存中…" : panel === "assign" ? music ? "儲存學費" : "確認結帳" : panel === "card" ? "儲存共卡成員" : formUncertain ? "重試確認儲存結果" : "儲存"}
               </button></div>

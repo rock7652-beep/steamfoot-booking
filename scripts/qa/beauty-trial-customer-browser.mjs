@@ -12,10 +12,12 @@ const root=process.cwd(),output=process.env.QA_OUTPUT_DIR||'/tmp/beauty-trial-cu
 mkdirSync(output,{recursive:true});
 await build({entryPoints:['scripts/qa/beauty-trial-customer-fixture.tsx'],bundle:true,jsx:'automatic',format:'iife',outfile:path.join(output,'fixture.js'),alias:{'@':path.join(root,'src')},define:{'process.env.NODE_ENV':'"development"','process.env':'{}'},plugins:[{name:'isolated-ports',setup(builder){
  builder.onResolve({filter:/^@\/server\//},args=>({path:path.join(root,'src',args.path.slice(2)+'.ts'),namespace:'server-stub'}));
- builder.onLoad({filter:/.*/,namespace:'server-stub'},args=>({contents:[...readFileSync(args.path,'utf8').matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(\w+)/g)].map(match=>match[1]==='saveCourseRental'?`export const saveCourseRental=(...args)=>window.qaRentalSave(...args);`:`export const ${match[1]}=(...args)=>{if('${match[1]}'==='collectBeautyPayment'){window.collectionSaved=args;return Promise.resolve({success:true});}throw Error("Unexpected server action in synthetic UI")};`).join('\n'),loader:'js'}));
+ builder.onLoad({filter:/.*/,namespace:'server-stub'},args=>({contents:[...readFileSync(args.path,'utf8').matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(\w+)/g)].map(match=>['assignBeautyNativeCard','prepareBeautyPlanPurchaseIntentAtomic','readBeautyPlanPurchaseIntent','acknowledgeBeautyPlanPurchaseIntent'].includes(match[1])?`export const ${match[1]}=(input)=>window.qaPlanAction('${match[1]}',input);`:match[1]==='saveCourseRental'?`export const saveCourseRental=(...args)=>window.qaRentalSave(...args);`:`export const ${match[1]}=(...args)=>{if('${match[1]}'==='collectBeautyPayment'){window.collectionSaved=args;return Promise.resolve({success:true});}throw Error("Unexpected server action in synthetic UI")};`).join('\n'),loader:'js'}));
+ builder.onResolve({filter:/^next\/dynamic$/},()=>({path:'dynamic',namespace:'qa-dynamic'}));
+ builder.onLoad({filter:/.*/,namespace:'qa-dynamic'},()=>({contents:'export default ()=>()=>null;',loader:'js'}));
  builder.onResolve({filter:/^next\/navigation$/},()=>({path:'navigation',namespace:'qa'}));
  builder.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'qa'}));
- builder.onLoad({filter:/.*/,namespace:'qa'},args=>({contents:args.path==='navigation'?`export const useRouter=()=>({push:()=>{},refresh:()=>{},prefetch:()=>{}});export const usePathname=()=>'/hq/dashboard/beauty';export const useSearchParams=()=>new URLSearchParams();export const unstable_rethrow=error=>{throw error};`:`import {createElement} from 'react';export default ({children,prefetch,...props})=>createElement('a',props,children);export const useLinkStatus=()=>({pending:false});`,loader:'js',resolveDir:root}));
+ builder.onLoad({filter:/.*/,namespace:'qa'},args=>({contents:args.path==='navigation'?`const router={push:()=>{},replace:()=>{},refresh:()=>{},prefetch:()=>{}};const params=new URLSearchParams();export const useRouter=()=>router;export const usePathname=()=>'/hq/dashboard/beauty';export const useSearchParams=()=>params;export const unstable_rethrow=error=>{throw error};`:`import {createElement} from 'react';export default ({children,prefetch,...props})=>createElement('a',props,children);export const useLinkStatus=()=>({pending:false});`,loader:'js',resolveDir:root}));
 }}]});
 const css=await postcss([tailwind({base:root})]).process(readFileSync('src/app/globals.css','utf8'),{from:path.join(root,'src/app/globals.css')});
 const sheetCss=readFileSync(path.join(output,'fixture.css'),'utf8');
@@ -29,6 +31,7 @@ try{
   await page.route('**/*',async route=>{
    if(route.request().url()==='https://synthetic.invalid/')return route.fulfill({contentType:'text/html',body:html});
    if(new URL(route.request().url()).pathname==='/api/beauty/collection-read'){await new Promise(resolve=>setTimeout(resolve,800));return route.fulfill({contentType:'application/json',body:JSON.stringify({success:true,data:[{id:'collection',revision:1,personName:'收款測試',serviceName:'30分鐘肩頸按摩',price:250,discount:{kind:'AMOUNT',value:0},reduction:0,netPrice:250,collected:0,due:250}]})});}
+   if(new URL(route.request().url()).pathname==='/api/beauty/customer-read'){const input=route.request().postDataJSON();return route.fulfill({contentType:'application/json',body:JSON.stringify(input.operation==='cash'?{success:true,status:'OPEN'}:input.operation==='cards'?await page.evaluate(()=>window.qaReadCards):{success:false,error:'隔離預覽未提供此讀取'})});}
    return route.abort();
   });
   await page.goto('https://synthetic.invalid/');await page.getByLabel('安排類型',{exact:true}).selectOption('trial');await page.getByRole('button',{name:'新增顧客 1'}).click();
@@ -44,12 +47,12 @@ try{
   await page.setViewportSize({width,height});await page.getByRole('button',{name:'服務項目預覽',exact:true}).click();
   await page.getByRole('heading',{name:'新增服務項目'}).waitFor();
   assert.equal(await page.locator('[name="sportsCompensationMode"], [name="sportsCompensationValue"], [name="price"], [name="trialPrice"]').count(),0);
-  await page.getByLabel('測試技師',{exact:true}).check();await page.locator('[name="name"]').fill('30分鐘肩頸按摩');
+  await page.getByLabel('測試技師',{exact:true}).check();await page.locator('[name="name"]').fill('全身按摩90');await page.locator('[name="duration"]').fill('90');await page.locator('[name="buffer"]').fill('10');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:path.join(output,`service-${width}.png`),fullPage:true});
-  await page.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('alert').filter({hasText:'隔離測試不寫入服務'}).waitFor();
-  assert.equal(await page.locator('[name="name"]').inputValue(),'30分鐘肩頸按摩');
-  await page.getByRole('button',{name:'關閉',exact:true}).click();await page.getByRole('button',{name:'空間出租預覽',exact:true}).click();
+  await page.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('status').filter({hasText:'服務項目已建立'}).waitFor();
+  const serviceSaved=await page.evaluate(()=>window.serviceSaved);assert.equal(serviceSaved.duration,90);assert.equal(serviceSaved.buffer,10);assert.deepEqual(serviceSaved.rule,{coachIds:['tech'],expectedCoachIds:[]});assert.equal(await page.getByRole('row').filter({hasText:'全身按摩90'}).count(),1);
+  await page.getByRole('button',{name:'空間出租預覽',exact:true}).click();
   await page.getByLabel('安排類型',{exact:true}).selectOption('rental');
   assert.equal(await page.getByRole('combobox',{name:/^空間/}).inputValue(),'bed');assert.equal(await page.getByLabel('應收（元）',{exact:true}).inputValue(),'0');
   assert.equal(await page.getByLabel('日期',{exact:true}).inputValue(),'2026-11-03');assert.equal(await page.getByLabel('時間',{exact:true}).inputValue(),'12:30');
@@ -75,6 +78,22 @@ try{
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.getByRole('button',{name:'方案現金預覽'}).click();const planMethod=page.locator('[name="paymentMethod"]');assert.equal(await planMethod.inputValue(),'CASH');await page.getByRole('button',{name:'確認方案表單',exact:true}).waitFor();
   await planMethod.selectOption('BANK_TRANSFER');await page.locator('[name="transferLastFour"]').fill('0123');await planMethod.selectOption('CASH');await page.screenshot({path:path.join(output,`plan-cash-${width}.png`),fullPage:true});await page.getByRole('button',{name:'確認方案表單',exact:true}).click();await page.getByRole('status').filter({hasText:'現金購買表單確認完成'}).waitFor();assert.equal((await page.evaluate(()=>window.planPaymentSaved)).paymentMethod,'CASH');
+  await page.getByRole('button',{name:'購買完成預覽',exact:true}).click();
+  await page.getByRole('combobox',{name:'方案',exact:true}).selectOption('plan:five');
+  const checkoutButton=page.getByRole('button',{name:'確認結帳',exact:true});await checkoutButton.waitFor();await checkoutButton.click();
+  await page.locator('button[aria-label="查看 購買測試顧客 的有效方案"]').filter({hasText:'5 次'}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'確認完成並繼續購買',exact:true}).count(),0);assert.equal(await page.evaluate(()=>window.qaPurchaseCount),1);
+  await page.getByRole('region',{name:'持有方案'}).filter({hasText:'全身按摩5次'}).waitFor();
+  await page.screenshot({path:path.join(output,`purchase-completed-${width}.png`),fullPage:true});
+  await page.getByRole('button',{name:'關閉',exact:true}).click();
+  const balanceButton=page.locator('button[aria-label="查看 購買測試顧客 的有效方案"]');
+  for(const expected of ['5 次','5 次','4 次']){await page.getByRole('button',{name:'模擬方案背景更新',exact:true}).click();await balanceButton.filter({hasText:expected}).waitFor();}
+
+  await page.getByRole('button',{name:'恢復購買預覽',exact:true}).click();
+  await page.getByRole('region',{name:'持有方案'}).filter({hasText:'全身按摩5次'}).waitFor();
+  await page.locator('button[aria-label="查看 購買測試顧客 的有效方案"]').filter({hasText:'5 次'}).waitFor();
+  assert.equal(await page.evaluate(()=>window.qaPurchaseCount),1);assert.equal(await page.getByRole('button',{name:'確認完成並繼續購買',exact:true}).count(),0);
+  await page.getByRole('button',{name:'關閉',exact:true}).click();
   await page.getByRole('button',{name:'卡片預覽'}).click();await page.waitForTimeout(150);
   let rawCardClicks=0;
   for(const mode of ['day','week']){
@@ -90,7 +109,7 @@ try{
    await page.screenshot({path:path.join(output,`calendar-${mode}-${width}.png`),fullPage:true});
   }
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-  results.push({width,height,rawCardClicks,keyboardCards:true,planDefaultsCash:true,compactCharge:true,compactMove:true,directCollection:true,freeRental:true,rentalPreservesDraft:true,overflow:false,preservedOnResize:true,trialSubmission:true,serviceHasNoPricing:true,serviceFailurePreservesDraft:true});await page.close();
+  results.push({width,height,rawCardClicks,keyboardCards:true,planDefaultsCash:true,compactCharge:true,compactMove:true,directCollection:true,freeRental:true,rentalPreservesDraft:true,overflow:false,preservedOnResize:true,trialSubmission:true,serviceHasNoPricing:true,serviceCreate90:true,purchaseCompletionImmediate:true});await page.close();
  }
  assert.deepEqual(errors,[]);writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,errors},null,2));console.log(JSON.stringify({output,results,errors},null,2));
 }catch(error){console.error(JSON.stringify({errors}));for(const context of browser.contexts())for(const page of context.pages()){writeFileSync(path.join(output,'failure.html'),await page.content());await page.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error;}finally{await browser.close();}

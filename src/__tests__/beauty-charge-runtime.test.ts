@@ -73,3 +73,9 @@ it('books one person with another qualified technician when the former charge-se
  for(const isTrial of [false,true])expect((await findAllocation(f.tx,actor,{...request,people:[{...person,isTrial}]})).result[0].technicianId).toBe('a');
  expect((await findAllocation(f.tx,actor,{...request,people:[{...person,cardId:'c'}]})).result[0].technicianId).toBe('a');
 });
+
+it('returns committed manager calendar cards with actual allocation and no financial rate',async()=>{
+ const f=fixture();const result=await reserveParty(f.tx,actor,{...request,requestKey:'11111111-1111-4111-8111-111111111111',policyRevision:0,isTrial:false,contactName:'顧客',phone:'0900000000'} as BookingPartyInput);
+ expect(result).toMatchObject({ids:['new'],sessions:[{id:'new',nameSnapshot:'按摩',coachId:'a',roomId:'r',service:{personName:'顧客',status:'RESERVED',buffer:15}}]});
+ expect(result.sessions?.[0]).not.toHaveProperty('rate');expect(f.tx.beautyAppointment.create).toHaveBeenCalledOnce();
+});

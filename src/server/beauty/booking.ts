@@ -400,6 +400,7 @@ export async function reserveParty(
     });
     const costs=beautyChargeRulesEnabled(a.storeId)?await readBeautyChargeFinance(tx,a.storeId,d.people.filter(p=>!p.cardId).map(p=>({kind:'single',id:p.serviceId}))):new Map<string,{storeCost:number|null;trialStoreCost:number|null}>();
     const ids: string[] = [];
+    const sessions: import("@/app/(dashboard)/dashboard/courses/workspace").Session[] = [];
     for (const [i, p] of d.people.entries()) {
       const s = services.find((s) => s.id === p.serviceId)!,
         allocation = result[i];
@@ -436,6 +437,7 @@ export async function reserveParty(
       if(chargeSnapshots)await writeAppointmentCharge(tx,a.storeId,item.id,chargeSnapshots[i]);
       if(!p.cardId&&beautyChargeRulesEnabled(a.storeId))await audit(tx,a,'SERVICE_FINANCE_RULE',JSON.stringify({storeCost:beautyServiceStoreCost(costs.get('single:'+s.id),p.isTrial??d.isTrial)}),item.id);
       ids.push(item.id);
+      if(a.manager)sessions.push({id:item.id,templateId:s.id,nameSnapshot:s.name,startsAt:startsAt.toISOString(),endsAt:allocation.endsAt.toISOString(),occupiedEndsAt:allocation.occupiedEndsAt.toISOString(),coachId:allocation.technicianId,roomId:allocation.locationId,capacity:1,pointCost:p.cardId?1:0,isTrial:p.isTrial??d.isTrial,servicePalette:true,serviceCustomer:{name:p.name,phone:p.phone},service:{groupId:group.id,personName:p.name,status:'RESERVED',endsAt:allocation.endsAt.toISOString(),occupiedEndsAt:allocation.occupiedEndsAt.toISOString(),buffer:s.buffer,paymentStatus:p.cardId?'使用方案':((p.isTrial??d.isTrial)?s.trialPrice:s.price)===0?'無須收款':'待收款'},bookings:[{id:item.id,customerId:p.customerId,customerName:p.name,status:'RESERVED',bookingKind:(p.isTrial??d.isTrial)?'TRIAL':'REGULAR'}]});
       await recordBeautyStoreNotice(tx,a,policy.backendNoticesEnabled,item,"BOOKING");
       if (p.cardId)
         await tx.beautyLedger.create({
@@ -470,7 +472,7 @@ export async function reserveParty(
       "BOOK_GROUP",
       JSON.stringify({ groupId: group.id, ids, managerNoticeEligible: policy.notifications && !beautyNotificationDeliveryBlocked() }),
     );
-    return { groupId: group.id, ids };
+    return { groupId: group.id, ids, ...(a.manager?{sessions}:{}) };
   });
 }
 export async function ownsItem(tx: Tx, a: BeautyActor, id: string) {

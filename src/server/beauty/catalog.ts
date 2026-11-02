@@ -69,11 +69,8 @@ export async function persistBeautyCatalog(tx:Prisma.TransactionClient,a:BeautyA
           })) !== new Set(d.serviceIds).size
         )
           throw new AppError("FORBIDDEN", "包含非本店服務");
-        const missing=d.serviceIds.filter(id=>!d.rates[id]);
-        if(missing.length){
-          const defaults=await tx.beautyService.findMany({where:{storeId:a.storeId,id:{in:missing}},select:{id:true,defaultRate:true}});
-          if(missing.some(id=>!rate.safeParse(defaults.find(s=>s.id===id)?.defaultRate).success))throw new AppError('VALIDATION','每項可服務項目須設定計酬，或沿用已設定的服務預設');
-        }
+        // Qualification and pay are separate settings. An unpaid/unconfigured
+        // qualification may be saved; allocation still requires a valid rate.
         if (
           d.userId &&
           !(await tx.$queryRaw<
