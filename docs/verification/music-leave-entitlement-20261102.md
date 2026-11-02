@@ -160,3 +160,14 @@
 - 實際CourseRoster與原樣式，由本機Vite加合成read adapter渲染，所有交易action拒絕執行、不接DB／hosted。Chromium headless模擬1366×900、1920×1080、1024×768、768×1024，以及900×700內580px容器，共五案通過。量測所有menuitem文字中心與按鈕中心差<=1px、menu不出視窗、無整頁水平溢出或pageerror，並核對HQ學員連結customerId／returnCourseSession不變。不是實體iPad、Safari或登入後完整流程。
 - 證據：/tmp/music-roster-alignment/before-menu.png、after-*.png、results.json與check.cjs；最終ESLint與diff check通過。單純新增一個對齊class，沒有重跑全量或另寫class字串測試；瀏覽器已實際編譯與驗證這一行，舊CI結果不冒充此本機版本遠端結果。
 - 本機修正尚未推送／建置；目前940394cb受限預覽仍是舊對齊。待集中需要更新的項目時再依已批准次數／費用範圍處理，不因觀看畫面重建。QA1482合成教師尚待補課驗收完成後停用，未變動該fixture。
+
+## 2026-11-02 續驗：待點名學員缺少依既有方案政策請假的入口
+
+- 本人要求執行接續驗收。核對目前940394cb UI：音樂待點名圓圈直接標出席，⋯只有學員資料／繳費／取消；「更正點名→請假」則是明確WAIVED，不扣堂，不能把先出席再WAIVED當成未綁卡STUDENT_LEAVE驗收。每日待點名清單亦沒有建立請假動作。
+- 最小本機修正：音樂⋯為RESERVED且CARD／UNPAID的非匯入、無來源阻擋資料顯示「學員請假」，沿用已存在的確認視窗與updateCourseBookingStatus(STUDENT_LEAVE)。仍需原canEdit、正常教師狀態，後端booking.update／門市與交易限制不變；不修改任何扣堂／補課規則、既有WAIVED更正或顧客准假政策。TRIAL、已結算、匯入／受阻來源與無編輯權限不顯示此入口。
+- 確認說明採「依目前有效方案與店家請假規則處理」，不以尚未綁卡的讀取摘要斷言必扣或不補。此入口不自行推算absenceKind；成功後直接採已提交的rosterSnapshot，並沿用既有鎖定與失敗處理。選單高度估算納入新增項目。
+- 在乾淨4ed9f809 worktree加上實際UI regression，先證實既有選單沒有學員請假而失敗，紀錄/tmp/music-policy-leave-ui-baseline-red-20261102.log；本機修正後相關四檔79項通過（含完整名單47項），紀錄/tmp/music-policy-leave-ui-regression-20261102.log。新案例涵蓋未綁卡直接請假、確認前無action、連點只送一次、不先標ATTENDED或呼叫WAIVED、等待期間維持8堂、採伺服器7堂／扣堂另補結果、取消不寫、拒絕不變餘額、六種不適用狀態。
+- tsc --noEmit --incremental false、變更ESLint與diff check通過。本節為純UI接既有server action，沒有變更後端檔；先前940394cb遠端全量與62項PG不當作本UI最終head的全量。未再次重跑全量或hosted交易。
+- 實際CourseRoster＋合成read adapter的Chromium五尺寸1366×900、1920×1080、1024×768、768×1024及900×700內580px容器，新增項目、置中、確認窗可達、返回關閉、無整頁溢出與pageerror皆通過；保留HQ學員與返回課程URL。證據/tmp/music-roster-alignment/leave-results.json、leave-menu-*.png、leave-confirm-*.png。此為本機模擬尺寸，非登入後或真機驗收；沒有呼叫交易adapter。
+- 另唯讀核對隔離project ttworfzgwejdeolegkxl的qa1482-20261102-booking仍為RESERVED／UNPAID／cardId null／0點；原卡remaining8、DEBIT0、makeupCards0，未改測試案例。合成教師驗後停用仍待完成。
+- 本節與上一節對齊修正均只在本機，未推送／重建／合併／正式發布。要讓本人從目前普通登入工作階段點到新入口，需將兩項UI修正集中更新同一受限Preview；仍依已批准的次數／費用限制，不自行追加建置。
