@@ -33,13 +33,13 @@ it('keeps collection disabled during a slow or failed quote and never submits un
  await act(async()=>quote({success:false,error:'連線失敗'}));expect(document.querySelector('[role=dialog]')).toBe(dialog);expect(document.querySelector('[role=alert]')?.textContent).toContain('連線失敗');expect(submit.disabled).toBe(true);
 });
 
-it('shows the roster quote immediately, keeps the payment method through refresh, and blocks confirmation until verified',async()=>{
+it('shows the roster quote immediately, keeps the payment method through refresh, and uses prepared quotes while retaining background verification',async()=>{
  let finish!:(value:unknown)=>void;m.read.mockImplementation(()=>new Promise(r=>{finish=r;}));
  const charge={id:'qa',revision:1,personName:'QA',serviceName:'QA服務',price:750,discount:{kind:'AMOUNT' as const,value:0},reduction:0,netPrice:750,collected:250,due:500};
  await act(async()=>root.render(h(BeautyCollectionDialog,{ids:['qa'],storeId:'store',initialCharges:[charge],canDiscount:false,onClose:()=>{},onSaved:m.saved,onGuard:guard})));
  const dialog=document.querySelector('[role=dialog]')!;expect(dialog.textContent).toContain('QA服務');expect(dialog.textContent).toContain('已收款 NT$ 250');expect(dialog.querySelector<HTMLInputElement>('[aria-label="本次收款 QA"]')?.value).toBe('500');
  const method=dialog.querySelector<HTMLSelectElement>('[name="method"]')!;expect(method.disabled).toBe(false);await act(async()=>{method.value='BANK_TRANSFER';method.dispatchEvent(new Event('change',{bubbles:true}));});
- expect(dialog.querySelector<HTMLButtonElement>('button[type=submit]')?.disabled).toBe(true);
+ expect(dialog.querySelector<HTMLButtonElement>('button[type=submit]')?.disabled).toBe(false);
  await act(async()=>finish({success:true,data:[charge]}));expect(dialog.querySelector('[name="method"]')).toBe(method);expect(method.value).toBe('BANK_TRANSFER');expect(dialog.querySelector<HTMLButtonElement>('button[type=submit]')?.disabled).toBe(false);
 });
 it('does not overwrite edited inputs or allow collection when a refreshed quote changes',async()=>{

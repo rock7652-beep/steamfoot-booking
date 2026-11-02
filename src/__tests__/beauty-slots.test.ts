@@ -1,3 +1,5 @@
+vi.mock('@/server/beauty/booking-shared-goods',()=>({prepareBeautyBookingGoods:vi.fn().mockResolvedValue(null),persistBeautyBookingGoods:vi.fn()}));
+vi.mock('@/server/services/add-on-access',()=>({isBeautyServiceAddOnsEnabled:vi.fn().mockResolvedValue(false)}));
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 vi.mock("@/lib/beauty-db", () => ({ beautyPrisma: {} }));

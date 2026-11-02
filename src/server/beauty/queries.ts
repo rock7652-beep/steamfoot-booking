@@ -1,3 +1,4 @@
+import {beautyRentalSnapshots} from './rental-snapshots';
 import {beautyReadStep} from './read-timing';
 import {preloadBeautyCalendarRosters} from "./calendar-rosters";
 import {publicBeautyGoodsCatalog} from './booking-shared-goods';
@@ -401,6 +402,7 @@ export async function beautyDashboard(
     includeChargeCatalog&&beautyChargeRulesEnabled(a.storeId)&&planAccess&&staffAccess?readChargeCatalogForUi(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId):undefined,
   ])),
   ]);
+  const rentalDetails=includeRosterSnapshots&&customerAccess?await beautyRentalSnapshots(a.storeId,rentals.map(r=>r.id)):undefined;
   const calendarDays=Object.fromEntries(calendarDates.map(d=>[d,resolvedCourseHours(d,calendarHours,calendarSpecials)]));
   const displayOrders=Object.fromEntries(orderRows.filter(r=>(r.kind!=="plan"||planAccess)&&(r.kind!=="staff"||staffAccess)).map(r=>[r.kind,{ids:r.ids,revision:r.revision}]));
   const planSaleCosts=Object.fromEntries(plans.map(p=>[p.id,costs.get('plan:'+p.id)??null]));
@@ -412,6 +414,7 @@ export async function beautyDashboard(
     chargeCatalog,
     assignmentStaff,
     displayOrders,
+    rentalDetails,
     rentals:rentals.map(r=>({...r,customerName:customerAccess?currentCustomerLabels.get(r.customerId??'')?.name??r.customerName:"空間租借",customerPhone:customerAccess?currentCustomerLabels.get(r.customerId??'')?.phone??r.customerPhone:"",customerId:customerAccess?r.customerId:null,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),occupiedStartsAt:r.occupiedStartsAt.toISOString(),occupiedEndsAt:r.occupiedEndsAt.toISOString()})),
     technicianAssignments:technicianAssignments.map(row=>({id:row.id,technicianId:row.technicianId,name:row.serviceName,startsAt:row.startsAt.toISOString(),endsAt:row.endsAt.toISOString(),capacity:1,bookedCount:1,locationLabel:locations.find(location=>location.id===row.locationId)?.name??'未指定'})),
     purchases: purchases.map((p) => ({
@@ -499,6 +502,6 @@ export async function beautyCalendar(date:string,calendar:'day'|'week'|'month',n
  const financeAccess=await can('transaction.read')&&await hasStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
  const charges=financeAccess?await serviceCharges(beautyPrisma as unknown as Prisma.TransactionClient,a.storeId,rows.filter(b=>!b.cardId||Array.isArray(b.addOnItems)&&b.addOnItems.length>0)):[];
  const dates=Array.from({length:native?Math.floor((+range.end-+range.start)/86400000)+1:calendar==='month'?31:calendar==='week'?7:1},(_,i)=>addTaiwanDuration(toLocalDateStr(range.start),i,'DAY')).filter(d=>dayRange(d).start<=range.end);
- const rosterSnapshots=includeRosterSnapshots?await preloadBeautyCalendarRosters(a.storeId,rows,dates):undefined;
- return {rosterSnapshots,date,calendar,rentals:rentals.map(r=>({...r,customerName:customerAccess?currentCustomerLabels.get(r.customerId??'')?.name??r.customerName:"空間租借",customerPhone:customerAccess?currentCustomerLabels.get(r.customerId??'')?.phone??r.customerPhone:"",customerId:customerAccess?r.customerId:null,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),occupiedStartsAt:r.occupiedStartsAt.toISOString(),occupiedEndsAt:r.occupiedEndsAt.toISOString()})),calendarDays:Object.fromEntries(dates.map(d=>[d,resolvedCourseHours(d,hours,specials)])),items:rows.map(b=>({...publicReceipt(b),personName:currentCustomerLabels.get(b.customerId??'')?.name??b.personName,...(charges.find(c=>c.id===b.id)?{paymentStatus:servicePaymentLabel(charges.find(c=>c.id===b.id)!)}:b.cardId&&planAccess?{paymentStatus:'使用方案'}:{}),serviceId:b.serviceId,buffer:b.buffer,occupiedEndsAt:b.occupiedEndsAt.toISOString(),revision:b.revision,groupId:b.groupId,technicianId:b.technicianId,locationId:b.locationId,cardId:planAccess?b.cardId:null,personPhone:customerAccess?currentCustomerLabels.get(b.customerId??'')?.phone??b.personPhone:'',customerId:customerAccess?b.customerId:null,notes:customerAccess?b.notes:'',fee:feeAccess?b.fee:null}))};
+ const [rosterSnapshots,rentalDetails]=await Promise.all([includeRosterSnapshots?preloadBeautyCalendarRosters(a.storeId,rows,dates):undefined,includeRosterSnapshots&&customerAccess?beautyRentalSnapshots(a.storeId,rentals.map(r=>r.id)):undefined]);
+ return {rosterSnapshots,rentalDetails,date,calendar,rentals:rentals.map(r=>({...r,customerName:customerAccess?currentCustomerLabels.get(r.customerId??'')?.name??r.customerName:"空間租借",customerPhone:customerAccess?currentCustomerLabels.get(r.customerId??'')?.phone??r.customerPhone:"",customerId:customerAccess?r.customerId:null,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),occupiedStartsAt:r.occupiedStartsAt.toISOString(),occupiedEndsAt:r.occupiedEndsAt.toISOString()})),calendarDays:Object.fromEntries(dates.map(d=>[d,resolvedCourseHours(d,hours,specials)])),items:rows.map(b=>({...publicReceipt(b),personName:currentCustomerLabels.get(b.customerId??'')?.name??b.personName,...(charges.find(c=>c.id===b.id)?{paymentStatus:servicePaymentLabel(charges.find(c=>c.id===b.id)!)}:b.cardId&&planAccess?{paymentStatus:'使用方案'}:{}),serviceId:b.serviceId,buffer:b.buffer,occupiedEndsAt:b.occupiedEndsAt.toISOString(),revision:b.revision,groupId:b.groupId,technicianId:b.technicianId,locationId:b.locationId,cardId:planAccess?b.cardId:null,personPhone:customerAccess?currentCustomerLabels.get(b.customerId??'')?.phone??b.personPhone:'',customerId:customerAccess?b.customerId:null,notes:customerAccess?b.notes:'',fee:feeAccess?b.fee:null}))};
 }

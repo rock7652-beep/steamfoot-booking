@@ -1,6 +1,6 @@
 "use client";
 import {useCourseDraftGuard} from "@/components/admin/use-course-draft-guard";
-import { useEffect,useRef,useState,useTransition,useCallback,useId,type ReactNode } from "react";
+import { useEffect,useRef,useState,useTransition,useCallback,useId,type ComponentProps,type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { createRentalCustomer,saveCourseRental,getCourseRental,cancelCourseRental,saveRentalPayment,listRoomRentals } from "@/server/actions/course-rental";
 import type {RentalModule} from "@/server/services/rental-module";
@@ -13,7 +13,9 @@ export type RentalRoom={id:string;name:string;isActive:boolean;rentalEnabled?:bo
 export type RentalCustomer={id:string;name:string;phone:string};
 const NO_CUSTOMERS:RentalCustomer[]=[];
 type Seed={date?:string;time?:string;roomId?:string;durationMinutes?:number};
-export function RentalPanel({module="course",id,rooms,seed,permissions,customers=NO_CUSTOMERS,onDone,onGuard,onSaved,allowWeekly:weeklyRequested=false,typeControl,active=true,onPositionChange,onCancel}:{module?:RentalModule;onCancel?:()=>void;typeControl?:ReactNode;active?:boolean;onPositionChange?:(position:{date:string;time:string;roomId?:string;durationMinutes:number})=>void;allowWeekly?:boolean;id?:string;rooms:RentalRoom[];seed:Seed;permissions:RentalPermissions;customers?:RentalCustomer[];onDone?:()=>void;onSaved?:(sessions?:unknown[])=>void;onGuard?:(pending:boolean,dirty:boolean)=>void}) {
+export function RentalPanel(props:ComponentProps<typeof RentalDraft>){return <RentalDraft key={JSON.stringify([props.module??'course',props.id??'new'])} {...props}/>;}
+function RentalDraft({module="course",id,initialDetail,rooms,seed,permissions,customers=NO_CUSTOMERS,onDone,onGuard,onSaved,allowWeekly:weeklyRequested=false,typeControl,active=true,onPositionChange,onCancel}:{initialDetail?:RentalDetail;module?:RentalModule;onCancel?:()=>void;typeControl?:ReactNode;active?:boolean;onPositionChange?:(position:{date:string;time:string;roomId?:string;durationMinutes:number})=>void;allowWeekly?:boolean;id?:string;rooms:RentalRoom[];seed:Seed;permissions:RentalPermissions;customers?:RentalCustomer[];onDone?:()=>void;onSaved?:(sessions?:unknown[])=>void;onGuard?:(pending:boolean,dirty:boolean)=>void}) {
+  const prepared=initialDetail?.id===id?initialDetail:undefined;
   // Course defaults may be 50 minutes; rentals keep their existing half-hour unit.
   const seedDuration=seed.durationMinutes==null?60:Math.ceil(seed.durationMinutes/30)*30;
   const scrollArea=useRef<HTMLDivElement>(null);
@@ -21,24 +23,24 @@ export function RentalPanel({module="course",id,rooms,seed,permissions,customers
   const allowWeekly=module==="course"&&weeklyRequested;
   const formId=useId();
   const [repeatWeeks,setRepeatWeeks]=useState(1);
-  const [date,setDate]=useState(seed.date??toLocalDateStr());
-  const [time,setTime]=useState(seed.time??"18:00");
+  const [date,setDate]=useState(prepared?toLocalDateStr(new Date(prepared.startsAt)):seed.date??toLocalDateStr());
+  const [time,setTime]=useState(prepared?formatTWDateTime(new Date(prepared.startsAt)).slice(11):seed.time??"18:00");
   const [paymentMethod,setPaymentMethod]=useState("");
   const [paidAmount,setPaidAmount]=useState<number|null>(null);
   const submitLock=useRef(false);
   const [dirty,setDirty]=useState(false);
   const [collectAfterSave,setCollectAfterSave]=useState(false);
-  const router=useRouter();const [record,setRecord]=useState<RentalDetail|null>(null);const [mode,setMode]=useState<"edit"|"detail"|"payment">(id?"detail":"edit");
-  const [error,setError]=useState("");const [pending,start]=useTransition();const [loaded,setLoaded]=useState(!id);
-  const [roomId,setRoomId]=useState(seed.roomId??rooms.find(r=>r.rentalEnabled&&r.isActive)?.id??"");
-  const [duration,setDuration]=useState(seedDuration);const [amount,setAmount]=useState(rentalPrice(rooms.find(r=>r.id===roomId)?.rentalHourlyRate??0,duration));
-  const [query,setQuery]=useState("");const [customer,setCustomer]=useState<{id:string;name:string;phone:string}|null>(null);
+  const router=useRouter();const [record,setRecord]=useState<RentalDetail|null>(prepared??null);const [mode,setMode]=useState<"edit"|"detail"|"payment">(id?"detail":"edit");
+  const [error,setError]=useState("");const [pending,start]=useTransition();const [loaded,setLoaded]=useState(!id||!!prepared);
+  const [roomId,setRoomId]=useState(prepared?.roomId??seed.roomId??rooms.find(r=>r.rentalEnabled&&r.isActive)?.id??"");
+  const [duration,setDuration]=useState(prepared?(Date.parse(prepared.endsAt)-Date.parse(prepared.startsAt))/60000:seedDuration);const [amount,setAmount]=useState(prepared?.amount??rentalPrice(rooms.find(r=>r.id===roomId)?.rentalHourlyRate??0,duration));
+  const [query,setQuery]=useState("");const [customer,setCustomer]=useState<{id:string;name:string;phone:string}|null>(prepared?.customerId?{id:prepared.customerId,name:prepared.customerName,phone:prepared.customerPhone}:null);
   const [newCustomer,setNewCustomer]=useState(false);const [customerNotice,setCustomerNotice]=useState("");const [voidOnly,setVoidOnly]=useState(false);
   const [requestKey]=useState(()=>crypto.randomUUID());const paymentKey=useRef(crypto.randomUUID());
   useCourseDraftGuard(active&&dirty&&!(allowWeekly&&!record),active&&pending);
   useEffect(()=>{onGuard?.(pending,dirty);return()=>onGuard?.(false,false);},[pending,dirty,onGuard]);
   function apply(r:RentalDetail){setDirty(false);setRecord(r);setRoomId(r.roomId);setDuration((Date.parse(r.endsAt)-Date.parse(r.startsAt))/60000);setAmount(r.amount);setDate(toLocalDateStr(new Date(r.startsAt)));setTime(formatTWDateTime(new Date(r.startsAt)).slice(11));if(r.customerId)setCustomer({id:r.customerId,name:r.customerName,phone:r.customerPhone});setLoaded(true);}
-  useEffect(()=>{if(!id)return;let active=true;(module==='beauty'?getCourseRental(id,module):getCourseRental(id)).then(r=>{if(active)apply(r);}).catch(()=>{if(active){setLoaded(true);setError("租借讀取失敗，請關閉後重試");}});return()=>{active=false;};},[id,module]);
+  useEffect(()=>{if(!id||prepared)return;let active=true;(module==='beauty'?getCourseRental(id,module):getCourseRental(id)).then(r=>{if(active)apply(r);}).catch(()=>{if(active){setLoaded(true);setError("租借讀取失敗，請關閉後重試");}});return()=>{active=false;};},[id,module,prepared]);
   useEffect(()=>{if(active&&!record&&onPositionChange)onPositionChange({date,time,roomId,durationMinutes:duration});},[active,record,date,time,roomId,duration,onPositionChange]);
   useEffect(()=>{if(active||record)return;if(seed.date)setDate(seed.date);if(seed.time!==undefined)setTime(seed.time);if(seed.roomId)setRoomId(seed.roomId);if(seed.durationMinutes)setDuration(seedDuration);if(!dirty)setAmount(rentalPrice(rooms.find(room=>room.id===(seed.roomId??roomId))?.rentalHourlyRate??0,seed.durationMinutes==null?duration:seedDuration));},[active,record,seed.date,seed.time,seed.roomId,seed.durationMinutes,seedDuration,dirty,rooms,roomId,duration]);
   const normalizedQuery=query.trim().toLocaleLowerCase();

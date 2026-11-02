@@ -1,3 +1,4 @@
+import {assertTechnicianCanComplete} from './technician-service';
 import {prepareBeautyBookingGoods,persistBeautyBookingGoods} from './booking-shared-goods';
 import {isBeautyServiceAddOnsEnabled} from '@/server/services/add-on-access';
 import {baseServiceCollected} from "@/lib/beauty/add-on-finance";
@@ -553,6 +554,7 @@ export async function transition(
   const debit=input.target==='COMPLETED'||input.target==='NO_SHOW'&&input.noShowDeduct===true;
   const hadCardBinding=!!b.cardId;
   if (input.target === b.status&&(input.noShowDeduct===undefined||debit===b.debit)) return { id: b.id };
+  if(debit)await assertTechnicianCanComplete(tx,a.storeId,b);
   // Completion may use existing paid single-service rights, or an eligible
   // item card selected under this transaction. Never silently complete unpaid.
   if(!b.cardId&&!b.isTrial&&(input.target==='COMPLETED'||input.target==='NO_SHOW'&&debit)){

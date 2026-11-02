@@ -26,7 +26,7 @@ it('commits and reloads real SQL order and revision, retaining omitted rows',asy
 it('sorts only actual Beauty service and plan IDs without invented products or Course catalog writes',async()=>{
  expect(await saveBeautyDisplayOrder({kind:'subject',ids:['s2','s1'],revision:0})).toMatchObject({success:true});
  expect(await saveBeautyDisplayOrder({kind:'plan',ids:['plan:p1'],revision:0})).toMatchObject({success:true});
- expect((await db.query<{ids:string[]}>('SELECT ids FROM "CourseDisplayOrder" WHERE kind=\'plan\'')).rows[0].ids).toEqual(['plan:p1']);
+ expect((await db.query<{ids:string[]}>('SELECT ids FROM "CourseDisplayOrder" WHERE kind=\'plan\'')).rows[0].ids).toEqual(['plan:p1','service:s1','service:s2']);
  expect(m.manager).toHaveBeenCalledWith('plans.edit',true);expect(m.feature).toHaveBeenCalled();
 });
 it('rejects stale revision and foreign IDs without overwriting committed order',async()=>{
@@ -49,4 +49,10 @@ it('does not enter a transaction after denied permission, read-only scope or fea
  expect(await saveBeautyDisplayOrder({kind:'room',ids:['a'],revision:0})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();
  m.feature.mockRejectedValueOnce(Error('未開通'));
  expect(await saveBeautyDisplayOrder({kind:'plan',ids:['plan:p1'],revision:0})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();
+});
+
+it('stores single and plan order together without altering service associations',async()=>{
+ expect(await saveBeautyDisplayOrder({kind:'plan',ids:['plan:p1','service:s2','service:s1'],revision:0})).toEqual({success:true,revision:1});
+ expect((await db.query<{ids:string[]}>('SELECT ids FROM "CourseDisplayOrder"')).rows[0].ids).toEqual(['plan:p1','service:s2','service:s1']);
+ expect(await saveBeautyDisplayOrder({kind:'plan',ids:['service:other'],revision:1})).toMatchObject({success:false});
 });

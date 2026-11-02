@@ -1,6 +1,7 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
 const m=vi.hoisted(()=>({manager:vi.fn(),permission:vi.fn(),feature:vi.fn(),transaction:vi.fn(),appointments:vi.fn(),prepare:vi.fn(),read:vi.fn(),pending:vi.fn(),cancel:vi.fn(),ack:vi.fn(),enabled:vi.fn()}));
+vi.mock('@/server/beauty/read-transaction',()=>({beautyReadTransaction:(work:unknown)=>m.transaction(null,work)}));
 vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:m.transaction}));
 vi.mock('@/lib/permissions',()=>({requirePermission:m.permission}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));

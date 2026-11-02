@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+vi.mock('@/server/actions/beauty-technician-service',()=>({saveBeautyTechnicianService:vi.fn()}));
 import {act,createElement} from 'react';
 import {createRoot} from 'react-dom/client';
 import {expect,it,vi} from 'vitest';

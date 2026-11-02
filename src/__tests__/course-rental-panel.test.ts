@@ -104,3 +104,17 @@ it('shows a free rental without an unpaid label or collection action',async()=>{
  expect(host.querySelector('[aria-label="收取租借費用"]')).toBeNull();
  expect(host.textContent).toContain('編輯租借');expect(m.payment).not.toHaveBeenCalled();
 });
+
+it('opens a prepared detail immediately, retains editing values and does not repeat the read',async()=>{
+ m.get.mockReturnValue(new Promise(()=>{}));
+ await act(async()=>root.render(React.createElement(RentalPanel,{id:'r',initialDetail:record,rooms,permissions,seed:{}})));
+ expect(host.textContent).toContain('小安');expect(host.textContent).not.toContain('讀取租借');expect(m.get).not.toHaveBeenCalled();
+ await click('編輯租借');expect(host.querySelector<HTMLInputElement>('input[name=date]')!.value).toBe('2026-10-02');
+ expect(host.querySelector<HTMLInputElement>('input[name=time]')!.value).toBe('10:00');
+ await submit();expect(m.save).toHaveBeenCalledWith(expect.objectContaining({id:'r',revision:1,amount:600,date:'2026-10-02',time:'10:00'}),'course');
+});
+it('does not show a prepared detail for a different rental',async()=>{
+ m.get.mockReturnValue(new Promise(()=>{}));
+ await act(async()=>root.render(React.createElement(RentalPanel,{id:'other',initialDetail:record,rooms,permissions,seed:{}})));
+ expect(host.textContent).toContain('讀取租借');expect(host.textContent).not.toContain('小安');expect(m.get).toHaveBeenCalledWith('other');
+});
