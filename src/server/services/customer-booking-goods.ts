@@ -22,8 +22,8 @@ export async function customerGoodsCatalog(tx:BookingGoodsTx,storeId:string,sess
   const [subject]=await tx.$queryRaw<{id:string}[]>`SELECT a.id FROM "CourseSession" s JOIN "CourseTemplate" t ON t.id=s."templateId" AND t."storeId"=s."storeId" JOIN "MusicSubject" a ON a.id=t."musicSubjectId" AND a."storeId"=s."storeId" WHERE s.id=${sessionId} AND s."storeId"=${storeId} AND s."cancelledAt" IS NULL AND s."releasedAt" IS NULL AND s."teacherAttendance" NOT IN ('LEAVE','NO_SHOW') AND t."isActive"=true AND t.visibility='PUBLIC' AND a."isActive"=true`;
   if(!subject)return null;subjectId=subject.id;
  }
- const [catalog]=await tx.$queryRaw<{revision:number;enabled:boolean;groups:Prisma.JsonValue}[]>`SELECT revision,enabled,groups FROM "ServiceAddOnCatalog" WHERE "storeId"=${storeId} AND module=${moduleName}`;
- if(!catalog?.enabled)return null;
+ const [catalog]=await tx.$queryRaw<{revision:number;enabled:boolean;groups:Prisma.JsonValue}[]>`SELECT revision,groups FROM "ServiceAddOnCatalog" WHERE "storeId"=${storeId} AND module=${moduleName}`;
+ if(!catalog)return null;
  const applicable=moduleName==='STEAMFOOT'?moduleAddOnGroups(moduleName,catalog.groups):courseSubjectAddOnGroups(moduleName,catalog.groups,subjectId);
  const groups=applicable.filter(g=>g.kind==='SHARED_GOODS').map(g=>({...g,options:g.options.filter(o=>o.active)})).filter(g=>g.options.length);
  return groups.length?{module:moduleName,revision:catalog.revision,groups} as const:null;

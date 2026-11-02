@@ -37,12 +37,12 @@ it('rechecks HQ revocation even after a successful earlier check',async()=>{
  expect(await hasStoreFeature('store-a',FEATURES.ADD_ONS)).toBe(true);
  await expect(requireAddOnSelection(tx,'store-a','STEAMFOOT')).rejects.toThrow('尚未開通');
 });
-it.each(['STEAMFOOT','FITNESS','MUSIC','BEAUTY'])('requires local activation and isolates %s catalogs',async module=>{
+it.each(['STEAMFOOT','FITNESS','MUSIC','BEAUTY'])('ignores the retired local switch and isolates %s catalogs',async module=>{
  m.grant.mockResolvedValue({status:'ENABLED',startsAt:null,expiresAt:null});
  m.catalog.mockResolvedValue({enabled:false});
- await expect(requireAddOnSelection(tx,'store-b',module)).rejects.toThrow('門市尚未啟用');
+ await expect(requireAddOnSelection(tx,'store-b',module)).resolves.toBeUndefined();
  expect(m.catalog).toHaveBeenCalledWith({where:{storeId_module:{storeId:'store-b',module}}});
- m.catalog.mockResolvedValue(null);await expect(requireAddOnSelection(tx,'store-b',module)).rejects.toThrow('門市尚未啟用');
+ m.catalog.mockResolvedValue(null);await expect(requireAddOnSelection(tx,'store-b',module)).rejects.toThrow('尚未設定');
 });
 
 it('uses both HQ and local activation for the independent beauty domain',async()=>{

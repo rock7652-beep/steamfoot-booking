@@ -7,7 +7,7 @@ vi.mock('@/server/beauty/access',()=>({audit:vi.fn()}));
 import {AddOnsDatabaseConfigurationError,addOnsDatabaseSelection} from '@/lib/addons-database-url';
 import {readBeautyGoodsCatalog} from '@/server/beauty/shared-goods-catalog';
 import {prepareBeautyBookingGoods,publicBeautyGoodsCatalog} from '@/server/beauty/booking-shared-goods';
-beforeEach(()=>{vi.resetAllMocks();m.feature.mockResolvedValue(true);m.groups.mockReturnValue([{kind:'SHARED_GOODS',id:'goods'}]);});
+beforeEach(()=>{vi.resetAllMocks();m.feature.mockResolvedValue(true);m.groups.mockReturnValue([{kind:'SHARED_GOODS',id:'goods',options:[{active:true}]}]);});
 it('keeps the optional selection catalog closed when its dedicated connection is missing',async()=>{
  expect(()=>addOnsDatabaseSelection({})).toThrow(AddOnsDatabaseConfigurationError);
  m.catalog.mockRejectedValue(new AddOnsDatabaseConfigurationError());
@@ -33,9 +33,17 @@ it('preserves unexpected database errors instead of treating them as an empty ca
  await expect(readBeautyGoodsCatalog('store')).rejects.toThrow('database disconnected');
 });
 it('retains configured catalogs and checks the live grant again',async()=>{
- m.catalog.mockResolvedValue({enabled:true,revision:7,groups:[]});
- expect(await readBeautyGoodsCatalog('store')).toEqual({enabled:true,revision:7,groups:[{kind:'SHARED_GOODS',id:'goods'}]});
+ m.catalog.mockResolvedValue({enabled:false,revision:7,groups:[]});
+ expect(await readBeautyGoodsCatalog('store')).toEqual({enabled:true,revision:7,groups:[{kind:'SHARED_GOODS',id:'goods',options:[{active:true}]}]});
  expect(m.feature).toHaveBeenCalledTimes(2);
  m.feature.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
  expect(await readBeautyGoodsCatalog('store')).toEqual({enabled:false,revision:7,groups:[]});
+});
+
+it('has no purchasable section for empty or wholly inactive product catalogs',async()=>{
+ m.catalog.mockResolvedValue({enabled:false,revision:2,groups:[]});
+ m.groups.mockReturnValue([]);expect((await readBeautyGoodsCatalog('store')).enabled).toBe(false);
+ m.groups.mockReturnValue([{kind:'SHARED_GOODS',options:[{active:false}]}]);
+ expect((await readBeautyGoodsCatalog('store')).enabled).toBe(false);
+ expect(await publicBeautyGoodsCatalog('store')).toBeNull();
 });

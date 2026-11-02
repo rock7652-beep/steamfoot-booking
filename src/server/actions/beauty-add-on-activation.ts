@@ -17,7 +17,7 @@ export async function readBeautyAddOnActivation(){try{
 }catch(e){return handleActionError(e);}}
 export async function saveBeautyAddOnActivation(input:unknown){try{
  const a=await beautyManager('add_ons.manage',true);await requireStoreFeature(a.storeId,FEATURES.ADD_ONS);
- const d=z.object({storeId:z.string(),revision:z.number().int().nonnegative(),enabled:z.boolean(),groups:z.unknown().optional(),requestKey:z.string().uuid()}).parse(input);
+ const d=z.object({storeId:z.string(),revision:z.number().int().nonnegative(),groups:z.unknown().optional(),requestKey:z.string().uuid()}).parse(input);
  if(d.storeId!==a.storeId||!a.userId)throw new AppError('FORBIDDEN','門市已切換');
  let groups;try{groups=d.groups===undefined?undefined:moduleAddOnGroups('BEAUTY',d.groups);if(groups?.some(g=>g.kind!=='SHARED_GOODS'))throw new Error('此處僅設定共同商品，個人加做請至服務項目');}catch(e){throw new AppError('VALIDATION',addOnCatalogError(e));}
  const actor={storeId:a.storeId,userId:a.userId,staffId:null};
@@ -29,8 +29,8 @@ export async function saveBeautyAddOnActivation(input:unknown){try{
    if((current?.revision??0)!==d.revision)throw new AppError('CONFLICT','設定已更新，請重新開啟');
    const images=(groups??[]).flatMap(g=>g.options.flatMap(o=>o.imageId?[o.imageId]:[]));
    if(images.length&&(await tx.serviceAddOnImage.count({where:{storeId:a.storeId,module:'BEAUTY',id:{in:[...new Set(images)]}}}))!==new Set(images).size)throw new AppError('FORBIDDEN','圖片不屬於本店');
-   const saved=await tx.serviceAddOnCatalog.upsert({where,create:{storeId:a.storeId,module:'BEAUTY',groups:groups??[],enabled:d.enabled,revision:1},update:{...(groups===undefined?{}:{groups}),enabled:d.enabled,revision:{increment:1}}});
-   await recordOperationAudit({actorUserId:actor.userId,storeId:a.storeId,module:'SHARED',targetType:'ServiceAddOnCatalog',targetId:a.storeId,action:'SET_BEAUTY_ADD_ONS_ENABLED',summary:'調整美業附加項目啟用狀態',before:{enabled:current?.enabled??false,groups:current?.groups??[]},after:{enabled:saved.enabled,groups:saved.groups}},tx);
+   const saved=await tx.serviceAddOnCatalog.upsert({where,create:{storeId:a.storeId,module:'BEAUTY',groups:groups??[],enabled:true,revision:1},update:{...(groups===undefined?{}:{groups}),enabled:true,revision:{increment:1}}});
+   await recordOperationAudit({actorUserId:actor.userId,storeId:a.storeId,module:'SHARED',targetType:'ServiceAddOnCatalog',targetId:a.storeId,action:'SET_BEAUTY_ADD_ONS_ENABLED',summary:'儲存美業加購商品',before:{enabled:current?.enabled??false,groups:current?.groups??[]},after:{enabled:saved.enabled,groups:saved.groups}},tx);
    return {revision:saved.revision};
   });
  });revalidatePath('/dashboard/add-ons');revalidatePath('/dashboard/beauty');return {success:true as const,data};

@@ -9,9 +9,9 @@ it('hides unused shared goods while retaining existing orders after HQ closure',
  m.order.mockResolvedValue({id:'historical'});expect(await sharedGoodsAvailable('s','STEAMFOOT')).toBe(true);
  expect(m.order).toHaveBeenCalledWith({where:{storeId:'s',module:'STEAMFOOT',ownership:'RESERVATION'},select:{id:true}});
 });
-it('requires local activation plus at least one active shared product, not a personal group',async()=>{
+it('uses active shared products regardless of the retired catalog switch',async()=>{
  m.feature.mockResolvedValue(true);const groups=[{id:'g',title:'茶',kind:'SHARED_GOODS',required:false,multiple:true,options:[{id:'tea',name:'茶',price:0,duration:0,active:true}]}];
- m.catalog.mockResolvedValue({enabled:false,groups});expect(await sharedGoodsAvailable('s','FITNESS')).toBe(false);
+ m.catalog.mockResolvedValue({enabled:false,groups});expect(await sharedGoodsAvailable('s','FITNESS')).toBe(true);
  m.catalog.mockResolvedValue({enabled:true,groups});expect(await sharedGoodsAvailable('s','FITNESS')).toBe(true);
  m.catalog.mockResolvedValue({enabled:true,groups:[{...groups[0],kind:'PERSON'}]});expect(await sharedGoodsAvailable('s','FITNESS')).toBe(false);
 });

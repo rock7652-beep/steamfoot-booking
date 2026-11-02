@@ -431,7 +431,7 @@ export async function beautyDashboard(
     analytics,
     manage,
     ...({sharedGoodsHistoryGroups:financeAccess&&items.length>0?(await beautyPrisma.beautySharedGoodsOrder.findMany({where:{storeId:a.storeId,groupId:{in:items.map(i=>i.groupId)}},select:{groupId:true}})).map(o=>o.groupId):[]} as {sharedGoodsHistoryGroups?:string[]}),
-    ...({addOnsEnabled:await isBeautyServiceAddOnsEnabled(a.storeId),sharedGoodsEnabled:nativeCalendar&&financeAccess?(await (await import('./shared-goods-catalog')).readBeautyGoodsCatalog(a.storeId)).enabled:false,serviceAddOnsLocalEnabled:policy.serviceAddOnsEnabled,serviceAddOnsRevision:policy.revision,canManageServiceAddOns:await can('add_ons.manage')} as {addOnsEnabled?:boolean;sharedGoodsEnabled?:boolean;serviceAddOnsLocalEnabled?:boolean;serviceAddOnsRevision?:number;canManageServiceAddOns?:boolean}),
+    ...({addOnsEnabled:await isBeautyServiceAddOnsEnabled(a.storeId),sharedGoodsEnabled:nativeCalendar&&financeAccess?(await (await import('./shared-goods-catalog')).readBeautyGoodsCatalog(a.storeId)).enabled:false,} as {addOnsEnabled?:boolean;sharedGoodsEnabled?:boolean;}),
     date,
     month,
     services:services.map(s=>({...s,defaultRate:feeAccess?s.defaultRate:undefined})),

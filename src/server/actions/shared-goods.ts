@@ -29,7 +29,7 @@ export async function readSharedGoods(input:unknown){try{
  const a=await context('booking.read');await requirePermission('transaction.read');if(a.module==='MUSIC')await requireMusicFinance(a.user,a.storeId,'transaction.read');
  const d=subject.parse(input);if(d.storeId!==a.storeId)throw new AppError('FORBIDDEN','門市已切換');
  const data=await prisma.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${a.storeId} FOR UPDATE`;return readAddOnOrder(tx,a,await lockSharedGoodsSubject(tx,a.storeId,a.module,d.bookingId,d.participantId));});
- const c=await prisma.serviceAddOnCatalog.findUnique({where:{storeId_module:{storeId:a.storeId,module:a.module}},select:{enabled:true}}),canSelect=!!c?.enabled&&await hasStoreFeature(a.storeId,FEATURES.ADD_ONS);
+ const c=await prisma.serviceAddOnCatalog.findUnique({where:{storeId_module:{storeId:a.storeId,module:a.module}},select:{storeId:true}}),canSelect=!!c&&await hasStoreFeature(a.storeId,FEATURES.ADD_ONS);
  return {success:true as const,data:{...data,groups:canSelect?data.groups:[],canSelect}};
 }catch(e){return handleActionError(e);}}
 export async function mutateSharedGoods(input:unknown){try{

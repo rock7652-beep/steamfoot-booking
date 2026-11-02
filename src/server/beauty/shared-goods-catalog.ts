@@ -17,7 +17,8 @@ export async function readBeautyGoodsCatalog(storeId:string){
   if(error instanceof AddOnsDatabaseConfigurationError)return {revision:0,enabled:false,groups:[]};
   throw error;
  }
- const enabled=!!catalog?.enabled&&await hasStoreFeature(storeId,FEATURES.ADD_ONS);
- return {revision:catalog?.revision??0,enabled,groups:enabled?moduleAddOnGroups('BEAUTY',catalog?.groups??[]).filter(g=>g.kind==='SHARED_GOODS'):[]};
+ const allowed=!!catalog&&await hasStoreFeature(storeId,FEATURES.ADD_ONS);
+ const groups=allowed?moduleAddOnGroups('BEAUTY',catalog?.groups??[]).filter(g=>g.kind==='SHARED_GOODS'):[];
+ return {revision:catalog?.revision??0,enabled:groups.some(g=>g.options.some(o=>o.active)),groups};
 }
 

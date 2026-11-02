@@ -7,7 +7,7 @@ import {FEATURES,hasFeature} from '@/lib/feature-flags';
 const grant={industry:'BEAUTY',status:'ENABLED',startsAt:null,expiresAt:null,localEnabled:true};
 beforeEach(()=>{vi.clearAllMocks();vi.useFakeTimers();vi.setSystemTime(new Date('2026-11-01T00:00:00Z'));});afterEach(()=>vi.useRealTimers());
 it.each([[true,true],[true,false],[false,true],[false,false]])('keeps service=%s and goods=%s independent',async(service,goods)=>{
- m.raw.mockResolvedValue([{...grant,localEnabled:service}]);m.goodsAllowed.mockResolvedValue(true);m.catalog.mockResolvedValue({enabled:goods});
+ m.raw.mockResolvedValue([{...grant,status:service?'ENABLED':'DISABLED',localEnabled:false}]);m.goodsAllowed.mockResolvedValue(goods);m.catalog.mockResolvedValue({enabled:false});
  expect(await isBeautyServiceAddOnsEnabled('beauty')).toBe(service);expect(await isAddOnSelectionEnabled('beauty','BEAUTY')).toBe(goods);
  expect(m.raw.mock.calls[0][1]).toBe(FEATURES.BEAUTY_SERVICE_ADD_ONS);
 });

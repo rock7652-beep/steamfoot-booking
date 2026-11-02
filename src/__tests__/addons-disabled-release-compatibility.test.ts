@@ -31,15 +31,15 @@ it.each(['DISABLED','LOCKED','HIDDEN',null])('closed Beauty grant %s avoids the 
  const query=tx.$queryRaw.mock.calls[0][0] as TemplateStringsArray;
  expect(query.join('')).not.toContain('serviceAddOnsEnabled');expect(m.raw).not.toHaveBeenCalled();
 });
-it('enabled grant uses the same transaction and rechecks revocation with the local switch',async()=>{
+it('enabled grant uses the caller transaction without consulting the retired local switch',async()=>{
  const tx={$queryRaw:vi.fn().mockResolvedValueOnce([grant]).mockResolvedValueOnce([{...grant,status:'DISABLED',localEnabled:true}])};
- expect(await isBeautyServiceAddOnsEnabled('store',tx)).toBe(false);expect(tx.$queryRaw).toHaveBeenCalledTimes(2);expect(m.raw).not.toHaveBeenCalled();
+ expect(await isBeautyServiceAddOnsEnabled('store',tx)).toBe(true);expect(tx.$queryRaw).toHaveBeenCalledOnce();expect(m.raw).not.toHaveBeenCalled();
 });
 it('enabled Beauty catalog does not disguise a database failure as a closed feature',async()=>{
  const unavailable=Error('database unavailable');m.feature.mockResolvedValue(true);m.catalog.mockRejectedValue(unavailable);
  await expect(readBeautyGoodsCatalog('store')).rejects.toBe(unavailable);
 });
 it('enabled Beauty service does not swallow a missing required schema',async()=>{
- const unavailable=Error('missing column');const tx={$queryRaw:vi.fn().mockResolvedValueOnce([grant]).mockRejectedValueOnce(unavailable)};
+ const unavailable=Error('missing column');const tx={$queryRaw:vi.fn().mockRejectedValueOnce(unavailable)};
  await expect(isBeautyServiceAddOnsEnabled('store',tx)).rejects.toBe(unavailable);
 });

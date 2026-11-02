@@ -9,8 +9,8 @@ export const sharedGoodsAvailable=cache(async(storeId:string,module:'STEAMFOOT'|
  const historical=await prisma.serviceAddOnOrder.findFirst({where:{storeId,module,ownership:'RESERVATION',...(bookingId?{bookingId}:{})},select:{id:true}});
  if(historical)return true;
  if(!await hasStoreFeature(storeId,FEATURES.ADD_ONS))return false;
- const catalog=await prisma.serviceAddOnCatalog.findUnique({where:{storeId_module:{storeId,module}},select:{enabled:true,groups:true}});
- if(!catalog?.enabled)return false;
+ const catalog=await prisma.serviceAddOnCatalog.findUnique({where:{storeId_module:{storeId,module}},select:{groups:true}});
+ if(!catalog)return false;
  const groups=bookingId&&(module==='FITNESS'||module==='MUSIC')?courseSubjectAddOnGroups(module,catalog.groups,subjectId):moduleAddOnGroups(module,catalog.groups);
  return groups.some(g=>g.kind==='SHARED_GOODS'&&g.options.some(o=>o.active));
 });
