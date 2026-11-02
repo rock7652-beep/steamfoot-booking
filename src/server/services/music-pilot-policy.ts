@@ -9,6 +9,15 @@ export const PILOT_EVIDENCE_HASH="5f32220ea9ea9a2f4b5841f01e3fc43bd2d48004fd62d4
 export const PILOT_EVIDENCE_ID="5f32220e-a9ea-9a2f-4b58-41f01e3fc43b";
 export const PILOT_RECEIPT_ID="yjy-operational-import:20261014";
 function fail(message:string):never {throw new AppError("VALIDATION",message);}
+/** Read-only presentation: keep restricted source cards blocked, without taking
+ * down unrelated native cards. All source validation and writers retain the
+ * throwing exact-environment gate below. */
+export function musicPilotReadIssue(card:{requestKey?:string}|null|undefined,env:Record<string,string|undefined>=process.env):string|null {
+  if(!card?.requestKey?.startsWith("yjy-pilot-card:"))return null;
+  const issue="此來源方案目前僅供查閱，無法預約或變更";
+  if(env.VERCEL!=="1")return issue;
+  try{assertMusicOpeningPreviewEnvironment(env);return null;}catch{return issue;}
+}
 export async function isMusicPilotCard(tx:Prisma.TransactionClient,storeId:string,card:{id:string;requestKey?:string}|null|undefined){
   if(!card?.requestKey?.startsWith("yjy-pilot-card:"))return false;
   if(process.env.VERCEL!=="1")fail("僅開放隔離測試站");assertMusicOpeningPreviewEnvironment(process.env);

@@ -56,6 +56,13 @@ function run(overrides: Record<string, string | undefined>) {
 }
 
 describe("sports shared-card Preview preflight", () => {
+  it("authorizes only the exact music leave Preview without database or migration access", () => {
+    const branch="fix/music-leave-entitlement-20261102";
+    expect(run({VERCEL_GIT_COMMIT_REF:branch}).status).toBe(0);
+    for(const overrides of [{DATABASE_URL:production},{DIRECT_URL:production},{VERCEL_ENV:"production"},{VERCEL_GIT_COMMIT_REF:branch+"-other"},{VERCEL_GIT_REPO_OWNER:"other"},{VERCEL_GIT_REPO_SLUG:"other"},{WORKERS_CI_BRANCH:branch},{CF_PAGES_BRANCH:branch}]){
+      expect(run({VERCEL_GIT_COMMIT_REF:branch,...overrides}).status).not.toBe(0);
+    }
+  });
   it("authorizes closed-day slot review only with the same isolated connections", () => {
     const branch="feat/closed-day-slot-additions-20261101";
     expect(run({VERCEL_GIT_COMMIT_REF:branch}).status).toBe(0);
