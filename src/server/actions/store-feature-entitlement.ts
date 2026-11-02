@@ -7,6 +7,8 @@ import type {
   StoreFeatureEntitlementStatus,
 } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { addonsPrisma } from "@/lib/addons-db";
+import { addOnsDatabaseSelection, AddOnsDatabaseConfigurationError } from "@/lib/addons-database-url";
 import { dayRange } from "@/lib/date-utils";
 import { AppError } from "@/lib/errors";
 import { FEATURES } from "@/lib/feature-flags";
@@ -89,6 +91,22 @@ export async function saveStoreFeatureEntitlement(
       if (!ENTITLEMENT_SOURCES.has(source as StoreFeatureEntitlementSource)) return {success:false,error:"無效的來源"};
       const startsAt=parseDateBoundary(startsAtInput,"start"),expiresAt=parseDateBoundary(expiresAtInput,"end");
       if(startsAt&&expiresAt&&startsAt>expiresAt)return {success:false,error:"開始日不可晚於到期日"};
+      if(featureKey===FEATURES.ADD_ONS&&override==="ENABLED"){
+        // Verify on the dedicated connection before opening the main-client write
+        // transaction. Disabling must remain possible when that connection is down.
+        try{
+          addOnsDatabaseSelection();
+          const available=await addonsPrisma.$transaction(async tx=>{
+            const scopedStore=await tx.store.findUnique({where:{id:storeId},select:{id:true}});
+            if(!scopedStore)return false;
+            await tx.serviceAddOnCatalog.findFirst({where:{storeId},select:{enabled:true}});
+            return true;
+          });
+          if(!available)return {success:false,error:"加購商品專用連線尚未授權此門市，暫時無法啟用。"};
+        }catch(error){
+          return {success:false,error:error instanceof AddOnsDatabaseConfigurationError?"加購商品尚未完成專用連線設定，暫時無法啟用。":"加購商品專用連線驗證未通過，暫時無法啟用；請聯絡系統管理員。"};
+        }
+      }
       await prisma.$transaction(async tx=>{
         await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
         const where={uq_store_feature_entitlement:{storeId,featureKey}};
