@@ -85,6 +85,7 @@
       "codex/sports-production-migration-review": false,
       "codex/sports-cancel-migration-rehearsal": false,
       "main": false,
+      "fix/beauty-booking-and-purchase-blockers-20261102": false,
       "fix/beauty-summary-clipping-20261102": false,
       "fix/beauty-trial-guest-flow-20261102": false,
       "codex/sports-redesign-staging-20261018": false,

@@ -7,11 +7,11 @@ import { useEffect, useState } from "react";
 import { calculateCourseSaleAllocation } from "@/lib/course-sale-allocation";
 import { calculateCourseCheckout, COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
 export type AssignmentSummary = { paid: number | null; valid: boolean };
-export function CourseAssignmentPayment({cashReader=getCourseCheckoutCashStatus,musicPeriods,profitEnabled=true,price,canDiscount,storeCost=0,showAllocation=false,onSummary}:{
-  musicPeriods?:number[];cashReader?:typeof getCourseCheckoutCashStatus;profitEnabled?:boolean;price:number;canDiscount:boolean;storeCost?:number;showAllocation?:boolean;onSummary?:(summary:AssignmentSummary)=>void;
+export function CourseAssignmentPayment({cashReader=getCourseCheckoutCashStatus,defaultPaymentMethod="",musicPeriods,profitEnabled=true,price,canDiscount,storeCost=0,showAllocation=false,onSummary}:{
+  defaultPaymentMethod?:""|"CASH";musicPeriods?:number[];cashReader?:typeof getCourseCheckoutCashStatus;profitEnabled?:boolean;price:number;canDiscount:boolean;storeCost?:number;showAllocation?:boolean;onSummary?:(summary:AssignmentSummary)=>void;
 }) {
   const music=!!musicPeriods;
-  const [offer,setOffer]=useState<"NONE"|"AMOUNT"|"RATE">("NONE"),[value,setValue]=useState(""),[method,setMethod]=useState(""),[lastFour,setLastFour]=useState("");
+  const [offer,setOffer]=useState<"NONE"|"AMOUNT"|"RATE">("NONE"),[value,setValue]=useState(""),[method,setMethod]=useState<string>(defaultPaymentMethod),[lastFour,setLastFour]=useState("");
   const [receipt,setReceipt]=useState("");
   const [paymentDate,setPaymentDate]=useState(toLocalDateStr());
   const [discountFee,setDiscountFee]=useState(false);
@@ -29,19 +29,22 @@ export function CourseAssignmentPayment({cashReader=getCourseCheckoutCashStatus,
     if(!needsCash)return;
     let active=true;
     let sequence=0;
+    let timer:ReturnType<typeof setTimeout>|undefined;
     async function check(){
       const request=++sequence;
       setCashStatus("LOADING");
+      clearTimeout(timer);timer=setTimeout(()=>{if(active&&request===sequence){sequence++;setCashStatus("ERROR");}},8000);
       try {
         const result=await cashReader(music?paymentDate:undefined);
         if(active&&request===sequence)setCashStatus(result.success?result.status??"MISSING":"ERROR");
       } catch {if(active&&request===sequence)setCashStatus("ERROR");}
+      finally{if(request===sequence)clearTimeout(timer);}
     }
     function visible(){if(document.visibilityState==="visible")void check();}
     void check();
     window.addEventListener("focus",check);
     document.addEventListener("visibilitychange",visible);
-    return ()=>{active=false;window.removeEventListener("focus",check);document.removeEventListener("visibilitychange",visible);};
+    return ()=>{active=false;clearTimeout(timer);window.removeEventListener("focus",check);document.removeEventListener("visibilitychange",visible);};
   },[needsCash,cashCheck,cashReader,music,paymentDate]);
   const valid=(!needsCash||cashStatus==="OPEN")&&paid!==null&&(!profitEnabled||paid>=storeCost)&&(paid===0||(!!method&&(method!=="BANK_TRANSFER"||/^\d{4}$/.test(lastFour))));
   useEffect(()=>{onSummary?.({paid,valid});},[paid,valid,onSummary]);

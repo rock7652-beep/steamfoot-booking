@@ -221,7 +221,9 @@ export async function findAllocation(
       }
     }
   }
+  let arrangementIssue:string|undefined;
   const result = allocateParty({
+    onUnavailable:reason=>{arrangementIssue??=reason;},
     date: d.date,
     startsAt,
     people:d.people.map((p,i)=>({...p,...(chargeSnapshots?{allowedTechnicianIds:chargeAllowedIds(chargeSnapshots[i],a.storeId,p.serviceId)}:{}),isTrial:p.isTrial??d.isTrial??false,...(d.expectedArrangement?{specifiedTechnicianId:d.expectedArrangement[i].technicianId,specifiedLocationId:d.expectedArrangement[i].locationId}:{})})),
@@ -244,7 +246,7 @@ export async function findAllocation(
     })),
   });
   if (!result)
-    throw new AppError("CONFLICT", "這個時段無法安排全部同行者，請重新選擇");
+    throw new AppError("CONFLICT", arrangementIssue?`此時段無法安排：${arrangementIssue}`:"此時段無法安排，請核對服務、技師與位置");
   // Use the same customer occupancy window as reservation, including cleanup.
   // Availability already has the scoped day snapshot; do not query per slot.
   if (d.people.some((person, index) => person.customerId && occupied.some(o =>

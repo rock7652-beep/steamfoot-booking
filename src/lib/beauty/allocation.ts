@@ -83,6 +83,7 @@ export function availableTechnician(
 /** Backtracking across the party avoids assigning the sole facial specialist
  * to a massage first. Candidate order implements daily workload + fixed order. */
 export function allocateParty(input: {
+  onUnavailable?:(reason:string)=>void;
   date: string;
   startsAt: Date;
   people: Person[];
@@ -96,7 +97,7 @@ export function allocateParty(input: {
     input.people.length > input.locationIds.length ||
     input.people.length > input.technicians.filter((t) => t.active).length
   )
-    return null;
+    {input.onUnavailable?.('可用技師或位置數不足，無法同時安排本次顧客');return null;}
   const start = input.startsAt.getTime();
   const day = input.date;
   const occupied = input.occupied.filter((o) => o.status !== "CANCELLED");
@@ -118,7 +119,7 @@ export function allocateParty(input: {
     if (!s) return null;
     const duration=serviceDuration(s,p.isTrial);
     const end = start + (duration + s.buffer) * 60000;
-    if (!containsPeriod(day, start, end, input.hours)) return null;
+    if (!containsPeriod(day, start, end, input.hours)){input.onUnavailable?.('服務與整理時間超出營業時段，請調整開始時間');return null;}
     const techs = ordered.filter(
       (t) =>
         (!p.specifiedTechnicianId || t.id === p.specifiedTechnicianId) &&
@@ -139,6 +140,10 @@ export function allocateParty(input: {
             (o) => o.locationId === id && overlaps({ start, end }, o),
           ),
       );
+    if(!techs.length){
+      const qualified=ordered.filter(t=>t.active&&(!p.specifiedTechnicianId||t.id===p.specifiedTechnicianId)&&(p.allowedTechnicianIds===undefined||p.allowedTechnicianIds.includes(t.id))&&t.serviceIds.includes(s.id)&&(p.preference==='ANY'||t.gender===p.preference)&&rate.safeParse((t.rates as Record<string,unknown>)[s.id]??s.defaultRate).success);
+      input.onUnavailable?.(!qualified.length?'目前沒有符合服務資格及計酬設定的技師，請到服務項目或技師管理核對':!qualified.some(t=>availableTechnician(t,day,start,end))?'此時段合格技師未排班，排班須涵蓋服務與整理時間':'此時段合格技師已有預約或整理時間，請改選技師或時間');
+    }else if(!rooms.length)input.onUnavailable?.(p.specifiedLocationId?'指定位置在服務或整理時間內已被占用，請換位置或時間':'服務與整理時間內沒有可用位置，請調整時間');
     return { s, duration, end, techs, rooms };
   });
   if (choices.some((c) => !c || !c.techs.length || !c.rooms.length))
@@ -149,7 +154,7 @@ export function allocateParty(input: {
   // This preserves deterministic workload order without factorial party search.
   const techIds = preferredMatching(valid.map((c) => c.techs.map((t) => t.id)));
   const roomIds = preferredMatching(valid.map((c) => c.rooms));
-  if (!techIds || !roomIds) return null;
+  if (!techIds || !roomIds){input.onUnavailable?.('無法同時分配不重複的技師與位置，請調整本次安排');return null;}
   return valid.map((c, i) => ({
     technicianId: techIds[i],
     locationId: roomIds[i],
