@@ -92,7 +92,7 @@ try{
    await page.screenshot({path:path.join(output,`calendar-${mode}-${width}.png`),fullPage:true});
   }
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-  results.push({width,height,rawCardClicks,keyboardCards:true,planDefaultsCash:true,compactCharge:true,compactMove:true,directCollection:true,freeRental:true,rentalPreservesDraft:true,overflow:false,preservedOnResize:true,trialSubmission:true,serviceHasNoPricing:true,serviceFailurePreservesDraft:true});await page.close();
+  results.push({width,height,rawCardClicks,keyboardCards:true,planDefaultsCash:true,compactCharge:true,compactMove:true,directCollection:true,freeRental:true,rentalPreservesDraft:true,overflow:false,preservedOnResize:true,trialSubmission:true,serviceHasNoPricing:true,serviceCreate90:true});await page.close();
  }
  assert.deepEqual(errors,[]);writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,errors},null,2));console.log(JSON.stringify({output,results,errors},null,2));
 }catch(error){console.error(JSON.stringify({errors}));for(const context of browser.contexts())for(const page of context.pages()){writeFileSync(path.join(output,'failure.html'),await page.content());await page.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error;}finally{await browser.close();}
