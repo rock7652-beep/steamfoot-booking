@@ -92,7 +92,7 @@ beforeEach(() => {
       create: vi.fn().mockResolvedValue({ id: "p", amount: 500, note: "合成" }),
     },
     $executeRaw: vi.fn(),
-    $queryRaw: vi.fn(),
+    $queryRaw: vi.fn().mockResolvedValue([]),
   } as unknown as Tx;
 });
 describe("beauty customer occupancy", () => {
@@ -659,4 +659,10 @@ it('keeps addon receipts and added minutes out of base service commission',async
  vi.mocked(tx.beautyPayment.create).mockResolvedValue({id:'sale',amount:1300} as never);
  await collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[1300],method:'OTHER',note:''});
  expect(tx.beautyAppointment.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({fee:500})}));
+});
+
+it.each(['LEAVE','NO_SHOW'])('does not complete, debit, or accrue pay while the technician is %s',async status=>{
+ vi.mocked(tx.$queryRaw).mockResolvedValue([{appointmentId:'b',kind:'TECHNICIAN_SERVICE',body:JSON.stringify({technicianId:'t',status,note:'',reason:'原因'})}]);
+ await expect(transition(tx,a,{id:'b',revision:0,target:'COMPLETED',reason:''})).rejects.toThrow('尚未扣次或計酬');
+ expect(tx.beautyAppointment.update).not.toHaveBeenCalled();expect(tx.beautyCard.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();
 });

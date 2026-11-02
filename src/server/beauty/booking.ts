@@ -1,3 +1,4 @@
+import {assertTechnicianCanComplete} from './technician-service';
 import {prepareBeautyBookingGoods,persistBeautyBookingGoods} from './booking-shared-goods';
 import {isBeautyServiceAddOnsEnabled} from '@/server/services/add-on-access';
 import {baseServiceCollected} from "@/lib/beauty/add-on-finance";
@@ -551,6 +552,7 @@ export async function transition(
   // Automatic policy deductions stay retired; only an explicit authorized
   // back-office attendance correction can deduct a no-show from its plan.
   const debit=input.target==='COMPLETED'||input.target==='NO_SHOW'&&input.noShowDeduct===true;
+  if(debit&&b.status==='RESERVED')await assertTechnicianCanComplete(tx,a.storeId,b);
   const hadCardBinding=!!b.cardId;
   if (input.target === b.status&&(input.noShowDeduct===undefined||debit===b.debit)) return { id: b.id };
   // Completion may use existing paid single-service rights, or an eligible

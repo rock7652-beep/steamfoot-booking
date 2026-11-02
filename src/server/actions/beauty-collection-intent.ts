@@ -1,4 +1,5 @@
 "use server";
+import {beautyReadTransaction} from '@/server/beauty/read-transaction';
 import {z} from 'zod';
 import {paymentInput} from '@/lib/beauty/contracts';
 import {AppError,handleActionError} from '@/lib/errors';
@@ -33,7 +34,7 @@ export async function prepareBeautyCollectionPurchaseIntent(input:unknown){
 }
 export async function readBeautyCollectionPurchaseIntent(input:unknown){
  try{const d=scope.parse(input);assertEnabled(d.expectedStoreId);const a=await actor(d.expectedStoreId,false);
-  const data=await beautyTransaction(a,async tx=>{
+  const data=await beautyReadTransaction(async tx=>{
    const selected=await tx.beautyAppointment.findMany({where:{storeId:a.storeId,id:{in:d.ids}},select:{id:true}});
    if(selected.length!==d.ids.length)throw new AppError('FORBIDDEN','無法核對此服務收款');
    const found=d.requestKey?await readBeautyCollectionIntent(tx,a,d.requestKey):await readPendingBeautyCollectionIntent(tx,a,d.ids);

@@ -1,3 +1,4 @@
+vi.mock('@/server/actions/beauty-technician-service',()=>({saveBeautyTechnicianService:vi.fn()}));
 import {beforeEach,expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({after:vi.fn(),invalidate:vi.fn(),roster:vi.fn(),raw:vi.fn(),manager:vi.fn(),session:vi.fn(),feature:vi.fn(),people:vi.fn(),card:vi.fn(),cards:vi.fn(),holds:vi.fn(),entries:vi.fn(),bookings:vi.fn(),techs:vi.fn(),payments:vi.fn(),tx:vi.fn(),issue:vi.fn(),members:vi.fn(),profile:vi.fn(),note:vi.fn(),intentCommit:vi.fn(),intentFingerprint:vi.fn()}));
 vi.mock('next/cache',()=>({revalidatePath:m.invalidate}));

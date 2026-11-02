@@ -1,3 +1,4 @@
+vi.mock('@/server/actions/beauty-technician-service',()=>({saveBeautyTechnicianService:vi.fn()}));
 import {it,expect,vi} from 'vitest';import {createElement as h} from 'react';import {renderToStaticMarkup} from 'react-dom/server';import type {CourseRosterSource,NativeRosterBooking} from '@/app/(dashboard)/dashboard/courses/roster-source';import type {BeautyDashboardData} from '@/server/beauty/queries';
 const m=vi.hoisted(()=>({source:null as CourseRosterSource|null}));vi.mock('@/app/(dashboard)/dashboard/courses/roster',()=>({CourseRoster:({source}:{source:CourseRosterSource})=>{m.source=source;return null}}));vi.mock('@/server/actions/beauty-native-roster',()=>({readBeautyNativeRoster:vi.fn(),saveBeautyNativeRosterNote:vi.fn()}));
 import {BeautyNativeRoster} from '@/components/beauty/native-roster-source';

@@ -1,4 +1,7 @@
 // @vitest-environment jsdom
+vi.mock('@/server/actions/course-display-order',()=>({saveCourseDisplayOrder:vi.fn()}));
+vi.mock('@/server/actions/course-rental',()=>({saveCourseRental:vi.fn(),getCourseRental:vi.fn(),createRentalCustomer:vi.fn(),cancelCourseRental:vi.fn(),saveRentalPayment:vi.fn(),listRoomRentals:vi.fn()}));
+vi.mock('@/server/actions/beauty-technician-service',()=>({saveBeautyTechnicianService:vi.fn()}));
 import {act,createElement as h} from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
