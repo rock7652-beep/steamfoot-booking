@@ -97,3 +97,10 @@ it("keeps rental durations in half-hour units when seeded from a 50-minute cours
  expect(duration.value).toBe("60");expect(duration.validity.valid).toBe(true);
  await submit();expect(m.save.mock.calls[0][0]).toMatchObject({durationMinutes:60,amount:600});
 });
+
+it('shows a free rental without an unpaid label or collection action',async()=>{
+ m.get.mockResolvedValue({...record,amount:0,payment:null});await mount('r');
+ expect(host.textContent).toContain('免費租借・免收款');expect(host.textContent).not.toContain('未收');
+ expect(host.querySelector('[aria-label="收取租借費用"]')).toBeNull();
+ expect(host.textContent).toContain('編輯租借');expect(m.payment).not.toHaveBeenCalled();
+});
