@@ -666,3 +666,5 @@ it.each(['LEAVE','NO_SHOW'])('does not complete, debit, or accrue pay while the 
  await expect(transition(tx,a,{id:'b',revision:0,target:'COMPLETED',reason:''})).rejects.toThrow('尚未扣次或計酬');
  expect(tx.beautyAppointment.update).not.toHaveBeenCalled();expect(tx.beautyCard.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();
 });
+
+it.each(["NO_SHOW","CANCELLED"])("does not bypass technician absence by transitioning from %s",async prior=>{vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status:prior,debit:false} as never);vi.mocked(tx.$queryRaw).mockResolvedValue([{appointmentId:"b",kind:"TECHNICIAN_SERVICE",body:JSON.stringify({technicianId:"t",status:"LEAVE",note:"",reason:"原因"})}]);await expect(transition(tx,a,{id:"b",revision:0,target:"COMPLETED",reason:""})).rejects.toThrow("尚未扣次或計酬");expect(tx.beautyAppointment.update).not.toHaveBeenCalled();expect(tx.beautyCard.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();});

@@ -552,9 +552,9 @@ export async function transition(
   // Automatic policy deductions stay retired; only an explicit authorized
   // back-office attendance correction can deduct a no-show from its plan.
   const debit=input.target==='COMPLETED'||input.target==='NO_SHOW'&&input.noShowDeduct===true;
-  if(debit&&b.status==='RESERVED')await assertTechnicianCanComplete(tx,a.storeId,b);
   const hadCardBinding=!!b.cardId;
   if (input.target === b.status&&(input.noShowDeduct===undefined||debit===b.debit)) return { id: b.id };
+  if(debit)await assertTechnicianCanComplete(tx,a.storeId,b);
   // Completion may use existing paid single-service rights, or an eligible
   // item card selected under this transaction. Never silently complete unpaid.
   if(!b.cardId&&!b.isTrial&&(input.target==='COMPLETED'||input.target==='NO_SHOW'&&debit)){
