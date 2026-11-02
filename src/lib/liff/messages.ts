@@ -166,6 +166,10 @@ export const liffMessages = {
     walletSummarySuffix: "堂",
     /** 多張方案時顯示 — e.g. "共 2 張方案" (with {count} placeholder) */
     walletSummaryMultiPlan: "共 {count} 張方案",
+    preferredWalletLabel: "選擇方案",
+    preferredWalletAuto: "自動選擇（最早到期優先）",
+    preferredWalletUnavailable: "所選方案在此預約日期無法使用，請改選其他方案或自動選擇。",
+    preferredWalletRefresh: "所選方案狀態已變更或無法使用，請重新整理後再選擇。",
 
     // 預約人數（PR-NoShow-2：LIFF 也支援多人）
     peopleLabel: "預約人數",

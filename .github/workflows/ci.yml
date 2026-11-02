@@ -167,6 +167,8 @@ jobs:
         run: npx prisma generate
 
       - name: Typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: npx tsc --noEmit
 
   full-vitest-baseline:
