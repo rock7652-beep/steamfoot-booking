@@ -1,9 +1,10 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({bookings:vi.fn(),absences:vi.fn(),people:vi.fn(),purchases:vi.fn(),cards:vi.fn(),leaveCounts:vi.fn(),sessionCount:vi.fn(),transaction:vi.fn(),query:vi.fn(),openingCards:vi.fn(),purchaseCount:vi.fn()}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{courseTemplate:{findFirst:async()=>null},courseBooking:{findMany:(q:{where:{sessionId?:string}})=>q.where.sessionId?m.bookings(q):m.absences(q),groupBy:m.leaveCounts},courseSession:{count:m.sessionCount},coursePurchase:{findMany:m.purchases},coursePointCard:{findMany:m.cards}}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{$queryRaw:m.query,courseTemplate:{findFirst:async()=>null},courseBooking:{findMany:(q:{where:{sessionId?:string}})=>q.where.sessionId?m.bookings(q):m.absences(q),groupBy:m.leaveCounts},courseSession:{count:m.sessionCount},coursePurchase:{findMany:m.purchases},coursePointCard:{findMany:m.cards}}}));
 vi.mock("@/lib/db",()=>({prisma:{customer:{findMany:m.people}}}));
 vi.mock("@/server/services/course-access",()=>({courseTransaction:m.transaction}));
 import {getCourseRoster,getCourseCards} from "@/server/queries/course-members";
+import {isMusicPilotCard,PILOT_EVIDENCE_HASH} from "@/server/services/music-pilot-policy";
 import {getCourseBalanceSummary} from "@/server/queries/course-balance-summary";
 import {readTeacherFeeSeats,capturedTeacherFee} from "@/server/services/course-teacher-fee";
 import {checkCourseAccounts} from "@/server/reconciliation/course-checks";
@@ -11,13 +12,46 @@ import {syntheticOpeningBooking,syntheticOpeningRecord,syntheticOpeningCard,synt
 import type {Prisma} from "../../generated/course-client";
 const store=syntheticOpeningScope.targetStoreId;
 const rosterRow=()=>{const b=syntheticOpeningBooking();return {...b,card:{...b.card,bookings:[b]}};};
-afterEach(()=>vi.useRealTimers());
+afterEach(()=>{vi.useRealTimers();vi.unstubAllEnvs();});
 beforeEach(()=>{
   vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-07T00:00:00Z"));
   vi.resetAllMocks();m.people.mockResolvedValue([]);m.purchases.mockResolvedValue([]);m.cards.mockResolvedValue([]);m.absences.mockResolvedValue([]);m.leaveCounts.mockResolvedValue([]);m.sessionCount.mockResolvedValue(0);m.purchaseCount.mockResolvedValue(0);
   m.transaction.mockImplementation(async(_store,work)=>work({$queryRaw:m.query,coursePointCard:{findMany:m.openingCards},coursePurchase:{count:m.purchaseCount}}));
 });
 describe("actual roster and balance reads",()=>{
+  it("keeps a restricted pilot card unavailable without crashing the native preview card list",async()=>{
+    vi.stubEnv("VERCEL","1");vi.stubEnv("VERCEL_ENV","preview");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF","fix/music-leave-entitlement-20261102");
+    const pilot={...rosterRow().card,requestKey:"yjy-pilot-card:synthetic"};
+    const native={...pilot,id:"native",requestKey:"synthetic-native",musicOpeningStateRequired:false,musicOpeningState:null};
+    m.cards.mockResolvedValue([pilot,native]);
+    const cards=await getCourseCards(store,"synthetic-student");
+    const card=cards.find(c=>c.id===pilot.id)!;
+    expect(card).toMatchObject({available:0,openingImported:true});
+    expect(cards.find(c=>c.id==="native")).toMatchObject({available:1,openingImported:false,openingIssue:null});
+    expect(card.openingIssue).toContain("來源方案");
+    expect(card).not.toHaveProperty("openingReservable");
+    expect(m.query).not.toHaveBeenCalled();
+    // The read fallback must never relax the mutation/source verification gate.
+    await expect(isMusicPilotCard({$queryRaw:m.query} as unknown as Prisma.TransactionClient,store,pilot)).rejects.toThrow("exact authorized Preview");
+  });
+  it("retains receipt validation for pilot reads in their original authorized environment",async()=>{
+    const isolated="postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co/postgres";
+    for(const [key,value] of Object.entries({VERCEL:"1",VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feat/music-opening-state-20261007",VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",DATABASE_URL:isolated,DIRECT_URL:isolated,WORKERS_CI_BRANCH:"",CF_PAGES_BRANCH:""}))vi.stubEnv(key,value);
+    const pilot={...rosterRow().card,requestKey:"yjy-pilot-card:synthetic"};
+    m.cards.mockResolvedValue([pilot]);m.query.mockResolvedValue([{afterJson:{contentHash:PILOT_EVIDENCE_HASH,cardIds:[pilot.id]}}]);
+    expect((await getCourseCards(store,"synthetic-student"))[0]).toMatchObject({openingReservable:true,available:1,openingIssue:null});
+    expect(m.query).toHaveBeenCalledTimes(1);
+  });
+  it("keeps restricted pilot roster rows visible but unavailable without validating their source receipt",async()=>{
+    vi.stubEnv("VERCEL","1");vi.stubEnv("VERCEL_ENV","preview");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF","fix/music-leave-entitlement-20261102");
+    const row=rosterRow();Object.assign(row.card,{requestKey:"yjy-pilot-card:synthetic"});
+    m.bookings.mockResolvedValue([row]);
+    const [booking]=await getCourseRoster(store,"synthetic-session");
+    expect(booking.available).toBe(0);expect(booking.openingIssue).toContain("來源方案");
+    expect(booking).not.toHaveProperty("leaveDeductsWithMakeup");
+  });
   it("preserves the original third ordinal, hides closed prefix from unscheduled and keeps opening money separate",async()=>{
     m.bookings.mockResolvedValue([rosterRow()]);const [result]=await getCourseRoster(store,"synthetic-session");
     expect(result).toMatchObject({termNumber:7,termIndex:3,termCount:4,termClosedBeforeCutoff:2,termUnscheduledOrdinals:[4],openingTuition:{paid:2000,receivable:1200},termPayment:null,nextTerm:null});

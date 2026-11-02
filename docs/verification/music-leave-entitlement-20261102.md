@@ -141,3 +141,13 @@
 最小解法：由父線提供已獲授權的隔離雙連線安全來源（例如僅告知受控 secret 檔路徑／注入環境，不把值貼聊天或提交 Git），供受控程序驗兩個既有 URL 與 ref 後設定本精確分支；並提供原 team/project 的合法正常 SSO 工作階段。取得後即可承接已批准的同一次集中推送／自動建置，不需重問同一批准。若仍無合法身分或 URL 不能證明隔離，就保持受阻，不消耗唯一一次建置。
 
 下一步：父線補齊安全連線來源與合法登入工作階段，執行者再接續已批准的受限 Preview；目前未推送或建置。
+
+## 2026-11-02 13:36（台灣）人工預覽驗收發現的讀取阻擋
+
+- 本人已正常登入41742dfc受保護預覽，以Staging Admin（HQ角色）切至已核對的`store-lubymusic`／「音樂教室 / 測試店」，點「替學員預約」後，`/hq/dashboard/courses?date=2026-11-02&action=booking`出現digest `2617175082`。只有入口操作證據，尚未完成一般店長角色或補課交易畫面驗收。
+- 精確部署`dpl_2BQN8Uvo4gyifxgXScBTdhqoBJeS`的05:36:30Z runtime log顯示，`getCourseCards`對既有`yjy-pilot-card:`來源卡呼叫`isMusicPilotCard`，被原來源分支的精確環境限制拒絕：`Music opening build/runtime requires its exact authorized Preview branch and repository.`。相同的未隔離呼叫亦存在於名單讀取。
+- 不重試被拒的來源操作、不擴分支或Importer權限、不改DB／SSO／分享。新增純讀取狀態`musicPilotReadIssue`：非原核定環境內的pilot卡顯示「此來源方案目前僅供查閱，無法預約或變更」，可用額度回0、不授予openingReservable，也不讀取核定來源憑據。普通native卡繼續正常載入；真正的來源識別與所有寫入沿用原本會拋錯的exact-environment gate。
+- 先新增真實query regression：卡清單與名單各一案在修正前以相同環境錯誤失敗（2 failed / 25 passed），再做最小修正；補正反例確認原核定來源環境仍須通過receipt hash及cardId核對、非核定環境直接呼叫原驗證仍拒絕。
+- 最終聚焦六檔135項通過：music-opening-read-integration、music-operational-pilot-policy、music-native-leave、course-music-term-roster、course-card-browser-read、music-opening-preview-guard。紀錄`/tmp/music-preview-read-red-20261102.log`、`music-preview-read-focused-20261102.log`。
+- 變更三個TS檔的ESLint、diff check與`tsc --noEmit --incremental false`通過（exit 0）；型別紀錄`/tmp/music-preview-read-typecheck-20261102.log`。此新增修正未用舊版全量結果充當本版全量。此前最新main 9c399379與41742dfc的本機合成候選曾1595檔／15299項通過、31檔／265項略過，另12項補課PG零略過通過；該證據早於本節變更。
+- 本節修正目前僅在本機；41742dfc預覽仍會遇到原錯誤。未推送、觸發新建置、合併、正式部署或建立測試帳號。既有單次建置已用完，若需更新同一PR及受限預覽，須依本人原先的次數／費用限制處理，不能自動重建。
