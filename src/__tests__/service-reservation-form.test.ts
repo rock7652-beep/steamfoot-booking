@@ -131,3 +131,11 @@ it('requires confirmation when the server finds a customer absent from the searc
  expect(input('新增顧客姓名').value).toBe('顧客');expect(button('確認預約').disabled).toBe(true);expect(host.textContent).toContain('請確認後選用既有顧客');
  await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='選用既有顧客 已建檔顧客')!.click());await tick();expect(read.mock.calls.at(-1)![0].people[0].customerId).toBe('new-existing');
 });
+
+it('passes committed cards to the calendar immediately without waiting for another read',async()=>{
+ const sessions=[{id:'committed-booking',nameSnapshot:'做臉',startsAt:'2026-10-28T06:00:00Z'}];
+ submit.mockResolvedValue({success:true,data:{ids:['committed-booking'],sessions}});
+ await mount({customerId:'customer'});await tick();
+ await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(created).toHaveBeenCalledWith('2026-10-28',sessions);expect(submit).toHaveBeenCalledOnce();
+});

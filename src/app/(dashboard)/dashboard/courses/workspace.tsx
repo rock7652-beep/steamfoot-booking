@@ -638,9 +638,9 @@ export function CourseWorkspace({
   function finishSportsSchedule(date:string,created?:Session[]){
     for(const row of created??[])confirmedScheduleSessions.confirm({...row,receiptStoreId:storeId});
     setDirty(false);setPanel(null);setNativeDate(date);nativeDateRef.current=date;calendarSource?.onDateChange?.(date);
-    setNotice("新增成功，正在同步課表…");
+    setNotice(created?.length?"已新增預約":"新增成功，正在同步課表…");
     sportsCalendarReader.clear();
-    void refreshNativeCalendar(date,true,true).then(ok=>setNotice(ok?"新增成功。":"新增成功，但課表同步未完成，請重新整理；請勿重複新增。"));
+    void refreshNativeCalendar(date,true,true).then(ok=>setNotice(created?.length?"":ok?"新增成功。":"新增成功，但課表同步未完成，請重新整理；請勿重複新增。"));
   }
 
   const [error, setError] = useState("");

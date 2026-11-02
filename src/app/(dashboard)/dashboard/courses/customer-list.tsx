@@ -14,9 +14,9 @@ import type { CourseCardView } from "./member-workspace";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { DashboardLink } from "@/components/dashboard-link";
 
-export function CourseCustomerList({ assignCustomers=bulkAssignCourseCustomers, rows, cards, customerPage:sourceCustomerPage, canReadCards, onView, onViewPlans, onEdit, onCreate, onAssign, onPurchase, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false, sportsNative = false, basePath="/dashboard/courses?view=customers", sessionUnitLabel="堂", sessionBalances=[] }: {
+export function CourseCustomerList({ assignCustomers=bulkAssignCourseCustomers, rows, cards, customerPage:sourceCustomerPage, canReadCards, onView, onViewPlans, onEdit, onCreate, onAssign, onPurchase, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false, sportsNative = false, basePath="/dashboard/courses?view=customers", sessionUnitLabel="堂", sessionBalances=[],balanceOverrides={} }: {
   assignCustomers?:typeof bulkAssignCourseCustomers;
-  basePath?:string; sessionUnitLabel?:string; sessionBalances?:{customerId:string;available:number}[];
+  balanceOverrides?:Record<string,number>;basePath?:string; sessionUnitLabel?:string; sessionBalances?:{customerId:string;available:number}[];
   customerPage?: CourseCustomerPage;
   rows: CustomerRow[]; cards: CourseCardView[]; canReadCards: boolean;
   onViewPlans?:(id:string)=>void;onEdit?:(id:string)=>void;
@@ -48,7 +48,8 @@ export function CourseCustomerList({ assignCustomers=bulkAssignCourseCustomers, 
   }
   for(const item of sessionBalances){sessionOwners.add(item.customerId);sessions.set(item.customerId,(sessions.get(item.customerId)??0)+item.available);}
   for (const row of customerPage?.rows ?? []) { points.set(row.id,row.points); sessions.set(row.id,row.sessions); if(row.hasPoints)pointOwners.add(row.id); if(row.hasSessions)sessionOwners.add(row.id); }
-  const filtered = customerPage ? customerPage.rows.flatMap(item => { const row=rows.find(r=>r.id===item.id); return row ? [row] : []; }) : filterCourseCustomers(rows, new URLSearchParams(params.toString()), sessionBalances.length ? sessions : points);
+  for(const [id,available] of Object.entries(balanceOverrides)){sessionOwners.add(id);sessions.set(id,available);}
+  const filtered = customerPage ? customerPage.rows.flatMap(item => { const row=rows.find(r=>r.id===item.id); return row ? [row] : []; }) : filterCourseCustomers(rows, new URLSearchParams(params.toString()), sessionBalances.length||Object.keys(balanceOverrides).length ? sessions : points);
   const total = customerPage?.total ?? filtered.length;
   const pageCount = Math.max(1, Math.ceil(total / 20));
   const requestedPage = Number(params.get("page"));
