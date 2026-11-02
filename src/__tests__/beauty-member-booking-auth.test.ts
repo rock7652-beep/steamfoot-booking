@@ -3,6 +3,7 @@ import {AppError} from '@/lib/errors';
 const m=vi.hoisted(()=>({manager:vi.fn(),permission:vi.fn(),rows:vi.fn(),charges:vi.fn(),member:vi.fn(),worker:vi.fn(),customer:vi.fn(),reserve:vi.fn(),availability:vi.fn(),allocate:vi.fn(),feature:vi.fn(),transition:vi.fn(),command:vi.fn(),bank:vi.fn(),notify:vi.fn(),queryRaw:vi.fn(),executeRaw:vi.fn(),plan:vi.fn(),order:vi.fn(),settings:vi.fn()}));
 vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.customer},shopConfig:{findUnique:m.bank}}}));
 vi.mock('@/server/beauty/manager-notifications',()=>({notifyBeautyBookingManagers:vi.fn(),notifyBeautyPurchaseManagers:m.notify}));
+vi.mock('@/server/beauty/read-transaction',()=>({beautyReadTransaction:async(work:(tx:object)=>unknown)=>work({beautyAppointment:{findMany:m.rows}})}));
 vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{}}));
 vi.mock('@/lib/permissions',()=>({requirePermission:m.permission,checkPermission:vi.fn()}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature,hasStoreFeature:vi.fn()}));
