@@ -151,3 +151,12 @@
 - 最終聚焦六檔135項通過：music-opening-read-integration、music-operational-pilot-policy、music-native-leave、course-music-term-roster、course-card-browser-read、music-opening-preview-guard。紀錄`/tmp/music-preview-read-red-20261102.log`、`music-preview-read-focused-20261102.log`。
 - 變更三個TS檔的ESLint、diff check與`tsc --noEmit --incremental false`通過（exit 0）；型別紀錄`/tmp/music-preview-read-typecheck-20261102.log`。此新增修正未用舊版全量結果充當本版全量。此前最新main 9c399379與41742dfc的本機合成候選曾1595檔／15299項通過、31檔／265項略過，另12項補課PG零略過通過；該證據早於本節變更。
 - 本節修正目前僅在本機；41742dfc預覽仍會遇到原錯誤。未推送、觸發新建置、合併、正式部署或建立測試帳號。既有單次建置已用完，若需更新同一PR及受限預覽，須依本人原先的次數／費用限制處理，不能自動重建。
+
+## 2026-11-02 人工驗收中的音樂名單選單對齊
+
+- 本人回報右側⋯的「學員資料」沒有對齊；截圖選單未開啟，故另提出名單欄位／選單項目的釐清。獨立檢查已在實際CourseRoster本機元件重現選單問題：學員資料是flex連結、文字起點x1036，其餘按鈕文字置中。這項修正針對已重現的選單項目，不聲稱修正名單所有欄位或列高。
+- 沿用運動名單既有方式，只為音樂分支的學員資料DashboardLink補justify-center；不改文字、尺寸、href、事件、權限、資料或交易。沒有新增元件或新套排版。
+- Framework操作情境：此次適用05（開啟學員資料仍保留課程返回連結）、10（桌機/iPad/窄容器可達）；01/02/03/04/06/07/08/09沒有新增資料讀取、搜尋、編輯、付款、切店、更新、表單或錯誤流程，原補課交易驗收仍獨立待完成。沒有用此視覺檢查抵扣補課交易驗收。
+- 實際CourseRoster與原樣式，由本機Vite加合成read adapter渲染，所有交易action拒絕執行、不接DB／hosted。Chromium headless模擬1366×900、1920×1080、1024×768、768×1024，以及900×700內580px容器，共五案通過。量測所有menuitem文字中心與按鈕中心差<=1px、menu不出視窗、無整頁水平溢出或pageerror，並核對HQ學員連結customerId／returnCourseSession不變。不是實體iPad、Safari或登入後完整流程。
+- 證據：/tmp/music-roster-alignment/before-menu.png、after-*.png、results.json與check.cjs；最終ESLint與diff check通過。單純新增一個對齊class，沒有重跑全量或另寫class字串測試；瀏覽器已實際編譯與驗證這一行，舊CI結果不冒充此本機版本遠端結果。
+- 本機修正尚未推送／建置；目前940394cb受限預覽仍是舊對齊。待集中需要更新的項目時再依已批准次數／費用範圍處理，不因觀看畫面重建。QA1482合成教師尚待補課驗收完成後停用，未變動該fixture。
