@@ -84,10 +84,8 @@ export function BeautyCourseCatalog({tab,data,canEdit}:{tab:string;data:BeautyDa
   const subject=(s:typeof services[number]):MusicSubjectView=>nativeBeautyService(s,data.techs.filter(t=>t.serviceIds.includes(s.id)).map(t=>t.id));
   return <MusicSubjectCatalog sportsNative sportsCoaches={data.access.feeAccess?data.techs.map(t=>({id:t.id,name:t.name})):undefined} storeId={data.storeId} subjects={services.map(subject)} displayOrder={data.displayOrders?.subject} canCreate={canEdit} canEdit={canEdit} catalog={{label:'服務項目',serviceRules:true,canEditRules,status,order:saveBeautyDisplayOrder,rowSchema:savedBeautySubject,transport:async input=>{const result=await saveBeautyNativeService(input);if(result.success)router.refresh();return result;},values:(form,row)=>{
    const prior=row?.catalogSnapshot?savedBeautyService.parse(row.catalogSnapshot):undefined;
-   const mode=String(form.get('sportsCompensationMode')??'');
-   const raw=String(form.get('sportsCompensationValue')??'').trim();
-   if(canEditRules&&mode&&(!raw||!Number.isFinite(Number(raw))))throw new Error('請填寫預設計酬金額或百分比');
-   const defaultRate=!mode?null:mode==='CLASS'?{mode:'FIXED',value:Number(raw)}:mode==='HOUR'?{mode:'HOURLY',value:Number(raw)}:{mode:'PERCENT',value:Number(raw),base:prior?.defaultRate?.mode==='PERCENT'?prior.defaultRate.base:'PAID'};
+   // Profile edits preserve historical compensation; pricing is configured in 收費方式.
+   const defaultRate=prior?.defaultRate??null;
    return {id:row?.id,revision:row?.revision,name:String(form.get('name')??''),category:String(form.get('category')??''),duration:Number(form.get('duration')),buffer:Number(form.get('buffer')||0),active:form.get('active')==='yes',...(canEditRules?{rule:{coachIds:form.getAll('sportsCoachIds'),expectedCoachIds:row?.sportsRule?.coachIds??[],defaultRate}}:{})};
   },feeHref:id=>`?tab=收費方式&serviceId=${encodeURIComponent(id)}`,fields:row=>{const service=row?.catalogSnapshot?savedBeautyService.parse(row.catalogSnapshot):undefined;return <><label>服務時長（分鐘）<input className="min-h-11 w-full rounded-lg border border-earth-200 px-3 py-2" name="duration" type="number" min={5} max={720} required defaultValue={service?.duration}/></label><label>整理時間（分鐘，選填）<input className="min-h-11 w-full rounded-lg border border-earth-200 px-3 py-2" name="buffer" type="number" min={0} max={240} defaultValue={service?.buffer??0}/></label></>;},save:async()=>({success:false,error:'請透過共用儲存接點送出'})}}/>;
  }

@@ -5,6 +5,7 @@ import {normalizePhone} from "@/lib/normalize";
 import {CourseChargeSelect,type ScheduleCharge} from "@/components/admin/course-charge-select";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
+import {ServiceScheduleFields,type ServiceRentalSource} from "@/components/admin/service-schedule-fields";
 import {ServiceReservationForm,type ServiceReservationSource} from "@/components/admin/service-reservation-form";
 import {courseSchedulingModeAllowed,type CourseSchedulingModes} from "@/lib/course-scheduling-modes";
 import {useEffect,useRef,useState,useTransition} from "react";
@@ -18,6 +19,7 @@ const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py
 /** Data/action ports only. The complete original scheduling form is shared. */
 export type SportsScheduleSource = {
  reservation?:ServiceReservationSource;
+ rental?:ServiceRentalSource;
  command: typeof sportsStagingCommand;
  createCustomer: typeof createRentalCustomer;
  catalogHref: string;
@@ -84,6 +86,7 @@ function SportsLessonFields({source,schedulingModes,metadataPending=false,initia
 
 
 export function SportsScheduleFields(props:Parameters<typeof SportsLessonFields>[0]){
+ if(props.source?.reservation&&props.source.rental)return <ServiceScheduleFields source={props.source.reservation} rental={props.source.rental} date={props.date} seed={props.seed} onGuard={props.onGuard} onCreated={props.onCreated}/>;
  if(props.source?.reservation)return <ServiceReservationForm source={props.source.reservation} date={props.date} seed={props.seed} onGuard={props.onGuard} onCreated={props.onCreated}/>;
  return <SportsLessonFields {...props}/>;
 }

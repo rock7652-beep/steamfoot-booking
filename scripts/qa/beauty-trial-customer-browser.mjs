@@ -1,0 +1,79 @@
+// Local synthetic preview; no production requests or writes.
+import {build} from 'esbuild';
+import {createRequire} from 'node:module';
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import postcss from 'postcss';
+import tailwind from '@tailwindcss/postcss';
+const require=createRequire(import.meta.url);
+const {chromium}=require(process.env.PLAYWRIGHT_PATH||'playwright');
+const root=process.cwd(),output=process.env.QA_OUTPUT_DIR||'/tmp/beauty-trial-customer-ui';
+mkdirSync(output,{recursive:true});
+await build({entryPoints:['scripts/qa/beauty-trial-customer-fixture.tsx'],bundle:true,jsx:'automatic',format:'iife',outfile:path.join(output,'fixture.js'),alias:{'@':path.join(root,'src')},define:{'process.env.NODE_ENV':'"development"','process.env':'{}'},plugins:[{name:'isolated-ports',setup(builder){
+ builder.onResolve({filter:/^@\/server\//},args=>({path:path.join(root,'src',args.path.slice(2)+'.ts'),namespace:'server-stub'}));
+ builder.onLoad({filter:/.*/,namespace:'server-stub'},args=>({contents:[...readFileSync(args.path,'utf8').matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(\w+)/g)].map(match=>match[1]==='saveCourseRental'?`export const saveCourseRental=(...args)=>window.qaRentalSave(...args);`:`export const ${match[1]}=(...args)=>{if('${match[1]}'==='collectBeautyPayment'){window.collectionSaved=args;return Promise.resolve({success:true});}throw Error("Unexpected server action in synthetic UI")};`).join('\n'),loader:'js'}));
+ builder.onResolve({filter:/^next\/navigation$/},()=>({path:'navigation',namespace:'qa'}));
+ builder.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'qa'}));
+ builder.onLoad({filter:/.*/,namespace:'qa'},args=>({contents:args.path==='navigation'?`export const useRouter=()=>({push:()=>{},refresh:()=>{},prefetch:()=>{}});export const usePathname=()=>'/hq/dashboard/beauty';export const useSearchParams=()=>new URLSearchParams();export const unstable_rethrow=error=>{throw error};`:`import {createElement} from 'react';export default ({children,prefetch,...props})=>createElement('a',props,children);export const useLinkStatus=()=>({pending:false});`,loader:'js',resolveDir:root}));
+}}]});
+const css=await postcss([tailwind({base:root})]).process(readFileSync('src/app/globals.css','utf8'),{from:path.join(root,'src/app/globals.css')});
+const sheetCss=readFileSync(path.join(output,'fixture.css'),'utf8');
+const html=`<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css.css}\n${sheetCss}</style><body style="padding:16px;background:#faf8f5"><div id="root"></div><script>${readFileSync(path.join(output,'fixture.js'),'utf8').replaceAll('</script','<\\/script')}</script></body></html>`;
+writeFileSync(path.join(output,'preview.html'),html);
+const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+const errors=[],results=[];
+try{
+ for(const [width,height] of [[1366,900],[1920,1080],[1024,768],[768,1024],[420,900]]){
+  const page=await browser.newPage({viewport:{width,height}});page.on('pageerror',e=>errors.push(e.message));
+  await page.route('**/*',async route=>{
+   if(route.request().url()==='https://synthetic.invalid/')return route.fulfill({contentType:'text/html',body:html});
+   if(new URL(route.request().url()).pathname==='/api/beauty/collection-read'){await new Promise(resolve=>setTimeout(resolve,800));return route.fulfill({contentType:'application/json',body:JSON.stringify({success:true,data:[{id:'collection',revision:1,personName:'收款測試',serviceName:'30分鐘肩頸按摩',price:250,discount:{kind:'AMOUNT',value:0},reduction:0,netPrice:250,collected:0,due:250}]})});}
+   return route.abort();
+  });
+  await page.goto('https://synthetic.invalid/');await page.getByRole('button',{name:'新增體驗課 1'}).click();
+  await page.getByLabel('新增顧客姓名',{exact:true}).fill('體驗測試顧客');await page.getByLabel('新增顧客電話',{exact:true}).fill('0900000003');
+  assert.equal(await page.getByLabel('服務類型 1',{exact:true}).inputValue(),'__trial__');
+  assert.equal(await page.getByRole('button',{name:'確認預約',exact:true}).isDisabled(),true);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.screenshot({path:path.join(output,`trial-${width}.png`),fullPage:true});
+  await page.setViewportSize({width:Math.max(360,width-160),height});assert.equal(await page.getByLabel('新增顧客姓名',{exact:true}).inputValue(),'體驗測試顧客');
+  await page.getByRole('button',{name:'建立並選用',exact:true}).click();await page.getByRole('button',{name:'確認預約',exact:true}).click();
+  const submitted=await page.evaluate(()=>window.submitted);assert.equal(submitted.people[0].isTrial,true);assert.equal(submitted.people[0].phone,'0900000003');assert.equal(submitted.people[0].customerId,'synthetic-new');assert.equal(submitted.people[0].cardId,null);
+  assert.equal(await page.getByLabel('服務類型 1',{exact:true}).inputValue(),'__trial__');
+  await page.setViewportSize({width,height});await page.getByRole('button',{name:'服務項目預覽',exact:true}).click();
+  await page.getByRole('heading',{name:'新增服務項目'}).waitFor();
+  assert.equal(await page.locator('[name="sportsCompensationMode"], [name="sportsCompensationValue"], [name="price"], [name="trialPrice"]').count(),0);
+  await page.getByLabel('測試技師',{exact:true}).check();await page.locator('[name="name"]').fill('30分鐘肩頸按摩');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.screenshot({path:path.join(output,`service-${width}.png`),fullPage:true});
+  await page.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('alert').filter({hasText:'隔離測試不寫入服務'}).waitFor();
+  assert.equal(await page.locator('[name="name"]').inputValue(),'30分鐘肩頸按摩');
+  await page.getByRole('button',{name:'關閉',exact:true}).click();await page.getByRole('button',{name:'空間出租預覽',exact:true}).click();
+  await page.getByLabel('安排類型',{exact:true}).selectOption('rental');
+  assert.equal(await page.getByRole('combobox',{name:/^空間/}).inputValue(),'bed');assert.equal(await page.getByLabel('應收（元）',{exact:true}).inputValue(),'0');
+  assert.equal(await page.getByLabel('日期',{exact:true}).inputValue(),'2026-11-03');assert.equal(await page.getByLabel('時間',{exact:true}).inputValue(),'12:30');
+  await page.getByLabel('租借人',{exact:true}).fill('租借測試顧客');await page.getByLabel('電話',{exact:true}).fill('0900000003');
+  await page.getByLabel('安排類型',{exact:true}).selectOption('service');await page.getByLabel('安排類型',{exact:true}).selectOption('rental');
+  assert.equal(await page.getByLabel('租借人',{exact:true}).inputValue(),'租借測試顧客');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.screenshot({path:path.join(output,`rental-${width}.png`),fullPage:true});
+  await page.getByRole('button',{name:'儲存租借',exact:true}).click();await page.getByRole('status').filter({hasText:'租借已儲存：2026-11-03'}).waitFor();
+  const rental=await page.evaluate(()=>window.rentalSubmitted);assert.equal(rental.module,'beauty');assert.equal(rental.input.roomId,'bed');assert.equal(rental.input.amount,0);assert.equal(rental.input.time,'12:30');
+  await page.getByRole('button',{name:'簡化收費預覽',exact:true}).click();
+  const chargeDialog=page.getByRole('dialog');await chargeDialog.getByRole('heading',{name:'編輯收費方式'}).waitFor();
+  assert.equal(await chargeDialog.locator('[data-charge-trial]').evaluate(el=>el.open),false);assert.equal(await chargeDialog.locator('[data-charge-profit]').evaluate(el=>el.open),false);assert.equal(await chargeDialog.locator('[data-charge-technicians]').evaluate(el=>el.open),false);
+  const chargeBox=await chargeDialog.boundingBox();if(width>=768){assert.ok(chargeBox.width<=680);assert.ok(chargeBox.height<650);}
+  await page.screenshot({path:path.join(output,`charge-${width}.png`),fullPage:true});await chargeDialog.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('status').filter({hasText:'操作完成：收費設定'}).waitFor();
+  assert.equal((await page.evaluate(()=>window.chargeSaved)).trialPrice,250);
+  await page.getByRole('button',{name:'改期預覽',exact:true}).click();const moveDialog=page.getByRole('dialog');await moveDialog.getByRole('heading',{name:'改期／換技師位置'}).waitFor();const moveBox=await moveDialog.boundingBox();if(width>=768){assert.ok(moveBox.width<=640);assert.ok(moveBox.height<520);}
+  await moveDialog.getByLabel('原因／備註',{exact:true}).fill('顧客改期');await page.screenshot({path:path.join(output,`move-${width}.png`),fullPage:true});await moveDialog.getByRole('button',{name:'確認',exact:true}).click();await page.getByRole('status').filter({hasText:'操作完成：改期'}).waitFor();
+  assert.equal((await page.evaluate(()=>window.moveSaved)).time,'12:30');
+  await page.getByRole('button',{name:'直接收款預覽',exact:true}).click();const collectionDialog=page.getByRole('dialog');await collectionDialog.getByRole('heading',{name:'服務收款'}).waitFor();
+  assert.equal(await collectionDialog.getByLabel('本次收款',{exact:true}).isDisabled(),true);await page.evaluate(()=>{window.collectionModal=document.querySelector('[role="dialog"]');});
+  await collectionDialog.getByLabel('本次收款 收款測試',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.collectionModal===document.querySelector('[role="dialog"]')),true);
+  await page.screenshot({path:path.join(output,`collection-${width}.png`),fullPage:true});await collectionDialog.getByRole('button',{name:'確認收款',exact:true}).click();await page.getByRole('status').filter({hasText:'操作完成：收款'}).waitFor();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  results.push({width,height,compactCharge:true,compactMove:true,directCollection:true,freeRental:true,rentalPreservesDraft:true,overflow:false,preservedOnResize:true,trialSubmission:true,serviceHasNoPricing:true,serviceFailurePreservesDraft:true});await page.close();
+ }
+ assert.deepEqual(errors,[]);writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,errors},null,2));console.log(JSON.stringify({output,results,errors},null,2));
+}catch(error){console.error(JSON.stringify({errors}));for(const context of browser.contexts())for(const page of context.pages()){writeFileSync(path.join(output,'failure.html'),await page.content());await page.screenshot({path:path.join(output,'failure.png'),fullPage:true});}throw error;}finally{await browser.close();}

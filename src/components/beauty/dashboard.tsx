@@ -1,4 +1,5 @@
 "use client";
+import {BeautyMoveDialog} from "./move-dialog";
 import {SportsMoveConfirm} from '@/app/(dashboard)/dashboard/courses/sports-move-confirm';
 import type {CourseMoveClipboard} from '@/app/(dashboard)/dashboard/courses/course-schedule-board';
 import {readBeautyNativeCalendar} from '@/lib/beauty/native-calendar';
@@ -246,7 +247,8 @@ export function BeautyDashboard({
       {moneyPanel?.kind==='card'&&<BeautyNativeCustomerWorkspace key={moneyPanel.ids[0]} data={data} readOnly={readOnly} customerId={moneyPanel.ids[0]} initialAction="assign" panelOnly planPurchaseRecoveryEnabled={planPurchaseRecoveryEnabled} collectionRecoveryEnabled={collectionRecoveryEnabled} rosterSessionId={rosterSession} onPurchasedRoster={snapshot=>{setInvalidatedRosterSnapshots(data.rosterSnapshots);void syncCalendar(data.date,true);if(snapshot&&snapshot.sessionId===activeRoster.current){setRosterSnapshot(snapshot);setSyncNeeded(false);}else{window.dispatchEvent(new Event("customer-search-invalidated"));if(!snapshot)void syncRoster();}}} onClose={closeMoney}/>}
       {moneyPanel?.kind==='link'&&(()=>{const b=data.items.find(b=>b.id===moneyPanel.ids[0]);return b&&<RightSheet open presentation="centered" fitContent width={700} labelledById="beauty-identity-title" closeOnEscape={!identityBusy} onClose={closeMoney}><header className="flex items-center justify-between gap-2 border-b p-4"><h2 id="beauty-identity-title" className="font-semibold">補顧客資料 · {b.personName} · {b.serviceName}</h2><button type="button" className={button} disabled={identityBusy} onClick={closeMoney}>關閉</button></header><section className="p-4"><CompanionSlot displayPosition={Number(/^同行者 (\d+)$/.exec(b.personName)?.[1]??1)+1} bookingId={b.id} slot={{position:2,revision:b.revision,customerId:b.customerId,name:null}} embedded canEdit={!readOnly&&data.manage.update&&data.access.customerAccess} canCreate={data.manage.customer} blocked={pending} onBusy={setIdentityBusy} onUpdated={()=>{setMoneyPanel(null);router.refresh();}} source={{scope:'beauty-companion-phone',find:findBeautyCompanionByPhone,attach:attachBeautyCompanion,create:createBeautyCompanion}}/></section></RightSheet>;})()}
 
-      {moneyPanel && moneyPanel.kind!=='collect' && moneyPanel.kind!=='card' && moneyPanel.kind!=='link' && (
+      {moneyPanel?.kind==='move'&&(()=>{const appointment=data.items.find(row=>row.id===moneyPanel.ids[0]);return appointment&&<BeautyMoveDialog key={appointment.id} startsAt={appointment.startsAt} date={data.date} technicians={data.techs} locations={data.locations} pending={pending} error={error} onClose={closeMoney} onSubmit={input=>run(()=>moveBeautyAppointment('manager',{requestKey:moneyRequest,id:appointment.id,revision:appointment.revision,...input}),()=>{setSelectedId(null);setListOpen(false);const query=new URLSearchParams(params.toString());query.set('tab','班表');query.set('date',input.date);query.set('bookingId',appointment.id);router.push(`?${query}`);})}/>;})()}
+      {moneyPanel && moneyPanel.kind!=='collect' && moneyPanel.kind!=='card' && moneyPanel.kind!=='link' && moneyPanel.kind!=='move' && (
         <RightSheet
           open
           presentation="centered"
@@ -274,22 +276,7 @@ export function BeautyDashboard({
                     reason: note,
                   }),
                 );
-              if (moneyPanel.kind === "move") {
-                const b = data.items.find((b) => b.id === moneyPanel.ids[0])!;
-                run(() =>
-                  moveBeautyAppointment("manager", {
-                    requestKey,
-                    id: b.id,
-                    revision: b.revision,
-                    date: f.get("date"),
-                    time: f.get("time"),
-                    technicianId: f.get("technicianId") || null,
-                    locationId: f.get("locationId") || null,
-                    reason: note,
-                  }),
-                  ()=>{setSelectedId(null);setListOpen(false);const query=new URLSearchParams(params.toString());query.set('tab','班表');query.set('date',String(f.get('date')));query.set('bookingId',b.id);router.push(`?${query}`);},
-                );
-              }
+
             }}
           >
             <h2 id="beauty-money-title">
@@ -302,47 +289,7 @@ export function BeautyDashboard({
               }
             </h2>
             {moneyPanel.kind === "refund" && <label className="block">金額<input required className={field} type="number" min={1} name="amount" /></label>}
-            {moneyPanel.kind === "move" && (
-              <>
-                <label>
-                  日期
-                  <input
-                    type="date"
-                    required
-                    className={field}
-                    name="date"
-                    defaultValue={data.date}
-                  />
-                </label>
-                <label>
-                  時間
-                  <input type="time" required className={field} name="time" />
-                </label>
-                <label>
-                  技師
-                  <select className={field} name="technicianId">
-                    <option value="">保留偏好，自動安排</option>
-                    {data.techs.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  位置
-                  <select className={field} name="locationId">
-                    <option value="">自動安排</option>
-                    {data.locations.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </>
-            )}
-            {moneyPanel.kind !== "move" && (
+            {(
               <label>
                 付款方式
                 <select className={field} name="method">
