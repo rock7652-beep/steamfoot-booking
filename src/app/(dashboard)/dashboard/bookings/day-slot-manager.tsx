@@ -34,6 +34,7 @@ export function DaySlotManager({ date, hideCapacity=false, expectedStoreId, book
   const generation=useRef(0);
   const [open, setOpen] = useState(false);
   const [managerDate, setManagerDate] = useState(date);
+  const [previewSelection, setPreviewSelection] = useState<{sourceDate: string; date: string} | null>(null);
   const [previewWriteDate, setPreviewWriteDate] = useState<string | null>(null);
   const [loadError, setLoadError] = useState("");
   const [writeRestriction, setWriteRestriction] = useState<string | null>(null);
@@ -196,7 +197,7 @@ export function DaySlotManager({ date, hideCapacity=false, expectedStoreId, book
     <>
       <button
         type="button"
-        onClick={() => void openManager(managerDate)}
+        onClick={() => void openManager(previewSelection?.sourceDate === date ? previewSelection.date : date)}
         className="inline-flex min-h-11 min-w-32 items-center justify-center rounded-lg border border-earth-200 bg-white px-3 text-sm font-medium text-primary-700 hover:bg-primary-50"
       >
         管理時段
@@ -216,7 +217,7 @@ export function DaySlotManager({ date, hideCapacity=false, expectedStoreId, book
               <>
                 {writeRestriction ? <div className="mt-4 space-y-3 rounded-lg bg-primary-50 p-4">
                   <p role="status" className="text-sm text-earth-700">此預覽使用固定測試日期，點一下即可開始，不必手動調整班表日期。</p>
-                  {previewWriteDate ? <button type="button" className="min-h-11 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700" onClick={()=>void openManager(previewWriteDate)}>前往可測試日期</button> : <p className="text-sm text-amber-800">{writeRestriction}</p>}
+                  {previewWriteDate ? <button type="button" className="min-h-11 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700" onClick={()=>{setPreviewSelection({sourceDate:date,date:previewWriteDate});void openManager(previewWriteDate);}}>前往可測試日期</button> : <p className="text-sm text-amber-800">{writeRestriction}</p>}
                 </div> : <>
 
                 {closedDayException && <p className="mt-3 text-sm text-amber-800">此日原為公休，可直接加開當日時段；只開放你新增的時間，其餘仍維持公休。</p>}
