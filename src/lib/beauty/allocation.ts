@@ -1,4 +1,4 @@
-import { parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
+import { formatTWDateTime, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
 import {resolveAddOns,addOnTotals} from "./add-ons";
 import {serviceDuration} from "./service-duration";
 import { rate, type Rate } from "./contracts";
@@ -104,6 +104,9 @@ export function allocateParty(input: {
   const start = input.startsAt.getTime();
   const day = input.date;
   const occupied = input.occupied.filter((o) => o.status !== "CANCELLED");
+  const occupiedTimes = (rows: typeof occupied) => [...new Set(rows
+    .sort((a,b)=>a.start-b.start)
+    .map(o=>`${formatTWDateTime(new Date(o.start))}–${formatTWDateTime(new Date(o.end))}`))].join("；");
   const workload = (id: string) =>
     occupied
       .filter(
@@ -145,8 +148,12 @@ export function allocateParty(input: {
       );
     if(!techs.length){
       const qualified=ordered.filter(t=>t.active&&(!p.specifiedTechnicianId||t.id===p.specifiedTechnicianId)&&(p.allowedTechnicianIds===undefined||p.allowedTechnicianIds.includes(t.id))&&t.serviceIds.includes(s.id)&&(p.preference==='ANY'||t.gender===p.preference)&&rate.safeParse((t.rates as Record<string,unknown>)[s.id]??s.defaultRate).success);
-      input.onUnavailable?.(!qualified.length?'目前沒有符合服務資格及計酬設定的技師，請到服務項目或技師管理核對':!qualified.some(t=>availableTechnician(t,day,start,end))?'此時段合格技師未排班，排班須涵蓋服務與整理時間':'此時段合格技師已有預約或整理時間，請改選技師或時間');
-    }else if(!rooms.length)input.onUnavailable?.(p.specifiedLocationId?'指定位置在服務或整理時間內已被占用，請換位置或時間':'服務與整理時間內沒有可用位置，請調整時間');
+      const times=occupiedTimes(occupied.filter(o=>overlaps({start,end},o)&&qualified.some(t=>t.id===o.technicianId&&availableTechnician(t,day,start,end))));
+      input.onUnavailable?.(!qualified.length?'目前沒有符合服務資格及計酬設定的技師，請到服務項目或技師管理核對':!qualified.some(t=>availableTechnician(t,day,start,end))?'此時段合格技師未排班，排班須涵蓋服務與整理時間':`此時段合格技師已有預約或整理時間（占用：${times}），請改選技師或時間`);
+    }else if(!rooms.length){
+      const times=occupiedTimes(occupied.filter(o=>overlaps({start,end},o)&&input.locationIds.includes(o.locationId)&&(!p.specifiedLocationId||o.locationId===p.specifiedLocationId)));
+      input.onUnavailable?.(`${p.specifiedLocationId?'指定位置在服務或整理時間內已被占用，請換位置或時間':'服務與整理時間內沒有可用位置，請調整時間'}${times?`（占用：${times}，含整理或租借緩衝時間）`:''}`);
+    }
     return { s, duration, end, techs, rooms };
   });
   if (choices.some((c) => !c || !c.techs.length || !c.rooms.length))

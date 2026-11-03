@@ -19,6 +19,7 @@ import { cardAllowsRecipient,halfHourRule } from "@/lib/beauty/member-booking";
 import { AppError } from "@/lib/errors";
 import {
   dayRange,
+  formatTWDateTime,
   parseTaipeiDateTime,
   toLocalDateStr,
   addTaiwanDuration,
@@ -60,7 +61,7 @@ export async function assertCustomerAvailable(
       startsAt: { lt: occupiedEndsAt },
       occupiedEndsAt: { gt: startsAt },
     },
-  })) throw new AppError("CONFLICT", "服務者已有重疊預約，請改選其他時間");
+  })) throw new AppError("CONFLICT", `${formatTWDateTime(startsAt)}–${formatTWDateTime(occupiedEndsAt)} 服務者已有重疊預約（含整理時間），請改選其他時間`);
 }
 export async function settings(tx: Tx, storeId: string) {
   const current=await tx.beautySetting.findUnique({where:{storeId}});
@@ -258,14 +259,15 @@ export async function findAllocation(
     hours: openWindows,
   });
   if (!result)
-    throw new AppError("CONFLICT", arrangementIssue?`此時段無法安排：${arrangementIssue}`:"此時段無法安排，請核對服務、技師與位置");
+    throw new AppError("CONFLICT", `${formatTWDateTime(startsAt)} ${arrangementIssue?`此時段無法安排：${arrangementIssue}`:"此時段無法安排，請核對服務、技師與位置"}`);
   // Use the same customer occupancy window as reservation, including cleanup.
   // Availability already has the scoped day snapshot; do not query per slot.
-  if (d.people.some((person, index) => person.customerId && occupied.some(o =>
+  const customerConflict = d.people.flatMap((person, index) => person.customerId ? occupied.filter(o =>
     o.customerId === person.customerId && o.status !== "CANCELLED" &&
     !excludeIds.includes(o.id) && o.startsAt < result[index].occupiedEndsAt &&
     o.occupiedEndsAt > startsAt,
-  ))) throw new AppError("CONFLICT", "服務者已有重疊預約，請改選其他時間");
+  ) : []).sort((a,b)=>+a.startsAt-+b.startsAt)[0];
+  if(customerConflict)throw new AppError("CONFLICT", `${formatTWDateTime(startsAt)} 服務者已有重疊預約：${formatTWDateTime(customerConflict.startsAt)}–${formatTWDateTime(customerConflict.occupiedEndsAt)}（含整理時間），請改選其他時間`);
   return { startsAt, services, policy, result, chargeSnapshots };
 }
 export async function assertCard(

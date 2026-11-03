@@ -3,6 +3,13 @@ import assert from 'node:assert/strict';
 import {musicNativeWorkflowEnabled,assertMusicNativeReleaseEnvironment,MUSIC_RELEASE_BRANCH} from './music-native-workflow-scope.mjs';
 const connection=ref=>`postgresql://postgres:fake@db.${ref}.supabase.co:5432/postgres`;
 const env={VERCEL:'1',VERCEL_ENV:'production',VERCEL_GIT_COMMIT_REF:'main',VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:connection('qijlnhtpbintanzpxkvf'),DIRECT_URL:connection('qijlnhtpbintanzpxkvf'),MUSIC_NATIVE_WORKFLOW_STORE_IDS:'synthetic-store'};
+test('schedule-conflict Preview exposes native music only for the isolated fixture store',()=>{
+ const branch='fix/schedule-conflicts-20261103';
+ const preview={...env,VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:branch,DATABASE_URL:connection('ttworfzgwejdeolegkxl'),DIRECT_URL:connection('ttworfzgwejdeolegkxl')};
+ assert.equal(musicNativeWorkflowEnabled('store-lubymusic',preview),true);
+ assert.equal(musicNativeWorkflowEnabled('another-store',preview),false);
+ for(const change of [{VERCEL:'0'},{VERCEL_ENV:'production'},{VERCEL_GIT_COMMIT_REF:branch+'-other'},{VERCEL_GIT_REPO_OWNER:'other'},{VERCEL_GIT_REPO_SLUG:'other'},{DATABASE_URL:env.DATABASE_URL},{DIRECT_URL:env.DIRECT_URL},{DATABASE_URL:preview.DATABASE_URL+'?host=production.invalid'},{WORKERS_CI_BRANCH:branch},{CF_PAGES_BRANCH:branch}])assert.equal(musicNativeWorkflowEnabled('store-lubymusic',{...preview,...change}),false);
+});
 test('production capability requires exact repository, branch, database and configured store',()=>{
  assert.equal(musicNativeWorkflowEnabled('synthetic-store',env),true);
  for(const mutation of [{VERCEL_ENV:'preview'},{VERCEL_GIT_COMMIT_REF:'other'},{VERCEL:'0'},{VERCEL_GIT_REPO_OWNER:'other'},{DATABASE_URL:connection('ttworfzgwejdeolegkxl')},{DIRECT_URL:connection('ttworfzgwejdeolegkxl')},{MUSIC_NATIVE_WORKFLOW_STORE_IDS:''},{WORKERS_CI_BRANCH:'main'}])assert.equal(musicNativeWorkflowEnabled('synthetic-store',{...env,...mutation}),false);

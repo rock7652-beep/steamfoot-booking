@@ -72,6 +72,18 @@ function allocate(override: Partial<Parameters<typeof allocateParty>[0]> = {}) {
     ...override,
   });
 }
+it.each(['technician','location'] as const)('reports actual %s occupancy dates including cleanup, without unrelated or cancelled slots',kind=>{
+ const reasons:string[]=[];
+ const occupied=[
+  {start:+start+30*60000,end:+start+90*60000,technicianId:kind==='technician'?'a':'other',locationId:kind==='location'?'r1':'other',duration:60,status:'RESERVED'},
+  {start:+start,end:+start+120*60000,technicianId:'a',locationId:'r1',duration:60,status:'CANCELLED'},
+  {start:+start+180*60000,end:+start+240*60000,technicianId:'a',locationId:'r1',duration:60,status:'RESERVED'},
+ ];
+ expect(allocate({technicians:[tech('a')],locationIds:['r1'],people:[{...person(),specifiedLocationId:'r1'}],occupied,onUnavailable:reason=>reasons.push(reason)})).toBeNull();
+ expect(reasons[0]).toContain('2099-10-20 10:30–2099-10-20 11:30');
+ expect(reasons[0]).toContain(kind==='technician'?'合格技師':'指定位置');
+ expect(reasons[0]).not.toContain('12:00');expect(reasons[0]).not.toContain('14:00');
+});
 describe("beauty whole-party allocation", () => {
   it("reserves differing service ends and post-service buffers", () => {
     const r = allocate({ people: [person("face"), person("massage")] })!;

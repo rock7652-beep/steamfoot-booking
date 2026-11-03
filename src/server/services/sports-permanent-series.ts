@@ -32,8 +32,8 @@ export async function assertSportsSeriesFree(tx:Tx,storeId:string,ranges:Array<{
    tx.courseRental.findMany({where:{storeId,roomId:resources.roomId,cancelledAt:null,occupiedEndsAt:{gt:ranges[0].startsAt}},select:{occupiedStartsAt:true,occupiedEndsAt:true,roomId:true}}),
   ]);
   const proposed={...resources,...ranges[0],requestKey:requestKey??"",frequency,untilDate:null,excludedDates:[],cancelledAt:null};
-  const issue=findOngoingFixedSeriesConflicts(proposed,active,[...sessions,...rentals.map(r=>({startsAt:r.occupiedStartsAt,endsAt:r.occupiedEndsAt,roomId:r.roomId}))])[0];
-  if(issue)throw new AppError("CONFLICT",`${issue.date} ${issue.reason}；固定時段尚未建立`);
+  const issues=findOngoingFixedSeriesConflicts(proposed,active,[...sessions,...rentals.map(r=>({startsAt:r.occupiedStartsAt,endsAt:r.occupiedEndsAt,roomId:r.roomId}))]);
+  if(issues.length)throw new AppError("CONFLICT",`${issues.map(issue=>`${issue.date} · ${issue.reason}`).join("；")}；固定時段尚未建立，請調整排課時段或先處理衝突課次`);
  }else for(const range of ranges){
   for(const rule of active){
    const conflicts=findFixedSeriesConflicts([rule],[range],resources);
@@ -42,8 +42,8 @@ export async function assertSportsSeriesFree(tx:Tx,storeId:string,ranges:Array<{
     // Check every overlap separately so one released date cannot free another.
     const startsAt=conflict.startsAt;
     const endsAt=new Date(startsAt.getTime()+rule.endsAt.getTime()-rule.startsAt.getTime());
-    const released=await tx.courseSession.findFirst({where:{storeId,requestKey:rule.requestKey,OR:[{startsAt,endsAt,releasedAt:{not:null}},{rescheduledFromStartsAt:startsAt,rescheduledFromEndsAt:endsAt}]},select:{id:true}});
-    if(!released)throw new AppError("CONFLICT","此時段已有持續固定課，請選擇其他時段");
+    const released=await tx.courseSession.findFirst({where:{storeId,requestKey:rule.requestKey,OR:[{startsAt,endsAt,releasedAt:{not:null}},{startsAt,endsAt,cancelledAt:{not:null}},{rescheduledFromStartsAt:startsAt,rescheduledFromEndsAt:endsAt}]},select:{id:true}});
+    if(!released)throw new AppError("CONFLICT",`${conflict.date} · ${conflict.reason}（持續固定課），請選擇其他時段`);
    }
   }
  }

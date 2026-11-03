@@ -19,7 +19,17 @@ vi.mock("@/lib/feature-gate", () => ({
 vi.mock("@/server/services/course-booking", () => ({
   reserveCourseInTransaction: m.reserve,
 }));
-import { attachSportsSessionRules } from "@/server/services/sports-staging-schedule";
+import { assertSportsRentalFree, attachSportsSessionRules } from "@/server/services/sports-staging-schedule";
+
+it('reports each conflicting schedule date and actual rental occupancy including buffers',async()=>{
+ const range=(day:string)=>({startsAt:new Date(`${day}T01:00Z`),endsAt:new Date(`${day}T02:00Z`)});
+ const findFirst=vi.fn(async({where}:{where:{storeId:string;roomId:string;cancelledAt:null;occupiedEndsAt:{gt:Date};occupiedStartsAt:{lt:Date}}})=>({occupiedStartsAt:where.occupiedEndsAt.gt,occupiedEndsAt:new Date(+where.occupiedStartsAt.lt+15*60000)}));
+ const tx={courseRental:{findFirst}} as unknown as Prisma.TransactionClient;
+ await expect(assertSportsRentalFree(tx,'store','room',[range('2026-11-23'),range('2026-11-30')]))
+  .rejects.toThrow('2026-11-23 09:00 排課衝突：2026-11-23 09:00–2026-11-23 10:15 這個空間已有租借（含緩衝時間）；2026-11-30 09:00');
+ expect(findFirst).toHaveBeenCalledTimes(2);
+ expect(findFirst.mock.calls[0][0].where).toMatchObject({storeId:'store',roomId:'room',cancelledAt:null});
+});
 import { addTaiwanDuration, parseTaipeiDateTime } from "@/lib/date-utils";
 const actor = { storeId: "store", userId: "owner", name: "Owner" };
 const sessions = Array.from({ length: 8 }, (_, i) => ({

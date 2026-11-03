@@ -12,7 +12,7 @@ import {
   sportsScheduleRule,
   type SportsScheduleRule,
 } from "@/lib/sports-staging-types";
-import { addTaiwanDuration, toLocalDateStr } from "@/lib/date-utils";
+import { addTaiwanDuration, formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { AppError } from "@/lib/errors";
 import type { Prisma } from "../../../generated/course-client";
 import type { CourseActor } from "./course-booking";
@@ -137,9 +137,9 @@ export async function assertSportsRentalFree(
   ranges: Array<{ startsAt: Date; endsAt: Date }>,
 ) {
   if (!(await sportsStagingEnabled(storeId))) return;
-  for (const range of ranges)
-    if (
-      await tx.courseRental.findFirst({
+  const issues = new Set<string>();
+  for (const range of ranges) {
+      const rental = await tx.courseRental.findFirst({
         where: {
           storeId,
           roomId,
@@ -147,7 +147,9 @@ export async function assertSportsRentalFree(
           occupiedStartsAt: { lt: range.endsAt },
           occupiedEndsAt: { gt: range.startsAt },
         },
-      })
-    )
-      throw new AppError("CONFLICT", "這個空間已有租借");
+        orderBy: { occupiedStartsAt: "asc" },
+      });
+      if(rental)issues.add(`${formatTWDateTime(range.startsAt)} 排課衝突：${formatTWDateTime(rental.occupiedStartsAt)}–${formatTWDateTime(rental.occupiedEndsAt)} 這個空間已有租借（含緩衝時間）`);
+  }
+  if(issues.size)throw new AppError("CONFLICT",`${[...issues].sort().join("；")}；尚未建立，請調整時間或空間`);
 }
