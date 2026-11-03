@@ -59,6 +59,7 @@
   "git": {
     "deploymentEnabled": {
       "feat/beauty-operations-compact-20261103": false,
+      "feat/music-fitness-compact-20261103": false,
       "release/beauty-schedule-and-compact-dialogs-20261102": false,
       "fix/silverlily-calendar-loading-20261031": false,
       "review/shared-item-login-20261028": false,
