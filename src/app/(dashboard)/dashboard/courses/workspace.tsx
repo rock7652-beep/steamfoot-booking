@@ -392,13 +392,11 @@ export function CourseWorkspace({
     calendarReadsInFlight.current++;
     if(!background){setCalendarReading(true);setError("");}
     try{
-      let warning:string|undefined;
       const ensured=ensure&&sportsNative&&canCreate&&!calendarSource;
-      if(ensured){const sync=await syncSportsCalendar(date);if(!sync.success)throw new Error(sync.error);warning="warning" in sync?sync.warning??undefined:undefined;}
       if(!background)sportsCalendarReader.clear();
-      const result=await sportsCalendarReader.read(date);
+      const result=ensured?await syncSportsCalendar(date):await sportsCalendarReader.read(date);
       if(request!==calendarRequest.current)return null;
-      if(result.success){if(result.data.storeId!==undefined&&result.data.storeId!==storeId)throw new Error("店家已切換，請重新開啟課表");if('onAccepted' in result&&typeof result.onAccepted==='function')result.onAccepted();if(ensured)setNativeCalendarWarning(warning);if(result.data.labelSnapshot)seedCustomerLabels?.(receiveCustomerLabelSnapshot(result.data.labelSnapshot));setNativeCalendar(result.data);setLastUpdated(new Date());return true;}
+      if(result.success){if(result.data.storeId!==undefined&&result.data.storeId!==storeId)throw new Error("店家已切換，請重新開啟課表");if('onAccepted' in result&&typeof result.onAccepted==='function')result.onAccepted();if(ensured)setNativeCalendarWarning('warning' in result?result.warning??undefined:undefined);if(result.data.labelSnapshot)seedCustomerLabels?.(receiveCustomerLabelSnapshot(result.data.labelSnapshot));setNativeCalendar(result.data);setLastUpdated(new Date());return true;}
       setError(result.error);return false;
     }catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");return false;}
     finally{calendarReadsInFlight.current--;if(request===calendarRequest.current)setCalendarReading(false);}

@@ -11,8 +11,8 @@ export async function readSportsCalendar(date: string): Promise<Awaited<ReturnTy
   return response.json();
 }
 
-/** The sync keeps all existing write checks but does not trigger a full RSC page render. */
-export async function syncSportsCalendar(date:string):Promise<{success:true;warning?:string|null}|{success:false;error:string}> {
+/** Returns the authoritative month after synchronization, without a second request. */
+export async function syncSportsCalendar(date:string):Promise<Awaited<ReturnType<typeof loadSportsCalendar>>&{warning?:string|null}> {
   const prefix=window.location.pathname.split("/dashboard")[0];
   const response=await fetch(`${prefix}/dashboard/courses/calendar-sync`,{
     method:"POST",credentials:"same-origin",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({date}),

@@ -33,7 +33,10 @@ export function assertCompactOperationsPreview(env=process.env){
  return true;
 }
 
-/** Only this approved calendar comparison, exact QA project/role and synthetic sports store. */
+/** Only this approved calendar comparison, exact QA project/role and synthetic sports store.
+ * @param {string|undefined} storeId
+ * @param {Readonly<Record<string,string|undefined>>} env
+ */
 export function calendarPerformanceSportsPreview(storeId,env=process.env){
  if(storeId!=='sports-live-flow-store'||env.VERCEL_GIT_COMMIT_REF!==BOOKING_CALENDAR_PREVIEW_BRANCH)return false;
  return assertCompactOperationsPreview(env);

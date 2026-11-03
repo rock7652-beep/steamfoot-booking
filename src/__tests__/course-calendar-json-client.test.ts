@@ -9,6 +9,8 @@ it("music requests only the authorized month JSON, retaining the data scope",asy
  const [url,options]=fetcher.mock.calls[0];expect(url).toBe("/hq/dashboard/courses/calendar-read");expect(JSON.parse(options.body)).toEqual({date:"2026-11-03",profile:"MUSIC",dataScope:"legacy"});expect(options).toMatchObject({credentials:"same-origin",cache:"no-store",method:"POST"});
 });
 it("sports synchronization uses the JSON endpoint instead of a Server Action page response",async()=>{
- await syncSportsCalendar("2026-11-03");expect(fetcher).toHaveBeenCalledExactlyOnceWith("/hq/dashboard/courses/calendar-sync",expect.objectContaining({method:"POST",body:JSON.stringify({date:"2026-11-03"})}));
+ const snapshot={success:true,data:{month:'2026-11',sessions:[{id:'newly-generated-session'}]},warning:'核對固定課'};
+ fetcher.mockResolvedValue({ok:true,json:async()=>snapshot});
+ expect(await syncSportsCalendar("2026-11-03")).toEqual(snapshot);expect(fetcher).toHaveBeenCalledExactlyOnceWith("/hq/dashboard/courses/calendar-sync",expect.objectContaining({method:"POST",body:JSON.stringify({date:"2026-11-03"})}));
 });
 it("fails closed on a rejected month request",async()=>{fetcher.mockResolvedValue({ok:false});await expect(readMusicCalendar("2026-11-03")).rejects.toThrow("課表讀取失敗");});
