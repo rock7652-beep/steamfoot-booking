@@ -1,14 +1,21 @@
 # 課程約定書：隔離整合
 
-分支：`codex/course-agreements-core`；基底：`3a00ca95`。
-原作者為本任務；未建立 PR、未 push、未合併、未部署。
-未連線寫入正式資料庫、未執行 migration deploy。
+原實作分支：`codex/course-agreements-core`；基底：`3a00ca95`。原作者為本任務。
+目前整合分支：`codex/agreements-1502-integration`；已 push 並建立草稿 PR [#1504](https://github.com/rock7652-beep/steamfoot-booking/pull/1504)。未合併正式站，正式資料庫與功能開關未變動。
 
 ## 最新合併安排（使用者 2026-11-03 指示）
 
-使用者要求：「稍後跟1502一起合併正式站」。本分支先保留，後續與 1502 協調整合後再合併；這不是立即合併或部署指令，也沒有設定自動排程。
+使用者先要求「稍後跟1502一起合併正式站」，後續確認「好 請執行」。已開始共同發布準備；沒有設定自動排程，必要驗證未完成前不合併。
 
-本功能程式版本為 `8512032c`。1502 的實際 PR／分支與精確版本尚未核對；執行者須在合併前確認其身分、最新決策、變更交集及 migration／部署順序，完成合併結果的整合驗收，沿用本文件的資料隔離與發布檢查。本階段沒有操作 1502、遠端分支或正式站。
+以 main `d3125942` 整合 #1502 head `e0efbae6` 與共同約定分支 `865efa39`，保留雙方 commit ancestry。唯一衝突在 `vercel.json` 的自動預覽停用清單，已保留雙方項目。#1502 的原分支未被修改；87/90 兩秒內的既有接受結果不改寫為 90/90。其 Preview connection limit=2 未複製至正式環境。
+
+整合相關 19 檔 194 項測試、變更檔案 ESLint 通過；新增預覽邊界 14 項測試通過。`08ad5f3e` 的遠端 Typecheck、Targeted tests、Changed-file ESLint、music-makeup-postgres、sports-shared-card-postgres 已通過；最終 head 必須再核對 CI。完整業務驗收仍未完成，不以合成 UI 測試取代。
+
+隔離測試 DB `ttworfzgwejdeolegkxl` 已執行本次兩份新增 migration；僅新增共同約定表，不執行其他 pending migration。每份 SQL 的 SHA-256 與實際執行結果於同一批次登記 Prisma ledger；MCP 同時留下單筆 Supabase rehearsal migration 紀錄，沒有新增另一套應用程式遷移工具。五張表的 RLS 均開啟，anon/authenticated 均無直接權限。正式 DB `qijlnhtpbintanzpxkvf` 尚未執行這兩份 migration。
+
+整合預覽限定精確 Vercel Preview 分支／repo、既有隔離 DB 與專屬連結金鑰，跳過自動 DDL，保留 runtime outbound suppression。空值 LINE override 未阻止部署繼承，因此改用明確無效的停用值；實際憑證仍被 gate 拒絕。測試分支可用金鑰不可複製至正式環境。
+
+自動審核拒絕建立可轉傳的預覽存取連結，理由為可能暴露私人測試資料。尚未取得該存取授權，沒有改用其他分享 API 或移除 Deployment Protection。現有工具未提供已登入的瀏覽器或可用的開發 OIDC；完整 hosted 登入／簽署／下載驗證因此未完成。
 
 ## 已實作
 
@@ -59,7 +66,7 @@
 - 伺服器在 store lock 內再次核對審閱 scope、期限、有效版本及文件雜湊。已消耗憑證只能用原 requestKey／requestHash 查回原結果，不能換資料再簽。
 - 筆畫只允許數值，由伺服器建立 SVG 並以既有 sharp 轉成 PNG；不接受使用者上傳任意 SVG 或圖片。單張證據上限 128 KiB。
 - 新增 CourseAgreementSignatureAsset 私有 bytea 表，將 PNG、簽署 metadata 與憑證消耗放進同一個資料庫 transaction，沒有外部物件儲存造成的半套成功。PNG hash 為原始位元組 SHA-256。
-- 簽名檔綁定 signatureId、storeId 與 objectKey 的複合外鍵，禁止一般覆寫與刪除；啟用 RLS，撤銷 PUBLIC／anon／authenticated 讀寫。沿用專案 Prisma migration 單一歷史，未新增另一套 Supabase CLI migration history。
+- 簽名檔綁定 signatureId、storeId 與 objectKey 的複合外鍵，禁止一般覆寫與刪除；啟用 RLS，撤銷 PUBLIC／anon／authenticated 讀寫。應用程式沿用專案 Prisma migration；隔離環境的 MCP 執行紀錄見本文件開頭。
 - 自行填寫的姓名／電話不作為既有 Customer 的身分證據，customerId 保持 null；未新增會員、購課、LINE 通知或其他外發。
 - 收據使用與簽署連結不同命名空間的 token；`/course-agreements/receipt/[token]` 只讀對應副本，驗證條款及 PNG 雜湊。暫停／換版不使已簽副本失效。
 - 副本顯示當時全文、簽署者、代理人、實際時間、簽名與文件識別碼，可直接下載伺服器產生的 PDF，也保留「列印／另存 PDF」。後台已有查詢與逐份下載；尚未實作批次匯出。
@@ -162,4 +169,4 @@
 4. 確認保存期限、依法刪除／封存與備份還原機制。immutable trigger 僅為一般操作保護，須另設受控清理程序。
 5. 完成真實後台桌機／iPad 驗收、地方適用條文與個資告知確認，再提供發布方案供核准。
 
-本 migration 尚未執行。禁止直接把原型 SQLite／JSON 雲端快照搬入正式資料庫。
+本 migration 尚未在正式資料庫執行。禁止直接把原型 SQLite／JSON 雲端快照搬入正式資料庫。
