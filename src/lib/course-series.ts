@@ -85,7 +85,11 @@ export function findOngoingFixedSeriesConflicts(proposed:FixedCourseSeries,rules
       const range=fixedSeriesOccurrenceOnDate(proposed,date);
       if(!range)continue;
       const conflict=findFixedSeriesConflicts([rule],[range],proposed)[0];
-      if(conflict){issues.push({date:conflict.date,reason:conflict.reason});break;}
+      if(conflict){
+        const occurrence=fixedSeriesOccurrenceOnDate(rule,toLocalDateStr(conflict.startsAt))!;
+        const resource=rule.roomId===proposed.roomId?(rule.coachId===proposed.coachId?"教室及老師":"教室"):"老師";
+        issues.push({date:conflict.date,reason:`${formatTWDateTime(occurrence.startsAt)}–${formatTWDateTime(occurrence.endsAt)} ${resource}已有固定課`});break;
+      }
     }
   }
   for(const item of occupied){
@@ -93,8 +97,11 @@ export function findOngoingFixedSeriesConflicts(proposed:FixedCourseSeries,rules
     const first=addTaiwanDuration(toLocalDateStr(item.startsAt),-1,"DAY"),last=toLocalDateStr(item.endsAt);
     for(let date=first;date<=last;date=addTaiwanDuration(date,1,"DAY")){
       const range=fixedSeriesOccurrenceOnDate(proposed,date);
-      if(range&&range.startsAt<item.endsAt&&range.endsAt>item.startsAt){issues.push({date:toLocalDateStr(range.startsAt),reason:item.roomId===proposed.roomId?"教室已有課程或租借":"老師已有課程"});break;}
+      if(range&&range.startsAt<item.endsAt&&range.endsAt>item.startsAt){
+        const resource=item.roomId===proposed.roomId?(item.coachId===proposed.coachId?"教室及老師已有課程":"教室已有課程或租借"):"老師已有課程";
+        issues.push({date:toLocalDateStr(range.startsAt),reason:`${formatTWDateTime(item.startsAt)}–${formatTWDateTime(item.endsAt)} ${resource}`});break;
+      }
     }
   }
-  return issues;
+  return issues.sort((a,b)=>a.date.localeCompare(b.date)||a.reason.localeCompare(b.reason));
 }

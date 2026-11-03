@@ -50,3 +50,11 @@ it("detects an overnight fixed lesson starting on the previous local day",()=>{
  const overnight={...series,startsAt:new Date("2026-10-14T15:30:00Z"),endsAt:new Date("2026-10-14T17:00:00Z")};
  expect(findFixedSeriesConflicts([overnight],[{startsAt:new Date("2026-10-14T16:15:00Z"),endsAt:new Date("2026-10-14T17:15:00Z")}],{roomId:series.roomId,coachId:"other"})).toHaveLength(1);
 });
+it("lists later conflicting dates in order with occupied times and both resources",()=>{
+ const occupied=(date:string)=>({roomId:series.roomId,coachId:series.coachId,
+  startsAt:new Date(`${date}T10:30:00Z`),endsAt:new Date(`${date}T11:30:00Z`)});
+ expect(findOngoingFixedSeriesConflicts(series,[],[occupied("2026-11-04"),occupied("2026-10-28")])).toEqual([
+  {date:"2026-10-28",reason:"2026-10-28 18:30–2026-10-28 19:30 教室及老師已有課程"},
+  {date:"2026-11-04",reason:"2026-11-04 18:30–2026-11-04 19:30 教室及老師已有課程"},
+ ]);
+});
