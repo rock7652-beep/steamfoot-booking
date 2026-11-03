@@ -38,10 +38,14 @@ for(const [width,height] of [[390,844],[360,800],[1366,900],[1920,1080],[1024,76
   }else{
    await page.getByRole('checkbox',{name:'混合付款'}).check();await page.getByLabel('付款金額 1',{exact:true}).fill('200');await page.getByLabel('付款方式 2',{exact:true}).selectOption('CREDIT_CARD');await page.getByLabel('付款金額 2',{exact:true}).fill('300');
   }
+  const invisibleChoices=await page.locator('input[type=checkbox]').evaluateAll(es=>es.filter(e=>e.closest('label')?.getBoundingClientRect().height>0).filter(e=>{const r=e.getBoundingClientRect();return r.width<20||r.height<20||getComputedStyle(e).appearance==='none';}).map(e=>e.closest('label')?.innerText));
+  if(invisibleChoices.length)throw Error(JSON.stringify({width,kind,invisibleChoices}));
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);if(overflow||errors.length)throw Error(JSON.stringify({width,kind,overflow,errors}));
   await page.screenshot({path:`${out}/${kind}-${width}.png`,fullPage:true});
+  await page.evaluate(()=>{window.qaEvents=[];for(const kind of ['click','submit'])document.addEventListener(kind,e=>window.qaEvents.push({kind,target:e.target.textContent?.slice(0,30)}),true);});
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   await page.getByRole('button',{name:kind==='payment'?'確認收款':'確認預約',exact:true}).click();
-  await page.waitForFunction(()=>!!window.qaIntent,{},{timeout:5000}).catch(async e=>{console.log(JSON.stringify({width,kind,errors,body:await page.locator('body').innerText(),invalid:await page.locator('input:invalid').evaluateAll(els=>els.map(e=>({name:e.outerHTML,message:e.validationMessage})))}));throw e;});const intent=await page.evaluate(()=>window.qaIntent);
+  await page.waitForFunction(()=>!!window.qaIntent,{},{timeout:5000}).catch(async e=>{console.log(JSON.stringify({width,kind,errors,events:await page.evaluate(()=>window.qaEvents),body:await page.locator('body').innerText(),invalid:await page.locator('input:invalid').evaluateAll(els=>els.map(e=>({name:e.outerHTML,message:e.validationMessage})))}));throw e;});const intent=await page.evaluate(()=>window.qaIntent);
   if(kind==='payment'){if(intent.splits?.[0].amount!==200||intent.splits?.[1].method!=='CARD')throw Error('mixed payment intent');}
   else {if(intent.people.length!==1||intent.people[0].additionalServices?.[0].cardId!=='card-B'||intent.people[0].additionalServices?.[0].specifiedTechnicianId!=='two')throw Error('journey intent');}
   results.push({kind,width,height,overflow,errors,submitted:true});

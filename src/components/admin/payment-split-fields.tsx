@@ -52,7 +52,7 @@ export function PaymentSplitFields({ totalAmount, primaryMethod, disabled, onCha
   }
 
   return <div className="mb-4 rounded-lg border border-earth-200 p-3 text-sm">
-    <label className="flex min-h-11 items-center gap-2 font-medium text-earth-800"><input type="checkbox" checked={enabled} disabled={disabled} onChange={(e) => enable(e.target.checked)} />混合付款</label>
+    <label className="flex min-h-11 items-center gap-2 font-medium text-earth-800"><input className="h-5 w-5 shrink-0 appearance-auto accent-primary-700" type="checkbox" checked={enabled} disabled={disabled} onChange={(e) => enable(e.target.checked)} />混合付款</label>
     {enabled && <div className="mt-3 space-y-2">
       {displayedSplits.map((split, index) => <div key={`${index}-${split.paymentMethod}`} className="flex flex-wrap gap-2">
         <select aria-label={`付款方式 ${index+1}`} value={split.paymentMethod} disabled={disabled} onChange={(e) => update(index, { paymentMethod: e.target.value as PaymentMethodValue })} className="min-h-11 rounded border border-earth-300 px-2 py-1 text-base">
