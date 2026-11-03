@@ -18,6 +18,7 @@ describe('course agreement integration deployment boundary', () => {
     expect(assertReviewedReleaseEnvironment(valid)).toBe('course-agreements-preview');
     expect(assertCourseAgreementsPreviewEnvironment({})).toBe(false);
     expect(assertCourseAgreementsPreviewEnvironment({ ...valid, LINE_CHANNEL_ACCESS_TOKEN: COURSE_AGREEMENTS_DISABLED_LINE_TOKEN })).toBe(true);
+    expect(assertCourseAgreementsPreviewEnvironment({ ...valid, WEB_LINE_LOGIN_CHANNEL_SECRET: COURSE_AGREEMENTS_DISABLED_LINE_TOKEN })).toBe(true);
   });
   for (const change of [
     { VERCEL_ENV: 'production' }, { COURSE_AGREEMENTS_REVIEW: '' }, { VERCEL: '' },

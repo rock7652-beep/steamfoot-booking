@@ -15,7 +15,7 @@ export function assertCourseAgreementsPreviewEnvironment(env) {
     conflicting_provider: Boolean(env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH),
     // An explicit non-credential prevents provider inheritance of the global
     // token when an empty branch override is omitted by the deployment API.
-    outbound_line: Boolean((env.LINE_CHANNEL_ACCESS_TOKEN && env.LINE_CHANNEL_ACCESS_TOKEN !== COURSE_AGREEMENTS_DISABLED_LINE_TOKEN) || env.WEB_LINE_LOGIN_CHANNEL_SECRET || env.PREVIEW_LINE_ACCEPTANCE_ENABLED === '1'),
+    outbound_line: Boolean((env.LINE_CHANNEL_ACCESS_TOKEN && env.LINE_CHANNEL_ACCESS_TOKEN !== COURSE_AGREEMENTS_DISABLED_LINE_TOKEN) || (env.WEB_LINE_LOGIN_CHANNEL_SECRET && env.WEB_LINE_LOGIN_CHANNEL_SECRET !== COURSE_AGREEMENTS_DISABLED_LINE_TOKEN) || env.PREVIEW_LINE_ACCEPTANCE_ENABLED === '1'),
     database: !isSportsSharedCardIsolatedConnection(env.DATABASE_URL),
     direct_database: !isSportsSharedCardIsolatedConnection(env.DIRECT_URL),
   }).filter(([, invalid]) => invalid).map(([key]) => key);

@@ -7,12 +7,18 @@ beforeAll(async()=>{
  await db.exec(`CREATE TABLE "Store"(id TEXT PRIMARY KEY); CREATE TABLE "Customer"(id TEXT PRIMARY KEY,"storeId" TEXT NOT NULL, UNIQUE(id,"storeId")); CREATE ROLE anon; CREATE ROLE authenticated;`);
  await db.exec(readFileSync('prisma/migrations/20261103153000_course_agreement_core/migration.sql','utf8'));
  await db.exec(readFileSync('prisma/migrations/20261103160000_course_agreement_signature_assets/migration.sql','utf8'));
+ await db.exec('GRANT EXECUTE ON FUNCTION course_agreement_immutable() TO anon,authenticated');
+ await db.exec(readFileSync('prisma/migrations/20261103170000_course_agreement_function_privileges/migration.sql','utf8'));
  await db.exec(`INSERT INTO "Store" VALUES ('a'),('b'); INSERT INTO "Customer" VALUES ('ca','a'),('cb','b'); INSERT INTO "CourseAgreementSetting"("storeId") VALUES ('a'),('b');`);
  await db.query(`INSERT INTO "CourseAgreementVersion"(id,"storeId",version,"settingsSnapshot",document,"documentHash","signingTokenHash","createdById") VALUES ('v','a',1,'{}','[]',$1,$1,'staff')`,[hash]);
  await db.query(`INSERT INTO "CourseAgreementReview"(id,"storeId","versionId","tokenHash","expiresAt") VALUES ('r','a','v',$1,now()+interval '1 day')`,[hash]);
  await db.query(`INSERT INTO "CourseAgreementSignature"(id,"storeId","versionId","reviewId","customerId","signerSnapshot","signatureObjectKey","signatureHash","receiptTokenHash","requestKey","reviewAcknowledgedAt","electronicConsentAt") VALUES ('s','a','v','r','ca','{}','a/agreements/s.png',$1,$1,'request',now(),now())`,[hash]);
 },30000);
 afterAll(async()=>{await db.close();});
+it('revokes explicit browser function grants inherited from platform defaults',async()=>{
+ const result=await db.query<{anon:boolean;authenticated:boolean}>(`SELECT has_function_privilege('anon','course_agreement_immutable()','EXECUTE') AS anon,has_function_privilege('authenticated','course_agreement_immutable()','EXECUTE') AS authenticated`);
+ expect(result.rows).toEqual([{anon:false,authenticated:false}]);
+});
 it('rejects cross-store active versions',async()=>{await expect(db.exec(`UPDATE "CourseAgreementSetting" SET "activeVersionId"='v' WHERE "storeId"='b'`)).rejects.toThrow(/foreign key/i);});
 it('rejects cross-store review references',async()=>{await expect(db.query(`INSERT INTO "CourseAgreementReview"(id,"storeId","versionId","tokenHash","expiresAt") VALUES ('foreign','b','v',$1,now()+interval '1 day')`,['b'.repeat(64)])).rejects.toThrow(/foreign key/i);});
 it('keeps published content and signed evidence immutable',async()=>{
