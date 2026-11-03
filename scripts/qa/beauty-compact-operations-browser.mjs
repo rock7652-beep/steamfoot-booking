@@ -100,9 +100,9 @@ try{
  await page.getByLabel('LINE 綁定',{exact:true}).selectOption('linked');
  await page.waitForFunction(()=>new URLSearchParams(location.search).get('status')==='linked');
  results.push({case:'beauty LINE filter navigation',passed:true});
- await choose('course-customers');await page.getByRole('button',{name:/^篩選/}).click();
- assert(await page.getByText('上課狀態',{exact:true}).count()===1,'Course visit filter removed');
- assert(await page.getByText('推薦紀錄',{exact:true}).count()===1,'Course referral filter removed');
+ await choose('course-customers');
+ assert(await page.getByLabel('上課狀態',{exact:true}).count()===1,'Course visit filter removed');
+ assert(await page.getByLabel('推薦紀錄',{exact:true}).count()===1,'Course referral filter removed');
  results.push({case:'course filters preserved',passed:true});
  await choose('slots');await page.getByRole('button',{name:'管理時段',exact:true}).click();
  const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:/09:00 開放/}).waitFor();

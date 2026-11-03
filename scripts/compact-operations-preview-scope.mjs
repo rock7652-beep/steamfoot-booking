@@ -1,4 +1,6 @@
 export const COMPACT_OPERATIONS_BRANCH='feat/beauty-operations-compact-20261103';
+export const MUSIC_FITNESS_COMPACT_BRANCH='feat/music-fitness-compact-20261103';
+const COMPACT_PREVIEW_BRANCHES=[COMPACT_OPERATIONS_BRANCH,MUSIC_FITNESS_COMPACT_BRANCH];
 export const COMPACT_OPERATIONS_PROJECT='prj_Aq5uK16Dc49OAUPJnP5VtnVAEdTs';
 export const COMPACT_OPERATIONS_DATABASE='ttworfzgwejdeolegkxl';
 export const COMPACT_OPERATIONS_ROLE='steamfoot_compact_qa_20261103';
@@ -19,9 +21,9 @@ export function isCompactOperationsConnection(value){
  * @param {Readonly<Record<string,string|undefined>>} env
  */
 export function assertCompactOperationsPreview(env=process.env){
- if(env.COMPACT_OPERATIONS_PREVIEW!=='1'&&env.VERCEL_GIT_COMMIT_REF!==COMPACT_OPERATIONS_BRANCH)return false;
+ if(env.COMPACT_OPERATIONS_PREVIEW!=='1'&&!COMPACT_PREVIEW_BRANCHES.includes(env.VERCEL_GIT_COMMIT_REF??''))return false;
  if(env.VERCEL!=='1'||env.VERCEL_ENV!=='preview'||env.VERCEL_PROJECT_ID!==COMPACT_OPERATIONS_PROJECT||
-  env.VERCEL_GIT_COMMIT_REF!==COMPACT_OPERATIONS_BRANCH||env.VERCEL_GIT_REPO_OWNER!=='rock7652-beep'||env.VERCEL_GIT_REPO_SLUG!=='steamfoot-booking'||
+  !COMPACT_PREVIEW_BRANCHES.includes(env.VERCEL_GIT_COMMIT_REF??'')||env.VERCEL_GIT_REPO_OWNER!=='rock7652-beep'||env.VERCEL_GIT_REPO_SLUG!=='steamfoot-booking'||
   env.WORKERS_CI_BRANCH||env.CF_PAGES_BRANCH||env.PRODUCTION_MIGRATION_TARGET||env.BEAUTY_DATABASE_URL||
   env.BEAUTY_DATABASE_MODE!=='legacy'||env.BEAUTY_MODULE_ENABLED!=='1'||env.BEAUTY_NOTIFICATIONS_ENABLED!=='0'||!env.AUTH_SECRET||
   ![env.DATABASE_URL,env.DIRECT_URL].every(isCompactOperationsConnection)||
