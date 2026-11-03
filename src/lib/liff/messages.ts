@@ -426,12 +426,11 @@ export const liffMessages = {
     // confirm modal (D4A-2，PR-D4B-1 擴：新增 rescheduleCta 為第三顆 primary 按鈕)
     confirmTitle: "確認取消此次預約？",
     // PR-D4B-1：body 微調為「可重新選擇新的時段」，與 rescheduleCta 路徑語意呼應。
-    confirmBody: "取消後如需重新預約，可重新選擇新的時段。",
+    confirmBody: "若只需調整時間，請選擇「改時間」，原預約會保留至改期成功。",
     confirmCta: "確認取消",
     dismissCta: "暫不取消",
     submitting: "處理中…",
-    // PR-D4B-1：reschedule = cancel + redirect trial-booking。modal 內 primary 按鈕。
-    // 顧客體感「我在改時間」，實作仍是 cancelLiffBooking → push trial-booking。
+    // 改時間使用原預約的改期頁，不先取消或建立體驗預約。
     rescheduleCta: "改時間",
 
     // booking card cta

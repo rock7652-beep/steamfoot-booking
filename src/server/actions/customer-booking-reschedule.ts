@@ -1,5 +1,7 @@
 "use server";
 
+import { loadSelectedBookingServices, selectedServicesCoverDate } from "@/server/services/booking-service-selection";
+
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
@@ -19,7 +21,7 @@ import { revalidateBookings } from "@/lib/revalidation";
 
 const CUSTOMER_RESCHEDULE_CUTOFF_MS = 12 * 60 * 60 * 1000;
 const CUSTOMER_RESCHEDULE_LIMIT = 1;
-const CUSTOMER_RESCHEDULABLE_TYPES = ["PACKAGE_SESSION", "SINGLE"] as const;
+const CUSTOMER_RESCHEDULABLE_TYPES = ["PACKAGE_SESSION", "SINGLE", "FIRST_TRIAL"] as const;
 
 type AuthorizedBooking = {
   id: string;
@@ -30,7 +32,7 @@ type AuthorizedBooking = {
   people: number;
   bookingStatus: string;
   customerRescheduleCount: number;
-  bookingType: "PACKAGE_SESSION" | "SINGLE";
+  bookingType: "PACKAGE_SESSION" | "SINGLE" | "FIRST_TRIAL";
   isMakeup: boolean;
   customerPlanWallet: {
     status: string;
@@ -141,7 +143,7 @@ function entitlementUnavailableReason(
   },
   date: string,
 ): "plan_not_valid_for_date" | "unavailable" | null {
-  if (booking.bookingType === "SINGLE") return null;
+  if (booking.bookingType === "SINGLE" || booking.bookingType === "FIRST_TRIAL") return null;
   // Makeup bookings may consume multiple credits with independent expiry
   // dates. Keep that exceptional flow store-assisted until it has a dedicated
   // multi-credit reschedule contract.
@@ -228,6 +230,8 @@ export async function getCustomerBookingRescheduleSlots(
     !isValidRescheduleDate(date) ||
     date < toLocalDateStr(now)
   ) return empty("unavailable");
+  const selectedServices = await loadSelectedBookingServices(booking);
+  if (!selectedServicesCoverDate(selectedServices, date)) return empty("plan_not_valid_for_date");
   const entitlementReason = entitlementUnavailableReason(booking, date);
   if (entitlementReason) return empty(entitlementReason);
   if (
@@ -317,6 +321,7 @@ export async function rescheduleCustomerBooking(
     !(await storeAllowsReschedule(booking.storeId))
   ) return "unavailable";
 
+  if (!selectedServicesCoverDate(await loadSelectedBookingServices(booking), date)) return "unavailable";
   const ctx = await loadDayBusinessHoursContext(booking.storeId, date);
   const slot = ctx.rule.closed
     ? undefined
@@ -334,6 +339,10 @@ export async function rescheduleCustomerBooking(
         },
         { storeId: booking.storeId, bookingDate: date, slotTime },
       ]);
+      if (process.env.BOOKING_PARTICIPANTS_ENABLED === "true") {
+        await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${booking.id} AND "storeId" = ${booking.storeId} FOR UPDATE`;
+        if (!selectedServicesCoverDate(await loadSelectedBookingServices(booking, tx), date)) return "unavailable";
+      }
       const current = await tx.booking.findUnique({
         where: { id: booking.id },
         select: {
@@ -360,6 +369,7 @@ export async function rescheduleCustomerBooking(
       if (
         !current ||
         current.storeId !== booking.storeId ||
+        current.customerId !== booking.customerId ||
         !CUSTOMER_RESCHEDULABLE_TYPES.includes(current.bookingType as (typeof CUSTOMER_RESCHEDULABLE_TYPES)[number]) ||
         !PENDING_STATUSES.includes(current.bookingStatus as (typeof PENDING_STATUSES)[number]) ||
         current.customerRescheduleCount >= CUSTOMER_RESCHEDULE_LIMIT ||

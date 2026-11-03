@@ -1,3 +1,4 @@
+import { loadSelectedBookingServices, selectedBookingServiceName } from "@/server/services/booking-service-selection";
 /**
  * 提醒引擎 — Daily next-day batch（v3）
  *
@@ -302,9 +303,16 @@ export async function runReminders(): Promise<SendResult> {
       const customer = booking.customer;
       const bookingStoreId = booking.storeId;
       const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
+      const selectedServices = await loadSelectedBookingServices(booking);
+      const serviceName = selectedBookingServiceName(selectedServices, booking.bookingType);
+      const serviceTypes = selectedServices.length
+        ? selectedServices.filter(person => person.status !== "CANCELLED").map(person => person.service)
+        : [booking.bookingType];
+      const hasTrialService = serviceTypes.includes("FIRST_TRIAL");
+      const hasPaidService = serviceTypes.some(type => type !== "FIRST_TRIAL");
       if (
-        (isLineTrialBooking && !trialBookingEnabled) ||
-        (!isLineTrialBooking && !packageBookingEnabled)
+        (hasTrialService && !trialBookingEnabled) ||
+        (hasPaidService && !packageBookingEnabled)
       ) {
         result.skipped++;
         result.details.push({
@@ -312,7 +320,7 @@ export async function runReminders(): Promise<SendResult> {
           bookingId: booking.id,
           ruleName: rule.name,
           status: "SKIPPED",
-          error: isLineTrialBooking ? "TRIAL_REMINDER_DISABLED" : "PACKAGE_REMINDER_DISABLED",
+          error: hasTrialService && !trialBookingEnabled ? "TRIAL_REMINDER_DISABLED" : "PACKAGE_REMINDER_DISABLED",
         });
         continue;
       }
@@ -566,7 +574,7 @@ export async function runReminders(): Promise<SendResult> {
         staffName: customer.assignedStaff?.displayName ?? "店長",
         bookingLink,
       };
-      const renderedBody = renderTemplate(isLineTrialBooking ? TRIAL_TEMPLATE : templateBody, vars);
+      const renderedBody = renderTemplate(isLineTrialBooking ? TRIAL_TEMPLATE.replace("體驗預約", serviceName) : templateBody, vars);
 
       // 發送 LINE push
       const card = {
@@ -574,10 +582,11 @@ export async function runReminders(): Promise<SendResult> {
         bookingDate: bookingDateStr,
         bookingTime: booking.slotTime,
         shopName: customerFacingShopName,
-        serviceName: "首次體驗",
+        serviceName,
         reminderText:
-          trialCardReminderCache.get(bookingStoreId) ??
-          DEFAULT_TRIAL_LINE_CARD_REMINDER,
+          hasTrialService
+            ? trialCardReminderCache.get(bookingStoreId) ?? DEFAULT_TRIAL_LINE_CARD_REMINDER
+            : packageCardReminderCache.get(bookingStoreId) ?? DEFAULT_PACKAGE_LINE_CARD_REMINDER,
         mapUrl: storeMapDetails?.mapUrl ?? undefined,
       };
       const flexMessages = isLineTrialBooking
@@ -587,7 +596,7 @@ export async function runReminders(): Promise<SendResult> {
             bookingDate: bookingDateStr,
             bookingTime: booking.slotTime,
             shopName: customerFacingShopName,
-            serviceName: booking.bookingType === "PACKAGE_SESSION" ? "方案預約" : "單次預約",
+            serviceName,
             serviceDuration: "45 分鐘",
             address: storeMapDetails?.address ?? undefined,
             mapUrl: storeMapDetails?.mapUrl ?? undefined,
