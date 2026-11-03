@@ -71,3 +71,21 @@ counts 包含 sessions、rentals、customers。名單原有的授權與 17 類�
 5. 下一候選將月份課程與批次名單的關聯讀取明確改為 join，減少單連線上的多次往返。僅於唯讀 month scope 啟用；QA baseline、獨立名單與寫入流程保留原查詢策略，回傳欄位與排序不改。效能及完整資料一致性尚待新 Preview 驗證，不能以程式修改推定改善。
 
 QA 比較標頭僅在指定專案、精確分支及通過隔離 DB preflight 的 Preview 生效；正式／其他分支忽略。沒有部署分享憑證、帳密或業務 payload 進入本報告。完整計時見鄰近 JSON，正式站仍維持既有版本。
+
+## 查詢合併與連線池診斷
+
+應用版本 `c96afbaa444ff9e94451d7bab8de9bd12eef320e` 的完整 CI 與隔離 PostgreSQL 驗收通過。
+
+- pool=1 同部署比較 60 次，原流程中位數 1837.5ms、3/30 >=2000ms；唯讀重用 + join 1638.5ms、1/30 >=2000ms（最大2096ms）。30 對完整 DTO 雜湊一致。該超時樣本未出現前端 long task，同步 632ms、讀取507ms；較慢子段包含店家解析120.5ms、課次存在性批次145.1ms。
+- 實際數字型回應標頭確認 baseLimit=1、effectiveLimit=1。隔離 DB 連線用量快照9/60、active1，狀態 ACTIVE_HEALTHY；DB 與函數皆東京。CourseSession 的 storeId/requestKey/requestIndex 複合唯一索引存在，沒有補索引或改 schema。相關正規化 SQL 類型的彙總執行統計通常低於1ms，不能將應用 span 全部當作 SQL 執行或憑此宣稱已精確辨認單次連線等待。
+- 僅精確 Preview 分支新增 plain `DATABASE_CONNECTION_LIMIT=2`，不變更正式環境或 DB 全域上限。相同應用 SHA，Preview `dpl_GV4AuezD3tsx3fGcxssJpykTyGVU`，每筆確認 effectiveLimit=2。桌機1440×900、1024×900及768×1024各30次（1024寬度的效能樣本高度900，不能當作標準iPad橫向驗收；另外截圖檢查使用1024×768）（月／週／日各10）共90次完整資料一致、無頁面錯誤，另外的1024×768與768×1024版面檢查無水平溢出。結果仍未通過，不能將這項 Preview 設定當成正式可發布。
+
+| 寬度 | 樣本 | 範圍ms | 中位數ms | >=2000ms |
+|---|---:|---:|---:|---:|
+| 1440 | 30 | 1219–2594 | 1496.5 | 1 |
+| 1024 | 30 | 1078–1725 | 1530 | 0 |
+| 768 | 30 | 1223–2430 | 1512 | 2 |
+
+桌機2594ms樣本的伺服器總計597ms，但觀測到521/137/175/90ms前端長任務；直向2430ms樣本伺服器685ms，前端長任務719/76ms。獨立 CPU／timeline 診斷另外看見 GC、HitTest及Layout；工具剖析會增加負擔，其數字不列入90次驗收。另有診斷樣本伺服器665ms而TTFB5290ms，表示傳輸／平台等待亦可能支配單次體驗，不能全部歸因單一 SQL 或 React 元件。
+
+接續的前端修正：讓未變的店家課表、篩選與點名衍生陣列保留引用，避免同資料每次 render 重建陣列、重啟 schedule board 的版面追蹤 effect。資料／店家／任一篩選／取消名單／點名狀態變更仍重新計算。不保存跨請求金融資料。78項相關回歸、ESLint及完整TypeScript通過；新Preview驗收尚待完成。
