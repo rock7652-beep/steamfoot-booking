@@ -176,36 +176,29 @@ export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, cou
     `${courseMode ? "min-h-11 min-w-0 flex-1 sm:flex-none " : ""}rounded-md border border-earth-300 bg-white px-2 py-1.5 text-xs text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300 disabled:opacity-60`;
 
   if (beautyMode) {
-    const field = "min-h-11 w-full min-w-0 rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700";
-    return <div className="space-y-2 border-b border-earth-200 pb-3">
+    const field = "min-h-11 min-w-0 rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700";
+    return <div className="border-b border-earth-200 pb-3">
       {isPending && <NavigationNotice />}
-      <div className="flex min-w-0 items-center gap-2">
-        <form onSubmit={onSearchSubmit} className="min-w-0 flex-1">
-          <input aria-label="搜尋姓名、電話或 LINE 名稱" placeholder="輸入姓名、電話或 LINE 名稱" value={searchDraft}
+      <div className="flex min-w-0 flex-wrap items-center gap-2" aria-label="顧客搜尋與篩選">
+        <form onSubmit={onSearchSubmit} className="min-w-0 basis-56 flex-1">
+          <input aria-label="搜尋姓名、電話或 LINE 名稱" placeholder="姓名、電話或 LINE 名稱" value={searchDraft}
             onCompositionStart={()=>setComposing(true)} onCompositionEnd={()=>setComposing(false)}
             onKeyDown={event=>{if(event.key==="Enter"&&(composing||event.nativeEvent.isComposing))event.preventDefault();}}
-            onChange={event=>setDraft({source:current.search,value:event.target.value})} className={field}/>
-        </form>{trailing}
+            onChange={event=>setDraft({source:current.search,value:event.target.value})} className={`${field} w-full`}/>
+        </form>
+        <div className="min-w-0 max-w-40 [&_select]:w-full [&_select]:min-w-0"><CustomerLabelFilter/></div>
+        <select aria-label="LINE 綁定" value={current.status} onChange={event=>setParam("status",event.target.value)} className={`${field} max-w-48`}>
+          <option value="">LINE：全部</option><option value="linked">LINE：已綁定</option><option value="unlinked">LINE：未綁定</option>
+        </select>
+        <select aria-label="所屬店長" value={current.staff} onChange={event=>setParam("staff",event.target.value)} className={`${field} max-w-48`}>
+          <option value="">全部所屬店長</option>{staffOptions.map(staff=><option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
+        </select>
+        <select aria-label="排序方式" value={current.sort} onChange={event=>setParam("sort",event.target.value==="recent"?"":event.target.value)} className={`${field} max-w-48`}>
+          <option value="recent">排序：最近來店</option><option value="created">排序：建立時間</option><option value="points">排序：可用次數</option>
+        </select>
+        {hasActiveFilters&&<Link href={basePath} className="inline-flex min-h-11 shrink-0 items-center text-sm text-earth-600">清除篩選</Link>}
+        {trailing}
       </div>
-      <div className="grid min-w-0 grid-cols-1 items-end gap-2 sm:grid-cols-2 xl:grid-cols-4" aria-label="顧客篩選">
-        <CustomerLabelFilter label="標籤"/>
-        <label className="grid min-w-0 gap-1 text-sm text-earth-600">LINE 綁定
-          <select aria-label="LINE 綁定" value={current.status} onChange={event=>setParam("status",event.target.value)} className={field}>
-            <option value="">全部</option><option value="linked">已綁定</option><option value="unlinked">未綁定</option>
-          </select>
-        </label>
-        <label className="grid min-w-0 gap-1 text-sm text-earth-600">所屬店長
-          <select aria-label="所屬店長" value={current.staff} onChange={event=>setParam("staff",event.target.value)} className={field}>
-            <option value="">全部所屬店長</option>{staffOptions.map(staff=><option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
-          </select>
-        </label>
-        <label className="grid min-w-0 gap-1 text-sm text-earth-600">排序方式
-          <select aria-label="排序方式" value={current.sort} onChange={event=>setParam("sort",event.target.value==="recent"?"":event.target.value)} className={field}>
-            <option value="recent">最近來店</option><option value="created">建立時間</option><option value="points">可用次數</option>
-          </select>
-        </label>
-      </div>
-      {hasActiveFilters&&<Link href={basePath} className="inline-flex min-h-11 items-center text-sm text-earth-600">清除篩選</Link>}
     </div>;
   }
 

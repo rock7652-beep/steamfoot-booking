@@ -85,6 +85,18 @@ describe("business-hours store isolation", () => {
     mocks.specialUpsert.mockResolvedValue({ id: "special-a" });
   });
 
+  it("explains the isolated preview date restriction before database writes", async () => {
+    vi.stubEnv("COMPACT_OPERATIONS_PREVIEW", "1");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    mocks.resolveWriteStoreId.mockResolvedValue("addons-qa-beauty");
+    try {
+      const result = await applyDaySlotOverrides({date:"2026-11-03",changes:[{startTime:"13:00",action:"disable"}]});
+      expect(result).toMatchObject({success:false,error:expect.stringContaining("2030/11/03")});
+      expect(mocks.loadDayBusinessHoursContext).not.toHaveBeenCalled();
+      expect(mocks.txSlotOverrideUpsert).not.toHaveBeenCalled();
+    } finally { vi.unstubAllEnvs(); }
+  });
+
   it("rejects a store switch before loading or writing slots",async()=>{
     const result=await applyDaySlotOverrides({date:"2026-11-03",expectedStoreId:"branch-b",changes:[{startTime:"09:00",action:"disable"}]});
     expect(result).toMatchObject({success:false,error:expect.stringContaining("門市已切換")});

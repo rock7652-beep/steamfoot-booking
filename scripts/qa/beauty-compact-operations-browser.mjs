@@ -74,6 +74,10 @@ try{
    await choose(view);
    await page.screenshot({path:path.join(output,`${view}-${size.width}.png`),fullPage:true});
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Overflow ${view} ${size.width}`);
+   if(view==='customers'&&size.width>=1366){
+    const fields=await Promise.all(['搜尋姓名、電話或 LINE 名稱','依顧客標籤篩選','LINE 綁定','所屬店長','排序方式'].map(label=>page.getByLabel(label,{exact:true}).boundingBox()));
+    assert(fields.every(box=>box&&Math.abs(box.y-fields[0].y)<2),`Customer controls wrap at ${size.width}`);
+   }
    if(view==='income'&&size.width>=1366){
     const tabs=await page.getByRole('navigation',{name:'營運頁籤'}).boundingBox();
     const date=await page.getByLabel('分類開始日期',{exact:true}).boundingBox();

@@ -169,12 +169,19 @@ export async function getMonthScheduleSummary(year: number, month: number) {
 }
 
 /** 取得某天的可預約時段（與前台同源 resolver；額外帶後台需要的欄位） */
+// The isolated review deployment permits slot writes only on its approved fixture date.
+function previewSlotWriteRestriction(storeId: string, date: string): string | null {
+  if (process.env.COMPACT_OPERATIONS_PREVIEW !== "1" || process.env.VERCEL_ENV !== "preview") return null;
+  return storeId === "addons-qa-beauty" && date === "2030-11-03"
+    ? null : "此隔離測試站僅開放美業 2030/11/03 儲存時段調整；請關閉視窗並切換至該日期。";
+}
+
 export async function getDaySlotDetails(dateStr:string,expectedStoreId?:string){
  const user=await requirePermission("business_hours.view"),storeId=await resolveReadStoreId(user);
  if(!storeId)throw new AppError("UNAUTHORIZED","請先切換到指定門市");
  if(expectedStoreId&&expectedStoreId!==storeId)throw new AppError("CONFLICT","門市已切換，請重新開啟管理時段");
  if(!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)||new Date(dateStr+"T00:00:00Z").toISOString().slice(0,10)!==dateStr)throw new AppError("VALIDATION","日期格式不正確");
- return (await loadServiceHoursForSettings(storeId,dateStr)).day;
+ return {...(await loadServiceHoursForSettings(storeId,dateStr)).day, writeRestriction: previewSlotWriteRestriction(storeId, dateStr)};
 }
 
 /** 判斷指定日期是否營業，回傳 { open, openTime, closeTime, reason }（共用 resolver） */
@@ -1001,6 +1008,8 @@ export async function applyDaySlotOverrides(input: {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
     if(input.expectedStoreId&&input.expectedStoreId!==storeId)throw new AppError("CONFLICT","門市已切換，請重新開啟管理時段");
+    const writeRestriction = previewSlotWriteRestriction(storeId, input.date);
+    if (writeRestriction) throw new AppError("VALIDATION", writeRestriction);
     const industry = await getStoreIndustryModule(storeId);
     if (industry === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
     if (!parseTaipeiDateTime(input.date,"00:00")) {
