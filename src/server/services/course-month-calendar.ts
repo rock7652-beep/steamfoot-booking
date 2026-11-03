@@ -1,3 +1,4 @@
+import {withCalendarMonthRead} from "./calendar-month-read-scope";
 import {calendarPhase,calendarSyncPhase,calendarCount,calendarAccessPhase,traceCourseCalendar} from "./course-calendar-timing";
 import "server-only";
 import {preloadCourseCalendarRosters} from "@/server/services/course-calendar-rosters";
@@ -19,7 +20,7 @@ import {customerLabelSnapshot} from "./customer-label-snapshot";
 import {checkPermission} from "@/lib/permissions";
 import {EMPTY_LABELS} from "@/lib/customer-labels";
 /** Month data only. Every call retains the existing live store/permission and roster checks. */
-export async function readCourseMonthCalendar(input:unknown,profile:"FITNESS"|"MUSIC",dataScope?:string){return traceCourseCalendar(profile==="FITNESS"?"month_fitness":"month_music",async()=>{try{
+export async function readCourseMonthCalendar(input:unknown,profile:"FITNESS"|"MUSIC",dataScope?:string){return withCalendarMonthRead(()=>traceCourseCalendar(profile==="FITNESS"?"month_fitness":"month_music",async()=>{try{
  const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(input);
  if(!parseTaipeiDateTime(date,"00:00"))throw new AppError("VALIDATION","日期不正確");
  const {storeId,isChildStoreView,user}=await calendarPhase("access",()=>courseManagerRead("booking.read",{timing:{measure:calendarAccessPhase}}));
@@ -55,4 +56,4 @@ export async function readCourseMonthCalendar(input:unknown,profile:"FITNESS"|"M
  const [year,month]=first.split('-').map(Number),days=new Date(Date.UTC(year,month,0)).getUTCDate();
  const calendarDays=calendarSyncPhase("calendar_days",()=>Object.fromEntries(Array.from({length:days+12},(_,i)=>{const d=addTaiwanDuration(first,i-6,"DAY"),r=resolvedCourseHours(d,hours as Parameters<typeof resolvedCourseHours>[1],special as Parameters<typeof resolvedCourseHours>[2]);return[d,{status:r.status,reason:r.reason,periods:r.periods.map(p=>({openTime:p.openTime,closeTime:p.closeTime}))}];})));
  return calendarSyncPhase("response_projection",()=>({success:true as const,data:{storeId,labelSnapshot,rosterSnapshots,schedulingModes:schedulingModes??undefined,month:first.slice(0,7),sessions:[...rows,...rentals.map(r=>({id:`rental:${r.id}`,rentalId:r.id,sportsPalette:sports,rentalCancelled:!!r.cancelledAt,templateId:"",nameSnapshot:r.customerName,startsAt:r.startsAt.toISOString(),endsAt:r.endsAt.toISOString(),coachId:"",roomId:r.roomId,capacity:0,pointCost:0,bookings:[],previewKind:"RENTAL" as const}))],cancelledBookings,calendarDays,staffAvailabilityExceptions:exceptions.map(e=>({...e,date:e.date.toISOString().slice(0,10)}))}}));
-}catch(e){return handleActionError(e);}});}
+}catch(e){return handleActionError(e);}}));}
