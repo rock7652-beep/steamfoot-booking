@@ -257,8 +257,9 @@ export function CustomerLabelPicker({value,onChange}:{value:string;onChange:(val
   return <select aria-label="依顧客標籤篩選" value={value} className="min-h-11 rounded border border-earth-200 bg-white px-2 text-sm" onChange={e=>onChange(e.target.value)}><option value="">全部標籤</option>{ctx.snapshot.categories.map(c=><optgroup key={c.id} label={c.name}>{ctx.snapshot.labels.filter(l=>l.categoryId===c.id).map(l=><option key={l.id} value={l.id}>{l.name}{!l.active?"（停用）":""}</option>)}</optgroup>)}</select>;
 }
 
-export function CustomerLabelFilter() {
+export function CustomerLabelFilter({label}:{label?:string}={}) {
   const ctx=useContext(Context), params=useSearchParams(), router=useRouter(), pathname=usePathname();
   if(!ctx?.snapshot.enabled)return null;
-  return <CustomerLabelPicker value={params.get("label")??""} onChange={value=>{const next=new URLSearchParams(params.toString());next.delete("page");if(value)next.set("label",value);else next.delete("label");router.replace(`${pathname}?${next}`,{scroll:false});}}/>;
+  const picker=<CustomerLabelPicker value={params.get("label")??""} onChange={value=>{const next=new URLSearchParams(params.toString());next.delete("page");if(value)next.set("label",value);else next.delete("label");router.replace(`${pathname}?${next}`,{scroll:false});}}/>;
+  return label?<div className="grid min-w-0 gap-1 text-sm text-earth-600"><span>{label}</span>{picker}</div>:picker;
 }

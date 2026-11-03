@@ -1,4 +1,5 @@
 "use client";
+import {OperationsControls,OperationsLocalHeading} from "@/components/operations/workspace-frame";
 
 import toolbar from "@/components/operations/filter-toolbar.module.css";
 import { useState } from "react";
@@ -93,8 +94,8 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
 
   return (
     <main className={`${toolbar.container} @container/export w-full min-w-0`}>
-      <h2 className="text-base font-semibold">資料匯出</h2>
-      <section className="mt-2 space-y-2 rounded-xl border p-3"><div className={toolbar.toolbar}>
+      <OperationsLocalHeading title="資料匯出"/>
+      <section className="mt-2 space-y-2"><div className={toolbar.toolbar}>
         {isAdmin ? (
           <label className="block text-sm font-medium">門市
             <select className="mt-1 block min-h-11 w-full min-w-0 rounded border p-2" aria-label="門市" value={storeId} onChange={(event) => setStoreId(event.target.value)}>
@@ -116,17 +117,17 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
           </select>
         </label>
 
-        <fieldset className="min-w-0">
+        <OperationsControls><fieldset className="min-w-0">
           <legend className="text-sm font-medium">期間</legend>
           <div className="mt-1 flex flex-wrap gap-1">
             {(["thisMonth", "lastMonth", "custom"] as const).map((preset) => <button type="button" key={preset} onClick={() => selectPeriod(preset)} className={`min-h-11 rounded border px-3 py-2 text-sm ${periodPreset === preset ? "border-green-700 bg-green-50 text-green-800" : "border-gray-300"}`}>{({ thisMonth: "本月", lastMonth: "上月", custom: "自訂期間" } as const)[preset]}</button>)}
           </div>
-        </fieldset>
+        </fieldset></OperationsControls>
 
-        </div>{periodPreset === "custom" ? <div className={toolbar.toolbar}>
+        </div>{periodPreset === "custom" ? <OperationsControls><div className={toolbar.toolbar}>
           <label className="text-sm font-medium">{isCustomerExport ? "開始建立日期" : "開始日期"}<input className="mt-1 block min-h-11 w-full min-w-0 rounded border p-2" type="date" value={startDate} onChange={(event) => {setStartDate(event.target.value);persist({dateFrom:event.target.value});}} /></label>
           <label className="text-sm font-medium">{isCustomerExport ? "結束建立日期" : "結束日期"}<input className="mt-1 block min-h-11 w-full min-w-0 rounded border p-2" type="date" value={endDate} onChange={(event) => {setEndDate(event.target.value);persist({dateTo:event.target.value});}} /></label>
-        </div> : null}
+        </div></OperationsControls> : null}
 
         <div className="flex flex-wrap items-center justify-between gap-2"><p aria-label="匯出範圍" className="min-w-0 text-sm">{selectedStoreName}｜{startDate}～{endDate}｜{labels[type]}{status?`・${statuses[type].find(option=>option.value===status)?.label??status}`:""}<span className="ml-2 text-earth-500">依{periodLabel}</span></p><button className="min-h-11 shrink-0 rounded bg-green-700 px-4 py-2 font-medium text-white disabled:opacity-50" onClick={download} disabled={loading || !validRange || (isAdmin && !storeId)}>{loading ? "匯出中…" : "匯出 Excel"}</button></div>{!validRange&&<p role="alert" className="text-sm text-red-700">請選擇有效期間，結束日期不可早於開始日期。</p>}
         {feedback && <p role="status" className="mt-3 text-sm">{feedback}</p>}
