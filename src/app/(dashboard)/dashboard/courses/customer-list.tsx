@@ -1,4 +1,5 @@
 "use client";
+import { normalizeCourseCustomerFilters } from "@/lib/course-customer-filters";
 import {useMusicCustomerPage} from "@/components/admin/use-music-customer-page";
 import { musicNoteDisplay } from "@/lib/music-display";
 
@@ -52,7 +53,7 @@ export function CourseCustomerList({ beautyMode:explicitBeautyMode=false, assign
   for(const item of sessionBalances){sessionOwners.add(item.customerId);sessions.set(item.customerId,(sessions.get(item.customerId)??0)+item.available);}
   for (const row of customerPage?.rows ?? []) { points.set(row.id,row.points); sessions.set(row.id,row.sessions); if(row.hasPoints)pointOwners.add(row.id); if(row.hasSessions)sessionOwners.add(row.id); }
   for(const [id,available] of Object.entries(balanceOverrides)){sessionOwners.add(id);sessions.set(id,available);}
-  const filterParams=new URLSearchParams(params.toString());
+  const filterParams=normalizeCourseCustomerFilters(new URLSearchParams(params.toString()));
   if(beautyMode){filterParams.delete("visit");filterParams.delete("referral");if(!["linked","unlinked"].includes(filterParams.get("status")??""))filterParams.delete("status");}
   const filtered = customerPage ? customerPage.rows.flatMap(item => { const row=rows.find(r=>r.id===item.id); return row ? [row] : []; }) : filterCourseCustomers(rows, filterParams, beautyMode||sessionBalances.length||Object.keys(balanceOverrides).length ? sessions : points);
   const total = customerPage?.total ?? filtered.length;
@@ -66,7 +67,7 @@ export function CourseCustomerList({ beautyMode:explicitBeautyMode=false, assign
   const staff = [...new Map(rows.flatMap(row => row.assignedStaff ? [[row.assignedStaff.id, row.assignedStaff] as const] : [])).values()];
   const pageRows = customerPage ? filtered : filtered.slice((page - 1) * 20, page * 20);
   return <section className={`space-y-3 ${selectedIds.size ? "pb-40" : ""}`}>
-    <CustomersToolbar beautyMode={beautyMode} labelsInMore={sportsNative} musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath={listBasePath} courseMode trailing={canMerge || canExport || (sportsNative&&onPurchase) ? <ExclusiveMenu label={sportsNative?"顧客管理更多操作":"更多"} triggerText={sportsNative?"⋯":undefined}>{sportsNative&&onPurchase&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm text-primary-700" onClick={onPurchase}>購買方案</button>}{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
+    <CustomersToolbar beautyMode={beautyMode} labelsInMore={sportsNative} musicMode={music} staffOptions={assignmentStaff.length ? assignmentStaff : staff} basePath={listBasePath} courseMode trailing={canMerge || canExport || (sportsNative&&onPurchase) ? <ExclusiveMenu label={sportsNative?"顧客管理更多操作":"更多"} triggerText={sportsNative?"⋯":undefined}>{sportsNative&&onPurchase&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm text-primary-700" onClick={onPurchase}>購買方案</button>}{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
     <CustomersTable compactActions={music} onEdit={onEdit ? row=>onEdit(row.id) : undefined} renderNote={music ? row => <button type="button" className="min-h-11 max-w-64 text-left text-sm text-earth-600" onClick={()=>onView(row.id)} aria-label={`${row.name} 備註與資料來源`}><span className="line-clamp-1">{musicNoteDisplay(row.serviceNote) || "—"}</span></button> : undefined} assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
       selectionEnabled={canAssignManager && !music} selectedIds={selectedIds}
