@@ -4,6 +4,16 @@ import { assertReviewedReleaseEnvironment } from '../../scripts/consultation-pre
 const url='postgresql://postgres.ttworfzgwejdeolegkxl:test@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true';
 const safe={SPORTS_REDESIGN_STAGING:'1',SPORTS_REDESIGN_PREVIEW:'1',VERCEL:'1',VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:SPORTS_REDESIGN_PREVIEW_BRANCH,VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:url,DIRECT_URL:url};
 describe('sports redesign remote isolation',()=>{
+ it('schedule-conflict Preview reaches the native sports runtime only for its QA store',async()=>{
+  const {sportsNativePreview}=await import('@/lib/sports-native-preview');
+  const {vi}=await import('vitest');
+  try{
+   for(const [key,value] of Object.entries({...safe,VERCEL_GIT_COMMIT_REF:'fix/schedule-conflicts-20261103'}))vi.stubEnv(key,value);
+   expect(assertReviewedReleaseEnvironment(process.env)).toBe('sports-redesign-preview');
+   expect(await sportsNativePreview('sports-live-flow-store')).toBe(true);
+   expect(await sportsNativePreview('another-store')).toBe(false);
+  }finally{vi.unstubAllEnvs();}
+ });
  it('accepts exact Preview and routes clients through the checked release mode',()=>{
   expect(()=>assertSportsRedesignPreviewEnvironment(safe)).not.toThrow();
   expect(assertReviewedReleaseEnvironment(safe)).toBe('sports-redesign-preview');

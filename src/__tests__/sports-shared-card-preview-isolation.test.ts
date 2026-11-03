@@ -56,6 +56,14 @@ function run(overrides: Record<string, string | undefined>) {
 }
 
 describe("sports shared-card Preview preflight", () => {
+  it('schedule-conflict review keeps database and subprocess tripwires before migrations',()=>{
+    const branch='fix/schedule-conflicts-20261103';
+    const env={VERCEL_GIT_COMMIT_REF:branch,SPORTS_REDESIGN_STAGING:'1',SPORTS_REDESIGN_PREVIEW:'1'};
+    const result=run(env);
+    expect(result.status).toBe(0);
+    expect(result.output).toContain('[sports-redesign-preview] isolated_database=true migrations_skipped=true notifications_blocked=true');
+    for(const change of [{VERCEL_ENV:'production'},{VERCEL_GIT_COMMIT_REF:branch+'-other'},{VERCEL_GIT_REPO_OWNER:'other'},{VERCEL_GIT_REPO_SLUG:'other'},{DATABASE_URL:production},{DIRECT_URL:production},{DATABASE_URL:direct+'?host=production.invalid'},{WORKERS_CI_BRANCH:branch},{CF_PAGES_BRANCH:branch},{SPORTS_REDESIGN_STAGING:''},{SPORTS_REDESIGN_PREVIEW:''}])expect(run({...env,...change}).status).not.toBe(0);
+  });
   it("authorizes closed-day slot review only with the same isolated connections", () => {
     const branch="feat/closed-day-slot-additions-20261101";
     expect(run({VERCEL_GIT_COMMIT_REF:branch}).status).toBe(0);
