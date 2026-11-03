@@ -7,7 +7,7 @@ export function isCompactOperationsConnection(value){
  try{
   const url=new URL(value);
   const direct=url.hostname===`db.${COMPACT_OPERATIONS_DATABASE}.supabase.co`&&url.username===COMPACT_OPERATIONS_ROLE;
-  const pooled=url.hostname==='aws-0-ap-northeast-1.pooler.supabase.com'&&url.username===`${COMPACT_OPERATIONS_ROLE}.${COMPACT_OPERATIONS_DATABASE}`;
+  const pooled=['aws-0-ap-northeast-1.pooler.supabase.com','aws-1-ap-northeast-1.pooler.supabase.com'].includes(url.hostname)&&url.username===`${COMPACT_OPERATIONS_ROLE}.${COMPACT_OPERATIONS_DATABASE}`;
   const allowed=new Set(['sslmode','schema','pgbouncer','connection_limit','connect_timeout','pool_timeout']);
   return ['postgres:','postgresql:'].includes(url.protocol)&&!!url.password&&url.pathname==='/postgres'&&!url.hash&&
    (direct||pooled)&&['','5432','6543'].includes(url.port)&&url.searchParams.get('sslmode')==='require'&&

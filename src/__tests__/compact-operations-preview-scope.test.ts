@@ -6,3 +6,5 @@ it('permits only this dedicated preview',()=>expect(assertCompactOperationsPrevi
 it('leaves unrelated deployments unchanged',()=>expect(assertCompactOperationsPreview({})).toBe(false));
 it.each([{VERCEL_ENV:'production'},{VERCEL_PROJECT_ID:'production-project'},{VERCEL_GIT_COMMIT_REF:'main'},{VERCEL_GIT_REPO_SLUG:'another-repository'},{BEAUTY_NOTIFICATIONS_ENABLED:'1'},{LINE_CHANNEL_ACCESS_TOKEN:'synthetic-token'},{PRODUCTION_MIGRATION_TARGET:'anything'}])('rejects unsafe deployment metadata or delivery credentials: %j',patch=>expect(()=>assertCompactOperationsPreview({...env,...patch})).toThrow());
 it.each([url.replace('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf'),url.replace('steamfoot_compact_qa_20261103','postgres'),url.replace('sslmode=require','sslmode=disable'),url+'&host=production.invalid',url+'&options=unsafe',url+'&schema=private'])('rejects connections outside the reviewed database role and routing',connection=>expect(isCompactOperationsConnection(connection)).toBe(false));
+
+it('accepts the second documented pooler for the same isolated role and project',()=>expect(isCompactOperationsConnection(url.replace('aws-0-','aws-1-'))).toBe(true));
