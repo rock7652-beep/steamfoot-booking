@@ -79,6 +79,7 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
     body = (<>
       {!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide storeId={storeId} key={`setup:${storeId}`} manual {...await settingsStep("read_setup", () => getCourseSetup(storeId,user.id))} localSections/>}
       <CourseSettingsWorkspace canAddOns={canAddOns}
+        canAgreementRecords={process.env.COURSE_AGREEMENTS_ENABLED === "1" && music && await checkPermission(user.role,user.staffId,"customer.read") && await checkPermission(user.role,user.staffId,"business_hours.view")}
         canAgreements={process.env.COURSE_AGREEMENTS_ENABLED === "1" && music && canEdit && !readOnly}
         publicTrialHref={store?.slug ? resolveBookingLineEntry(store.slug)?.url??null : null}
         native={(await sportsNativePreview(storeId))} music={music}

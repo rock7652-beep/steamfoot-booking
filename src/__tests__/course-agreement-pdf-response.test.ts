@@ -1,0 +1,18 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+import {AppError} from '@/lib/app-error';
+import type {CourseAgreementReceipt} from '@/lib/course-agreement-signing';
+const m=vi.hoisted(()=>({pdf:vi.fn(),staff:vi.fn(),public:vi.fn()}));
+vi.mock('@/server/services/course-agreement-pdf',()=>({createCourseAgreementPdf:m.pdf}));
+vi.mock('@/server/services/course-agreement-records',()=>({readStaffCourseAgreementReceipt:m.staff}));
+vi.mock('@/server/services/course-agreement-public',()=>({readCourseAgreementReceipt:m.public}));
+import {courseAgreementPdfResponse} from '@/server/services/course-agreement-pdf-response';
+import {GET as staffGet} from '@/app/api/course-agreements/records/[id]/pdf/route';
+import {GET as publicGet} from '@/app/course-agreements/receipt/[token]/pdf/route';
+const receipt={id:'fixture-signature'} as CourseAgreementReceipt;
+beforeEach(()=>{vi.resetAllMocks();m.pdf.mockResolvedValue(Buffer.from('%PDF-1.7\nfixture'));m.staff.mockResolvedValue(receipt);m.public.mockResolvedValue(receipt);});
+it('uses attachment, PDF MIME type and private download headers',async()=>{const response=await courseAgreementPdfResponse(async()=>receipt);expect(response.status).toBe(200);expect(response.headers.get('content-type')).toBe('application/pdf');expect(response.headers.get('content-disposition')).toBe('attachment; filename="course-agreement-fixture-signature.pdf"');expect(response.headers.get('cache-control')).toContain('no-store');expect(response.headers.get('referrer-policy')).toBe('no-referrer');});
+it('does not start rendering on authorization or evidence failures',async()=>{const response=await courseAgreementPdfResponse(async()=>{throw new AppError('FORBIDDEN','沒有匯出權限');});expect(response.status).toBe(403);expect(m.pdf).not.toHaveBeenCalled();});
+it('does not disclose raw internal render errors',async()=>{m.pdf.mockRejectedValue(new Error('private SQL or filesystem details'));const response=await courseAgreementPdfResponse(async()=>receipt);expect(response.status).toBe(500);expect(await response.text()).not.toContain('private SQL');});
+it('binds staff downloads to the declared store and export operation',async()=>{await staffGet(new Request('https://test.invalid/api/course-agreements/records/fixture-signature/pdf?storeId=store-a'),{params:Promise.resolve({id:'fixture-signature'})});expect(m.staff).toHaveBeenCalledWith('fixture-signature','store-a','export');});
+it('refuses a missing store id rather than guessing the current store',async()=>{const response=await staffGet(new Request('https://test.invalid/api/course-agreements/records/fixture-signature/pdf'),{params:Promise.resolve({id:'fixture-signature'})});expect(response.status).toBe(400);expect(m.staff).not.toHaveBeenCalled();expect(m.pdf).not.toHaveBeenCalled();});
+it('requires the receipt capability for a learner PDF',async()=>{await publicGet(new Request('https://test.invalid/course-agreements/receipt/token/pdf'),{params:Promise.resolve({token:'receipt-capability'})});expect(m.public).toHaveBeenCalledWith('receipt-capability');m.public.mockRejectedValue(new AppError('NOT_FOUND','無法使用'));expect((await publicGet(new Request('https://test.invalid/course-agreements/receipt/token/pdf'),{params:Promise.resolve({token:'wrong-capability'})})).status).toBe(404);});

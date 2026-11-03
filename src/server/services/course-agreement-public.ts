@@ -6,15 +6,14 @@ import { z } from 'zod';
 import { coursePrisma } from '@/lib/course-db';
 import { prisma } from '@/lib/db';
 import { AppError } from '@/lib/app-error';
-import { courseAgreementDraftSchema } from '@/lib/course-agreement';
-import { courseAgreementSignerSchema, courseAgreementSignSchema, signatureSvg } from '@/lib/course-agreement-signing';
+import { courseAgreementSignSchema, signatureSvg } from '@/lib/course-agreement-signing';
 import type { CourseAgreementCompletion, CourseAgreementPublicDocument, CourseAgreementReceipt, CourseAgreementReviewView } from '@/lib/course-agreement-signing';
 import { isMusicCourseStoreFromEntitlements } from './course-business-profile';
 import { lockCourseStore } from './course-store-lock';
 import { courseAgreementReceiptToken } from './course-agreement-signing-token';
+import { agreementEvidenceInclude, verifiedAgreementDocument as publicDocument, verifiedAgreementReceipt } from './course-agreement-evidence';
 
 export const agreementTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
-const clausesSchema = z.array(z.object({ title: z.string(), body: z.string() })).min(1);
 const digest = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex');
 const invalid = () => new AppError('NOT_FOUND', '此約定書連結已失效，請向店家取得最新連結');
 export function assertPublicCourseAgreementsEnabled() {
@@ -28,11 +27,6 @@ async function versionForToken(token: string) {
   const store = await prisma.store.findUnique({ where: { id: version.storeId }, select: { industryModule: true, operatingStatus: true } });
   if (!store || store.industryModule !== 'COURSE' || !['ACTIVE', 'TRIAL'].includes(store.operatingStatus) || !await isMusicCourseStoreFromEntitlements(prisma, version.storeId)) throw invalid();
   return version;
-}
-function publicDocument(version: { settingsSnapshot: unknown; document: unknown; documentHash: string; version: number }): CourseAgreementPublicDocument {
-  const document = clausesSchema.parse(version.document);
-  if (digest(JSON.stringify(document)) !== version.documentHash) throw new AppError('CONFLICT', '約定書內容驗證失敗，請聯絡店家');
-  return { brand: courseAgreementDraftSchema.parse(version.settingsSnapshot).brand, version: version.version, documentHash: version.documentHash, document };
 }
 export async function readPublicCourseAgreement(token: string): Promise<CourseAgreementPublicDocument> {
   const version = await versionForToken(token);
@@ -118,10 +112,7 @@ export async function signPublicCourseAgreement(token: string, reviewToken: stri
 export async function readCourseAgreementReceipt(token: string): Promise<CourseAgreementReceipt> {
   assertPublicCourseAgreementsEnabled();
   if (!agreementTokenSchema.safeParse(token).success) throw invalid();
-  const record = await coursePrisma.courseAgreementSignature.findUnique({ where: { receiptTokenHash: digest(token) }, include: { version: true, review: true, asset: true } });
-  if (!record?.asset || record.asset.storeId !== record.storeId || record.asset.objectKey !== record.signatureObjectKey) throw invalid();
-  const png = Buffer.from(record.asset.content);
-  if (digest(png) !== record.signatureHash) throw new AppError('CONFLICT', '簽署副本驗證失敗，請聯絡店家');
-  return { ...publicDocument(record.version), id: record.id, signer: courseAgreementSignerSchema.parse(record.signerSnapshot),
-    deliveredAt: record.review.deliveredAt.toISOString(), signedAt: record.signedAt.toISOString(), signatureDataUrl: `data:image/png;base64,${png.toString('base64')}` };
+  const record = await coursePrisma.courseAgreementSignature.findUnique({ where: { receiptTokenHash: digest(token) }, include: agreementEvidenceInclude });
+  if (!record) throw invalid();
+  return verifiedAgreementReceipt(record);
 }

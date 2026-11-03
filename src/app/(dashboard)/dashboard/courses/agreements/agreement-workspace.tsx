@@ -6,6 +6,7 @@ import type { CourseAgreementDraft, CourseAgreementPreview, CourseAgreementResul
 
 export type AgreementWorkspaceProps = {
   initial: CourseAgreementState;
+  recordsHref?: string;
   save: (input: { storeId: string; revision: number; draft: CourseAgreementDraft }) => Promise<CourseAgreementResult<CourseAgreementPreview>>;
   pause?: (input: { storeId: string; revision: number; activeVersionId: string }) => Promise<CourseAgreementResult<CourseAgreementState>>;
   share?: (storeId: string) => Promise<CourseAgreementResult<{ url: string; qrDataUrl: string }>>;
@@ -22,7 +23,7 @@ const groups = [{ id: 'store', label: '店家資料' }, { id: 'rules', label: '�
 
 // The page keys this workspace by authenticated store; a late response from an
 // unmounted store cannot populate the next store's draft.
-export function CourseAgreementWorkspace({ initial, save, publish, pause, share }: AgreementWorkspaceProps) {
+export function CourseAgreementWorkspace({ initial, save, publish, pause, share, recordsHref }: AgreementWorkspaceProps) {
   const [confirmed, setConfirmed] = useState(initial);
   const [draft, setDraft] = useState(initial.draft);
   const [stage, setStage] = useState<'summary' | 'edit' | 'preview'>('summary');
@@ -96,7 +97,7 @@ export function CourseAgreementWorkspace({ initial, save, publish, pause, share 
   return <div className="min-w-0 space-y-4" aria-busy={pending}>
     <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
       <div><h1 className="text-2xl font-semibold text-primary-900">課程共同約定</h1><p className="mt-1 text-sm text-earth-600">把上課方式說清楚，讓學員、店家與老師有共同依據。</p></div>
-      <DashboardLink className={button} aria-disabled={pending} href="/dashboard/courses?view=settings&section=store">返回課程設定</DashboardLink>
+      {recordsHref && <DashboardLink className={button} href={recordsHref}>簽署紀錄</DashboardLink>}<DashboardLink className={button} aria-disabled={pending} href="/dashboard/courses?view=settings&section=store">返回課程設定</DashboardLink>
     </div>
     <SettingsWorkspaceFrame
       nav={<><div className="md:hidden text-sm text-earth-600">{stage === 'edit' ? groups.find(item => item.id === group)?.label : stage === 'preview' ? '預覽約定書' : '共同約定'}</div><SettingsWorkspaceNav activeId={stage === 'edit' ? group : stage} items={stage === 'edit' ? groups : [{ id: stage, label: stage === 'preview' ? '預覽約定書' : '共同約定' }]} onSelect={id => { if (!pending && stage === 'edit') setGroup(id); }} /></>}

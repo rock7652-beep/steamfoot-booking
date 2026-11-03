@@ -56,10 +56,31 @@
 - 簽名檔綁定 signatureId、storeId 與 objectKey 的複合外鍵，禁止一般覆寫與刪除；啟用 RLS，撤銷 PUBLIC／anon／authenticated 讀寫。沿用專案 Prisma migration 單一歷史，未新增另一套 Supabase CLI migration history。
 - 自行填寫的姓名／電話不作為既有 Customer 的身分證據，customerId 保持 null；未新增會員、購課、LINE 通知或其他外發。
 - 收據使用與簽署連結不同命名空間的 token；`/course-agreements/receipt/[token]` 只讀對應副本，驗證條款及 PNG 雜湊。暫停／換版不使已簽副本失效。
-- 副本顯示當時全文、簽署者、代理人、實際時間、簽名與文件識別碼，可「列印／另存 PDF」。這是瀏覽器列印功能，尚無伺服器直接下載 PDF、後台簽署清單與批次匯出。
+- 副本顯示當時全文、簽署者、代理人、實際時間、簽名與文件識別碼，可直接下載伺服器產生的 PDF，也保留「列印／另存 PDF」。後台已有查詢與逐份下載；尚未實作批次匯出。
 - 共用店內裝置可明確選擇「換下一位學員」，新建審閱憑證並清除前位學員表單與筆畫，不沿用其簽署資料。
 - 入口與副本都設 private no-store、no-referrer、noindex、nosniff、DENY frame；公開 boundary 保留既有唯讀預覽 write guard，副本拒絕 POST，未開放或靜態指南預覽一律 404。
 請假文字設定不會修改既有預約系統的 cancellationLeadMinutes；介面明示需確認與實際規則一致，完整固定時刻的預約執行仍待後續串接。
+
+### 店長簽署紀錄與直接 PDF 下載（本階段）
+
+本階段接續 `55ebbb08`；未建立 PR、未 push、未發布、未套用 migration，沒有變更正式資料。
+
+- 設定中心「店家資料」與共同約定工作台都提供「簽署紀錄」。入口依音樂資格、全域開放旗標及查看權限顯示，不要求門市目前啟用共同約定。
+- 清單路由 `/dashboard/courses/agreements/records`；完整副本路由 `/dashboard/courses/agreements/records/[id]`。頁面頂部用 checkPermission，服務再驗 requireCourseAgreementAccess。可讀範圍沿用既有 own／child store 規則，並拒絕 stale storeId。
+- 可搜尋本店全部紀錄的學員／代理人姓名及電話；電話搜尋支援空白、括號與連字號格式。搜尋不只限目前頁面。
+- 日期以共同 date-utils 的台灣日期邊界查詢，包含結束日 23:59:59.999；拒絕無效日期與反向區間。
+- 每頁 25 筆，以 signedAt、id 倒序穩定排序；count 與 rows 在 RepeatableRead transaction 中讀取。超過末頁時回到有效末頁，不把不存在頁面當成整店無紀錄。
+- 清單只讀必要 metadata，不讀圖片、條款全文或 receipt token。停用／換版不排除舊簽署。
+- UI 沿用 DataTable、共用 filter toolbar、DashboardLink 與既有設定骨架；表格僅區塊內左右捲動，查看後返回保留門市、搜尋、日期與頁碼。
+- 查看權限與匯出權限分離；沒有 customer.export 時隱藏直接 PDF 操作。每次下載都重新驗證權限與門市，不依靠 UI 或先前讀取結果授權。
+- 店長 PDF：`GET /api/course-agreements/records/[id]/pdf?storeId=...`，缺 storeId 不猜預設門市。
+- 學員 PDF：`GET /course-agreements/receipt/[token]/pdf`，只承認原本的 receipt capability，仍須全域公開功能已開放。此路由不能新增簽署或改資料。
+- 學員副本、店長副本及 PDF 共用 verifiedAgreementReceipt，驗證版本／審閱／PNG 與門市關聯、文件 SHA-256 及原始 PNG SHA-256；不以目前店家設定重新建立舊條款。
+- PDFKit `0.20.2` 與 types `0.17.7` 已鎖版並更新 lockfile。Noto Sans CJK TC 原字型約 16MB，附原 OFL 授權，只對兩個 PDF 路由加入 Next tracing；PDF 內僅嵌入使用字元子集。使用 Node runtime，pdfkit 設為 server external package。實際部署 tracing／bundle 尚待隔離建置驗收。
+- PDF 在記憶體生成，不透過外部 PDF／字型 API，不寫入暫存個資檔案。包含原條款、學員／法定代理人、實際台灣時間、簽名、識別碼、內容 hash 與頁碼；標題不會孤立於頁尾，長段落可完整分頁。
+- 所有 PDF 回應含 attachment、正確 MIME／長度、private no-store、no-referrer、noindex、nosniff 等標頭；錯誤保持私有且不洩漏原始 SQL／檔案路徑。
+- 下載元件以同源、no-store fetch 取得 PDF。失敗就地提示並可重試，不離開搜尋／副本畫面；更換紀錄或門市 URL 時取消舊請求，晚到的內容不觸發下載。
+- 本階段沒有新資料表／migration、購課／排課異動、通知或外發。套件只在獨立依賴目錄安裝，工作分支以 symlink overlay 使用，沒有修改原正式工作目錄的依賴。
 
 ## 開放條件（尚未設定）
 
@@ -96,20 +117,36 @@
 - 產生的合成 PDF 僅驗列印版面，不是正式簽署 PDF。圖、PDF 與結果位於 `/workspace/reports/course-agreement-signing/`；不是部署 Preview、真機或完整登入驗收。
 - 本次新增頁面、工作台、服務、Action、測試及 proxy 的依賴範圍 TypeScript 檢查通過；新增與修改的約定書程式通過 ESLint；git diff --check 通過。不宣稱完整 production build 或全站測試通過。
 
+### 本階段最終驗證
+
+- 約定書與設定回歸共 12 份測試、121 項通過（前階段 98 項，加查詢／PDF／回應／下載狀態與公開 PDF boundary 等 23 項）。
+- 查詢測試涵蓋完整 store where、最小欄位、重複讀快照、台灣日邊界、代理人／格式化電話搜尋、分頁、錯誤不當空資料、舊版查閱及匯出再授權。
+- 證據測試涵蓋錯店關聯、內容或 PNG 遭改時拒絕輸出；PDF route 測缺 scope、拒絕授權、不可用 capability、錯誤私有標頭與不得先產檔。
+- 真實 PDFKit 輸出有 Unicode 字型與簽名影像。`scripts/qa/course-agreement-pdf-artifact.ts` 以 Poppler 檢查合成檔：一般 2 頁（140796 bytes），長條款 4 頁；中文、代理人、電話、台灣日邊界時間、尾段及頁碼可擷取，無孤立標題，並將首／末頁轉圖目視確認。這是合成文件，未使用正式學員資料。
+- `scripts/qa/course-agreement-records-browser.mjs` 沿用真實元件與攔截所有外連，合成 53 筆資料；模擬 1920×1080、1366×900、1024×768、768×1024、600×900、390×844，包含側欄占寬、區塊左右滑動及長姓名。沒有整頁水平溢出。
+- 模擬操作涵蓋從第二頁搜尋尚未載入的第 53 筆、查看、返回保留篩選、實際下載事件、下載權限錯誤就地重試、讀取錯誤不冒充空結果、清空結果及無匯出權限不顯示下載；pageerror 為零。
+- 新增下載元件的 jsdom 測試驗證換 URL 取消前店／前份請求、不觸發舊下載，以及權限錯誤可在原畫面重試。
+- 本階段新增服務／頁面／元件／測試與真實依賴的 TypeScript、ESLint 及 git diff --check 通過；未跑會寫 migration 的 npm build，沒有宣稱全站建置或真機通過。
+- 合成 PDF、擷取／轉圖與 browser JSON：`/workspace/reports/course-agreement-records/`。QA 需 Poppler 及允許子程序的本機環境。瀏覽器採替身導航與 API；沒有完整登入、Prisma driver 對 staging DB 或多連線併發驗收。
+- 影響情境為 02／05／06／08／10；03／04 僅延續先前編輯與簽署的測試，未改交易規則。01 課表切月與 09 HQ 三態非本次變更。未改共用 DataTable／toolbar 原元件。
+
 ## 店長操作說明（待開放後適用）
 
 共同約定為選用功能，沒有需要可不啟用。到課程設定的店家資料，開啟「課程共同約定」。依序填寫店家資料、課程規則與個資告知，按「儲存並預覽」核對全文。確認適用範本與實際執行規則後，勾選確認並按「確認啟用」。修改草稿不影響既有簽署文件；重要條款更新須重新提供審閱及必要確認。啟用後按「讓學員簽署」取得 QR Code；要停用時按「暫停新簽署」並確認，舊簽署副本仍保留。
 
+查閱既有文件：到「簽署紀錄」，輸入學員或代理人的姓名／電話、日期後查詢。可逐筆查看全文，或有匯出權限時下載 PDF。看完按「返回簽署紀錄」保留原搜尋條件。暫停新簽署不影響舊紀錄查閱。
+
 ## 最終驗證命令
 
-- `node node_modules/vitest/vitest.mjs run src/__tests__/course-agreement-access.test.ts src/__tests__/course-agreement-schema.test.ts src/__tests__/course-agreement-settings.test.ts src/__tests__/course-agreement-public.test.ts src/__tests__/course-agreement-public-boundary.test.ts src/__tests__/course-agreement-public-actions.test.ts src/__tests__/course-agreement-sharing.test.ts src/__tests__/course-settings-workspace-ui.test.ts`：98 passed。
+- `node node_modules/vitest/vitest.mjs run src/__tests__/course-agreement-access.test.ts src/__tests__/course-agreement-schema.test.ts src/__tests__/course-agreement-settings.test.ts src/__tests__/course-agreement-public.test.ts src/__tests__/course-agreement-public-boundary.test.ts src/__tests__/course-agreement-public-actions.test.ts src/__tests__/course-agreement-sharing.test.ts src/__tests__/course-settings-workspace-ui.test.ts src/__tests__/course-agreement-records.test.ts src/__tests__/course-agreement-pdf.test.ts src/__tests__/course-agreement-pdf-response.test.ts src/__tests__/course-agreement-download.test.ts`：121 passed。
 - `node scripts/qa/course-agreement-settings-browser.mjs` 與 `node scripts/qa/course-agreement-signing-browser.mjs`：合成預覽操作通過，pageerror 為零。
-- `tsc --project /tmp/course-signing-tsconfig.json --noEmit`：通過，選取本次新頁面、服務、Action、測試與 proxy 根檔及其真實依賴；不是全 repo include。
+- `tsc --project /tmp/course-records-tsconfig.json --noEmit`：通過，選取本次新頁面、服務、Action、測試與 proxy 根檔及其真實依賴；不是全 repo include。
+- `node --conditions=react-server --import tsx scripts/qa/course-agreement-pdf-artifact.ts` 與 `node scripts/qa/course-agreement-records-browser.mjs`：合成 PDF 與查詢／下載 UI 驗證通過。
 - Prisma generate 僅產生本 worktree 的忽略檔案；資料表與跨店外鍵由 PGlite 測試實際執行。
 
 ## 下一階段
 
-串接店長簽署紀錄查詢、權限保護的直接 PDF 下載及匯出，並以獨立 staging 環境完成整段業務驗收。
+以獨立 staging 環境完成簽署 → 後台查詢 → PDF 下載的整段登入與資料驗收，再核對備份還原與正式發布條件；逐份查詢／下載已完成，不代表已具備完整營運備份與批次匯出。
 
 正式開放前另需：
 

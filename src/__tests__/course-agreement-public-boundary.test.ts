@@ -15,3 +15,5 @@ it('permits signing actions but refuses receipt mutations and unsupported method
  expect(courseAgreementPublicBoundary(new NextRequest('https://test.invalid/course-agreements/receipt/'+'a'.repeat(43),{method:'POST'}),true,false)?.status).toBe(405);
  expect(courseAgreementPublicBoundary(new NextRequest('https://test.invalid'+path,{method:'DELETE'}),true,false)?.status).toBe(405);
 });
+
+it('permits read-only PDF access only below a receipt capability',()=>{const token='a'.repeat(43);expect(courseAgreementPublicBoundary(new NextRequest('https://test.invalid/course-agreements/receipt/'+token+'/pdf'),true,false)?.headers.get('x-middleware-next')).toBe('1');expect(courseAgreementPublicBoundary(new NextRequest('https://test.invalid/course-agreements/'+token+'/pdf'),true,false)?.status).toBe(404);expect(courseAgreementPublicBoundary(new NextRequest('https://test.invalid/course-agreements/receipt/'+token+'/pdf',{method:'POST'}),true,false)?.status).toBe(405);});

@@ -7,5 +7,5 @@ export const metadata = { title: '已簽署約定書副本', robots: { index: fa
 export default async function CourseAgreementReceiptPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const value = await readCourseAgreementReceipt(token).catch(error => { if (error instanceof AppError && error.code === 'NOT_FOUND') notFound(); throw error; });
-  return <CourseAgreementReceiptView value={value} />;
+  return <CourseAgreementReceiptView value={value} pdfHref={`/course-agreements/receipt/${token}/pdf`} />;
 }

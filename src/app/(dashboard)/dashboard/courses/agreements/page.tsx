@@ -13,6 +13,6 @@ export default async function CourseAgreementsPage() {
   if (process.env.COURSE_AGREEMENTS_ENABLED !== '1') notFound();
   const initial = await readCourseAgreementSettings();
   return <PageShell className="mx-auto w-full min-w-0 max-w-[1440px] px-4 py-6 sm:px-6">
-    <CourseAgreementWorkspace key={initial.storeId} initial={initial} save={saveCourseAgreementDraftAction} publish={publishCourseAgreementAction} pause={pauseCourseAgreementAction} share={process.env.COURSE_AGREEMENTS_PUBLIC_ENABLED === '1' ? shareCourseAgreementAction : undefined} />
+    <CourseAgreementWorkspace key={initial.storeId} initial={initial} recordsHref={await checkPermission(user.role,user.staffId,'customer.read') && await checkPermission(user.role,user.staffId,'business_hours.view') ? `/dashboard/courses/agreements/records?storeId=${encodeURIComponent(initial.storeId)}` : undefined} save={saveCourseAgreementDraftAction} publish={publishCourseAgreementAction} pause={pauseCourseAgreementAction} share={process.env.COURSE_AGREEMENTS_PUBLIC_ENABLED === '1' ? shareCourseAgreementAction : undefined} />
   </PageShell>;
 }
