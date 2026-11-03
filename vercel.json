@@ -58,6 +58,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "chore/calendar-phase-timing-20261103": false,
       "fix/steam-plan-reschedule-20261103": false,
       "feat/beauty-operations-compact-20261103": false,
       "feat/music-fitness-compact-20261103": false,
