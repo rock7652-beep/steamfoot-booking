@@ -10,7 +10,7 @@ it('requires dedicated credentials without falling back to the main database',()
  expect(()=>addOnsDatabaseSelection({DATABASE_URL:url})).toThrow('尚未完成');
 });
 it.each([
- url.replace(role,'postgres'),url.replace(project,'otherproject'),url+'?options=-c%20role=postgres',url+'?sslmode=disable',url.replace('/postgres','/other'),
+ url.replace(role,'postgres'),url.replace(project,'otherproject'),url+'?options=-c%20role=postgres',url+'?sslmode=disable',url+'?sslaccept=accept_invalid_certs',url.replace('/postgres','/other'),
 ])('rejects foreign, privileged or overridden connections without exposing credentials',bad=>{
  expect(()=>addOnsDatabaseSelection({ADDONS_DATABASE_URL:bad,ADDONS_DATABASE_ROLE:role,ADDONS_DATABASE_PROJECT_REF:project})).toThrow('尚未完成');
 });
@@ -52,4 +52,11 @@ it('passes the original transaction and options through, propagating rollback fa
  const work=vi.fn(async(value)=>{expect(value).toBe(tx);throw failure;});
  await expect(client.$transaction(work,{timeout:1000})).rejects.toBe(failure);
  expect(transaction).toHaveBeenCalledWith(work,{timeout:1000});
+});
+
+it('requires certificate validation on the dedicated Prisma connection',()=>{
+ const env={ADDONS_DATABASE_URL:url,ADDONS_DATABASE_ROLE:role,ADDONS_DATABASE_PROJECT_REF:project};
+ const selected=new URL(addOnsDatabaseSelection(env).url);
+ expect(selected.searchParams.get('sslmode')).toBe('require');expect(selected.searchParams.get('sslaccept')).toBe('strict');
+ expect(()=>addOnsDatabaseSelection({...env,ADDONS_DATABASE_URL:url+'?sslaccept=strict'})).not.toThrow();
 });

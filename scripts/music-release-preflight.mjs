@@ -35,6 +35,10 @@ export async function runMusicNativeSchemaPreflight(env=process.env){
  }finally{await client.end();}
 }
 export async function musicBuildPreflight(env=process.env){
+ if(env.VERCEL_ENV==='production'&&env.ADDONS_DATABASE_URL){
+  const {execFileSync}=await import('node:child_process');
+  execFileSync(process.execPath,['--conditions=react-server','--import','tsx',fileURLToPath(new URL('./addons-production-readiness.ts',import.meta.url))],{env,stdio:'inherit'});
+ }
  // Vercel can skip npm lifecycle scripts. Run the LINE gate explicitly from
  // the existing first build command, before any DB preflight or migration.
  if(env.STORE_LINE_ADDITIONAL_CONFIG_JSON){

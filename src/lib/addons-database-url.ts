@@ -16,10 +16,12 @@ export function addOnsDatabaseSelection(env:Record<string,string|undefined>=proc
  if(!['postgres:','postgresql:'].includes(url.protocol)||!url.password||url.pathname!=='/postgres'||!['','5432','6543'].includes(url.port)||(!direct&&!pooled))throw fail();
  // A project label supplied alongside a URL is not production isolation evidence.
  if(env.VERCEL_ENV==='production'&&project!=='qijlnhtpbintanzpxkvf')throw fail();
- const allowed=new Set(['schema','sslmode','pgbouncer','connection_limit','pool_timeout','connect_timeout','statement_cache_size','application_name']);
+ const allowed=new Set(['schema','sslmode','sslaccept','pgbouncer','connection_limit','pool_timeout','connect_timeout','statement_cache_size','application_name']);
  if([...url.searchParams.keys()].some(key=>!allowed.has(key))||url.searchParams.has('schema')&&url.searchParams.get('schema')!=='public')throw fail();
  if(url.searchParams.has('sslmode')&&!['require','verify-ca','verify-full'].includes(url.searchParams.get('sslmode')!))throw fail();
+ if(url.searchParams.has('sslaccept')&&url.searchParams.get('sslaccept')!=='strict')throw fail();
  url.searchParams.set('sslmode',url.searchParams.get('sslmode')??'require');
+ url.searchParams.set('sslaccept','strict');
  const effective=new URL(buildDatabaseUrl(url.toString()));
  effective.searchParams.set('connection_limit','1');
  effective.searchParams.set('pool_timeout','10');
