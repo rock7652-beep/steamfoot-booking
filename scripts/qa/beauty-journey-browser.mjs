@@ -14,7 +14,7 @@ await build({entryPoints:['scripts/qa/beauty-journey-fixture.tsx'],bundle:true,d
  });
  b.onResolve({filter:/^@\/lib\/beauty\/collection-reader$/},()=>({path:'reader',namespace:'mock'}));
  b.onResolve({filter:/^next\/navigation$/},()=>({path:'nav',namespace:'mock'}));
- b.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:args.path==='nav'?"export const useRouter=()=>({refresh(){}});export const usePathname=()=>'/qa';export const useSearchParams=()=>new URLSearchParams();":"export const readBeautyCollectionQuote=async()=>({success:true,data:window.qaCharge});export const readBeautyCollectionStatus=async()=>({success:true,data:null});",loader:'js'}));
+ b.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:args.path==='nav'?"export const unstable_rethrow=error=>{throw error};export const useRouter=()=>({refresh(){}});export const usePathname=()=>'/qa';export const useSearchParams=()=>new URLSearchParams();":"export const readBeautyCollectionQuote=async()=>({success:true,data:window.qaCharge});export const readBeautyCollectionStatus=async()=>({success:true,data:null});",loader:'js'}));
 }}]});
 const css=await postcss([tailwind()]).process(readFileSync('src/app/globals.css','utf8'),{from:root+'/src/app/globals.css'});writeFileSync(out+'/style.css',css.css+'\n'+readFileSync(out+'/app.css','utf8'));
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox']});const results=[];
@@ -24,6 +24,14 @@ for(const [width,height] of [[390,844],[360,800],[1366,900],[1920,1080],[1024,76
   await page.route('**/*',r=>{const u=new URL(r.request().url());if(u.hostname!=='fixture.local')throw Error('External requests forbidden');const p=u.pathname;return r.fulfill({contentType:p.endsWith('.js')?'text/javascript':p.endsWith('.css')?'text/css':'text/html',body:p==='/app.js'?readFileSync(out+'/app.js'):p==='/style.css'?readFileSync(out+'/style.css'):'<html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/style.css"><div id="root"></div><script src="/app.js"></script></html>'});});
   await page.goto(`https://fixture.local/?kind=${kind}`);
   await page.waitForTimeout(100);if(errors.length)throw Error(JSON.stringify({kind,errors}));
+  if(kind==='member'){
+   const plan=page.getByLabel('方案 1',{exact:true});
+   if(await plan.isVisible())throw Error('sole plan unnecessarily expanded');
+   await page.getByText('變更',{exact:true}).click();await plan.selectOption('');
+   if(await page.getByText('合併其他服務',{exact:true}).count())throw Error('single payment retains scheme-only combination entry');
+   await plan.selectOption('card-A');if(await plan.isVisible())throw Error('restored sole plan unnecessarily expanded');
+   await page.screenshot({path:`${out}/member-edit-${width}.png`,fullPage:true});
+  }
   if(kind==='member'||kind==='desk'){
    await page.getByText('合併其他服務',{exact:true}).click();await page.getByRole('checkbox',{name:/B 臉部保養/}).check();
    await page.getByRole('checkbox',{name:/分別安排技師/}).check();await page.getByRole('combobox',{name:/此段技師/}).selectOption('two');
@@ -54,5 +62,13 @@ for(const [width,height] of [[390,844],[360,800],[1366,900],[1920,1080],[1024,76
   }
   await page.close();
  }
+}
+for(const [width,height] of [[1366,900],[1024,768],[768,1024]]){
+ const page=await browser.newPage({viewport:{width,height}});
+ await page.route('**/*',r=>{const u=new URL(r.request().url());if(u.hostname!=='fixture.local')throw Error('External requests forbidden');return r.fulfill({contentType:u.pathname.endsWith('.js')?'text/javascript':u.pathname.endsWith('.css')?'text/css':'text/html',body:u.pathname==='/app.js'?readFileSync(out+'/app.js'):u.pathname==='/style.css'?readFileSync(out+'/style.css'):'<html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/style.css"><div id="root"></div><script src="/app.js"></script></html>'});});
+ await page.goto('https://fixture.local/?kind=calendar');await page.getByText('A 身體按摩',{exact:true}).waitFor();
+ const text=await page.locator('body').innerText();if(!/名單\s*1\s*人次/.test(text)||/名單\s*2\s*人次/.test(text))throw Error('same member was counted as two people: '+text);
+ if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('calendar page overflow');
+ await page.screenshot({path:`${out}/calendar-${width}.png`,fullPage:true});results.push({kind:'calendar',width,height,people:1,services:2,overflow:false});await page.close();
 }
 writeFileSync(out+'/results.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));await browser.close();

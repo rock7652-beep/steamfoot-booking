@@ -26,6 +26,17 @@ function field(host:HTMLElement,name:string){const label=[...host.querySelectorA
 function set(el:HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement,value:string){act(()=>{const proto=el.tagName==='SELECT'?HTMLSelectElement.prototype:el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value')!.set!.call(el,value);el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}));});}
 const catalog={services:[{id:'service',name:'做臉',duration:60,price:1000,trialPrice:500}],techs:[]};
 const data={...catalog,store:{id:'store',slug:'test',name:'測試店'},canWork:true,work:false,customer:{id:'person',name:'顧客',phone:'0900000000'},cards:[],members:[],items:[],plans:[],purchases:[],grants:[],income:[],bank:null,policy:{selfBooking:true,selfCancel:true,selfReschedule:true}} as unknown as BeautyPortalData;
+it('summarizes the sole selected plan while retaining an explicit change to single payment',async()=>{
+ const card={id:'card',name:'五次方案',remaining:5,held:0,expiresAt:'2090-01-01T00:00:00Z',closed:false,memberIds:['person'],serviceIds:['service']};
+ const host=mount(h(BeautyMemberBookingForm,{slug:'test',catalog,customer:{id:'person'},cards:[card]}));
+ const select=host.querySelector<HTMLSelectElement>('[aria-label="方案 1"]')!;
+ const details=select.closest('details')!;
+ expect(details.open).toBe(false);expect(details.querySelector('summary')?.textContent).toContain('五次方案 · 使用 1 次');
+ act(()=>details.querySelector('summary')!.click());expect(details.open).toBe(true);
+ set(select,'');expect(host.querySelector<HTMLSelectElement>('[aria-label="方案 1"]')!.closest('details')).toBeNull();
+ await act(async()=>button(host,'查詢可用時段').click());
+ expect(m.slots.mock.calls.at(-1)?.[2].people[0].cardId).toBeNull();expect(m.book).not.toHaveBeenCalled();
+});
 beforeEach(()=>{vi.clearAllMocks();vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-21T02:00:00Z'));vi.spyOn(window,'scrollTo').mockImplementation(()=>{});m.role.mockImplementation(async(work:boolean)=>({success:true,data:{...data,work}}));m.records.mockResolvedValue({success:true,data:{items:[],hasMore:false}});m.plan.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});m.book.mockResolvedValue({success:true,data:{groupId:'new-group',ids:['one','two']}});m.slots.mockResolvedValue({success:true,data:{slots:['09:00','10:00']}});});
 afterEach(()=>{for(const {root,host}of roots.splice(0)){act(()=>root.unmount());host.remove();}vi.restoreAllMocks();vi.unstubAllGlobals();vi.useRealTimers();});
 it('starts on the selected calendar date, validates a seeded time against fresh slots',async()=>{
