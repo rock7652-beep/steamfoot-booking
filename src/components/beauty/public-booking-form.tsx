@@ -1,5 +1,5 @@
 "use client";
-import {BeautyBookingGoods,BeautyBookingGoodsSummary,beautyBookingGoodsTotal,beautyBookingGoodsError} from "./booking-shared-goods";
+import {applicableBeautyBookingGoods,retainBeautyGoodsSelections,BeautyBookingGoods,BeautyBookingGoodsSummary,beautyBookingGoodsTotal,beautyBookingGoodsError} from "./booking-shared-goods";
 import type {GoodsSelection} from "@/components/add-ons/shared-goods-choices";
 import {BeautyServiceImage} from "./service-image";
 import {BeautyAddOnChoices} from "./add-on-fields";
@@ -34,6 +34,7 @@ function safeMap(value?: string) {
   try { const url = new URL(value ?? ""); return url.protocol === "https:" && !url.username && !url.password ? url.href : null; } catch { return null; }
 }
 function Summary({ catalog, date, time, people, goods=[], showNames = false, headingRef }: { catalog: BeautyBookingCatalog; date: string; time: string; people: Person[]; goods?:GoodsSelection[]; showNames?: boolean; headingRef?: Ref<HTMLHeadingElement> }) {
+  const goodsCatalog=applicableBeautyBookingGoods(catalog.sharedGoodsCatalog,people.map(p=>p.serviceId));
   const start = parseTaipeiDateTime(date, time);
   return <section className={`${styles.card} ${styles.summary}`} aria-label="預約摘要">
     <h2 ref={headingRef} tabIndex={headingRef ? -1 : undefined}>預約摘要</h2><p>{date} · 共 {people.length} 位</p>
@@ -51,7 +52,7 @@ function Summary({ catalog, date, time, people, goods=[], showNames = false, hea
         <dt>技師</dt><dd>{arranged}</dd>{people.length > 1 && <><dt>體驗價</dt><dd>{cash(service?.trialPrice ?? 0)}</dd></>}
       </dl></div>;
     })}
-    <BeautyBookingGoodsSummary catalog={catalog.sharedGoodsCatalog} selections={goods}/><div className={styles.total}>{goods.length?'預約總額':'體驗總額'} {cash(people.reduce((sum, p) => sum + (catalog.services.find(s => s.id === p.serviceId)?.trialPrice ?? 0)+(addOnGroups.safeParse(catalog.services.find(s=>s.id===p.serviceId)?.addOnGroups??[]).data??[]).flatMap(g=>g.options).filter(o=>p.addOnIds?.includes(o.id)).reduce((n,o)=>n+o.price,0), 0)+beautyBookingGoodsTotal(catalog.sharedGoodsCatalog,goods))}</div>
+    <BeautyBookingGoodsSummary catalog={goodsCatalog} selections={goods}/><div className={styles.total}>{goods.length?'預約總額':'體驗總額'} {cash(people.reduce((sum, p) => sum + (catalog.services.find(s => s.id === p.serviceId)?.trialPrice ?? 0)+(addOnGroups.safeParse(catalog.services.find(s=>s.id===p.serviceId)?.addOnGroups??[]).data??[]).flatMap(g=>g.options).filter(o=>p.addOnIds?.includes(o.id)).reduce((n,o)=>n+o.price,0), 0)+beautyBookingGoodsTotal(goodsCatalog,goods))}</div>
   </section>;
 }
 
@@ -61,7 +62,15 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
   const sequence = useRef(1), requestKey = useRef(crypto.randomUUID()), generation = useRef(0), lock = useRef(false);
   const blank = (key: number, serviceId = services[0]?.id ?? ""): Person => ({ key, name: "", phone: "", serviceId, arrangement: "", technicianId: "", notes: "" });
   const [goods,setGoods]=useState<GoodsSelection[]>([]);
-  const [people, setPeople] = useState<Person[]>(() => [blank(0)]);
+  const [people, writePeople] = useState<Person[]>(() => [blank(0)]);
+ const peopleRef=useRef(people);
+ const goodsCatalog=applicableBeautyBookingGoods(catalog.sharedGoodsCatalog,people.map(p=>p.serviceId));
+ function setPeople(update:Person[]|((previous:Person[])=>Person[])){
+  const next=typeof update==='function'?update(peopleRef.current):update;
+  peopleRef.current=next;writePeople(next);
+  setGoods(current=>retainBeautyGoodsSelections(catalog.sharedGoodsCatalog,current,next.map(p=>p.serviceId)));
+ }
+
   const [date, setDate] = useState(""), [time, setTime] = useState("");
   const [stage, setStage] = useState<"service" | "schedule" | "contact" | "success">("service");
   const previousStage = useRef(stage), stageHeading = useRef<HTMLHeadingElement>(null),slotsRegion=useRef<HTMLDivElement>(null);
@@ -110,7 +119,7 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
   }
   function validate(contact = false, requireTime = contact, selectedDate = date) {
     const next: Errors = {};
-    const goodsError=beautyBookingGoodsError(catalog.sharedGoodsCatalog,goods);if(goodsError){setError(goodsError);return false;}
+    const goodsError=beautyBookingGoodsError(goodsCatalog,goods);if(goodsError){setError(goodsError);return false;}
     const identities = new Set<string>();
     if (requireTime && (!parseTaipeiDateTime(selectedDate, "00:00") || selectedDate < toLocalDateStr() || isBeautyPublicDateClosed(catalog.publicCalendar,selectedDate))) next.date = "請選擇開放預約的日期";
     people.forEach(p => {
@@ -147,7 +156,7 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
   }
   function payload(): PartyInput {
     return { requestKey: requestKey.current, policyRevision: catalog.policy?.revision ?? 0, date, time,
-      ...(goods.length?{sharedGoods:{revision:catalog.sharedGoodsCatalog!.revision,selections:goods}}:{}),
+      ...(goods.length?{sharedGoods:{revision:goodsCatalog!.revision,selections:goods}}:{}),
       isTrial: true, contactName: (separateContact ? contactName : people[0].name).trim(), phone: normalizePhone(separateContact ? contactPhone : people[0].phone),
       people: people.map(p => ({ name: p.name.trim(), phone: normalizePhone(p.phone), addOnIds:p.addOnIds, serviceId: p.serviceId, serviceRevision: catalog.services.find(s => s.id === p.serviceId)?.revision ?? 0, preference: preference(p), specifiedTechnicianId: p.arrangement === "SPECIFIC" ? p.technicianId : null, customerId: null, cardId: null, notes: p.notes })),
     };
@@ -232,7 +241,7 @@ export function BeautyPublicBookingForm({ catalog, slug, entry, publicInfo, read
           <label className={styles.check}><input type="checkbox" checked={separateContact} onChange={e => { if (edit()) setSeparateContact(e.target.checked); }}/>另設聯絡人</label>
           {separateContact ? <div className={styles.grid}><div className={styles.field}><label htmlFor={fieldId("contactName")}>聯絡人姓名</label><input {...fieldProps("contactName")} maxLength={80} value={contactName} onChange={e => { if (edit()) setContactName(e.target.value); }}/>{hint("contactName")}</div><div className={styles.field}><label htmlFor={fieldId("contactPhone")}>聯絡人手機</label><input {...fieldProps("contactPhone")} type="tel" inputMode="tel" maxLength={30} value={contactPhone} onChange={e => { if (edit()) setContactPhone(e.target.value); }}/>{hint("contactPhone")}</div></div> : people.length > 1 ? <p>聯絡人沿用第 1 位資料。</p> : null}
         </section>
-        <BeautyBookingGoods catalog={catalog.sharedGoodsCatalog} selections={goods} onChange={next=>{if(edit())setGoods(next);}}/>
+        <BeautyBookingGoods catalog={goodsCatalog} selections={goods} onChange={next=>{if(edit())setGoods(next);}}/>
         <button type="button" className="primary" onClick={()=>{if(validate(true,false)){setStage("schedule");setError("");if(date)void query(date);}}}>下一步：選擇日期與時段</button>
       </> : stage === "schedule" ? <>
         <section className={styles.form} aria-label="日期與時段"><h2 ref={stageHeading} tabIndex={-1}>選擇日期與時段</h2><div className={styles.field}>

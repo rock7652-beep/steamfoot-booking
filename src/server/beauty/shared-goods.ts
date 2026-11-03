@@ -1,4 +1,5 @@
 import 'server-only';
+import {beautyServiceGoodsGroups} from '@/lib/beauty/shared-goods';
 import {AppError} from '@/lib/errors';
 import {addOnTotals,bookingAddOnGroups,resolveSharedGoods,sharedGoodsSelection,sharedGoodsSnapshots} from '@/lib/add-ons';
 import {readBeautyGoodsCatalog} from './shared-goods-catalog';
@@ -20,8 +21,10 @@ const displayMethod=(m:string)=>m==='BANK_TRANSFER'?'TRANSFER':m==='CARD'?'CREDI
 export async function readBeautyGoodsOrder(tx:Tx,a:BeautyActor,p:BeautyGoodsSubject){
  const [catalog,order]=await Promise.all([readBeautyGoodsCatalog(a.storeId),tx.beautySharedGoodsOrder.findUnique({where:{storeId_groupId:{storeId:a.storeId,groupId:p.groupId}}})]);
  const items=sharedGoodsSnapshots.parse(order?.items??[]);
+ const appointments=await tx.beautyAppointment.findMany({where:{storeId:a.storeId,groupId:p.groupId,status:{notIn:['CANCELLED','NO_SHOW']}},select:{serviceId:true}});
+ const applicable=beautyServiceGoodsGroups(catalog.groups,appointments.map(item=>item.serviceId));
  const payments=order?await tx.beautyPayment.findMany({where:{storeId:a.storeId,sharedGoodsOrderId:order.id,kind:{in:['SALE','REFUND']},...(await beautyPaymentVisibility(tx,a.storeId))},orderBy:[{createdAt:'asc'},{id:'asc'}]}):[];
- return {catalogRevision:catalog.revision,groups:catalog.enabled?bookingAddOnGroups(catalog.groups,items).map(g=>({...g,kind:'SHARED_GOODS' as const,required:false})):[],purchasableIds:catalog.groups.flatMap(g=>g.options.filter(o=>o.active).map(o=>o.id)),canSelect:catalog.enabled,order:order?{id:order.id,revision:order.revision,total:order.total,cancelled:false,items}:null,receipts:payments.map(r=>({id:r.id,amount:r.amount,method:displayMethod(r.method),originalId:r.originalPaymentId,createdAt:r.createdAt.toISOString()})),collected:payments.reduce((n,r)=>n+r.amount,0),editable:p.editable};
+ return {catalogRevision:catalog.revision,groups:catalog.enabled?bookingAddOnGroups(applicable,items).map(g=>({...g,kind:'SHARED_GOODS' as const,required:false})):[],purchasableIds:applicable.flatMap(g=>g.options.filter(o=>o.active).map(o=>o.id)),canSelect:catalog.enabled,order:order?{id:order.id,revision:order.revision,total:order.total,cancelled:false,items}:null,receipts:payments.map(r=>({id:r.id,amount:r.amount,method:displayMethod(r.method),originalId:r.originalPaymentId,createdAt:r.createdAt.toISOString()})),collected:payments.reduce((n,r)=>n+r.amount,0),editable:p.editable};
 }
 export async function saveBeautyGoodsOrder(tx:Tx,a:BeautyActor,p:BeautyGoodsSubject,d:{revision:number;catalogRevision:number;selections:unknown}){
  const current=await readBeautyGoodsOrder(tx,a,p);

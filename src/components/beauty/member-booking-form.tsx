@@ -1,5 +1,5 @@
 "use client";
-import {BeautyBookingGoods,BeautyBookingGoodsSummary,beautyBookingGoodsTotal,beautyBookingGoodsError} from "./booking-shared-goods";
+import {applicableBeautyBookingGoods,retainBeautyGoodsSelections,BeautyBookingGoods,BeautyBookingGoodsSummary,beautyBookingGoodsTotal,beautyBookingGoodsError} from "./booking-shared-goods";
 import type {GoodsSelection} from "@/components/add-ons/shared-goods-choices";
 import {BeautyServiceImage} from "./service-image";
 import {BeautyAddOnChoices} from "./add-on-fields";
@@ -20,7 +20,15 @@ export function BeautyMemberBookingForm({catalog,slug,customer,cards=[],onBooked
  const [date,setDate]=useState(toLocalDateStr),[time,setTime]=useState('');
  const choices=(serviceId:string,index:number,others:Person[],day=date,at='00:00')=>applicableCards(cards,serviceId,customer?.id??'',day,at,index>0).filter(c=>c.remaining-c.held>others.filter(p=>p.cardId===c.id).length);
  const blank=(index:number,others:Person[],serviceId=catalog.services[0]?.id??''):Person=>({addOnIds:[],serviceId,serviceRevision:catalog.services.find(s=>s.id===serviceId)?.revision??0,specifiedTechnicianId:null,cardId:choices(serviceId,index,others)[0]?.id??null,notes:'',isTrial:false,chooseTechnician:false});
- const [people,setPeople]=useState<Person[]>(()=>[blank(0,[])]),[stage,setStage]=useState<'edit'|'confirm'|'success'>('edit');
+ const [people,writePeople]=useState<Person[]>(()=>[blank(0,[])]),[stage,setStage]=useState<'edit'|'confirm'|'success'>('edit');
+ const peopleRef=useRef(people);
+ const goodsCatalog=applicableBeautyBookingGoods(catalog.sharedGoodsCatalog,people.map(p=>p.serviceId));
+ function setPeople(update:Person[]|((previous:Person[])=>Person[])){
+  const next=typeof update==='function'?update(peopleRef.current):update;
+  peopleRef.current=next;writePeople(next);
+  setGoods(current=>retainBeautyGoodsSelections(catalog.sharedGoodsCatalog,current,next.map(p=>p.serviceId)));
+ }
+
  const [slots,setSlots]=useState<string[]>([]),[error,setError]=useState(''),[dirty,setDirty]=useState(false),[pending,start]=useTransition();
  const [loading,setLoading]=useState(false),busy=pending||loading;
  const request=useRef(crypto.randomUUID()),generation=useRef(0),lock=useRef(false);
@@ -28,9 +36,9 @@ export function BeautyMemberBookingForm({catalog,slug,customer,cards=[],onBooked
  useEffect(()=>{onStateChange?.({dirty,pending:busy});},[dirty,busy,onStateChange]);
  function invalidate(){generation.current++;request.current=crypto.randomUUID();setSlots([]);setTime('');setError('');setLoading(false);}
  function change(index:number,patch:Partial<Person>){invalidate();setPeople(p=>p.map((v,i)=>i===index?{...v,...patch}:v));}
- function payload(day=date,at=time||'00:00'):MemberPartyInput{return {...(goods.length?{sharedGoods:{revision:catalog.sharedGoodsCatalog!.revision,selections:goods}}:{}),requestKey:request.current,date:day,time:at,policyRevision:catalog.policy?.revision??0,people:people.map(p=>({addOnIds:p.addOnIds,serviceId:p.serviceId,specifiedTechnicianId:p.specifiedTechnicianId,cardId:p.cardId,isTrial:!!p.isTrial,notes:p.notes,serviceRevision:catalog.services.find(s=>s.id===p.serviceId)?.revision??0}))};}
+ function payload(day=date,at=time||'00:00'):MemberPartyInput{return {...(goods.length?{sharedGoods:{revision:goodsCatalog!.revision,selections:goods}}:{}),requestKey:request.current,date:day,time:at,policyRevision:catalog.policy?.revision??0,people:people.map(p=>({addOnIds:p.addOnIds,serviceId:p.serviceId,specifiedTechnicianId:p.specifiedTechnicianId,cardId:p.cardId,isTrial:!!p.isTrial,notes:p.notes,serviceRevision:catalog.services.find(s=>s.id===p.serviceId)?.revision??0}))};}
  function validate(day=date,at='00:00'){
-  const goodsError=beautyBookingGoodsError(catalog.sharedGoodsCatalog,goods);if(goodsError){setError(goodsError);return false;}
+  const goodsError=beautyBookingGoodsError(goodsCatalog,goods);if(goodsError){setError(goodsError);return false;}
   try{for(const p of people)resolveAddOns(catalog.services.find(s=>s.id===p.serviceId)?.addOnGroups,p.addOnIds);}catch(error){setError(error instanceof Error?error.message:'請核對附加項目');return false;}
   if(!people.every(p=>p.serviceId&&(!p.chooseTechnician||p.specifiedTechnicianId))){setError('請選擇服務與指定技師，或改為不指定。');return false;}
   for(const [i,p] of people.entries())if(p.isTrial&&(i>0||catalog.services.find(s=>s.id===p.serviceId)?.trialPrice==null||catalog.trialUsedServiceIds?.includes(p.serviceId))){setError(i>0?'同行者體驗須由店家補齊顧客身分後安排':'此項服務無可用體驗資格，請改選單次或方案。');return false;}
@@ -49,9 +57,9 @@ export function BeautyMemberBookingForm({catalog,slug,customer,cards=[],onBooked
  }
  const price=(p:Person)=>{const service=catalog.services.find(s=>s.id===p.serviceId);return p.isTrial?service?.trialPrice??0:service?.price??0;};
  const extras=(p:Person)=>(addOnGroups.safeParse(catalog.services.find(s=>s.id===p.serviceId)?.addOnGroups??[]).data??[]).flatMap(g=>g.options).filter(o=>p.addOnIds?.includes(o.id));
- const cash=people.reduce((n,p)=>n+(p.cardId?0:price(p))+extras(p).reduce((sum,o)=>sum+o.price,0),0)+beautyBookingGoodsTotal(catalog.sharedGoodsCatalog,goods),uses=people.filter(p=>p.cardId).length;
+ const cash=people.reduce((n,p)=>n+(p.cardId?0:price(p))+extras(p).reduce((sum,o)=>sum+o.price,0),0)+beautyBookingGoodsTotal(goodsCatalog,goods),uses=people.filter(p=>p.cardId).length;
  function range(p:Person){const start=parseTaipeiDateTime(date,time);if(!start)return '';const end=new Date(+start+(serviceDuration(catalog.services.find(s=>s.id===p.serviceId)??{duration:0},p.isTrial)+extras(p).reduce((n,o)=>n+o.duration,0))*60000);const a=formatTWDateTime(start),b=formatTWDateTime(end);return `${a.slice(11)}–${a.slice(0,10)===b.slice(0,10)?b.slice(11):b}`;}
- const summary=<section className="space-y-3" aria-label="預約摘要"><h2 className="font-semibold">{date}</h2>{people.map((p,i)=><article key={i} className="cp-card cp-pad"><strong>{i===0?'本人':`同行者 ${i}`} · {catalog.services.find(s=>s.id===p.serviceId)?.name}</strong><p>{range(p)}</p><p>{p.specifiedTechnicianId?`${catalog.techs.find(t=>t.id===p.specifiedTechnicianId)?.name}（${catalog.techs.find(t=>t.id===p.specifiedTechnicianId)?.gender==='FEMALE'?'女':'男'}）`:'不指定（男女皆可）'}</p><div>{extras(p).map(o=><p key={o.id}>＋{o.name} · {o.price?`$${o.price}`:"免費"} · {o.duration?`${o.duration} 分鐘`:"不增加時間"}</p>)}</div><p>{p.cardId?`${cards.find(c=>c.id===p.cardId)?.name} · 使用 1 次`:`${p.isTrial?'體驗':'單次'} NT$ ${price(p).toLocaleString('zh-TW')}`}</p>{p.notes&&<p>{p.notes}</p>}</article>)}<BeautyBookingGoodsSummary catalog={catalog.sharedGoodsCatalog} selections={goods}/><div className="space-y-2">{uses>0&&<p>方案使用 {uses} 次</p>}{(goods.length>0||people.some(p=>!p.cardId||extras(p).some(o=>o.price>0)))&&<div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-primary-900"><p className="text-sm">本次應付</p><strong className="block text-2xl font-semibold tabular-nums">NT$ {cash.toLocaleString('zh-TW')}</strong></div>}</div></section>;
+ const summary=<section className="space-y-3" aria-label="預約摘要"><h2 className="font-semibold">{date}</h2>{people.map((p,i)=><article key={i} className="cp-card cp-pad"><strong>{i===0?'本人':`同行者 ${i}`} · {catalog.services.find(s=>s.id===p.serviceId)?.name}</strong><p>{range(p)}</p><p>{p.specifiedTechnicianId?`${catalog.techs.find(t=>t.id===p.specifiedTechnicianId)?.name}（${catalog.techs.find(t=>t.id===p.specifiedTechnicianId)?.gender==='FEMALE'?'女':'男'}）`:'不指定（男女皆可）'}</p><div>{extras(p).map(o=><p key={o.id}>＋{o.name} · {o.price?`$${o.price}`:"免費"} · {o.duration?`${o.duration} 分鐘`:"不增加時間"}</p>)}</div><p>{p.cardId?`${cards.find(c=>c.id===p.cardId)?.name} · 使用 1 次`:`${p.isTrial?'體驗':'單次'} NT$ ${price(p).toLocaleString('zh-TW')}`}</p>{p.notes&&<p>{p.notes}</p>}</article>)}<BeautyBookingGoodsSummary catalog={goodsCatalog} selections={goods}/><div className="space-y-2">{uses>0&&<p>方案使用 {uses} 次</p>}{(goods.length>0||people.some(p=>!p.cardId||extras(p).some(o=>o.price>0)))&&<div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-primary-900"><p className="text-sm">本次應付</p><strong className="block text-2xl font-semibold tabular-nums">NT$ {cash.toLocaleString('zh-TW')}</strong></div>}</div></section>;
  if(catalog.policy?.selfBooking===false)return <p>店家暫未開放自行預約，請聯絡店家安排。</p>;
  if(stage==='success')return <section role="status" className="space-y-4"><h2 className="text-lg font-semibold">預約成功</h2>{summary}<button className={button+' bg-primary-700 text-white'} onClick={onViewBookings}>查看我的預約</button><button className={button} onClick={()=>{invalidate();setGoods([]);setPeople([blank(0,[])]);setDirty(false);setStage('edit');}}>再約一筆</button></section>;
  return <form className="min-w-0 space-y-4" onChangeCapture={()=>setDirty(true)} onSubmit={e=>{e.preventDefault();if(readOnly||stage!=='confirm'||lock.current||busy||!time||!validate(date,time))return;lock.current=true;start(async()=>{try{const r=await bookBeautyParty('member',payload());if(r.success){setDirty(false);setStage('success');onBooked?.();}else setError(r.error);}catch{setError('連線失敗，內容已保留，請重試。');}finally{lock.current=false;}});}}>
@@ -65,7 +73,7 @@ export function BeautyMemberBookingForm({catalog,slug,customer,cards=[],onBooked
     <section className="space-y-4" aria-label="日期與時段"><label className="block">日期<input aria-label="日期" className={control} required type="date" min={toLocalDateStr()} value={date} onChange={e=>{setDate(e.target.value);query(e.target.value);}}/></label>
     {!slots.length&&!busy&&<button type="button" className={button+' w-full'} disabled={!catalog.services.length} onClick={()=>query(date)}>{error?'重試查詢':'查詢可用時段'}</button>}
     {['上午','下午','晚上'].map((label,index)=>{const times=slots.filter(t=>index===0?t<'12:00':index===1?t>='12:00'&&t<'18:00':t>='18:00');return times.length>0&&<section key={label} aria-label={label}><h3 className="mb-2 font-medium">{label}</h3><div className="grid grid-cols-3 gap-2" aria-label={label+'可用時段'}>{times.map(slot=><button type="button" aria-pressed={time===slot} className={button+(time===slot?' primary':'')} key={slot} onClick={()=>{if(validate(date,slot)){setTime(slot);setDirty(true);setError('');}}}>{slot}</button>)}</div></section>;})}
-    <BeautyBookingGoods catalog={catalog.sharedGoodsCatalog} selections={goods} onChange={next=>{request.current=crypto.randomUUID();setGoods(next);setDirty(true);setError('');}}/><button type="button" className={button+' primary w-full'} disabled={!time||!slots.includes(time)} onClick={()=>{if(validate(date,time))setStage('confirm');}}>下一步</button></section></>}
+    <BeautyBookingGoods catalog={goodsCatalog} selections={goods} onChange={next=>{request.current=crypto.randomUUID();setGoods(next);setDirty(true);setError('');}}/><button type="button" className={button+' primary w-full'} disabled={!time||!slots.includes(time)} onClick={()=>{if(validate(date,time))setStage('confirm');}}>下一步</button></section></>}
    {stage==='confirm'&&<><h2 className="text-lg font-semibold">確認預約</h2>{summary}<div className="flex flex-wrap gap-3"><button type="button" className={button} onClick={()=>setStage('edit')}>返回修改</button><button type="submit" disabled={readOnly} className={button+' primary'}>確認預約</button></div></>}
   </fieldset>{busy&&<p role="status">{loading?'查詢時段中…':'處理中…'}</p>}{error&&<p role="alert" className="text-red-700">{error}</p>}
  </form>;

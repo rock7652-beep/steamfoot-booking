@@ -7,7 +7,7 @@ vi.mock('@/server/beauty/access',()=>({audit:vi.fn()}));
 import {AddOnsDatabaseConfigurationError,addOnsDatabaseSelection} from '@/lib/addons-database-url';
 import {readBeautyGoodsCatalog} from '@/server/beauty/shared-goods-catalog';
 import {prepareBeautyBookingGoods,publicBeautyGoodsCatalog} from '@/server/beauty/booking-shared-goods';
-beforeEach(()=>{vi.resetAllMocks();m.feature.mockResolvedValue(true);m.groups.mockReturnValue([{kind:'SHARED_GOODS',id:'goods',options:[{active:true}]}]);});
+beforeEach(()=>{vi.resetAllMocks();m.feature.mockResolvedValue(true);m.groups.mockReturnValue([{kind:'SHARED_GOODS',id:'goods',subjectIds:['service-a'],options:[{active:true}]}]);});
 it('keeps the optional selection catalog closed when its dedicated connection is missing',async()=>{
  expect(()=>addOnsDatabaseSelection({})).toThrow(AddOnsDatabaseConfigurationError);
  m.catalog.mockRejectedValue(new AddOnsDatabaseConfigurationError());
@@ -34,7 +34,7 @@ it('preserves unexpected database errors instead of treating them as an empty ca
 });
 it('retains configured catalogs and checks the live grant again',async()=>{
  m.catalog.mockResolvedValue({enabled:false,revision:7,groups:[]});
- expect(await readBeautyGoodsCatalog('store')).toEqual({enabled:true,revision:7,groups:[{kind:'SHARED_GOODS',id:'goods',options:[{active:true}]}]});
+ expect(await readBeautyGoodsCatalog('store')).toEqual({enabled:true,revision:7,groups:[{kind:'SHARED_GOODS',id:'goods',subjectIds:['service-a'],options:[{active:true}]}]});
  expect(m.feature).toHaveBeenCalledTimes(2);
  m.feature.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
  expect(await readBeautyGoodsCatalog('store')).toEqual({enabled:false,revision:7,groups:[]});

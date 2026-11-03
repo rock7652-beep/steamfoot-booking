@@ -317,7 +317,7 @@ export async function reserveParty(
   },
 ) {
   return command(tx, a, d.requestKey, d, async () => {
-    const sharedGoods=await prepareBeautyBookingGoods(a.storeId,d.sharedGoods);
+    const sharedGoods=await prepareBeautyBookingGoods(a.storeId,d.sharedGoods,d.people.map(p=>p.serviceId));
     let groupCustomerId = a.customerId ?? (a.manager?d.people[0]?.customerId??null:null);
     if (entry?.channel === "LINE") {
       groupCustomerId = entry.customerId ?? crypto.randomUUID();

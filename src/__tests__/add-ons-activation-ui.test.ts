@@ -23,3 +23,14 @@ it('edits individual products without a shop activation switch and preserves dra
   expect(host.textContent).toContain('已儲存');
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+it('shows the service settings link only when its independent HQ feature is available',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const host=document.createElement('div'),root=createRoot(host);
+ const props={module:'BEAUTY' as const,storeId:'s',revision:1,enabled:true,groups:[],sharedOnly:true,subjects:[{id:'massage',name:'按摩',isActive:true}],save:vi.fn()};
+ try{
+  await act(async()=>root.render(createElement(AddOnCatalog,props)));
+  expect(host.textContent).not.toContain('各服務的加做項目');
+  await act(async()=>root.render(createElement(AddOnCatalog,{...props,showServiceAddOnLink:true})));
+  expect(host.textContent).toContain('各服務的加做項目');
+ }finally{await act(async()=>root.unmount());}
+});

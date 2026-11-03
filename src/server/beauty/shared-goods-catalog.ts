@@ -18,7 +18,7 @@ export async function readBeautyGoodsCatalog(storeId:string){
   throw error;
  }
  const allowed=!!catalog&&await hasStoreFeature(storeId,FEATURES.ADD_ONS);
- const groups=allowed?moduleAddOnGroups('BEAUTY',catalog?.groups??[]).filter(g=>g.kind==='SHARED_GOODS'):[];
+ const groups=allowed?moduleAddOnGroups('BEAUTY',catalog?.groups??[]).filter(g=>g.kind==='SHARED_GOODS'&&!!g.subjectIds?.length):[];
  return {revision:catalog?.revision??0,enabled:groups.some(g=>g.options.some(o=>o.active)),groups};
 }
 

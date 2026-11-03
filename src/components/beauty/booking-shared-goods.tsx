@@ -1,7 +1,17 @@
 'use client';
+import {beautyServiceGoodsGroups} from '@/lib/beauty/shared-goods';
 import {resolveSharedGoods,addOnTotals,type AddOnGroup} from '@/lib/add-ons';
 import {SharedGoodsChoices,type GoodsSelection} from '@/components/add-ons/shared-goods-choices';
 export type BeautyBookingGoodsCatalog={revision:number;groups:AddOnGroup[]}|null|undefined;
+export function applicableBeautyBookingGoods(catalog:BeautyBookingGoodsCatalog,serviceIds:readonly string[]):BeautyBookingGoodsCatalog{
+ if(!catalog)return null;
+ const groups=beautyServiceGoodsGroups(catalog.groups,serviceIds).map(g=>({...g,options:g.options.filter(o=>o.active)})).filter(g=>g.options.length);
+ return groups.length?{revision:catalog.revision,groups}:null;
+}
+export function retainBeautyGoodsSelections(catalog:BeautyBookingGoodsCatalog,selections:GoodsSelection[],serviceIds:readonly string[]){
+ const allowed=new Set(applicableBeautyBookingGoods(catalog,serviceIds)?.groups.flatMap(g=>g.options.map(o=>o.id))??[]);
+ const next=selections.filter(s=>allowed.has(s.id));return next.length===selections.length?selections:next;
+}
 export function beautyBookingGoodsItems(catalog:BeautyBookingGoodsCatalog,selections:GoodsSelection[]){try{return resolveSharedGoods(catalog?.groups??[],selections);}catch{return [];}}
 export function beautyBookingGoodsError(catalog:BeautyBookingGoodsCatalog,selections:GoodsSelection[]){try{resolveSharedGoods(catalog?.groups??[],selections);return '';}catch{return '商品已更新，請返回重新選購，或取消選取後再預約。';}}
 export function beautyBookingGoodsTotal(catalog:BeautyBookingGoodsCatalog,selections:GoodsSelection[]){return addOnTotals(beautyBookingGoodsItems(catalog,selections)).price;}

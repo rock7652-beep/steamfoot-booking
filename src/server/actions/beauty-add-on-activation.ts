@@ -1,6 +1,9 @@
 "use server";
 import {z} from 'zod';
 import {moduleAddOnGroups,addOnCatalogError} from '@/lib/add-ons';
+import {beautyPrisma} from '@/lib/beauty-db';
+import {validateBeautyGoodsServices} from '@/lib/beauty/shared-goods';
+import {hasStoreFeature} from '@/lib/feature-gate';
 import {addonsPrisma as prisma} from '@/lib/addons-db';
 import {beautyManager} from '@/server/beauty/access';
 import {requireStoreFeature} from '@/lib/feature-gate';
@@ -12,8 +15,8 @@ import {addOnCommand} from '@/server/services/service-add-ons';
 import {recordOperationAudit} from '@/server/services/operation-audit';
 export async function readBeautyAddOnActivation(){try{
  const a=await beautyManager('add_ons.manage');await requireStoreFeature(a.storeId,FEATURES.ADD_ONS);
- const c=await prisma.serviceAddOnCatalog.findUnique({where:{storeId_module:{storeId:a.storeId,module:'BEAUTY'}}});
- return {success:true as const,data:{storeId:a.storeId,revision:c?.revision??0,enabled:c?.enabled??false,groups:moduleAddOnGroups('BEAUTY',c?.groups??[])}};
+ const [c,services,serviceAddOnsAvailable]=await Promise.all([prisma.serviceAddOnCatalog.findUnique({where:{storeId_module:{storeId:a.storeId,module:'BEAUTY'}}}),beautyPrisma.beautyService.findMany({where:{storeId:a.storeId},select:{id:true,name:true,active:true},orderBy:[{name:'asc'},{id:'asc'}]}),hasStoreFeature(a.storeId,FEATURES.BEAUTY_SERVICE_ADD_ONS)]);
+ return {success:true as const,data:{storeId:a.storeId,subjects:services.map(s=>({id:s.id,name:s.name,isActive:s.active})),serviceAddOnsAvailable,revision:c?.revision??0,enabled:c?.enabled??false,groups:moduleAddOnGroups('BEAUTY',c?.groups??[])}};
 }catch(e){return handleActionError(e);}}
 export async function saveBeautyAddOnActivation(input:unknown){try{
  const a=await beautyManager('add_ons.manage',true);await requireStoreFeature(a.storeId,FEATURES.ADD_ONS);
@@ -27,6 +30,11 @@ export async function saveBeautyAddOnActivation(input:unknown){try{
    const where={storeId_module:{storeId:a.storeId,module:'BEAUTY'}};
    const current=await tx.serviceAddOnCatalog.findUnique({where});
    if((current?.revision??0)!==d.revision)throw new AppError('CONFLICT','設定已更新，請重新開啟');
+   if(groups){
+    const ids=[...new Set(groups.flatMap(g=>g.subjectIds??[]))];
+    const services=ids.length?await beautyPrisma.beautyService.findMany({where:{storeId:a.storeId,id:{in:ids}},select:{id:true,active:true}}):[];
+    try{validateBeautyGoodsServices(groups,moduleAddOnGroups('BEAUTY',current?.groups??[]),services);}catch(error){throw new AppError('VALIDATION',error instanceof Error?error.message:'請核對適用服務');}
+   }
    const images=(groups??[]).flatMap(g=>g.options.flatMap(o=>o.imageId?[o.imageId]:[]));
    if(images.length&&(await tx.serviceAddOnImage.count({where:{storeId:a.storeId,module:'BEAUTY',id:{in:[...new Set(images)]}}}))!==new Set(images).size)throw new AppError('FORBIDDEN','圖片不屬於本店');
    const saved=await tx.serviceAddOnCatalog.upsert({where,create:{storeId:a.storeId,module:'BEAUTY',groups:groups??[],enabled:true,revision:1},update:{...(groups===undefined?{}:{groups}),enabled:true,revision:{increment:1}}});

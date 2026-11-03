@@ -13,7 +13,7 @@ export function BeautyPublicBookingPreview() {
   const verifiedIdentity = scenario === "verified" || scenario === "link-pending";
   const catalog: BeautyBookingCatalog = {
     publicCalendar:{weekdays:[false,true,true,true,true,true,true],exceptions:{}},
-    ...(scenario==='goods'?{sharedGoodsCatalog:{revision:3,groups:[{id:'drinks',title:'飲品加購',kind:'SHARED_GOODS' as const,required:false,multiple:true,options:[{id:'tea',name:'養生茶',price:80,duration:0,active:true},{id:'free',name:'迎賓茶',price:0,duration:0,active:true}]}]}}:{}),
+    ...(scenario==='goods'?{sharedGoodsCatalog:{revision:3,groups:[{id:'drinks',subjectIds:['sample-massage'],title:'飲品加購',kind:'SHARED_GOODS' as const,required:false,multiple:true,options:[{id:'tea',name:'養生茶',price:80,duration:0,active:true},{id:'free',name:'迎賓茶',price:0,duration:0,active:true}]}]}}:{}),
     policy: { revision: 1, selfBooking: scenario !== "closed", selfCancel: true, selfReschedule: true, cancelDeduct: false, noShowDeduct: false, cancelLeadMinutes: 120 },
     services: scenario === "empty" ? [] : [
       { id: "sample-massage", name: "全身按摩", duration: 60, trialPrice: 750, price: 1200, revision: 1 },
