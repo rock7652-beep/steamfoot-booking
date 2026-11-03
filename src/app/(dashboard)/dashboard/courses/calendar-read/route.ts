@@ -1,11 +1,15 @@
+import {calendarPerformanceVariant} from "@/lib/calendar-performance-preview";
+import {withCalendarComparison} from "@/server/services/calendar-month-read-scope";
+import {withCalendarMonthRead} from "@/server/services/calendar-month-read-scope";
 import {getCurrentUser} from "@/lib/session";
 import {getActiveStoreForRead} from "@/lib/store";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {loadSportsCalendar,loadMusicCalendar} from "@/server/actions/sports-calendar";
 
 const headers = {"Cache-Control": "private, no-store"};
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   if (request.headers.get("origin") !== new URL(request.url).origin) return Response.json({success:false,error:"來源不正確"},{status:403,headers});
+  return withCalendarMonthRead(async()=>{
   const started=performance.now();
   try {
     const user = await getCurrentUser();
@@ -25,4 +29,12 @@ export async function POST(request: Request) {
     console.info("[COURSE_CALENDAR_READ_PERF]",JSON.stringify({profile:data.profile??"FITNESS",readMs,success:result.success}));
     return Response.json(result,{headers:{...headers,"Server-Timing":`calendar;dur=${readMs}`}});
   } catch { return Response.json({success:false,error:"讀取失敗，請重試"},{status:400,headers}); }
+  });
+}
+
+export async function POST(request:Request){
+ const variant=calendarPerformanceVariant(request.headers);
+ const response=await withCalendarComparison(variant,()=>handlePost(request));
+ if(variant)response.headers.set("X-Calendar-QA-Variant",variant);
+ return response;
 }

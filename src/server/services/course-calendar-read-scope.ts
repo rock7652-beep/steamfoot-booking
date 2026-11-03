@@ -3,7 +3,7 @@ import {AsyncLocalStorage} from 'node:async_hooks';
 import {coursePrisma} from '@/lib/course-db';
 
 // Only fixed operation labels may reach logs, never caller-supplied keys or row data.
-const diagnosticStages=new Set(['sessions','roster-bookings','roster-customers','roster-absence-history','roster-confirmed-purchases','roster-native-purchases','roster-native-leave-ids','roster-pilot-evidence','roster-lesson-assignments','roster-renewal-cards','roster-group-term-counts','trial-settings','detail-permissions','waitlist-settings','waitlist-rows','waitlist-mode','teaching-template-versions','shared-card-state','sports-rules','sports-rules-available','sports-rules-ready','sports-balance-cards','music-balance-cards','music-balance-purchases','music-balance-joins']);
+const diagnosticStages=new Set(['sessions','roster-bookings','roster-customers','roster-absence-history','roster-confirmed-purchases','roster-native-purchases','roster-native-leave-ids','roster-pilot-evidence','roster-lesson-assignments','roster-renewal-cards','roster-group-term-counts','trial-settings','detail-permissions','waitlist-settings','waitlist-rows','waitlist-mode','teaching-template-versions','shared-card-state','sports-rules','sports-rules-available','sports-rules-ready','sports-rules-booking-read-ready','sports-balance-cards','music-balance-cards','music-balance-purchases','music-balance-joins']);
 type ReadTiming={stage:string;startMs:number;durationMs:number|null;uses:number;ok:boolean|null};
 type CalendarRead={storeId:string;sessionIds:readonly string[];once:<T>(key:string,load:()=>Promise<T>)=>Promise<T>;sharedReadCount:()=>number;sharedReadTimings:()=>ReadTiming[]};
 const calendars=new AsyncLocalStorage<CalendarRead>();

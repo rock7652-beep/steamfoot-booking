@@ -373,7 +373,7 @@ export function CourseWorkspace({
   const activeSchedulingModes=nativeCalendar?.schedulingModes??schedulingModes;
   const confirmedSessionSource=useMemo(()=>(nativeCalendar?.sessions??sourceSessions).map(row=>({...row,receiptStoreId:storeId})),[nativeCalendar?.sessions,sourceSessions,storeId]);
   const confirmedScheduleSessions=useConfirmedSettingsRows(confirmedSessionSource,row=>row.id);
-  const sessions:Session[]=confirmedScheduleSessions.rows.filter(row=>row.receiptStoreId===storeId);
+  const sessions:Session[]=useMemo<Session[]>(()=>confirmedScheduleSessions.rows.filter(row=>row.receiptStoreId===storeId),[confirmedScheduleSessions.rows,storeId]);
   const incomingRosters=nativeCalendar?.rosterSnapshots??rosterSnapshots;
   const [invalidatedRosters,setInvalidatedRosters]=useState<CalendarRosterSnapshots|undefined>();
   const teacherNoteScope=`${storeId}:${pathname}:${loadedDate}:${params.get("date")??loadedDate}`;
@@ -665,7 +665,7 @@ export function CourseWorkspace({
     first = `${month}-01`;
   const [year, mon] = month.split("-").map(Number);
   const days = new Date(year, mon, 0).getDate();
-  const filteredScheduleSessions = sessions.filter(
+  const filteredScheduleSessions = useMemo<Session[]>(()=>sessions.filter(
     (s) =>
       !s.rentalCancelled &&
       (calendarSource || businessProfile === "MUSIC" || roomFilter === "all" || s.roomId === roomFilter) &&
@@ -679,15 +679,16 @@ export function CourseWorkspace({
     previewKind: session.rentalId || /租借|RENTAL/i.test(allTemplates.find((template) => template.id === session.templateId)?.category ?? "")
       ? "RENTAL" as const
       : undefined,
-  }));
-  const withPendingAttendance = (session: Session) => ({
+  })),[sessions,calendarSource,businessProfile,roomFilter,coachFilter,sportsNative,classFilter,allTemplates,assignedCoachFilter,scheduleQuery]);
+  const withPendingAttendance = useCallback((session: Session):Session => ({
     ...session,
     teacherAttendance: pendingTeacherAttendance[session.id] ?? session.teacherAttendance,
     previewStudentNames: session.bookings.length ? undefined : cancelledBookings.filter(booking => booking.sessionId === session.id && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).map(booking => booking.customerName),
     bookings: session.bookings.map(booking => pendingAttendance[booking.id] ? { ...booking, status: pendingAttendance[booking.id], absenceKind: pendingAttendance[booking.id] === "RESERVED" ? null : pendingLeaveIds.includes(booking.id) ? "STUDENT_LEAVE" : booking.absenceKind } : booking),
     displayBookings: session.displayBookings?.map(booking => pendingAttendance[booking.id] ? { ...booking, status: pendingAttendance[booking.id], absenceKind: pendingAttendance[booking.id] === "RESERVED" ? null : pendingLeaveIds.includes(booking.id) ? "STUDENT_LEAVE" : booking.absenceKind } : booking),
-  });
-  const monthSummary = scheduleMonthSummary(filteredScheduleSessions.map(withPendingAttendance), month);
+  }),[pendingTeacherAttendance,cancelledBookings,pendingAttendance,pendingLeaveIds]);
+  const displayedScheduleSessions=useMemo<Session[]>(()=>filteredScheduleSessions.map(withPendingAttendance),[filteredScheduleSessions,withPendingAttendance]);
+  const monthSummary = scheduleMonthSummary(displayedScheduleSessions, month);
   const monthTotals = monthSummary.totals;
 
   const monthServices=serviceScheduleTotals(monthSummary.records);
@@ -705,7 +706,7 @@ export function CourseWorkspace({
   const [sportsAttendanceOpen,setSportsAttendanceOpen]=useState(false);
   const [dailyList, setDailyList] = useState<"leave" | "unmarked" | null>(null);
   const byDate = new Map<string, Session[]>();
-  for (const session of filteredScheduleSessions.map(withPendingAttendance)) {
+  for (const session of displayedScheduleSessions) {
     const day = toLocalDateStr(new Date(session.startsAt));
     byDate.set(day, [...(byDate.get(day) ?? []), session]);
   }
@@ -1280,7 +1281,7 @@ export function CourseWorkspace({
               mode={scheduleMode}
               selectedDate={selectedDate}
               today={today}
-              sessions={filteredScheduleSessions.map(withPendingAttendance)}
+              sessions={displayedScheduleSessions}
               leaveCounts={[...cancelledBookings,...pendingLeaveIds.filter(id=>!cancelledBookings.some(booking=>booking.id===id)).flatMap(id=>{
                 const session=sessions.find(item=>item.bookings.some(booking=>booking.id===id));
                 return session?[{id,sessionId:session.id,absenceKind:"STUDENT_LEAVE"}]:[];

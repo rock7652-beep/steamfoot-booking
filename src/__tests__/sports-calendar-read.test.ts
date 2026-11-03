@@ -59,3 +59,24 @@ it('does not read calendar rows when the music module entitlement is absent',asy
 it('preserves the music business-hours setup guard instead of returning incomplete roster data',async()=>{
  m.hours.mockResolvedValue([{segments:null}]);expect((await loadMusicCalendar('2026-11-09')).success).toBe(false);expect(m.preload).not.toHaveBeenCalled();
 });
+
+it("records month phase/count diagnostics without including customer or booking values",async()=>{
+ const log=vi.spyOn(console,"info").mockImplementation(()=>{});
+ try{
+  const result=await loadSportsCalendar("2026-11-09");expect(result.success).toBe(true);
+  const row=log.mock.calls.find(call=>call[0]==="[COURSE_CALENDAR_PHASE_PERF]");expect(row).toBeDefined();
+  const trace=JSON.parse(row![1]);expect(trace).toMatchObject({operation:"month_fitness",ok:true,counts:{sessions:1,rentals:0,customers:1}});
+  expect(trace.spans.map((s:{name:string})=>s.name)).toEqual(expect.arrayContaining(["access","sports_scope","module_entitlement","booking_feature","month_batch","sessions","rentals","rules","hours","special_days","availability_exceptions","scheduling_modes","customers","rosters","month_details","presentation","calendar_days"]));
+  expect(JSON.stringify(trace)).not.toMatch(/private-card-id|驗收|sports-live-flow-store|2026-11-09/);
+ }finally{log.mockRestore();}
+});
+it("records a failed authorization outcome without beginning month data queries",async()=>{
+ const log=vi.spyOn(console,"info").mockImplementation(()=>{});
+ try{
+  m.actor.mockRejectedValue(new Error("private identity"));
+  expect((await loadSportsCalendar("2026-11-09")).success).toBe(false);expect(m.sessions).not.toHaveBeenCalled();
+  const row=log.mock.calls.find(call=>call[0]==="[COURSE_CALENDAR_PHASE_PERF]");
+  const trace=JSON.parse(row![1]);expect(trace).toMatchObject({operation:"month_fitness",ok:false,spans:[{name:"access",ok:false}]});
+  expect(JSON.stringify(trace)).not.toContain("private identity");
+ }finally{log.mockRestore();}
+});
