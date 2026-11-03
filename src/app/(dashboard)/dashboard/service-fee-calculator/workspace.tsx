@@ -1,9 +1,10 @@
+import {OperationsControls,OperationsLocalHeading} from "@/components/operations/workspace-frame";
 import {isReadOnlyStoreTarget} from "@/lib/store-read-only";
 import {getStoreIndustryModule} from "@/lib/industry-module-server";
 import { SteamfootMonthly } from "./steamfoot-monthly";
 import {CourseMonthly} from "./course-monthly";
 import { redirect } from "next/navigation";
-import { EmptyRow, KpiStrip, PageHeader, PageShell } from "@/components/desktop";
+import { EmptyRow, KpiStrip, PageShell } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDateZh, toLocalMonthStr } from "@/lib/date-utils";
@@ -75,10 +76,10 @@ export default async function ServiceFeeCalculatorPage({ searchParams }: PagePro
 
   return (
     <PageShell>
-      <PageHeader
+      <OperationsLocalHeading
         title="月結管理"
         subtitle="依服務金額、固定月費與加扣項，確認本月月結金額。"
-        actions={<MonthFilter month={month} />}
+        actions={<OperationsControls><MonthFilter month={month} /></OperationsControls>}
       />
 
       <section className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
@@ -157,7 +158,7 @@ export default async function ServiceFeeCalculatorPage({ searchParams }: PagePro
 function ServiceFeeCalculatorLockedState() {
   return (
     <PageShell>
-      <PageHeader
+      <OperationsLocalHeading
         title="月結管理"
         subtitle="依服務金額、固定月費與加扣項，確認本月月結金額。"
         actions={

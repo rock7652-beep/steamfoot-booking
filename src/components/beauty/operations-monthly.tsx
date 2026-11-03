@@ -8,7 +8,7 @@ import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { IncomeMonthFilter } from "@/components/income-month-filter";
 import { BeautyNativeFeeReport } from "./native-fee-source";
-import { PageHeader } from "@/components/desktop";
+
 export async function BeautyMonthly({storeId,month,readOnly}:{storeId:string;month:string;readOnly:boolean}) {
   const actor = await beautyManager("teacher.settlement.read");
   if(actor.storeId!==storeId)return <p role="alert">店家已切換，請重新開啟。</p>;
@@ -21,7 +21,7 @@ export async function BeautyMonthly({storeId,month,readOnly}:{storeId:string;mon
   ]);
   const lines=report.lines.map(line=>({kind:"FEE" as const,id:line.id,staffId:line.technicianId,name:techs.find(t=>t.id===line.technicianId)?.name??"技師",label:`${line.personName} · ${line.serviceName}`,date:line.date,amount:line.fee,paid:line.paid,issue:null,payments:[]}));
   const store=await prisma.store.findUnique({where:{id:storeId},select:{name:true}});
-  return <MonthlyStoreProvider storeId={storeId} name={store?.name??storeId}><section className="min-w-0 space-y-3"><PageHeader compact title="月結管理" subtitle={store?.name} actions={<IncomeMonthFilter month={month}/>}/>
+  return <MonthlyStoreProvider storeId={storeId} name={store?.name??storeId}><section className="min-w-0 space-y-3"><IncomeMonthFilter month={month}/>
     <BeautyNativeFeeReport storeId={storeId} month={month} lines={lines} fingerprint={report.fingerprint} confirmed={last?.fingerprint===report.fingerprint} previous={!!last} canConfirm={!readOnly&&await checkPermission(user.role,user.staffId,"teacher.settlement.confirm")}/>
   </section></MonthlyStoreProvider>;
 }
