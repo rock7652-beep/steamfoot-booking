@@ -1,3 +1,4 @@
+import {OperationsLocalHeading} from "@/components/operations/workspace-frame";
 import {MonthlyStoreProvider} from "@/components/operations/monthly-store-context";
 import {getCoursePersonnelText} from "@/server/services/course-personnel-label";
 import { canViewCourseMonthly, canOperateCourseMonthly } from "@/lib/course-monthly-access";
@@ -14,7 +15,7 @@ import { FEATURES } from "@/lib/feature-flags";
 import { readCourseMonthlySettlement } from "@/server/services/course-monthly-settlement";
 import { summarizeSettlement } from "@/lib/course-monthly-settlement";
 import { monthRange,toLocalMonthStr,formatTWDateTime } from "@/lib/date-utils";
-import { PageShell,PageHeader } from "@/components/desktop";
+import { PageShell } from "@/components/desktop";
 import { CourseMonthlySettings,CourseMonthlyConfirm,CourseProfitCorrect,CourseMonthlyReport } from "./course-monthly-client";
 import { CourseFeeCorrectionButton } from "../revenue/_components/course-fee-payment-button";
 import { IncomeMonthFilter } from "@/components/income-month-filter";
@@ -49,7 +50,7 @@ export async function CourseMonthly({storeId,month,readOnly=false,teacherId,sala
  const issues=report.lines.filter(l=>l.issue||l.amount===null).length;
  return <MonthlyStoreProvider key={storeId} storeId={storeId} name={store?.name??storeId}><PageShell className="flex w-full min-w-0 flex-col gap-2 py-2">
  {user.role==="ADMIN"&&<p className="text-sm text-earth-600">目前操作門市：{store?.name??storeId}。月結確認與付款登錄會留下紀錄。</p>}
- <PageHeader title={music ? personnelText("教師薪資與月結") : "每月收入結算"} subtitle={store?.name??"本店"} actions={<div className="flex flex-wrap items-center justify-end gap-2">{music && <Link href="/dashboard/teachers" className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm">{personnelText("返回教師管理")}</Link>}<IncomeMonthFilter month={month}/></div>}/>
+ <OperationsLocalHeading title={music ? personnelText("教師薪資與月結") : "每月收入結算"} subtitle={store?.name??"本店"} actions={<div className="flex flex-wrap items-center justify-end gap-2">{music && <Link href="/dashboard/teachers" className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm">{personnelText("返回教師管理")}</Link>}<IncomeMonthFilter month={month}/></div>}/>
  {scope!==null&&<p className="text-sm text-earth-500">{personnelText("僅顯示授權教師；全店月結確認由全店授權人員處理。")}</p>}
  <CourseMonthlyReport canReadBookings={await checkPermission(user.role,user.staffId,"booking.read")} music={music} initialTeacherId={music?teacherId:undefined} canPay={canPay&&!readOnly} key={`${month}:${teacherId??"all"}:${legacyView}`} lines={report.lines} showPaymentStatus status={<span role="status" className={`rounded-full px-3 py-1 text-sm ${confirmed?"bg-primary-50 text-primary-800":"bg-amber-50 text-amber-900"}`}>{confirmed?"月結已確認":last?"月結有異動":"月結待確認"}</span>} confirm={!confirmed&&!readOnly&&canConfirm&&<CourseMonthlyConfirm key={report.fingerprint} month={month} fingerprint={report.fingerprint} revision={last?.revision??0} disabled={issues>0||!report.lines.length} blockedReason={issues>0?`請先核對 ${issues} 筆金額。`:!report.lines.length?"本月沒有結算項目。":undefined}/>} actions={<>
  {!readOnly&&scope===null&&<CourseMonthlyNotifications key={`${month}:${last?.revision??0}:${report.fingerprint}:${report.settings.revision}`} month={month} revision={last?.revision??0} enabled={report.settings.personalIncomeEnabled} confirmed={confirmed}/>}

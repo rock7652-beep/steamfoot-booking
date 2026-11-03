@@ -1,5 +1,5 @@
 vi.mock('@/server/services/add-on-access',()=>({isBeautyServiceAddOnsEnabled:async()=>true}));
-vi.mock('@/server/beauty/shared-goods-catalog',()=>({readBeautyGoodsCatalog:async()=>({enabled:true,revision:3,groups:[{id:'drinks',title:'飲品',kind:'SHARED_GOODS',required:false,multiple:true,options:[{id:'tea',name:'茶',price:80,duration:0,active:true}]}]})}));
+vi.mock('@/server/beauty/shared-goods-catalog',()=>({readBeautyGoodsCatalog:async()=>({enabled:true,revision:3,groups:[{id:'drinks',title:'飲品',kind:'SHARED_GOODS',subjectIds:['s'],required:false,multiple:true,options:[{id:'tea',name:'茶',price:80,duration:0,active:true}]}]})}));
 vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
 vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';

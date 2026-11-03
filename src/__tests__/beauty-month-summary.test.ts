@@ -3,6 +3,8 @@ import {expect,it,vi} from 'vitest';
 import {act,createElement as h,type ComponentProps} from 'react';
 import {createRoot} from 'react-dom/client';
 import {renderToStaticMarkup} from 'react-dom/server';
+vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()})}));
+vi.mock('@/server/actions/business-hours',()=>({getDaySlotDetails:vi.fn(),applyDaySlotOverrides:vi.fn()}));
 const mocks=vi.hoisted(()=>({workspace:vi.fn()}));
 vi.mock('@/app/(dashboard)/dashboard/courses/workspace',()=>({CourseWorkspace:(props:unknown)=>{mocks.workspace(props);return null;}}));
 vi.mock('@/components/beauty/native-schedule-source',()=>({beautyNativeScheduleSource:()=>({initial:{},source:{command:vi.fn()}})}));

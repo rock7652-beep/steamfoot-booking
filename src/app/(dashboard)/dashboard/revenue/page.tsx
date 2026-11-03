@@ -1,3 +1,4 @@
+import {OperationsFrame,OperationsControls} from "@/components/operations/workspace-frame";
 import {operationsSavedQuery} from "@/lib/operations-navigation";
 import {redirectOperations} from "@/lib/operations-navigation-server";
 import toolbar from "@/components/operations/filter-toolbar.module.css";
@@ -290,7 +291,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
   return (
     <PageShell compact>
       <PageHeader compact title="營運"/>
-      <OperationsTabs query={params}/>
+      <OperationsFrame tabs={<OperationsTabs query={params}/>}>
 
       {isViewMode && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
@@ -313,11 +314,11 @@ export default async function RevenuePage({ searchParams }: PageProps) {
 
               </div>
 
-              <InstantFilterForm className={`${toolbar.toolbar} mt-2`}>{Object.entries(operationsSavedQuery(params)).map(([name,value])=><input type="hidden" key={name} name={name} value={value}/>)}
-                <label className="text-[11px] text-earth-500">
+              <InstantFilterForm id="operations-steam-ledger-filters" className={`${toolbar.toolbar} mt-2`}>{Object.entries(operationsSavedQuery(params)).map(([name,value])=><input type="hidden" key={name} name={name} value={value}/>)}
+<OperationsControls>                <label className="text-[11px] text-earth-500">
                   開始日期
                   <input
-                    name="dateFrom"
+                    form="operations-steam-ledger-filters" name="dateFrom"
                     type="date"
                     defaultValue={dateFrom}
                     className="mt-0.5 block min-h-11 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
@@ -326,12 +327,13 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                 <label className="text-[11px] text-earth-500">
                   結束日期
                   <input
-                    name="dateTo"
+                    form="operations-steam-ledger-filters" name="dateTo"
                     type="date"
                     defaultValue={dateTo}
                     className="mt-0.5 block min-h-11 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   />
                 </label>
+</OperationsControls>
                 <label className="text-[11px] text-earth-500">
                   類型
                   <select
@@ -441,6 +443,6 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         </div>
 
       </div>
-    </PageShell>
+    </OperationsFrame></PageShell>
   );
 }

@@ -144,12 +144,12 @@ export default async function CashbookPage({ searchParams }: PageProps) {
 
   return (
     <FeatureGate plan={plan} feature={FEATURES.CASHBOOK} enabled={await hasCurrentStoreFeature(FEATURES.CASHBOOK)}>
-      <PageShell>
+      <PageShell compact>
         <FormErrorToast />
 
         <PageHeader
           title="現金帳"
-          subtitle="完整收支與歷史紀錄；開閉店點錢請使用頂欄現金抽屜"
+          compact
           actions={
             isViewMode ? (
               <span className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
@@ -167,16 +167,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
         />
 
         {/* 下方：月度現金帳紀錄（與 workspace 視覺分隔） */}
-        <section id="cashbook-records" className="space-y-4 border-t border-earth-200 pt-6">
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold text-earth-900">現金帳紀錄</h2>
-            <p className="text-xs text-earth-500">
-              這裡是所有現金帳紀錄，包含現金與其他付款。只有
-              <span className="font-medium text-sky-700">「現金」</span>
-              會影響現金抽屜金額。
-            </p>
-          </div>
-
+        <section id="cashbook-records" className="space-y-2">
           <CashbookRecordFilters month={month} kind={selectedKind} keyword={keyword} />
 
           {(hasDateRange || categoryGroup) && (

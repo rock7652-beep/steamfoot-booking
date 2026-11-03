@@ -1,4 +1,5 @@
 "use client";
+import {OperationsControls} from "@/components/operations/workspace-frame";
 import {useSearchParams} from "next/navigation";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
@@ -357,9 +358,9 @@ export function RevenueReportClient({
   return (
     <div className="space-y-6">
       {/* ===== Filters ===== */}
-      <div className={`${toolbar.container} rounded-xl bg-white p-3 border border-earth-200 space-y-2`}>
+      <div className={`${toolbar.container} space-y-2`}>
         {/* Period pills */}
-        <div className="flex flex-wrap items-center gap-2">
+        <OperationsControls><div className="flex flex-wrap items-center gap-2">
           {(["today", "month", "custom"] as const).map((t) => (
             <button
               key={t}
@@ -376,8 +377,7 @@ export function RevenueReportClient({
           ))}
         </div>
 
-        {/* Date + Filters */}
-        <div className={toolbar.toolbar}>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <div>
             <label className="block text-xs text-earth-500 mb-0.5">開始日期</label>
             <input
@@ -397,6 +397,8 @@ export function RevenueReportClient({
             />
           </div>
 
+        </div></OperationsControls>
+        <div className={toolbar.toolbar}>
           {isAdmin && stores.length > 1 && (
             <div>
               <label className="block text-xs text-earth-500 mb-0.5">分店</label>
@@ -599,7 +601,6 @@ export function RevenueReportClient({
           {mode === "store" && (
             <section className="mt-4 rounded-xl border border-earth-200 bg-white p-4">
               <h3 className="text-sm font-semibold text-earth-800">{courseMode ? "收款方式" : "付款方式拆分"}</h3>
-              <p className="mt-1 text-xs text-earth-500">{courseMode ? "方案核帳及體驗收款；混合付款依明細分攤，退款／沖銷另列於上方摘要。" : "混合付款依各付款明細金額分攤；單一付款歷史交易沿用原付款方式。"}</p>
               {paymentMethodSummary.length === 0 ? (
                 <p className="mt-3 text-sm text-earth-400">本期尚無付款資料</p>
               ) : (

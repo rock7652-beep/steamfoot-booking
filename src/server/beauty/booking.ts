@@ -1,3 +1,4 @@
+import {beautyOpenTimeWindows} from "@/lib/beauty/open-time-windows";
 import {assertTechnicianCanComplete} from './technician-service';
 import {prepareBeautyBookingGoods,persistBeautyBookingGoods} from './booking-shared-goods';
 import {isBeautyServiceAddOnsEnabled} from '@/server/services/add-on-access';
@@ -23,7 +24,6 @@ import {
   addTaiwanDuration,
 } from "@/lib/date-utils";
 import {
-  resolvedCourseHours,
   type Hour,
   type Special,
 } from "@/lib/course-business-hours";
@@ -134,7 +134,7 @@ export async function loadAvailability(
     tx.$queryRaw<{id:string;roomId:string;occupiedStartsAt:Date;occupiedEndsAt:Date}[]>`SELECT id,"roomId","occupiedStartsAt","occupiedEndsAt" FROM "CourseRental" WHERE "storeId"=${a.storeId} AND "cancelledAt" IS NULL AND "occupiedStartsAt"<${range.end} AND "occupiedEndsAt">${range.start}`,
   ]);
   const rule=serviceDayRule({hours,specials:specials.map((s,i)=>({...s,id:String(i)})),overrides},date);
-  const memberSlots=applySlotOverrides(halfHourRule(rule),overrides).filter(s=>s.isEnabled&&s.inRange&&s.capacity>0&&/:(00|30)$/.test(s.startTime)).map(s=>s.startTime);
+  const memberSlots=applySlotOverrides(halfHourRule(rule),overrides).filter(s=>s.isEnabled&&s.capacity>0&&/:(00|30)$/.test(s.startTime)).map(s=>s.startTime);
   return {
     catalogChargeCache:new Map<string,Promise<Awaited<ReturnType<typeof readCatalogCharge>>>>(),
     cardChargeCache:new Map<string,Promise<Awaited<ReturnType<typeof readCardCharge>>>>(),
@@ -146,6 +146,7 @@ export async function loadAvailability(
     specials,
     policy,
     memberSlots,
+    openWindows:beautyOpenTimeWindows(rule,overrides),
     rentalOccupancy,
     slots: applySlotOverrides(
       serviceDayRule(
@@ -158,7 +159,7 @@ export async function loadAvailability(
       ),
       overrides,
     )
-      .filter((s) => s.isEnabled && s.inRange && s.capacity > 0)
+      .filter((s) => s.isEnabled && s.capacity > 0)
       .map((s) => s.startTime),
   };
 }
@@ -182,8 +183,7 @@ export async function findAllocation(
     technicians,
     locations,
     occupied,
-    hours,
-    specials,
+    openWindows,
     policy,
     slots,
     memberSlots,
@@ -255,10 +255,7 @@ export async function findAllocation(
       duration: o.duration,
       status: o.status,
     })),...rentalOccupancy.map(r=>({start:+r.occupiedStartsAt,end:+r.occupiedEndsAt,technicianId:"rental:"+r.id,locationId:r.roomId,duration:0,status:"RESERVED"}))],
-    hours: resolvedCourseHours(d.date, hours, specials).periods.map((p) => ({
-      start: p.openTime,
-      end: p.closeTime,
-    })),
+    hours: openWindows,
   });
   if (!result)
     throw new AppError("CONFLICT", arrangementIssue?`此時段無法安排：${arrangementIssue}`:"此時段無法安排，請核對服務、技師與位置");
