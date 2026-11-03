@@ -19,4 +19,8 @@
 
 使用者於本聊天明確回覆「允許」，已批准上述單一隔離店的臨時必要寫入權限，完成後撤回；後續不需重問同一授權。
 
-本輪尚未執行新增權限、啟用帳號或建立業務交易。Supabase 唯讀 metadata 查詢的自動權限審核逾時，重試仍逾時；單一 Store/isDemo 唯讀查詢已成功，確認目標隔離店存在；RLS／grants 盤點仍遭自動審核逾時。Vercel 存取工具亦未成功。這是工具審核逾時，不是安全拒絕，也不是使用者尚未批准。待工具恢復後，先核對實際 RLS／grants，再套用最小政策並驗證跨店及非 QA 資料仍遭拒絕，接續已批准的正常登入與交易驗收。
+準備階段曾遇自動審核逾時；後續工具恢復後，已按上述批准範圍完成臨時政策、正常登入及隔離交易驗收。
+
+驗收已收尾：暫存政策0筆、新增的INSERT／UPDATE grants全數撤回；兩個舊User恢復SUSPENDED與passwordHash NULL、原updatedAt，Staff恢復INACTIVE；會員email／Customer設定未修改。合成預約2筆完成、2筆取消，剩餘保留0；不可變付款及扣次紀錄保留。合成服務、技師、方案、床位停用，卡關閉；臨時entitlement刪除，合成錢櫃關閉，僅本次取消通知標為已處理。私有密碼、瀏覽器session與暫存信任庫已刪除。具體結果見hosted-restoration-evidence.json與hosted-transaction-evidence.json。
+
+SQL檔是已撤回的隔離QA操作稽核證據，含固定到期時間；不是正式migration，也不可直接套用至其他環境。

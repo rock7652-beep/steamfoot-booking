@@ -1,0 +1,95 @@
+[
+  {
+    "restored": {
+      "staff": "INACTIVE",
+      "drawer": "CLOSED",
+      "accounts": [
+        {
+          "id": "qa1469-20261030-beauty-owner",
+          "status": "SUSPENDED",
+          "updatedAt": "2026-11-03T10:13:54.003",
+          "emailIsNull": false,
+          "passwordIsNull": true
+        },
+        {
+          "id": "qa-sync-online-cd14b5c8bc8d-user-0",
+          "status": "SUSPENDED",
+          "updatedAt": "2026-10-28T14:19:12.635",
+          "emailIsNull": true,
+          "passwordIsNull": true
+        }
+      ],
+      "customer": {
+        "stage": "LEAD",
+        "updatedAt": "2026-10-28T14:12:58.206",
+        "selfBookingEnabled": false
+      },
+      "writeGrants": [
+        {
+          "table": "BeautyAppointment",
+          "insert": false,
+          "update": false
+        },
+        {
+          "table": "BeautyCard",
+          "insert": false,
+          "update": false
+        },
+        {
+          "table": "BeautyCommand",
+          "insert": false,
+          "update": false
+        },
+        {
+          "table": "BeautyEvent",
+          "insert": false,
+          "update": false
+        },
+        {
+          "table": "BeautyGroup",
+          "insert": false,
+          "update": false
+        },
+        {
+          "table": "BeautyLedger",
+          "insert": false,
+          "update": false
+        },
+        {
+          "table": "BeautyPayment",
+          "insert": false,
+          "update": false
+        },
+        {
+          "table": "CashDrawerSession",
+          "insert": false,
+          "update": false
+        },
+        {
+          "table": "CashbookEntry",
+          "insert": false,
+          "update": false
+        },
+        {
+          "table": "CourseStoreNotice",
+          "insert": false,
+          "update": false
+        },
+        {
+          "table": "DigitalManagerNotice",
+          "insert": false,
+          "update": false
+        },
+        {
+          "table": "Store",
+          "insert": false,
+          "update": false
+        }
+      ],
+      "remainingHolds": 0,
+      "temporaryPolicies": 0,
+      "temporaryEntitlement": 0,
+      "fixtureServicesActive": 0
+    }
+  }
+]

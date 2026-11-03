@@ -1,6 +1,6 @@
-# 美業合併主服務與加做混合支付（本地候選）
+# 美業合併主服務與加做混合支付
 
-版本基準 f64aabb7；在本地修改，未推送、未建 PR、未部署或遷移正式資料庫。沿用本聊天已確認規則；先前「加做可扣加做方案／組合方案」提案已被取代。
+PR #1503；程式版本3e5e7df1。已推送並完成隔離Hosted Preview及交易驗收；正式站未合併、未部署，正式資料庫未修改。以下保留各階段測試來源；最終結果見末節。加做維持獨立單次消費。
 
 ## 規則與介面
 
@@ -35,7 +35,7 @@ PGlite 載入既有候選 SQL，在隔離記憶體資料庫驗證同顧客相鄰
 
 文案精簡：移除重複的扣次、加做費用與預設技師說明；確認頁保留每段方案使用資訊，不再重複合計次數；後台摘要改列服務項數。保留錯誤、金額、時間及操作入口。另修正僅後段有加做時的應付金額顯示。受影響回歸 4 檔 47 項通過；六尺寸三入口隔離預覽再次通過，截圖已更新。
 
-PR #1503 首輪全量測試共 1671 檔通過，2 項失敗集中在 beauty-booking-draft-ui：舊摘要合計文案已按使用者要求移除，測試改驗每位方案使用；同時開始的紀錄不得被誤標為分段，補上起訖不重疊條件與回歸案例。舊隔離帳號停用且無密碼；未沿用歷史授權恢復，登入後驗收仍待本次帳號授權。
+PR #1503 首輪全量測試共 1671 檔通過，2 項失敗集中在 beauty-booking-draft-ui：舊摘要合計文案已按使用者要求移除，測試改驗每位方案使用；同時開始的紀錄不得被誤標為分段，補上起訖不重疊條件與回歸案例。首輪當時的舊隔離帳號停用且無密碼；後續取得本聊天明確授權後才暫時啟用，並於驗收結束恢復。
 
 
 ## Hosted 驗收與勾選框修正（2026-11-03）
@@ -46,4 +46,19 @@ Hosted 程式基準 5f4d0e77，隔離專案 ttworfzgwejdeolegkxl 的 isDemo 店 
 
 Hosted 驗收發現共用班表表單祖先的 `[&_input]:appearance-none` 導致 checkbox 計算尺寸為0×0且原生外觀被隱藏；文字標籤仍能選取。已將規則限於非 checkbox/radio，並為合併服務、技師分段、加做／適用服務及混合付款提供20px原生勾選框。共用 sports schedule dialog 同樣修正，保留其他欄位的樣式。沿用 UI review 與 React best-practices 檢查：只調整原生控制項及既有樣式，沒有新增 hooks、載入或交易路徑。
 
-本輪相關7檔56項及共用班表3檔16項測試通過；型別檢查、ESLint通過。元件瀏覽器增加可見 label 下 checkbox 至少20×20且保留原生外觀的檢查，六尺寸三入口18條通過；1024px元件收款腳本曾在表單更新期間逾時，加入兩個繪製影格的穩定等待及點擊／submit診斷後，全尺寸通過。Hosted 顧客端與最終新版預覽仍在驗收，結果另記。
+本輪相關7檔56項及共用班表3檔16項測試通過；型別檢查、ESLint通過。元件瀏覽器增加可見 label 下 checkbox 至少20×20且保留原生外觀的檢查，六尺寸三入口18條通過；1024px元件收款腳本曾在表單更新期間逾時，加入兩個繪製影格的穩定等待及點擊／submit診斷後，全尺寸通過。Hosted 顧客端與最終新版預覽結果如下。
+
+
+## 最終結果與限制
+
+顧客以舊測試帳號正常手機／密碼登入，在390px手機模擬尺寸預約A+B，預設同技師，確認頁分別列出方案及時間。資料庫確認同組兩段均為技師A，14:00–14:30、14:35–15:05。只取消B後，A仍為RESERVED／held=1，B為CANCELLED／held=0，各卡仍剩4次。收尾再取消A，最終保留0次；原完成的兩段及付款不受影響。
+
+勾選框修正版Preview：dpl_HxYMWbwzSPA9Bc4ANGoa52Yg55LX，來源3e5e7df1f7841a2379b8c33b42bf155bb6aa9bc8，READY。網址：https://steamfoot-compact-qa-20261103-hv7fapyku-rock7652-2111s-projects.vercel.app 。建置guard確認isolated_database、restricted_role、migrations_skipped、notifications_blocked皆true。正常OWNER登入後，1366×900、1920×1080、1024×768、768×1024四尺寸都能直接勾選20×20控制項；草稿／技師選取隨尺寸保留、主操作可到達、無整頁橫向溢出，沒有新增交易。
+
+3e5e7df1遠端Changed-file ESLint、Targeted tests、Typecheck、Full Vitest baseline（8m17s）全部通過。Cloudflare Workers Builds檢查仍失敗，GitHub只回報build ID，未提供根因；本環境沒有Cloudflare連接器，未修改其設定或略過檢查。此Vercel隔離Preview已驗證；正式發布仍未執行，不能據此宣稱可合併正式站。
+
+驗收後，已驗證臨時RLS政策0筆、新增寫入grants全撤回；OWNER與會員舊帳號均恢復SUSPENDED／passwordHash NULL與原updatedAt，Staff INACTIVE；會員email仍NULL，Customer仍LEAD／selfBookingEnabled=false且原updatedAt未變。服務、技師、方案、床位停用、卡關閉、臨時加做資格移除、合成錢櫃關閉。不可變付款與扣次保留；兩個取消預約的內部通知僅針對本次資料標為處理。沒有外發事件或正式資料變更。私有密碼與browser profile已清除。
+
+證據：hosted-transaction-evidence.json、hosted-restoration-evidence.json、hosted/截圖及hosted-final-preview/results.json。交易在5f4d0e77完成；最終3e5e7df1只改勾選外觀與瀏覽器驗收，沒有更動交易邏輯。後續補件僅驗收文件及證據，沿用此已完成的Preview，不再重建。瀏覽器均為Chromium模擬尺寸；真機Safari／iPad、LINE、正式通知、跨連線競態仍未驗。
+
+資料庫工具不允許SET ROLE，因此未以QA資料庫角色直接執行跨店負向SQL；未更改role membership或繞過限制。臨時政策以固定店家、合成資料及restrictive條件核對，收尾再以實際grants／policy查詢確認全部撤回。
