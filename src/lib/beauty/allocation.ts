@@ -32,6 +32,8 @@ export type Occupancy = Range & {
   status: string;
 };
 export type Person = {
+  startOffsetMinutes?:number;
+  technicianGroup?:string;
   addOnIds?: string[];
   /** Trusted server-resolved per-charge restriction; absent preserves legacy allocation. */
   allowedTechnicianIds?: readonly string[];
@@ -42,6 +44,7 @@ export type Person = {
   specifiedLocationId?: string | null;
 };
 export type Assignment = {
+  startsAt?:Date;
   technicianId: string;
   locationId: string;
   serviceId: string;
@@ -97,8 +100,8 @@ export function allocateParty(input: {
   hours: Period[];
 }): Assignment[] | null {
   if (
-    input.people.length > input.locationIds.length ||
-    input.people.length > input.technicians.filter((t) => t.active).length
+    !input.people.some(p=>p.startOffsetMinutes) && (input.people.length > input.locationIds.length ||
+    input.people.length > input.technicians.filter((t) => t.active).length)
   )
     {input.onUnavailable?.('可用技師或位置數不足，無法同時安排本次顧客');return null;}
   const start = input.startsAt.getTime();
@@ -121,6 +124,7 @@ export function allocateParty(input: {
       a.id.localeCompare(b.id),
   );
   const choices = input.people.map((p) => {
+    const start=input.startsAt.getTime()+(p.startOffsetMinutes??0)*60000;
     const s = input.services.find((s) => s.id === p.serviceId && s.active);
     if (!s) return null;
     const duration=serviceDuration(s,p.isTrial)+addOnTotals(resolveAddOns(s.addOnGroups,p.addOnIds)).duration;
@@ -154,11 +158,36 @@ export function allocateParty(input: {
       const times=occupiedTimes(occupied.filter(o=>overlaps({start,end},o)&&input.locationIds.includes(o.locationId)&&(!p.specifiedLocationId||o.locationId===p.specifiedLocationId)));
       input.onUnavailable?.(`${p.specifiedLocationId?'指定位置在服務或整理時間內已被占用，請換位置或時間':'服務與整理時間內沒有可用位置，請調整時間'}${times?`（占用：${times}，含整理或租借緩衝時間）`:''}`);
     }
-    return { s, duration, end, techs, rooms };
+    return { s, duration, start, end, techs, rooms };
   });
   if (choices.some((c) => !c || !c.techs.length || !c.rooms.length))
     return null;
   const valid = choices as NonNullable<(typeof choices)[number]>[];
+  if(input.people.some(p=>p.startOffsetMinutes)){
+    const match=(candidates:string[][],groups?:Array<string|undefined>):string[]|null=>{
+      // Technician and room constraints are independent. Intersect a default
+      // same-technician journey up front rather than multiplying both searches.
+      const choices=candidates.map((ids,i)=>groups?.[i]?ids.filter(id=>candidates.every((other,j)=>groups[j]!==groups[i]||other.includes(id))):ids);
+      if(choices.some(ids=>!ids.length))return null;
+      const chosen:string[]=[];
+      const search=(i:number):boolean=>{
+        if(i===valid.length)return true;
+        const previous=groups?.[i]?groups.findIndex((group,j)=>j<i&&group===groups[i]):-1;
+        for(const id of choices[i]){
+          if(previous>=0&&chosen[previous]!==id)continue;
+          if(chosen.some((v,j)=>v===id&&overlaps({start:valid[i].start,end:valid[i].end},{start:valid[j].start,end:valid[j].end})))continue;
+          chosen.push(id);if(search(i+1))return true;chosen.pop();
+        }
+        return false;
+      };
+      return search(0)?chosen:null;
+    };
+    const roomIds=match(valid.map(c=>c.rooms));
+    const techIds=roomIds?match(valid.map(c=>c.techs.map(t=>t.id)),input.people.map(p=>p.technicianGroup)):null;
+    if(!techIds||!roomIds){input.onUnavailable?.('無法安排完整服務行程，請調整時間或分別安排技師');return null;}
+    return valid.map((c,i)=>({startsAt:new Date(c.start),technicianId:techIds[i],locationId:roomIds[i],serviceId:c.s.id,endsAt:new Date(c.start+c.duration*60000),occupiedEndsAt:new Date(c.end),rate:rate.parse((c.techs.find(t=>t.id===techIds[i])!.rates as Record<string,unknown>)[c.s.id]??c.s.defaultRate)}));
+  }
+
   // All attendees start together. Technician and space matching are independent;
   // test remaining perfect matching before choosing each preferred candidate.
   // This preserves deterministic workload order without factorial party search.

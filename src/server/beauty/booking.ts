@@ -1,3 +1,4 @@
+import {expandServiceJourney} from '@/lib/beauty/expand-service-journey';
 import {beautyOpenTimeWindows} from "@/lib/beauty/open-time-windows";
 import {assertTechnicianCanComplete} from './technician-service';
 import {prepareBeautyBookingGoods,persistBeautyBookingGoods} from './booking-shared-goods';
@@ -38,9 +39,11 @@ import type { PartyInput } from "@/lib/beauty/contracts";
 import type {
   Prisma,
   BeautyAppointment,
+  BeautyCard,
 } from "../../../generated/beauty-client";
 import { command, audit, type BeautyActor } from "./access";
 export type Tx = Prisma.TransactionClient;
+type CardAvailabilityCache={cards:Map<string,Promise<BeautyCard|null>>;held:Map<string,Promise<number>>};
 export type BookingPartyInput=Omit<PartyInput,'people'>&{memberTrialChoices?:boolean;people:(PartyInput['people'][number]&{pendingIdentity?:boolean})[]};
 /** Same customer occupancy rule as the exclusion constraint, under the Store lock. */
 export async function assertCustomerAvailable(
@@ -137,6 +140,7 @@ export async function loadAvailability(
   const rule=serviceDayRule({hours,specials:specials.map((s,i)=>({...s,id:String(i)})),overrides},date);
   const memberSlots=applySlotOverrides(halfHourRule(rule),overrides).filter(s=>s.isEnabled&&s.capacity>0&&/:(00|30)$/.test(s.startTime)).map(s=>s.startTime);
   return {
+    cardAvailabilityCache:{cards:new Map(),held:new Map()} as CardAvailabilityCache,
     catalogChargeCache:new Map<string,Promise<Awaited<ReturnType<typeof readCatalogCharge>>>>(),
     cardChargeCache:new Map<string,Promise<Awaited<ReturnType<typeof readCardCharge>>>>(),
     services,
@@ -191,8 +195,13 @@ export async function findAllocation(
     rentalOccupancy=[],
   } = availability;
   const addOnsEnabled=!!serviceSnapshot||await isBeautyServiceAddOnsEnabled(a.storeId,tx);
-  if(!addOnsEnabled&&d.people.some(p=>p.addOnIds?.length))throw new AppError('FORBIDDEN','附加選購已關閉，請重新確認服務');
+  if(!addOnsEnabled&&d.people.some(p=>p.addOnIds?.length||p.additionalServices?.some(s=>s.addOnIds?.length)))throw new AppError('FORBIDDEN','附加選購已關閉，請重新確認服務');
   const services=addOnsEnabled?rawServices:rawServices.map(s=>({...s,addOnGroups:[]}));
+  let people;try{people=expandServiceJourney(d.people,services);}catch(error){throw new AppError('VALIDATION',error instanceof Error?error.message:'請核對服務行程');}
+  if(!a.manager&&people.some(p=>p.specifiedLocationId))throw new AppError("FORBIDDEN","位置由店家安排");
+  if(people.some(p=>p.journeySegmentIndex>0)&&(!a.customerId&&!a.manager||!a.manager&&people.some(p=>p.journeySegmentIndex>0&&p.customerId!==a.customerId)))throw new AppError('FORBIDDEN','合併服務須使用本人方案');
+  for(const p of people)if(p.cardId&&people.some(row=>row.journeyPersonIndex===p.journeyPersonIndex&&row.journeySegmentIndex>0))await assertCard(tx,a,p.cardId,p.customerId,p.serviceId,new Date(+startsAt+p.startOffsetMinutes*60000),undefined,undefined,availability.cardAvailabilityCache);
+
 
   if (
     !allowPast &&
@@ -203,22 +212,22 @@ export async function findAllocation(
   if (!allowPast && !slots.includes(d.time) && !memberSlots.includes(d.time))
     throw new AppError("VALIDATION", "此開始時間未開放，請依營業預約單位選擇");
   if(d.expectedArrangement&&!a.manager)throw new AppError("FORBIDDEN","位置由店家安排");
-  if(d.expectedArrangement?.some((assigned,i)=>!d.people[i]||(d.people[i].specifiedTechnicianId&&d.people[i].specifiedTechnicianId!==assigned.technicianId)||(d.people[i].specifiedLocationId&&d.people[i].specifiedLocationId!==assigned.locationId)))throw new AppError("CONFLICT","指定安排已變更，請重新核對");
+  if(d.expectedArrangement?.some((assigned,i)=>!people[i]||(people[i].specifiedTechnicianId&&people[i].specifiedTechnicianId!==assigned.technicianId)||(people[i].specifiedLocationId&&people[i].specifiedLocationId!==assigned.locationId)))throw new AppError("CONFLICT","指定安排已變更，請重新核對");
   let chargeSnapshots:Awaited<ReturnType<typeof readCardCharge>>[]|undefined;
   if(beautyChargeRulesEnabled(a.storeId)){
     chargeSnapshots=[];
     if(trustedChargeSnapshots){
-      if(trustedChargeSnapshots.length!==d.people.length)throw new AppError('CONFLICT','收費核對人數不符');
+      if(trustedChargeSnapshots.length!==people.length)throw new AppError('CONFLICT','收費核對人數不符');
       chargeSnapshots=trustedChargeSnapshots;
     }
     const original=excludeIds.length===1?await readAppointmentCharge(tx,a.storeId,excludeIds[0]):null;
-    for(const p of trustedChargeSnapshots?[]:d.people){
+    for(const p of trustedChargeSnapshots?[]:people){
       if(original){
-        if(d.people.length!==1||p.serviceId!==original.item.serviceId)throw new AppError('CONFLICT','改期服務與原預約不符');
+        if(people.length!==1||p.serviceId!==original.item.serviceId)throw new AppError('CONFLICT','改期服務與原預約不符');
         chargeSnapshots.push(original.snapshot);
       }else if(p.cardId){
         if(p.isTrial??d.isTrial)throw new AppError('VALIDATION','體驗不使用一般方案');
-        const card=await assertCard(tx,a,p.cardId,p.customerId,p.serviceId,startsAt,undefined,p.pendingIdentity?(a.customerId??d.people[0]?.customerId):undefined);
+        const card=await assertCard(tx,a,p.cardId,p.customerId,p.serviceId,startsAt,undefined,p.pendingIdentity?(a.customerId??people[0]?.customerId):undefined,availability.cardAvailabilityCache);
         const cacheKey=a.storeId+':'+card.id;
         let pending=availability.cardChargeCache?.get(cacheKey);
         if(!pending){pending=readCardCharge(tx,a.storeId,card);availability.cardChargeCache?.set(cacheKey,pending);}
@@ -233,7 +242,7 @@ export async function findAllocation(
       }
     }
   }
-  for(const person of d.people){
+  for(const person of people){
     const service=services.find(s=>s.id===person.serviceId);
     try{if(!serviceSnapshot)resolveAddOns(service?.addOnGroups,person.addOnIds);}catch(error){throw new AppError("VALIDATION",error instanceof Error?error.message:"請核對附加項目");}
   }
@@ -242,7 +251,7 @@ export async function findAllocation(
     onUnavailable:reason=>{arrangementIssue??=reason;},
     date: d.date,
     startsAt,
-    people:d.people.map((p,i)=>({...p,...(chargeSnapshots?{allowedTechnicianIds:chargeAllowedIds(chargeSnapshots[i],a.storeId,p.serviceId)}:{}),isTrial:p.isTrial??d.isTrial??false,...(d.expectedArrangement?{specifiedTechnicianId:d.expectedArrangement[i].technicianId,specifiedLocationId:d.expectedArrangement[i].locationId}:{})})),
+    people:people.map((p,i)=>({...p,...(chargeSnapshots?{allowedTechnicianIds:chargeAllowedIds(chargeSnapshots[i],a.storeId,p.serviceId)}:{}),isTrial:p.isTrial??d.isTrial??false,...(d.expectedArrangement?{specifiedTechnicianId:d.expectedArrangement[i].technicianId,specifiedLocationId:d.expectedArrangement[i].locationId}:{})})),
     services:serviceSnapshot?services.map(s=>s.id===serviceSnapshot.serviceId?{...s,duration:serviceSnapshot.duration,buffer:serviceSnapshot.buffer,trialDuration:null,addOnGroups:[]}:s):services,
     technicians,
     locationIds: locations
@@ -262,13 +271,13 @@ export async function findAllocation(
     throw new AppError("CONFLICT", `${formatTWDateTime(startsAt)} ${arrangementIssue?`此時段無法安排：${arrangementIssue}`:"此時段無法安排，請核對服務、技師與位置"}`);
   // Use the same customer occupancy window as reservation, including cleanup.
   // Availability already has the scoped day snapshot; do not query per slot.
-  const customerConflict = d.people.flatMap((person, index) => person.customerId ? occupied.filter(o =>
+  const customerConflict = people.flatMap((person, index) => person.customerId ? occupied.filter(o =>
     o.customerId === person.customerId && o.status !== "CANCELLED" &&
     !excludeIds.includes(o.id) && o.startsAt < result[index].occupiedEndsAt &&
-    o.occupiedEndsAt > startsAt,
+    o.occupiedEndsAt > (result[index].startsAt??startsAt),
   ) : []).sort((a,b)=>+a.startsAt-+b.startsAt)[0];
   if(customerConflict)throw new AppError("CONFLICT", `${formatTWDateTime(startsAt)} 服務者已有重疊預約：${formatTWDateTime(customerConflict.startsAt)}–${formatTWDateTime(customerConflict.occupiedEndsAt)}（含整理時間），請改選其他時間`);
-  return { startsAt, services, policy, result, chargeSnapshots };
+  return { startsAt, services, policy, result, chargeSnapshots, people };
 }
 export async function assertCard(
   tx: Tx,
@@ -279,10 +288,13 @@ export async function assertCard(
   startsAt: Date,
   excludeId?: string,
   sponsorId?: string | null,
+  cache?:CardAvailabilityCache,
 ) {
-  const card = await tx.beautyCard.findFirst({
-    where: { id: cardId, storeId: a.storeId, closedAt: null },
-  });
+  const cacheKey=a.storeId+':'+cardId;
+  const cached=excludeId?undefined:cache;
+  let pendingCard=cached?.cards.get(cacheKey);
+  if(!pendingCard){pendingCard=Promise.resolve(tx.beautyCard.findFirst({where:{id:cardId,storeId:a.storeId,closedAt:null}}));cached?.cards.set(cacheKey,pendingCard);}
+  const card=await pendingCard;
   if (
     !card ||
     card.expiresAt <= startsAt ||
@@ -292,14 +304,9 @@ export async function assertCard(
     throw new AppError("FORBIDDEN", "此方案不適用或未授權此服務者");
   if (!a.manager && (!a.customerId || !card.memberIds.includes(a.customerId)))
     throw new AppError("FORBIDDEN", "無權使用此共用方案");
-  const held = await tx.beautyAppointment.count({
-    where: {
-      storeId: a.storeId,
-      cardId,
-      status: "RESERVED",
-      id: { not: excludeId },
-    },
-  });
+  let pendingHeld=cached?.held.get(cacheKey);
+  if(!pendingHeld){pendingHeld=Promise.resolve(tx.beautyAppointment.count({where:{storeId:a.storeId,cardId,status:'RESERVED',id:{not:excludeId}}}));cached?.held.set(cacheKey,pendingHeld);}
+  const held=await pendingHeld;
   if (card.remaining - held < 1)
     throw new AppError("CONFLICT", "方案可用次數不足");
   return card;
@@ -315,8 +322,9 @@ export async function reserveParty(
     customerId?: string;
   },
 ) {
+  if(!a.manager&&!a.customerId&&d.people.some(p=>p.additionalServices?.length))throw new AppError("FORBIDDEN","公開體驗不提供合併服務");
   return command(tx, a, d.requestKey, d, async () => {
-    const sharedGoods=await prepareBeautyBookingGoods(a.storeId,d.sharedGoods,d.people.map(p=>p.serviceId));
+    const sharedGoods=await prepareBeautyBookingGoods(a.storeId,d.sharedGoods,d.people.flatMap(p=>[p.serviceId,...(p.additionalServices??[]).map(s=>s.serviceId)]));
     let groupCustomerId = a.customerId ?? (a.manager?d.people[0]?.customerId??null:null);
     if (entry?.channel === "LINE") {
       groupCustomerId = entry.customerId ?? crypto.randomUUID();
@@ -330,14 +338,14 @@ export async function reserveParty(
       const contact = d.people.find((p) => p.phone === d.phone);
       if (contact) contact.customerId = groupCustomerId;
     }
-    const { startsAt, services, policy, result, chargeSnapshots } = await findAllocation(
+    const { startsAt, services, policy, result, chargeSnapshots, people } = await findAllocation(
       tx,
       a,
       d,
     );
     if (
       d.policyRevision !== policy.revision ||
-      d.people.some(
+      people.some(
         (p) =>
           services.find((s) => s.id === p.serviceId)?.revision !==
           p.serviceRevision,
@@ -351,13 +359,13 @@ export async function reserveParty(
       throw new AppError("FORBIDDEN", "店家已關閉自行預約");
     if (!a.manager && !a.customerId && !d.isTrial)
       throw new AppError("FORBIDDEN", "請先登入會員");
-    if(!a.manager&&(!a.customerId||!d.memberTrialChoices)&&d.people.some(p=>p.isTrial!==undefined&&p.isTrial!==d.isTrial))throw new AppError("FORBIDDEN","收費方式須由店家核對");
-    if(d.people.some(p=>p.cardId&&(p.isTrial??d.isTrial)))throw new AppError("VALIDATION","體驗不使用一般方案");
+    if(!a.manager&&(!a.customerId||!d.memberTrialChoices)&&people.some(p=>p.isTrial!==undefined&&p.isTrial!==d.isTrial))throw new AppError("FORBIDDEN","收費方式須由店家核對");
+    if(people.some(p=>p.cardId&&(p.isTrial??d.isTrial)))throw new AppError("VALIDATION","體驗不使用一般方案");
     const partyKeys = new Set<string>();
-    for (const p of d.people) {
+    for (const p of people) {
       const pending=p.pendingIdentity===true;
-      if(pending&&((!a.manager&&!a.customerId)||!groupCustomerId||p===d.people[0]||p.customerId||p.phone))throw new AppError("FORBIDDEN","同行者資料待店家補齊");
-      if(pending)p.name=`同行者 ${d.people.indexOf(p)}`;
+      if(pending&&((!a.manager&&!a.customerId)||!groupCustomerId||p===people[0]||p.customerId||p.phone))throw new AppError("FORBIDDEN","同行者資料待店家補齊");
+      if(pending)p.name=`同行者 ${people.indexOf(p)}`;
       if (!pending &&
         !a.manager &&
         p.customerId &&
@@ -366,7 +374,7 @@ export async function reserveParty(
       ) {
         if (!p.cardId)
           throw new AppError("FORBIDDEN", "代約會員須有具名共用方案授權");
-        await assertCard(tx, a, p.cardId, p.customerId, p.serviceId, startsAt);
+        await assertCard(tx, a, p.cardId, p.customerId, p.serviceId, new Date(+startsAt+p.startOffsetMinutes*60000));
       }
       if (p.customerId) {
         const rows = await tx.$queryRaw<
@@ -392,7 +400,7 @@ export async function reserveParty(
       // Known customer identity is authoritative; unnamed companions remain distinct slots.
       if(!pending){
         const identity=p.customerId?`customer:${p.customerId}`:`phone:${p.phone}`;
-        if(partyKeys.has(identity))throw new AppError("VALIDATION","同一位顧客不可重複加入本次預約");
+        if(p.journeySegmentIndex===0&&partyKeys.has(identity))throw new AppError("VALIDATION","同一位顧客不可重複加入本次預約");
         partyKeys.add(identity);
       }
       if (p.isTrial??d.isTrial) {
@@ -401,8 +409,8 @@ export async function reserveParty(
           throw new AppError("VALIDATION", "此服務未開放體驗");
         await assertBeautyTrialEligibility(tx,a.storeId,p);
       }
-      await assertCustomerAvailable(tx, a.storeId, p.customerId, startsAt,
-        result[d.people.indexOf(p)].occupiedEndsAt);
+      await assertCustomerAvailable(tx, a.storeId, p.customerId, new Date(+startsAt+p.startOffsetMinutes*60000),
+        result[people.indexOf(p)].occupiedEndsAt);
     }
     const group = await tx.beautyGroup.create({
       data: {
@@ -413,14 +421,15 @@ export async function reserveParty(
         startsAt,
       },
     });
-    const costs=beautyChargeRulesEnabled(a.storeId)?await readBeautyChargeFinance(tx,a.storeId,d.people.filter(p=>!p.cardId).map(p=>({kind:'single',id:p.serviceId}))):new Map<string,{storeCost:number|null;trialStoreCost:number|null}>();
+    const costs=beautyChargeRulesEnabled(a.storeId)?await readBeautyChargeFinance(tx,a.storeId,people.filter(p=>!p.cardId).map(p=>({kind:'single',id:p.serviceId}))):new Map<string,{storeCost:number|null;trialStoreCost:number|null}>();
     const ids: string[] = [];
     const sessions: import("@/app/(dashboard)/dashboard/courses/workspace").Session[] = [];
-    for (const [i, p] of d.people.entries()) {
+    for (const [i, p] of people.entries()) {
       const s = services.find((s) => s.id === p.serviceId)!,
         allocation = result[i];
+      const segmentStartsAt=allocation.startsAt??startsAt;
       if (p.cardId) {
-        await assertCard(tx, a, p.cardId, p.customerId, p.serviceId, startsAt, undefined, p.pendingIdentity?groupCustomerId:undefined);
+        await assertCard(tx, a, p.cardId, p.customerId, p.serviceId, new Date(+startsAt+p.startOffsetMinutes*60000), undefined, p.pendingIdentity?groupCustomerId:undefined);
       }
       const extras=resolveAddOns(s.addOnGroups,p.addOnIds);
       const item = await tx.beautyAppointment.create({
@@ -439,10 +448,10 @@ export async function reserveParty(
           locationId: allocation.locationId,
           preference: p.preference,
           specifiedTechnicianId: p.specifiedTechnicianId,
-          startsAt,
+          startsAt:segmentStartsAt,
           endsAt: allocation.endsAt,
           occupiedEndsAt: allocation.occupiedEndsAt,
-          duration: Math.round((allocation.endsAt.getTime()-startsAt.getTime())/60000),
+          duration: Math.round((allocation.endsAt.getTime()-segmentStartsAt.getTime())/60000),
           buffer: s.buffer,
           price: (p.isTrial??d.isTrial) ? s.trialPrice! : s.price,
           isTrial: p.isTrial??d.isTrial,
@@ -456,7 +465,7 @@ export async function reserveParty(
       if(chargeSnapshots)await writeAppointmentCharge(tx,a.storeId,item.id,chargeSnapshots[i]);
       if(!p.cardId&&beautyChargeRulesEnabled(a.storeId))await audit(tx,a,'SERVICE_FINANCE_RULE',JSON.stringify({storeCost:beautyServiceStoreCost(costs.get('single:'+s.id),p.isTrial??d.isTrial)}),item.id);
       ids.push(item.id);
-      if(a.manager)sessions.push({id:item.id,templateId:s.id,nameSnapshot:s.name,startsAt:startsAt.toISOString(),endsAt:allocation.endsAt.toISOString(),occupiedEndsAt:allocation.occupiedEndsAt.toISOString(),coachId:allocation.technicianId,roomId:allocation.locationId,capacity:1,pointCost:p.cardId?1:0,isTrial:p.isTrial??d.isTrial,servicePalette:true,serviceCustomer:{name:p.name,phone:p.phone},service:{groupId:group.id,personName:p.name,status:'RESERVED',endsAt:allocation.endsAt.toISOString(),occupiedEndsAt:allocation.occupiedEndsAt.toISOString(),buffer:s.buffer,paymentStatus:p.cardId?'使用方案':((p.isTrial??d.isTrial)?s.trialPrice:s.price)===0?'無須收款':'待收款'},bookings:[{id:item.id,customerId:p.customerId,customerName:p.name,status:'RESERVED',bookingKind:(p.isTrial??d.isTrial)?'TRIAL':'REGULAR'}]});
+      if(a.manager)sessions.push({id:item.id,templateId:s.id,nameSnapshot:s.name,startsAt:segmentStartsAt.toISOString(),endsAt:allocation.endsAt.toISOString(),occupiedEndsAt:allocation.occupiedEndsAt.toISOString(),coachId:allocation.technicianId,roomId:allocation.locationId,capacity:1,pointCost:p.cardId?1:0,isTrial:p.isTrial??d.isTrial,servicePalette:true,serviceCustomer:{name:p.name,phone:p.phone},service:{...(d.people[p.journeyPersonIndex].additionalServices?.length?{groupLabel:`合併服務 · ${p.journeySegmentIndex+1}/${1+d.people[p.journeyPersonIndex].additionalServices!.length} 段`,groupProgress:'同筆預約'}:{}),groupId:group.id,personName:p.name,status:'RESERVED',endsAt:allocation.endsAt.toISOString(),occupiedEndsAt:allocation.occupiedEndsAt.toISOString(),buffer:s.buffer,paymentStatus:p.cardId?(addOnTotals(extras).price>0?'方案＋加做待收款':'使用方案'):((p.isTrial??d.isTrial)?s.trialPrice:s.price)===0?'無須收款':'待收款'},bookings:[{id:item.id,customerId:p.customerId,customerName:p.name,status:'RESERVED',bookingKind:(p.isTrial??d.isTrial)?'TRIAL':'REGULAR'}]});
       await recordBeautyStoreNotice(tx,a,policy.backendNoticesEnabled,item,"BOOKING");
       if (p.cardId)
         await tx.beautyLedger.create({
@@ -476,7 +485,7 @@ export async function reserveParty(
           status: policy.notifications && !beautyNotificationDeliveryBlocked() ? "PENDING" : "SKIPPED",
           appointmentId: item.id,
           customerId: p.customerId ?? groupCustomerId,
-          body: `${s.name}｜${d.date} ${d.time}｜預約成功`,
+          body: `${s.name}｜${formatTWDateTime(segmentStartsAt)}｜預約成功`,
         },
       });
     }

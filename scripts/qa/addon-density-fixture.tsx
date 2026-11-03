@@ -1,0 +1,4 @@
+import {createRoot} from 'react-dom/client';
+import {AddOnFields} from '../../src/components/add-ons/fields';
+const groups=[{id:'goods',kind:'SHARED_GOODS' as const,title:'共同商品',required:false,multiple:true,options:['瓜茶','運動飲','奶昔'].map((name,i)=>({id:'item'+i,name,price:[20,60,1898][i],duration:0,active:true}))}];
+createRoot(document.getElementById('root')!).render(<main style={{padding:24,marginLeft:innerWidth>600?240:0}}><h1 className="mb-4 font-semibold">加購商品</h1><form><AddOnFields module="BEAUTY" sharedOnly initial={location.search.includes('multiple')?[...groups,{...groups[0],id:'other',title:'其他商品',options:[{...groups[0].options[0],id:'other-item'}]}]:groups} storeId="qa" subjects={[{id:'massage',name:'肩頸按摩',isActive:true},{id:'face',name:'臉部保養與舒壓服務的長名稱',isActive:true},{id:'retired',name:'已下架服務',isActive:false}]}/></form></main>);
