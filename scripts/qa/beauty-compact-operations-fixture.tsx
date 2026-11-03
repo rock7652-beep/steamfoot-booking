@@ -17,12 +17,13 @@ import {InstantFilterForm} from '../../src/components/instant-filter-form';
 import {OperationScope} from '../../src/components/operations/operation-scope';
 import type {OperationsArea} from '../../src/lib/operations-navigation';
 
-const qa=window as unknown as {qaCalls:unknown[];qaAction:(name:string,...args:unknown[])=>Promise<unknown>;failLoad:boolean;failSave:boolean};
+const qa=window as unknown as {qaCalls:unknown[];qaAction:(name:string,...args:unknown[])=>Promise<unknown>;failLoad:boolean;failSave:boolean;previewRestricted:boolean};
 qa.qaCalls=[];
 qa.qaAction=async(name,...args)=>{
  qa.qaCalls.push({name,args});
  if(name==='getDaySlotDetails'){
   if(qa.failLoad)throw Error('Synthetic load failure');
+  if(qa.previewRestricted && args[0] !== '2030-11-03')return {slots:[],writeRestriction:'Synthetic preview restriction',previewWriteDate:'2030-11-03'};
   return {status:'open',defaultCapacity:6,hoursRevision:'synthetic-revision',canAddSlotsOnClosedDay:false,slots:['09:00','09:30','10:00','10:30','11:00'].map(startTime=>({startTime,capacity:6,isEnabled:true,inRange:true,override:null}))};
  }
  if(name==='applyDaySlotOverrides')return qa.failSave?{success:false,error:'合成儲存失敗，草稿已保留'}:{success:true,data:{changed:1,bookedPeopleKept:1}};

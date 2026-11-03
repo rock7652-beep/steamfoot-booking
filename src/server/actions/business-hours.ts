@@ -181,7 +181,8 @@ export async function getDaySlotDetails(dateStr:string,expectedStoreId?:string){
  if(!storeId)throw new AppError("UNAUTHORIZED","請先切換到指定門市");
  if(expectedStoreId&&expectedStoreId!==storeId)throw new AppError("CONFLICT","門市已切換，請重新開啟管理時段");
  if(!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)||new Date(dateStr+"T00:00:00Z").toISOString().slice(0,10)!==dateStr)throw new AppError("VALIDATION","日期格式不正確");
- return {...(await loadServiceHoursForSettings(storeId,dateStr)).day, writeRestriction: previewSlotWriteRestriction(storeId, dateStr)};
+ const writeRestriction = previewSlotWriteRestriction(storeId, dateStr);
+ return {...(await loadServiceHoursForSettings(storeId,dateStr)).day, writeRestriction, previewWriteDate: writeRestriction && storeId === "addons-qa-beauty" ? "2030-11-03" : null};
 }
 
 /** 判斷指定日期是否營業，回傳 { open, openTime, closeTime, reason }（共用 resolver） */

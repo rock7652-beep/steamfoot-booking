@@ -132,6 +132,16 @@ try{
  await page.evaluate(()=>{window.failLoad=false;});await dialog.getByRole('button',{name:'重試',exact:true}).click();
  await dialog.getByRole('button',{name:/09:00 開放/}).waitFor();await dialog.getByRole('button',{name:'取消',exact:true}).click();
  results.push({case:'slot draft, failed save, retry, scope guards and iPad',passed:true});
+ await page.evaluate(()=>{window.previewRestricted=true;});
+ await page.getByRole('button',{name:'管理時段',exact:true}).click();
+ await dialog.getByRole('button',{name:'前往可測試日期',exact:true}).waitFor();
+ assert(await dialog.getByRole('button',{name:'確認並儲存',exact:true}).count()===0,'Blocked preview still exposes save');
+ await dialog.getByRole('button',{name:'前往可測試日期',exact:true}).click();
+ await dialog.getByRole('button',{name:/09:00 開放/}).click();
+ await dialog.getByRole('button',{name:'確認並儲存',exact:true}).click();await dialog.waitFor({state:'detached'});
+ const quickSaved=(await page.evaluate(()=>window.qaCalls)).filter(call=>call.name==='applyDaySlotOverrides').at(-1).args[0];
+ assert(quickSaved.date==='2030-11-03','Quick start saved the original calendar date');
+ results.push({case:'preview quick start loads and saves the permitted fixture date',passed:true});
  assert(errors.length===0,errors.join('\n'));
  writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,errors},null,2));
  console.log(JSON.stringify({output,cases:results.length,errors}));

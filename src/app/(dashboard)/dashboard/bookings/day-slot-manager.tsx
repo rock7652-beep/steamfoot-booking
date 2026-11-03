@@ -33,6 +33,8 @@ interface Props {
 export function DaySlotManager({ date, hideCapacity=false, expectedStoreId, bookedPeopleBySlot, onSaved }: Props) {
   const generation=useRef(0);
   const [open, setOpen] = useState(false);
+  const [managerDate, setManagerDate] = useState(date);
+  const [previewWriteDate, setPreviewWriteDate] = useState<string | null>(null);
   const [loadError, setLoadError] = useState("");
   const [writeRestriction, setWriteRestriction] = useState<string | null>(null);
   const [hoursRevision, setHoursRevision] = useState<string>();
@@ -46,9 +48,11 @@ export function DaySlotManager({ date, hideCapacity=false, expectedStoreId, book
   const [newTime, setNewTime] = useState("19:30");
   const [pending, startTransition] = useTransition();
 
-  async function openManager() {
+  async function openManager(targetDate = date) {
     const attempt=++generation.current;
     setOpen(true);
+    setManagerDate(targetDate);
+    setPreviewWriteDate(null);
     setLoading(true);
     setLoadError("");
     setWriteRestriction(null);
@@ -59,10 +63,11 @@ export function DaySlotManager({ date, hideCapacity=false, expectedStoreId, book
     setChanges(new Map());
     setCapacityChanges(new Map());
     try {
-      const detail = await getDaySlotDetails(date, expectedStoreId);
+      const detail = await getDaySlotDetails(targetDate, expectedStoreId);
       if(attempt!==generation.current)return;
       setSlots(detail.slots);
       setWriteRestriction(detail.writeRestriction ?? null);
+      setPreviewWriteDate(detail.previewWriteDate ?? null);
       setHoursRevision(detail.hoursRevision);
       setDefaultCapacity(Math.max(1, detail.defaultCapacity || 6));
       setDayClosed(detail.status === "training" || (detail.status === "closed" && !detail.canAddSlotsOnClosedDay));
@@ -159,7 +164,7 @@ export function DaySlotManager({ date, hideCapacity=false, expectedStoreId, book
       const changedTimes = new Set([...changes.keys(), ...capacityChanges.keys()]);
       let result;
       try { result = await applyDaySlotOverrides({
-        date, expectedStoreId, expectedHoursRevision: hoursRevision,
+        date: managerDate, expectedStoreId, expectedHoursRevision: hoursRevision,
         changes: [...changedTimes].map((startTime) => ({
           startTime,
           action: changes.get(startTime) ?? "capacity",
@@ -191,7 +196,7 @@ export function DaySlotManager({ date, hideCapacity=false, expectedStoreId, book
     <>
       <button
         type="button"
-        onClick={() => void openManager()}
+        onClick={() => void openManager(managerDate)}
         className="inline-flex min-h-11 min-w-32 items-center justify-center rounded-lg border border-earth-200 bg-white px-3 text-sm font-medium text-primary-700 hover:bg-primary-50"
       >
         管理時段
@@ -202,14 +207,18 @@ export function DaySlotManager({ date, hideCapacity=false, expectedStoreId, book
             <header className="flex items-start justify-between gap-3 border-b border-earth-100 pb-3">
               <div>
                 <h3 id="day-slot-title" className="text-base font-bold text-earth-900">管理時段</h3>
-                <p className="mt-0.5 text-xs text-earth-500">只影響 {date}；不會修改每週固定服務時間。</p>
+                <p className="mt-0.5 text-xs text-earth-500">只影響 {managerDate}；不會修改每週固定服務時間。</p>
               </div>
               <button type="button" onClick={requestClose} className="rounded p-1 text-earth-500 hover:bg-earth-100" aria-label="關閉">✕</button>
             </header>
 
-            {loadError ? <div role="alert" className="py-4 text-sm text-red-700">{loadError}<button type="button" className="ml-3 min-h-11 underline" onClick={()=>void openManager()}>重試</button></div> : loading ? <p className="py-8 text-center text-sm text-earth-400">載入時段中…</p> : (
+            {loadError ? <div role="alert" className="py-4 text-sm text-red-700">{loadError}<button type="button" className="ml-3 min-h-11 underline" onClick={()=>void openManager(managerDate)}>重試</button></div> : loading ? <p className="py-8 text-center text-sm text-earth-400">載入時段中…</p> : (
               <>
-                {writeRestriction && <p role="status" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{writeRestriction}</p>}
+                {writeRestriction ? <div className="mt-4 space-y-3 rounded-lg bg-primary-50 p-4">
+                  <p role="status" className="text-sm text-earth-700">此預覽使用固定測試日期，點一下即可開始，不必手動調整班表日期。</p>
+                  {previewWriteDate ? <button type="button" className="min-h-11 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700" onClick={()=>void openManager(previewWriteDate)}>前往可測試日期</button> : <p className="text-sm text-amber-800">{writeRestriction}</p>}
+                </div> : <>
+
                 {closedDayException && <p className="mt-3 text-sm text-amber-800">此日原為公休，可直接加開當日時段；只開放你新增的時間，其餘仍維持公休。</p>}
                 {dayClosed && <p className="mt-3 text-sm text-amber-800">此日為全天休息，請先在服務時間設定開放當日，再新增或重新開放時段。</p>}
                 <div className="mt-4 flex flex-wrap items-end gap-2 rounded-lg bg-primary-50 p-3">
@@ -301,12 +310,13 @@ export function DaySlotManager({ date, hideCapacity=false, expectedStoreId, book
                 </div>
                 {bookedPeopleKept > 0 && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">此次關閉的時段仍有 {bookedPeopleKept} 人預約；儲存後會保留，不會取消或異動帳務。</p>}
                 {changedCount > 0 && <p className="mt-3 text-xs font-medium text-amber-700">尚未儲存：{changedCount} 個時段調整</p>}
+                </>}
               </>
             )}
 
             <footer className="mt-4 flex gap-2 border-t border-earth-100 pt-3">
               <button type="button" onClick={requestClose} className="flex-1 rounded-lg border border-earth-300 py-2 text-sm text-earth-700 hover:bg-earth-50">取消</button>
-              <button type="button" disabled={!changedCount || pending || loading || !!writeRestriction} onClick={save} className="flex-1 rounded-lg bg-primary-600 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50">{pending ? "儲存中…" : "確認並儲存"}</button>
+              {!writeRestriction&&<button type="button" disabled={!changedCount || pending || loading || !!writeRestriction} onClick={save} className="flex-1 rounded-lg bg-primary-600 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50">{pending ? "儲存中…" : "確認並儲存"}</button>}
             </footer>
           </section>
         </RightSheet>
