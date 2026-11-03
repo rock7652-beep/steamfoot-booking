@@ -18,3 +18,6 @@ export function withCalendarMonthRead<T>(read:()=>Promise<T>):Promise<T> {
 export function withCalendarRosterRead<T>(read:()=>Promise<T>):Promise<T> {
   return month.getStore()?read():withReadRequestMemo(()=>withPermissionRequestSession(read));
 }
+
+/** Query-shape optimization only inside the authorized read-only month scope. */
+export function calendarMonthReadActive():boolean{return month.getStore()===true;}

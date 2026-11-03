@@ -1,5 +1,5 @@
 import {expect,it,vi} from 'vitest';
-import {withCalendarMonthRead,withCalendarRosterRead} from '@/server/services/calendar-month-read-scope';
+import {withCalendarMonthRead,withCalendarRosterRead,calendarMonthReadActive} from '@/server/services/calendar-month-read-scope';
 import {memoizeReadRequest} from '@/server/services/read-request-memo';
 import {permissionRequestSession} from '@/lib/permission-request-session';
 it('shares only authenticated identity/metadata across nested month and roster reads, not grants',async()=>{
@@ -39,4 +39,12 @@ it('uses original fresh scopes in QA baseline comparison and never reuses sync/w
  auth.mockClear();metadata.mockClear();
  await withCalendarComparison('optimized',async()=>{await read();await withCalendarMonthRead(async()=>{await read();await withCalendarRosterRead(read);});});
  expect(auth).toHaveBeenCalledTimes(2);expect(metadata).toHaveBeenCalledTimes(2);
+});
+
+it('limits joined month queries to the read scope and preserves the QA baseline query shape',async()=>{
+ expect(calendarMonthReadActive()).toBe(false);
+ await withCalendarRosterRead(async()=>{expect(calendarMonthReadActive()).toBe(false);});
+ await withCalendarComparison('baseline',()=>withCalendarMonthRead(async()=>{expect(calendarMonthReadActive()).toBe(false);}));
+ await withCalendarComparison('optimized',()=>withCalendarMonthRead(async()=>{expect(calendarMonthReadActive()).toBe(true);await withCalendarRosterRead(async()=>{expect(calendarMonthReadActive()).toBe(true);});}));
+ expect(calendarMonthReadActive()).toBe(false);
 });

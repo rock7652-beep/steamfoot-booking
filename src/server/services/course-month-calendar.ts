@@ -1,4 +1,4 @@
-import {withCalendarMonthRead} from "./calendar-month-read-scope";
+import {withCalendarMonthRead,calendarMonthReadActive} from "./calendar-month-read-scope";
 import {calendarPhase,calendarSyncPhase,calendarCount,calendarAccessPhase,traceCourseCalendar} from "./course-calendar-timing";
 import "server-only";
 import {preloadCourseCalendarRosters} from "@/server/services/course-calendar-rosters";
@@ -30,7 +30,7 @@ export async function readCourseMonthCalendar(input:unknown,profile:"FITNESS"|"M
  await calendarPhase("booking_feature",()=>requireStoreFeature(storeId,FEATURES.BASIC_BOOKING));
  const first=date.slice(0,7)+"-01",start=dayRange(addTaiwanDuration(first,-6,"DAY")).start,end=dayRange(addTaiwanDuration(addTaiwanDuration(first,1,"MONTH"),sports?5:6,"DAY")).end;
  const [sessions,rentals,rules,hours,special,exceptions,schedulingModes]=await calendarPhase("month_batch",()=>Promise.all([
-  calendarPhase("sessions",()=>coursePrisma.courseSession.findMany({where:{...(!sports?musicSessionWhere(storeId,dataScope):{}),storeId,cancelledAt:null,OR:[{startsAt:{gte:start,lte:end}},{rescheduledFromStartsAt:{gte:start,lte:end}}]},include:{bookings:true,template:{select:{musicSubject:{select:{name:true}},...(!sports?{musicScheduleMode:true as const}:{})}}},orderBy:{startsAt:"asc"},take:1001})),
+  calendarPhase("sessions",()=>coursePrisma.courseSession.findMany({...(calendarMonthReadActive()?{relationLoadStrategy:"join" as const}:{}),where:{...(!sports?musicSessionWhere(storeId,dataScope):{}),storeId,cancelledAt:null,OR:[{startsAt:{gte:start,lte:end}},{rescheduledFromStartsAt:{gte:start,lte:end}}]},include:{bookings:true,template:{select:{musicSubject:{select:{name:true}},...(!sports?{musicScheduleMode:true as const}:{})}}},orderBy:{startsAt:"asc"},take:1001})),
   calendarPhase("rentals",()=>!sports&&musicDataScope(storeId,dataScope)==="legacy"?[]:coursePrisma.courseRental.findMany({where:{storeId,startsAt:{lte:end},endsAt:{gte:start}},orderBy:{startsAt:"asc"},take:1001})),
   calendarPhase("rules",()=>sports?coursePrisma.$queryRaw<Array<{sessionId:string;frequency:string;enrollment?:string}>>`SELECT "sessionId",frequency,enrollment FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`:[]),
   calendarPhase("hours",()=>prisma.businessHours.findMany({where:{storeId}})),calendarPhase("special_days",()=>prisma.specialBusinessDay.findMany({where:{storeId}})),
