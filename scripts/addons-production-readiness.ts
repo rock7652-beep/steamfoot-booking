@@ -14,7 +14,13 @@ export async function runAddOnsProductionReadiness(env:NodeJS.ProcessEnv=process
   return result;
  }finally{await client.$disconnect();}
 }
+export function productionReadinessFailureCode(error:unknown){
+ if(!error||typeof error!=='object')return 'CHECK';
+ const value=error as {code?:unknown;errorCode?:unknown};
+ const code=value.code??value.errorCode;
+ return typeof code==='string'&&/^P\d{4}$/.test(code)?code:'CHECK';
+}
 if(process.argv[1]===fileURLToPath(import.meta.url))void runAddOnsProductionReadiness().catch(error=>{
- const code=typeof error?.code==='string'&&/^P\d{4}$/.test(error.code)?error.code:'CHECK';
+ const code=productionReadinessFailureCode(error);
  console.error(`[addons-production-readiness] blocked code=${code}; connection or permissions not ready; no feature activated`);process.exitCode=1;
 });

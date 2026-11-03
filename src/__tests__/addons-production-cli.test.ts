@@ -2,7 +2,7 @@ import {beforeEach,expect,it,vi} from 'vitest';
 import type {PrismaClient} from '@prisma/client';
 // Loading this factory would resolve a web session before the probe reaches the DB.
 vi.mock('@/lib/addons-client-factory',()=>{throw Error('A build probe must not load the request-context application factory');});
-import {runAddOnsProductionReadiness} from '../../scripts/addons-production-readiness';
+import {runAddOnsProductionReadiness,productionReadinessFailureCode} from '../../scripts/addons-production-readiness';
 const env:NodeJS.ProcessEnv={NODE_ENV:'production',VERCEL_ENV:'production',ADDONS_DATABASE_PROJECT_REF:'qijlnhtpbintanzpxkvf',ADDONS_DATABASE_ROLE:'steamfoot_addons_prod_20261102',ADDONS_DATABASE_URL:'postgresql://steamfoot_addons_prod_20261102.qijlnhtpbintanzpxkvf:test-only@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require'};
 const m={transaction:vi.fn(),disconnect:vi.fn(),execute:vi.fn(),raw:vi.fn(),catalog:vi.fn(),image:vi.fn()};
 const client={$transaction:m.transaction,$disconnect:m.disconnect} as unknown as Pick<PrismaClient,'$transaction'|'$disconnect'>;
@@ -21,4 +21,10 @@ it('does not construct a client for Preview or a mismatched project',async()=>{
  await expect(runAddOnsProductionReadiness({...env,VERCEL_ENV:'preview'},create)).rejects.toThrow('target');
  await expect(runAddOnsProductionReadiness({...env,ADDONS_DATABASE_PROJECT_REF:'ttworfzgwejdeolegkxl'},create)).rejects.toThrow('target');
  expect(create).not.toHaveBeenCalled();
+});
+
+it('reports only whitelisted Prisma engine codes, including initialization failures, without exposing error text',()=>{
+ expect(productionReadinessFailureCode({errorCode:'P1011',message:'fake secret must never be logged'})).toBe('P1011');
+ expect(productionReadinessFailureCode({code:'P1000'})).toBe('P1000');
+ expect(productionReadinessFailureCode({code:'fake-password'})).toBe('CHECK');
 });

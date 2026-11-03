@@ -1,3 +1,4 @@
+import {beautyProductionCaPath,verifyBeautyProductionCa} from '../../scripts/beauty-production-ca.mjs';
 import {buildDatabaseUrl} from './database-url';
 
 export class AddOnsDatabaseConfigurationError extends Error {
@@ -22,6 +23,7 @@ export function addOnsDatabaseSelection(env:Record<string,string|undefined>=proc
  if(url.searchParams.has('sslaccept')&&url.searchParams.get('sslaccept')!=='strict')throw fail();
  url.searchParams.set('sslmode',url.searchParams.get('sslmode')??'require');
  url.searchParams.set('sslaccept','strict');
+ if(env.VERCEL_ENV==='production'){verifyBeautyProductionCa();url.searchParams.set('sslcert',beautyProductionCaPath());}
  const effective=new URL(buildDatabaseUrl(url.toString()));
  effective.searchParams.set('connection_limit','1');
  effective.searchParams.set('pool_timeout','10');

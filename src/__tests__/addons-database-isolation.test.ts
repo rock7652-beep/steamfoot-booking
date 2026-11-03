@@ -60,3 +60,12 @@ it('requires certificate validation on the dedicated Prisma connection',()=>{
  expect(selected.searchParams.get('sslmode')).toBe('require');expect(selected.searchParams.get('sslaccept')).toBe('strict');
  expect(()=>addOnsDatabaseSelection({...env,ADDONS_DATABASE_URL:url+'?sslaccept=strict'})).not.toThrow();
 });
+
+it('uses the fingerprint-verified official Supabase CA for production and rejects a caller-supplied certificate',()=>{
+ const prod='qijlnhtpbintanzpxkvf';const configured=url.replaceAll(project,prod);
+ const env={VERCEL_ENV:'production',ADDONS_DATABASE_URL:configured,ADDONS_DATABASE_ROLE:role,ADDONS_DATABASE_PROJECT_REF:prod};
+ const selected=new URL(addOnsDatabaseSelection(env).url);
+ expect(selected.searchParams.get('sslcert')).toBe(process.cwd()+'/scripts/certs/supabase-root-2021.crt');
+ expect(selected.searchParams.get('sslaccept')).toBe('strict');
+ expect(()=>addOnsDatabaseSelection({...env,ADDONS_DATABASE_URL:configured+'?sslcert=/tmp/untrusted.crt'})).toThrow('尚未完成');
+});
