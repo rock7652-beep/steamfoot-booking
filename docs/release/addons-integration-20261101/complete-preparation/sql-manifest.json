@@ -1,0 +1,65 @@
+{
+  "reviewOnly": true,
+  "automaticExecution": false,
+  "rehearsalTest": "src/__tests__/addons-release-sequence.test.ts",
+  "sequenceAtomic": false,
+  "excludedUnsafeActivation": "prisma/migrations/20261031220000_add_independent_add_ons_feature/migration.sql",
+  "sequence": [
+    {
+      "order": 1,
+      "path": "scripts/sql/shared-add-on-items-candidate.sql",
+      "sha256": "928f3463593ba984e9456545ef29483a386af637d5039ff77fe5eda261ce52e5",
+      "optional": false,
+      "note": ""
+    },
+    {
+      "order": 2,
+      "path": "scripts/sql/addons-release-review/catalog-activation.sql",
+      "sha256": "5435058d091f64d66b380c71e8f81efbc86884de9ad1bd16bf945c442b087684",
+      "optional": false,
+      "note": ""
+    },
+    {
+      "order": 3,
+      "path": "scripts/sql/course-add-on-items-candidate.sql",
+      "sha256": "6606e7c7e941334568ea1f17f9545cf3b3201ca1bd6c1ca14a34088fb8441518",
+      "optional": false,
+      "note": ""
+    },
+    {
+      "order": 4,
+      "path": "prisma/migrations/20261031230000_shared_goods_ownership/migration.sql",
+      "sha256": "6089678842cb9c8e9eedc2d7530b2b5f78d43e2474ad8d34159c3f680eea5673",
+      "optional": false,
+      "note": "ownership overlaps shared core; history reconciliation required"
+    },
+    {
+      "order": 5,
+      "path": "scripts/sql/beauty-add-on-items-candidate.sql",
+      "sha256": "1f08a3f94505f321ba83c183d8152b28986c409c40dc73b583ed7bcf0fcea76b",
+      "optional": false,
+      "note": ""
+    },
+    {
+      "order": 6,
+      "path": "scripts/sql/addons-release-review/beauty-service-switch.sql",
+      "sha256": "7dd913361241b87bf0f3e1ee9b0fe093451b64f6a2c5baee67f865fbaf400ddd",
+      "optional": false,
+      "note": ""
+    },
+    {
+      "order": 7,
+      "path": "scripts/sql/beauty-shared-goods-candidate.sql",
+      "sha256": "088297589e01530ddff1fca14e38cce4927693af5383675ff7596b0b527f4776",
+      "optional": false,
+      "note": ""
+    },
+    {
+      "order": 8,
+      "path": "scripts/sql/addons-release-review/staff-permission-initialization.sql",
+      "sha256": "454c0051b85d9652660712c141cf3fdc2bb052c0b454561517868279dc72f84c",
+      "optional": true,
+      "note": ""
+    }
+  ]
+}

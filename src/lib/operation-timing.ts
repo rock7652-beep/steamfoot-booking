@@ -24,4 +24,11 @@ export class OperationTiming {
       spans: this.spans,
     }));
   }
+
+  /** Fixed server-side labels only; values expose elapsed milliseconds, not input. */
+  serverTiming() {
+    return [`total;dur=${Math.round(performance.now() - this.started)}`,
+      ...this.spans.map(span => `${span.name.replace(/[^a-zA-Z0-9_-]/g, "_")};dur=${span.durationMs}`),
+    ].join(", ");
+  }
 }

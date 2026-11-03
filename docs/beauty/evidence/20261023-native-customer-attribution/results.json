@@ -1,0 +1,10 @@
+{
+  "results": [
+    "bulk assignment persists in original list",
+    "bulk assignment persists after reload",
+    "original detail attribution form is used",
+    "single attribution saves and reloads through Beauty authorization",
+    "no browser errors"
+  ],
+  "errors": []
+}

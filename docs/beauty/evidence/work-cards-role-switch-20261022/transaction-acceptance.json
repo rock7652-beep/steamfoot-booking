@@ -1,0 +1,109 @@
+{
+  "results": [
+    {
+      "case": "會員首頁卡片",
+      "passed": true
+    },
+    {
+      "case": "方案帳本按需讀取",
+      "passed": true
+    },
+    {
+      "case": "身分切換耗時",
+      "passed": true
+    },
+    {
+      "case": "技師今日精簡卡片",
+      "passed": true
+    },
+    {
+      "case": "技師更多操作與紀錄",
+      "passed": true
+    },
+    {
+      "case": "切換保留紀錄月份與搜尋",
+      "passed": true
+    },
+    {
+      "case": "收入按需讀取",
+      "passed": true
+    },
+    {
+      "case": "方案更正與簡單完成",
+      "passed": true
+    },
+    {
+      "case": "唯讀接點權限與跨店隔離",
+      "passed": true
+    },
+    {
+      "case": "店長班表回歸",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "stage": "唯讀接點權限與跨店隔離",
+  "timings": [
+    {
+      "role": "我的工作",
+      "ms": 1339
+    },
+    {
+      "role": "會員",
+      "ms": 865
+    },
+    {
+      "role": "我的工作",
+      "ms": 837
+    },
+    {
+      "role": "會員",
+      "ms": 1344
+    },
+    {
+      "role": "我的工作",
+      "ms": 1323
+    },
+    {
+      "role": "會員",
+      "ms": 826
+    },
+    {
+      "role": "我的工作",
+      "ms": 839
+    }
+  ],
+  "apiTimings": [
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=547.9"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=401.0"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=378.3"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=392.8"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=295.0"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=386.5"
+    },
+    {
+      "status": 200,
+      "serverTiming": "portal;dur=342.2"
+    }
+  ],
+  "passed": true,
+  "syntheticFixture": false,
+  "origin": "https://steamfoot-booking-7cwsv992d-rock7652-2111s-projects.vercel.app"
+}

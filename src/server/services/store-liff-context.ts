@@ -21,7 +21,7 @@ export async function assertStoreLiffContext(
   const row = await prisma.store.findUnique({ where: { id: store.id }, select: { industryModule: true, liffId: true } });
   if (!row) throw new Error("LINE 店家不存在");
   if (context.config) {
-    if (row.industryModule !== "COURSE" || (row.liffId && row.liffId !== context.config.liffId)) throw new Error("既有模組或 LIFF 設定不匹配，未覆蓋");
+    if (!["COURSE", "BEAUTY"].includes(row.industryModule) || (row.liffId && row.liffId !== context.config.liffId)) throw new Error("既有模組或 LIFF 設定不匹配，未覆蓋");
     if (store.id !== context.config.storeId || store.slug !== context.config.slug) throw new Error("LINE 店家設定不匹配");
     return;
   }

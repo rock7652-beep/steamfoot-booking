@@ -21,11 +21,11 @@ let created = false;
     }
     await db?.$disconnect();
   });
-  it("serializes two acceptance requests into one 30-day subscription and refuses replay without extending it", async () => {
+  it("serializes two activation requests into one 30-day subscription and refuses replay without extending it", async () => {
     if (!db) throw new Error("Explicit loopback test DB required");
-    await db.store.create({ data: { id: storeId, slug: storeId, name: "Isolated delivery concurrency", industryModule: "COURSE", plan: "EXPERIENCE", planStatus: "TRIAL", liffId: "2010-pg", moduleInstallation: { create: { module: "COURSE", status: "ACTIVE" } } } });
+    await db.store.create({ data: { id: storeId, slug: storeId, name: "Isolated delivery concurrency", industryModule: "COURSE", plan: "EXPERIENCE", planStatus: "TRIAL", moduleInstallation: { create: { module: "COURSE", status: "ACTIVE" } } } });
     created = true;
-    const input = { storeId, actorId: "isolated-test-hq", startDate: toLocalDateStr(), entryAcceptanceConfirmed: true };
+    const input = { storeId, actorId: "isolated-test-hq", startDate: toLocalDateStr() };
     const open = () => db.$transaction(tx => openSingleStoreTrialInTransaction(tx, input), { timeout: 15000 });
     const results = await Promise.allSettled([open(), open()]);
     expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);

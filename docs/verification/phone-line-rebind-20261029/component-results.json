@@ -1,0 +1,257 @@
+{
+  "scope": "synthetic component; not hosted business acceptance or real devices",
+  "results": [
+    {
+      "width": 1366,
+      "height": 900,
+      "overflow": false,
+      "controls": [
+        {
+          "text": "收合",
+          "width": 52,
+          "height": 44
+        },
+        {
+          "text": "取消 LINE 綁定",
+          "width": 118.34375,
+          "height": 44
+        },
+        {
+          "text": "返回",
+          "width": 54,
+          "height": 44
+        },
+        {
+          "text": "確認取消綁定",
+          "width": 108,
+          "height": 44
+        },
+        {
+          "text": "開始重新綁定",
+          "width": 108,
+          "height": 44
+        }
+      ],
+      "rebind": true,
+      "unlink": true,
+      "phoneInputSimulated": true,
+      "pageErrors": []
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "overflow": false,
+      "controls": [
+        {
+          "text": "收合",
+          "width": 52,
+          "height": 44
+        },
+        {
+          "text": "取消 LINE 綁定",
+          "width": 118.34375,
+          "height": 44
+        },
+        {
+          "text": "返回",
+          "width": 54,
+          "height": 44
+        },
+        {
+          "text": "確認取消綁定",
+          "width": 108,
+          "height": 44
+        },
+        {
+          "text": "開始重新綁定",
+          "width": 108,
+          "height": 44
+        }
+      ],
+      "rebind": true,
+      "unlink": true,
+      "phoneInputSimulated": true,
+      "pageErrors": []
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false,
+      "controls": [
+        {
+          "text": "收合",
+          "width": 52,
+          "height": 44
+        },
+        {
+          "text": "取消 LINE 綁定",
+          "width": 118.34375,
+          "height": 44
+        },
+        {
+          "text": "返回",
+          "width": 54,
+          "height": 44
+        },
+        {
+          "text": "確認取消綁定",
+          "width": 108,
+          "height": 44
+        },
+        {
+          "text": "開始重新綁定",
+          "width": 108,
+          "height": 44
+        }
+      ],
+      "rebind": true,
+      "unlink": true,
+      "phoneInputSimulated": true,
+      "pageErrors": []
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "controls": [
+        {
+          "text": "收合",
+          "width": 52,
+          "height": 44
+        },
+        {
+          "text": "取消 LINE 綁定",
+          "width": 118.34375,
+          "height": 44
+        },
+        {
+          "text": "返回",
+          "width": 54,
+          "height": 44
+        },
+        {
+          "text": "確認取消綁定",
+          "width": 108,
+          "height": 44
+        },
+        {
+          "text": "開始重新綁定",
+          "width": 108,
+          "height": 44
+        }
+      ],
+      "rebind": true,
+      "unlink": true,
+      "phoneInputSimulated": true,
+      "pageErrors": []
+    },
+    {
+      "width": 560,
+      "height": 800,
+      "overflow": false,
+      "controls": [
+        {
+          "text": "收合",
+          "width": 52,
+          "height": 44
+        },
+        {
+          "text": "取消 LINE 綁定",
+          "width": 118.34375,
+          "height": 44
+        },
+        {
+          "text": "返回",
+          "width": 54,
+          "height": 44
+        },
+        {
+          "text": "確認取消綁定",
+          "width": 108,
+          "height": 44
+        },
+        {
+          "text": "開始重新綁定",
+          "width": 108,
+          "height": 44
+        }
+      ],
+      "rebind": true,
+      "unlink": true,
+      "phoneInputSimulated": true,
+      "pageErrors": []
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "controls": [
+        {
+          "text": "收合",
+          "width": 52,
+          "height": 44
+        },
+        {
+          "text": "取消 LINE 綁定",
+          "width": 118.34375,
+          "height": 44
+        },
+        {
+          "text": "返回",
+          "width": 54,
+          "height": 44
+        },
+        {
+          "text": "確認取消綁定",
+          "width": 108,
+          "height": 44
+        },
+        {
+          "text": "開始重新綁定",
+          "width": 108,
+          "height": 44
+        }
+      ],
+      "rebind": true,
+      "unlink": true,
+      "phoneInputSimulated": true,
+      "pageErrors": []
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "overflow": false,
+      "controls": [
+        {
+          "text": "收合",
+          "width": 52,
+          "height": 44
+        },
+        {
+          "text": "取消 LINE 綁定",
+          "width": 118.34375,
+          "height": 44
+        },
+        {
+          "text": "返回",
+          "width": 54,
+          "height": 44
+        },
+        {
+          "text": "確認取消綁定",
+          "width": 108,
+          "height": 44
+        },
+        {
+          "text": "開始重新綁定",
+          "width": 108,
+          "height": 44
+        }
+      ],
+      "rebind": true,
+      "unlink": true,
+      "phoneInputSimulated": true,
+      "pageErrors": []
+    }
+  ]
+}

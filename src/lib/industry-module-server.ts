@@ -1,16 +1,16 @@
 import "server-only";
-import {cache} from "react";
-import {sportsNativePreview} from "@/lib/sports-native-preview";
+import { cache } from "react";
+import {memoizeReadRequest,verifiedStaffRead} from "@/server/services/read-request-memo";
+import {measureMusicRead} from "@/lib/music-read-timing";
+import { sportsNativePreview } from "@/lib/sports-native-preview";
 
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
-import {
-  resolveIndustryModuleId,
-  type IndustryModuleId,
-} from "@/lib/industry-modules";
+import { isRuntimeIndustryModule, resolveIndustryModuleId, type IndustryModuleId } from "@/lib/industry-modules";
 
 const MODULE_LABELS: Record<IndustryModuleId, string> = {
   steamfoot: "蒸足",
+  beauty: "美業",
   spa: "SPA",
   course: "課程",
 };
@@ -25,7 +25,15 @@ const previewModule=cache((storeId:string)=>prisma.$queryRaw<Array<{industryModu
 export async function getStoreIndustryModule(
   storeId: string,
 ): Promise<IndustryModuleId> {
-  const stores = sportsNativePreview(storeId)?await previewModule(storeId):await prisma.$queryRaw<Array<{ industryModule: string }>>`
+  return memoizeReadRequest(`store.industry-module:${storeId}`,()=>readStoreIndustryModule(storeId));
+}
+async function readStoreIndustryModule(storeId:string):Promise<IndustryModuleId>{
+  // Keep the existing production activation and preview-isolation guards even
+  // when the same request already knows the current store's module.
+  const native=await measureMusicRead("module.nativeGuard",()=>sportsNativePreview(storeId));
+  const verified=verifiedStaffRead();
+  await measureMusicRead(verified?.storeId===storeId?"module.metadata.hit":"module.metadata.miss",async()=>{});
+  const stores = verified?.storeId===storeId?[{industryModule:verified.industryModule}]:native?await previewModule(storeId):await prisma.$queryRaw<Array<{ industryModule: string }>>`
     SELECT "industryModule"::text AS "industryModule"
     FROM "Store"
     WHERE id = ${storeId}
@@ -35,7 +43,7 @@ export async function getStoreIndustryModule(
   if (stores[0].industryModule === "SPA") {
     throw new AppError("FORBIDDEN", "SPA 模組已移除");
   }
-  if (!["STEAMFOOT", "COURSE"].includes(stores[0].industryModule)) {
+  if (!isRuntimeIndustryModule(stores[0].industryModule)) {
     throw new AppError("FORBIDDEN", "店舖模組設定無效");
   }
   return resolveIndustryModuleId(stores[0].industryModule);
@@ -56,10 +64,6 @@ export async function requireStoreIndustryModule(
 
 export function requireSteamfootStore(storeId: string): Promise<void> {
   return requireStoreIndustryModule(storeId, "steamfoot");
-}
-
-export function requireSpaStore(storeId: string): Promise<void> {
-  return requireStoreIndustryModule(storeId, "spa");
 }
 
 export function requireCourseStore(storeId: string): Promise<void> {

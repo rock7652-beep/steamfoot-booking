@@ -1,12 +1,13 @@
+// Runtime isolation is tested here; the Prisma strategy extension has its own contract tests.
+vi.mock('@/lib/explicit-relation-joins',()=>({withExplicitRelationJoins:(client:unknown)=>client}));
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { COURSE_SELF_BOOKING_PREVIEW_BRANCH } from "../../scripts/course-self-booking-preview-scope.mjs";
 const m=vi.hoisted(()=>({construct:vi.fn(),query:vi.fn()}));
-vi.mock('@prisma/client',()=>({PrismaClient:class{constructor(){m.construct('main');}$queryRaw=m.query;}}));
-vi.mock('../../generated/spa-client',()=>({PrismaClient:class{constructor(){m.construct('spa');}$queryRaw=m.query;}}));
-vi.mock('../../generated/course-client',()=>({PrismaClient:class{constructor(){m.construct('course');}$queryRaw=m.query;}}));
+vi.mock('@prisma/client', async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()),PrismaClient:class{constructor(){m.construct('main');}$queryRaw=m.query;}}));
+vi.mock('@/lib/generated-prisma-runtime',async()=>{const runtime=await import('../../generated/course-client');return {loadCoursePrismaRuntime:()=>({...runtime,PrismaClient:class{constructor(){m.construct('course');}$queryRaw=m.query;}})}});
 vi.mock('@/lib/audit-db-context',()=>({withAuditDatabaseContext:(client:unknown)=>client}));
 const direct='postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres';
-const clients=[{key:'prisma',load:async()=>(await import('@/lib/db')).prisma},{key:'spaPrisma',load:async()=>(await import('@/lib/spa-db')).spaPrisma},{key:'coursePrisma',load:async()=>(await import('@/lib/course-db')).coursePrisma}];
+const clients=[{key:'prisma',load:async()=>(await import('@/lib/db')).prisma},{key:'coursePrisma',load:async()=>(await import('@/lib/course-db')).coursePrisma}];
 beforeEach(()=>{vi.resetModules();vi.clearAllMocks();for(const [key,value] of Object.entries({VERCEL:'1',VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:COURSE_SELF_BOOKING_PREVIEW_BRANCH,VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:direct,DIRECT_URL:direct,GUIDE_UI_PREVIEW:'',WORKERS_CI_BRANCH:'',CF_PAGES_BRANCH:'',CONSULTATION_HQ_ENABLED:'',CONSULTATION_PREVIEW_INTAKE_ENABLED:''}))vi.stubEnv(key,value);for(const client of clients)vi.stubGlobal(client.key,undefined);});
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
 it.each(clients)('rejects wrong isolated target before reading cache or constructing $key',async({key,load})=>{

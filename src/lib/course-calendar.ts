@@ -1,4 +1,4 @@
-import { parseLocalDate, toLocalDateStr } from "@/lib/date-utils";
+import { parseLocalDate, toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
 
 export function courseMonthDays(month: string) {
   const [year, number] = month.split("-").map(Number);
@@ -39,3 +39,5 @@ export function coursePeople(
     visits: active.length,
   };
 }
+
+export function courseWeekStart(date:string){const day=parseLocalDate(date).getDay();return addTaiwanDuration(date,day===0?-6:1-day,'DAY');}

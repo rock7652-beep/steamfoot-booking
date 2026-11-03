@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { SettingsPanelState } from "./settings-panel-context";
 
 /** Collect the existing note, attribution and LINE guards in a customer workspace. */
-export function useCustomerPanelGuard() {
+export function useCustomerPanelGuard(_confirmDiscard=true) {
   const states = useRef(new Map<string, SettingsPanelState>());
   const [summary, setSummary] = useState({ dirty: false, pending: false });
   const report = useCallback((id: string, state: SettingsPanelState | null) => {
@@ -16,8 +16,7 @@ export function useCustomerPanelGuard() {
   }, []);
   const allowLeave = useCallback(() => {
     const rows = [...states.current.values()];
-    return !rows.some(row => row.pending) &&
-      (!rows.some(row => row.dirty) || window.confirm("尚有未儲存的修改，確定離開？"));
+    return !rows.some(row => row.pending);
   }, []);
   const context = useMemo(() => ({ report, navigate: () => {} }), [report]);
   return { ...summary, context, allowLeave };

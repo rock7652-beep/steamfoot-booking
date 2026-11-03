@@ -1,10 +1,13 @@
+// Runtime isolation is tested here; the Prisma strategy extension has its own contract tests.
+vi.mock('@/lib/explicit-relation-joins',()=>({withExplicitRelationJoins:(client:unknown)=>client}));
+// Test the existing preview isolation independently of the stronger incident stop.
+vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false, isLineDeliveryEventCurrent: () => true }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SPORTS_SHARED_CARD_PREVIEW_BRANCH } from "../../scripts/sports-shared-card-preview-scope.mjs";
 
 const mocks = vi.hoisted(() => ({ construct: vi.fn(), audit: vi.fn((client: unknown) => client), resend: vi.fn(), sendMail: vi.fn() }));
-vi.mock("@prisma/client", () => ({ PrismaClient: class { constructor(options: unknown) { mocks.construct("main", options); } } }));
-vi.mock("../../generated/course-client", () => ({ PrismaClient: class { constructor(options: unknown) { mocks.construct("course", options); } } }));
-vi.mock("../../generated/spa-client", () => ({ PrismaClient: class { constructor(options: unknown) { mocks.construct("spa", options); } } }));
+vi.mock("@prisma/client", async original => ({...(await original<typeof import("@prisma/client")>()), PrismaClient: class { constructor(options: unknown) { mocks.construct("main", options); } } }));
+vi.mock("@/lib/generated-prisma-runtime", async () => {const runtime=await import("../../generated/course-client");return {loadCoursePrismaRuntime:()=>({...runtime,PrismaClient:class{constructor(options:unknown){mocks.construct("course",options);}}})}});
 vi.mock("@/lib/audit-db-context", () => ({ withAuditDatabaseContext: mocks.audit }));
 vi.mock("resend", () => ({ Resend: class { emails = { send: mocks.sendMail }; constructor() { mocks.resend(); } } }));
 
@@ -14,7 +17,7 @@ const production = "postgresql://postgres:fixture@db.qijlnhtpbintanzpxkvf.supaba
 const clients = [
   { name: "main", key: "prisma", load: async () => (await import("@/lib/db")).prisma },
   { name: "course", key: "coursePrisma", load: async () => (await import("@/lib/course-db")).coursePrisma },
-  { name: "spa", key: "spaPrisma", load: async () => (await import("@/lib/spa-db")).spaPrisma },
+
 ];
 
 beforeEach(() => {
@@ -137,7 +140,6 @@ describe("provider build-command override defense", () => {
     expect(mocks.construct).not.toHaveBeenCalled();
   });
 });
-
 
 describe("reviewed production main release boundary", () => {
   beforeEach(() => vi.stubEnv("NODE_ENV", "production"));

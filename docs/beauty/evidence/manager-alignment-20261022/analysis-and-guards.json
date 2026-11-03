@@ -1,0 +1,21 @@
+{
+  "results": [
+    {
+      "case": "technician scope hides store plan metrics, resets trend and restores whole-store view",
+      "passed": true
+    },
+    {
+      "case": "care category links and unknown categories remain safe",
+      "passed": true
+    },
+    {
+      "case": "store editor rejects wrong expected store without writes",
+      "passed": true
+    },
+    {
+      "case": "member cannot edit store settings and inactive QA service stays out of booking",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

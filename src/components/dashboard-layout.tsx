@@ -1,3 +1,10 @@
+import {prefetchInitialStoreNoticeSummary} from '@/server/services/initial-store-notice-summary';
+import { CoursePersonnelLabelProvider } from "@/components/course-personnel-label";
+import { readCoursePersonnelLabel } from "@/server/services/course-personnel-label";
+import {BeautySetupNavigation} from '@/components/beauty/setup-navigation';
+import {beautyChargeRulesEnabled} from '@/server/beauty/charge-runtime';
+import { getStoreFeaturePresentations } from "@/lib/feature-gate";
+import { settingsStep, traceSettingsRead } from "@/server/services/settings-timing";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { resolveOperationAuditScope } from "@/server/services/store-operation-audit-access";
 import { RosterPreviewDiagnosticsProvider } from "@/components/admin/roster-preview-diagnostics";
@@ -35,7 +42,7 @@ import { prisma } from "@/lib/db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { FEATURES } from "@/lib/feature-flags";
-import { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } from "@/lib/feature-gate";
+import { hasStoreFeature, requireStoreFeature } from "@/lib/feature-gate";
 import { ACCESSIBLE_STORE_OPERATING_STATUSES, type StoreOperatingStatus } from "@/lib/store-operating-status";
 import {
   resolveStoreViewContext,
@@ -46,7 +53,7 @@ import type { IndustryModuleId } from "@/lib/industry-modules";
 import { PreviewNavigationReporter } from "@/components/device-preview/preview-navigation-reporter";
 import { ErrorState } from "@/components/ui/error-state";
 
-export default async function DashboardLayout({
+async function readDashboardLayout({
   children,
   hqPlatform = false,
 }: {
@@ -55,7 +62,7 @@ export default async function DashboardLayout({
 }) {
   let user: Awaited<ReturnType<typeof getCurrentUser>>;
   try {
-    user = await getCurrentUser();
+    user = await settingsStep("authorization", getCurrentUser);
   } catch (error) {
     if (!(error instanceof AppError) || !["FORBIDDEN", "NOT_FOUND"].includes(error.code)) throw error;
     // The old selection may have been disabled/deleted. Expose only recovery,
@@ -84,7 +91,7 @@ export default async function DashboardLayout({
   // a redacted message and cannot reliably identify AppError codes.
   let activeStoreId: string | null;
   try {
-    activeStoreId = await getActiveStoreForRead(user);
+    activeStoreId = await settingsStep("store_scope", () => getActiveStoreForRead(user!));
   } catch (error) {
     if (!(error instanceof AppError) || !["FORBIDDEN", "NOT_FOUND"].includes(error.code)) throw error;
     const ownStore = user.storeId ? await prisma.store.findFirst({
@@ -102,7 +109,11 @@ export default async function DashboardLayout({
     </main>;
   }
 
-  const auditScope = await resolveOperationAuditScope(user);
+  const [auditScope, permissions, storeOptions] = await Promise.all([
+    settingsStep("read_audit", () => resolveOperationAuditScope(user!)),
+    settingsStep("read_permissions", () => getUserPermissions(user!.role, user!.staffId)),
+    settingsStep("read_scope", () => getStoreOptions(user!)),
+  ]);
   const canViewAudit = Boolean(auditScope);
   const roleLabel = ROLE_LABELS[user.role] ?? "";
   const isAdmin = user.role === "ADMIN";
@@ -110,18 +121,13 @@ export default async function DashboardLayout({
   const isOwnerLevel = isStaffRole(user.role);
 
   // Source of truth: Store.plan (PricingPlan)
-  const [permissions, storeOptions] =
-    await Promise.all([
-      getUserPermissions(user.role, user.staffId),
-      getStoreOptions(user),
-    ]);
   if (isAdmin && activeStoreId && !storeOptions.some(store => store.id === activeStoreId)) {
     const archived = await prisma.store.findUnique({ where: { id: activeStoreId }, select: { id: true, slug: true, name: true, isDefault: true, archivedAt: true } });
     if (archived?.archivedAt) storeOptions.push({ id: archived.id, slug: archived.slug, name: archived.name, isDefault: archived.isDefault, isArchived: true });
   }
   const routeFeature = coreFeatureForDashboardPath((await headers()).get("x-next-pathname") ?? "");
   if (!hqPlatform && activeStoreId && routeFeature) await requireStoreFeature(activeStoreId, routeFeature);
-  const industryModule = !hqPlatform && activeStoreId ? await getStoreIndustryModule(activeStoreId) : "steamfoot";
+  const industryModule = !hqPlatform && activeStoreId ? await settingsStep("module_check", () => getStoreIndustryModule(activeStoreId!)) : "steamfoot";
   // Course stores must not enter legacy Steamfoot/SPA dashboard reads while
   // the remaining course-specific areas are being delivered.
   if (industryModule === "course") {
@@ -132,32 +138,42 @@ export default async function DashboardLayout({
       if (!await prisma.staff.findFirst({where:{id:user.staffId ?? "",storeId:activeStoreId!,userId:user.id,status:"ACTIVE"}})) notFound();
     }
     const requestedPath = (await headers()).get("x-next-pathname") ?? "";
-    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:work-orders(?:\/|$)|inventory(?:\/|$)|courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/(?:duty|trial|referral-share|digital-butler)\/?$|staff(?:\/[^/]+\/edit)?\/?$|teachers\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth\/?$|digital-butler\/leads\/?$|reconciliation\/?$|store-revenue\/?$|service-fee-calculator\/?$|guide\/?$|frontend-preview\/?$|device-preview\/?$|operation-audits\/?$)/.test(requestedPath)) {
+    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:add-ons\/?$|settings\/add-ons\/?$|image-announcements\/?$|work-orders(?:\/|$)|inventory(?:\/|$)|image-announcements\/?$|courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/(?:duty|trial|referral-share|digital-butler)\/?$|staff(?:\/[^/]+\/edit)?\/?$|teachers\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth(?:\/consumption)?\/?$|digital-butler\/leads\/?$|reconciliation\/?$|store-revenue\/?$|service-fee-calculator\/?$|guide\/?$|frontend-preview\/?$|device-preview\/?$|operation-audits\/?$)/.test(requestedPath)) {
       redirect("/dashboard/courses");
     }
   }
-  const trialStatus = hqPlatform ? undefined : industryModule === "course"
-    ? await (await import("@/lib/shop-config")).getTrialStatus(activeStoreId ?? undefined)
-    : await getCachedTrialStatus(activeStoreId ?? undefined);
-
   // ADMIN 看到的 plan：切到特定店時用該店 plan，全部分店時解鎖全部功能（ALLIANCE）
   // OWNER/PARTNER：用自己店的 plan
   // 走 unstable_cache（60s TTL, tag: "store-plan"）— 之前直接呼叫
   // getStorePlanById 是同步阻塞，每次切頁都打一次 prisma，現在多人切頁
   // 共享 cache。Mutation 路徑已透過 revalidation.ts 失效對應 tag。
   const effectiveStoreId = hqPlatform ? undefined : activeStoreId ?? undefined;
-  const pricingPlan = isAdmin && (hqPlatform || !activeStoreId)
-    ? ("ALLIANCE" as const)
-    : effectiveStoreId
-      ? await getCachedStorePlan(effectiveStoreId)
-      : ("EXPERIENCE" as const);
-  const featureStates = effectiveStoreId
-    ? Object.fromEntries(await Promise.all(Object.values(FEATURES).map(async feature => [feature, await getStoreFeaturePresentation(effectiveStoreId, feature)])))
-    // HQ opens a store selector; page and iframe enforce the selected store's grant.
-    : {
-      [FEATURES.BASIC_REPORTS]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
-      [FEATURES.FRONTEND_PREVIEW]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
-    };
+  // Prefetch only a bounded authorized count; notification details remain lazy.
+  const noticeEnabledPromise=(async()=>{
+  return !hqPlatform && !!effectiveStoreId && permissions.includes("booking.read") &&
+    (industryModule==="course" || industryModule==="steamfoot" || (industryModule==="beauty" && process.env.BEAUTY_MODULE_ENABLED==="1"));
+  })();
+  const initialNoticeSummaryReaderPromise=noticeEnabledPromise.then(enabled=>enabled&&effectiveStoreId?prefetchInitialStoreNoticeSummary(industryModule,effectiveStoreId):async()=>null);
+  // These reads depend on the already authorized store and module, but not on
+  // one another. Keep their existing gates and failure behavior while avoiding
+  // three consecutive round trips before the dashboard can render.
+  const [trialStatus, pricingPlan, featureStates] = await Promise.all([
+    hqPlatform ? undefined : industryModule === "course"
+      ? settingsStep("read_trial", async () => (await import("@/lib/shop-config")).getTrialStatus(activeStoreId ?? undefined))
+      : settingsStep("read_trial", () => getCachedTrialStatus(activeStoreId ?? undefined)),
+    isAdmin && (hqPlatform || !activeStoreId)
+      ? ("ALLIANCE" as const)
+      : effectiveStoreId
+        ? settingsStep("read_plan", () => getCachedStorePlan(effectiveStoreId))
+        : ("EXPERIENCE" as const),
+    effectiveStoreId
+      ? settingsStep("read_features", () => getStoreFeaturePresentations(effectiveStoreId))
+      // HQ opens a store selector; page and iframe enforce the selected store's grant.
+      : {
+        [FEATURES.BASIC_REPORTS]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
+        [FEATURES.FRONTEND_PREVIEW]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
+      },
+  ]);
   const effectiveFeatures = Object.fromEntries(Object.entries(featureStates).map(([feature, state]) => [feature, state === "ENABLED"]));
 
 
@@ -183,7 +199,7 @@ export default async function DashboardLayout({
       });
       storeName = store?.name ?? null;
       operatingStatus = store?.operatingStatus ?? null;
-      industryModuleId = await getStoreIndustryModule(effectiveStoreId);
+      industryModuleId = await settingsStep("module_check", () => getStoreIndustryModule(effectiveStoreId));
     } catch {
       // 忽略：店名/營運狀態失敗時使用 UI fallback
     }
@@ -213,15 +229,15 @@ export default async function DashboardLayout({
   }
 
   if (user.role === "OWNER" && user.storeId) {
-    multiStoreEnabled = await hasStoreFeature(user.storeId, FEATURES.MULTI_STORE);
+    multiStoreEnabled = await settingsStep("feature", () => hasStoreFeature(user!.storeId!, FEATURES.MULTI_STORE));
     viewableStores = storeOptions.map((store) => ({
       id: store.id,
       name: store.name,
       isOwnStore: store.id === user.storeId,
     }));
-    storeViewContext = await resolveStoreViewContext(user, {
+    storeViewContext = await settingsStep("read_scope", () => resolveStoreViewContext(user!, {
       viewedStoreId: activeStoreId,
-    });
+    }));
   }
 
   const ownStore = user.storeId
@@ -232,15 +248,20 @@ export default async function DashboardLayout({
     ? viewableStores.find((store) => store.id === storeViewContext?.viewedStoreId)
     : null;
 
+  const noticeInitiallyEnabled=await noticeEnabledPromise;
   const operationScope = JSON.stringify([user.id, user.role, user.staffId, activeStoreId,
     storeViewContext?.viewedStoreId, industryModule, canViewAudit, auditScope?.hq, [...permissions].sort()]);
   return (
     <OperationScope key={operationScope} scope={operationScope}>
     <FeaturePresentationProvider states={featureStates}>
     <OperationAuditAccessProvider allowed={canViewAudit} hq={auditScope?.hq ?? false}>
+    <CoursePersonnelLabelProvider key={effectiveStoreId??"hq"} storeId={effectiveStoreId??""} label={industryModule==="course" && effectiveStoreId ? await readCoursePersonnelLabel(effectiveStoreId) : null}>
     <DashboardShell
+      steamfootAddOnsEnabled={(industryModule==='steamfoot'&&process.env.STEAMFOOT_ADD_ONS_ENABLED==='1'&&process.env.BOOKING_PARTICIPANTS_ENABLED==='true')||(industryModule==='course'&&process.env.COURSE_ADD_ONS_ENABLED==='1')||(industryModule==='beauty'&&process.env.BEAUTY_MODULE_ENABLED==='1')}
       canViewAudit={canViewAudit}
       courseNoticeStoreId={effectiveStoreId}
+      noticeInitiallyEnabled={noticeInitiallyEnabled}
+      initialNoticeSummary={await (await initialNoticeSummaryReaderPromise)()}
       cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}
       operationGuidePreview={isOperationGuidePreview()}
       hqOperationGuide={isAdmin && !effectiveStoreId && await checkPermission(user.role, user.staffId, "audit.read")}
@@ -251,8 +272,8 @@ export default async function DashboardLayout({
       pricingPlan={pricingPlan}
       effectiveFeatures={effectiveFeatures}
       featureStates={featureStates}
-      initialSidebarCollapsed={sportsNativePreview(effectiveStoreId??undefined) && ["0", "1"].includes(ckStore.get("sports-sidebar-collapsed-v1")?.value ?? "") ? ckStore.get("sports-sidebar-collapsed-v1")?.value === "1" : undefined}
-      sportsNative={sportsNativePreview(effectiveStoreId??undefined)}
+      initialSidebarCollapsed={(await sportsNativePreview(effectiveStoreId??undefined)) && ["0", "1"].includes(ckStore.get("sports-sidebar-collapsed-v1")?.value ?? "") ? ckStore.get("sports-sidebar-collapsed-v1")?.value === "1" : undefined}
+      sportsNative={(await sportsNativePreview(effectiveStoreId??undefined))}
       musicEnabled={industryModule==="course" && !!effectiveStoreId && !!await prisma.storeFeatureEntitlement.findFirst({where:{storeId:effectiveStoreId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}})}
       userName={user.name ?? ""}
       roleLabel={roleLabel}
@@ -298,9 +319,11 @@ export default async function DashboardLayout({
       }
     >
       <PreviewNavigationReporter />
-      <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await loadCustomerLabels() : undefined}>{industryModule === "course" && !hqPlatform && activeStoreId && !storeViewContext?.isViewMode && ["OWNER", "ADMIN"].includes(user.role) && <Suspense fallback={null}><CourseSetupProgress storeId={activeStoreId} userId={user.id}/></Suspense>}
+      <CustomerLabelsProvider key={`${user.id}:${activeStoreId}:${user.role}:${user.staffId ?? ""}`} initial={permissions.includes("customer.read") ? await settingsStep("read_labels", loadCustomerLabels) : undefined}>{industryModule === "course" && !hqPlatform && activeStoreId && !storeViewContext?.isViewMode && ["OWNER", "ADMIN"].includes(user.role) && <Suspense fallback={null}><CourseSetupProgress storeId={activeStoreId} userId={user.id}/></Suspense>}
+      {industryModule==='beauty'&&!hqPlatform&&!storeViewContext?.isViewMode&&activeStoreId&&beautyChargeRulesEnabled(activeStoreId)&&permissions.includes('business_hours.view')&&permissions.includes('plans.edit')&&permissions.includes('staff.view')&&<Suspense fallback={null}><BeautySetupNavigation/></Suspense>}
       <RosterPreviewDiagnosticsProvider enabled={allowModuleRosterPreviewDiagnostics(process.env, { role: user.role, storeId: activeStoreId })}>{children}</RosterPreviewDiagnosticsProvider></CustomerLabelsProvider>
     </DashboardShell>
+    </CoursePersonnelLabelProvider>
     </OperationAuditAccessProvider>
     </FeaturePresentationProvider>
     </OperationScope>
@@ -309,6 +332,10 @@ export default async function DashboardLayout({
 
 async function CourseSetupProgress({storeId,userId}:{storeId:string;userId:string}) {
   let setup:Awaited<ReturnType<typeof getCourseSetup>>|null=null;
-  try { setup=await getCourseSetup(storeId,userId); } catch { /* Daily operations remain accessible if progress cannot load. */ }
-  return setup ? <CourseSetupGuide storeId={storeId} key={storeId} {...setup}/> : <p role="status" className="text-sm text-earth-600">設定進度暫時無法讀取，請稍後重新整理。</p>;
+  try { setup=await settingsStep("read_setup", () => getCourseSetup(storeId,userId)); } catch { /* Daily operations remain accessible if progress cannot load. */ }
+  return setup ? <CourseSetupGuide storeId={storeId} key={storeId} {...setup} localSections/> : <p role="status" className="text-sm text-earth-600">設定進度暫時無法讀取，請稍後重新整理。</p>;
+}
+
+export default function DashboardLayout(props: Parameters<typeof readDashboardLayout>[0]) {
+  return traceSettingsRead("layout", () => readDashboardLayout(props));
 }

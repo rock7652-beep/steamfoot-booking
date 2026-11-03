@@ -1,0 +1,206 @@
+{
+  "owner-initial-results.json": {
+    "deployment": "dpl_DtNZuHcCH168q5WhBnK8frykD46W",
+    "pageErrors": [],
+    "assertions": [
+      {
+        "name": "real-login",
+        "success": true
+      },
+      {
+        "name": "google-map-saved-reopened",
+        "success": true
+      }
+    ]
+  },
+  "owner-business-a248-results.json": {
+    "deployment": "dpl_HdxKqUzLoHioLN4U7rSCSEwbT3Dq",
+    "pageErrors": [],
+    "assertions": [
+      {
+        "name": "real-login",
+        "success": true
+      },
+      {
+        "name": "customer-deep-link-single-panel",
+        "success": true
+      },
+      {
+        "name": "purchased-five-session-card",
+        "success": true
+      },
+      {
+        "name": "customer-purchase-return-search-retained",
+        "success": true
+      },
+      {
+        "name": "charge-price-trial-duration-saved-reopened",
+        "success": true
+      },
+      {
+        "name": "charge-price-trial-duration-reopened",
+        "success": true
+      },
+      {
+        "name": "valid-expiring-card-auto-selected",
+        "success": true
+      },
+      {
+        "name": "card-restored-to-pending",
+        "success": true
+      },
+      {
+        "name": "no-show-without-deduction",
+        "success": true
+      },
+      {
+        "name": "no-show-with-deduction",
+        "success": true
+      },
+      {
+        "name": "card-booking-cancelled",
+        "success": true
+      },
+      {
+        "name": "trial-price-and-duration-confirmation",
+        "success": true
+      },
+      {
+        "name": "duplicate-customer-disabled-in-party",
+        "success": true
+      },
+      {
+        "name": "two-person-retains-first-room-and-arranges-other-resources",
+        "success": true
+      },
+      {
+        "name": "two-person-ready",
+        "success": true
+      },
+      {
+        "name": "four-person-unique-technicians-and-rooms",
+        "success": true
+      },
+      {
+        "name": "four-person-mixed-trial-ready",
+        "success": true
+      },
+      {
+        "name": "collection-A-1000-minus100-is900",
+        "success": true
+      },
+      {
+        "name": "switch-to-B-never-submits-A-draft",
+        "success": true
+      },
+      {
+        "name": "B-has-independent-1000-quote",
+        "success": true
+      },
+      {
+        "name": "noncash-method-before-collection",
+        "success": true
+      },
+      {
+        "name": "collection-A-discount900-card",
+        "success": true
+      },
+      {
+        "name": "roster-retained-after-collection",
+        "success": true
+      },
+      {
+        "name": "plan-refund-card-closed",
+        "success": true
+      }
+    ]
+  },
+  "owner-results.json": {
+    "deployment": "dpl_28VBekuzbTbf8WKSnGutQYBtFsnG",
+    "pageErrors": [],
+    "assertions": [
+      {
+        "name": "real-login",
+        "success": true
+      },
+      {
+        "name": "final-version-B-paid-state-correct",
+        "success": true
+      },
+      {
+        "name": "final-B-paid-quote",
+        "success": true
+      },
+      {
+        "name": "service-A-refund-success",
+        "success": true
+      },
+      {
+        "name": "service-B-refund-success",
+        "success": true
+      },
+      {
+        "name": "final-QA-refunded-statuses-reopened",
+        "success": true
+      },
+      {
+        "name": "final-refund-ledger-zero-net",
+        "success": true
+      },
+      {
+        "name": "qa-four-person-cancelled-preserved",
+        "success": true
+      },
+      {
+        "name": "live-charge-no-overflow-1024",
+        "success": true
+      },
+      {
+        "name": "live-charge-1024",
+        "success": true
+      },
+      {
+        "name": "live-charge-no-overflow-768",
+        "success": true
+      },
+      {
+        "name": "live-charge-768",
+        "success": true
+      },
+      {
+        "name": "live-charge-no-overflow-390",
+        "success": true
+      },
+      {
+        "name": "live-charge-390",
+        "success": true
+      },
+      {
+        "name": "inactive-QA-technicians-collapsed",
+        "success": true
+      },
+      {
+        "name": "inactive-QA-technicians-collapsed",
+        "success": true
+      }
+    ]
+  },
+  "readonly-results.json": {
+    "deployment": "dpl_28VBekuzbTbf8WKSnGutQYBtFsnG",
+    "pageErrors": [],
+    "assertions": [
+      {
+        "name": "real-login",
+        "success": true
+      },
+      {
+        "name": "low-permission-stable-denial-no-redirect-loop",
+        "success": true
+      },
+      {
+        "name": "low-permission-final-denial",
+        "success": true
+      }
+    ]
+  }
+}

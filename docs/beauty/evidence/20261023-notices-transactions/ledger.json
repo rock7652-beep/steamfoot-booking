@@ -1,0 +1,145 @@
+{
+  "results": [
+    {
+      "operation": "plan-booking-holds-once-without-debit",
+      "passed": true,
+      "remaining": 5,
+      "held": 1,
+      "available": 4,
+      "ledger": [
+        {
+          "kind": "GRANT",
+          "delta": 5
+        },
+        {
+          "kind": "RESERVE",
+          "delta": 0
+        }
+      ]
+    },
+    {
+      "operation": "service-completion-debits-once",
+      "passed": true,
+      "remaining": 4,
+      "held": 0,
+      "available": 4,
+      "ledger": [
+        {
+          "kind": "GRANT",
+          "delta": 5
+        },
+        {
+          "kind": "RESERVE",
+          "delta": 0
+        },
+        {
+          "kind": "CORRECTION",
+          "delta": -1
+        }
+      ]
+    },
+    {
+      "operation": "completion-fee-snapshot",
+      "passed": true,
+      "fee": 500
+    },
+    {
+      "operation": "customer-card-balance-and-transaction-history",
+      "passed": true
+    },
+    {
+      "operation": "authorized-correction-restores-quota",
+      "passed": true,
+      "remaining": 5,
+      "held": 1,
+      "available": 4,
+      "ledger": [
+        {
+          "kind": "GRANT",
+          "delta": 5
+        },
+        {
+          "kind": "RESERVE",
+          "delta": 0
+        },
+        {
+          "kind": "CORRECTION",
+          "delta": -1
+        },
+        {
+          "kind": "CORRECTION",
+          "delta": 1
+        }
+      ]
+    },
+    {
+      "operation": "cancellation-releases-plan-hold",
+      "passed": true,
+      "remaining": 5,
+      "held": 0,
+      "available": 5,
+      "ledger": [
+        {
+          "kind": "GRANT",
+          "delta": 5
+        },
+        {
+          "kind": "RESERVE",
+          "delta": 0
+        },
+        {
+          "kind": "CORRECTION",
+          "delta": -1
+        },
+        {
+          "kind": "CORRECTION",
+          "delta": 1
+        }
+      ]
+    },
+    {
+      "operation": "plan-refund-closes-remaining-balance",
+      "passed": true,
+      "remaining": 0,
+      "held": 0,
+      "available": 0,
+      "ledger": [
+        {
+          "kind": "GRANT",
+          "delta": 5
+        },
+        {
+          "kind": "RESERVE",
+          "delta": 0
+        },
+        {
+          "kind": "CORRECTION",
+          "delta": -1
+        },
+        {
+          "kind": "CORRECTION",
+          "delta": 1
+        },
+        {
+          "kind": "REFUND",
+          "delta": -5
+        }
+      ]
+    },
+    {
+      "operation": "single-partial-refund",
+      "passed": true,
+      "net": 600
+    },
+    {
+      "operation": "over-refund-rejected-without-changing-ledger",
+      "passed": true
+    },
+    {
+      "operation": "remaining-single-refund",
+      "passed": true,
+      "net": 0
+    }
+  ],
+  "errors": []
+}

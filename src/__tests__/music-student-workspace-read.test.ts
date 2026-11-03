@@ -1,0 +1,22 @@
+import {beforeEach, expect, it, vi} from 'vitest';
+const m=vi.hoisted(()=>({auth:vi.fn(),scope:vi.fn(),customer:vi.fn(),music:vi.fn(),permission:vi.fn(),cards:vi.fn(),booking:vi.fn(),opening:vi.fn(),makeups:vi.fn(),source:vi.fn(),tuition:vi.fn()}));
+vi.mock('server-only',()=>({}));
+vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.customer},storeFeatureEntitlement:{findFirst:m.music}}}));
+vi.mock('@/lib/course-db',()=>({coursePrisma:{courseBooking:{findFirst:m.booking},coursePointCard:{findMany:m.makeups},$queryRaw:m.source}}));
+vi.mock('@/lib/permissions',()=>({checkPermission:m.permission}));
+vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:()=>({visible:true})}));
+vi.mock('@/server/services/course-access',()=>({courseManagerRead:m.auth}));
+vi.mock('@/server/services/music-native-workflow',()=>({musicNativeWorkflowEnabled:m.scope}));
+vi.mock('@/server/queries/course-members',()=>({getCourseCards:m.cards}));
+vi.mock('@/server/queries/music-opening-makeup',()=>({getOpeningMakeupWorkspace:m.opening}));
+vi.mock('@/server/services/music-pilot-policy',()=>({readMusicPilotTuition:m.tuition,PILOT_EVIDENCE_ID:'evidence'}));
+import {readMusicStudentWorkspace} from '@/server/queries/music-student-workspace';
+const id='yjy-lubymusic-student-test';
+beforeEach(()=>{vi.resetAllMocks();m.auth.mockResolvedValue({user:{id:'admin',role:'ADMIN'},storeId:'store-lubymusic'});m.scope.mockReturnValue(true);m.customer.mockResolvedValue({id});m.music.mockResolvedValue({storeId:'store-lubymusic'});m.permission.mockResolvedValue(true);m.cards.mockResolvedValue([{id:'ordinary',remaining:15,held:9,available:6},{id:'makeup',remaining:1,held:0,available:1},{id:'expired',expired:true,remaining:7}]);m.booking.mockResolvedValue(null);m.opening.mockResolvedValue(null);m.makeups.mockResolvedValue([{id:'makeup'}]);m.source.mockResolvedValue([{id:'evidence'}]);m.tuition.mockResolvedValue([{customerId:id,paid:12800}]);});
+it('authorizes once, retains scoped customer and permissions, and preserves balances',async()=>{const r=await readMusicStudentWorkspace(id,true,{});expect(m.auth).toHaveBeenCalledTimes(1);expect(m.auth).toHaveBeenCalledWith('customer.read',{reuseVerifiedStore:true});expect(m.customer.mock.calls[0][0].where).toMatchObject({storeId:'store-lubymusic',id,visible:true,mergedIntoCustomerId:null});expect(m.permission.mock.calls.map(c=>c[2])).toEqual(['wallet.read','booking.read']);expect(r.success&&r.data.balance).toEqual({remaining:15,held:9,available:6,issues:0,makeupRemaining:1});});
+it('fails before data reads outside preview or customer scope',async()=>{m.scope.mockReturnValue(false);expect((await readMusicStudentWorkspace(id,true)).success).toBe(false);expect(m.customer).not.toHaveBeenCalled();m.scope.mockReturnValue(true);m.customer.mockResolvedValue(null);expect((await readMusicStudentWorkspace(id,true)).success).toBe(false);expect(m.cards).not.toHaveBeenCalled();});
+it('does not read restricted wallet, booking or finance sections',async()=>{m.permission.mockResolvedValue(false);const r=await readMusicStudentWorkspace(id,true);expect(r.success&&r.data.balance).toBeNull();for(const f of [m.cards,m.booking,m.opening,m.makeups,m.source,m.tuition])expect(f).not.toHaveBeenCalled();});
+it('never queries retired tuition while native cards are pending',async()=>{let resolve!: (v:unknown[])=>void;m.cards.mockImplementation(()=>new Promise(r=>{resolve=r;}));const pending=readMusicStudentWorkspace(id,true);await vi.waitFor(()=>expect(m.cards).toHaveBeenCalledTimes(1));expect(m.tuition).not.toHaveBeenCalled();resolve([]);expect((await pending).success).toBe(true);});
+it('keeps normal action independent of retired evidence',async()=>{m.tuition.mockRejectedValue(new Error('bad evidence'));expect((await readMusicStudentWorkspace(id)).success).toBe(true);expect(m.tuition).not.toHaveBeenCalled();expect(m.scope).not.toHaveBeenCalled();expect(m.auth).toHaveBeenCalledWith('customer.read',{reuseVerifiedStore:false});});
+
+it("loads tuition only when requested while retaining the other sections",async()=>{const r=await readMusicStudentWorkspace(id,true,{},false);expect(r.success&&r.data.balance?.remaining).toBe(15);expect(m.cards).toHaveBeenCalled();expect(m.source).not.toHaveBeenCalled();expect(m.tuition).not.toHaveBeenCalled();await readMusicStudentWorkspace(id,true,{},true);expect(m.tuition).not.toHaveBeenCalled();});

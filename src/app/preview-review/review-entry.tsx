@@ -3,7 +3,7 @@ import { useState } from "react";
 import { CUSTOMER_REVIEW_TARGETS, customerReviewDestination, type CustomerReviewModule } from "@/lib/customer-review-targets";
 import { signIn } from "next-auth/react";
 
-export function CustomerReviewEntry({ initialModule = "spa" }: { initialModule?: CustomerReviewModule }) {
+export function CustomerReviewEntry({ initialModule = "steamfoot" }: { initialModule?: CustomerReviewModule }) {
   const [module, setModule] = useState<CustomerReviewModule>(initialModule);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("免密碼，僅限隔離測試門市。");

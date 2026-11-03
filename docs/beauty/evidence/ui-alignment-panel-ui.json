@@ -1,0 +1,56 @@
+{
+  "stage": "settings categories",
+  "results": [
+    {
+      "case": "服務項目 共用編輯版型與離開未儲存保護",
+      "passed": true
+    },
+    {
+      "case": "收費方式 共用編輯版型與離開未儲存保護",
+      "passed": true
+    },
+    {
+      "case": "技師管理 共用編輯版型與離開未儲存保護",
+      "passed": true
+    },
+    {
+      "case": "位置管理 共用編輯版型與離開未儲存保護",
+      "passed": true
+    },
+    {
+      "case": "日週月班表可呈現既有分項",
+      "passed": true
+    },
+    {
+      "case": "預約名單開啟實際服務明細",
+      "passed": true
+    },
+    {
+      "case": "顧客先看概況、編輯保護、紀錄分頁與新增按鈕可讀",
+      "passed": true
+    },
+    {
+      "case": "顧客經營預約只開一個面板",
+      "passed": true
+    },
+    {
+      "case": "設定分類深連結",
+      "passed": true
+    },
+    {
+      "case": "共用人員與圖片公告入口",
+      "passed": true
+    },
+    {
+      "case": "操作無未處理瀏覽器例外",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "lineVerified": false,
+  "productionChanged": false,
+  "sourceCommit": "c45dd95e05a6bc472aab3f7c3092893de3753c62",
+  "deploymentId": "dpl_3my8XR2m6oFuUqy6swxcAQD6mXSN",
+  "storeScope": "beauty-hosted-20261021"
+}

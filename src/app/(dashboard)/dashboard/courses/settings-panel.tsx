@@ -2,8 +2,9 @@
 import { ADMIN_SETTINGS_PANEL } from "@/lib/admin-ui";
 import { Component, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { LoadingStatus } from "@/components/loading-status";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { SettingsPanelContext, type SettingsPanelState } from "@/components/admin/settings-panel-context";
+import { SettingsPanelContext, useSettingsPanelDismissal, useSettingsPanelReaderHost, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { resolveDashboardHref } from "@/components/dashboard-link";
 import { COURSE_SETTINGS_PANELS, courseSettingsPanelHref, type CourseSettingsPanel } from "@/lib/course-settings-panels";
 
@@ -15,9 +16,10 @@ class PanelError extends Component<{ children: ReactNode; retry: () => void }, {
   }
 }
 
-export function CourseSettingsPanel({ panel, children }: { panel: CourseSettingsPanel; children: ReactNode }) {
+export function CourseSettingsPanel({ panel, children,workspaceHref="/dashboard/courses",confirmDiscard=true }: { panel: CourseSettingsPanel; children: ReactNode;workspaceHref?:string;confirmDiscard?:boolean }) {
   const router = useRouter(), pathname = usePathname(), search = useSearchParams();
   const searchString = search.toString();
+  const { dismissed, dismiss } = useSettingsPanelDismissal(searchString);
   const config = COURSE_SETTINGS_PANELS[panel];
   const [states, setStates] = useState<Record<string, SettingsPanelState>>({});
   const [destination, setDestination] = useState<string | null>(null);
@@ -33,27 +35,36 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     const params = new URLSearchParams(searchString); params.delete("panel"); params.delete("panelQuery");
     return `${pathname}?${params}`;
   }, [pathname, searchString]);
+  const { reader, registerReader } = useSettingsPanelReaderHost();
   const go = useCallback((href: string) => {
     setDestination(null);
-    startNavigation(() => router.replace(href, { scroll: false }));
-  }, [router]);
-  const request = useCallback((href: string) => { if (dirty || pending) setDestination(href); else go(href); }, [dirty, pending, go]);
+    if (href === closeHref) { dismiss(href); return; }
+    const reading = reader.current?.(href);
+    if (reading) startNavigation(async () => { await reading; });
+    else startNavigation(() => router.replace(href, { scroll: false }));
+  }, [router, closeHref, dismiss, reader]);
+  if(!pending&&destination!==null)setDestination(null);
+  const request = useCallback((href: string) => { if (pending) setDestination(href); else go(href); }, [pending, go]);
   const navigate = useCallback((href: string) => {
     const url = new URL(href.startsWith("?") ? config.href + href : href, window.location.origin);
     const localPath = url.pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)|^\/hq(?=\/dashboard)/, "");
     if (url.origin === window.location.origin) {
       if ((localPath === "/dashboard/courses" && url.searchParams.get("view") === "settings") || localPath === "/dashboard/settings" || localPath === "/dashboard") { request(closeHref); return; }
-      const mapped = courseSettingsPanelHref(localPath + url.search);
-      if (mapped !== localPath + url.search) {
+      const panelPath = workspaceHref === "/dashboard/beauty" && localPath === "/dashboard/beauty/reminders"
+        ? COURSE_SETTINGS_PANELS.reminders.href : localPath;
+      const mapped = courseSettingsPanelHref(panelPath + url.search);
+      if (mapped !== panelPath + url.search) {
         const params = new URLSearchParams(searchString); params.delete("panelQuery");
         new URLSearchParams(mapped.split("?")[1]).forEach((value, key) => params.set(key, value));
-        request(resolveDashboardHref(`/dashboard/courses?${params}`, pathname)); return;
+        if(workspaceHref!=="/dashboard/courses"){params.delete("view");params.set("tab","設定");}
+        request(resolveDashboardHref(`${workspaceHref}?${params}`, pathname)); return;
       }
     }
     request(url.href);
-  }, [config.href, closeHref, pathname, request, searchString]);
+  }, [config.href, closeHref, pathname, request, searchString,workspaceHref]);
   useEffect(() => {
-    const unload = (event: BeforeUnloadEvent) => { if (dirty || pending) { event.preventDefault(); event.returnValue = ""; } };
+    if (dismissed) return;
+    const unload = (event: BeforeUnloadEvent) => { if (pending) { event.preventDefault(); event.returnValue = ""; } };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       // Nested editors own Escape while they are open.
@@ -62,18 +73,19 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     };
     window.addEventListener("beforeunload", unload); document.addEventListener("keydown", escape);
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("keydown", escape); };
-  }, [dirty, pending, request, closeHref, destination]);
+  }, [confirmDiscard,dirty, pending, request, closeHref, destination, dismissed]);
   useEffect(()=>{const body=root.current?.querySelector<HTMLElement>('[data-settings-panel-body]');if(body)body.scrollTop=0;},[panel,searchString]);
-  const context = useMemo(() => ({ report, navigate }), [report, navigate]);
+  const context = useMemo(() => ({ report, navigate, registerReader: panel === "reminders" ? registerReader : undefined }), [report, navigate, registerReader, panel]);
   return <div ref={root} data-course-settings-panel>
-    <RightSheet presentation="centered" open compact fixedHeight width={ADMIN_SETTINGS_PANEL.width} maxHeight={ADMIN_SETTINGS_PANEL.maxHeight} closeOnEscape={false} onClose={() => request(closeHref)} labelledById="course-settings-panel-title">
+    <RightSheet presentation="centered" open={!dismissed} compact fixedHeight width={ADMIN_SETTINGS_PANEL.width} maxHeight={ADMIN_SETTINGS_PANEL.maxHeight} closeOnEscape={false} onClose={() => request(closeHref)} labelledById="course-settings-panel-title">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
         <div><p className="text-xs text-earth-500">設定</p><h2 id="course-settings-panel-title" className="font-semibold text-primary-900">{config.title}</h2></div>
         <button type="button" onClick={() => request(closeHref)} className="min-h-11 shrink-0 rounded-lg border px-4">關閉視窗</button>
       </header>
+      {navigating && <div data-panel-navigation-status className="shrink-0 border-b border-primary-100 bg-primary-50 px-4"><LoadingStatus>正在切換，請稍候…</LoadingStatus></div>}
       {destination && <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 p-4">
-        <p className="font-medium">{pending ? "設定仍在儲存，請稍候。" : "尚有未儲存的修改，要捨棄嗎？"}</p>
-        <div className="mt-2 flex gap-3"><button autoFocus className="min-h-11 rounded border px-3" onClick={() => setDestination(null)}>繼續編輯</button>{!pending && <button className="min-h-11 rounded bg-primary-700 px-3 text-white" onClick={() => go(destination)}>{destination === closeHref ? "不儲存並關閉" : "不儲存並切換"}</button>}</div>
+        <p className="font-medium">設定仍在儲存，請稍候。</p>
+        <button autoFocus className="mt-2 min-h-11 rounded border px-3" onClick={() => setDestination(null)}>繼續編輯</button>
       </div>}
       <div data-settings-panel-body className="relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [&_[data-page-shell]]:px-4 [&_[data-page-shell]>[data-page-header]]:hidden [&_[data-settings-return]]:hidden [&_[data-panel-secondary-title]]:hidden" aria-busy={navigating}
         onClickCapture={event => {
@@ -89,8 +101,7 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
           const params = new URLSearchParams(); new FormData(form).forEach((value, key) => { if (typeof value === "string") params.set(key, value); });
           navigate(config.href + "?" + params);
         }}>
-        {navigating && <p role="status" className="pointer-events-none absolute right-4 top-3 z-10 rounded-full bg-white/95 px-3 py-1 text-xs text-earth-500 shadow-sm">正在更新…</p>}
-        <SettingsPanelContext.Provider value={context}><PanelError key={panel} retry={() => router.refresh()}>{children}</PanelError></SettingsPanelContext.Provider>
+        <SettingsPanelContext.Provider value={context}><PanelError key={panel} retry={() => router.refresh()}>{dismissed ? null : children}</PanelError></SettingsPanelContext.Provider>
       </div>
     </RightSheet>
   </div>;

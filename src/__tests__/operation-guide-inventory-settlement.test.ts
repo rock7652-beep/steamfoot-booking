@@ -48,7 +48,7 @@ describe("inventory return and receipt-correction guide source review", () => {
     }
   });
 
-  it.each(["steamfoot", "spa", "course"] as const)("gates both workflows independently in %s", (module) => {
+  it.each(["steamfoot", "course"] as const)("gates both workflows independently in %s", (module) => {
     expect(visibleSettlementIds(access(["inventory.read", "inventory.write"], module))).toEqual([]);
     expect(visibleSettlementIds(access(["inventory.read", "inventory.refund"], module))).toEqual(["O09"]);
     expect(visibleSettlementIds(access(["inventory.read", "inventory.payment.correct"], module))).toEqual(["O10"]);

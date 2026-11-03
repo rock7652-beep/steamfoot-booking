@@ -14,6 +14,7 @@ import {
 } from "@/lib/store-plan";
 import { getPlanLimits, PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import type { Prisma } from "@prisma/client";
+import { getEffectivePlanLimits } from "@/lib/effective-plan-limits";
 
 /**
  * 取得用量檢查所需的 store + limits。
@@ -39,8 +40,13 @@ async function resolveStoreContext(storeId?: string) {
 export async function checkStaffLimitOrThrow(
   currentCount: number,
   storeId?: string,
+  client?: Pick<Prisma.TransactionClient, "store">,
 ): Promise<void> {
-  const { limits, store } = await resolveStoreContext(storeId);
+  // Staff creation holds the store lock and may own the only pool connection.
+  // Read the plan on that transaction, just as the customer capacity check does.
+  const { limits, store } = storeId && client
+    ? await getStoreForPlanByStoreId(storeId, client).then(store => ({store, limits:getPlanLimits(store)}))
+    : await resolveStoreContext(storeId);
   if (limits.maxStaff !== null && currentCount >= limits.maxStaff) {
     const label = PRICING_PLAN_INFO[store.plan].label;
     throw new AppError(
@@ -108,7 +114,7 @@ export function checkReportLimit(
   store: StorePlanFields,
   currentMonthCount: number
 ): { allowed: boolean; current: number; limit: number | null } {
-  const limits = getPlanLimits(store);
+  const limits = getEffectivePlanLimits(store);
   if (limits.maxMonthlyReports === null) {
     return { allowed: true, current: currentMonthCount, limit: null };
   }

@@ -1,0 +1,12 @@
+{
+  "localSyntheticOnly": true,
+  "productionBuild": true,
+  "results": [
+    "actual service collections do not falsely claim card issuance",
+    "built original transaction reopens appended correction and void",
+    "voided original receipt offers no further mutations",
+    "built original customer history shows actual void status",
+    "no built runtime errors"
+  ],
+  "errors": []
+}

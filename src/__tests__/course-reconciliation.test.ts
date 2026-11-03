@@ -5,7 +5,7 @@ vi.mock("@/server/services/course-access", () => ({ courseTransaction: m.transac
 import { checkCourseAccounts } from "@/server/reconciliation/course-checks";
 describe("course account reconciliation", () => {
   it("uses one scoped snapshot and reports mismatches instead of replacing them with zero", async () => {
-    m.transaction.mockImplementation(async (_store, work) => work({ $queryRaw: m.query }));
+    m.transaction.mockImplementation(async (_store, work) => work({ $queryRaw: m.query, coursePointCard:{findMany:vi.fn().mockResolvedValue([])} }));
     m.query.mockResolvedValue([{ code: "course_refund_cash", checked: BigInt(2), mismatches: BigInt(1) }]);
     const result = await checkCourseAccounts("test-store");
     expect(m.transaction).toHaveBeenCalledWith("test-store", expect.any(Function));

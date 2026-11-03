@@ -1,0 +1,33 @@
+{
+  "results": [
+    {
+      "case": "首頁功能靠右",
+      "passed": true
+    },
+    {
+      "case": "店家資訊列視覺",
+      "passed": true
+    },
+    {
+      "case": "改期自動展開日期與時段",
+      "passed": true
+    },
+    {
+      "case": "取消只確認不填原因",
+      "passed": true
+    },
+    {
+      "case": "店長班表回歸",
+      "passed": true
+    },
+    {
+      "case": "技師入口回歸",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "stage": "取消只確認不填原因",
+  "passed": true,
+  "syntheticFixture": false,
+  "origin": "https://steamfoot-booking-1p08lqm1w-rock7652-2111s-projects.vercel.app"
+}

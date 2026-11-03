@@ -1,0 +1,24 @@
+{
+  "results": [
+    {
+      "case": "位置租借欄位保存重開",
+      "passed": true
+    },
+    {
+      "case": "服務項目保存重開、金額由收費方式設定",
+      "passed": true
+    },
+    {
+      "case": "後台通知開關保存重開且 LINE 持續關閉，設定已還原",
+      "passed": true
+    },
+    {
+      "case": "原人員編輯頁與平板版面",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "stage": "staff-editor",
+  "scope": "steamfoot-preview / beauty-hosted-20261021",
+  "finalDeploymentCommit": "eca98f9c350b3b5543f0e398ac9f96922f0f079d"
+}

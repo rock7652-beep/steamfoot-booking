@@ -1,6 +1,7 @@
 import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({access:vi.fn(),transaction:vi.fn(),template:vi.fn(),createTemplate:vi.fn(),updateTemplate:vi.fn(),room:vi.fn(),updateRoom:vi.fn(),roomUse:vi.fn(),duration:vi.fn(),plan:vi.fn(),createPlan:vi.fn(),updatePlan:vi.fn(),revalidate:vi.fn(),music:vi.fn(),term:vi.fn()}));
-vi.mock("next/cache",()=>({revalidatePath:m.revalidate}));
+vi.mock("@/lib/auth",()=>({auth:vi.fn()}));
+vi.mock("next/cache",()=>({revalidatePath:m.revalidate,unstable_cache:(fn:unknown)=>fn}));
 vi.mock("next/server",()=>({after:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.access,courseTransaction:m.transaction}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{courseTemplate:{count:async()=>0}}}));
@@ -33,7 +34,7 @@ beforeEach(()=>{
  m.createPlan.mockImplementation(async({data})=>savedPlan={...data,lowBalanceEnabled:false,lowBalanceThreshold:null});
  m.updateTemplate.mockImplementation(async({data})=>{savedTemplate={...savedTemplate,...data,updatedAt:new Date()};return {count:1};});
  m.updatePlan.mockImplementation(async({data})=>{savedPlan={...savedPlan,...data};return {count:1};});
- m.transaction.mockImplementation(async(_store,work)=>work({courseTemplate:{findFirst:m.template,findFirstOrThrow:m.template,create:m.createTemplate,updateMany:m.updateTemplate},courseRoom:{findFirst:m.room,findFirstOrThrow:m.room,updateMany:m.updateRoom},coursePointPlan:{findFirst:m.plan,findFirstOrThrow:m.plan,create:m.createPlan,updateMany:m.updatePlan},coursePurchase:{count:async()=>0},$queryRaw:async()=>[]}));
+ m.transaction.mockImplementation(async(_store,work)=>work({courseTemplate:{findMany:async()=>[{id:"template",musicSubjectId:null}],count:async()=>1,findFirst:m.template,findFirstOrThrow:m.template,create:m.createTemplate,updateMany:m.updateTemplate},courseRoom:{findFirst:m.room,findFirstOrThrow:m.room,updateMany:m.updateRoom},coursePointPlan:{findFirst:m.plan,findFirstOrThrow:m.plan,create:m.createPlan,updateMany:m.updatePlan},coursePurchase:{count:async()=>0},$queryRaw:async(sql:TemplateStringsArray)=>sql.join("").includes('FROM "Staff"')?[{id:"teacher",qualificationIds:["template"]}]:[]}));
 });
 it("confirms the same course create after a lost reply; changed retry cannot overwrite it",async()=>{
  const first=await saveCourseTemplateSettings({...template,...receipt});expect(first).toMatchObject({success:true,data:{name:"瑜珈",hasSessions:false}});
@@ -83,4 +84,18 @@ it("does not report committed room edits as failures when cache invalidation fai
  const {courseRoomInput,courseRoomRevision}=await import("@/lib/course-room-input");
  const room={...courseRoomInput.parse({name:"教室"}),id:"room",storeId:"store",isActive:true};m.room.mockResolvedValue(room);m.updateRoom.mockResolvedValue({count:1});m.revalidate.mockImplementation(()=>{throw new Error("cache");});
  expect(await saveCourseRoomSettings({...courseRoomInput.parse(room),id:"room",expectedRevision:courseRoomRevision(room),...receipt})).toMatchObject({success:true,syncWarning:true});
+});
+
+it('saves an independent single charge with a zero trial price and confirms identical retries',async()=>{
+ const chargeSettings={kind:'single',durationMinutes:60,trialPrice:0,trialDuration:20,providerIds:['teacher']};
+ const input={...plan,points:1,unit:'SESSION',templateIds:['template'],chargeSettings,receipt};
+ const result=await saveCoursePointPlan(input);
+ expect(result).toMatchObject({success:true,data:{points:1,chargeSettings}});
+ expect(await saveCoursePointPlan(input)).toEqual(result);
+ expect(m.createPlan).toHaveBeenCalledTimes(1);
+ expect(await saveCoursePointPlan({...input,chargeSettings:{...chargeSettings,providerIds:['unqualified']}})).toMatchObject({success:false});
+});
+it('rejects multi-lesson quota on a single charge before saving',async()=>{
+ expect(await saveCoursePointPlan({...plan,points:5,unit:'SESSION',templateIds:['template'],chargeSettings:{kind:'single',durationMinutes:60,trialPrice:200,trialDuration:null,providerIds:['teacher']},receipt})).toMatchObject({success:false});
+ expect(m.createPlan).not.toHaveBeenCalled();
 });

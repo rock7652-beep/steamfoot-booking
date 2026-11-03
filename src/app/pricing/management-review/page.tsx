@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import DashboardShell from "@/components/sidebar";
 import { ReviewViewport } from "../schedule-review/review-viewport";
 import { ManagementReviewContent } from "./review-content";
-import "../../spa-admin.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = {title: "人員與分析 RWD 驗收", robots: {index: false, follow: false}};
@@ -13,7 +12,7 @@ export default async function ManagementReviewPage({searchParams}: {searchParams
   const variants = ["steamfoot", "fitness", "music", "analysis"];
   const variant = variants.includes(query.variant ?? "") ? query.variant! : "steamfoot";
   const width = [360, 390, 768, 1024, 1366, 1920].find(value => String(value) === query.width) ?? 390;
-  if (query.frame === "1") return <DashboardShell industryModule={variant === "spa" ? "spa" : variant === "fitness" || variant === "music" ? "course" : "steamfoot"} isOwner operationGuidePreview permissions={["staff.view", "report.read"]} pricingPlan="EXPERIENCE" userName="RWD 驗收使用者" roleLabel="系統管理者" logoutButton={null} storeName="虛擬驗收店家">
+  if (query.frame === "1") return <DashboardShell industryModule={variant === "fitness" || variant === "music" ? "course" : "steamfoot"} isOwner operationGuidePreview permissions={["staff.view", "report.read"]} pricingPlan="EXPERIENCE" userName="RWD 驗收使用者" roleLabel="系統管理者" logoutButton={null} storeName="虛擬驗收店家">
     <p className="mb-3 text-sm text-earth-500">虛擬資料，只檢查排版與未儲存草稿；不送出儲存、搜尋會員或停用操作。</p>
     <ManagementReviewContent variant={variant} />
   </DashboardShell>;

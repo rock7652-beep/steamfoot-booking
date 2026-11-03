@@ -11,7 +11,7 @@ import type { TrialSettings } from "@/lib/shop-config";
 
 interface Props {
   storeId: string;
-  onSaved?:(values:TrialSettings)=>void;
+  onSaved?:(values:TrialSettings,syncWarning:boolean)=>void;
   initial: TrialSettings;
   courseMode?: boolean;
   compact?: boolean;
@@ -67,10 +67,11 @@ export function TrialSettingsForm({ storeId, initial, onSaved,courseMode = false
     void mutation.save({kind:"TRIAL",expectedRevision:revision.current,values:{trialEnabled,trialDefaultPrice:d,trialAllowPriceEdit:allowEdit,trialMinPrice:lo,trialMaxPrice:hi}}).then(result=>{
       if(!result.success){setError(result.error);toast.error(result.error);return;}
       revision.current=result.data.revision;
-      onSaved?.(result.data.values);
+      onSaved?.(result.data.values,result.syncWarning);
       const row=result.data.values;
       setTrialEnabled(row.trialEnabled);setDefaultPrice(String(row.trialDefaultPrice));setAllowEdit(row.trialAllowPriceEdit);setMinPrice(String(row.trialMinPrice));setMaxPrice(String(row.trialMaxPrice));
       setSavedDraft(JSON.stringify([row.trialEnabled,String(row.trialDefaultPrice),row.trialAllowPriceEdit,String(row.trialMinPrice),String(row.trialMaxPrice)]));
+      if(result.syncWarning)setError("已儲存；其他頁面更新失敗，請重新整理核對。");
       toast.success(result.syncWarning?"體驗設定已儲存；其他頁面更新失敗，請重新整理核對。":"體驗課設定已更新");
     }).finally(()=>{saving.current=false;});
   }
@@ -196,7 +197,7 @@ export function TrialSettingsForm({ storeId, initial, onSaved,courseMode = false
             <span className="text-sm text-earth-500">
               {pending ? "儲存中..." : draft !== savedDraft ? "未儲存" : ""}
             </span>
-            <button type="button" disabled={pending || mutation.uncertain || draft === savedDraft} onClick={() => { const [enabled, price, edit, min, max] = JSON.parse(savedDraft); setTrialEnabled(enabled); setDefaultPrice(price); setAllowEdit(edit); setMinPrice(min); setMaxPrice(max); }} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>
+            <button type="button" disabled={pending || mutation.uncertain || draft === savedDraft} onClick={() => { mutation.reset(); const [enabled, price, edit, min, max] = JSON.parse(savedDraft); setTrialEnabled(enabled); setDefaultPrice(price); setAllowEdit(edit); setMinPrice(min); setMaxPrice(max); }} className="min-h-10 rounded-lg border px-3 text-sm disabled:opacity-40">還原修改</button>
             <button
               type="submit"
               disabled={pending || invalid || draft === savedDraft}

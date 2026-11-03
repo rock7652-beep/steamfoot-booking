@@ -1,7 +1,12 @@
+import {digitalManagerCronPreviewPathAllowed} from "../scripts/digital-manager-cron-preview-scope.mjs";
+import {calendarProxyReadOperation,traceCalendarProxyRead} from "@/lib/calendar-proxy-read-timing";
+import {measureMusicRead} from "@/lib/music-read-timing";
 import { isRetiredModuleRoute } from "@/lib/retired-module-routes";
+import { legacyOperationsDestination } from "@/lib/operations-navigation";
+import { beautySandboxRewriteUrl } from "../scripts/beauty-sandbox-qa-scope.mjs";
 import { retiredStoreBoundary } from "@/lib/retired-store-boundary";
-import { retiredStoreResponse } from "@/lib/retired-store-response";
-import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview, isSpaRetirementUiPreview, isSpaRetirementPreviewPath } from "../scripts/guide-ui-preview-scope.mjs";
+
+import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview, isSpaRetirementUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
 import { findPublicGuide, guidePath } from "@/lib/public-guides";
 import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
@@ -11,10 +16,7 @@ import { customerReviewConfig } from "@/lib/customer-review-access";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isStaffRole } from "@/lib/permissions";
-import {
-  buildStoreRewriteRequestHeaders,
-  legacyRedirectUrl,
-} from "@/lib/proxy-helpers";
+import { buildStoreRewriteRequestHeaders, legacyRedirectUrl } from "@/lib/proxy-helpers";
 
 // ============================================================
 // B7-4.5: 正式流程不依賴靜態 map
@@ -64,6 +66,12 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
   // Preview pages expose GET-only projections; reject every Server Action/form/API write.
   if (blocksFrontendPreviewWrite(req.method, pathname, req.headers.get("referer"))) {
     return NextResponse.json({ error: "預覽中不會儲存" }, { status: 403 });
+  }
+  // Resolve old finance entrypoints at the network boundary, before rendering
+  // a redirecting App Router page. The destination retains normal authorization.
+  if(req.method==="GET"||req.method==="HEAD"){
+    const destination=legacyOperationsDestination(pathname,req.nextUrl.searchParams);
+    if(destination)return NextResponse.redirect(new URL(destination,req.url));
   }
   // Public, demonstration-only onboarding guides on isolated previews.
   // Keep the exception confined to these static files, never store/admin routes.
@@ -267,6 +275,7 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
 
     // ── 分店 customer routes ──
     const customerPrefixes = [
+      "/beauty",
       "/book",
       "/my-bookings",
       "/my-plans",
@@ -284,7 +293,9 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
 
     if (isCustomerRoute) {
       if (!isLoggedIn) {
-        return NextResponse.redirect(new URL(`/s/${storeSlug}/`, req.url));
+        const login=new URL(`/s/${storeSlug}/`,req.url);
+        if(subPath==='/beauty'&&req.nextUrl.searchParams.get('view')==='book')login.searchParams.set('next','beauty-book');
+        return NextResponse.redirect(login);
       }
       if (role && isStaffRole(role)) {
         if (role === "ADMIN") {
@@ -486,6 +497,11 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
     return withDomainCookie(routePassThrough(req), domainStoreId);
   }
 
+  // Beauty public trial is narrowly scoped; its page and actions validate module/store.
+  if (pathname === "/booking-line") return withDomainCookie(routePassThrough(req), domainStoreId);
+  if (/^\/beauty-trial\/[a-z0-9-]+\/?$/.test(pathname)) return withDomainCookie(routePassThrough(req), domainStoreId);
+  if (/^\/sports-trial\/[a-z0-9-]+\/?$/.test(pathname)) return withDomainCookie(routePassThrough(req), domainStoreId);
+
   // /pricing → keep as-is (public)
   if (pathname === "/pricing" || pathname.startsWith("/pricing/")) {
     return withDomainCookie(routePassThrough(req), domainStoreId);
@@ -554,6 +570,12 @@ function withDomainCookie(response: NextResponse, storeId: string | undefined): 
   return response;
 }
 
+// Keep document-navigation renewal unchanged. Rewriting an identical context
+// cookie during an Action makes Next treat even a pure read as route invalidation.
+function shouldSetStoreContextCookie(req: NextRequest, name: string, value: string): boolean {
+  return req.method !== "POST" || !req.headers.has("next-action") || req.cookies.get(name)?.value !== value;
+}
+
 /**
  * Store-scoped rewrite: 把 /s/[slug]/... 改寫成內部路徑，
  * 注入 store context 供 Server Components / Server Actions 讀取。
@@ -563,6 +585,7 @@ function withDomainCookie(response: NextResponse, storeId: string | undefined): 
  * 的 `headers()` 才能讀到。原本只寫 response.headers 等於對 server 不存在，
  * 導致 PR-E2 strict gate 收到 null slug → 全部 LIFF page 顯示「無法確認分店」。
  */
+
 function storeRewrite(
   req: NextRequest,
   internalPath: string,
@@ -571,7 +594,7 @@ function storeRewrite(
 ): NextResponse {
   const panelPath = internalPath === "/dashboard/cash-drawer" && req.nextUrl.searchParams.get("cashDrawerPanel") === "1"
     ? "/cash-drawer-panel" : internalPath;
-  const url = new URL(panelPath, req.url);
+  const url = beautySandboxRewriteUrl(panelPath, req.url, req.headers.get('x-forwarded-proto'), process.env);
   url.search = req.nextUrl.search;
 
   // Forward x-store-slug + x-next-pathname 給 internal request，
@@ -589,7 +612,7 @@ function storeRewrite(
   // B7-4.5: 僅注入 store-slug cookie，storeId 由 page-level DB resolver 提供
   // 註：PR-E2 後 LIFF resolveStoreSlugForLiff 已不讀此 cookie；保留是給其他路徑
   //     （legacy customer / auth）用，並維持既有行為。
-  response.cookies.set("store-slug", slug, {
+  if (shouldSetStoreContextCookie(req, "store-slug", slug)) response.cookies.set("store-slug", slug, {
     path: "/",
     httpOnly: false,
     sameSite: "lax",
@@ -599,7 +622,7 @@ function storeRewrite(
   // 真正生效的是上方 request.headers，這裡只是觀察用。
   response.headers.set("x-next-pathname", req.nextUrl.pathname);
   response.headers.set("x-store-slug", slug);
-  if (domainStoreId) {
+  if (domainStoreId && shouldSetStoreContextCookie(req, "domain-store-id", domainStoreId)) {
     response.cookies.set("domain-store-id", domainStoreId, {
       path: "/",
       httpOnly: true,
@@ -620,11 +643,11 @@ function hqRewrite(
 ): NextResponse {
   const panelPath = internalPath === "/dashboard/cash-drawer" && req.nextUrl.searchParams.get("cashDrawerPanel") === "1"
     ? "/cash-drawer-panel" : internalPath;
-  const url = new URL(panelPath, req.url);
+  const url = beautySandboxRewriteUrl(panelPath, req.url, req.headers.get('x-forwarded-proto'), process.env);
   url.search = req.nextUrl.search;
   const requestHeaders = nonStoreRequestHeaders(req);
   const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
-  response.cookies.set("store-slug", "__hq__", {
+  if (shouldSetStoreContextCookie(req, "store-slug", "__hq__")) response.cookies.set("store-slug", "__hq__", {
     path: "/",
     httpOnly: false,
     sameSite: "lax",
@@ -632,7 +655,7 @@ function hqRewrite(
   });
   // HQ 不設 store-id cookie（ADMIN 用 active-store-id 切換）
   response.headers.set("x-next-pathname", req.nextUrl.pathname);
-  if (domainStoreId) {
+  if (domainStoreId && shouldSetStoreContextCookie(req, "domain-store-id", domainStoreId)) {
     response.cookies.set("domain-store-id", domainStoreId, {
       path: "/",
       httpOnly: true,
@@ -647,7 +670,24 @@ function hqRewrite(
 // excluded from proxy. Normal deployments retain the old exclusions verbatim.
 const legacyProxyExclusion = /^\/(?:robots\.txt$|sitemap\.xml$|api\/line\/webhook|api\/cron|_next\/static|_next\/image|favicon\.ico)/;
 export function proxy(...args: Parameters<typeof authenticatedProxy>) {
+  const operation=calendarProxyReadOperation(args[0].method,args[0].nextUrl);
+  return operation?traceCalendarProxyRead(operation,()=>dispatchProxy(...args)):dispatchProxy(...args);
+}
+function dispatchProxy(...args: Parameters<typeof authenticatedProxy>) {
   const [req] = args;
+  if ((req.nextUrl.pathname.startsWith("/api/cron/") || req.nextUrl.pathname === "/api/health/reminders-cron") && !digitalManagerCronPreviewPathAllowed(req.nextUrl.pathname)) return NextResponse.json({error:"Unauthorized"},{status:401});
+  if (req.nextUrl.pathname === "/beauty-public-preview" || req.nextUrl.pathname.startsWith("/beauty-public-preview/")) {
+    const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" };
+    if (req.nextUrl.pathname !== "/beauty-public-preview" || process.env.VERCEL_ENV !== "preview" ||
+      process.env.VERCEL_GIT_COMMIT_REF !== "codex/beauty-public-booking-ux" ||
+      process.env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || process.env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking") {
+      return new NextResponse("Not found", { status: 404, headers });
+    }
+    if (req.method !== "GET" && req.method !== "HEAD") return new NextResponse("Method not allowed", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
+    const response = routePassThrough(req);
+    Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+    return response;
+  }
   if (isRetiredModuleRoute(req.nextUrl.pathname, req.nextUrl.searchParams)) {
     return new NextResponse("此模組已移除", { status: 410, headers: { "X-Robots-Tag": "noindex", "Cache-Control": "no-store" } });
   }
@@ -678,26 +718,7 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
     if (req.method !== "GET" && req.method !== "HEAD")
       return new NextResponse("Read-only guide preview", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
     const path = req.nextUrl.pathname;
-    if (isSpaRetirementUiPreview()) {
-      // Synthetic-only rendering of the same 410 document used for retired stores.
-      // The exact preview mode has already rejected writes and disabled all clients.
-      if (path === "/spa-retirement-preview" && req.nextUrl.searchParams.get("view") === "retired")
-        return retiredStoreResponse(true);
-      if (!isSpaRetirementPreviewPath(path))
-        return new NextResponse("Not available in module review", { status: 404, headers });
-      // Rewrite destinations may pass through Proxy again; serve the exact
-      // destination rather than redirecting it back to the canonical alias.
-      if (["/pricing/business", "/pricing/apply.html", "/pricing/terms.html", "/pricing/refunds.html"].includes(path))
-        return NextResponse.next({ headers });
-      const marketing = marketingRoute(path);
-      if (!marketing) return NextResponse.next({ headers });
-      if (marketing.kind === "not-found") return new NextResponse("Not found", { status: 404, headers });
-      const url = req.nextUrl.clone();
-      url.pathname = marketing.destination;
-      const response = marketing.kind === "redirect" ? NextResponse.redirect(url, 308) : NextResponse.rewrite(url);
-      Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
-      return response;
-    }
+
     if (isMarketingStickyUiPreview()) {
       const pages = ["/", "/pricing", "/pricing/business", "/pricing/cases", "/cases", "/apply", "/pricing/apply.html", "/pricing/features", "/pricing/features/slots", "/pricing/features/fitness", "/pricing/features/music", "/guides", "/pricing/guides"];
       const publicArticle = /^\/(?:pricing\/)?guides\/[a-z0-9-]+\/?$/.test(path);
@@ -758,9 +779,13 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   if (legacyProxyExclusion.test(req.nextUrl.pathname)) return NextResponse.next();
   const host = req.headers.get("host")?.split(":")[0] ?? "";
   const retirement = retiredStoreBoundary(req, DOMAIN_STORE_MAP[host]);
+  const profiling=calendarProxyReadOperation(req.method,req.nextUrl);
+  const authenticate=()=>profiling?measureMusicRead("proxy.authentication",async()=>authenticatedProxy(...args)):authenticatedProxy(...args);
   return retirement
-    ? retirement.then(response => response ?? authenticatedProxy(...args))
-    : authenticatedProxy(...args);
+    ? (profiling?measureMusicRead("proxy.retiredStore",()=>retirement):retirement).then(response => response ?? authenticate())
+    : authenticate();
 }
 
-export const config = { matcher: ["/:path*"] };
+// Match the existing application region in vercel.json. This proxy also runs
+// the isolated schema preflight and auth checks; it must stay near the database.
+export const config = { matcher: ["/:path*"], regions: ["hnd1"] };

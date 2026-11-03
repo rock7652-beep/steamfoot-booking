@@ -1,0 +1,16 @@
+RUN  v4.1.4 /workspace/steamfoot-beauty-ui
+
+ ❯ src/__tests__/beauty-cron-route.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/beauty-cron-route.test.ts [ src/__tests__/beauty-cron-route.test.ts ]
+Error: Cannot find module '/workspace/steamfoot-beauty-ui/node_modules/next/server' imported from /workspace/steamfoot-beauty-ui/node_modules/next-auth/lib/env.js
+Did you mean to import "next/server.js"?
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 51 passed (52)
+      Tests  410 passed (410)
+   Start at  23:58:15
+   Duration  18.77s (transform 4.78s, setup 0ms, import 8.35s, tests 18.34s, environment 3.31s)

@@ -1,3 +1,5 @@
+import { ensureMusicArchiveReady } from "@/lib/music-retirement";
+import {verifiedPermissionRequestSession} from "@/lib/permission-request-session";
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Prisma } from "@prisma/client";
@@ -48,7 +50,8 @@ async function resolveActor(): Promise<AuditActor | null> {
   const session = await (sessionModule ??= import("@/lib/session"));
   return scope.run("resolving", async () => {
     try {
-      const user = await session.getCurrentUser();
+      const verified = verifiedPermissionRequestSession() as Awaited<ReturnType<typeof session.getCurrentUser>> | undefined;
+      const user = verified ?? await session.getCurrentUser();
       // Copy only verified identity fields; never retain a mutable session.
       return user ? Object.freeze({ id: user.id, name: user.name, role: user.role,
         loginRecordId: user.loginRecordId ?? null, storeId: user.storeId }) : null;
@@ -91,6 +94,7 @@ export function withAuditDatabaseContext<T extends object>(original: T, auditMod
   return new Proxy(original, {
     get(target, key, receiver) {
       if (key === "$transaction") return async (work: unknown, ...options: unknown[]) => {
+        await ensureMusicArchiveReady();
         const actor = await resolveActor();
         return scope.run(actor, () => deliveryScope.run({ pending: false }, async () => {
           const statement = Prisma.sql`SELECT set_config('steamfoot.audit_actor', ${JSON.stringify(actor)}, true)`;

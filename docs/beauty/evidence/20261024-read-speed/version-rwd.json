@@ -1,0 +1,62 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    {
+      "name": "authorized scoped roster and actual SQL fingerprint",
+      "passed": true
+    },
+    {
+      "name": "unchanged response omits all roster/customer rows",
+      "passed": true
+    },
+    {
+      "name": "guarded scoped note saved",
+      "passed": true
+    },
+    {
+      "name": "changed revision returns authoritative updated payload",
+      "passed": true
+    },
+    {
+      "name": "next check returns unchanged after accepted update",
+      "passed": true
+    },
+    {
+      "name": "foreign store receipt rejected even with a valid version",
+      "passed": true
+    },
+    {
+      "name": "foreign customer store receipt rejected",
+      "passed": true
+    },
+    {
+      "name": "1366x900 no page overflow",
+      "passed": true
+    },
+    {
+      "name": "1366x900 customer panel no page overflow",
+      "passed": true
+    },
+    {
+      "name": "1024x768 no page overflow",
+      "passed": true
+    },
+    {
+      "name": "1024x768 customer panel no page overflow",
+      "passed": true
+    },
+    {
+      "name": "768x1024 no page overflow",
+      "passed": true
+    },
+    {
+      "name": "768x1024 customer panel no page overflow",
+      "passed": true
+    },
+    {
+      "name": "no browser runtime errors",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

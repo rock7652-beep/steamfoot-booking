@@ -1,4 +1,5 @@
 "use server";
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { coursePrisma } from "@/lib/course-db";
@@ -41,7 +42,7 @@ export async function loadCourseTeacherSession(sessionId: string, mode: "leave" 
     if (!s || s.coachId!==actor.staffId) throw new AppError("FORBIDDEN", "只能處理自己的課程");
     assertEditable(s);
     const waiting=await coursePrisma.courseWaitlistEntry.findMany({where:{storeId:actor.storeId,sessionId:s.id,status:"WAITING"},select:{id:true,customerName:true,updatedAt:true,cardId:true},orderBy:{id:"asc"}});
-    return { success:true as const, data:{ name:s.nameSnapshot, startsAt:s.startsAt.toISOString(), endsAt:s.endsAt.toISOString(), room:s.room.name, revision:revision(s,waiting), waiting:waiting.map(w=>({id:w.id,name:w.customerName})), students:s.bookings.filter(b=>b.status!=="CANCELLED" || ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(b.absenceKind??"")).map(b=>({id:b.id,name:b.customerName})) } };
+    return { success:true as const, data:{ name:courseDisplayName(s.nameSnapshot), startsAt:s.startsAt.toISOString(), endsAt:s.endsAt.toISOString(), room:s.room.name, revision:revision(s,waiting), waiting:waiting.map(w=>({id:w.id,name:w.customerName})), students:s.bookings.filter(b=>b.status!=="CANCELLED" || ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(b.absenceKind??"")).map(b=>({id:b.id,name:b.customerName})) } };
   } catch(error) { return handleCourseActionError(error); }
 }
 export async function changeCourseTeacherSession(input: unknown) {
@@ -70,11 +71,11 @@ export async function changeCourseTeacherSession(input: unknown) {
         const endsAt = new Date(+startsAt + +s.endsAt - +s.startsAt);
         const range = {startsAt,endsAt};
         await assertCourseResources(tx,storeId,{templateId:s.templateId,roomId:s.roomId,coachId:staffId,capacity:s.capacity},s);
-        if (s.bookings.some(b=>b.status!=="CANCELLED" && b.card && b.card.expiresAt<startsAt)) throw new AppError("CONFLICT", "新日期超過學員方案期限，原課保留");
+        if (s.bookings.some(b=>b.status!=="CANCELLED" && b.card && b.card.expiresAt && b.card.expiresAt<startsAt)) throw new AppError("CONFLICT", "新日期超過學員方案期限，原課保留");
         const waitingCardIds=[...new Set(waiting.map(w=>w.cardId))];
         if (waitingCardIds.length) {
           const cards=await tx.coursePointCard.findMany({where:{storeId,id:{in:waitingCardIds}},select:{id:true,expiresAt:true}});
-          if (cards.length!==waitingCardIds.length || cards.some(card=>card.expiresAt<startsAt)) throw new AppError("CONFLICT", "新日期超過候補學員方案期限，原課保留");
+          if (cards.length!==waitingCardIds.length || cards.some(card=>card.expiresAt && card.expiresAt<startsAt)) throw new AppError("CONFLICT", "新日期超過候補學員方案期限，原課保留");
         }
         const collision = await tx.courseSession.findFirst({where:{storeId,id:{not:s.id},cancelledAt:null,releasedAt:null,startsAt:{lt:endsAt},endsAt:{gt:startsAt},OR:[{roomId:s.roomId},{coachId:staffId}]}});
         if (collision) throw new AppError("CONFLICT", "這個時間教室或老師已有課，原課保留");

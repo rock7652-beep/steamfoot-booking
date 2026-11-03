@@ -1,0 +1,400 @@
+▲ Next.js 16.2.2 (webpack)
+- Experiments (use with caution):
+  · cpus: 2
+
+  Creating an optimized production build ...
+  Using tsconfig file: tsconfig.beauty-shared-pages-build-qa.json
+⚠ Compiled with warnings in 30.1s
+
+./src/lib/generated-prisma-runtime.ts
+module.createRequire failed parsing argument.
+
+Import trace for requested module:
+./src/lib/generated-prisma-runtime.ts
+./src/lib/course-db.ts
+./src/server/services/course-access.ts
+./src/server/services/course-teacher-change-access.ts
+./src/lib/permissions.ts
+
+./src/lib/generated-prisma-runtime.ts
+module.createRequire failed parsing argument.
+
+Import trace for requested module:
+./src/lib/generated-prisma-runtime.ts
+./src/lib/course-db.ts
+./src/server/services/course-access.ts
+./src/server/services/course-teacher-change-access.ts
+./src/lib/permissions.ts
+
+./src/lib/generated-prisma-runtime.ts
+module.createRequire failed parsing argument.
+
+Import trace for requested module:
+./src/lib/generated-prisma-runtime.ts
+./src/lib/beauty-db.ts
+./src/server/actions/beauty.ts
+
+./src/lib/generated-prisma-runtime.ts
+module.createRequire failed parsing argument.
+
+Import trace for requested module:
+./src/lib/generated-prisma-runtime.ts
+./src/lib/beauty-db.ts
+./src/server/actions/beauty.ts
+
+./src/lib/generated-prisma-runtime.ts
+module.createRequire failed parsing argument.
+
+Import trace for requested module:
+./src/lib/generated-prisma-runtime.ts
+./src/lib/course-db.ts
+./src/app/(dashboard)/dashboard/courses/page.tsx
+
+./src/lib/generated-prisma-runtime.ts
+module.createRequire failed parsing argument.
+
+Import trace for requested module:
+./src/lib/generated-prisma-runtime.ts
+./src/lib/course-db.ts
+./src/app/(dashboard)/dashboard/courses/page.tsx
+
+  Using tsconfig file: tsconfig.beauty-shared-pages-build-qa.json
+  Using tsconfig file: tsconfig.beauty-shared-pages-build-qa.json
+✓ Compiled successfully in 42s
+  Collecting page data using 2 workers ...
+  Finalizing page optimization ...
+  Collecting build traces ...
+  Build ran with "compile" mode, to finalize the build run either "generate" or "generate-env" mode as well
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /activate
+├ ƒ /activate/verify
+├ ƒ /api/admin/course-line-acceptance
+├ ƒ /api/admin/messenger/audit
+├ ƒ /api/admin/messenger/audit/[id]
+├ ƒ /api/admin/messenger/graph-diagnostic
+├ ƒ /api/admin/messenger/repair
+├ ƒ /api/admin/messenger/token-fingerprint
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/beauty/calendar
+├ ƒ /api/beauty/customer-read
+├ ƒ /api/beauty/portal-details
+├ ƒ /api/beauty/portal-role
+├ ƒ /api/beauty/preview-details
+├ ƒ /api/beauty/roster
+├ ƒ /api/beauty/settings/booking-window
+├ ƒ /api/beauty/settings/self-booking
+├ ƒ /api/beauty/settings/store
+├ ƒ /api/bookings/client-timing
+├ ƒ /api/bookings/detail
+├ ƒ /api/bookings/month
+├ ƒ /api/bookings/slots
+├ ƒ /api/bookings/status
+├ ƒ /api/bookings/trial-correction
+├ ƒ /api/bookings/trial-payment
+├ ƒ /api/cashbook/quick
+├ ƒ /api/coach/readiness
+├ ƒ /api/course/settings/booking-window
+├ ƒ /api/course/settings/day-hours
+├ ƒ /api/course/settings/plan
+├ ƒ /api/course/settings/room
+├ ƒ /api/course/settings/scheduling-modes
+├ ƒ /api/course/settings/section
+├ ƒ /api/course/settings/self-booking
+├ ƒ /api/course/settings/staff
+├ ƒ /api/course/settings/staff-availability
+├ ƒ /api/course/settings/template
+├ ƒ /api/course/settings/waitlist
+├ ƒ /api/course/settings/weekly-hours
+├ ƒ /api/course/settings/work-permission
+├ ƒ /api/courses/rooms
+├ ƒ /api/courses/subjects
+├ ƒ /api/cron/audit-retention
+├ ƒ /api/cron/beauty-notifications
+├ ƒ /api/cron/course-coach-notifications
+├ ƒ /api/cron/course-schedule-series
+├ ƒ /api/cron/daily-action-digest
+├ ƒ /api/cron/human-support-reminders
+├ ƒ /api/cron/incomplete-service-reminders
+├ ƒ /api/cron/line-quota-alerts
+├ ƒ /api/cron/marketing-usage
+├ ƒ /api/cron/operation-audit-retry
+├ ƒ /api/cron/reminders
+├ ƒ /api/cron/reminders-retry
+├ ƒ /api/cron/session-balance-retry
+├ ƒ /api/cron/trial-application-notifications
+├ ƒ /api/cron/trial-care
+├ ƒ /api/customers/search
+├ ƒ /api/customers/search-index
+├ ƒ /api/data-export
+├ ƒ /api/export/course-analysis
+├ ƒ /api/export/customer-consumption
+├ ƒ /api/export/customer-consumption-summary
+├ ƒ /api/export/customers
+├ ƒ /api/export/staff-monthly
+├ ƒ /api/export/store-monthly
+├ ƒ /api/health/reminders-cron
+├ ƒ /api/healthflow/link-callback
+├ ƒ /api/hq/store-view
+├ ƒ /api/image-announcements
+├ ƒ /api/image-announcements/[id]
+├ ƒ /api/inventory/export
+├ ƒ /api/liff/exchange
+├ ƒ /api/liff/public-trial-entry
+├ ƒ /api/line-oauth/mobile/start
+├ ƒ /api/line-oauth/taichung/complete
+├ ƒ /api/line-oauth/taichung/coordinator
+├ ƒ /api/line-oauth/taichung/finalize
+├ ƒ /api/line-oauth/taichung/start
+├ ƒ /api/line/webhook
+├ ƒ /api/messenger/webhook
+├ ƒ /api/music-preview/checkout
+├ ƒ /api/oauth-line-stage
+├ ƒ /api/qa/member-workorder
+├ ƒ /api/referral/me
+├ ƒ /api/reports/coach-revenue
+├ ƒ /api/reports/export
+├ ƒ /api/reports/store-revenue
+├ ƒ /api/settings/booking-window
+├ ƒ /api/settings/duty
+├ ƒ /api/settings/manager-notification
+├ ƒ /api/settings/reminder-panel
+├ ƒ /api/settings/save
+├ ƒ /api/settings/service-hours
+├ ƒ /api/settings/staff
+├ ƒ /api/settings/steam-plan
+├ ƒ /api/settlements/export
+├ ƒ /api/store-settlements/export
+├ ƒ /api/trial-applications
+├ ƒ /api/trial-applications/[id]/attachments/[index]
+├ ƒ /beauty
+├ ƒ /beauty-trial/[slug]
+├ ƒ /beauty/reminders
+├ ƒ /book
+├ ƒ /book/income
+├ ƒ /book/new
+├ ƒ /book/reminders
+├ ƒ /book/shop
+├ ƒ /book/shop/[planId]/checkout
+├ ƒ /book/shop/thank-you
+├ ƒ /cash-drawer-panel
+├ ƒ /course-portal-acceptance
+├ ƒ /dashboard
+├ ƒ /dashboard/advanced-reports
+├ ƒ /dashboard/analytics
+├ ƒ /dashboard/beauty
+├ ƒ /dashboard/beauty/reminders
+├ ƒ /dashboard/bonus-rules
+├ ƒ /dashboard/bookings
+├ ƒ /dashboard/bookings/[id]
+├ ƒ /dashboard/bookings/new
+├ ƒ /dashboard/bookings/source
+├ ƒ /dashboard/brand-overview
+├ ƒ /dashboard/cash-drawer
+├ ƒ /dashboard/cash-drawer/save
+├ ƒ /dashboard/cashbook
+├ ƒ /dashboard/cashbook/[id]/edit
+├ ƒ /dashboard/cashbook/new
+├ ƒ /dashboard/central-line-recipients
+├ ƒ /dashboard/central-user-merges
+├ ƒ /dashboard/changelog
+├ ƒ /dashboard/coach-revenue
+├ ƒ /dashboard/courses
+├ ƒ /dashboard/courses/archive
+├ ƒ /dashboard/courses/calendar-read
+├ ƒ /dashboard/courses/hours
+├ ƒ /dashboard/courses/makeups
+├ ƒ /dashboard/courses/notes
+├ ƒ /dashboard/courses/opening-import
+├ ƒ /dashboard/courses/opening-makeups
+├ ƒ /dashboard/courses/reminders
+├ ƒ /dashboard/courses/rooms
+├ ƒ /dashboard/courses/session-detail
+├ ƒ /dashboard/courses/showcase
+├ ƒ /dashboard/courses/source-pilot
+├ ƒ /dashboard/courses/source-pilot/salary
+├ ƒ /dashboard/courses/staging
+├ ƒ /dashboard/courses/subjects
+├ ƒ /dashboard/courses/todos
+├ ƒ /dashboard/courses/unassigned-plans
+├ ƒ /dashboard/customers
+├ ƒ /dashboard/customers/[id]
+├ ƒ /dashboard/customers/[id]/edit
+├ ƒ /dashboard/customers/[id]/health
+├ ƒ /dashboard/customers/[id]/records
+├ ƒ /dashboard/customers/central-binding
+├ ƒ /dashboard/customers/merge
+├ ƒ /dashboard/customers/new
+├ ƒ /dashboard/data-export
+├ ƒ /dashboard/device-preview
+├ ƒ /dashboard/digital-butler/leads
+├ ƒ /dashboard/duty
+├ ƒ /dashboard/duty/[date]
+├ ƒ /dashboard/frontend-preview
+├ ƒ /dashboard/growth
+├ ƒ /dashboard/growth/candidates
+├ ƒ /dashboard/growth/consumption
+├ ƒ /dashboard/growth/referrals
+├ ƒ /dashboard/growth/stagnation
+├ ƒ /dashboard/growth/top-candidates
+├ ƒ /dashboard/guide
+├ ƒ /dashboard/health
+├ ƒ /dashboard/image-announcements
+├ ƒ /dashboard/inventory
+├ ƒ /dashboard/inventory/document
+├ ƒ /dashboard/member-link-reviews
+├ ƒ /dashboard/music-cashbook
+├ ƒ /dashboard/music-checkout
+├ ƒ /dashboard/music-customers
+├ ƒ /dashboard/music-read
+├ ƒ /dashboard/music-revenue
+├ ƒ /dashboard/operation-audits
+├ ƒ /dashboard/ops
+├ ƒ /dashboard/payments
+├ ƒ /dashboard/plans
+├ ƒ /dashboard/plans/[id]/edit
+├ ƒ /dashboard/plans/new
+├ ƒ /dashboard/ranking
+├ ƒ /dashboard/reconciliation
+├ ƒ /dashboard/reminders
+├ ƒ /dashboard/reminders/tools
+├ ƒ /dashboard/reminders/zhubei-line-health
+├ ƒ /dashboard/reports
+├ ƒ /dashboard/revenue
+├ ƒ /dashboard/service-fee-calculator
+├ ƒ /dashboard/settings
+├ ƒ /dashboard/settings-save/booking-window
+├ ƒ /dashboard/settings-save/course/booking-window
+├ ƒ /dashboard/settings-save/course/day-hours
+├ ƒ /dashboard/settings-save/course/plan
+├ ƒ /dashboard/settings-save/course/room
+├ ƒ /dashboard/settings-save/course/scheduling-modes
+├ ƒ /dashboard/settings-save/course/section
+├ ƒ /dashboard/settings-save/course/self-booking
+├ ƒ /dashboard/settings-save/course/staff
+├ ƒ /dashboard/settings-save/course/staff-availability
+├ ƒ /dashboard/settings-save/course/template
+├ ƒ /dashboard/settings-save/course/waitlist
+├ ƒ /dashboard/settings-save/course/weekly-hours
+├ ƒ /dashboard/settings-save/duty
+├ ƒ /dashboard/settings-save/service-hours
+├ ƒ /dashboard/settings-save/shop
+├ ƒ /dashboard/settings-save/staff
+├ ƒ /dashboard/settings-save/steam-plan
+├ ƒ /dashboard/settings/customer-labels
+├ ƒ /dashboard/settings/digital-butler
+├ ƒ /dashboard/settings/duty
+├ ƒ /dashboard/settings/hours
+├ ƒ /dashboard/settings/line-official-accounts
+├ ƒ /dashboard/settings/messenger-audit
+├ ƒ /dashboard/settings/payment
+├ ƒ /dashboard/settings/perf
+├ ƒ /dashboard/settings/plan
+├ ƒ /dashboard/settings/plans
+├ ƒ /dashboard/settings/referral-share
+├ ƒ /dashboard/settings/trial
+├ ƒ /dashboard/settlements
+├ ƒ /dashboard/staff
+├ ƒ /dashboard/staff/[id]/edit
+├ ƒ /dashboard/staff/[id]/rent
+├ ƒ /dashboard/store-revenue
+├ ƒ /dashboard/system-status
+├ ƒ /dashboard/talent
+├ ƒ /dashboard/teachers
+├ ƒ /dashboard/training
+├ ƒ /dashboard/transactions
+├ ƒ /dashboard/trial-follow-up
+├ ƒ /dashboard/upgrade-requests
+├ ƒ /dashboard/work-orders
+├ ƒ /dashboard/work-orders/document
+├ ƒ /experience/zhubei
+├ ƒ /forgot-password
+├ ƒ /frontend-preview
+├ ƒ /health
+├ ƒ /health/new
+├ ƒ /hq-usage-preview
+├ ƒ /hq/dashboard/stores
+├ ƒ /hq/dashboard/stores/[storeId]
+├ ƒ /hq/dashboard/stores/[storeId]/features
+├ ƒ /hq/dashboard/stores/new
+├ ƒ /hq/dashboard/stores/organization
+├ ƒ /hq/dashboard/stores/subscriptions
+├ ƒ /hq/dashboard/stores/subscriptions/[storeId]
+├ ƒ /hq/dashboard/stores/subscriptions/[storeId]/trial
+├ ƒ /hq/dashboard/trial-applications
+├ ƒ /hq/forgot-password
+├ ƒ /hq/login
+├ ƒ /hq/reset-password
+├ ƒ /icon.png
+├ ƒ /liff
+├ ƒ /liff/bookings
+├ ƒ /liff/health
+├ ƒ /liff/health/[recordId]/edit
+├ ƒ /liff/health/new
+├ ƒ /liff/member-booking
+├ ƒ /liff/onboarding
+├ ƒ /liff/profile
+├ ƒ /liff/public-trial
+├ ƒ /liff/trial-booking
+├ ƒ /liff/wallets
+├ ƒ /liff/wallets/shop
+├ ƒ /liff/wallets/shop/[planId]
+├ ƒ /liff/wallets/shop/thank-you
+├ ƒ /line-entry
+├ ƒ /line-oauth/complete
+├ ƒ /login
+├ ƒ /member-connect
+├ ƒ /member-link
+├ ƒ /member-stores
+├ ƒ /my-bookings
+├ ƒ /my-bookings/[id]/cancel
+├ ƒ /my-bookings/[id]/reschedule
+├ ƒ /my-growth
+├ ƒ /my-plans
+├ ƒ /my-points
+├ ƒ /my-referrals
+├ ƒ /oauth-confirm
+├ ƒ /oauth-confirm/activate
+├ ƒ /oauth-confirm/finalize
+├ ƒ /oauth-confirm/login
+├ ƒ /preview-review
+├ ƒ /pricing
+├ ƒ /pricing/addon-review
+├ ƒ /pricing/business
+├ ƒ /pricing/cases
+├ ƒ /pricing/experience/[storeSlug]/book
+├ ƒ /pricing/experience/zhubei
+├ ƒ /pricing/experience/zhubei/book
+├ ƒ /pricing/features
+├ ƒ /pricing/features/fitness
+├ ƒ /pricing/features/music
+├ ƒ /pricing/features/slots
+├ ƒ /pricing/guides
+├ ƒ /pricing/guides/[slug]
+├ ƒ /pricing/header-review
+├ ƒ /pricing/management-review
+├ ƒ /pricing/panel-review
+├ ƒ /pricing/preview-review
+├ ƒ /pricing/schedule-review
+├ ƒ /pricing/submit
+├ ƒ /pricing/trial
+├ ƒ /pricing/trial/guide/[topic]
+├ ƒ /pricing/trial/review
+├ ƒ /privacy
+├ ƒ /profile
+├ ƒ /register
+├ ƒ /reset-password
+├ ƒ /robots.txt
+├ ƒ /single-pricing-preview
+├ ƒ /sitemap.xml
+├ ƒ /staff-login
+├ ƒ /store-select
+└ ƒ /trial-booking/manage
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand
+

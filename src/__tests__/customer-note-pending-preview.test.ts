@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-vi.mock("@/components/admin/store-member-connection-panel", () => ({ StoreMemberConnectionPanel: () => null }));
+vi.mock("@/components/admin/store-member-connection-panel", () => ({ StoreMemberConnectionPanel: () => React.createElement("section", { "data-testid": "member-connection" }) }));
+vi.mock("@/components/admin/steam-plan-close", () => ({ SteamPlanClose: () => null }));
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NoteSaveResult } from "@/components/operations/retained-note-editor";
 
 const m = vi.hoisted(() => ({ steam: vi.fn(), spa: vi.fn(), onSaved: vi.fn() }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/customers", useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => "/dashboard/customers", useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/server/actions/customer", () => ({ updateCustomerServiceNoteAction: m.steam }));
 vi.mock("@/server/actions/spa-customer-profile", () => ({ saveSpaCustomerNote: m.spa }));
 vi.mock("@/components/frontend-preview/quick-link", () => ({ FrontendPreviewQuickLink: () => null }));
@@ -20,7 +21,7 @@ vi.mock("@/app/(dashboard)/dashboard/_components/trial-booking-drawer", () => ({
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/assign-plan-form", () => ({ AssignPlanForm: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/add-spa-staff-button", () => ({ AddSpaStaffButton: () => null }));
 
-vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-advanced", () => ({ CustomerPanelAdvanced: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-advanced", () => ({ CustomerPanelAdvanced: () => React.createElement("section", { "data-testid": "line-management" }) }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-records", () => ({ CustomerPanelRecordsList: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-summary", () => ({ CustomerPanelSummaryView: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-sessions", () => ({ CustomerPanelSessions: () => null }));
@@ -33,7 +34,6 @@ vi.mock("@/app/(dashboard)/dashboard/customers/[id]/backfill-used-sessions-form"
 import { OperationScope } from "@/components/operations/operation-scope";
 import { BookingServiceNoteEditor } from "@/app/(dashboard)/dashboard/bookings/booking-service-note-editor";
 import { CustomerDetailDrawerContent } from "@/app/(dashboard)/dashboard/customers/_components/customer-detail-drawer-content";
-import { SpaCustomerOverview } from "@/app/(dashboard)/dashboard/customers/_components/spa-customer-overview";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let host: HTMLDivElement;
@@ -51,7 +51,7 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-type Module = "steam" | "spa";
+type Module = "steam";
 type Options = { scope?: string; id?: string; value?: string | null; canEdit?: boolean; readOnly?: boolean };
 async function render(module: Module, { scope = "user:store-a", id = "a", value = "original", canEdit = true, readOnly = false }: Options = {}) {
   const steamCustomer = {
@@ -59,19 +59,11 @@ async function render(module: Module, { scope = "user:store-a", id = "a", value 
     customerStage: "ACTIVE", serviceNote: value, planWallets: [],
     _count: { planWallets: 0, sponsoredCustomers: 0, bookings: 0 }, createdAt: new Date(), updatedAt: new Date(),
   } as unknown as React.ComponentProps<typeof CustomerDetailDrawerContent>["customer"];
-  const spaCustomer = { id, name: `顧客 ${id}`, lastVisit: null, nextVisit: null } as React.ComponentProps<typeof SpaCustomerOverview>["customer"];
-  const spaProfile: React.ComponentProps<typeof SpaCustomerOverview>["profile"] = {
-    success: true, customer: { id, name: `顧客 ${id}`, phone: "0900000000", serviceNote: value, updatedAt:new Date(), email:null,gender:null,birthday:null,height:null,lineName:null }, bookings: [],
-  };
-  const child = module === "steam"
-    ? React.createElement(CustomerDetailDrawerContent, {
+  const child = React.createElement(CustomerDetailDrawerContent, {
         customer: steamCustomer, plans: [], canDiscount: false, canAssign: false, canEditNote: canEdit,
         readOnly, staffOptions: [], onClose: vi.fn(), onMutated: m.onSaved, titleId: "customer-title",
       })
-    : React.createElement(SpaCustomerOverview, {
-        customer: spaCustomer, profile: spaProfile, canEdit: canEdit && !readOnly,
-        canBook: false, canReadBookings: false, canManageStaff: false, onSaved: m.onSaved,
-      });
+;
   // Match the production account/store boundary; each editor keys its customer internally.
   await act(async () => root.render(React.createElement(OperationScope, { key: scope, scope }, child)));
 }
@@ -97,7 +89,19 @@ function expectedInput(module: Module, serviceNote: string | null, previous: str
     : { customerId: "a", serviceNote: serviceNote ?? "", previousNote: previous };
 }
 
-describe.each<Module>(["steam", "spa"])("%s customer note pending preview", module => {
+describe.each<Module>(["steam"])("%s customer note pending preview", module => {
+  it("keeps one membership status and one LINE manager across refresh and view-mode changes", async () => {
+    for (const readOnly of [false, true, false, true, false, false]) {
+      await render(module, { readOnly });
+      expect(host.querySelectorAll('[data-testid="member-connection"]')).toHaveLength(readOnly ? 0 : 1);
+      expect(host.querySelectorAll('[data-testid="line-management"]')).toHaveLength(1);
+    }
+    await render(module, { id: "b" });
+    await render(module, { id: "a" });
+    expect(host.querySelectorAll('[data-testid="member-connection"]')).toHaveLength(1);
+    expect(host.querySelectorAll('[data-testid="line-management"]')).toHaveLength(1);
+  });
+
   it("previews once on same-tick double click and waits for confirmation before callback or undo", async () => {
     const pending = deferred();
     m[module].mockReturnValue(pending.promise);

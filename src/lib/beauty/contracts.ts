@@ -1,0 +1,221 @@
+import { z } from "zod";
+import {sharedGoodsSelection} from "@/lib/add-ons";
+export const bookingSharedGoods=z.object({revision:z.number().int().nonnegative(),selections:sharedGoodsSelection});
+import {addOnGroups, selectedAddOnIds} from "./add-ons";
+import { normalizePhone } from "@/lib/normalize";
+import { parseTaipeiDateTime } from "@/lib/date-utils";
+export const key = z.string().min(1).max(100);
+export const money = z.number().int().min(0).max(10000000);
+export const gender = z.enum(["FEMALE", "MALE"]);
+export const preference = z.enum(["FEMALE", "MALE", "ANY"], {
+  required_error: "請選擇技師性別",
+});
+export const rate = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("FIXED"), value: money }),
+  z.object({ mode: z.literal("HOURLY"), value: money }),
+  z.object({
+    mode: z.literal("PERCENT"),
+    value: z.number().min(0).max(100),
+    base: z.enum(["LIST", "PAID"]),
+  }),
+]);
+export type Rate = z.infer<typeof rate>;
+const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+export const period = z
+  .object({ start: clock, end: clock })
+  .refine((p) => p.end > p.start, "結束時間須晚於開始時間");
+export const serviceInput = z.object({
+  addOnGroups: addOnGroups.optional(),
+  imageId: key.nullable().optional(),
+  defaultRate:rate.nullable().optional(),
+  id: key.optional(),
+  revision: z.number().int().nonnegative().default(0),
+  name: z.string().trim().min(1).max(100),
+  category: z.string().max(100).default(""),
+  duration: z.number().int().min(5).max(720),
+  buffer: z.number().int().min(0).max(240).default(0),
+  price: money,
+  trialPrice: money.nullable().default(null),
+  trialDuration:z.number().int().min(5).max(720).nullable().optional(),
+  active: z.boolean().default(true),
+});
+export const technicianInput = z.object({
+  phone: z.string().trim().max(30).optional(),
+  contactEmail: z.union([z.string().trim().email().max(254),z.literal("")]).optional(),
+  birthday: z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/),z.literal("")]).refine(value=>!value||!!parseTaipeiDateTime(value,"00:00"),"生日日期不正確").optional(),
+  emergencyContactName: z.string().trim().max(100).optional(),
+  emergencyContactPhone: z.string().trim().max(30).optional(),
+  emergencyContactRelation: z.string().trim().max(100).optional(),
+  id: key.optional(),
+  revision: z.number().int().nonnegative().default(0),
+  name: z.string().trim().min(1).max(100),
+  gender,
+  userId: key.nullable().default(null),
+  serviceIds: z.array(key).max(200),
+  weekly: z.union([z.object({inheritStore:z.literal(true)}),z
+    .array(
+      z
+        .object({
+          day: z.number().int().min(0).max(6),
+          start: clock,
+          end: clock,
+        })
+        .refine((p) => p.end > p.start, "結束時間須晚於開始時間"),
+    )
+    .max(50)]).default({inheritStore:true}),
+  exceptions: z.record(z.array(period)).default({}),
+  rates: z.record(rate),
+  grants: z
+    .array(z.enum(["complete", "cancel", "reschedule", "income"]))
+    .default([]),
+  sort: z.number().int().min(0).max(10000).default(0),
+  active: z.boolean().default(true),
+});
+export const planInput = z.object({
+  lowBalanceEnabled: z.boolean().default(false),
+  lowBalanceThreshold: z.number().int().min(0).max(10000).nullable().default(null),
+  id: key.optional(),
+  revision: z.number().int().nonnegative().default(0),
+  name: z.string().trim().min(1).max(100),
+  sessions: z.number().int().min(1).max(10000),
+  price: money,
+  validDays: z.number().int().min(1).max(3650),
+  serviceIds: z.array(key).min(1).max(200),
+  allowShared: z.boolean().default(false),
+  customerPurchasable: z.boolean().default(false),
+  active: z.boolean().default(true),
+});
+export const settingsInput = z.object({
+  notifications: z.boolean().optional(),
+  revision: z.number().int().nonnegative(),
+  selfBooking: z.boolean(),
+  selfCancel: z.boolean(),
+  selfReschedule: z.boolean(),
+  cancelDeduct: z.literal(false).default(false),
+  noShowDeduct: z.literal(false).default(false),
+  leadMinutes: z.number().int().min(0).max(43200),
+  cancelLeadMinutes: z.number().int().min(0).max(43200),
+  bookableDays: z.number().int().min(1).max(365),
+});
+const phone = z
+  .string()
+  .trim()
+  .transform(normalizePhone)
+  .pipe(z.string().regex(/^09\d{8}$/, "請填寫有效手機"));
+export const personInput = z.object({
+  addOnIds: selectedAddOnIds,
+  name: z.string().trim().min(1).max(80),
+  phone: z.union([phone,z.literal("")]),
+  pendingIdentity: z.boolean().optional(),
+  isTrial: z.boolean().optional(),
+  customerId: key.nullable().default(null),
+  serviceId: key,
+  serviceRevision: z.number().int().nonnegative().default(0),
+  preference,
+  specifiedTechnicianId: key.nullable().default(null),
+  specifiedLocationId: key.nullable().optional(),
+  cardId: key.nullable().default(null),
+  notes: z.string().max(1000).default(""),
+});
+export const partyInput = z
+  .object({
+    sharedGoods:bookingSharedGoods.optional(),
+    requestKey: z.string().uuid(),
+    policyRevision: z.number().int().nonnegative().default(0),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    time: clock,
+    contactName: z.string().trim().min(1).max(80),
+    phone,
+    isTrial: z.boolean(),
+    expectedArrangement: z.array(z.object({technicianId:key,locationId:key})).min(1).max(12).optional(),
+    people: z.array(personInput).min(1).max(12),
+  })
+  .superRefine((v, c) => {
+    if (!parseTaipeiDateTime(v.date, v.time))
+      c.addIssue({ code: "custom", message: "日期時間無效" });
+    const selected=new Set<string>();
+    v.people.forEach((p,i)=>{
+      if(p.customerId){if(selected.has(p.customerId))c.addIssue({code:"custom",path:["people",i,"customerId"],message:"同一位顧客不可重複加入本次預約"});selected.add(p.customerId);}
+      if(p.pendingIdentity?(i===0||!!p.customerId||!!p.phone):!p.phone)c.addIssue({code:"custom",path:["people",i],message:"請核對顧客資料或選擇同行者資料後補"});
+    });
+    if(v.expectedArrangement&&v.expectedArrangement.length!==v.people.length)c.addIssue({code:"custom",message:"安排人數已變更，請重新核對"});
+  });
+export type PartyInput = z.infer<typeof partyInput>;
+/** Public availability needs trial eligibility, never a name, contact or member entitlement. */
+export const publicTrialAvailabilityInput = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => !!parseTaipeiDateTime(value, "00:00"), "日期無效"),
+  time: clock.default("00:00"),
+  isTrial: z.literal(true),
+  people: z.array(z.object({
+    phone,
+    addOnIds: selectedAddOnIds,
+    serviceId: key,
+    serviceRevision: z.number().int().nonnegative().default(0),
+    preference,
+    specifiedTechnicianId: key.nullable().default(null),
+  })).min(1).max(12),
+});
+export const changeInput = z.object({
+  requestKey: z.string().uuid(),
+  id: key,
+  revision: z.number().int().nonnegative(),
+  target: z.enum(["COMPLETED", "CANCELLED", "NO_SHOW", "RESERVED"]),
+  reason: z.string().trim().min(1).max(500),
+});
+export const attendanceInput=z.object({requestKey:z.string().uuid(),id:key,revision:z.number().int().nonnegative(),choice:z.enum(['ATTENDED','NO_SHOW_DEDUCT','NO_SHOW_KEEP','PENDING'])});
+export type BeautyAttendanceChoice=z.infer<typeof attendanceInput>['choice'];
+export const paymentInput = z
+  .object({
+    requestKey: z.string().uuid(),
+    ids: z.array(key).min(1).max(12),
+    method: z.enum(["CASH", "BANK_TRANSFER", "CARD", "OTHER"]),
+    amounts: z.array(money).min(1).max(12),
+    note: z.string().max(500).default(""),
+    quotes:z.array(z.object({id:key,revision:z.number().int().nonnegative(),price:money,collected:z.number().int(),discount:z.object({kind:z.enum(["AMOUNT","PERCENT"]),value:z.number().finite().nonnegative().max(10000000).refine(v=>Math.abs(v*100-Math.round(v*100))<0.000001,"最多兩位小數")}).optional()})).min(1).max(12).optional(),
+  })
+  .refine(
+    (v) =>
+      v.ids.length === v.amounts.length && new Set(v.ids).size === v.ids.length && (!v.quotes||(v.quotes.length===v.ids.length&&v.quotes.every((q,i)=>q.id===v.ids[i]))),
+    "請逐人核對金額",
+  );
+export const cardInput = z.object({
+  requestKey: z.string().uuid(),
+  planId: key,
+  customerId: key,
+  memberIds: z.array(key).max(20),
+  paid: money,
+  method: z.enum(["CASH", "BANK_TRANSFER", "CARD", "OTHER"]),
+});
+export const refundInput = z.object({
+  requestKey: z.string().uuid(),
+  paymentId: key,
+  amount: z.number().int().positive().max(10000000),
+  method: z.enum(["CASH", "BANK_TRANSFER", "CARD", "OTHER"]),
+  reason: z.string().trim().min(1).max(500),
+});
+export const moveInput = z.object({
+  requestKey: z.string().uuid(),
+  id: key,
+  revision: z.number().int().nonnegative(),
+  date: z.string(),
+  time: clock,
+  technicianId: key.nullable().default(null),
+  locationId: key.nullable().default(null),
+  reason: z.string().trim().min(1).max(500),
+});
+export const tabs = [
+  "首頁",
+  "班表",
+  "顧客管理",
+  "顧客經營",
+  "營運",
+  "分析",
+  "位置管理",
+  "服務項目",
+  "收費方式",
+  "技師管理",
+  "人員管理",
+  "圖片公告",
+  "設定",
+] as const;
+export type BeautyTab = (typeof tabs)[number];

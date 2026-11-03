@@ -1,10 +1,11 @@
+import { loadCoursePrismaRuntime } from "@/lib/generated-prisma-runtime";
+const courseClientRuntime = loadCoursePrismaRuntime();
 import "server-only";
 import { AppError } from "./errors";
-import { Prisma } from "../../generated/course-client";
 import { sportsProductionEnabled } from "../../scripts/sports-production-scope.mjs";
 /** Identifiers are constants; a store ID can never become a SQL identifier. */
 export function sportsSeriesTable(storeId: string) {
-  return Prisma.raw(sportsProductionEnabled(storeId)
+  return courseClientRuntime.Prisma.raw(sportsProductionEnabled(storeId)
     ? 'public."SportsScheduleSeries"'
     : 'public."SportsPreviewScheduleSeries"');
 }

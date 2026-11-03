@@ -1,3 +1,4 @@
+import { isMusicPreviewPage } from "./music-finance-sync";
 import type { fetchQuickCashbook } from "@/server/actions/quick-cashbook";
 
 export type QuickCashbookData = Awaited<ReturnType<typeof fetchQuickCashbook>>;
@@ -5,7 +6,8 @@ export type QuickCashbookData = Awaited<ReturnType<typeof fetchQuickCashbook>>;
 /** Panel reader owns intent deduplication/invalidation; financial reads stay fresh. */
 export async function readQuickCashbook(storeId: string, page = 1): Promise<QuickCashbookData> {
   const params = new URLSearchParams({ storeId, page: String(page) });
-  const response = await fetch(`/api/cashbook/quick?${params}`, {
+  const path = isMusicPreviewPage() ? "/s/lubymusic/admin/dashboard/music-cashbook" : "/api/cashbook/quick";
+  const response = await fetch(`${path}?${params}`, {
     cache: "no-store", credentials: "same-origin",
   });
   if (!response.ok) throw new Error("收支紀錄暫時無法讀取");

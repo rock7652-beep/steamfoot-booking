@@ -1,0 +1,46 @@
+{
+  "results": [
+    "clicked 14:00 is retained",
+    "technician view preselects clicked technician",
+    "technician view defaults to first active location",
+    "no duplicate service-recipient field",
+    "full service start and end displayed",
+    "availability checked without a query step",
+    "valid plan selected before single payment",
+    "trial checkbox remains visible",
+    "1920 no document overflow",
+    "1920 confirmation stays visible",
+    "1366 no document overflow",
+    "1366 confirmation stays visible",
+    "1024 no document overflow",
+    "1024 confirmation stays visible",
+    "768 no document overflow",
+    "768 confirmation stays visible",
+    "companion collision explicitly blocks submit",
+    "saved appointment appears after reload",
+    "no browser errors"
+  ],
+  "measurements": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "dialogHeight": 469
+    },
+    {
+      "width": 1366,
+      "height": 900,
+      "dialogHeight": 469
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "dialogHeight": 469
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "dialogHeight": 541
+    }
+  ],
+  "errors": []
+}

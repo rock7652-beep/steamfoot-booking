@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { OperationScope } from "@/components/operations/operation-scope";
 import { RetainedNoteEditor, type NoteSaveResult } from "@/components/operations/retained-note-editor";
-vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/customers", useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => "/dashboard/customers", useRouter: () => ({ refresh: vi.fn() }) }));
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let container: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
@@ -12,9 +12,9 @@ const save = vi.fn<(value: string | null, expected: string | null) => Promise<No
 const onSaved = vi.fn();
 beforeEach(() => { sessionStorage.clear(); save.mockReset(); onSaved.mockReset(); container=document.createElement("div"); document.body.append(container); root=createRoot(container); });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.restoreAllMocks(); });
-async function render(scope="user:store-a", id="a", value: string | null="original") {
+async function render(scope="user:store-a", id="a", value: string | null="original",confirmDiscard=true) {
   await act(async () => root.render(React.createElement(OperationScope, { key: scope, scope }, React.createElement(RetainedNoteEditor, {
-    key: id, stateKey: `note:${id}`, title:"店內備註", hint:"店內可見", placeholder:"備註", maxLength:1000, value, canEdit:true, save, onSaved,
+    confirmDiscard,key: id, stateKey: `note:${id}`, title:"店內備註", hint:"店內可見", placeholder:"備註", maxLength:1000, value, canEdit:true, save, onSaved,
   }))));
 }
 function button(text: string) { return [...container.querySelectorAll("button")].find(b => b.textContent === text)!; }
@@ -67,18 +67,26 @@ it("does not allow a late save of A to invoke callbacks for B", async () => {
   await render("user:store-a","b","B content"); await act(async()=>{finish({success:true});});
   expect(container.textContent).toContain("B content"); expect(onSaved).not.toHaveBeenCalled();
 });
-it("asks before discarding a changed draft but not an unchanged editor", async () => {
+it("discards an unsaved draft without a confirmation or write", async () => {
   const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);
   await render(); await enter("changed"); await act(async()=>button("取消").click());
-  expect(confirm).toHaveBeenCalledOnce(); expect(container.querySelector("textarea")?.value).toBe("changed");
-  confirm.mockReturnValue(true); await act(async()=>button("取消").click());
-  await act(async()=>button("編輯").click()); await act(async()=>button("取消").click());
-  expect(confirm).toHaveBeenCalledTimes(2);
+  expect(confirm).not.toHaveBeenCalled(); expect(container.querySelector("textarea")).toBeNull();
+  await act(async()=>button("編輯").click());
+  expect(container.querySelector("textarea")?.value).toBe("original");
+  await act(async()=>button("取消").click());
+  expect(confirm).not.toHaveBeenCalled(); expect(save).not.toHaveBeenCalled();
 });
+
 it("undoes only the saved note with a compare-and-set expectation", async () => {
   save.mockResolvedValue({success:true});
   await render(); await enter("new note"); await act(async()=>button("儲存").click());
   await act(async()=>button("復原").click());
   expect(save).toHaveBeenLastCalledWith("original","new note");
   expect(onSaved).toHaveBeenLastCalledWith("original"); expect(button("復原")).toBeUndefined();
+});
+
+it('allows Beauty to cancel a dirty note without confirmation or saving',async()=>{
+ const confirm=vi.spyOn(window,'confirm').mockReturnValue(false);
+ await render('beauty:store-a','a','original',false);await enter('changed locally');await act(async()=>button('取消').click());
+ expect(container.querySelector('textarea')).toBeNull();expect(confirm).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled();
 });

@@ -1,0 +1,303 @@
+{
+  "productionCommit": "4efcd72bf513953521665f2556f719d1f73b5e8c",
+  "conflicts": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "sections": 1
+    },
+    {
+      "path": "package.json",
+      "sections": 1
+    },
+    {
+      "path": "scripts/ci-migrate.mjs",
+      "sections": 1
+    },
+    {
+      "path": "scripts/consultation-preview-scope.mjs",
+      "sections": 2
+    },
+    {
+      "path": "src/__tests__/consultation-preview-runtime.test.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/__tests__/course-rental-panel.test.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/__tests__/course-staff-teaching-ui.test.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/__tests__/hq-store-view-messenger-referral.test.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/__tests__/messenger-graph-diagnostic-route.test.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/__tests__/messenger-page-repair-route.test.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/__tests__/messenger-production-audit-route.test.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/__tests__/messenger-token-fingerprint-route.test.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/__tests__/service-hours-dates-client.test.ts",
+      "sections": 5
+    },
+    {
+      "path": "src/__tests__/spa-customer-header-offset.test.ts",
+      "sections": 0
+    },
+    {
+      "path": "src/__tests__/sports-shared-card-preview-runtime.test.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(customer)/book/course-portal-client.tsx",
+      "sections": 2
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-action-form.tsx",
+      "sections": 2
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cash-drawer/inline-cashbook-form.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/cash-drawer/page.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/business-analytics-view.tsx",
+      "sections": 2
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/card-browser.tsx",
+      "sections": 2
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/course-profile-forms.tsx",
+      "sections": 5
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/course-schedule-board.tsx",
+      "sections": 5
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/course-self-booking-settings.tsx",
+      "sections": 3
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/course-staff-availability-editor.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/customer-bookings.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/customer-list.tsx",
+      "sections": 4
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/customer-purchases.tsx",
+      "sections": 3
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/home.tsx",
+      "sections": 3
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/hours/hours-workspace.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/hours/page.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/member-workspace.tsx",
+      "sections": 21
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/music-subject-catalog.tsx",
+      "sections": 6
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/reminders/low-balance-settings.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/rental-panel.tsx",
+      "sections": 6
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/roster.tsx",
+      "sections": 8
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/settings-panel.tsx",
+      "sections": 2
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/settings-workspace.tsx",
+      "sections": 3
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/sports-schedule-fields.tsx",
+      "sections": 2
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/staff-workspace.tsx",
+      "sections": 8
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/todos/page.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/unassigned-plans/page.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/use-card-detail.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+      "sections": 33
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/data-export/data-export-client.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/growth/_components/care-row-actions.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/growth/_components/care-section.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/growth/_components/course-care.tsx",
+      "sections": 2
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
+      "sections": 2
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/revenue/_components/course-revenue.tsx",
+      "sections": 6
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/revenue/_components/course-transaction-actions.tsx",
+      "sections": 7
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/service-fee-calculator/course-monthly-client.tsx",
+      "sections": 4
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx",
+      "sections": 2
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/store-revenue/page.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/app/api/admin/messenger/audit/route.ts",
+      "sections": 2
+    },
+    {
+      "path": "src/app/api/admin/messenger/graph-diagnostic/route.ts",
+      "sections": 2
+    },
+    {
+      "path": "src/app/api/admin/messenger/repair/route.ts",
+      "sections": 2
+    },
+    {
+      "path": "src/app/api/admin/messenger/token-fingerprint/route.ts",
+      "sections": 2
+    },
+    {
+      "path": "src/app/api/export/customers/route.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/app/api/inventory/export/route.test.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/components/admin/course-assignment-payment.tsx",
+      "sections": 5
+    },
+    {
+      "path": "src/components/admin/course-customer-picker.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/components/admin/course-operation-switch.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/components/admin/course-option-select.tsx",
+      "sections": 2
+    },
+    {
+      "path": "src/components/admin/use-customer-panel-guard.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/components/operations/retained-note-editor.tsx",
+      "sections": 2
+    },
+    {
+      "path": "src/components/reports/RevenueReportClient.tsx",
+      "sections": 1
+    },
+    {
+      "path": "src/components/sidebar.tsx",
+      "sections": 2
+    },
+    {
+      "path": "src/instrumentation.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/lib/course-db.ts",
+      "sections": 2
+    },
+    {
+      "path": "src/lib/spa-db.ts",
+      "sections": 0
+    },
+    {
+      "path": "src/lib/store.ts",
+      "sections": 1
+    },
+    {
+      "path": "src/server/actions/course-rental.ts",
+      "sections": 3
+    },
+    {
+      "path": "src/server/queries/course-customer-export.ts",
+      "sections": 1
+    }
+  ],
+  "count": 74,
+  "applied": false
+}

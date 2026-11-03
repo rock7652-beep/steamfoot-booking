@@ -1,0 +1,240 @@
+{
+  "finalCommit": "d33874b6b889ae76372848592418683a8bbffa93",
+  "deployment": "dpl_68mVLDavBM3E4T3LJ33qW88vjFVB",
+  "url": "https://steamfoot-booking-38urwbnhp-rock7652-2111s-projects.vercel.app",
+  "state": "READY",
+  "target": "preview",
+  "coreWorkflowCommit": "3c73e7e1a7dfe58fc18489e29bad3f48597b080d",
+  "coreWorkflowDeployment": "dpl_G9FZ1iyZ45U68ub65Gci1JFN2TV9",
+  "testProject": "ttworfzgwejdeolegkxl",
+  "syntheticFixture": false,
+  "tests": {
+    "files": 66,
+    "passed": 502,
+    "typecheck": "passed",
+    "lint": "passed",
+    "productionBuild": "passed; final hosted READY"
+  },
+  "checks": [
+    {
+      "phase": "manager",
+      "case": "技師沿用店家時段",
+      "passed": true
+    },
+    {
+      "phase": "technician-exception",
+      "case": "個別技師調班優先於店家預設",
+      "passed": true
+    },
+    {
+      "phase": "customer",
+      "case": "首頁去重與健康五圖示",
+      "passed": true
+    },
+    {
+      "phase": "customer",
+      "case": "兩頁預約與時段分組",
+      "passed": true
+    },
+    {
+      "phase": "customer-resume",
+      "case": "真實共用預約與五尺寸",
+      "passed": true
+    },
+    {
+      "phase": "customer-resume",
+      "case": "部分取消與帳本同步",
+      "passed": true
+    },
+    {
+      "phase": "customer-resume",
+      "case": "精簡個人資料",
+      "passed": true
+    },
+    {
+      "phase": "hours-conflict",
+      "case": "已有預約拒絕關閉時段",
+      "passed": true
+    },
+    {
+      "phase": "worker",
+      "case": "技師完成新方案服務",
+      "passed": true
+    },
+    {
+      "phase": "final-read",
+      "case": "最終版手機預約卡與五圖示",
+      "passed": true
+    },
+    {
+      "phase": "final-read",
+      "case": "最終版兩頁與刷新中導覽保護",
+      "passed": true
+    },
+    {
+      "phase": "final-manager",
+      "case": "最終版店長時段平板",
+      "passed": true
+    },
+    {
+      "phase": "final-manager",
+      "case": "最終版技師入口",
+      "passed": true
+    },
+    {
+      "phase": "final-manager",
+      "case": "最終版公開體驗入口",
+      "passed": true
+    },
+    {
+      "phase": "health-only",
+      "case": "健康真實量測",
+      "passed": true
+    },
+    {
+      "phase": "health-off",
+      "case": "關閉健康四圖示與直接網址",
+      "passed": true
+    },
+    {
+      "phase": "health-read",
+      "case": "健康恢復開啟與真實歷史趨勢",
+      "passed": true
+    },
+    {
+      "phase": "health-trend",
+      "case": "兩筆健康量測與實際曲線",
+      "passed": true
+    }
+  ],
+  "runs": [
+    {
+      "phase": "manager",
+      "passed": false,
+      "completedChecks": [
+        "技師沿用店家時段"
+      ]
+    },
+    {
+      "phase": "technician-exception",
+      "passed": true,
+      "completedChecks": [
+        "個別技師調班優先於店家預設"
+      ]
+    },
+    {
+      "phase": "customer",
+      "passed": false,
+      "completedChecks": [
+        "首頁去重與健康五圖示",
+        "兩頁預約與時段分組"
+      ]
+    },
+    {
+      "phase": "customer-resume",
+      "passed": false,
+      "completedChecks": [
+        "真實共用預約與五尺寸",
+        "部分取消與帳本同步",
+        "精簡個人資料"
+      ]
+    },
+    {
+      "phase": "hours-conflict",
+      "passed": true,
+      "completedChecks": [
+        "已有預約拒絕關閉時段"
+      ]
+    },
+    {
+      "phase": "worker",
+      "passed": true,
+      "completedChecks": [
+        "技師完成新方案服務"
+      ]
+    },
+    {
+      "phase": "final-read",
+      "passed": false,
+      "completedChecks": [
+        "最終版手機預約卡與五圖示",
+        "最終版兩頁與刷新中導覽保護"
+      ]
+    },
+    {
+      "phase": "final-manager",
+      "passed": true,
+      "completedChecks": [
+        "最終版店長時段平板",
+        "最終版技師入口",
+        "最終版公開體驗入口"
+      ]
+    },
+    {
+      "phase": "health-only",
+      "passed": true,
+      "completedChecks": [
+        "健康真實量測"
+      ]
+    },
+    {
+      "phase": "health-off",
+      "passed": true,
+      "completedChecks": [
+        "關閉健康四圖示與直接網址"
+      ]
+    },
+    {
+      "phase": "health-read",
+      "passed": true,
+      "completedChecks": [
+        "健康恢復開啟與真實歷史趨勢"
+      ]
+    },
+    {
+      "phase": "health-trend",
+      "passed": true,
+      "completedChecks": [
+        "兩筆健康量測與實際曲線"
+      ]
+    }
+  ],
+  "runNotes": [
+    "Intermediate failures are preserved as failed runs; resumed only the remaining checks after reading actual database state.",
+    "Manager response listener initially watched the wrong settings URL; the save succeeded and was verified read-only, never repeated.",
+    "Member card assertion initially ran before authoritative refresh; booking already existed, so resumed without submitting again.",
+    "Profile save navigation timing led to an application fix: navigation is explicitly disabled while saving/refreshing.",
+    "Final settings read waits for enabled authoritative inputs rather than the initial preview.",
+    "Health capture after save initially preceded refresh; final read waited for actual measurements, and actual two-point SVG rendering was verified separately."
+  ],
+  "database": {
+    "customersBefore": 5,
+    "customersAfter": 5,
+    "cardBefore": {
+      "remaining": 3,
+      "held": 1
+    },
+    "cardAfter": {
+      "remaining": 2,
+      "held": 1
+    },
+    "newGroup": "cmvivyvt80002jv078nkcab98",
+    "completedDebitRows": 1,
+    "cancelledDebitRows": 0,
+    "healthRecordsAfterFirstSave": 1,
+    "healthRecordsAfterDisabledWriteAttempt": 1,
+    "healthRecordsAfterAllowedBaselineSave": 2,
+    "healthFinalStatus": "ENABLED",
+    "storeHoursDate": "2026-11-04",
+    "storeHours": "10:00–17:00",
+    "technicianOverride": "13:00–17:00",
+    "slotInterval": 30
+  },
+  "lineEnabled": false,
+  "productionUnchanged": "dpl_6Kcn8tzbMHG96oCwXZLHjKTy4xEH",
+  "limitations": [
+    "Physical Safari/Chrome and shop signoff pending",
+    "LINE login and delivery disabled, not verified",
+    "Shared health component course behavior covered by automated tests, not a full hosted regression of all older modules"
+  ]
+}

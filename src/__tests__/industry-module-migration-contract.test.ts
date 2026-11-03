@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -34,9 +34,9 @@ describe("industry module migration contract", () => {
     for (const file of steamfootFiles) {
       expect(readFileSync(resolve(root, file), "utf8")).toContain("requireSteamfootStore");
     }
+    // Retired SPA actions must stay absent when active module access is repaired.
     for (const file of spaFiles) {
-      expect(readFileSync(resolve(root, file), "utf8")).toContain(file.endsWith("/spa-checkout.ts") ? "spaResourceStore" : "requireSpaStore");
-      if (file.endsWith("/spa-checkout.ts")) expect(readFileSync(resolve(root, "src/server/actions/spa-resources.ts"), "utf8")).toContain("requireSpaStore");
+      expect(existsSync(resolve(root, file))).toBe(false);
     }
   });
 });

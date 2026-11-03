@@ -1,4 +1,5 @@
 "use client";
+import { canCloseConfirmedSettingsSave } from "@/lib/settings-save-outcome";
 import styles from "@/components/admin/profile-plan-layout.module.css";
 
 import { useSettingsSave } from "@/components/admin/use-settings-save";
@@ -93,6 +94,7 @@ function PlanFormBody({
   const mutation=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/steam-plan`,storeId,savedSteamPlan);
   const pending=mutation.pending;
   const [error,setError]=useState("");
+  const [committedWarning,setCommittedWarning]=useState(false);
   useEffect(()=>{onPending(pending||mutation.uncertain);},[onPending,pending,mutation.uncertain]);
 
   const priceNum = Number(price) || 0;
@@ -102,7 +104,7 @@ function PlanFormBody({
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (saveLockRef.current || draft.stale) return;
+    if (saveLockRef.current || draft.stale || committedWarning) return;
     if (!isEdit && category === "TRIAL") {
       toast.error("體驗請使用「建立體驗預約」；此處請選擇單次或課程");
       return;
@@ -121,8 +123,9 @@ function PlanFormBody({
       if(!mounted.current)return;
       if(!result.success){if(!result.uncertain&&isEdit)router.refresh();setError(result.error);toast.error(result.error);return;}
       const row=result.data;
-      draft.clear();
       onSaved({...row,price:row.price as unknown as PlanRow["price"],createdAt:new Date(row.createdAt),updatedAt:new Date(row.updatedAt)});
+      if (!canCloseConfirmedSettingsSave(result, setError)) { setCommittedWarning(true); return; }
+      draft.clear();
       toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":isEdit?"已更新方案":"已新增方案");
       onClose();
     }).finally(()=>{saveLockRef.current=false;});
@@ -155,8 +158,8 @@ function PlanFormBody({
       </div>
 
         {error&&<p role="alert" className="px-5 text-sm text-red-700">{error}</p>}
-        <fieldset disabled={pending||mutation.uncertain} className={`${styles.fieldsContainer} min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4`}>
-          <FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={() => draft.discard()} />
+        <fieldset disabled={pending||mutation.uncertain||committedWarning} className={`${styles.fieldsContainer} min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4`}>
+          <FormDraftNotice dirty={draft.dirty&&!committedWarning} stale={draft.stale} onDiscard={() => draft.discard()} />
           <div>
             <label className={labelCls}>
               方案名稱 <span className="text-red-500">*</span>
@@ -339,7 +342,7 @@ function PlanFormBody({
           </button>
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending||committedWarning}
             className="inline-flex min-h-11 items-center rounded-md bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
           >
             {pending ? "儲存中..." : mutation.uncertain ? "重試確認儲存結果" : isEdit ? "儲存變更" : "新增"}

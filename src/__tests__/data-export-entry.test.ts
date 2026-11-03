@@ -1,72 +1,19 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import {expect,it,vi} from 'vitest';
+const redirect=vi.hoisted(()=>vi.fn((url:string):never=>{throw new Error(url);}));
+vi.mock('next/headers',()=>({headers:async()=>new Headers({'x-next-pathname':'/s/selected-child/admin/dashboard/data-export'})}));
+vi.mock('next/navigation',()=>({redirect}));
+import DataExportPage from '@/app/(dashboard)/dashboard/data-export/page';
+import StoreRevenuePage from '@/app/(dashboard)/dashboard/store-revenue/page';
+it('routes old data export links into the shared export tab without losing context',async()=>{
+ await expect(DataExportPage({searchParams:Promise.resolve({dateFrom:'2026-09-01',dateTo:'2026-09-30'})})).rejects.toThrow('area=exports');
+ expect(redirect).toHaveBeenLastCalledWith(expect.stringContaining('reportView=data'));
+ expect(redirect.mock.lastCall?.[0]).toContain('dateFrom=2026-09-01');
+});
+it('routes old revenue reports into the overview inside operations',async()=>{
+ await expect(StoreRevenuePage({searchParams:Promise.resolve({dataScope:'legacy'})})).rejects.toThrow('area=exports');
+ expect(redirect.mock.lastCall?.[0]).toContain('reportView=overview');expect(redirect.mock.lastCall?.[0]).toContain('dataScope=legacy');
+});
 
-const ROOT = process.cwd();
-
-function readSource(path: string): string {
-  return readFileSync(resolve(ROOT, path), "utf8");
-}
-
-describe("data export entry", () => {
-  const revenuePage = readSource("src/app/(dashboard)/dashboard/revenue/page.tsx");
-  const storeRevenuePage = readSource("src/app/(dashboard)/dashboard/store-revenue/page.tsx");
-  const exportPage = readSource("src/app/(dashboard)/dashboard/data-export/page.tsx");
-  const sidebar = readSource("src/components/sidebar.tsx");
-
-  it("shows the operation-page entry only to users with an export permission", () => {
-    expect(revenuePage).toContain('checkPermission(user.role, user.staffId, "customer.export")');
-    expect(revenuePage).toContain('checkPermission(user.role, user.staffId, "report.export")');
-    expect(revenuePage).toContain("const canDataExport = canCustomerExport || canReportExport");
-    expect(revenuePage).toContain('href="/dashboard/data-export"');
-  });
-
-  it("places the desktop entry in the page header and a touch-friendly mobile entry below it", () => {
-    expect(revenuePage).toContain("actions={");
-    expect(revenuePage).toContain("hidden rounded-md bg-primary-600");
-    expect(revenuePage).toContain("md:inline-flex");
-    expect(revenuePage).toContain("min-h-11");
-    expect(revenuePage).toContain("md:hidden");
-  });
-
-  it("keeps the export entry discoverable for headquarters from its existing store-revenue page", () => {
-    expect(storeRevenuePage).toContain('checkPermission(user.role, user.staffId, "customer.export")');
-    expect(storeRevenuePage).toContain('checkPermission(user.role, user.staffId, "report.export")');
-    expect(storeRevenuePage).toContain("const canDataExportEntry = canCustomerExport || canReportExport");
-    expect(storeRevenuePage).toContain('href="/dashboard/data-export"');
-    expect(storeRevenuePage).toContain("md:inline-flex");
-    expect(storeRevenuePage).toContain("min-h-11");
-  });
-
-  it("does not add data export to the sidebar", () => {
-    expect(sidebar).not.toContain('label: "資料匯出"');
-  });
-
-  it("uses period shortcuts and Chinese status choices instead of free-form enum input", () => {
-    const client = readSource("src/app/(dashboard)/dashboard/data-export/data-export-client.tsx");
-
-    expect(client).toContain('useState<PeriodPreset>("thisMonth")');
-    expect(client).toContain('thisMonth: "本月", lastMonth: "上月", custom: "自訂期間"');
-    expect(client).toContain('periodPreset === "custom"');
-    expect(client).toContain("courseMode ? COURSE_EXPORT_STATUSES : DATA_EXPORT_STATUS_OPTIONS");
-    expect(client).toContain("statuses[type]");
-    expect(client).toContain("全部狀態");
-    expect(client).toContain("顧客建立期間（預設本月）");
-    expect(client).not.toContain('placeholder="例如 SUCCESS');
-  });
-
-  it("rejects direct access when the user has neither export permission", () => {
-    expect(exportPage).toContain('checkPermission(user.role, user.staffId, "customer.export")');
-    expect(exportPage).toContain('checkPermission(user.role, user.staffId, "report.export")');
-    expect(exportPage).toContain('if (!user || (!canCustomerExport && !canReportExport)) redirect("/dashboard")');
-  });
-
-  it("initializes the ADMIN store selector from the active store", () => {
-    const client = readSource("src/app/(dashboard)/dashboard/data-export/data-export-client.tsx");
-
-    expect(exportPage).toContain("getActiveStoreForRead(user)");
-    expect(exportPage).toContain("activeStoreId={activeStoreId}");
-    expect(client).toContain("stores.some((store) => store.id === activeStoreId)");
-    expect(client).toContain("useState(initialStoreId)");
-  });
+it('retains the current child-store namespace during legacy redirects',async()=>{
+ await expect(DataExportPage({searchParams:Promise.resolve({})})).rejects.toThrow('/s/selected-child/admin/dashboard/revenue?');
 });

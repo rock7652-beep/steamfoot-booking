@@ -1,11 +1,16 @@
 "use server";
 import { isMusicCourseStoreFromEntitlements } from "@/server/services/course-business-profile";
 import {replaceStaffPermissionGrants} from "@/server/services/staff-permission-write";
+import { Prisma as RetirementPrisma } from "@prisma/client";
+import { musicRetirementSql } from "@/server/services/music-retirement-sql";
+import { assertMusicSourceTeacherDraftEditable } from "@/server/services/music-source-teacher-drafts";
 import { ResourceConflict, handleCourseActionError } from "@/server/services/course-resources";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
 import { musicTeacherSettings, type MusicTeacherSettings } from "@/lib/music-teacher-settings";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { z } from "zod";
+import { sportsNativePreview } from "@/lib/sports-native-preview";
+import { checkPermission } from "@/lib/permissions";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { courseManager, courseManagerRead } from "@/server/services/course-access";
@@ -32,7 +37,7 @@ import {revalidateStaffInRoute} from "@/lib/revalidation";
 const id = z.string().min(1).max(180);
 const teachingFee = z.object({
   templateId: id,
-  value: compensationRule.refine(rule => rule.mode === "CLASS" || rule.mode === "SHARE", "僅支援每堂固定或音樂課按比例計酬").nullable(),
+  value: compensationRule.nullable(),
   revision: z.number().int().min(0),
 });
 export async function readCourseStaffTeaching(staffId: string) {
@@ -40,14 +45,16 @@ export async function readCourseStaffTeaching(staffId: string) {
     const { user, storeId } = await courseManagerRead("staff.view");
     if (!["OWNER", "MANAGER", "ADMIN"].includes(user.role)) throw new AppError("FORBIDDEN", "無人員管理權限");
     id.parse(staffId);
-    const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read",staffId);
+    const nativeSports=(await sportsNativePreview(storeId));
+    const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read",staffId) && (!nativeSports || await checkPermission(user.role,user.staffId,"teacher.compensation.read"));
     const staff = await prisma.staff.findFirst({ where: { id: staffId, storeId } });
     if (!staff) throw new AppError("NOT_FOUND", "找不到本店人員");
     const [fees,settings]=canReadFees ? await Promise.all([
       prisma.$queryRaw<Array<{templateId: string; rules: CompensationRule[]; revision: number}>>`SELECT "templateId", rules, revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
       prisma.$queryRaw<MusicTeacherSettings[]>`SELECT "defaultRatio"::float8 AS "defaultRatio","subjectRules",revision FROM "CourseTeacherCompensationSetting" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
     ]) : [[],[]] as const;
-    const data={ version: staff.updatedAt.toISOString(), qualificationIds: staff.courseQualifiedTemplateIds, fees, musicSettings:settings[0]??{defaultRatio:null,subjectRules:{},revision:0} };
+    const defaults=canReadFees && nativeSports ? await prisma.$queryRaw<Array<{templateId:string;rules:CompensationRule[];revision:number}>>`SELECT "templateId",rules,revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=''` : [];
+    const data={ defaults, version: staff.updatedAt.toISOString(), qualificationIds: staff.courseQualifiedTemplateIds, fees, musicSettings:settings[0]??{defaultRatio:null,subjectRules:{},revision:0} };
     return { success: true as const, ...data };
   } catch (e) { const result = handleCourseActionError(e); return { success: false as const, error: result.error ?? "讀取失敗" }; }
 }
@@ -105,13 +112,16 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
       .parse(input);
     if(d.kind==="manager"&&getEffectiveActorRole(user)!=="OWNER")throw new AppError("FORBIDDEN","只有老闆能修改後台人員");
     if (d.backendRole && (d.kind !== "manager" || !canAssignStaffRole(getEffectiveActorRole(user), d.backendRole))) throw new AppError("FORBIDDEN", "店長不能提升帳號角色");
+    const nativeSports=(await sportsNativePreview(storeId));
+    if(nativeSports && (d.teachingFees || d.defaultClassFee!==undefined) && !await checkPermission(user.role,user.staffId,"teacher.compensation.manage"))throw new AppError("FORBIDDEN","尚未授權教練計酬設定");
+    if(!nativeSports && d.teachingFees?.some(f=>f.value?.mode==="HOUR"))throw new AppError("VALIDATION","此模組不支援按時計酬");
     if(d.teachingFees || d.musicSettings || d.defaultClassFee!==undefined)await requireMusicFinance(user,storeId,"teacher.compensation.manage",d.id);
     if(d.defaultClassFee!==undefined && (d.kind!=="coach" || await isMusicFinanceStore(storeId)))throw new AppError("VALIDATION","運動授課人員才能設定每堂預設授課費");
     if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
       throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
     if (d.permissions?.some(p=>["teacher.income.read.self","teacher.booking.leave","teacher.booking.reschedule","teacher.session.leave","teacher.session.reschedule"].includes(p)) && getEffectiveActorRole(user)!=="OWNER")
       throw new AppError("FORBIDDEN", "只有老闆能設定我的工作權限");
-    if ((d.musicSettings || d.teachingFees?.some(f=>f.value?.mode==="SHARE")) && !await isMusicCourseStoreFromEntitlements(prisma, storeId))
+    if ((d.musicSettings || !nativeSports && d.teachingFees?.some(f=>f.value?.mode==="SHARE")) && !await isMusicCourseStoreFromEntitlements(prisma, storeId))
       throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
     // Resolve access outside the transaction. Production uses a one-connection
     // pool, so querying through the global client while a transaction owns that
@@ -140,6 +150,11 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
         });
         if (d.id && !existing)
           throw new AppError("NOT_FOUND", "找不到本店人員");
+        if (existing) await assertMusicSourceTeacherDraftEditable(tx, existing, storeId);
+        if (d.linkedStaffId) {
+          const linked = await tx.staff.findFirst({ where: { id: d.linkedStaffId, storeId }, select: { id: true, userId: true } });
+          if (linked) await assertMusicSourceTeacherDraftEditable(tx, linked, storeId);
+        }
         if (!d.id && existing) return;
         if(receipt&&existing&&existing.updatedAt.toISOString()!==receipt.expectedVersion)throw new AppError("CONFLICT","人員資料已更新，請重新開啟核對；本次修改尚未儲存");
         if (existing && existing.user.role !== "CUSTOMER" && user.role === "MANAGER" && !canManageStaffRole(getEffectiveActorRole(user), existing.user.role))
@@ -172,7 +187,14 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
           throw new AppError("FORBIDDEN", "不能停用自己或移除自己的管理權限");
         if(d.kind==="manager" && d.coachEnabled && !existing?.courseCoachEnabled)throw new AppError("VALIDATION","店務與授課請分別建立帳號");
         const coachEnabled = d.coachEnabled ?? existing?.courseCoachEnabled ?? d.kind === "coach";
-        const qualificationIds = [...new Set(d.qualificationIds ?? existing?.courseQualifiedTemplateIds ?? [])];
+        let qualificationIds = [...new Set(d.qualificationIds ?? existing?.courseQualifiedTemplateIds ?? [])];
+        const isMusicTeaching = musicFinanceStore;
+        if (isMusicTeaching && d.qualificationIds) {
+          if (existing && d.teachingVersion !== existing.updatedAt.toISOString()) throw new AppError("CONFLICT", "教師資格已有更新，請重新開啟後再核對");
+          const versions = await tx.$queryRaw<Array<{id:string;musicSubjectId:string|null}>>`SELECT id,"musicSubjectId" FROM "CourseTemplate" WHERE "storeId"=${storeId}`;
+          const subjects = new Set(versions.filter(t=>qualificationIds.includes(t.id)).map(t=>t.musicSubjectId).filter(Boolean));
+          qualificationIds = [...new Set([...qualificationIds,...versions.filter(t=>subjects.has(t.musicSubjectId)).map(t=>t.id)])];
+        }
         const qualificationsConfirmed = d.qualificationsConfirmed ?? existing?.courseQualificationsConfirmed ?? false;
         if (qualificationIds.length) {
           const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "CourseTemplate" WHERE "storeId"=${storeId} AND id=ANY(${qualificationIds}::text[])`;
@@ -180,20 +202,20 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
         }
         if(existing?.status === "ACTIVE" && !d.active && !d.confirmDeactivate) throw new AppError("CONFLICT","請確認停用：所有工作存取立即撤銷，既有課次保留待交接");
         if(existing?.status === "ACTIVE" && !d.active) {
-          const [impact]=await tx.$queryRaw<Array<{count:bigint}>>`SELECT count(*) AS count FROM "CourseSession" WHERE "storeId"=${storeId} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP`;
+          const [impact]=await tx.$queryRaw<Array<{count:bigint}>>(RetirementPrisma.sql`SELECT count(*) AS count FROM "CourseSession" WHERE "storeId"=${storeId} ${musicRetirementSql(storeId,"CourseSession")} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP`);
           const unfinished=Number(impact?.count??0);
           if(unfinished) throw new AppError("CONFLICT",`仍有 ${unfinished} 堂未結束課次，請先完成改派或取消後再停用`);
         }
         const removed=existing?.courseQualifiedTemplateIds?.filter(id=>!qualificationIds.includes(id)) ?? [];
         if(existing && d.active && ((existing.courseCoachEnabled && !coachEnabled) || removed.length)) {
-          const rows=await tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;capacity:number}>>`SELECT id,"nameSnapshot" AS name,"startsAt",capacity FROM "CourseSession" WHERE "storeId"=${storeId} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP AND (${!coachEnabled} OR "templateId"=ANY(${removed}::text[])) ORDER BY "startsAt"`;
+          const rows=await tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;capacity:number}>>(RetirementPrisma.sql`SELECT id,"nameSnapshot" AS name,"startsAt",capacity FROM "CourseSession" WHERE "storeId"=${storeId} ${musicRetirementSql(storeId,"CourseSession")} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP AND (${!coachEnabled} OR "templateId"=ANY(${removed}::text[])) ORDER BY "startsAt"`);
           if(rows.length) throw new ResourceConflict("尚有未結束課次（含進行中），請先交接再移除授課人員身分或資格",rows.map(r=>({...r,startsAt:r.startsAt.toISOString()})));
         }
         if(existing?.courseQualificationsConfirmed && !qualificationsConfirmed) throw new AppError("VALIDATION","已確認資格不可改回待補；請調整可教課程");
         const courseFields={courseCoachEnabled:coachEnabled,courseQualifiedTemplateIds:qualificationIds,courseQualificationsConfirmed:qualificationsConfirmed};
         if (d.teachingFees) {
           const feeIds = d.teachingFees.map(f => f.templateId);
-          if (new Set(feeIds).size !== feeIds.length || feeIds.length !== qualificationIds.length || feeIds.some(id => !qualificationIds.includes(id)))
+          if (new Set(feeIds).size !== feeIds.length || (!isMusicTeaching && feeIds.length !== qualificationIds.length) || feeIds.some(id => !qualificationIds.includes(id)))
             throw new AppError("VALIDATION", "每個可教授課程都需有一筆授課費");
           const current = await tx.$queryRaw<Array<{templateId:string;revision:number}>>`SELECT "templateId", revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId} FOR UPDATE`;
           for (const fee of d.teachingFees) {

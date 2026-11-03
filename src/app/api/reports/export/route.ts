@@ -1,3 +1,6 @@
+import {formatTWTime} from "@/lib/date-utils";
+import {moduleStaffRevenueSummary,type ModuleRevenueRow} from "@/lib/module-revenue-report";
+import type {StoreRevenueSummary} from "@/lib/report-queries";
 import { AppError } from "@/lib/errors";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCourseRevenueReport } from "@/server/queries/course-revenue-report";
@@ -9,6 +12,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { checkPermission } from "@/lib/permissions";
 import { requireDataExportFeature } from "@/lib/data-export-gate";
+import {getManagerReadFilter} from "@/lib/manager-visibility";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
 import {
@@ -68,6 +72,7 @@ export async function GET(req: NextRequest) {
   }
 
   const filters: ReportFilters = {
+    dataScope: sp.get("dataScope"),
     startDate,
     endDate,
     storeId: getEffectiveActorRole(user) === "ADMIN" ? sp.get("storeId") : reportsStoreId,
@@ -84,8 +89,27 @@ export async function GET(req: NextRequest) {
   try {
     const workbook = new ExcelJS.Workbook();
 
-    if (analysisStoreId && await getStoreIndustryModule(analysisStoreId) === "course") {
-      const report = await getCourseRevenueReport(analysisStoreId, filters);
+    const industry=analysisStoreId?await getStoreIndustryModule(analysisStoreId):null;
+    if(analysisStoreId&&industry==='steamfoot'){
+      const report=await (await import('@/server/queries/steamfoot-revenue-report')).getSteamfootRevenueReport(analysisStoreId,{...filters,storeFilter:{...filters.storeFilter,storeId:analysisStoreId}},{customers:await checkPermission(user.role,user.staffId,'customer.read'),reader:readUser});
+      if(report.data.length>10000)return new NextResponse('單次最多匯出 10,000 筆，請縮小篩選範圍',{status:413});
+      if(reportType==='store')buildSteamfootRevenueWorkbook(workbook,report,level);
+      else await buildCoachRevenueWorkbook(workbook,filters,level,report);
+    } else if (analysisStoreId && (industry === "course"||industry==="beauty")) {
+      if(industry==="beauty"){
+        const scope=getManagerReadFilter(readUser.role,readUser.staffId??null,"revenueStaffId",analysisStoreId);
+        if(typeof scope.revenueStaffId==="string"){
+          if(filters.coachId&&filters.coachId!==scope.revenueStaffId)return new NextResponse("Forbidden",{status:403});
+          filters.coachId=scope.revenueStaffId;
+        }
+      }
+      if(industry==="beauty"&&level!=="summary"&&(!(await checkPermission(user.role,user.staffId,"transaction.read"))||!(await hasStoreFeature(analysisStoreId,FEATURES.TRANSACTION_MANAGEMENT))))return new NextResponse("Forbidden",{status:403});
+      const report = industry==="beauty"?await (await import("@/server/queries/beauty-revenue-report")).getBeautyRevenueReport(analysisStoreId,filters,{customers:await checkPermission(user.role,user.staffId,"customer.read")}):await getCourseRevenueReport(analysisStoreId, filters);
+      if(industry==="beauty"){
+        if(report.data.length>10000)return new NextResponse("單次最多匯出 10,000 筆，請縮小篩選範圍",{status:413});
+        if(reportType==="store")await buildStoreRevenueWorkbook(workbook,filters,level,report);
+        else await buildCoachRevenueWorkbook(workbook,filters,level,report);
+      }else{
       const summary = workbook.addWorksheet("課程收入總覽");
       summary.addRow(["收款登錄","退款／沖銷","淨收入","收款紀錄數","付款顧客數"]);
       summary.addRow([report.kpi.totalRevenue,report.kpi.refundAmount,report.kpi.netRevenue,report.kpi.txCount,report.kpi.customerCount]);
@@ -93,7 +117,8 @@ export async function GET(req: NextRequest) {
       sheet.addRow(["發生日","類型","顧客","方案","點數／堂數制","金額","歸屬人員","備註"]);
       for (const row of report.data) sheet.addRow([row.transactionDate,row.refund?(row.unit==="TRIAL"?"體驗收款沖銷":"退款"):(row.unit==="TRIAL"?"體驗收款":"核帳收入"),row.customerName,row.planName,row.unit==="TRIAL"?"體驗（不使用方案）":row.unit==="SESSION"?"堂數":"點數",row.netAmount,row.coachName??"",row.note??""]);
       sheet.views=[{state:"frozen",ySplit:1,xSplit:0}];
-      autoFitColumns(sheet); autoFitColumns(summary);
+      autoFitColumns(sheet);autoFitColumns(summary);
+      }
     } else if (reportType === "store") {
       await buildStoreRevenueWorkbook(workbook, filters, level);
     } else {
@@ -117,13 +142,29 @@ export async function GET(req: NextRequest) {
     return new NextResponse(buffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Cache-Control":"private, no-store",
         "Content-Disposition": `attachment; filename*=UTF-8''${encodedFilename}`,
       },
     });
   } catch (e) {
-    if (e instanceof AppError && e.code === "VALIDATION") return NextResponse.json({ error: e.message }, { status: 400 });
+    if (e instanceof AppError && ["VALIDATION","FORBIDDEN"].includes(e.code)) return NextResponse.json({ error: e.message }, { status: e.code==="FORBIDDEN"?403:400 });
     console.error("Export error:", e);
     return new NextResponse("Internal server error", { status: 500 });
+  }
+}
+
+function buildSteamfootRevenueWorkbook(workbook:ExcelJS.Workbook,report:Awaited<ReturnType<typeof import('@/server/queries/steamfoot-revenue-report').getSteamfootRevenueReport>>,level:string){
+  const add=(name:string,headers:string[],rows:(string|number)[][])=>{
+    const sheet=workbook.addWorksheet(name);styleHeaderRow(sheet.addRow(headers));for(const row of rows)sheet.addRow(row);autoFitColumns(sheet);sheet.views=[{state:'frozen',ySplit:1,xSplit:0}];return sheet;
+  };
+  if(level==='summary'||level==='all'){
+    const totals=add('收入總表',['分店','收款入帳','退款／沖回','淨收款','收入筆數'],report.summary.map(s=>[s.storeName,s.totalRevenue,s.refundAmount,s.netRevenue,s.txCount]));formatMoneyColumns(totals,[2,3,4]);
+    const c=report.classification;
+    const classification=add('收入分類',['收入分類','收款金額（退款另列）'],[['體驗',c.trial],['單次',c.single],['方案／課程',c.plan],['補差額',c.supplement],['零售收入',c.retail],['其他收入',c.other],['退款／沖回',-report.kpi.refundAmount],['淨收款',report.kpi.netRevenue]]);formatMoneyColumns(classification,[2]);
+  }
+  if(level==='details'||level==='all'){
+    const sources={SYSTEM:'系統交易',CASHBOOK:'現金帳',INVENTORY:'進銷存'},kinds={INCOME:'收入',REFUND:'退款',CORRECTION:'收款更正沖回'};
+    const details=add('收退款明細',['入帳日期','來源','來源編號','異動','分類／項目','顧客','歸屬人員','收款方式','金額','備註','紀錄建立時間'],report.data.map(r=>[r.transactionDate,sources[r.receiptSource],r.sourceId,kinds[r.receiptKind],r.planName??'',r.customerName,r.coachName??'未歸屬',formatPaymentMethod(r.paymentMethod),r.netAmount,r.note??'',formatTWTime(new Date(r.sourceCreatedAt))]));formatMoneyColumns(details,[9]);
   }
 }
 
@@ -134,11 +175,12 @@ export async function GET(req: NextRequest) {
 async function buildStoreRevenueWorkbook(
   workbook: ExcelJS.Workbook,
   filters: ReportFilters,
-  level: string
+  level: string,
+  source?:{data:ModuleRevenueRow[];summary:StoreRevenueSummary[]}
 ) {
   if (level === "summary" || level === "all") {
-    const summary = await getStoreRevenueSummary(filters);
-    const ws = workbook.addWorksheet("店營收總表");
+    const summary = source?.summary ?? await getStoreRevenueSummary(filters);
+    const ws = workbook.addWorksheet(source?"服務收入總表":"店營收總表");
 
     const headers = [
       "分店名稱", "總營收", "退款金額", "淨營收", "交易筆數",
@@ -161,8 +203,8 @@ async function buildStoreRevenueWorkbook(
   }
 
   if (level === "details" || level === "all") {
-    const details = await getTransactionDetails(filters, 1, 10000);
-    const ws = workbook.addWorksheet("店營收明細");
+    const details = source ? {data:source.data} : await getTransactionDetails(filters, 1, 10000);
+    const ws = workbook.addWorksheet(source?"服務收退款明細":"店營收明細");
 
     const headers = [
       "交易日期", "交易單號", "分店名稱", "客戶姓名", "客戶電話",
@@ -176,10 +218,10 @@ async function buildStoreRevenueWorkbook(
       ws.addRow([
         formatDate(d.transactionDate), d.transactionNo ?? "",
         d.storeName, d.customerName, d.customerPhone,
-        d.planName ?? "", formatPlanType(d.planType),
+        d.planName ?? "", source&&d.planType==="SESSION"?"次數":formatPlanType(d.planType),
         d.grossAmount, d.discountAmount, d.netAmount,
         formatPaymentMethod(d.paymentMethod), formatStatus(d.status),
-        d.note ?? "", d.createdByName ?? "", formatDate(d.createdAt),
+        d.note ?? "", d.createdByName ?? "", source?formatTWTime(new Date(d.createdAt)):formatDate(d.createdAt),
       ]);
     }
 
@@ -196,14 +238,15 @@ async function buildStoreRevenueWorkbook(
 async function buildCoachRevenueWorkbook(
   workbook: ExcelJS.Workbook,
   filters: ReportFilters,
-  level: string
+  level: string,
+  source?:{data:ModuleRevenueRow[];summary:StoreRevenueSummary[]}
 ) {
   if (level === "summary" || level === "all") {
-    const summary = await getCoachRevenueSummary(filters);
-    const ws = workbook.addWorksheet("教練營收總表");
+    const summary = source ? moduleStaffRevenueSummary({...source,kpi:{totalRevenue:0,refundAmount:0,netRevenue:0,txCount:0,customerCount:0,avgPerCustomer:0},paymentMethods:[]}) : await getCoachRevenueSummary(filters);
+    const ws = workbook.addWorksheet(source?"店長歸屬收入總表":"教練營收總表");
 
     const headers = [
-      "教練姓名", "教練角色", "分店名稱", "歸屬總收入", "退款金額",
+      source?"所屬店長":"教練姓名", source?"角色":"教練角色", "分店名稱", "歸屬總收入", "退款金額",
       "淨收入", "交易筆數", "客戶數", "平均單筆收入",
       "新客收入", "舊客收入", "體驗收入", "正式方案收入", "票券收入", "商品收入",
     ];
@@ -226,11 +269,11 @@ async function buildCoachRevenueWorkbook(
   }
 
   if (level === "details" || level === "all") {
-    const details = await getTransactionDetails(filters, 1, 10000);
-    const ws = workbook.addWorksheet("教練營收明細");
+    const details = source ? {data:source.data} : await getTransactionDetails(filters, 1, 10000);
+    const ws = workbook.addWorksheet(source?"店長歸屬收入明細":"教練營收明細");
 
     const headers = [
-      "交易日期", "交易單號", "分店名稱", "教練姓名", "教練角色",
+      "交易日期", "交易單號", "分店名稱", source?"所屬店長":"教練姓名", source?"角色":"教練角色",
       "客戶姓名", "客戶電話", "方案名稱", "方案類型", "實收金額",
       "收款方式", "狀態", "是否新客", "備註", "建立時間",
     ];
@@ -242,10 +285,10 @@ async function buildCoachRevenueWorkbook(
         formatDate(d.transactionDate), d.transactionNo ?? "",
         d.storeName, d.coachName ?? "", formatCoachRole(d.coachRole),
         d.customerName, d.customerPhone,
-        d.planName ?? "", formatPlanType(d.planType),
+        d.planName ?? "", source&&d.planType==="SESSION"?"次數":formatPlanType(d.planType),
         d.netAmount, formatPaymentMethod(d.paymentMethod),
         formatStatus(d.status), d.isFirstPurchase ? "是" : "否",
-        d.note ?? "", formatDate(d.createdAt),
+        d.note ?? "", source?formatTWTime(new Date(d.createdAt)):formatDate(d.createdAt),
       ]);
     }
 
@@ -275,6 +318,7 @@ function formatMoneyColumns(ws: ExcelJS.Worksheet, cols: number[]) {
 }
 
 function autoFitColumns(ws: ExcelJS.Worksheet) {
+  ws.eachRow(row=>row.eachCell(cell=>{if(typeof cell.value==="string"&&/^[=+\-@]/.test(cell.value.trimStart()))cell.value="'"+cell.value;}));
   ws.columns.forEach((col) => {
     let maxLen = 10;
     col.eachCell?.({ includeEmpty: true }, (cell) => {
@@ -316,7 +360,7 @@ function formatStatus(status: string): string {
   const map: Record<string, string> = {
     SUCCESS: "成功",
     CANCELLED: "已取消",
-    REFUNDED: "已退款",
+    REFUNDED: "已退款", REVERSED:"收款更正沖回",
   };
   return map[status] ?? status;
 }

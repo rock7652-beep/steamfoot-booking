@@ -1,4 +1,7 @@
 "use server";
+import { enqueuePlanActivation } from "@/server/services/plan-activation-enqueue";
+import { activationExpiry } from "@/lib/plan-activation-notification";
+import { kickPlanActivationNotifications } from "@/server/services/plan-activation-notification-kick";
 
 import { createFinancialTransaction } from "@/server/services/financial-transaction";
 
@@ -290,9 +293,11 @@ export async function assignPlanToCustomer(
         }
       }
 
+      if(wallet)await enqueuePlanActivation(tx,{storeId,customerId:data.customerId,module:"STEAMFOOT",sourceId:transaction.id,entitlementId:wallet.id,planName:plan.name,quantity:plan.sessionCount,unit:"堂",expiresDate:activationExpiry(wallet.expiryDate)});
       return { wallet, transaction };
     });
 
+    kickPlanActivationNotifications(operationStoreId);
     revalidatePath(`/dashboard/customers/${data.customerId}`);
     return {
       success: true,
@@ -339,6 +344,9 @@ export async function adjustRemainingSessions(
     const storeId = currentStoreId(user);
 
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "CustomerPlanWallet" WHERE id=${wallet.id} AND "storeId"=${wallet.storeId} FOR UPDATE`;
+      const current=await tx.customerPlanWallet.findUnique({where:{id:wallet.id},select:{status:true,remainingSessions:true}});
+      if(!current||current.status!=="ACTIVE"||current.remainingSessions!==wallet.remainingSessions)throw new AppError("CONFLICT","方案狀態或餘額已更新，請重新開啟核對");
       // 同步 session row（保持 remainingSessions == AVAILABLE+RESERVED 不變式）
       // reconcileForManualAdjust 結束時會內部呼叫 refreshWalletCounter，
       // 因此 wallet.remainingSessions / status 由 service 寫入，不需另呼 update。
@@ -1128,6 +1136,13 @@ export async function extendWalletExpiry(
     const willReactivate = wallet.status === "EXPIRED";
 
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "CustomerPlanWallet" WHERE id=${wallet.id} AND "storeId"=${wallet.storeId} FOR UPDATE`;
+      const current = await tx.customerPlanWallet.findUnique({
+        where: { id: wallet.id }, select: { status: true, expiryDate: true },
+      });
+      if (!current || current.status !== wallet.status || current.expiryDate?.getTime() !== wallet.expiryDate?.getTime()) {
+        throw new AppError("CONFLICT", "方案狀態或期限已更新，請重新開啟核對");
+      }
       await tx.customerPlanWallet.update({
         where: { id: wallet.id },
         data: {

@@ -24,6 +24,8 @@ export function NotificationLogList({
   params,
   baseHref = "/dashboard/reminders",
   course = false,
+  beauty = false,
+  typeLabels = {},
 }: {
   data: {
     rows: NotificationRow[];
@@ -34,12 +36,15 @@ export function NotificationLogList({
   params: Record<string, string | undefined>;
   baseHref?: string;
   course?: boolean;
+  beauty?: boolean;
+  typeLabels?: Record<string,string>;
 }) {
   // Keep historical types discoverable, without advertising unimplemented course events.
-  const visibleLabels = course ? Object.fromEntries(Object.entries(labels).filter(([key]) =>
-    ["SAME_DAY_BOOKING_CREATED", "TRANSFER_PENDING_CONFIRMATION"].includes(key)
+  const displayLabels = {...labels,...typeLabels};
+  const visibleLabels = course || beauty ? Object.fromEntries(Object.entries(displayLabels).filter(([key]) =>
+    (!beauty && ["SAME_DAY_BOOKING_CREATED", "TRANSFER_PENDING_CONFIRMATION"].includes(key))
     || data.typeOptions.includes(key) || data.rows.some(row => row.type === key) || params.type === key,
-  )) : labels;
+  )) : displayLabels;
   function pageUrl(page: number) {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -74,6 +79,7 @@ export function NotificationLogList({
             <option value="">全部對象</option>
             <option value="manager">店長</option>
             <option value="customer">顧客</option>
+            {beauty&&<option value="personnel">技師</option>}
           </select>
         </label>
         <label className="flex min-w-0 flex-col gap-1 text-xs text-earth-500">
@@ -96,7 +102,7 @@ export function NotificationLogList({
                 ]),
               ]
                 .filter((k) => !visibleLabels[k])
-                .map((k) => [k, k]),
+                .map((k) => [k, displayLabels[k] ?? k]),
             ].map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
@@ -160,10 +166,10 @@ export function NotificationLogList({
             <span className="font-medium">
               {r.recipient}
               <span className="ml-2 text-xs text-earth-500">
-                {r.audience === "manager" ? "店長" : "顧客"}
+                {r.audience === "manager" ? "店長" : r.audience === "personnel" ? "技師" : "顧客"}
               </span>
             </span>
-            <span>{labels[r.type] ?? r.type}</span>
+            <span>{displayLabels[r.type] ?? r.type}</span>
             <span
               className={
                 r.status === "FAILED"
@@ -179,7 +185,7 @@ export function NotificationLogList({
           <div className="mt-3 space-y-2 border-t border-earth-100 pt-3 text-sm">
             {r.customerId && (
               <Link
-                href={course ? `/dashboard/courses?view=customers&customerId=${encodeURIComponent(r.customerId)}` : `/dashboard/customers/${r.customerId}`}
+                href={beauty ? `/dashboard/beauty?tab=顧客管理&customerId=${encodeURIComponent(r.customerId)}` : course ? `/dashboard/courses?view=customers&customerId=${encodeURIComponent(r.customerId)}` : `/dashboard/customers/${r.customerId}`}
                 className="text-primary-700"
               >
                 查看顧客 →

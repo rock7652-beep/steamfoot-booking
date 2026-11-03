@@ -1,0 +1,15 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "no class-only point controls",
+    "customer price remains in fee editor",
+    "service default persists after reopen",
+    "technician qualification persists",
+    "fixed-per-service mode round trips without silent conversion",
+    "1366 original editor contained",
+    "1024 original editor contained",
+    "768 original editor contained",
+    "no browser errors"
+  ],
+  "errors": []
+}

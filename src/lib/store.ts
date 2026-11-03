@@ -1,4 +1,6 @@
+import { memoizeReadRequest,verifiedStaffRead } from "@/server/services/read-request-memo";
 import { cache } from "react";
+import { RUNTIME_INDUSTRY_MODULES } from "@/lib/industry-modules";
 import { AppError } from "@/lib/errors";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
@@ -6,7 +8,7 @@ import { VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
 import { ACCESSIBLE_STORE_OPERATING_STATUSES } from "@/lib/store-operating-status";
 import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
 
-type SessionLike = { role: string; storeId?: string | null; customerReviewStoreId?: string };
+type SessionLike = { id?: string | null; staffId?: string | null; role: string; storeId?: string | null; customerReviewStoreId?: string };
 
 export const ALL_STORES_ID = "__all__";
 
@@ -26,7 +28,7 @@ async function getAccessibleDescendantStoreIds(ownStoreId: string): Promise<stri
     const children = await prisma.store.findMany({
       where: {
         parentStoreId: { in: frontier },
-        operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
+        industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
       },
       select: { id: true },
     });
@@ -51,14 +53,14 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   if (user.customerReviewStoreId) {
     const { prisma } = await import("@/lib/db");
     return prisma.store.findMany({
-      where: { id: user.customerReviewStoreId, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      where: { id: user.customerReviewStoreId, industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
       select: { id: true, slug: true, name: true, isDefault: true },
     });
   }
   const { prisma } = await import("@/lib/db");
   if (user.role === "ADMIN") {
     const rows=await prisma.store.findMany({
-      where: { operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      where: { industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
       select: { id: true, slug: true, name: true, isDefault: true, industryModule:true,shopConfig:{select:{address:true}} },
       orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     });
@@ -69,7 +71,7 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   const [ownStore] = await prisma.store.findMany({
     where: {
       id: user.storeId,
-      operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
+      industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
     },
     select: { id: true, parentStoreId: true, slug: true, name: true, isDefault: true },
     take: 1,
@@ -90,7 +92,7 @@ export async function getAccessibleStores(user: SessionLike): Promise<Accessible
   const stores = await prisma.store.findMany({
     where: {
       id: { in: ids },
-      operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
+      industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES },
     },
     select: { id: true, slug: true, name: true, isDefault: true, createdAt: true },
     orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
@@ -139,9 +141,16 @@ async function resolveAuthorizedStoreAccess(
   // Own-store access only needs a fresh operating-status check. Enumerating
   // descendants and their feature entitlement cannot grant more access here.
   if (user.role !== "ADMIN" && user.storeId === requestedStoreId) {
+    const verified=verifiedStaffRead();
+    // Only the same live, stamped actor in an explicit read-only HTTP request.
+    // Re-evaluate status/module policy here; switches and ordinary writes read DB.
+    if(verified&&mode!=="switch"&&verified.userId===user.id&&verified.role===user.role&&verified.staffId===user.staffId&&verified.storeId===requestedStoreId&&verified.store){
+      if(!RUNTIME_INDUSTRY_MODULES.some(module=>module===verified.industryModule)||!ACCESSIBLE_STORE_OPERATING_STATUSES.some(status=>status===verified.store!.operatingStatus))throw new AppError("FORBIDDEN","店舖不存在、已停用或無權存取");
+      return {id:verified.storeId,slug:verified.store.slug,name:verified.store.name};
+    }
     const { prisma } = await import("@/lib/db");
     const [store] = await prisma.store.findMany({
-      where: { id: requestedStoreId, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+      where: { id: requestedStoreId, industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
       select: { id: true, slug: true, name: true },
       take: 1,
     });
@@ -175,9 +184,9 @@ export async function resolveAuthorizedConcreteStore(
   requestedStoreId: string,
   mode: StoreAccessMode,
 ): Promise<AuthorizedConcreteStore> {
-  // Reuse the DTO from this exact authorization operation. No additional
-  // authorization-result cache: status and organization are checked per call;
-  // the existing feature-entitlement cache policy is unchanged.
+  // Re-evaluate access rules per call. An explicit HTTP read may reuse only its
+  // exact stamped actor's current own-store scalars. Ordinary writes, switches,
+  // other stores and organization checks remain live; feature policy is unchanged.
   const store = await resolveAuthorizedStoreAccess(user, requestedStoreId, mode);
   if (!store) {
     throw new AppError("VALIDATION", "請先在上方切換到指定分店");
@@ -214,12 +223,17 @@ async function resolveAuthorizedRouteStore(
     throw new AppError("FORBIDDEN", "店舖路由資訊無效");
   }
 
+  const verified=verifiedStaffRead();
+  if(mode!=="switch"&&verified&&verified.userId===user.id&&verified.role===user.role&&verified.staffId===user.staffId&&verified.storeId===user.storeId&&verified.store?.slug===routeSlug){
+    return resolveAuthorizedConcreteStore(user,verified.storeId,mode);
+  }
+
   const { prisma } = await import("@/lib/db");
   const requested = await prisma.store.findUnique({
     where: { slug: routeSlug },
-    select: { id: true, slug: true, name: true, operatingStatus: true },
+    select: { id: true, slug: true, name: true, operatingStatus: true, industryModule: true },
   });
-  if (!requested) {
+  if (!requested || requested.industryModule === "SPA") {
     throw new AppError("FORBIDDEN", "店舖不存在、已停用或無權存取");
   }
   // The signed-in staff member's own active store needs no organization-tree
@@ -303,7 +317,7 @@ export async function resolveWriteStoreId(user: SessionLike): Promise<string> {
 export async function getAllActiveStoreIds(): Promise<string[]> {
   const { prisma } = await import("@/lib/db");
   const stores = await prisma.store.findMany({
-    where: { operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
+    where: { industryModule: { not: "SPA" }, operatingStatus: { in: ACCESSIBLE_STORE_OPERATING_STATUSES } },
     select: { id: true },
     orderBy: [{ catalogSortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
   });
@@ -319,7 +333,7 @@ export const getStoreOptions = cache(async (user: SessionLike): Promise<Accessib
   if (user.role !== "ADMIN") return stores;
   const { prisma } = await import("@/lib/db");
   const archived = await prisma.store.findMany({
-    where: { archivedAt: { not: null } }, select: { id: true },
+    where: { archivedAt: { not: null }, industryModule: { in: [...RUNTIME_INDUSTRY_MODULES] } }, select: { id: true },
   });
   const ids = new Set(archived.map((store) => store.id));
   return stores.filter((store) => !ids.has(store.id));
@@ -354,7 +368,7 @@ export async function resolveActiveStoreId(
  * ⚠ 使用 next/headers cookies() 直接讀取，避免動態 import "use server" 模組的問題。
  */
 export const getActiveStoreForRead = cache(
-  async (user: SessionLike): Promise<string | null> => {
+  (user: SessionLike): Promise<string | null> => memoizeReadRequest(`store.active-read:${JSON.stringify([user.id, user.role, user.storeId, user.staffId, user.customerReviewStoreId, getHqStoreViewContext(user)?.storeId])}`, async () => {
     const routeStore = await resolveAuthorizedRouteStore(user, "read");
     if (routeStore) return routeStore.id;
 
@@ -369,7 +383,7 @@ export const getActiveStoreForRead = cache(
       ? cookieStore.get(VIEWED_STORE_COOKIE_NAME)?.value ?? user.storeId
       : user.storeId;
     return validateStoreAccess(user, requested, "read");
-  },
+  }),
 );
 
 /**

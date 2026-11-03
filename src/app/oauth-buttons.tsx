@@ -31,7 +31,7 @@ export function OAuthButtons({ storeSlug = "zhubei", lineEntryHref }: { storeSlu
         type="button"
         disabled={loadingProvider !== null}
         onClick={() => handleSignIn("line")}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#06C755] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#05b04c] transition disabled:opacity-60"
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#06C755] px-4 py-2.5 text-base font-medium text-white hover:bg-[#05b04c] transition disabled:opacity-60"
       >
         {loadingProvider === "line" ? (
           <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -43,7 +43,7 @@ export function OAuthButtons({ storeSlug = "zhubei", lineEntryHref }: { storeSlu
             <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .348-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .349-.281.63-.63.63h-2.386a.63.63 0 0 1-.63-.63V8.108a.63.63 0 0 1 .63-.63h2.386c.349 0 .63.282.63.63 0 .349-.281.631-.63.631H17.61v1.125h1.755zm-3.855 3.016a.63.63 0 0 1-.63.63.629.629 0 0 1-.51-.262l-2.442-3.339v2.97a.63.63 0 0 1-1.26 0V8.108a.63.63 0 0 1 .63-.63c.2 0 .383.096.51.262l2.442 3.339V8.108a.63.63 0 0 1 1.26 0v4.771zm-5.741 0a.63.63 0 0 1-1.26 0V8.108a.63.63 0 0 1 1.26 0v4.771zm-2.466.63H4.917a.63.63 0 0 1-.63-.63V8.108a.63.63 0 0 1 1.26 0v4.141h1.756c.348 0 .629.283.629.63 0 .349-.281.63-.629.63M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.122.301.079.771.039 1.075l-.171 1.027c-.053.303-.242 1.186 1.039.647 1.281-.54 6.911-4.069 9.428-6.967C23.023 14.469 24 12.512 24 10.314" />
           </svg>
         )}
-        {loadingProvider === "line" ? "登入中..." : "LINE 登入"}
+        {loadingProvider === "line" ? "登入中..." : lineEntryHref ? "LINE 驗證並預約" : "LINE 登入"}
       </button>
 
       {/* Google Login */}

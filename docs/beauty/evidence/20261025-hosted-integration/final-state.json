@@ -1,0 +1,100 @@
+{
+  "deployment": {
+    "url": "https://steamfoot-booking-30ep09moz-rock7652-2111s-projects.vercel.app",
+    "id": "dpl_28VBekuzbTbf8WKSnGutQYBtFsnG",
+    "commit": "e0b4e731794343ff6d74f2a2695be7d5178cf566",
+    "environment": "preview",
+    "status": "READY"
+  },
+  "acceptance": [
+    {
+      "acceptance": {
+        "card": {
+          "closed": true,
+          "ledgerNet": 0,
+          "remaining": 0
+        },
+        "cashbook": {
+          "net": 0,
+          "count": 6
+        },
+        "payments": {
+          "net": 0,
+          "count": 6,
+          "sales": 6900,
+          "methods": [
+            "CARD"
+          ],
+          "refunds": -6900
+        },
+        "oldDrawer": [
+          {
+            "status": "OPEN",
+            "businessDate": "2026-10-21"
+          }
+        ],
+        "appointments": {
+          "count": 7,
+          "cancelled": 7
+        },
+        "sentQaEvents": 0,
+        "activeQaRooms": 0,
+        "activeQaTechnicians": 0
+      }
+    }
+  ],
+  "accounts": [
+    {
+      "id": "qa_beauty_1025_owner_a318f2a85f",
+      "user_status": "SUSPENDED",
+      "staff_status": "INACTIVE",
+      "storeId": "beauty-hosted-20261021"
+    },
+    {
+      "id": "qa_beauty_1025_readonly_da987aab44",
+      "user_status": "SUSPENDED",
+      "staff_status": "INACTIVE",
+      "storeId": "beauty-hosted-20261021"
+    }
+  ],
+  "existingData": [
+    {
+      "table_name": "BeautyService",
+      "row_count": 4,
+      "content_digest": "2ee4ec795874c6e8678bbc77ea049e79"
+    },
+    {
+      "table_name": "BeautyPlan",
+      "row_count": 7,
+      "content_digest": "eeee36862fc1a4b4a9aa6c38d735275d"
+    },
+    {
+      "table_name": "BeautyCard",
+      "row_count": 5,
+      "content_digest": "8ecc816f6994ed289025a24a768609a9"
+    },
+    {
+      "table_name": "BeautyAppointment",
+      "row_count": 35,
+      "content_digest": "9bb285fa476343b547bf99b0a5ad5b7c"
+    },
+    {
+      "table_name": "BeautyLedger",
+      "row_count": 39,
+      "content_digest": "89b09c02d061a918e76379ead7075062"
+    },
+    {
+      "table_name": "BeautyPayment",
+      "row_count": 25,
+      "content_digest": "5ddd9c210a5655e059dbd138d8f20e45"
+    }
+  ],
+  "accessLinksRevoked": 4,
+  "limitations": [
+    "Cash-positive acceptance blocked by pre-existing OPEN 2026-10-21 drawer; unchanged.",
+    "Production Beauty base tables/enum/roles/configuration not ready; unchanged.",
+    "Browser viewport emulation is not physical device acceptance.",
+    "Anonymous customer entry smoke only; member real login not reverified.",
+    "LINE deliberately disabled."
+  ]
+}

@@ -1,3 +1,4 @@
+import {digitalManagerCronPreviewScope} from "../../../../../scripts/digital-manager-cron-preview-scope.mjs";
 import { NextRequest, NextResponse } from "next/server";
 import { runDailyActionDigest } from "@/server/services/daily-action-digest";
 
@@ -14,6 +15,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  try { digitalManagerCronPreviewScope(); } catch { return NextResponse.json({error:"Unauthorized"},{status:401}); }
   try {
     const result = await runDailyActionDigest();
     return NextResponse.json({ ok: result.failed === 0, ...result }, { status: result.failed === 0 ? 200 : 500 });

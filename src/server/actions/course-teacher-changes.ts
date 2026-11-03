@@ -1,4 +1,5 @@
 "use server";
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import {z} from "zod";
 import {coursePrisma} from "@/lib/course-db";
 import {courseTeacherChangeActor,assertCourseTeacherChange} from "@/server/services/course-teacher-change-access";
@@ -17,7 +18,7 @@ export async function loadCourseTeacherChange(bookingId:string,mode:"leave"|"res
   const booking=await coursePrisma.courseBooking.findFirst({where:{id:id.parse(bookingId),storeId:actor.storeId,session:{coachId:actor.staffId,cancelledAt:null}},include:{session:true}});
   if(!booking)throw new AppError("FORBIDDEN","只能處理自己負責的課程");
   const sessions=await coursePrisma.courseSession.findMany({where:{storeId:actor.storeId,coachId:actor.staffId,id:{not:booking.sessionId},templateId:booking.session.templateId,cancelledAt:null,releasedAt:null,teacherAttendance:{notIn:["LEAVE","NO_SHOW"]},startsAt:{gt:new Date()}},include:{room:{select:{name:true}},_count:{select:{bookings:{where:{status:{not:"CANCELLED"}}}}}},orderBy:{startsAt:"asc"},take:100});
-  return {success:true as const,selfBookingEnabled:true,selfLeaveEnabled:true,selfRescheduleEnabled:true,booking:{id:booking.id,name:booking.session.nameSnapshot,customerName:booking.customerName,startsAt:booking.session.startsAt.toISOString(),trial:booking.bookingKind==="TRIAL",active:booking.status==="RESERVED"&&!booking.session.cancelledAt,cutoff:booking.session.startsAt.toISOString()},sessions:sessions.filter(s=>s._count.bookings<s.capacity).map(s=>({id:s.id,name:s.nameSnapshot,startsAt:s.startsAt.toISOString(),room:s.room.name}))};
+  return {success:true as const,selfBookingEnabled:true,selfLeaveEnabled:true,selfRescheduleEnabled:true,booking:{id:booking.id,name:courseDisplayName(booking.session.nameSnapshot),customerName:booking.customerName,startsAt:booking.session.startsAt.toISOString(),trial:booking.bookingKind==="TRIAL",active:booking.status==="RESERVED"&&!booking.session.cancelledAt,cutoff:booking.session.startsAt.toISOString()},sessions:sessions.filter(s=>s._count.bookings<s.capacity).map(s=>({id:s.id,name:courseDisplayName(s.nameSnapshot),startsAt:s.startsAt.toISOString(),room:s.room.name}))};
  }catch(e){const r=handleActionError(e);return {success:false as const,error:r.success?"操作失敗":r.error};}
 }
 export async function changeCourseTeacherBooking(input:unknown) {

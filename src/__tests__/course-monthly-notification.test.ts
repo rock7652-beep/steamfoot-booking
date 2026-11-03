@@ -17,7 +17,7 @@ vi.mock('@/lib/line',()=>({pushMessage:m.push,pushSteamButlerMessage:m.push}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
 vi.mock('@/lib/subscription-guard',()=>({assertStoreSubscriptionWritable:m.writable}));
 import { sendCourseMonthlyNotice,courseMonthlyNoticeSummary } from '@/server/services/course-monthly-notification';
-import { notifyCourseMonthlyPerson } from '@/server/actions/course-monthly-notification';
+import { previewCourseMonthlyNotifications,notifyCourseMonthlyPerson } from '@/server/actions/course-monthly-notification';
 const actor={storeId:'store',userId:'owner'};
 let old:NoticeRecord|undefined;
 const report=()=>({settings:{personalIncomeEnabled:true},fingerprint:'fp',revisions:[{id:'settlement',revision:1,fingerprint:'fp',snapshot:[{staffId:'staff',name:'林教練'}]}]});
@@ -60,7 +60,7 @@ describe('manual monthly notice safety',()=>{
  it('rechecks monthly state after acquiring the store lock',async()=>{m.report.mockResolvedValueOnce(report()).mockResolvedValue({...report(),settings:{personalIncomeEnabled:false}});await expect(sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).rejects.toThrow('變更');expect(m.push).not.toHaveBeenCalled();});
  it('commits a stable retry identity before sending',async()=>{await sendCourseMonthlyNotice(actor,'2026-09',1,'staff');const claim=m.exec.mock.calls.findIndex(([sql])=>sql.join('').includes('INSERT INTO "CourseMonthlyNotification"'));expect(claim).toBeGreaterThanOrEqual(0);expect(m.exec.mock.invocationCallOrder[claim]).toBeLessThan(m.push.mock.invocationCallOrder[0]);expect(m.push.mock.calls[0][2]).toMatch(/^[0-9a-f-]{36}$/);});
  it('skips a previously successful delivery',async()=>{old=record('SENT');expect(await sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).toEqual({status:'SENT'});expect(m.push).not.toHaveBeenCalled();});
- it('retries the exact body and key after failure',async()=>{old=record();await sendCourseMonthlyNotice(actor,'2026-09',1,'staff');expect(m.push).toHaveBeenCalledWith('line-user',[{type:'text',text:'原通知'}],old.retryKey);});
+ it('retries the exact body and key after failure',async()=>{old=record();await sendCourseMonthlyNotice(actor,'2026-09',1,'staff');expect(m.push).toHaveBeenCalledWith('line-user',[{type:'text',text:'原通知'}],old.retryKey,old.firstAttemptAt);});
  it('rejects changed recipient on retry',async()=>{old=record();m.route.mockResolvedValue({status:'READY',channel:'CENTRAL',recipientLineUserId:'other-line'});await expect(sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).rejects.toThrow('收件帳號');expect(m.push).not.toHaveBeenCalled();});
  it('does not overwrite settlement or payment data on delivery failure',async()=>{m.push.mockResolvedValue({success:false,httpStatus:500});expect(await sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).toEqual({status:'FAILED'});for(const [sql] of m.exec.mock.calls)expect(sql.join('')).not.toMatch(/(?:INSERT INTO|UPDATE|DELETE FROM) "(?:CourseMonthlySettlement|CourseProfitPayment|CashbookEntry)"/);});
  it('does not retry permanent API rejection',async()=>{m.push.mockResolvedValue({success:false,httpStatus:400});expect(await sendCourseMonthlyNotice(actor,'2026-09',1,'staff')).toEqual({status:'BLOCKED'});});
@@ -69,4 +69,17 @@ describe('manual monthly notice safety',()=>{
  it('owner permission is checked by server action',async()=>{m.manager.mockResolvedValue({storeId:'store',user:{id:'coach',role:'STAFF'}});const r=await notifyCourseMonthlyPerson({month:'2026-09',revision:1,staffId:'staff'});expect(r.success).toBe(false);expect(m.report).not.toHaveBeenCalled();});
  it('read permission and both features are required',async()=>{await notifyCourseMonthlyPerson({month:'2026-09',revision:1,staffId:'staff'});expect(m.manager).toHaveBeenCalledWith('report.read');expect(m.feature).toHaveBeenCalledTimes(2);expect(m.writable).toHaveBeenCalledWith('store');});
  it('limits unknown outcomes to the LINE retry window and active lease',()=>{const r=record();const now=new Date();expect(noticeRetryState({...r,leaseUntil:new Date(now.getTime()+1000)},now)).toBe('BUSY');expect(noticeRetryState({...r,firstAttemptAt:new Date(now.getTime()-23*3600000)},now)).toBe('BLOCKED');expect(noticeRetryState({...r,status:'SENT',firstAttemptAt:new Date(0)},now)).toBe('SENT');});
+});
+
+it('HQ can preview the selected store monthly notifications without sending',async()=>{
+ m.manager.mockResolvedValue({storeId:'store',user:{id:'hq',role:'ADMIN'}});
+ const result=await previewCourseMonthlyNotifications({expectedStoreId:'store',month:'2026-09',revision:1});
+ expect(result.success).toBe(true);expect(m.push).not.toHaveBeenCalled();expect(m.feature).toHaveBeenCalledTimes(2);
+});
+it('HQ cannot preview or notify from an old store tab',async()=>{
+ m.manager.mockResolvedValue({storeId:'store',user:{id:'hq',role:'ADMIN'}});
+ for(const action of [previewCourseMonthlyNotifications,notifyCourseMonthlyPerson]) {
+  const result=await action({expectedStoreId:'other',month:'2026-09',revision:1,staffId:'staff'});expect(result.success).toBe(false);
+ }
+ expect(m.report).not.toHaveBeenCalled();expect(m.push).not.toHaveBeenCalled();
 });

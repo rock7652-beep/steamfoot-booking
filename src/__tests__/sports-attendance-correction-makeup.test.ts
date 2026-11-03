@@ -12,15 +12,10 @@ function fixture(status="ATTENDED"){
  return {row,tx,client:tx as unknown as Prisma.TransactionClient};
 }
 beforeEach(()=>{scope.enabled=true;});
-it("出席更正曠課只建立一次永久補課權益，不再扣原方案",async()=>{
+it("運動出席更正未出席扣堂不發新補課權益，也不二次扣堂",async()=>{
  const f=fixture();await correctCourseAttendance(f.client,actor,"b","NO_SHOW","ATTENDED");
- expect(f.tx.coursePointCard.create).toHaveBeenCalledWith({data:expect.objectContaining({requestKey:"no-show-makeup:b",remaining:2,nameSnapshot:"固定課待補課",expiresAt:expect.any(Date)})});
- expect(f.tx.coursePointCard.update).not.toHaveBeenCalled();expect(f.row.status).toBe("NO_SHOW");
- await correctCourseAttendance(f.client,actor,"b","NO_SHOW","NO_SHOW");expect(f.tx.coursePointCard.create).toHaveBeenCalledOnce();
-});
-it("已回收的補課券以同一筆重啟，不建立第二張",async()=>{
- const f=fixture();f.tx.coursePointCard.findUnique.mockResolvedValue({id:"coupon",remaining:0,closedAt:new Date()} as never);
- await correctCourseAttendance(f.client,actor,"b","NO_SHOW","ATTENDED");expect(f.tx.coursePointCard.create).not.toHaveBeenCalled();expect(f.tx.coursePointCard.update).toHaveBeenCalledWith({where:{id:"coupon"},data:expect.objectContaining({remaining:2,closedAt:null})});
+ expect(f.row.status).toBe("NO_SHOW");expect(f.tx.coursePointCard.create).not.toHaveBeenCalled();expect(f.tx.coursePointCard.update).not.toHaveBeenCalled();
+ await correctCourseAttendance(f.client,actor,"b","NO_SHOW","NO_SHOW");expect(f.tx.coursePointCard.create).not.toHaveBeenCalled();
 });
 it("曠課更正出席回收未使用的補課券，不二次扣堂",async()=>{
  const f=fixture("NO_SHOW");f.tx.coursePointCard.findUnique.mockResolvedValue({id:"coupon",remaining:2,closedAt:null} as never);

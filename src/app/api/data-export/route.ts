@@ -8,6 +8,8 @@ import { prisma } from "@/lib/db";
 import { dayRange, formatTWTime } from "@/lib/date-utils";
 import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import {BEAUTY_EXPORT_STATUSES,BEAUTY_EXPORT_LABELS} from "@/lib/beauty/data-export";
+import {getBeautyDataExport} from "@/server/queries/beauty-data-export";
 import { COURSE_EXPORT_STATUSES } from "@/lib/course-data-export";
 import { getCourseDataExport } from "@/server/queries/course-data-export";
 import { getManagerReadFilter, getStoreFilter } from "@/lib/manager-visibility";
@@ -72,7 +74,7 @@ export async function GET(req: NextRequest) {
   const startDate = sp.get("startDate");
   const endDate = sp.get("endDate");
   const status = sp.get("status") || undefined;
-  if (!dataExportTypes.includes(type) || !validDate(startDate) || !validDate(endDate) || startDate > endDate || (status && !isDataExportStatus(type, status) && !COURSE_EXPORT_STATUSES[type].some(option => option.value === status))) {
+  if (!dataExportTypes.includes(type) || !validDate(startDate) || !validDate(endDate) || startDate > endDate || (status && !isDataExportStatus(type, status) && !COURSE_EXPORT_STATUSES[type].some(option => option.value === status) && !BEAUTY_EXPORT_STATUSES[type].some(option => option.value === status))) {
     return new NextResponse("Invalid export filters", { status: 400 });
   }
   if ((type === "customers" && !permitted[0]) || (type !== "customers" && !permitted[1])) {
@@ -91,15 +93,17 @@ export async function GET(req: NextRequest) {
   const workbook = new ExcelJS.Workbook();
   let count = 0;
   const period = dateWhere(startDate, endDate);
-  const courseMode = !!requestedStoreId && await getStoreIndustryModule(requestedStoreId) === "course";
-  if (status && !(courseMode ? COURSE_EXPORT_STATUSES[type].some(option => option.value === status) : isDataExportStatus(type, status))) return new NextResponse("Invalid export status", { status: 400 });
+  const industry = requestedStoreId ? await getStoreIndustryModule(requestedStoreId) : null;
+  const courseMode = industry === "course", serviceMode = industry === "beauty";
+  if (status && !(serviceMode ? BEAUTY_EXPORT_STATUSES[type].some(option => option.value === status) : courseMode ? COURSE_EXPORT_STATUSES[type].some(option => option.value === status) : isDataExportStatus(type, status))) return new NextResponse("Invalid export status", { status: 400 });
 
-  if (courseMode && requestedStoreId) {
-    if (storeViewContext?.isViewMode) return new NextResponse("查看模式不可匯出課程資料", { status: 403 });
+  if ((courseMode || serviceMode) && requestedStoreId) {
+    if (storeViewContext?.isViewMode) return new NextResponse("查看模式不可匯出資料", { status: 403 });
     const readPermission = ({ customers: "customer.read", transactions: "transaction.read", bookings: "booking.read", wallets: "wallet.read" } as const)[type];
     if (!(await checkPermission(user.role, user.staffId, readPermission))) return new NextResponse("Forbidden", { status: 403 });
     const revenueScope = getManagerReadFilter(readUser.role, readUser.staffId ?? null, "revenueStaffId", requestedStoreId);
-    const sheets = await getCourseDataExport(requestedStoreId, type, period, status, MAX_EXPORT_ROWS, { revenueStaffId: typeof revenueScope.revenueStaffId === "string" ? revenueScope.revenueStaffId : undefined });
+    const options = {customers:await checkPermission(user.role,user.staffId,"customer.read"),revenueStaffId:typeof revenueScope.revenueStaffId === "string" ? revenueScope.revenueStaffId : undefined};
+    const sheets = serviceMode ? await getBeautyDataExport(requestedStoreId,type,period,status,MAX_EXPORT_ROWS,options) : await getCourseDataExport(requestedStoreId,type,period,status,MAX_EXPORT_ROWS,{revenueStaffId:options.revenueStaffId});
     count = sheets.reduce((total, sheet) => total + sheet.rows.length, 0);
     if (count <= MAX_EXPORT_ROWS) for (const sheet of sheets) addRows(workbook.addWorksheet(sheet.name), sheet.headers, sheet.rows);
   } else if (type === "customers") {
@@ -149,6 +153,6 @@ export async function GET(req: NextRequest) {
   if (count > MAX_EXPORT_ROWS) return new NextResponse(`單次最多匯出 ${MAX_EXPORT_ROWS.toLocaleString()} 筆，請縮小篩選範圍`, { status: 413 });
   await prisma.auditLog.create({ data: { actorUserId: user.id, targetType: "DataExport", targetId: `${type}:${Date.now()}`, action: "EXPORT", afterJson: { type, storeId: requestedStoreId, startDate, endDate, status: status ?? null, rowCount: count, timezone: "Asia/Taipei", exportedAtTaipei: formatTWTime(new Date()) } } });
   const buffer = await workbook.xlsx.writeBuffer();
-  const filename = encodeURIComponent(`${DATA_EXPORT_TYPE_LABELS[type]}_${startDate}_${endDate}.xlsx`);
-  return new NextResponse(buffer, { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename*=UTF-8''${filename}` } });
+  const filename = encodeURIComponent(`${(serviceMode ? BEAUTY_EXPORT_LABELS : DATA_EXPORT_TYPE_LABELS)[type]}_${startDate}_${endDate}.xlsx`);
+  return new NextResponse(buffer, { headers: { "Cache-Control":"private, no-store", "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename*=UTF-8''${filename}` } });
 }

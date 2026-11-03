@@ -1,5 +1,8 @@
 "use server";
+import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
+
 import {sportsNativePreview} from "@/lib/sports-native-preview";
+import { assertMusicSourceTeacherDraftEditable } from "@/server/services/music-source-teacher-drafts";
 import { prisma } from "@/lib/db";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { z } from "zod";
@@ -23,8 +26,9 @@ export async function batchCourseStatus(input: unknown) {
     await courseTransaction(storeId,async tx=>{
       if(d.kind==="staff") {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${storeId}`}, 0))`;
-        const rows=await tx.$queryRaw<Array<{id:string;status:string;courseCoachEnabled:boolean}>>`SELECT id,status::text,"courseCoachEnabled" FROM "Staff" WHERE "storeId"=${storeId} AND id=ANY(${ids}::text[]) FOR UPDATE`;
+        const rows=await tx.$queryRaw<Array<{id:string;userId:string;status:string;courseCoachEnabled:boolean}>>`SELECT id,"userId",status::text,"courseCoachEnabled" FROM "Staff" WHERE "storeId"=${storeId} AND id=ANY(${ids}::text[]) FOR UPDATE`;
         if(rows.length!==ids.length) throw new AppError("FORBIDDEN","選取項目包含非本店人員，未變更任何資料");
+        for (const row of rows) await assertMusicSourceTeacherDraftEditable(tx, row, storeId);
         const accounts=await tx.$queryRaw<Array<{id:string;role:UserRole}>>`SELECT s.id,u.role::text AS role FROM "Staff" s JOIN "User" u ON u.id=s."userId" WHERE s."storeId"=${storeId} AND s.id=ANY(${ids}::text[])`;
         if(accounts.some(a=>a.role!=="CUSTOMER")&&getEffectiveActorRole(user)!=="OWNER")throw new AppError("FORBIDDEN","只有老闆能修改後台人員");
         if(accounts.some(a=>a.role!=="CUSTOMER" && !canManageStaffRole(getEffectiveActorRole(user),a.role))) throw new AppError("FORBIDDEN","店長只能管理門市人員");
@@ -53,12 +57,13 @@ export async function batchCourseStatus(input: unknown) {
         if(!d.active && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"}})) for(const id of ids) await assertNoCourseResourceUse(tx,storeId,{roomId:id});
         await tx.courseRoom.updateMany({where:{storeId,id:{in:ids}},data:{isActive:d.active}});
       } else if(d.kind==="subject") {
-        if(!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:sportsNativePreview(storeId)?"business.fitness":"business.music",status:"ENABLED"}})) throw new AppError("FORBIDDEN","僅適用已開通教學項目的門市");
+        if(!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:(await sportsNativePreview(storeId))?"business.fitness":"business.music",status:"ENABLED"}})) throw new AppError("FORBIDDEN","僅適用已開通教學項目的門市");
         const result=await tx.musicSubject.updateMany({where:{storeId,id:{in:ids}},data:{isActive:d.active}});
         if(result.count!==ids.length)throw new AppError("FORBIDDEN","找不到本店課程");
       } else {
         const rows=await tx.coursePointPlan.findMany({where:{storeId,id:{in:ids}},select:{id:true}});
         if(rows.length!==ids.length) throw new AppError("FORBIDDEN","選取項目包含非本店方案");
+        if(d.active){const plans=await tx.coursePointPlan.findMany({where:{storeId,id:{in:ids},isActive:false},select:{sportsMode:true}});for(const mode of new Set(plans.map(p=>p.sportsMode)))await assertCoursePlanMode(tx,storeId,mode);}
         await tx.coursePointPlan.updateMany({where:{storeId,id:{in:ids}},data:{isActive:d.active}});
       }
     });

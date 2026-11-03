@@ -1,0 +1,8 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "actual collection records trial price 680 at nine tenths exactly once",
+    "replaying original collection command does not add payment or apply discount again",
+    "reopened collection retains price 680, net 612, collected 612 and zero due"
+  ]
+}

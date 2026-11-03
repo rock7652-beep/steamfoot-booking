@@ -19,10 +19,13 @@ const entrySchema = z.object({
 export type StoreLineConfig = z.infer<typeof entrySchema>;
 
 export function readStoreLineConfigs(): StoreLineConfig[] {
-  const raw = process.env.STORE_LINE_CONFIG_JSON;
-  if (!raw) return [];
+  // New stores can be registered without reading/replacing the existing secret.
+  // Both sources share all validation below: additions never override a store.
+  const sources = [process.env.STORE_LINE_CONFIG_JSON, process.env.STORE_LINE_ADDITIONAL_CONFIG_JSON];
   let entries: StoreLineConfig[];
-  try { entries = z.array(entrySchema).parse(JSON.parse(raw)); }
+  try {
+    entries = sources.flatMap(raw => raw ? z.array(entrySchema).parse(JSON.parse(raw)) : []);
+  }
   catch { throw new Error("每店 LINE 設定格式不正確；未使用中央備援"); }
   for (const key of ["storeId", "slug"] as const) {
     if (new Set(entries.map(e => e[key])).size !== entries.length) throw new Error("每店 LINE 設定重複；未使用中央備援");

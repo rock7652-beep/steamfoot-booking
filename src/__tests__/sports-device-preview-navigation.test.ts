@@ -13,6 +13,14 @@ beforeEach(()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});window
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 async function render(sportsPreview=true){await act(async()=>root.render(React.createElement(DevicePreview,{sportsPreview,moduleId:"course"})));if(sportsPreview)await report(state.frameProps!.src);}
 async function report(path:string){await act(async()=>state.frameProps!.onRouteChange(path));}
+it("opens an old portrait link as tablet with only three device choices",async()=>{
+ window.history.replaceState(null,"",`${prefix}/dashboard/device-preview?page=bookings&device=tabletPortrait`);
+ await render();
+ const choices=Array.from(host.querySelectorAll('button')).filter(button=>["手機","平板","桌機","平板直向"].includes(button.textContent ?? ""));
+ expect(choices.map(button=>button.textContent)).toEqual(["手機","平板","桌機"]);
+ expect(choices[1].getAttribute("aria-pressed")).toBe("true");
+ expect(host.textContent).toContain("1024 × 768");
+});
 it("inner work-order navigation synchronizes the URL without reloading its iframe",async()=>{
  await render();const src=state.frameProps!.src;await report(`${prefix}/dashboard/work-orders?devicePreview=1`);
  expect(window.location.search).toBe('?page=work-orders&device=tablet');expect(state.frameProps!.src).toBe(src);expect(state.replace).not.toHaveBeenCalled();

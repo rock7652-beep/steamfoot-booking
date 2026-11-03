@@ -1,0 +1,82 @@
+[
+  {
+    "width": 390,
+    "height": 650,
+    "kind": "single",
+    "costVisible": true,
+    "noBodyScroll": true,
+    "draftPreserved": true
+  },
+  {
+    "width": 390,
+    "height": 650,
+    "kind": "plan",
+    "costVisible": true,
+    "noBodyScroll": true,
+    "draftPreserved": true
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "kind": "single",
+    "costVisible": true,
+    "noBodyScroll": true,
+    "draftPreserved": true
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "kind": "plan",
+    "costVisible": true,
+    "noBodyScroll": true,
+    "draftPreserved": true
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "kind": "single",
+    "costVisible": true,
+    "noBodyScroll": true,
+    "draftPreserved": true
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "kind": "plan",
+    "costVisible": true,
+    "noBodyScroll": true,
+    "draftPreserved": true
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "kind": "single",
+    "costVisible": true,
+    "noBodyScroll": true,
+    "draftPreserved": true
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "kind": "plan",
+    "costVisible": true,
+    "noBodyScroll": true,
+    "draftPreserved": true
+  },
+  {
+    "width": 1366,
+    "height": 900,
+    "kind": "single",
+    "costVisible": true,
+    "noBodyScroll": true,
+    "draftPreserved": true
+  },
+  {
+    "width": 1366,
+    "height": 900,
+    "kind": "plan",
+    "costVisible": true,
+    "noBodyScroll": true,
+    "draftPreserved": true
+  }
+]

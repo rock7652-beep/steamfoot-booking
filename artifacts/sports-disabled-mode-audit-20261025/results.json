@@ -1,0 +1,114 @@
+[
+  {
+    "surface": "fee",
+    "width": 390,
+    "height": 844,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "legacy",
+    "width": 390,
+    "height": 844,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "subject",
+    "width": 390,
+    "height": 844,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "settings",
+    "width": 390,
+    "height": 844,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "fee",
+    "width": 768,
+    "height": 1024,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "legacy",
+    "width": 768,
+    "height": 1024,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "subject",
+    "width": 768,
+    "height": 1024,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "settings",
+    "width": 768,
+    "height": 1024,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "fee",
+    "width": 1024,
+    "height": 768,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "legacy",
+    "width": 1024,
+    "height": 768,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "subject",
+    "width": 1024,
+    "height": 768,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "settings",
+    "width": 1024,
+    "height": 768,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "fee",
+    "width": 1366,
+    "height": 900,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "legacy",
+    "width": 1366,
+    "height": 900,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "subject",
+    "width": 1366,
+    "height": 900,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  },
+  {
+    "surface": "settings",
+    "width": 1366,
+    "height": 900,
+    "noDisabledFeature": true,
+    "noPageOverflow": true
+  }
+]

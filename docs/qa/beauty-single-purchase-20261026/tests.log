@@ -1,0 +1,7 @@
+RUN  v4.1.4 /tmp/steamfoot-beauty-single-purchase
+
+
+ Test Files  25 passed (25)
+      Tests  324 passed (324)
+   Start at  23:59:55
+   Duration  5.83s (transform 3.65s, setup 0ms, import 5.92s, tests 4.93s, environment 3.00s)

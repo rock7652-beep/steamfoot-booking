@@ -554,7 +554,7 @@ describe("reports basic_reports source audit", () => {
 
   it("keeps related revenue report pages store-aware for advanced_reports", () => {
     for (const filePath of [
-      "src/app/(dashboard)/dashboard/store-revenue/page.tsx",
+      "src/app/(dashboard)/dashboard/store-revenue/workspace.tsx",
       "src/app/(dashboard)/dashboard/coach-revenue/page.tsx",
     ]) {
       const source = fs.readFileSync(path.join(repoRoot, filePath), "utf8");
@@ -567,12 +567,11 @@ describe("reports basic_reports source audit", () => {
 });
 
 describe("report module routing", () => {
-  it("routes the viewed SPA store before any legacy report query", async () => {
+  it("stops before financial queries when the viewed store resolves to a retired module", async () => {
     mockStoreIdForViewContext.mockReturnValue("spa-viewed");
-    mockGetStoreIndustryModule.mockResolvedValue("spa");
-    const html = renderToStaticMarkup(await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }));
+    mockGetStoreIndustryModule.mockRejectedValueOnce(new Error("SPA 模組已移除"));
+    await expect(ReportsPage({searchParams:Promise.resolve({preset:"month"})})).rejects.toThrow("SPA 模組已移除");
     expect(mockGetStoreIndustryModule).toHaveBeenCalledWith("spa-viewed");
-    expect(html).toContain('data-spa-store="spa-viewed"');
     expect(mockGetPeriodMetrics).not.toHaveBeenCalled();
     expect(mockMonthlyStoreSummary).not.toHaveBeenCalled();
     expect(mockMonthlyRevenueByCategory).not.toHaveBeenCalled();

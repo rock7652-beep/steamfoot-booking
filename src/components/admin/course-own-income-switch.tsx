@@ -5,14 +5,15 @@ import { flushSync } from "react-dom";
 import { saveCourseOwnIncomeAccess } from "@/lib/course-work-permission-client";
 import { NotificationSwitch } from "@/components/admin/notification-switch";
 
+export type WorkPermissionWriter=(input:{storeId:string;staffId:string;previous:boolean;enabled:boolean;permission:string})=>Promise<{success:true;data:{enabled:boolean;updatedAt:string;revision?:number}}|{success:false;error:string;uncertain?:boolean}>;
 export type CourseWorkPermissionFeedback={label:string;status:"pending"|"saved"|"error"|"uncertain";message?:string};
 
-export function CourseOwnIncomeSwitch({storeId,staffId,initialEnabled,canEdit,blocked,permission="teacher.income.read.self",label="查看自己的薪酬",onFeedback,onSaved,onPendingChange}:{
-  storeId:string;staffId:string;initialEnabled:boolean;canEdit:boolean;blocked:boolean;storeEnabled:boolean;
+export function CourseOwnIncomeSwitch({save,storeId,staffId,initialEnabled,canEdit,blocked,permission="teacher.income.read.self",label="查看自己的薪酬",onFeedback,onSaved,onPendingChange}:{
+  save?:WorkPermissionWriter;storeId:string;staffId:string;initialEnabled:boolean;canEdit:boolean;blocked:boolean;storeEnabled:boolean;
   music?:boolean;lineBound?:boolean;
-  permission?:"teacher.income.read.self"|"teacher.booking.leave"|"teacher.booking.reschedule"|"teacher.session.leave"|"teacher.session.reschedule";label?:string;
+  permission?:string;label?:string;
   onFeedback:(feedback:CourseWorkPermissionFeedback)=>void;
-  onSaved:(data:{enabled:boolean;updatedAt:string})=>void;
+  onSaved:(data:{enabled:boolean;updatedAt:string;revision?:number})=>void;
   onPendingChange:(pending:boolean)=>void;
 }) {
   const [enabled,setEnabled]=useState(initialEnabled);
@@ -27,7 +28,7 @@ export function CourseOwnIncomeSwitch({storeId,staffId,initialEnabled,canEdit,bl
     flushSync(()=>{setPending(true);setEnabled(!previous);onPendingChange(true);onFeedback({label,status:"pending"});});
     void (async()=>{
       try {
-        const result=await saveCourseOwnIncomeAccess({storeId,staffId,previous,enabled:!previous,permission});
+        const result=await (save??saveCourseOwnIncomeAccess)({storeId,staffId,previous,enabled:!previous,permission});
         if (!result.success) {setEnabled(previous);setUncertain(result.uncertain===true);onFeedback({label,status:result.uncertain?"uncertain":"error",message:result.error});}
         else {setEnabled(result.data.enabled);onSaved(result.data);onFeedback({label,status:"saved"});}
       } catch {setUncertain(true);setEnabled(previous);onFeedback({label,status:"uncertain",message:"儲存結果未確認，請重新整理核對"});}

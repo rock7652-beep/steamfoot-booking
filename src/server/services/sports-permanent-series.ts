@@ -1,3 +1,4 @@
+import { findSportsCard } from "./sports-card-selection";
 import {sportsProductionEnabled} from "../../../scripts/sports-production-scope.mjs";
 import {verifySportsPermanentReadiness} from "../../../scripts/sports-permanent-readiness.mjs";
 import {sportsSeriesTable,assertSportsPermanentCreationAllowed} from "@/lib/sports-series-storage";
@@ -15,12 +16,12 @@ type Tx=Prisma.TransactionClient;
 export const sportsLearners=z.array(z.object({customerId:z.string(),cardId:z.string().nullable().optional(),stopDate:z.string().optional()}));
 export type SportsSeries=FixedCourseSeries&{id:string;storeId:string;templateId:string;nameSnapshot:string;capacity:number;pointCost:number;createdById:string;enrollmentMode:string;learnerSnapshot:unknown;generatedThrough:Date};
 export async function readSportsSeries(tx:Pick<Tx,"$queryRaw"|"$queryRawUnsafe">,storeId:string){
- if(!sportsNativePreview(storeId))return [];
+ if(!(await sportsNativePreview(storeId)))return [];
  if(sportsProductionEnabled(storeId))await verifySportsPermanentReadiness(sql=>tx.$queryRawUnsafe<Array<Record<string,unknown>>>(sql));
  return tx.$queryRaw<SportsSeries[]>`SELECT * FROM ${sportsSeriesTable(storeId)} WHERE "storeId"=${storeId} AND id LIKE 'sports-series:%'`;
 }
 export async function assertSportsSeriesFree(tx:Tx,storeId:string,ranges:Array<{startsAt:Date;endsAt:Date}>,resources:{roomId:string;coachId:string},requestKey?:string,frequency?:string,excludedOwnDates?:string[]){
- if(!sportsNativePreview(storeId))return;
+ if(!(await sportsNativePreview(storeId)))return;
  const rules=await readSportsSeries(tx,storeId);
  // Moving selected occurrences must not exempt the rest of their ongoing rule.
  const active=rules.filter(r=>!r.cancelledAt&&(r.requestKey!==requestKey||excludedOwnDates!==undefined))
@@ -48,7 +49,7 @@ export async function assertSportsSeriesFree(tx:Tx,storeId:string,ranges:Array<{
  }
 }
 export async function persistSportsSeries(tx:Tx,actor:CourseActor,requestKey:string,rule:SportsScheduleRule){
- if(!sportsNativePreview(actor.storeId)||!rule.perpetual)return;
+ if(!(await sportsNativePreview(actor.storeId))||!rule.perpetual)return;
  assertSportsPermanentCreationAllowed(actor.storeId);
  const s=await tx.courseSession.findFirst({where:{storeId:actor.storeId,requestKey},orderBy:{requestIndex:"asc"}});
  if(!s)throw new AppError("NOT_FOUND","固定課不存在");
@@ -61,7 +62,7 @@ function assertSportsFixedCapacity(capacity:number,learners:number){
 }
 /** No card is reserved for an ongoing assigned place. Attendance resolves the current paid card. */
 export async function addSportsFixedLearners(tx:Tx,actor:CourseActor,session:{id:string;templateId:string;startsAt:Date;endsAt:Date;pointCost:number;capacity:number},rule:SportsScheduleRule){
- if(!sportsNativePreview(actor.storeId)||!rule.perpetual)throw new AppError("FORBIDDEN","此店尚未開放運動固定課");
+ if(!(await sportsNativePreview(actor.storeId))||!rule.perpetual)throw new AppError("FORBIDDEN","此店尚未開放運動固定課");
  assertSportsFixedCapacity(session.capacity,rule.students.length);
  if(!rule.students.length)return;
  const occupied=await tx.courseBooking.count({where:{storeId:actor.storeId,sessionId:session.id,status:{not:"CANCELLED"}}});
@@ -76,7 +77,7 @@ export async function addSportsFixedLearners(tx:Tx,actor:CourseActor,session:{id
 }
 /** Automatic calendar expansion also checks subscription state before writing. */
 export async function materializeSportsMonth(tx:Tx,actor:CourseActor,first:string,last:string){
- if(!sportsNativePreview(actor.storeId))return;
+ if(!(await sportsNativePreview(actor.storeId)))return;
  const {assertStoreSubscriptionWritable}=await import("@/lib/subscription-guard");
  await assertStoreSubscriptionWritable(actor.storeId);
  const rules=await readSportsSeries(tx,actor.storeId);
@@ -117,18 +118,36 @@ export async function materializeSportsMonth(tx:Tx,actor:CourseActor,first:strin
 }
 export async function bindSportsAttendanceCard(tx:Tx,actor:CourseActor,bookingId:string){
  const b=await tx.courseBooking.findFirst({where:{id:bookingId,storeId:actor.storeId},include:{session:true}});
- if(!b||b.cardId||!(b.bookingKind==="UNPAID"&&(b.requestKey.startsWith("sports-fixed:")||b.requestKey.startsWith("sports-makeup:"))))return;
- if(!sportsNativePreview(actor.storeId)||actor.customerId)throw new AppError("FORBIDDEN","固定課點名僅限本店授權人員");
- const [rule]=await tx.$queryRaw<Array<{planId:string|null}>>`SELECT "planId" FROM "SportsStagingSessionRule" WHERE "storeId"=${actor.storeId} AND "sessionId"=${b.sessionId}`;
- const cards=await tx.coursePointCard.findMany({where:{storeId:actor.storeId,...(rule?.planId?{planId:rule.planId}:{}),closedAt:null,expiresAt:{gte:b.session.startsAt},members:{some:{customerId:b.customerId!}},OR:[{templateIds:{isEmpty:true}},{templateIds:{has:b.session.templateId}}]},include:{bookings:{where:{status:"RESERVED"},select:{pointCost:true}}},orderBy:[{expiresAt:"asc"},{id:"asc"}]});
- const card=cards.find(c=>c.remaining-c.bookings.reduce((n,b)=>n+b.pointCost,0)>=(c.unit==="SESSION"?1:b.session.pointCost));
- if(!card)throw new AppError("VALIDATION","學員沒有適用且足額的有效方案；尚未扣堂，請先購買或續課");
- await tx.courseBooking.update({where:{id:b.id},data:{cardId:card.id,bookingKind:"CARD",...(b.requestKey.startsWith("sports-makeup:")?{makeupForBookingId:b.requestKey.split(":")[1]}:{}),pointCost:card.unit==="SESSION"?1:b.session.pointCost}});
+ if(!b||b.cardId||b.bookingKind!=="UNPAID")return;
+ if(!(await sportsNativePreview(actor.storeId))||actor.customerId)throw new AppError("FORBIDDEN","固定課點名僅限本店授權人員");
+ const [rule]=await tx.$queryRaw<Array<{planId:string|null;enrollment:string}>>`SELECT "planId",enrollment FROM "SportsStagingSessionRule" WHERE "storeId"=${actor.storeId} AND "sessionId"=${b.sessionId}`;
+ if(!rule)throw new AppError("VALIDATION","找不到固定課權益規則，尚未扣抵");
+ const picked=await findSportsCard(tx,actor.storeId,b.customerId!,[b.session],rule);
+ if(!picked)throw new AppError("VALIDATION","學員沒有適用且足額的有效方案；尚未扣堂，請先購買或續課");
+ await tx.courseBooking.update({where:{id:b.id},data:{cardId:picked.card.id,bookingKind:"CARD",...(b.requestKey.startsWith("sports-makeup:")?{makeupForBookingId:b.requestKey.split(":")[1]}:{}),pointCost:picked.cost}});
+}
+
+/** Batch only the existence check. Cancelled/moved rows still occupy their original index. */
+export async function sportsMonthHasMissingOccurrences(tx:Pick<Tx,"courseSession">,storeId:string,rules:FixedCourseSeries[],first:string,last:string){
+ const expected=rules.map(series=>{
+  const indexes:number[]=[];
+  for(let date=first;date<=last;date=addTaiwanDuration(date,1,"DAY"))if(fixedSeriesOccurrenceOnDate(series,date))indexes.push(Math.round((Date.parse(date+"T12:00:00Z")-Date.parse(toLocalDateStr(series.startsAt)+"T12:00:00Z"))/86400000)/(series.frequency==="BIWEEKLY"?14:7));
+  return {requestKey:series.requestKey,indexes};
+ }).filter(row=>row.indexes.length);
+ // Bound SQL parameters for large stores without reverting to one round-trip per series.
+ for(let offset=0;offset<expected.length;offset+=250){
+  const batch=expected.slice(offset,offset+250);
+  const rows=await tx.courseSession.findMany({where:{storeId,OR:batch.map(row=>({requestKey:row.requestKey,requestIndex:{in:row.indexes}}))},select:{requestKey:true,requestIndex:true}});
+  const counts=new Map<string,Map<number,number>>();
+  for(const row of rows){const indexes=counts.get(row.requestKey)??new Map<number,number>();indexes.set(row.requestIndex,(indexes.get(row.requestIndex)??0)+1);counts.set(row.requestKey,indexes);}
+  if(batch.some(row=>row.indexes.reduce((n,index)=>n+(counts.get(row.requestKey)?.get(index)??0),0)!==row.indexes.length))return true;
+ }
+ return false;
 }
 
 /** Existing/cancelled/moved occurrences count as generated; never resurrect an exception. */
 export async function ensureSportsMonth(actor:CourseActor,first:string,last:string){
- if(!sportsNativePreview(actor.storeId))return;
+ if(!(await sportsNativePreview(actor.storeId)))return;
  const {isStoreSubscriptionWriteBlocked}=await import("@/lib/subscription-guard");
  if(await isStoreSubscriptionWriteBlocked(actor.storeId))return;
  const {coursePrisma}=await import("@/lib/course-db");
@@ -137,12 +156,7 @@ export async function ensureSportsMonth(actor:CourseActor,first:string,last:stri
  const releasedCandidates=await coursePrisma.courseSession.findMany({where:{storeId:actor.storeId,cancelledAt:null,releasedAt:null,startsAt:{gte:parseTaipeiDateTime(first,"00:00")!,lt:parseTaipeiDateTime(addTaiwanDuration(last,1,"DAY"),"00:00")!},bookings:{some:{status:"NO_SHOW"},none:{status:{notIn:["CANCELLED","NO_SHOW"]}}}},select:{id:true}});
  if(releasedCandidates.length){const {courseTransaction}=await import("./course-access");const {syncCourseRelease}=await import("./course-booking");await courseTransaction(actor.storeId,async tx=>{for(const s of releasedCandidates)await syncCourseRelease(tx,actor.storeId,s.id);});}
  const rules=await readSportsSeries(coursePrisma,actor.storeId);
- let missing=false;
- for(const series of rules){
-  const indexes:number[]=[];
-  for(let date=first;date<=last;date=addTaiwanDuration(date,1,"DAY"))if(fixedSeriesOccurrenceOnDate(series,date))indexes.push(Math.round((Date.parse(date+"T12:00:00Z")-Date.parse(toLocalDateStr(series.startsAt)+"T12:00:00Z"))/86400000)/(series.frequency==="BIWEEKLY"?14:7));
-  if(indexes.length&&await coursePrisma.courseSession.count({where:{storeId:actor.storeId,requestKey:series.requestKey,requestIndex:{in:indexes}}})!==indexes.length){missing=true;break;}
- }
+ const missing=await sportsMonthHasMissingOccurrences(coursePrisma,actor.storeId,rules,first,last);
  if(missing){
   const {courseTransaction}=await import("./course-access");
   return courseTransaction(actor.storeId,tx=>materializeSportsMonth(tx,actor,first,last));

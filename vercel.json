@@ -4,6 +4,14 @@
   ],
   "crons": [
     {
+      "path": "/api/cron/course-coach-notifications",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/plan-activation-notifications",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/marketing-usage",
       "schedule": "0 17 * * *"
     },
@@ -42,14 +50,44 @@
     {
       "path": "/api/cron/audit-retention",
       "schedule": "40 17 * * *"
+    },
+    {
+      "path": "/api/cron/beauty-notifications",
+      "schedule": "*/5 * * * *"
     }
   ],
   "git": {
     "deploymentEnabled": {
+      "release/beauty-schedule-and-compact-dialogs-20261102": false,
+      "fix/silverlily-calendar-loading-20261031": false,
+      "review/shared-item-login-20261028": false,
+      "fix/shared-item-entitlement-core": false,
+      "perf/liff-member-entry-20261027": false,
+      "fix/member-store-switcher-visual-20261027": false,
+      "fix/course-member-store-switch-20261027": false,
+      "fix/liff-profile-logout-announcement-start-20261027": false,
+      "fix/silverlily-profile-onboarding-20261027": false,
+      "fix/course-announcement-duplicate-20261027": false,
+      "feat/shared-verified-booking-entry-20261026": false,
+      "fix/beauty-money-consistency-20261026": false,
+      "fix/beauty-daily-flow-20261026": false,
+      "feat/beauty-trial-cost-flex-20261026": false,
+      "release/beauty-cost-allocation-20261026": false,
+      "feat/plan-activation-line-notification": false,
+      "feat/beauty-line-production-enable": false,
+      "feat/plan-activation-flex-card": false,
+      "review/beauty-production-integration-20261025": false,
+      "feat/default-notice-sound": false,
+      "perf/shared-notice-bell-loading": false,
+      "feat/steamfoot-backend-notices": false,
+      "feat/customer-period-consumption": false,
       "codex/sports-production-enable": false,
       "codex/sports-production-migration-review": false,
       "codex/sports-cancel-migration-rehearsal": false,
       "main": false,
+      "fix/beauty-booking-and-purchase-blockers-20261102": false,
+      "fix/beauty-summary-clipping-20261102": false,
+      "fix/beauty-trial-guest-flow-20261102": false,
       "codex/sports-redesign-staging-20261018": false,
       "codex/sports-core-integration-review": false,
       "content/music-fitness-studio-student-loyalty": false,
@@ -107,7 +145,41 @@
       "fix/sports-onboarding-flow-20261019": false,
       "fix/sports-subscription-expansion-20261019": false,
       "fix/sports-permanent-capacity-20261019": false,
-      "fix/sports-series-capacity-isolation-20261019": false
+      "fix/sports-series-capacity-isolation-20261019": false,
+      "feat/beauty-module-20261020": false,
+      "release/beauty-candidate-20261021": false,
+      "fix/beauty-retire-spa-runtime": false,
+      "fix/remove-legacy-spa": false,
+      "review/beauty-spa-integration-20261024": false,
+      "codex/course-line-setup-20261026": false,
+      "fix/beauty-workflow-followups-20261026": false,
+      "fix/beauty-single-purchase-20261026": false,
+      "fix/beauty-revenue-breakdown-20261026": false,
+      "fix/beauty-read-request-speed-20261026": false,
+      "fix/beauty-return-hq-20261027": false,
+      "feat/public-trial-sports-beauty-20261027": false,
+      "fix/silverlily-trial-entry-scheduling-20261027": false,
+      "fix/public-trial-readability-navigation-20261027": false,
+      "fix/dance-teaching-purchase-trial-20261027": false,
+      "fix/silverlily-manager-feedback-20261027": false,
+      "fix/silverlily-teaching-entitlement-20261027": false,
+      "feat/operations-workspace-20261027": false,
+      "feat/operations-density-hq-monthly-20261028": false,
+      "review/shared-item-formal-release-20261029": false,
+      "fix/plan-card-management-20261029": false,
+      "perf/sports-course-loading": false,
+      "review/plan-management-sports-performance": false,
+      "fix/calendar-restored-month-consistency": false,
+      "fix/beauty-collection-calendar-remount": false,
+      "fix/beauty-service-create-20261102": false,
+      "fix/beauty-void-flow-20261102": false,
+      "fix/beauty-void-pending-label-20261102": false,
+      "fix/beauty-attendance-feedback-20261102": false,
+      "fix/beauty-rental-fit-20261102": false,
+      "fix/beauty-schema-compat-20261102": false,
+      "fix/beauty-rental-charge-flow-20261102": false,
+      "fix/liff-makeup-plan-choice-20261102": false,
+      "fix/beauty-public-three-steps-20261102": false
     }
   }
 }

@@ -9,19 +9,13 @@ export type BookingSubmitErrors = {
 export function getBookingSubmitErrors({
   customerId,
   slotTime,
-  spaMode,
-  treatmentIds = [],
 }: {
   customerId: FormDataEntryValue | null;
   slotTime: FormDataEntryValue | null;
-  spaMode?: FormDataEntryValue | null;
-  treatmentIds?: FormDataEntryValue[];
 }): BookingSubmitErrors {
   const errors: BookingSubmitErrors = {};
   if (!customerId) errors.customer = "請從搜尋結果中選擇顧客";
-  if (spaMode && treatmentIds.length === 0) {
-    errors.treatment = "請至少選擇一項本次服務";
-  }
+
   if (!slotTime) errors.slot = "請選擇預約時段";
   return errors;
 }

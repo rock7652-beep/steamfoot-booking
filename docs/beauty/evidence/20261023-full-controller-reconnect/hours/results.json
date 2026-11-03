@@ -1,0 +1,26 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "original CourseHoursWorkspace owns navigation",
+    "original weekly batch editor owns time fields",
+    "original bulk weekday copy preserved",
+    "multiple weekdays use one atomic service-hours save",
+    "both weekday changes persist after reopen",
+    "1366 original settings panel contained",
+    "1024 original settings panel contained",
+    "768 original settings panel contained",
+    "special date calendar remains available",
+    "no duplicate day slot controls in native presentation",
+    "booking window shares original form",
+    "no browser errors"
+  ],
+  "errors": [],
+  "writes": [
+    "/__nextjs_original-stack-frames",
+    "/s/beauty-shared-qa/admin/dashboard/beauty",
+    "/s/beauty-shared-qa/admin/dashboard/settings-save/service-hours",
+    "/s/beauty-shared-qa/admin/dashboard/beauty",
+    "/s/beauty-shared-qa/admin/dashboard/beauty",
+    "/__nextjs_original-stack-frames"
+  ]
+}

@@ -1,0 +1,54 @@
+const receivableState=vi.hoisted(()=>new Map());
+vi.mock('@/server/services/store-receivable-notices',()=>({readReceivableNoticeState:async()=>receivableState}));
+beforeEach(()=>receivableState.clear());
+import {it,beforeEach,expect,vi} from 'vitest';
+const m=vi.hoisted(()=>({manager:vi.fn(),user:vi.fn(),permission:vi.fn(),view:vi.fn(),readonly:vi.fn(),setting:vi.fn(),raw:vi.fn(),transaction:vi.fn(),audit:vi.fn()}));
+vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:m.transaction,audit:m.audit}));
+vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{beautySetting:{findUnique:m.setting},$queryRaw:m.raw}}));
+vi.mock('@/lib/session',()=>({getCurrentUser:m.user}));vi.mock('@/lib/permissions',()=>({checkPermission:m.permission}));vi.mock('@/lib/feature-gate',()=>({hasStoreFeature:vi.fn(async()=>true)}));vi.mock('@/lib/store-view-context-server',()=>({resolveStoreViewContextFromCookie:m.view}));vi.mock('@/lib/store-read-only',()=>({isReadOnlyStoreTarget:m.readonly}));
+import {markAllBeautyStoreNotices,loadBeautyStoreNotices,markBeautyStoreNotice,loadBeautyStoreNoticeTarget} from '@/server/actions/beauty-store-notices';
+const now=new Date('2099-01-01T02:00Z'),row={id:'notice',kind:'MOVE',customerName:'姓名',courseName:'做臉',coachName:'技師',previousCoachName:'前技師',startsAt:now,previousStartsAt:null,affectedCount:1,details:{private:'hidden'},handledAt:null,handledByName:'人員',revision:2,createdAt:now,updatedAt:now};
+beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({storeId:'store',userId:'owner'});m.user.mockResolvedValue({id:'owner',role:'OWNER',staffId:'staff'});m.permission.mockResolvedValue(true);m.view.mockResolvedValue(null);m.readonly.mockReturnValue(false);m.setting.mockResolvedValue({backendNoticesEnabled:true});m.raw.mockImplementation(async(strings:TemplateStringsArray)=>strings.join('').includes('COUNT')?[{count:1}]:[row]);m.transaction.mockImplementation((_a,work)=>work({beautySetting:{findUnique:m.setting},$queryRaw:m.raw}));});
+it('checks current store before reads or writes and ignores the legacy disabled setting',async()=>{expect(await loadBeautyStoreNotices({storeId:'other',handled:false})).toMatchObject({success:false});expect(await markBeautyStoreNotice({storeId:'other',id:'notice',handled:true,revision:2})).toMatchObject({success:false});expect(m.raw).not.toHaveBeenCalled();m.setting.mockResolvedValue({backendNoticesEnabled:false});expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,enabled:true,count:1});});
+it('limits background summary to a count and hides personal snapshots without grants',async()=>{expect(await loadBeautyStoreNotices({storeId:'store',handled:false,summaryOnly:true})).toMatchObject({success:true,count:1,items:[]});expect(m.raw).toHaveBeenCalledTimes(1);m.permission.mockResolvedValue(false);expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,canHandle:false,items:[{customerName:'顧客',coachName:'技師',previousCoachName:null,handledByName:null,details:{},canViewCourse:false}]});});
+it('keeps parent/store view read-only and rejects stale writes before auditing',async()=>{m.view.mockResolvedValue({isViewMode:true});expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,canHandle:false});m.raw.mockResolvedValue([]);expect(await markBeautyStoreNotice({storeId:'store',id:'notice',handled:true,revision:1})).toMatchObject({success:false});expect(m.audit).not.toHaveBeenCalled();});
+it('marks only matching store, beauty subject and current revision',async()=>{m.raw.mockResolvedValue([{id:'notice',revision:3,handledAt:now,handledByName:'店長'}]);expect(await markBeautyStoreNotice({storeId:'store',id:'notice',handled:true,revision:2})).toMatchObject({success:true,data:{id:'notice',revision:3,handledAt:now.toISOString()}});expect(m.manager).toHaveBeenCalledWith('booking.update',true);expect(m.raw.mock.calls[0][0].join('')).toContain('"subjectKey" LIKE \'beauty:%\' AND revision=');expect(m.audit).toHaveBeenCalledOnce();});
+it('resolves the target from the saved notice and current appointment, never a supplied booking id',async()=>{m.raw.mockResolvedValue([{id:'actual-booking',startsAt:now}]);expect(await loadBeautyStoreNoticeTarget({storeId:'store',id:'notice',bookingId:'foreign'})).toMatchObject({success:true,data:{id:'actual-booking',date:'2099-01-01'}});expect(m.raw.mock.calls[0]).not.toContain('foreign');m.raw.mockResolvedValue([]);expect(await loadBeautyStoreNoticeTarget({storeId:'store',id:'gone'})).toMatchObject({success:false});});
+it('protects receivable amounts and customer names with finance permission',async()=>{
+ receivableState.set('digital:debt',{amount:500,customerName:'收款顧客'});
+ m.raw.mockImplementation(async(strings:TemplateStringsArray)=>strings.join('').includes('COUNT')?[{count:1}]:[{...row,id:'digital:debt',kind:'RECEIVABLE',customerName:'顧客'}]);
+ m.permission.mockImplementation(async(_role,_staff,p)=>p!=='transaction.read');
+ expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,items:[{amountDue:undefined,customerName:'顧客',canViewCourse:false}]});
+ m.permission.mockResolvedValue(true);
+ expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,items:[{amountDue:500,customerName:'收款顧客',canViewCourse:true}]});
+});
+it('opens the saved receivable appointment for finance readers, without granting access to unrelated customer reminders',async()=>{
+ m.permission.mockImplementation(async(_role,_staff,p)=>p==='transaction.read');
+ m.raw.mockResolvedValue([{id:'actual-booking',startsAt:now}]);
+ expect(await loadBeautyStoreNoticeTarget({storeId:'store',id:'digital:debt'})).toMatchObject({success:true,data:{id:'actual-booking'}});
+ const sql=m.raw.mock.calls[0][0].join('');expect(sql).toContain("'OUTSTANDING_PAYMENT'");expect(sql).toContain("'beauty-receivable:service:%'");
+ m.raw.mockClear();expect(await loadBeautyStoreNoticeTarget({storeId:'store',id:'ordinary-customer-notice'})).toMatchObject({success:false});expect(m.raw).not.toHaveBeenCalled();
+});
+it('keeps payment notices generic and opens finance only with transaction read permission',async()=>{
+ m.raw.mockImplementation(async(strings:TemplateStringsArray)=>strings.join('').includes('COUNT')?[{count:1}]:[{...row,id:'digital:payment',kind:'PAYMENT',customerName:'方案付款',coachName:'',courseName:''}]);
+ m.permission.mockImplementation(async(_role,_staff,permission)=>permission!=='transaction.read');
+ expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,items:[{id:'digital:payment',customerName:'方案付款',coachName:'',canViewCourse:false}]});
+ m.permission.mockResolvedValue(true);
+ expect(await loadBeautyStoreNotices({storeId:'store',handled:false})).toMatchObject({success:true,items:[{id:'digital:payment',canViewCourse:true}]});
+});
+it('marks only the current store and a Beauty payment notice with the expected revision',async()=>{
+ m.raw.mockResolvedValue([{id:'payment',revision:3,handledAt:now,handledByName:'店長'}]);
+ expect(await markBeautyStoreNotice({storeId:'store',id:'digital:payment',handled:true,revision:2})).toMatchObject({success:true,data:{id:'digital:payment',revision:3}});
+ const sql=m.raw.mock.calls[0][0].join('');expect(sql).toContain('"DigitalManagerNotice"');expect(sql).toContain('"storeId"=');expect(sql).toContain("'beauty-purchase-pending:%'");expect(sql).toContain('revision=');
+});
+
+it('bulk marks all current-store pages and records one audit',async()=>{
+ const execute=vi.fn().mockResolvedValueOnce(51).mockResolvedValueOnce(9);
+ m.transaction.mockImplementation(async(_actor,work)=>work({$executeRaw:execute}));
+ expect(await markAllBeautyStoreNotices({storeId:'store'})).toEqual({success:true,storeId:'store',count:60});
+ expect(execute).toHaveBeenCalledTimes(2);expect(m.audit).toHaveBeenCalledOnce();
+ for(const call of execute.mock.calls){const sql=call[0].join('');expect(sql).toContain('"storeId"=');expect(sql).toContain('"readAt" IS NULL');expect(sql).not.toContain('LIMIT');}
+});
+it('rejects bulk handling for a different store before transaction',async()=>{
+ expect(await markAllBeautyStoreNotices({storeId:'foreign'})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();
+});

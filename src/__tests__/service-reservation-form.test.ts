@@ -1,0 +1,165 @@
+// @vitest-environment jsdom
+import {act,createElement} from 'react';
+import {createRoot,type Root} from 'react-dom/client';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+import {ServiceReservationForm,type ServiceReservationSource} from '@/components/admin/service-reservation-form';
+let host:HTMLDivElement,root:Root;
+const read=vi.fn(),submit=vi.fn(),guard=vi.fn(),created=vi.fn(),createCustomer=vi.fn();
+const card={id:'soon',name:'快到期方案',memberIds:['customer','other'],serviceIds:['s1','s2'],remaining:4,held:0,expiresAt:'2026-12-31T15:59:59Z',closedAt:null,allowShared:true};
+function source():ServiceReservationSource{return {services:[{id:'s1',name:'做臉',duration:60,buffer:15,price:1000,trialPrice:500,revision:7},{id:'s2',name:'按摩',duration:90,buffer:15,price:1500,trialPrice:null,revision:2}],technicians:[{id:'t1',name:'技師甲',serviceIds:['s1','s2']},{id:'t2',name:'技師乙',serviceIds:['s1','s2']}],locations:[{id:'r1',name:'床位甲'},{id:'r2',name:'床位乙'}],customers:[{id:'customer',name:'同名顧客',phone:'0900000001'},{id:'other',name:'同名顧客',phone:'0900000002'}],cards:[{...card,id:'later',expiresAt:'2027-02-01T15:59:59Z'},card],policyRevision:3,readAvailability:read,submit,createCustomer};}
+beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-27T00:00:00Z"));vi.clearAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement('div');document.body.append(host);root=createRoot(host);read.mockImplementation(async intent=>({success:true,data:{slots:['14:00','15:00'],arrangement:intent.people.map((p: {specifiedTechnicianId:string;specifiedLocationId:string},i:number)=>({technicianId:p.specifiedTechnicianId||`t${i+1}`,locationId:p.specifiedLocationId||`r${i+1}`,technicianName:i?'技師乙':'技師甲',locationName:i?'床位乙':'床位甲'}))}}));submit.mockResolvedValue({success:true});createCustomer.mockResolvedValue({success:true,customer:{id:'new',name:'新顧客',phone:'0900000003'}});});
+afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.useRealTimers();});
+async function mount(seed:{roomId?:string;coachId?:string;customerId?:string}={},data=source(),bookingType?:'regular'|'trial'){await act(async()=>root.render(createElement(ServiceReservationForm,{source:data,bookingType,date:'2026-10-28',seed:{time:'14:00',...seed},onGuard:guard,onCreated:created})));}
+function input(label:string){return host.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;}
+function button(text:string){return [...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent===text)!;}
+async function set(label:string,value:string){const element=input(label);await act(async()=>{Object.getOwnPropertyDescriptor(element.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value')!.set!.call(element,value);element.dispatchEvent(new Event(element.tagName==='SELECT'?'change':'input',{bubbles:true}));});}
+async function tick(){await act(async()=>vi.advanceTimersByTimeAsync(360));}
+async function choose(index:number,phone:string){await act(async()=>input(`顧客姓名 ${index}`).focus());await set(`顧客姓名 ${index}`,phone);await act(async()=>[...host.querySelectorAll<HTMLElement>('[role="option"]')].find(e=>e.textContent?.includes(phone))!.click());}
+it('uses clicked time/technician/location, defaults to the first location outside that view and shows real service and buffer times',async()=>{
+ await mount({coachId:'t2',roomId:'r2',customerId:'customer'});expect(input('預約開始時間').value).toBe('14:00');expect(input('此位技師 1').value).toBe('t2');expect(input('此位位置 1').value).toBe('r2');expect(host.textContent).toContain('14:00–15:00');expect(host.textContent).toContain('整理至 15:15');
+ await set('服務項目 1','s2');expect(host.textContent).toContain('14:00–15:30');expect(host.textContent).toContain('整理至 15:45');
+ await act(async()=>root.unmount());root=createRoot(host);await mount();expect(input('此位位置 1').value).toBe('r1');
+});
+it('searches names or phones, distinguishes identical names and invalidates a prior customer as soon as a new query is typed',async()=>{
+ await mount();await choose(1,'0900000002');await tick();expect(read.mock.calls.at(-1)![0].people[0].customerId).toBe('other');expect(button('確認預約').disabled).toBe(false);
+ await act(async()=>input('顧客姓名 1').focus());await set('顧客姓名 1','尚未選定');expect(button('確認預約').disabled).toBe(true);expect(submit).not.toHaveBeenCalled();expect(input('使用方案 1').value).toBe('');
+});
+it('prioritizes valid expiring plans, automatically checks availability, and submits authoritative identity links without collecting payment',async()=>{
+ await mount({customerId:'customer',coachId:'t1'});expect(input('使用方案 1').value).toBe('soon');expect([...input('使用方案 1').querySelectorAll('option')].map(o=>o.value)).toEqual(['soon','later','','__trial__']);await tick();expect(read.mock.calls[0][0].requestKey).toMatch(/^[0-9a-f-]{36}$/);
+ expect(host.textContent).toContain('方案使用 1 次');expect(host.textContent).toContain('應收 NT$ 0');
+ await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(submit).toHaveBeenCalledOnce();expect(submit.mock.calls[0][0]).toMatchObject({date:'2026-10-28',time:'14:00',policyRevision:3,people:[{customerId:'customer',serviceId:'s1',cardId:'soon',specifiedTechnicianId:'t1',specifiedLocationId:'r1'}]});expect(submit.mock.calls[0][0]).not.toHaveProperty('paid');expect(created).toHaveBeenCalledWith('2026-10-28');
+});
+it('allocates a different technician and bed for a pending companion while preserving the clicked first resources',async()=>{
+ await mount({customerId:'customer',coachId:'t1'});await act(async()=>button('＋新增同行者').click());await set('服務項目 2','s2');await tick();
+ expect(input('顧客姓名 2').placeholder).toBe('同行者資料後補');expect(host.textContent).toContain('14:00–15:30');expect(button('確認預約').disabled).toBe(false);
+ const intent=read.mock.calls.at(-1)![0];expect(intent.people[0]).toMatchObject({specifiedTechnicianId:'t1',specifiedLocationId:'r1'});expect(intent.people[1]).toMatchObject({customerId:null,phone:'',pendingIdentity:true,specifiedLocationId:null,specifiedTechnicianId:null,cardId:'soon'});
+ expect(input('此位技師 2').textContent).toContain('自動 · 技師乙');expect(input('此位位置 2').textContent).toContain('自動 · 床位乙');
+ await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(submit.mock.calls[0][0].expectedArrangement).toEqual([{technicianId:'t1',locationId:'r1'},{technicianId:'t2',locationId:'r2'}]);
+});
+it('defaults to an applicable plan on service changes, then single payment if no applicable plan exists',async()=>{
+ const data=source();data.cards=[{...card,serviceIds:['s1']}];await mount({customerId:'customer'},data);expect(input('使用方案 1').value).toBe('soon');await set('服務項目 1','s2');expect(input('使用方案 1').value).toBe('');expect(host.textContent).toContain('應收 NT$ 1,500');await tick();expect(button('確認預約').disabled).toBe(false);
+});
+it('disables duplicate IDs but allows distinct customers with the same name',async()=>{
+ await mount({customerId:'customer'});await act(async()=>button('＋新增同行者').click());await act(async()=>input('顧客姓名 2').focus());
+ const duplicate=[...host.querySelectorAll<HTMLElement>('[role="option"]')].find(e=>e.textContent?.includes('0900000001'))!;
+ expect(duplicate.getAttribute('aria-disabled')).toBe('true');expect(duplicate.textContent).toContain('已選為第 1 位');await act(async()=>duplicate.click());expect(input('顧客姓名 2').value).toBe('');await choose(2,'0900000002');await tick();expect(button('確認預約').disabled).toBe(false);
+});
+it('shares only an authorized shared card and counts the combined party quota before falling back to single payment',async()=>{
+ const data=source();data.cards=[{...card,remaining:2,held:1}];await mount({customerId:'customer'},data);await act(async()=>button('＋新增同行者').click());expect(input('使用方案 1').value).toBe('soon');expect(input('使用方案 2').value).toBe('');expect(host.textContent).toContain('方案使用 1 次');
+ await set('使用方案 1','');expect(input('使用方案 2').value).toBe('soon');await set('使用方案 2','__trial__');await tick();expect(button('確認預約').disabled).toBe(true);expect(read).not.toHaveBeenCalled();await choose(2,'0900000002');await set('使用方案 2','__trial__');await tick();expect(read.mock.calls.at(-1)![0].people.map((p:{isTrial:boolean})=>p.isTrial)).toEqual([false,true]);expect(host.textContent).toContain('應收 NT$ 1,500');
+});
+it('does not allow a pending companion to use a non-shared card',async()=>{
+ const data=source();data.cards=[{...card,allowShared:false}];await mount({customerId:'customer'},data);await act(async()=>button('＋新增同行者').click());expect(input('使用方案 2').value).toBe('');expect(input('使用方案 2').textContent).not.toContain('快到期方案');
+});
+it('pins the previewed assignments across an ambiguous retry and preserves manual overrides',async()=>{
+ await mount({customerId:'customer'});await act(async()=>button('＋新增同行者').click());await set('此位位置 2','r2');await set('此位技師 2','t2');await tick();
+ submit.mockRejectedValueOnce(Error('connection lost'));const send=()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await act(async()=>{send();});const first=structuredClone(submit.mock.calls[0][0]);expect(host.textContent).toContain('送出結果尚未確認');await act(async()=>{send();});expect(submit.mock.calls[1][0]).toEqual(first);expect(input('此位位置 2').value).toBe('r2');expect(input('此位技師 2').value).toBe('t2');
+});
+it('does not clear clicked inactive resources or select another one silently',async()=>{
+ await mount({customerId:'customer',roomId:'inactive',coachId:'inactive'});expect(input('此位位置 1').value).toBe('inactive');expect(input('此位技師 1').value).toBe('inactive');expect(button('確認預約').disabled).toBe(true);await tick();expect(read).not.toHaveBeenCalled();
+});
+it('ignores late availability responses for a previous time and retains drafts after submit failure',async()=>{
+ let old:(r:unknown)=>void=()=>{};read.mockImplementationOnce(()=>new Promise(resolve=>{old=resolve;}));await mount({customerId:'customer'});await tick();await set('預約開始時間','15:00');await tick();expect(button('確認預約').disabled).toBe(false);
+ await act(async()=>old({success:true,data:{slots:[]}}));expect(button('確認預約').disabled).toBe(false);
+ submit.mockResolvedValueOnce({success:false,error:'時段剛被預約'});await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(host.textContent).toContain('時段剛被預約');expect(input('預約開始時間').value).toBe('15:00');expect(input('顧客姓名 1').value).toContain('0900000001');
+});
+it('creates a customer only after an explicit action and selects the returned identity',async()=>{
+ await mount();await act(async()=>input('顧客姓名 1').focus());await set('顧客姓名 1','新顧客');await act(async()=>button('＋新增顧客').click());await set('新增顧客姓名','新顧客');await set('新增顧客電話','0900000003');expect(createCustomer).not.toHaveBeenCalled();await act(async()=>button('建立並選用').click());await tick();expect(createCustomer).toHaveBeenCalledWith({name:'新顧客',phone:'0900000003'});expect(read.mock.calls.at(-1)![0].people[0].customerId).toBe('new');expect(host.textContent).toContain('應收 NT$ 1,000');
+});
+
+it('requires an explicit search result or an empty pending identity instead of silently discarding typed companion details',async()=>{await mount({customerId:'customer'});await act(async()=>button('＋新增同行者').click());await tick();expect(button('確認預約').disabled).toBe(false);await act(async()=>input('顧客姓名 2').focus());await set('顧客姓名 2','未建檔的親友');expect(button('確認預約').disabled).toBe(true);expect(host.textContent).toContain('請選擇搜尋結果，或清空姓名以資料後補');await set('顧客姓名 2','');await tick();expect(button('確認預約').disabled).toBe(false);});
+
+it('supports one-customer direct service checkout without exposing card or companion grants',async()=>{const data={...source(),cards:[],maxPeople:1,createCustomer:undefined};await mount({customerId:'customer'},data);expect(button('＋新增同行者')).toBeUndefined();expect(input('使用方案 1').value).toBe('');expect(host.textContent).toContain('應收 NT$ 1,000');await set('使用方案 1','__trial__');expect(host.textContent).toContain('應收 NT$ 500');await tick();await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));expect(submit.mock.calls[0][0].people[0]).toMatchObject({customerId:'customer',cardId:null,isTrial:true});});
+
+it('offers a visible trial entry, creates a new identity and submits the trial price instead of a regular service',async()=>{
+ const data={...source(),itemEntitlements:true};await mount({},data);
+ await set('服務類型 1','__trial__');await act(async()=>button('＋新增顧客').click());
+ expect(input('服務類型 1').value).toBe('__trial__');expect(host.querySelector('[aria-label="新增顧客"]')).not.toBeNull();
+ await set('新增顧客姓名','新顧客');await set('新增顧客電話','0900000003');await tick();
+ expect(read).not.toHaveBeenCalled();expect(button('確認預約').disabled).toBe(true);
+ await act(async()=>button('建立並選用').click());await tick();
+ expect(createCustomer).toHaveBeenCalledWith({name:'新顧客',phone:'0900000003'});expect(input('服務類型 1').value).toBe('__trial__');expect(host.textContent).toContain('應收 NT$ 500');
+ await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(submit.mock.calls[0][0].people[0]).toMatchObject({customerId:'new',name:'新顧客',phone:'0900000003',isTrial:true,cardId:null});
+});
+it('allows trial selection before choosing an existing customer and preserves trial when identity changes',async()=>{
+ await mount({},{...source(),itemEntitlements:true});
+ expect(input('服務類型 1').querySelector<HTMLOptionElement>('option[value="__trial__"]')!.disabled).toBe(false);
+ await set('服務類型 1','__trial__');expect(host.querySelector('[aria-label="新增顧客"]')).toBeNull();
+ await choose(1,'0900000002');await tick();
+ expect(host.querySelector('[aria-label="新增顧客"]')).toBeNull();expect(input('服務類型 1').value).toBe('__trial__');expect(read.mock.calls.at(-1)![0].people[0]).toMatchObject({customerId:'other',isTrial:true,cardId:null});
+});
+it('retains trial name and phone after a create failure, blocks invalid phones and does not submit a booking',async()=>{
+ createCustomer.mockResolvedValueOnce({success:false,error:'已達顧客額度上限'});
+ await mount({},{...source(),itemEntitlements:true});await set('服務類型 1','__trial__');await act(async()=>button('＋新增顧客').click());
+ await set('新增顧客姓名','新顧客');await set('新增顧客電話','123');expect(button('建立並選用').disabled).toBe(true);
+ await set('新增顧客電話','0900000003');await act(async()=>button('建立並選用').click());
+ expect(input('新增顧客姓名').value).toBe('新顧客');expect(input('新增顧客電話').value).toBe('0900000003');expect(host.textContent).toContain('已達顧客額度上限');expect(input('服務類型 1').value).toBe('__trial__');expect(submit).not.toHaveBeenCalled();
+});
+it('hides trial creation without customer-create permission or an applicable trial price',async()=>{
+ await mount({},{...source(),itemEntitlements:true,createCustomer:undefined});expect(button('＋新增顧客')).toBeUndefined();expect(input('服務類型 1').querySelector<HTMLOptionElement>('option[value="__trial__"]')!.disabled).toBe(true);
+ await choose(1,'0900000001');await set('服務類型 1','__trial__');await tick();expect(read.mock.calls.at(-1)![0].people[0].isTrial).toBe(true);
+ await set('服務項目 1','s2');expect(button('＋新增顧客')).toBeUndefined();expect(input('服務類型 1').value).toBe('');
+});
+
+it('blocks booking an old identity while a new trial customer is being entered and reuses a returned existing identity',async()=>{
+ await mount({customerId:'customer'},{...source(),itemEntitlements:true});await tick();expect(button('確認預約').disabled).toBe(false);
+ await set('服務類型 1','__trial__');await act(async()=>button('＋新增顧客').click());expect(button('確認預約').disabled).toBe(true);expect(input('顧客姓名 1')).toBeNull();expect(host.textContent).not.toContain('可用時段：');
+ await set('新增顧客姓名','同名顧客');await set('新增顧客電話','0900000002');await act(async()=>button('建立並選用').click());expect(createCustomer).not.toHaveBeenCalled();expect(host.textContent).toContain('此電話已有顧客資料');await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent?.startsWith('選用既有顧客'))!.click());await tick();
+ expect(input('服務類型 1').value).toBe('__trial__');expect(read.mock.calls.at(-1)![0].people[0]).toMatchObject({customerId:'other',isTrial:true});expect(button('確認預約').disabled).toBe(false);
+});
+
+it('clears the inline creation guard when its companion is removed',async()=>{
+ await mount({customerId:'customer'},{...source(),itemEntitlements:true});await act(async()=>button('＋新增同行者').click());
+ await set('服務類型 2','__trial__');await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="新增顧客 2"]')!.click());expect(host.querySelector('[aria-label="新增顧客"]')).not.toBeNull();
+ await act(async()=>button('移除同行者 1').click());await tick();expect(host.querySelector('[aria-label="新增顧客"]')).toBeNull();expect(button('確認預約').disabled).toBe(false);
+});
+
+it('creates a regular customer without changing booking type and restores the prior selection on cancel',async()=>{
+ await mount({customerId:'customer'},{...source(),itemEntitlements:true});await tick();
+ await act(async()=>button('＋新增顧客').click());expect(input('顧客姓名 1')).toBeNull();expect(input('服務類型 1').value).toBe('');expect(host.textContent).not.toContain('可用時段：');
+ await act(async()=>button('取消新增').click());expect(input('顧客姓名 1').value).toContain('0900000001');expect(input('預約開始時間').value).toBe('14:00');
+ await act(async()=>button('＋新增顧客').click());await set('新增顧客姓名','新顧客');await set('新增顧客電話','0900000003');await act(async()=>button('建立並選用').click());await tick();
+ expect(read.mock.calls.at(-1)![0].people[0]).toMatchObject({customerId:'new',isTrial:false});expect(input('預約開始時間').value).toBe('14:00');
+});
+it('requires confirmation when the server finds a customer absent from the search snapshot',async()=>{
+ createCustomer.mockResolvedValueOnce({success:true,customer:{id:'new-existing',name:'已建檔顧客',phone:'0900000003',existing:true}});
+ await mount({},{...source(),itemEntitlements:true});await act(async()=>button('＋新增顧客').click());await set('新增顧客姓名','顧客');await set('新增顧客電話','0900000003');await act(async()=>button('建立並選用').click());
+ expect(input('新增顧客姓名').value).toBe('顧客');expect(button('確認預約').disabled).toBe(true);expect(host.textContent).toContain('請確認後選用既有顧客');
+ await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='選用既有顧客 已建檔顧客')!.click());await tick();expect(read.mock.calls.at(-1)![0].people[0].customerId).toBe('new-existing');
+});
+
+
+it('preserves selected add-ons through new trial customer creation and includes their price, duration and identity in the submitted booking',async()=>{
+ const data={...source(),itemEntitlements:true};
+ data.services[0].trialDuration=30;
+ data.services[0].addOnGroups=[{id:'extras',title:'加做服務',required:false,multiple:true,options:[{id:'head',name:'頭部放鬆',price:200,duration:15,active:true}]}];
+ await mount({},data,'trial');
+ await act(async()=>host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+ await act(async()=>button('＋新增顧客').click());
+ await set('新增顧客姓名','新顧客');await set('新增顧客電話','0900000003');
+ expect(button('確認預約').disabled).toBe(true);
+ await act(async()=>button('建立並選用').click());await tick();
+ expect(host.textContent).toContain('14:00–14:45');expect(host.textContent).toContain('應收 NT$ 700');
+ expect(read.mock.calls.at(-1)![0].people[0]).toMatchObject({customerId:'new',isTrial:true,addOnIds:['head']});
+ await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(submit.mock.calls[0][0].people[0]).toMatchObject({customerId:'new',isTrial:true,cardId:null,addOnIds:['head']});
+});
+it('clears the previous service add-ons and recalculates availability when the main service changes',async()=>{
+ const data=source();data.services[0].addOnGroups=[{id:'extras',title:'加做服務',required:false,multiple:true,options:[{id:'head',name:'頭部放鬆',price:200,duration:15,active:true}]}];
+ await mount({customerId:'customer'},data);
+ await act(async()=>host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());await tick();
+ expect(read.mock.calls.at(-1)![0].people[0].addOnIds).toEqual(['head']);
+ await set('服務項目 1','s2');expect(button('確認預約').disabled).toBe(true);await tick();
+ expect(read.mock.calls.at(-1)![0].people[0]).toMatchObject({serviceId:'s2',addOnIds:[]});expect(host.textContent).toContain('14:00–15:30');
+});
+it('passes committed cards to the calendar immediately without waiting for another read',async()=>{
+ const sessions=[{id:'committed-booking',nameSnapshot:'做臉',startsAt:'2026-10-28T06:00:00Z'}];
+ submit.mockResolvedValue({success:true,data:{ids:['committed-booking'],sessions}});
+ await mount({customerId:'customer'});await tick();
+ await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(created).toHaveBeenCalledWith('2026-10-28',sessions);expect(submit).toHaveBeenCalledOnce();
+});

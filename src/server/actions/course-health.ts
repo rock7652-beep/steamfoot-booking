@@ -1,44 +1,37 @@
 "use server";
+import {readCustomerHealthForStore} from "@/server/services/customer-health-read";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { courseManager, courseMember } from "@/server/services/course-access";
 import { AppError, handleActionError } from "@/lib/errors";
 import { healthRecordInputSchema } from "@/lib/health-record-input";
-import { getNativeHealthSummary, calculateNativeBmi } from "@/lib/native-health-service";
+import { calculateNativeBmi } from "@/lib/native-health-service";
 import { toLocalDateStr, parseTaipeiDateTime } from "@/lib/date-utils";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { revalidatePath } from "next/cache";
 
-export async function loadCourseHealth(customerId: string) {
+export async function loadCourseHealth(customerId: string,module:"course"|"beauty"="course") {
   try {
-    const { storeId } = await courseManager("customer.read");
+    module=z.enum(["course","beauty"]).parse(module);
+    const {storeId}=module==='beauty'?await(await import('@/server/beauty/access')).beautyManager("customer.read"):await courseManager("customer.read");
     await requireStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY);
-    return await readHealth(storeId, customerId);
+    return await readCustomerHealthForStore(storeId, customerId);
   } catch (e) { return handleActionError(e); }
-}
-
-async function readHealth(storeId: string, customerId: string) {
-    const customer = await prisma.customer.findFirst({ where: { id: customerId, storeId, mergedIntoCustomerId: null }, select: { id: true } });
-    if (!customer) throw new AppError("NOT_FOUND", "找不到本店顧客");
-    const [summary, records] = await Promise.all([
-      getNativeHealthSummary(customerId, storeId),
-      prisma.customerHealthRecord.findMany({ where: { customerId, storeId }, orderBy: [{ measuredAt: "desc" }, { createdAt: "desc" }], take: 100 }),
-    ]);
-    return { success: true as const, data: { summary, records: records.map((r) => ({ ...r, measuredAt: r.measuredAt.toISOString().slice(0, 10), createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() })) } };
 }
 
 export async function loadCourseMemberHealth() {
   try {
     const { storeId, customer } = await courseMember();
     await requireStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY);
-    return await readHealth(storeId, customer.id);
+    return await readCustomerHealthForStore(storeId, customer.id);
   } catch (e) { return handleActionError(e); }
 }
 
-export async function saveCourseHealth(input: unknown) {
+export async function saveCourseHealth(input: unknown,module:"course"|"beauty"="course") {
   try {
-    const { storeId } = await courseManager("customer.update");
+    module=z.enum(["course","beauty"]).parse(module);
+    const {storeId}=module==='beauty'?await(await import('@/server/beauty/access')).beautyManager("customer.update",true):await courseManager("customer.update");
     const { customerId, id } = z.object({ customerId: z.string().min(1), id: z.string().min(1).optional() }).parse(input);
     await requireStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY);
     return await writeHealth(storeId, customerId, id, input);

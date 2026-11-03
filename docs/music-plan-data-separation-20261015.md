@@ -1,0 +1,9 @@
+# Plan and holding separation — isolated music Preview
+
+Read-only audit: 26 catalog plans. 17 explicitly designated acceptance catalogs are registered by exact ID. Nine general/source catalogs remain operational, including six price catalogs created by preview-music-products-20260926.sql, the individual $400 catalog and two source pilot catalogs. The `music-demo` ID prefix is not classification evidence for real pricing configuration. Catalogs are not students' balances.
+
+120 holdings: 112 exclusively verified synthetic-member cards with raw remaining 448 (includes expired/inactive/blocked balances; not a payable or available total), and eight source-linked cards. Source has seven active ordinary cards with remaining 63, reserved 45, available 18, plus a closed zero-balance makeup test card. No mixed or memberless cards in this audit. Six group students each have 8/6/2; Huang Ziqi has 15/9/6. Three source students have no active ordinary card; this is not evidence their full source history has been imported. The one historical opening makeup entitlement remains separate from ordinary credit.
+
+Apply complementary server filters before holding pagination and complete customer totals, including direct-detail reads and cache keys. Legacy requires at least one member and every member to belong to the verified synthetic cohort in this store. Unknown/mixed/memberless cards remain operational for review; never split shared balances. Catalog and pending purchase review use exact audited IDs. The common classification UI replaces name hiding in this Preview; selected scope propagates through card readers. Other environments retain existing behavior.
+
+No card, booking, balance, entitlement, schema or production writes. Existing permissions and balance projections remain authoritative.

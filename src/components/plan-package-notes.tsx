@@ -1,3 +1,4 @@
+import {CoursePersonnelText} from "@/components/course-personnel-label";
 import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 /** Display copy only: never updates billing, subscriptions or entitlements. */
 export function PlanPackageNotes() {
@@ -7,7 +8,7 @@ export function PlanPackageNotes() {
       <p className="mb-3">試用包含所選模組功能與母子店管理（母店加一家分店），不含代辦金流申請與串接。自動提醒不限次數；LINE 官方帳號訊息費依 LINE 計費規則另計。</p>
       <h3 className="font-semibold text-earth-900">限時優惠｜一次繳一年，再送 2 個月</h3>
       <p className="mt-2">所有方案依功能區分，顧客、人員、預約及自動提醒不限數量。訊息與金流等外部費用另計。</p>
-      <p className="mt-2">店長、後台員工、教師／教練及技師／芳療師等服務人員皆不限數量，操作仍依角色與個別權限。</p>
+      <p className="mt-2"><CoursePersonnelText text="店長、後台員工、教師／教練及技師／芳療師等服務人員皆不限數量，操作仍依角色與個別權限。"/></p>
       <p className="mt-2">年繳主方案一次支付 12 個月費用，優惠期間共可使用 14 個月：基本版 NT$17,760（優惠期間平均約 NT$1,269／月）、專業版 NT$29,760（平均約 NT$2,126／月）、展店版 NT$35,760 起（平均約 NT$2,554／月）。月繳均為 12 個月最低承諾，按 12 期支付且無年繳贈送：基本版 NT$1,480／月（總額 NT$17,760）、專業版 NT$2,480／月（總額 NT$29,760）、展店版 NT$2,980／月（總額 NT$35,760）。</p>
       <p className="mt-2">三個付費方案皆內含 LINE 提醒、顧客標籤與 LINE 顧客入口（LIFF），可預約、取消及查詢方案堂數；保留各門市獨立開關。入口開啟不代表其他模組全部開通。</p>
       <p className="mt-3">展店版月繳 NT$2,980／月，最低承諾 12 個月（合計 NT$35,760，無贈送）；年繳 NT$35,760，優惠期間使用 14 個月，平均約 NT$2,554／月，包含總部管理。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版 $1,480／月或專業版 $2,480／月。首間分店免串接費；例如 6 間分店的串接費共 $2,300／月。</p>

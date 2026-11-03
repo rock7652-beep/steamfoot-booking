@@ -10,6 +10,7 @@ vi.mock("next/cache", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    store: { findUnique: vi.fn().mockResolvedValue({industryModule:"STEAMFOOT"}) },
     $queryRaw: vi.fn().mockResolvedValue([{ industryModule: "STEAMFOOT", music: false, legacySharedPlan: false, status: null, startsAt: null, expiresAt: null }]),
     storeFeatureEntitlement: {
       findUnique: (...args: unknown[]) => mockEntitlementFindUnique(...args),
@@ -86,17 +87,16 @@ describe("hasStoreFeature", () => {
     expect(await hasStoreFeature("new-course", "headquarter_view" as FeatureKey)).toBe(true);
     expect(mockEntitlementFindUnique).toHaveBeenCalled();
   });
-  it("opens every registered feature for the isolated SPA Demo store", async () => {
+  it("applies normal feature entitlements to a former Demo store", async () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
-
-    await expect(
-      hasStoreFeature("demo-store", FEATURES.DIGITAL_BUTLER),
-    ).resolves.toBe(true);
-    await expect(
-      hasStoreFeature("demo-store", FEATURES.BASIC_REPORTS),
-    ).resolves.toBe(true);
-    expect(mockGetStoreForPlanByStoreId).not.toHaveBeenCalled();
-    expect(mockEntitlementFindUnique).not.toHaveBeenCalled();
+    mockStore("BASIC");
+    expect(await hasStoreFeature("demo-store", FEATURES.DIGITAL_BUTLER)).toBe(false);
+    mockEntitlement("ENABLED");
+    expect(await hasStoreFeature("demo-store", FEATURES.DIGITAL_BUTLER)).toBe(true);
+    mockEntitlement("DISABLED");
+    expect(await hasStoreFeature("demo-store", FEATURES.BASIC_REPORTS)).toBe(false);
+    expect(mockGetStoreForPlanByStoreId).toHaveBeenCalledWith("demo-store");
+    expect(mockEntitlementFindUnique).toHaveBeenCalled();
   });
 
   it.each([
@@ -339,7 +339,7 @@ describe("full single-store trial across industries", () => {
   it("includes preview, LIFF and all single-store features for legacy undated trial stores", async () => {
     mockStore("EXPERIENCE");
     const { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } = await import("@/lib/feature-gate");
-    const excluded = new Set<FeatureKey>([FEATURES.SHARED_CARD, FEATURES.STORE_OPERATION_AUDIT]);
+    const excluded = new Set<FeatureKey>([FEATURES.SHARED_CARD, FEATURES.STORE_OPERATION_AUDIT, FEATURES.ADD_ONS, FEATURES.BEAUTY_SERVICE_ADD_ONS]);
     for (const feature of Object.values(FEATURES)) {
       expect(await hasStoreFeature("store-1", feature), feature).toBe(!excluded.has(feature));
     }
@@ -373,6 +373,7 @@ describe("inventory and work order paid add-ons", () => {
       for (const status of ["DISABLED","LOCKED","HIDDEN"] as const) {
         mockEntitlement(status);
         expect(await hasStoreFeature("store-a",feature)).toBe(false);
+        expect(await getStoreFeaturePresentation("store-a",feature)).toBe("HIDDEN");
       }
       mockEntitlement("ENABLED",{startsAt:new Date("2099-01-01")});
       expect(await hasStoreFeature("store-a",feature)).toBe(false);

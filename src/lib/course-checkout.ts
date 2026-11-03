@@ -1,5 +1,8 @@
 import { z } from "zod";
 export const courseCheckoutSchema = z.object({
+  musicReceived: z.number().int().min(0).max(10000000).optional(),
+  musicPaymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  musicDiscountTeacherFee: z.boolean().optional(),
   musicPurchaseTerms: z.number().int().min(1).max(100).optional(),
   musicValidityDays: z.number().int().min(1).max(3650).optional(),
   musicManualBonus: z.number().int().min(0).max(1000).optional(),

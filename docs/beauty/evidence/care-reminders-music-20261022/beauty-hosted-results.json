@@ -1,0 +1,57 @@
+{
+  "commit": "2c4c6a4305f42e9f202625e89591f390b41f4cdb",
+  "origin": "https://steamfoot-booking-5q0m9p0ot-rock7652-2111s-projects.vercel.app",
+  "results": [
+    {
+      "case": "shared plan editor protects the unsaved draft when changing reminder tabs",
+      "passed": true
+    },
+    {
+      "case": "real Beauty plan save/reopen keeps low-count and expiry rules with normalized days",
+      "passed": true
+    },
+    {
+      "case": "owner cannot save a foreign store reminder draft",
+      "passed": true
+    },
+    {
+      "case": "owner stale plan revision cannot overwrite the saved rules",
+      "passed": true
+    },
+    {
+      "case": "owner cannot save another store plan",
+      "passed": true
+    },
+    {
+      "case": "shared trial-care editor protects drafts inside the existing settings panel",
+      "passed": true
+    },
+    {
+      "case": "real trial-care save/reopen preserves copy while explicitly retaining LINE-off state",
+      "passed": true
+    },
+    {
+      "case": "member cannot invoke manager plan-reminder writer",
+      "passed": true
+    },
+    {
+      "case": "member can save/reopen and restore only their own 方案剩餘／用完與到期提醒 preference",
+      "passed": true
+    },
+    {
+      "case": "member can save/reopen and restore only their own 體驗後關懷 preference",
+      "passed": true
+    },
+    {
+      "case": "notification cron rejects calls without its existing authorization secret",
+      "passed": true
+    },
+    {
+      "case": "test reminder switches/copy restored through actual owner actions; no billing operations",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "physicalDevice": false,
+  "lineDelivery": false
+}

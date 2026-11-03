@@ -1,10 +1,15 @@
+import { courseDisplayName } from "@/lib/course-template-presentation";
+import {coursePurchaseCashflow} from "@/server/services/music-tuition-cashflow";
 import "server-only";
+import { musicPurchaseWhere, musicTrialBookingWhere } from "@/server/services/music-finance-scope";
+import { musicDataScope } from "@/server/services/music-data-scope";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import { requireCourseStore } from "@/lib/industry-module-server";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
-import type { ReportFilters, TransactionDetail, StoreRevenueSummary } from "@/lib/report-queries";
-import { paymentMethodReportAmount, type PaymentSplitInput } from "@/lib/payment-splits";
+import {moduleRevenueReport,type ModuleRevenueRow} from "@/lib/module-revenue-report";
+import type { ReportFilters } from "@/lib/report-queries";
+import { type PaymentSplitInput } from "@/lib/payment-splits";
 import { AppError } from "@/lib/errors";
 export async function getCourseRevenueReport(storeId: string, filters: ReportFilters) {
   await requireCourseStore(storeId);
@@ -16,19 +21,19 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
   const range = { gte: dayRange(filters.startDate).start, lte: dayRange(filters.endDate).end };
   return coursePrisma.$transaction(async (tx) => {
   const [orders, refunds, store, trialReceipts] = await Promise.all([
-    tx.coursePurchase.findMany({ where: { storeId, status: { in: ["CONFIRMED","REFUNDED"] }, confirmedAt: range } }),
-    tx.coursePurchaseRefund.findMany({ where: { storeId, createdAt: range }, include: { purchase: true } }),
+    coursePurchaseCashflow(tx,storeId,range,filters.dataScope),
+    tx.coursePurchaseRefund.findMany({ where: { storeId, createdAt: range, ...(musicDataScope(storeId,filters.dataScope??undefined)?{purchase:musicPurchaseWhere(storeId,filters.dataScope)}:{}) }, include: { purchase: true } }),
     prisma.store.findUniqueOrThrow({ where: { id: storeId }, select: { name: true } }),
-    tx.courseTrialPayment.findMany({where:{storeId,OR:[{createdAt:range},{voidedAt:range}]},include:{booking:{select:{customerId:true,customerName:true,session:{select:{nameSnapshot:true}}}}}}),
+    tx.courseTrialPayment.findMany({where:{storeId,OR:[{createdAt:range},{voidedAt:range}],...(musicDataScope(storeId,filters.dataScope??undefined)?{booking:musicTrialBookingWhere(storeId,filters.dataScope)}:{})},include:{booking:{select:{customerId:true,customerName:true,session:{select:{nameSnapshot:true}}}}}}),
   ]);
   const purchases = [...orders,...refunds.map((r) => r.purchase)];
   const customerIds = [...new Set([...purchases.map((p) => p.customerId).filter((id): id is string => !!id),...trialReceipts.map(p=>p.booking.customerId).filter((id): id is string => !!id)])];
   const [people, staff, firstOrders] = await Promise.all([
     prisma.customer.findMany({ where: { storeId, id: { in: customerIds } }, select: { id:true,name:true,phone:true } }),
     prisma.staff.findMany({ where: { storeId }, select: { id:true,userId:true,displayName:true,user:{select:{role:true}} } }),
-    tx.coursePurchase.findMany({ where: { storeId, customerId: { in: customerIds }, status: { in: ["CONFIRMED","REFUNDED"] } }, orderBy: [{confirmedAt:"asc"},{id:"asc"}], distinct:["customerId"], select:{id:true,customerId:true} }),
+    tx.coursePurchase.findMany({ where: { storeId, ...musicPurchaseWhere(storeId,filters.dataScope), customerId: { in: customerIds }, status: { in: ["CONFIRMED","REFUNDED"] } }, orderBy: [{confirmedAt:"asc"},{id:"asc"}], distinct:["customerId"], select:{id:true,customerId:true} }),
   ]);
-  type Row = TransactionDetail & { customerId: string | null; staffId: string | null; refund: boolean; unit: string; paymentSplits: PaymentSplitInput[] };
+  type Row = ModuleRevenueRow;
   const rows: Row[] = [];
   const peopleById = new Map(people.map((person) => [person.id,person]));
   const staffById = new Map(staff.map((person) => [person.id,person]));
@@ -44,24 +49,14 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
       paymentMethod:splits.length?"MIXED":method,paymentSplits:splits,status:refund?"REFUNDED":"SUCCESS",isFirstPurchase:!refund&&firstPurchaseIds.has(order.id),
       note,createdByName:staffByUser.get(actorId ?? "")?.displayName??null,createdAt:date.toISOString(),refund });
   }
-  for (const order of orders) if (order.confirmedAt) add(order,order.price,order.confirmedAt,order.id,order.note,false,order.confirmedBy,order.paymentMethod??"TRANSFER");
+  for (const order of orders) if (order.confirmedAt) add(order,order.price,order.confirmedAt,order.cashflowId,order.note,false,order.confirmedBy,order.paymentMethod??"TRANSFER");
   for (const refund of refunds) add(refund.purchase,-refund.amount,refund.createdAt,refund.id,refund.reason,true,refund.actorUserId,refund.method);
   for (const receipt of trialReceipts) {
-    const order={id:receipt.id,customerId:receipt.booking.customerId,customerName:receipt.booking.customerName,revenueStaffId:null,confirmedBy:receipt.actorUserId,name:`體驗 · ${receipt.booking.session.nameSnapshot}`,unit:"TRIAL"};
+    const order={id:receipt.id,customerId:receipt.booking.customerId,customerName:receipt.booking.customerName,revenueStaffId:null,confirmedBy:receipt.actorUserId,name:`體驗 · ${courseDisplayName(receipt.booking.session.nameSnapshot)}`,unit:"TRIAL"};
     const splits=Array.isArray(receipt.paymentSplits)?receipt.paymentSplits as PaymentSplitInput[]:[];
     if(receipt.createdAt>=range.gte && receipt.createdAt<=range.lte) add(order,receipt.amount,receipt.createdAt,receipt.id,receipt.note,false,receipt.actorUserId,receipt.paymentMethod,splits);
     if(receipt.voidedAt && receipt.voidedAt>=range.gte && receipt.voidedAt<=range.lte) add(order,-receipt.amount,receipt.voidedAt,`${receipt.id}:void`,receipt.voidReason??"體驗收款更正沖銷",true,receipt.actorUserId,receipt.paymentMethod,splits.map(s=>({...s,amount:-s.amount})));
   }
-  const keyword=filters.keyword?.trim().toLocaleLowerCase();
-  const data=rows.filter((r)=>(!filters.planType||r.unit===filters.planType)&&(!filters.paymentMethod||paymentMethodReportAmount({paymentMethod:r.paymentMethod,amount:r.netAmount,paymentSplits:r.paymentSplits},filters.paymentMethod)!==0)&&(!filters.coachId||r.staffId===filters.coachId)&&(!filters.coachRole||r.coachRole===filters.coachRole)&&(!keyword||[r.customerName,r.customerPhone,r.planName,r.note].some((s)=>s?.toLocaleLowerCase().includes(keyword)))).map(r=>filters.paymentMethod ? {...r,netAmount:paymentMethodReportAmount({paymentMethod:r.paymentMethod,amount:r.netAmount,paymentSplits:r.paymentSplits},filters.paymentMethod)} : r).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||a.id.localeCompare(b.id));
-  const totalRevenue=data.filter((r)=>!r.refund).reduce((n,r)=>n+r.netAmount,0);
-  const refundAmount=Math.abs(data.filter((r)=>r.refund).reduce((n,r)=>n+r.netAmount,0));
-  const netRevenue=totalRevenue-refundAmount;
-  const customerCount=new Set(data.filter((r)=>!r.refund).map((r)=>r.customerId).filter((id): id is string => !!id)).size;
-  const kpi={totalRevenue,refundAmount,netRevenue,txCount:data.filter((r)=>!r.refund).length,customerCount,avgPerCustomer:customerCount?Math.round(netRevenue/customerCount):0};
-  const summary:StoreRevenueSummary[] = data.length ? [{...kpi,storeId,storeName:store.name,trialRevenue:data.filter(r=>r.unit==="TRIAL").reduce((n,r)=>n+r.netAmount,0),packageRevenue:data.filter(r=>r.unit!=="TRIAL"&&!r.refund).reduce((n,r)=>n+r.netAmount,0),singleRevenue:0,otherRevenue:0}] : [];
-  const methods = new Map<string,number>();
-  for (const row of data.filter(r=>!r.refund)) for (const split of filters.paymentMethod ? [{paymentMethod:filters.paymentMethod,amount:row.netAmount}] : row.paymentSplits.length ? row.paymentSplits : [{paymentMethod:row.paymentMethod,amount:row.netAmount}]) methods.set(split.paymentMethod,(methods.get(split.paymentMethod)??0)+split.amount);
-  return {data,summary,kpi,paymentMethods:[...methods].map(([paymentMethod,amount])=>({paymentMethod,amount}))};
+  return moduleRevenueReport(rows,storeId,store.name,filters);
   }, { isolationLevel: "RepeatableRead", timeout: 15000 });
 }

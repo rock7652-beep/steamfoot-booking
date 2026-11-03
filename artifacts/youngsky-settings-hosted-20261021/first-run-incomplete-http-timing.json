@@ -1,0 +1,128 @@
+{
+  "complete": true,
+  "scope": "isolated hosted Vercel Preview; temporary synthetic owner; not production",
+  "deployment": "dpl_Aeu84Pf2tehBfWWYUW3p8PLaPNgs",
+  "results": [
+    {
+      "setting": "payment",
+      "label": "edit",
+      "responseSuccess": true,
+      "syncWarning": false,
+      "responseValues": {
+        "section": "payment",
+        "bankName": "隔離銀行 Playwright QA1021",
+        "bankCode": "",
+        "bankAccountNumber": ""
+      },
+      "clickToCollapsedMs": 1931,
+      "pageErrors": 0
+    },
+    {
+      "setting": "payment",
+      "label": "restore",
+      "responseSuccess": true,
+      "syncWarning": false,
+      "responseValues": {
+        "section": "payment",
+        "bankName": "",
+        "bankCode": "",
+        "bankAccountNumber": ""
+      },
+      "clickToCollapsedMs": 1430,
+      "pageErrors": 0
+    },
+    {
+      "setting": "booking",
+      "label": "edit",
+      "responseSuccess": true,
+      "syncWarning": false,
+      "responseValues": {
+        "section": "booking",
+        "bookingLeadMinutes": 60,
+        "cancellationLeadMinutes": 0
+      },
+      "clickToCollapsedMs": 1478,
+      "pageErrors": 0
+    },
+    {
+      "setting": "booking",
+      "label": "restore",
+      "responseSuccess": true,
+      "syncWarning": false,
+      "responseValues": {
+        "section": "booking",
+        "bookingLeadMinutes": 0,
+        "cancellationLeadMinutes": 0
+      },
+      "clickToCollapsedMs": 1544,
+      "pageErrors": 0
+    }
+  ],
+  "screens": [
+    {
+      "width": 1366,
+      "height": 900,
+      "scrollWidth": 1366,
+      "overflow": false,
+      "draftRetained": true,
+      "saveVisible": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "scrollWidth": 1920,
+      "overflow": false,
+      "draftRetained": true,
+      "saveVisible": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "scrollWidth": 1024,
+      "overflow": false,
+      "draftRetained": true,
+      "saveVisible": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "scrollWidth": 768,
+      "overflow": false,
+      "draftRetained": true,
+      "saveVisible": true
+    }
+  ],
+  "errors": [],
+  "network": [
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/settings-save/course/section",
+      "status": 200,
+      "httpMs": -1,
+      "serverTiming": "handler;dur=590.4, authorization;dur=364.3, subscription;dur=40.6, db_lock;dur=9.0, db_work;dur=25.3, transaction;dur=183.8, cache;dur=0.7",
+      "traceId": "fed408af-2851-4358-b65f-64cb4850c221"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/settings-save/course/section",
+      "status": 200,
+      "httpMs": -2,
+      "serverTiming": "handler;dur=393.9, authorization;dur=246.5, subscription;dur=39.8, db_lock;dur=8.0, db_work;dur=25.8, transaction;dur=107.0, cache;dur=0.3",
+      "traceId": "66a94dbe-6f67-4aab-a922-6da07df400dc"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/settings-save/course/section",
+      "status": 200,
+      "httpMs": -1,
+      "serverTiming": "handler;dur=326, authorization;dur=185.7, subscription;dur=41.2, db_lock;dur=7.4, db_work;dur=32.3, transaction;dur=98.5, cache;dur=0.2",
+      "traceId": "158280c9-4bee-414d-9a74-2bca34ef8f33"
+    },
+    {
+      "path": "/s/sports-live-flow/admin/dashboard/settings-save/course/section",
+      "status": 200,
+      "httpMs": 1140,
+      "serverTiming": "handler;dur=323.2, authorization;dur=192.7, subscription;dur=40.1, db_lock;dur=7.5, db_work;dur=24.6, transaction;dur=90.0, cache;dur=0.1",
+      "traceId": "b4a31f7b-e582-40fb-b5a1-5f0a5dd13d29"
+    }
+  ],
+  "httpTimingUsable": false,
+  "timingNote": "First three HTTP timings were sampled before response completion; do not use any first-run HTTP figures as performance acceptance."
+}

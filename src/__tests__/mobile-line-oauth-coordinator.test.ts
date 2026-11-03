@@ -35,7 +35,7 @@ describe("mobile LINE OAuth coordinator", () => {
     const authorization = await createMobileAuthorization({
       callbackUrl: "https://preview.example/api/auth/callback/line",
       storeSlug: "spa-test",
-      returnPath: "/s/spa-test/liff/spa-work",
+      returnPath: "/s/spa-test/book",
     });
     const url = new URL(authorization);
     const state = url.searchParams.get("state");
@@ -45,7 +45,7 @@ describe("mobile LINE OAuth coordinator", () => {
       attemptId: "attempt-1",
       storeId: "store-spa",
       storeSlug: "spa-test",
-      returnPath: "/s/spa-test/liff/spa-work",
+      returnPath: "/s/spa-test/book",
     });
     expect(attemptUpdate).toHaveBeenCalledWith({
       where: { id: "attempt-1" },

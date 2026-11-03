@@ -4,11 +4,12 @@
  * customerConsumptionDetail supports optional month filter
  */
 
+import {readCashbookRevenue} from "./cashbook-revenue";
 import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
 import { requireStaffSession, requireSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
-import { monthRange as sharedMonthRange, dayRange } from "@/lib/date-utils";
+import { monthRange as sharedMonthRange, dayRange,parseTaiwanDateToDbDate,toLocalDateStr } from "@/lib/date-utils";
 import { getManagerReadFilter, getVisibilityMode, getStoreFilter } from "@/lib/manager-visibility";
 import { REVENUE_TRANSACTION_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 import {
@@ -243,6 +244,7 @@ export async function monthlyStoreSummary(
     customerCounts,
     activeCustomerCounts,
     completedByStaff,
+    cashbookRevenue,
   ] = await Promise.all([
     // Revenue by staff
     prisma.transaction.groupBy({
@@ -279,7 +281,7 @@ export async function monthlyStoreSummary(
       by: ["type"],
       where: {
         ...staffIdFilter,
-        entryDate: { gte: monthStart, lte: monthEnd },
+        entryDate: { gte: parseTaiwanDateToDbDate(options?.startDate??toLocalDateStr(monthStart)), lte: parseTaiwanDateToDbDate(options?.endDate??toLocalDateStr(monthEnd)) },
       },
       _sum: { amount: true },
     }),
@@ -336,6 +338,7 @@ export async function monthlyStoreSummary(
       },
       _count: { id: true },
     }),
+    readCashbookRevenue(prisma,{...staffIdFilter,entryDate:{gte:parseTaiwanDateToDbDate(options?.startDate??toLocalDateStr(monthStart)),lte:parseTaiwanDateToDbDate(options?.endDate??toLocalDateStr(monthEnd))}}),
   ]);
 
   // Build maps
@@ -406,6 +409,9 @@ export async function monthlyStoreSummary(
     netCourseRevenue: totalCourseRevenue + totalRefund,
     completedBookings: completedBookingsAgg,
     cashbookIncome: cashbookMap["INCOME"] ?? 0,
+    inventoryRefund:cashbookRevenue.inventoryRefund,
+    inventoryReversal:cashbookRevenue.inventoryReversal,
+    cashbookRefund:cashbookRevenue.cashbookRefund,
     cashbookExpense: (cashbookMap["EXPENSE"] ?? 0) + (cashbookMap["WITHDRAW"] ?? 0),
     totalSpaceFee,
     staffBreakdown,

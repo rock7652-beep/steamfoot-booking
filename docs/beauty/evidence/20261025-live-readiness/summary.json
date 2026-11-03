@@ -1,0 +1,119 @@
+{
+  "checkedAtUTC": "2026-10-25 04:52:37 UTC",
+  "production": {
+    "project": "qijlnhtpbintanzpxkvf",
+    "beautyBaseTablesPresent": 0,
+    "beautyBaseTablesExpected": 14,
+    "beautyEnumPresent": false,
+    "deployment": "dpl_3hvffPdypf9z2wT4YjFAwXzbzjPe",
+    "commit": "62480ec422d7952f7b1dc9310350b38d2a258fca",
+    "aliases": [
+      "steamfoot.com",
+      "www.steamfoot.com"
+    ],
+    "backupRestorePoint": "not verified; connector has no backup API"
+  },
+  "preview": {
+    "project": "ttworfzgwejdeolegkxl",
+    "store": "beauty-hosted-20261021",
+    "baseTables": 14,
+    "missingChargeColumns": 6,
+    "counts": {
+      "services": 4,
+      "plans": 7,
+      "cards": 5,
+      "appointments": 35,
+      "ledger": 39,
+      "payments": 25
+    },
+    "notificationsEnabled": false,
+    "backupRestorePoint": "not verified"
+  },
+  "envMetadata": {
+    "secretValuesRead": false,
+    "productionBeautyKeys": [],
+    "previewFlags": [
+      {
+        "key": "BEAUTY_HOSTED_PREVIEW",
+        "value": "1",
+        "gitBranch": "preview/beauty-ui-alignment-20261021",
+        "target": [
+          "preview"
+        ]
+      },
+      {
+        "key": "BEAUTY_MODULE_ENABLED",
+        "value": "1",
+        "gitBranch": "preview/beauty-ui-alignment-20261021",
+        "target": [
+          "preview"
+        ]
+      },
+      {
+        "key": "BEAUTY_NOTIFICATIONS_ENABLED",
+        "value": "0",
+        "gitBranch": "preview/beauty-ui-alignment-20261021",
+        "target": [
+          "preview"
+        ]
+      },
+      {
+        "key": "BEAUTY_DATABASE_MODE",
+        "value": "legacy",
+        "gitBranch": "preview/beauty-ui-alignment-20261021",
+        "target": [
+          "preview"
+        ]
+      },
+      {
+        "key": "BEAUTY_HOSTED_PREVIEW",
+        "value": "1",
+        "gitBranch": "preview/beauty-hosted-20261021",
+        "target": [
+          "preview"
+        ]
+      },
+      {
+        "key": "BEAUTY_MODULE_ENABLED",
+        "value": "1",
+        "gitBranch": "preview/beauty-hosted-20261021",
+        "target": [
+          "preview"
+        ]
+      },
+      {
+        "key": "BEAUTY_NOTIFICATIONS_ENABLED",
+        "value": "0",
+        "gitBranch": "preview/beauty-hosted-20261021",
+        "target": [
+          "preview"
+        ]
+      },
+      {
+        "key": "BEAUTY_DATABASE_MODE",
+        "value": "legacy",
+        "gitBranch": "preview/beauty-hosted-20261021",
+        "target": [
+          "preview"
+        ]
+      },
+      {
+        "key": "BEAUTY_MODULE_ENABLED",
+        "value": "0",
+        "gitBranch": "feat/beauty-module-20261020",
+        "target": [
+          "preview"
+        ]
+      },
+      {
+        "key": "BEAUTY_NOTIFICATIONS_ENABLED",
+        "value": "0",
+        "gitBranch": "feat/beauty-module-20261020",
+        "target": [
+          "preview"
+        ]
+      }
+    ]
+  },
+  "mutationsPerformed": []
+}

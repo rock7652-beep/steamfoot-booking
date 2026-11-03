@@ -48,7 +48,8 @@ export default async function CustomerMergePage({
   const targetId = (params.target ?? "").trim();
   const query = (params.q ?? "").trim();
   const activeStoreId = await getActiveStoreForRead(user);
-  const courseMode = !!activeStoreId && await getStoreIndustryModule(activeStoreId) === "course";
+  const industry=activeStoreId?await getStoreIndustryModule(activeStoreId):null;
+  const courseMode=industry==="course",beautyMode=industry==="beauty";
   const candidates = query && activeStoreId
     ? await prisma.customer.findMany({
         where: {
@@ -94,7 +95,7 @@ export default async function CustomerMergePage({
         subtitle="確認是同一人後，保留正確資料並安全整併重複帳號。"
         actions={
           <Link
-            href={courseMode ? "/dashboard/courses?view=customers" : "/dashboard/customers"}
+            href={beautyMode?"/dashboard/beauty?tab=顧客管理":courseMode ? "/dashboard/courses?view=customers" : "/dashboard/customers"}
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
             ← 顧客列表
@@ -108,11 +109,11 @@ export default async function CustomerMergePage({
           <li>「被整併資料」會歸檔；預約、方案、交易及點數會完整移到「保留資料」。</li>
           <li>不允許跨店整併；資料只會在目前門市內處理。</li>
           <li>若兩邊綁定不同登入身分，系統會停止，不會自行覆蓋。</li>
-          {courseMode && <li>共卡授權合併，卡片餘額、購買／退款與預約姓名快照不變；健康紀錄只移給確認為同一人的保留顧客。同堂未取消紀錄或進行中的身分申請會阻擋合併。</li>}
+          {(courseMode||beautyMode) && <li>共卡授權合併，卡片餘額、購買／退款與預約姓名快照不變；健康紀錄只移給確認為同一人的保留顧客。重疊待服務預約或進行中的身分申請會阻擋合併。</li>}
         </ul>
       </div>
 
-      <form method="GET" action="/dashboard/customers/merge" className="rounded-lg border border-earth-200 bg-white p-4">
+      <form method="GET" action="" className="rounded-lg border border-earth-200 bg-white p-4">
         {sourceId ? <input type="hidden" name="source" value={sourceId} /> : null}
         {targetId ? <input type="hidden" name="target" value={targetId} /> : null}
         <label className="block text-xs font-medium text-earth-700">搜尋另一筆顧客資料</label>
@@ -142,7 +143,7 @@ export default async function CustomerMergePage({
       {/* Step 1: 輸入兩個 ID 載入預覽 */}
       <form
         method="GET"
-        action="/dashboard/customers/merge"
+        action=""
         className="rounded-lg border border-earth-200 bg-white p-4"
       >
         <h2 className="text-sm font-medium text-earth-700">選擇兩筆資料</h2>

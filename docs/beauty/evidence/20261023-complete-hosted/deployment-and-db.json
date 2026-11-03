@@ -1,0 +1,166 @@
+{
+  "preservationProof": [
+    {
+      "preservation": {
+        "migration": [
+          {
+            "name": "beauty_shared_pages_additive_20261023",
+            "version": "20261023051107"
+          },
+          {
+            "name": "beauty_shared_notice_outcomes_20261023",
+            "version": "20261023052416"
+          }
+        ],
+        "line_enabled": 0,
+        "original_counts": [
+          {
+            "name": "BeautyTechnician",
+            "count": 5
+          },
+          {
+            "name": "BeautySetting",
+            "count": 1
+          },
+          {
+            "name": "BeautyAppointment",
+            "count": 19
+          },
+          {
+            "name": "BeautyCard",
+            "count": 2
+          },
+          {
+            "name": "BeautyLedger",
+            "count": 18
+          },
+          {
+            "name": "BeautyPayment",
+            "count": 14
+          }
+        ]
+      }
+    }
+  ],
+  "hostedCashbook": [
+    {
+      "qa_payment_count": 5,
+      "qa_net": 0,
+      "matched_cashbook_count": 5,
+      "cashbook_matches": true
+    }
+  ],
+  "finalSwitches": [
+    {
+      "switches": {
+        "line": false,
+        "qa_sent_events": 0,
+        "backend_notices": true,
+        "notice_constraint": "CHECK (((kind = ANY (ARRAY['BOOKING'::text, 'LEAVE'::text, 'CANCEL'::text, 'MOVE'::text, 'STOP'::text, 'RESTORE'::text])) OR ((\"subjectKey\" ~~ 'beauty:%'::text) AND (kind = ANY (ARRAY['COMPLETE'::text, 'NO_SHOW'::text])))))"
+      }
+    }
+  ],
+  "dbUpgradeVerification": [
+    {
+      "verification": {
+        "counts": [
+          {
+            "name": "BeautyTechnician",
+            "count": 5
+          },
+          {
+            "name": "BeautySetting",
+            "count": 1
+          },
+          {
+            "name": "BeautyAppointment",
+            "count": 19
+          },
+          {
+            "name": "BeautyCard",
+            "count": 2
+          },
+          {
+            "name": "BeautyLedger",
+            "count": 18
+          },
+          {
+            "name": "BeautyPayment",
+            "count": 14
+          },
+          {
+            "name": "LINE enabled settings",
+            "count": 0
+          }
+        ],
+        "columns": [
+          {
+            "type": "boolean",
+            "table": "BeautySetting",
+            "column": "backendNoticesEnabled",
+            "default": "true",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "BeautyTechnician",
+            "column": "contactEmail",
+            "default": "''::text",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "BeautyTechnician",
+            "column": "birthday",
+            "default": "''::text",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "BeautyTechnician",
+            "column": "emergencyContactName",
+            "default": "''::text",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "BeautyTechnician",
+            "column": "phone",
+            "default": "''::text",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "BeautyTechnician",
+            "column": "emergencyContactRelation",
+            "default": "''::text",
+            "nullable": "NO"
+          },
+          {
+            "type": "text",
+            "table": "BeautySetting",
+            "column": "bookableUntilDate",
+            "default": null,
+            "nullable": "YES"
+          },
+          {
+            "type": "text",
+            "table": "BeautyTechnician",
+            "column": "emergencyContactPhone",
+            "default": "''::text",
+            "nullable": "NO"
+          }
+        ]
+      }
+    }
+  ],
+  "deployment": {
+    "id": "dpl_2UafSoWZhV4Jr1xSWGjyZsRC5APH",
+    "url": "https://steamfoot-booking-f9neyz1l8-rock7652-2111s-projects.vercel.app",
+    "state": "READY",
+    "target": null,
+    "commit": "eca98f9c350b3b5543f0e398ac9f96922f0f079d",
+    "buildDurationMs": 170053
+  },
+  "runtimeErrorScan": "No error/fatal logs found for final deployment in the checked window"
+}

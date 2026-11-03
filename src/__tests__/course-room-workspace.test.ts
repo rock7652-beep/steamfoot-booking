@@ -1,22 +1,32 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import { CourseWorkspace } from "@/app/(dashboard)/dashboard/courses/workspace";
 import { courseRoomInput } from "@/lib/course-room-input";
-const m = vi.hoisted(() => ({ refresh: vi.fn(), fetch: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/s/music-test/admin/dashboard/courses", useSearchParams: () => new URLSearchParams("view=rooms&action=create") }));
+import {shareCalendarRosterMetadata} from '@/server/services/course-calendar-transfer';
+import {preparedRoster} from './fixtures/prepared-roster';
+vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: vi.fn() }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-attendance-panel", () => ({ SportsAttendancePanel: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-cancel-course", () => ({ SportsCancelCourse: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-move-confirm", () => ({ SportsMoveConfirm: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-schedule-fields", () => ({ SportsScheduleFields: (props: unknown) => { m.schedule(props); return null; } }));
+vi.mock("@/components/admin/course-customer-picker", () => ({ CourseCustomerPicker: () => null }));
+const m = vi.hoisted(() => ({ refresh: vi.fn(), fetch: vi.fn(), schedule: vi.fn(), roster:vi.fn(), search: "view=rooms&action=create" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/s/music-test/admin/dashboard/courses", useSearchParams: () => new URLSearchParams(m.search) }));
 vi.mock("@/server/actions/course-slot-matches", () => ({ getMusicSlotMatches: vi.fn() }));
 vi.mock("@/server/actions/course", () => ({}));
 vi.mock("@/components/admin/course-display-order", () => ({ useCourseDisplayOrder: () => ({ ranks: new Map(), compare: () => 0, rowProps: () => ({}), handle: () => null }) }));
 vi.mock("@/components/admin/course-status-button", () => ({ useCourseStatusRows: (rows: unknown[]) => [rows, vi.fn(), [], vi.fn()], CourseStatusButton: () => null }));
 vi.mock("@/components/admin/course-batch-selection", () => ({ CourseBatchBar: () => null }));
-vi.mock("@/app/(dashboard)/dashboard/courses/roster", () => ({ CourseRoster: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/roster", () => ({ CourseRoster: (props:{onBusyChange?:(busy:boolean)=>void;initialSnapshot?:unknown}) => {m.roster(props);return createElement("div",null,createElement("button",{onClick:()=>props.onBusyChange?.(true)},"start-roster-save"),createElement("button",{onClick:()=>props.onBusyChange?.(false)},"finish-roster-save"));} }));
 vi.mock("@/app/(dashboard)/dashboard/courses/rental-panel", () => ({ RentalPanel: () => null, RentalHistory: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/music-schedule-wizard", () => ({ MusicScheduleWizard: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/daily-attendance-list", () => ({ DailyAttendanceList: () => null }));
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 window.scrollTo=vi.fn();
+HTMLElement.prototype.scrollTo=vi.fn();
 const props = { storeId: "store-a", selectedDate: "2026-10-10", today: "2026-10-10", nowIso: "2026-10-10T01:00:00Z", calendarDays: {}, rooms: [], templates: [], sessions: [], cancelledBookings: [], coaches: [], canCreate: true, canEdit: true, view: "rooms" as const, staffAvailability: [], staffAvailabilityExceptions: [] };
 it.each(["MUSIC", "FITNESS"] as const)("%s saves locally, keeps rejected input, and preserves the next draft during props synchronization", async businessProfile => {
   vi.stubGlobal("fetch", m.fetch); m.refresh.mockReset(); m.fetch.mockReset();
@@ -44,17 +54,16 @@ it.each(["MUSIC", "FITNESS"] as const)("%s saves locally, keeps rejected input, 
   } finally { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); }
 });
 
-it("edits a confirmed room without refresh and preserves it through stale props",async()=>{
+it.each(["MUSIC", "FITNESS"] as const)("%s directly edits a confirmed room without refresh and preserves stale props",async businessProfile=>{
  const {courseRoomRevision}=await import("@/lib/course-room-input");
  vi.spyOn(window,"scrollTo").mockImplementation(()=>{});vi.stubGlobal("fetch",m.fetch);m.fetch.mockReset();m.refresh.mockReset();
  const original={...courseRoomInput.parse({name:"教室 A"}),id:"room",isActive:true};
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
- const render=(rooms=[original])=>createElement(CourseWorkspace,{...props,businessProfile:"MUSIC",rooms});
+ const render=(rooms=[original])=>createElement(CourseWorkspace,{...props,businessProfile,sportsNative:businessProfile==="FITNESS",rooms});
  try{
   await act(async()=>root.render(render()));
   await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="關閉")!.click());
-  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="查看教室")!.click());
-  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.textContent==="編輯教室")!.click());
+  await act(async()=>[...host.querySelectorAll("button")].find(b=>b.getAttribute("aria-label")==="編輯教室 A")!.click());
   host.querySelector<HTMLInputElement>('#course-edit-form input[name="name"]')!.value="改名教室";
   m.fetch.mockResolvedValueOnce({json:async()=>{throw new Error("lost reply");}});
   const submit=()=>host.querySelector("#course-edit-form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));
@@ -76,3 +85,65 @@ vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: 
 vi.mock("@/server/actions/sports-attendance-evidence", () => ({ loadSportsAttendanceEvidence: vi.fn() }));
 vi.mock("@/server/actions/course-rental", () => ({ createRentalCustomer: vi.fn() }));
 vi.mock("@/server/actions/course-members", () => ({ updateCourseRosterBatch: vi.fn(), cancelCourseSession: vi.fn() }));
+
+it("native sports schedule dialog receives the current store scheduling modes", async () => {
+ m.search="view=schedule&action=schedule";m.schedule.mockClear();
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try {
+  await act(async()=>root.render(createElement(CourseWorkspace,{...props,view:"schedule",businessProfile:"FITNESS",sportsNative:true,
+   schedulingModes:{selfBookingEnabled:false,assignedSchedulingEnabled:true},
+   sportsData:{storeId:"store-a",date:"2026-10-10",subjects:[],fees:[],lessons:[],students:[],customers:[],coaches:[],rooms:[]}})));
+  expect(m.schedule).toHaveBeenCalled();
+  expect(m.schedule.mock.calls.at(-1)![0]).toMatchObject({schedulingModes:{selfBookingEnabled:false,assignedSchedulingEnabled:true}});
+ } finally {await act(async()=>root.unmount());host.remove();m.search="view=rooms&action=create";}
+});
+
+it("shows confirmed scheduled sessions before the slow calendar read completes",async()=>{
+ const {syncSportsPermanentCalendar}=await import("@/server/actions/sports-series");
+ vi.mocked(syncSportsPermanentCalendar).mockImplementation(()=>new Promise(()=>{}));
+ m.search="view=schedule&action=schedule";m.schedule.mockClear();
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ const session={id:"confirmed-session",templateId:"template",nameSnapshot:"已確認舞蹈課",startsAt:"2026-10-10T04:00:00.000Z",endsAt:"2026-10-10T05:00:00.000Z",coachId:"",roomId:"",capacity:8,pointCost:1,bookings:[],sportsPalette:true};
+ const render=()=>createElement(CourseWorkspace,{...props,view:"schedule" as const,businessProfile:"FITNESS" as const,sportsNative:true,sportsData:{storeId:"store-a",date:"2026-10-10",subjects:[],fees:[],lessons:[],students:[],customers:[],coaches:[],rooms:[]}});
+ try{
+  await act(async()=>root.render(render()));
+  await act(async()=>m.schedule.mock.calls.at(-1)![0].onCreated("2026-10-10",[session]));
+  expect(host.textContent).toContain("新增成功，正在同步課表");
+  expect(host.textContent).toContain("已確認舞蹈課");
+  await act(async()=>root.render(render()));
+  expect(host.textContent).toContain("已確認舞蹈課");
+ }finally{await act(async()=>root.unmount());host.remove();m.search="view=rooms&action=create";}
+});
+
+it('disables roster close while a save is pending and restores it after confirmation',async()=>{
+ m.search='view=schedule&date=2026-10-10&scheduleView=day';const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ const session={id:'pending-note-session',templateId:'template',nameSnapshot:'教師備註測試',startsAt:'2026-10-10T04:00:00.000Z',endsAt:'2026-10-10T05:00:00.000Z',coachId:'',roomId:'',capacity:8,pointCost:1,bookings:[],sportsPalette:true};
+ try{
+  await act(async()=>root.render(createElement(CourseWorkspace,{...props,view:'schedule',businessProfile:'FITNESS',sportsNative:true,sessions:[session]})));
+  await act(async()=>host.querySelector<HTMLElement>('[data-calendar-session="pending-note-session"]')!.click());
+  const find=(text:string)=>[...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(b=>b.textContent===text)!;
+  await act(async()=>find('start-roster-save').click());expect(find('關閉').disabled).toBe(true);
+  await act(async()=>find('關閉').click());expect(find('finish-roster-save')).toBeTruthy();
+  await act(async()=>find('finish-roster-save').click());expect(find('關閉').disabled).toBe(false);
+  await act(async()=>find('關閉').click());expect(document.querySelector('[role="dialog"]')).toBeNull();
+ }finally{await act(async()=>root.unmount());host.remove();m.search='view=rooms&action=create';}
+});
+
+it('makes complete metadata-shared rosters available on first open and accepts a later snapshot without fetching',async()=>{
+ m.search='view=schedule&date=2026-10-10&scheduleView=day';m.roster.mockClear();m.fetch.mockReset();vi.stubGlobal('fetch',m.fetch);
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ const session={id:'packed-session',templateId:'t',nameSnapshot:'完整名單',startsAt:'2026-10-10T04:00:00.000Z',endsAt:'2026-10-10T05:00:00.000Z',coachId:'',roomId:'',capacity:8,pointCost:1,bookings:[]};
+ const data=preparedRoster('packed-learner');data.session.startsAt=session.startsAt;
+ const render=()=>createElement(CourseWorkspace,{...props,view:'schedule' as const,businessProfile:'MUSIC' as const,sessions:[session],rosterSnapshots:shareCalendarRosterMetadata({storeId:'store-a',details:{'packed-session':data}})});
+ const open=()=>host.querySelector<HTMLElement>('[data-calendar-session="packed-session"]')!.click();
+ try{
+  await act(async()=>root.render(render()));
+  expect(host.querySelector('[data-calendar-rosters-ready="true"]')).toBeTruthy();
+  await act(async()=>open());
+  expect(m.roster.mock.calls.at(-1)![0].initialSnapshot).toStrictEqual({sessionId:'packed-session',data});
+  await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(b=>b.textContent==='關閉')!.click());
+  data.session.teacherNote='最新教師備註';await act(async()=>root.render(render()));await act(async()=>open());
+  expect(m.roster.mock.calls.at(-1)![0].initialSnapshot).toStrictEqual({sessionId:'packed-session',data});
+  expect(m.fetch).not.toHaveBeenCalled();
+ }finally{await act(async()=>root.unmount());host.remove();m.search='view=rooms&action=create';vi.unstubAllGlobals();}
+});

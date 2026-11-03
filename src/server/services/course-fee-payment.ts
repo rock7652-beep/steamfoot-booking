@@ -1,3 +1,5 @@
+import { Prisma as RetirementPrisma } from "@prisma/client";
+import { musicRetirementSql } from "@/server/services/music-retirement-sql";
 import "server-only";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
@@ -20,11 +22,11 @@ export async function recordCourseFeePayment(tx: Prisma.TransactionClient, actor
       throw new AppError("CONFLICT", "此付款請求已使用，請重新核對");
     return;
   }
-  const rows = await tx.$queryRaw<Array<{name: string; staffId: string; coachId: string; staffName: string; rule: unknown; endsAt: Date; cancelledAt: Date | null;musicPricePerLesson:number|null;musicTeacherFeeBase:number|null;musicTrialMode:string|null}&CapturedTeacherFee>>`
+  const rows = await tx.$queryRaw<Array<{name: string; staffId: string; coachId: string; staffName: string; rule: unknown; endsAt: Date; cancelledAt: Date | null;musicPricePerLesson:number|null;musicTeacherFeeBase:number|null;musicTrialMode:string|null}&CapturedTeacherFee>>(RetirementPrisma.sql`
     SELECT s."nameSnapshot" AS name, c."staffId", s."coachId", f."displayName" AS "staffName", c.rule,c.revision,s."teacherAttendance", s."endsAt", s."cancelledAt",c."musicPricePerLesson",c."musicTeacherFeeBase",c."musicTrialMode"
     FROM "CourseSession" s JOIN "CourseCompensationSnapshot" c ON c."sessionId"=s.id AND c."storeId"=s."storeId"
     JOIN "Staff" f ON f.id=c."staffId" AND f."storeId"=s."storeId"
-    WHERE s.id=${d.sessionId} AND s."storeId"=${storeId} FOR UPDATE OF s, c`;
+    WHERE s.id=${d.sessionId} ${musicRetirementSql(storeId,"CourseSession","s.id")} AND s."storeId"=${storeId} FOR UPDATE OF s, c`);
   const row = rows[0];
   if (!row || row.cancelledAt || row.endsAt > new Date() || row.coachId !== row.staffId)
     throw new AppError("BUSINESS_RULE", "請核對已結束、未取消課次及授課人員");

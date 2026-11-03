@@ -2,10 +2,10 @@ import "server-only";
 
 import { requireInventoryFinanceAccess } from "@/server/inventory-finance-access";
 import { prisma } from "@/lib/db";
-import { spaPrisma } from "@/lib/spa-db";
-import { dayRange, toLocalDateStr } from "@/lib/date-utils";
+
+import { toLocalDateStr } from "@/lib/date-utils";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { isSpaExternalPayment } from "@/lib/spa-payment-methods";
+
 import { getRevenueMix, type RevenueMix, type RevenueMixPoint } from "./revenue-mix";
 import { isRetailCashbookCategory } from "@/lib/cashbook-entry-kind";
 
@@ -73,36 +73,12 @@ async function cashbookEvents(storeId: string, startDate: string, endDate: strin
   });
 }
 
-async function spaEvents(storeId: string, startDate: string, endDate: string): Promise<Event[]> {
-  const range = { gte: dayRange(startDate).start, lte: dayRange(endDate).end };
-  const [receipts, sales, refunds] = await Promise.all([
-    spaPrisma.spaReceipt.findMany({ where: { storeId, paidAt: range }, select: { id: true, paidAt: true, amount: true, paymentMethod: true } }),
-    spaPrisma.spaCreditSale.findMany({ where: { storeId, createdAt: range }, select: { id: true, createdAt: true, kind: true, amount: true, paymentMethod: true } }),
-    spaPrisma.spaRefund.findMany({ where: { storeId, createdAt: range }, select: { id: true, createdAt: true, amount: true, paymentMethod: true } }),
-  ]);
-  const ids = [...receipts.map((r) => r.id), ...sales.map((s) => s.id), ...refunds.map((r) => r.id)];
-  const voids = ids.length ? await spaPrisma.spaPaymentRevision.findMany({
-    where: { storeId, action: "VOID", OR: [{ sourceId: { in: ids } }, { refundId: { in: refunds.map((r) => r.id) } }] },
-    select: { kind: true, sourceId: true, refundId: true },
-  }) : [];
-  const voided = new Set(voids.map((v) => `${v.kind}:${v.sourceId}`));
-  const voidedRefunds = new Set(voids.map((v) => v.refundId).filter(Boolean));
-  return [
-    ...receipts.filter((r) => isSpaExternalPayment(r.paymentMethod) && !voided.has(`RECEIPT:${r.id}`))
-      .map((r): Event => ({ date: toLocalDateStr(r.paidAt), field: "otherRevenue", amount: Number(r.amount) })),
-    ...sales.filter((s) => isSpaExternalPayment(s.paymentMethod) && !voided.has(`SALE:${s.id}`))
-      .map((s): Event => ({ date: toLocalDateStr(s.createdAt), field: s.kind === "PACKAGE" || s.kind === "TOPUP" ? "packageRevenue" : "otherRevenue", amount: Number(s.amount) })),
-    ...refunds.filter((r) => isSpaExternalPayment(r.paymentMethod) && !voidedRefunds.has(r.id))
-      .map((r): Event => ({ date: toLocalDateStr(r.createdAt), field: "refunds", amount: Math.abs(Number(r.amount)) })),
-  ];
-}
-
 export async function getIndustryRevenueMix(storeId: string, startDate: string, endDate: string): Promise<RevenueMix> {
   await requireInventoryFinanceAccess(storeId);
   const industry = await getStoreIndustryModule(storeId);
   if (industry === "steamfoot") return getRevenueMix(storeId, startDate, endDate);
   const [systemEvents, manualEvents] = await Promise.all([
-    industry === "spa" ? spaEvents(storeId, startDate, endDate) : Promise.resolve([]),
+    Promise.resolve([]),
     cashbookEvents(storeId, startDate, endDate),
   ]);
   return fromEvents([...systemEvents, ...manualEvents], startDate, endDate);

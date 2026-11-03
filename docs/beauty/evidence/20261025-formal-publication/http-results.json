@@ -1,0 +1,50 @@
+[
+  {
+    "path": "/",
+    "status": 200,
+    "location": null,
+    "contentType": "text/html; charset=utf-8",
+    "serverError": false,
+    "title": "蒸管家｜每一家店，都值得擁有一位數位管家"
+  },
+  {
+    "path": "/hq/login",
+    "status": 200,
+    "location": null,
+    "contentType": "text/html; charset=utf-8",
+    "serverError": false,
+    "title": "蒸管家｜服務品牌成長系統"
+  },
+  {
+    "path": "/hq/dashboard/beauty",
+    "status": 307,
+    "location": "/hq/login",
+    "contentType": "text/plain",
+    "serverError": false,
+    "title": null
+  },
+  {
+    "path": "/hq/dashboard/stores/new",
+    "status": 307,
+    "location": "/hq/login",
+    "contentType": "text/plain",
+    "serverError": false,
+    "title": null
+  },
+  {
+    "path": "/api/auth/session",
+    "status": 200,
+    "location": null,
+    "contentType": "application/json",
+    "serverError": false,
+    "title": null
+  },
+  {
+    "path": "/s/zhubei/book",
+    "status": 307,
+    "location": "/s/zhubei/",
+    "contentType": "text/plain",
+    "serverError": false,
+    "title": null
+  }
+]

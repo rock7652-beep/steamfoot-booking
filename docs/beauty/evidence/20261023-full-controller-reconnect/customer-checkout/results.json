@@ -1,0 +1,11 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "original profile editor saves and returns to overview",
+    "profile persists after reload",
+    "real plan checkout returns the issued card",
+    "native transaction history reads the issued sale",
+    "no browser errors"
+  ],
+  "errors": []
+}

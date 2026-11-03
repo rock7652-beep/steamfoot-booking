@@ -19,6 +19,8 @@ vi.mock("next/navigation", () => ({
   redirect: (href: string) => mockRedirect(href),
 }));
 
+vi.mock("@/lib/industry-module-server",()=>({getStoreIndustryModule:async()=>"steamfoot"}));
+
 vi.mock("@/lib/session", () => ({
   getCurrentUser: () => mockGetCurrentUser(),
 }));
@@ -126,7 +128,7 @@ vi.mock("@/components/desktop", () => ({
     React.createElement("div", null, `${title}${hint ?? ""}`),
 }));
 
-import ServiceFeeCalculatorPage from "@/app/(dashboard)/dashboard/service-fee-calculator/page";
+import ServiceFeeCalculatorPage from "@/app/(dashboard)/dashboard/service-fee-calculator/workspace";
 
 const OWNER = {
   id: "user-1",
@@ -170,7 +172,7 @@ describe("ServiceFeeCalculatorPage feature gate", () => {
     mockHasStoreFeature.mockResolvedValueOnce(false);
 
     const html = renderToStaticMarkup(
-      await ServiceFeeCalculatorPage({ searchParams: Promise.resolve({ month: "2026-07" }) }),
+      await ServiceFeeCalculatorPage({ searchParams: Promise.resolve({ month: "2026-07", view:"legacy" }) }),
     );
 
     expect(mockHasStoreFeature).toHaveBeenCalledWith(
@@ -187,7 +189,7 @@ describe("ServiceFeeCalculatorPage feature gate", () => {
 
   it("renders the calculator when service_fee_calculator is enabled", async () => {
     const html = renderToStaticMarkup(
-      await ServiceFeeCalculatorPage({ searchParams: Promise.resolve({ month: "2026-07" }) }),
+      await ServiceFeeCalculatorPage({ searchParams: Promise.resolve({ month: "2026-07", view:"legacy" }) }),
     );
 
     expect(mockHasStoreFeature).toHaveBeenCalledWith(

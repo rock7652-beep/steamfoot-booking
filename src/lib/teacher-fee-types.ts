@@ -1,4 +1,12 @@
 export type TeacherFeeSeat = {
+  tuitionTemplateId?:string|null;
+  discountedBasis?: {total:number;lessons:number};
+  openingPriceSource?: boolean;
+  openingMakeupSource?: boolean;
+  musicOpeningMakeupEntitlementId?: string | null;
+  openingIssue?: string | null;
+  verifiedOpeningMakeupFee?: boolean;
+  verifiedTrialFeeBase?: number;
   id: string;
   customerName: string;
   status: string;

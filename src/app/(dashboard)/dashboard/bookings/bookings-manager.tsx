@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import styles from "./booking-layout.module.css";
 import { CustomerListIdentity } from "@/components/customer-list-identity";
 import { CustomerLabelsSeed, useSeedCustomerLabels, CustomerLabelsSettingsLink, CustomerLabelPicker, useCustomerLabelSnapshot } from "@/components/customer-labels";
@@ -231,7 +232,7 @@ function BookingsManagerContent({
   const [activeBookingId, setActiveBookingId] = useState<string | null>(
     initialBookingId,
   );
-  const [activeBookingIntent, setActiveBookingIntent] = useState<"collect" | undefined>();
+  const [activeBookingIntent, setActiveBookingIntent] = useState<"collect" | "purchase-plan" | "single" | "reschedule" | "no-show" | "cancel" | undefined>();
   const [activeSummary, setActiveSummary] = useState<BookingSummary | null>(
     null,
   );
@@ -538,8 +539,13 @@ function BookingsManagerContent({
 
   const refreshDaySlots = useCallback(async (date: string) => {
     monthNavigation?.invalidate();
-    await loadDaySlots(date);
-  }, [monthNavigation, loadDaySlots]);
+    const [, snapshot] = await Promise.all([
+      loadDaySlots(date),
+      readBookingMonth({ year, month, storeId }),
+    ]);
+    // This workspace owns its month snapshot; an RSC refresh cannot replace it.
+    setMonthSchedule(snapshot.monthSchedule);
+  }, [monthNavigation, loadDaySlots, year, month, storeId]);
 
   const bookedPeopleBySlot = useMemo(() => {
     const result = new Map<string, number>();
@@ -553,7 +559,7 @@ function BookingsManagerContent({
   }, [dayBookings]);
 
   const openBooking = useCallback(
-    (id: string, intent?: "collect") => {
+    (id: string, intent?: "collect" | "purchase-plan" | "single" | "reschedule" | "no-show" | "cancel") => {
       if (saves.isBlocked(id) || (intent && readOnly)) return;
       setActiveBookingIntent(intent);
       // 當日清單暫時隱藏；關閉詳情後回到原日期、篩選與捲動位置。
@@ -1043,6 +1049,7 @@ function Toolbar({
   servicePlans: ServicePlanOption[];
   activeFilterCount: number;
 }) {
+  const personnelText = useCoursePersonnelText();
   const [compositionText, setCompositionText] = useState<string | null>(null);
   const composing = useRef(false);
   const prevMonth = month === 1 ? 12 : month - 1;
@@ -1078,7 +1085,7 @@ function Toolbar({
         </button>
         <span className="mx-2 h-5 w-px bg-earth-200" />
         <FilterSelect
-          label="教練"
+          label={personnelText("教練")}
           value={filters.staffName}
           onChange={(v) => setFilters({ ...filters, staffName: v })}
           options={staffOptions.map((s) => ({ value: s.name, label: s.name }))}

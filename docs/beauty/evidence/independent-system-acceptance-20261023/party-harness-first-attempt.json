@@ -1,0 +1,19 @@
+{
+  "commit": "43f207f91e62d95af1fd6128f5ff82b7442e1e92",
+  "stage": "create-party",
+  "fixture": null,
+  "cleaned": false,
+  "results": [
+    {
+      "case": "two people different services share the service/time page and show full per-service ranges",
+      "passed": true
+    },
+    {
+      "case": "booking confirmation return preserves service, date and notes",
+      "passed": true
+    }
+  ],
+  "errors": [
+    "response.text: Protocol error (Network.getResponseBody): No data found for resource with given identifier\nResponse body is not available for a response that was navigated away from. Read response.body() before triggering any navigation."
+  ]
+}

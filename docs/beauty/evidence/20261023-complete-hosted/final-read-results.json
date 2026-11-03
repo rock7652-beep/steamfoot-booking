@@ -1,0 +1,60 @@
+{
+  "results": [
+    {
+      "case": "登入後開啟 班表",
+      "passed": true
+    },
+    {
+      "case": "登入後開啟 顧客管理",
+      "passed": true
+    },
+    {
+      "case": "登入後開啟 顧客經營",
+      "passed": true
+    },
+    {
+      "case": "登入後開啟 營運",
+      "passed": true
+    },
+    {
+      "case": "登入後開啟 分析",
+      "passed": true
+    },
+    {
+      "case": "登入後開啟 位置管理",
+      "passed": true
+    },
+    {
+      "case": "登入後開啟 服務項目",
+      "passed": true
+    },
+    {
+      "case": "登入後開啟 收費方式",
+      "passed": true
+    },
+    {
+      "case": "登入後開啟 技師管理",
+      "passed": true
+    },
+    {
+      "case": "登入後開啟 設定",
+      "passed": true
+    },
+    {
+      "case": "登入後開啟 人員管理",
+      "passed": true
+    },
+    {
+      "case": "最終版讀回新方案已結清",
+      "passed": true
+    },
+    {
+      "case": "最終版通知可重新導向既有預約明細",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "stage": "final-balance",
+  "scope": "steamfoot-preview / beauty-hosted-20261021",
+  "finalDeploymentCommit": "eca98f9c350b3b5543f0e398ac9f96922f0f079d"
+}

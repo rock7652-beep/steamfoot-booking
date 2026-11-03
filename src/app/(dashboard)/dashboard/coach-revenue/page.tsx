@@ -1,3 +1,5 @@
+import {getStoreIndustryModule} from '@/lib/industry-module-server';
+import {toLocalMonthStr,toLocalDateStr,monthRange} from '@/lib/date-utils';
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -46,6 +48,7 @@ export default async function CoachRevenuePage() {
     );
   }
 
+  const beautyMode=!!reportsStoreId&&await getStoreIndustryModule(reportsStoreId)==="beauty";
   const admin = getEffectiveActorRole(user) === "ADMIN";
   const storeFilter = getStoreFilter(reportsUser, reportsStoreId);
 
@@ -82,7 +85,7 @@ export default async function CoachRevenuePage() {
         <p className="text-sm text-earth-500">查看各合作店長歸屬營收、新舊客分析，並匯出 Excel</p>
       </div>
 
-      <RevenueReportClient
+      <RevenueReportClient serviceMode={beautyMode} courseMode={beautyMode} canReadDetails={!beautyMode||(await checkPermission(user.role,user.staffId,"transaction.read")&&await hasStoreFeature(reportsStoreId!,FF.TRANSACTION_MANAGEMENT))}
         mode="coach"
         stores={stores}
         coaches={coaches}
@@ -90,8 +93,8 @@ export default async function CoachRevenuePage() {
         isViewMode={isViewMode}
         canExportData={canExportData}
         dataExportLockedMessage={dataExportLockedMessage}
-        defaultStartDate={defaultStart}
-        defaultEndDate={defaultEnd}
+        defaultStartDate={beautyMode?toLocalMonthStr()+"-01":defaultStart}
+        defaultEndDate={beautyMode?toLocalDateStr(monthRange(toLocalMonthStr()).end):defaultEnd}
       />
     </div>
   );

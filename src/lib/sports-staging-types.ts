@@ -17,6 +17,8 @@ export const sportsScheduleRule = z.object({
 });
 export type SportsScheduleRule = z.infer<typeof sportsScheduleRule>;
 export type SportsSubject = {
+  durationMinutes?:number;
+  templateId?:string;
   id: string;
   name: string;
   category: string;
@@ -24,6 +26,8 @@ export type SportsSubject = {
   updatedAt: string;
 };
 export type SportsFee = {
+  chargeSettings?:unknown;
+  sportsMode?:string;
   id: string;
   subject: string;
   name: string;
@@ -68,6 +72,7 @@ export type SportsLesson = {
   cancelled?: boolean;
 };
 export type SportsSnapshot = {
+  schedulingModes?: import("./course-scheduling-modes").CourseSchedulingModes;
   storeId: string;
   subjects: SportsSubject[];
   fees: SportsFee[];
@@ -76,6 +81,9 @@ export type SportsSnapshot = {
     id: string;
     name: string;
     fee: string;
+    sportsMode?:string;
+    assignedEligible?:boolean;
+    subject?:string;
     cardId: string;
     available: number;
   }>;

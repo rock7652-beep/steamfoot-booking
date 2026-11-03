@@ -1,0 +1,5 @@
+import {it, expect} from 'vitest';
+import {assertBeautyLocalQaEnvironment} from '../../scripts/beauty-local-qa-scope.mjs';
+const env={BEAUTY_LOCAL_QA:'1',NODE_ENV:'development',AUTH_URL:'http://127.0.0.1:3114',NEXTAUTH_URL:'http://127.0.0.1:3114',BEAUTY_MODULE_ENABLED:'1',BEAUTY_NOTIFICATIONS_ENABLED:'0',DATABASE_URL:'postgresql://beauty_1374_app:synthetic@127.0.0.1:32768/beauty_1374_qa',DIRECT_URL:'postgresql://beauty_1374_app:synthetic@127.0.0.1:32768/beauty_1374_qa'};
+it('accepts only the explicit isolated local development configuration',()=>{expect(()=>assertBeautyLocalQaEnvironment(env)).not.toThrow();});
+it.each([{VERCEL:'1'},{VERCEL_ENV:'production'},{WORKERS_CI_BRANCH:'main'},{NODE_ENV:'production'},{BEAUTY_NOTIFICATIONS_ENABLED:'1'},{DATABASE_URL:'postgresql://beauty_1374_app:synthetic@db.remote.invalid:32768/beauty_1374_qa'},{DIRECT_URL:'postgresql://postgres:synthetic@127.0.0.1:32768/beauty_1374_qa'},{AUTH_URL:'https://remote.invalid'},{BEAUTY_MODULE_ENABLED:'0'}])('rejects unsafe overrides %j',patch=>{expect(()=>assertBeautyLocalQaEnvironment({...env,...patch})).toThrow();});

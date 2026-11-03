@@ -27,3 +27,7 @@ it.each(cases)("returns an uncached confirmed receipt or an ambiguous 503",async
  const reply=await route(request(values));expect(reply.status).toBe(200);expect(reply.headers.get("cache-control")).toBe("private, no-store");expect(await reply.json()).toMatchObject({success:true,storeId:"store"});
  save.mockRejectedValueOnce(new Error("response interrupted"));const uncertain=await route(request(values));expect(uncertain.status).toBe(503);expect(await uncertain.json()).toMatchObject({success:false,uncertain:true});
 });
+
+it("passes explicit onboarding confirmation separately from the revision receipt",async()=>{
+ m.weekly.mockResolvedValue({success:true});const values={...cases[0].values,confirmForSetup:true};await weekly(request(values));expect(m.weekly).toHaveBeenCalledWith(expect.objectContaining({confirmForSetup:true,receipt:expect.not.objectContaining({confirmForSetup:true})}));
+});

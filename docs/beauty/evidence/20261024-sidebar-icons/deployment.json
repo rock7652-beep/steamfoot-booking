@@ -1,0 +1,14 @@
+{
+  "id": "dpl_HhKZjSPMdySD5dj5XhCunrEVkngy",
+  "state": "READY",
+  "target": "preview",
+  "commit": "0a6b8dbd3e136ccfc830cf55877c8178fff16874",
+  "origin": "https://steamfoot-booking-of29ce6gu-rock7652-2111s-projects.vercel.app",
+  "localVisualChecksPassed": 5,
+  "existingNavigationTestsPassed": 63,
+  "hostedLoginRepeated": false,
+  "newProtectedAccessCreated": false,
+  "databaseMigration": false,
+  "lineEnabled": false,
+  "productionChanged": false
+}

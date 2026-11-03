@@ -43,3 +43,18 @@ it("rejects stale remaining balance and overpayment",async()=>{
  await expect(recordCourseFeePayment(tx,actor,{...input,...extra})).rejects.toThrow();
  }expect(execute).not.toHaveBeenCalled();
 });
+
+it.each([{bookingKind:"OPENING_MAKEUP"},{bookingKind:"CARD",musicOpeningMakeupEntitlementId:"right"}])("blocks fixed teacher fee payout for opening rights before financial writes: %j",async marker=>{
+ raw.mockResolvedValueOnce([]).mockResolvedValueOnce([row]).mockResolvedValueOnce([{id:"opening",sessionId:"class",customerName:"學員",status:"ATTENDED",absenceKind:null,cardId:null,pointCost:0,...marker}]);
+ await expect(recordCourseFeePayment(tx,actor,input)).rejects.toThrow("需人工核對");
+ expect(execute).not.toHaveBeenCalled();expect(m.cash).not.toHaveBeenCalled();
+});
+
+it.each([undefined,"B"])("HQ fee payment/correction with stale store %s cannot write",async expectedStoreId=>{
+ m.manager.mockResolvedValue({storeId:"A",user:{id:"hq",role:"ADMIN"}});
+ for(const action of [payCourseFee,correctCourseFee]) {
+  const result=await action({...input,expectedStoreId,paymentId:"payment",reason:"誤登"});
+  expect(result.success).toBe(false);if(!result.success)expect(result.error).toContain("門市已切換");
+ }
+ expect(m.transaction).not.toHaveBeenCalled();expect(execute).not.toHaveBeenCalled();
+});

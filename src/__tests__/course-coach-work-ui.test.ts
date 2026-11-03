@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/customer-booking-goods",()=>({readCustomerBookingGoods:vi.fn().mockResolvedValue({success:true,data:null})}));
+vi.mock("@/server/actions/central-member-store", () => ({ selectCentralMemberStoreAction: vi.fn() }));
 vi.mock("@/server/actions/sports-staging",()=>({bookSportsTrial:vi.fn()}));
 vi.mock("@/server/actions/course-teacher-session",()=>({loadCourseTeacherSession:vi.fn(),changeCourseTeacherSession:vi.fn()}));
 vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn()}));
@@ -7,8 +9,8 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CoursePortalData } from "@/app/(customer)/book/course-portal";
-const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), checkIn: vi.fn(), note: vi.fn(), usage: vi.fn(), loadUsage: vi.fn(), purchase: vi.fn(), booking: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, replace: m.replace }), usePathname: () => "/s/a/book", useSearchParams: () => new URLSearchParams() }));
+const m = vi.hoisted(() => ({ search: "", refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), checkIn: vi.fn(), note: vi.fn(), usage: vi.fn(), loadUsage: vi.fn(), purchase: vi.fn(), booking: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, replace: m.replace }), usePathname: () => "/s/a/book", useSearchParams: () => new URLSearchParams(m.search) }));
 vi.mock("@/components/customer-labels", () => ({ CustomerLabelsProvider: ({children}: {children: unknown}) => children, CustomerLabels: () => null }));
 vi.mock("@/components/share-referral", () => ({ ShareReferral: () => null }));
 vi.mock("@/server/actions/course-referral-share", () => ({ trackCourseShare: vi.fn() }));
@@ -26,6 +28,8 @@ vi.mock("@/server/actions/course-booking-notification", () => ({
   confirmMemberCourseTrial: vi.fn(),
   rescheduleMemberCourseBooking: vi.fn(),
 }));
+import { CustomerMembershipProvider } from "@/app/(customer)/customer-membership-context";
+import { selectCentralMemberStoreAction } from "@/server/actions/central-member-store";
 import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 let host: HTMLDivElement, root: Root;
 const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, cardId: "card-a", companionIndex: null, reserverName: null, canAddCompanion: false, customerName: id, checkedIn, status, notes: "",serviceNote:"", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, available: 6, unit: "POINT", planName: "十點", expiresAt: null });
@@ -45,12 +49,20 @@ const memberProps = () => ({
   work: [],
 }) as unknown as CoursePortalData;
 const click = async (text: string) => {
-  const button = [...host.querySelectorAll("button")].find(b => b.textContent?.includes(text));
+  if (text === "預約" || text === "我的預約") {
+    await act(async()=>host.querySelector<HTMLButtonElement>('.cp-nav button:nth-child(2)')!.click());
+    const tab=[...host.querySelectorAll<HTMLButtonElement>('.cp-calendar-modes button')].find(b=>b.textContent===(text === "預約" ? "開放選課" : "我的課表"));
+    if(tab) await act(async()=>tab.click());
+    return;
+  }
+  const label=text === "我的方案" ? "課程與繳費" : text;
+  const button = [...host.querySelectorAll("button")].find(b => b.textContent?.includes(label));
   expect(button, text).toBeTruthy();
   await act(async () => button!.click());
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  m.search = "";
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   window.scrollTo = vi.fn();
   HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -61,12 +73,39 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); if (vi.isFakeTimers()) { vi.clearAllTimers(); vi.useRealTimers(); } });
 describe("coach daily work interactions", () => {
+  it.each([false, true])("keeps verified store switching on course member and work pages (music=%s)", async musicStore => {
+    m.search = "?memberEntry=liff";
+    const stores = [{storeId:"store-a",storeSlug:"a",storeName:"目前課程店"},{storeId:"store-b",storeSlug:"b",storeName:"另一個已加入的會員門市"}];
+    const data={...props(),memberEnabled:true,musicStore,storeName:"目前課程店"};
+    await act(async()=>root.render(createElement(CustomerMembershipProvider, {stores},createElement(CoursePortalClient,data))));
+    const open=()=>host.querySelector<HTMLButtonElement>('button[aria-label="目前門市：目前課程店，切換門市"]')!;
+    expect(open()).not.toBeNull();
+    await act(async()=>open().click());
+    const options=host.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+    expect(options).toHaveLength(2);expect(options[0].disabled).toBe(true);
+    expect(options[1].textContent).toContain("另一個已加入的會員門市");
+    await act(async()=>options[1].closest("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+    expect(vi.mocked(selectCentralMemberStoreAction).mock.calls[0][0].get("storeSlug")).toBe("b");
+    expect(vi.mocked(selectCentralMemberStoreAction).mock.calls[0][0].get("memberEntry")).toBe("liff");
+    await act(async()=>open().click());
+    for(const label of ["課表","今日工作","會員","我的","首頁"]) {
+      const button=[...host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent===label);
+      expect(button,label).toBeTruthy();await act(async()=>button!.click());expect(open(),label).not.toBeNull();
+    }
+  });
+  it("does not expose real membership switching in a read-only preview", async()=>{
+    const stores=[{storeId:"store-a",storeSlug:"a",storeName:"A"},{storeId:"store-b",storeSlug:"b",storeName:"B"}];
+    await act(async()=>root.render(createElement(CustomerMembershipProvider,{stores},createElement(CoursePortalClient,{...props(),readOnly:true}))));
+    expect(host.querySelector('button[aria-haspopup="menu"]')).toBeNull();
+    expect(selectCentralMemberStoreAction).not.toHaveBeenCalled();
+  });
   it("refreshes from the work account menu without submitting logout", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,props())));
-    const form=host.querySelector('.cp-coach-options form') as HTMLFormElement;
+    const menu=host.querySelector('[aria-label="帳號操作"]')!;
+    const form=menu.querySelector('form') as HTMLFormElement;
     const submitted=vi.fn();form.addEventListener('submit',submitted);
-    await act(async()=>(host.querySelector('.cp-coach-options summary') as HTMLElement).click());
-    await act(async()=>(form.querySelector('.cp-refresh button') as HTMLButtonElement).click());
+    await act(async()=>(host.querySelector('summary[aria-label="帳號選單"]') as HTMLElement).click());
+    await act(async()=>(menu.querySelector('.cp-refresh button') as HTMLButtonElement).click());
     expect(m.refresh).toHaveBeenCalledTimes(1);
     expect(submitted).not.toHaveBeenCalled();
     expect(host.querySelector('.cp-main .cp-refresh')).toBeNull();
@@ -78,7 +117,7 @@ describe("coach daily work interactions", () => {
       await click(label);
       const links = host.querySelectorAll('a[href^="/s/a/book/income"]');
       expect(links).toHaveLength(1);
-      expect(links[0].closest(".cp-coach-options")).not.toBeNull();
+      expect(links[0].closest('[aria-label="帳號操作"]')).not.toBeNull();
     }
   });
   it("shows the music lesson unit when expanding a work roster", async () => {
@@ -190,7 +229,7 @@ describe("coach daily work interactions", () => {
     await act(async () => root.render(createElement(CoursePortalClient, { ...props(), month: "2026-10", work: [] })));
     expect(host.textContent).toContain("10/7（三）");
   });
-  it("preserves an unsaved note when navigation is declined", async () => {
+  it("closes a test note without a discard prompt when navigating", async () => {
     await act(async () => root.render(createElement(CoursePortalClient, props())));
     await click("伸展瑜珈"); await click("編輯本次備註");
     const textarea = host.querySelector("textarea")!;
@@ -200,9 +239,9 @@ describe("coach daily work interactions", () => {
     });
     vi.spyOn(window, "confirm").mockReturnValue(false);
     await click("課表");
-    expect(window.confirm).toHaveBeenCalled();
-    expect((host.querySelector("textarea") as HTMLTextAreaElement).value).toBe("膝蓋不適，降低強度");
-    expect(host.textContent).toContain("今天 · 2026-09-20");
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(host.querySelector("textarea")).toBeNull();
+    expect(host.querySelector(".cp-week-strip")).not.toBeNull();
     vi.restoreAllMocks();
   });
   it("starts with today's list and keeps the calendar collapsed", async () => {
@@ -356,6 +395,7 @@ describe("member plan and purchase navigation", () => {
       {...memberProps().sessions[0],id:'two',coachId:'teacher-two',name:'課程二'},
     ]};
     await act(async()=>root.render(createElement(CoursePortalClient,data)));
+    await click("開放選課");
     const select=host.querySelectorAll<HTMLSelectElement>('[aria-label="課表篩選"] select')[1];
     expect([...select.options].map(option=>option.text)).toEqual(['全部教練','林教練（同名教練 1）','林教練（同名教練 2）']);
     await act(async()=>{select.value='teacher-two';select.dispatchEvent(new Event('change',{bubbles:true}));});
@@ -376,10 +416,10 @@ describe("member plan and purchase navigation", () => {
     await act(async()=>root.render(createElement(CoursePortalClient,memberProps())));
     expect(host.textContent).toContain("林教練 · A 教室");
     expect(host.textContent).toContain("本人＋家人 · 共 2 位");
-    for (const label of ["立即預約","我的預約","我的方案","健康"]) expect(host.textContent).toContain(label);
+    for (const label of ["立即預約","課表","我的方案"]) expect(host.textContent).toContain(label);
     expect(host.querySelector('[aria-label="身分"]')).toBeNull();
     expect(host.querySelectorAll('.cp-role-switch button')).toHaveLength(2);
-    expect(host.querySelectorAll('.cp-nav svg')).toHaveLength(5);
+    expect(host.querySelectorAll('.cp-nav svg')).toHaveLength(3);
     expect(host.textContent).not.toContain("操作指南");
     await click("我的工作");
     expect(host.textContent).not.toContain("操作指南");
@@ -596,7 +636,7 @@ describe("member plan and purchase navigation", () => {
   });
  it("hides the health destination when disabled and removes duplicate account entry", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),healthEnabled:false})));
-    expect(host.querySelectorAll('.cp-nav button')).toHaveLength(4);
+    expect(host.querySelectorAll('.cp-nav button')).toHaveLength(3);
     expect([...host.querySelectorAll('.cp-nav button')].some(button => button.textContent === "健康")).toBe(false);
     await click("我的");
     expect(host.textContent).not.toContain("健康追蹤");
@@ -615,6 +655,7 @@ describe("simple companion booking", () => {
   it("defaults to one and submits three people with both companion names empty", async () => {
     m.booking.mockResolvedValue({success: true});
     await act(async () => root.render(createElement(CoursePortalClient, bookingProps())));
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
     await act(async () => (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
     expect(host.querySelector('.cp-headcount button[aria-pressed="true"]')?.textContent).toBe("1 人");
     await click("3 人");
@@ -632,17 +673,19 @@ describe("simple companion booking", () => {
     const updates = ["本人", "同行者 1", "同行者 2"].map((name, i) => ({id: `new-${i}`, sessionId: "session", cardId: "card-a", customerId: i ? null : "member", customerName: name, operatorName: "本人", reserverCustomerId: "member", status: "RESERVED", cost: 2, confirmedAt: data.serverNow + 1000}));
     m.booking.mockResolvedValue({success: true, bookingUpdates: updates});
     await act(async () => root.render(createElement(CoursePortalClient, data)));
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
     await act(async () => (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
     await click("3 人"); await click("確認預約");
     expect(host.querySelector('[role="dialog"]')).toBeNull();
     expect(host.querySelector('.cp-lesson')?.textContent).toContain('已預約');
-    expect(host.querySelector('.cp-nav button[aria-current="page"]')?.textContent).toBe('預約');
+    expect(host.querySelector('.cp-nav button[aria-current="page"]')?.textContent).toBe('課表');
     await act(async () => ([...host.querySelectorAll("button")].find(b => b.textContent === "我的") as HTMLButtonElement).click());
     await click("我的方案");
     expect(host.textContent).toContain("還可預約 4 點");
     expect(host.querySelector('.cp-balance-breakdown')?.textContent).toBe("剩餘 10 點｜已預約 6 點");
     const snapshot = {...data, serverNow: data.serverNow + 2000, bookings: updates.map(b => ({...b, name: "瑜珈", startsAt: data.sessions[0].startsAt, coach: "教練", room: "教室", notes: "", unit: "POINT", planName: "自由選課", trialPaid: null, trialPrice: null, expiresAt: data.cards[0].expiresAt})), cards: [{...data.cards[0], available: 4, held: 6}]} as unknown as CoursePortalData;
     await act(async () => root.render(createElement(CoursePortalClient, snapshot)));
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
     expect(host.textContent).toContain("還可預約 4 點");
     await click("我的預約");
     expect(host.querySelectorAll('.cp-booking-person-line')).toHaveLength(3);
@@ -651,6 +694,7 @@ describe("simple companion booking", () => {
     let finish!: (value: {success: boolean; error: string}) => void;
     m.booking.mockImplementation(() => new Promise(resolve => {finish = resolve;}));
     await act(async () => root.render(createElement(CoursePortalClient, bookingProps())));
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
     await act(async () => (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
     await click("2 人");
     const submit = [...host.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent === "確認預約")!;
@@ -665,12 +709,14 @@ describe("simple companion booking", () => {
   });
   it("respects the existing plan sharing setting", async () => {
     await act(async () => root.render(createElement(CoursePortalClient, bookingProps(false))));
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
     await act(async () => (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
     expect([...host.querySelectorAll<HTMLButtonElement>('.cp-headcount button')].map(button => button.disabled)).toEqual([false, true, true]);
   });
   it("blocks new anonymous companions in LOCKED while keeping self booking", async()=>{
     m.booking.mockResolvedValue({success:true});
     await act(async()=>root.render(createElement(CoursePortalClient,{...bookingProps(),sharedCardState:"LOCKED"})));
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
     await act(async()=> (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
     expect([...host.querySelectorAll<HTMLButtonElement>(".cp-headcount button")].map(button=>button.disabled)).toEqual([false,true,true]);
     expect(host.querySelector('[role="dialog"]')?.textContent).toContain("功能未開通");
@@ -680,9 +726,11 @@ describe("simple companion booking", () => {
   it("removes anonymous controls and stale extra people when an open booking becomes HIDDEN", async()=>{
     const data=bookingProps();m.booking.mockResolvedValue({success:true});
     await act(async()=>root.render(createElement(CoursePortalClient,data)));
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
     await act(async()=> (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
     await click("3 人");
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,sharedCardState:"HIDDEN"})));
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
     expect(host.querySelector(".cp-headcount")).toBeNull();
     expect(host.querySelector('[role="dialog"]')?.textContent).not.toContain("同行姓名");
     expect(host.querySelector('[role="dialog"]')?.textContent).toContain("人數：1 人");
@@ -694,6 +742,7 @@ describe("simple companion booking", () => {
     const data=bookingProps();data.cards[0].members.push({id:"family",name:"已有授權且姓名很長的家庭成員"});
     m.booking.mockResolvedValue({success:true});
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,sharedCardState})));
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
     await act(async()=> (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
     expect(host.querySelector(".cp-headcount")).toBeNull();
     const choices=[...host.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')];
@@ -706,18 +755,21 @@ describe("simple companion booking", () => {
   it("drops removed named authorizations from an open booking instead of submitting stale ids",async()=>{
     const data=bookingProps();data.cards[0].members.push({id:"family",name:"原授權成員"});
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,sharedCardState:"HIDDEN"})));
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
     await act(async()=> (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
     const choices=[...host.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')];
     await act(async()=>{choices[0].click();choices[1].click();});
     // Preserve named mode by keeping a different authorized family member in the latest snapshot.
     const latest={...data,cards:[{...data.cards[0],members:[{id:"member",name:"本人"},{id:"other",name:"另一位授權成員"}]}],sharedCardState:"HIDDEN" as const};
     await act(async()=>root.render(createElement(CoursePortalClient,latest)));
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
     expect(host.querySelector('[role="dialog"]')?.textContent).toContain("人數：0 人");
     const submit=[...host.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==="確認預約")!;
     expect(submit.disabled).toBe(true);expect(m.booking).not.toHaveBeenCalled();
   });
   it("reopens a booking with a clean one-person selection",async()=>{
     await act(async()=>root.render(createElement(CoursePortalClient,bookingProps())));
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
     await act(async()=> (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());await click("3 人");
     await act(async()=>host.querySelector<HTMLButtonElement>('[role="dialog"] [aria-label="關閉"]')!.click());
     await act(async()=> (host.querySelector(".cp-lesson button") as HTMLButtonElement).click());
@@ -730,7 +782,8 @@ describe("simple companion booking", () => {
     await act(async()=> ([...host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="我的")!).click());
     await click("我的方案");
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,sharedCardState:"HIDDEN"})));
-    expect(host.textContent).toContain("我的方案");expect(host.textContent).toContain("授權成員（2 人）");expect(host.textContent).toContain("已有授權成員");expect(host.querySelector(".cp-plan-history")).toBeNull();
+    if (host.querySelector(".cp-calendar-modes")) await click("開放選課");
+    expect(host.textContent).toContain("課程與繳費");expect(host.textContent).toContain("授權成員（2 人）");expect(host.textContent).toContain("已有授權成員");expect(host.querySelector(".cp-plan-history")).toBeNull();
     await act(async()=> ([...host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="我的")!).click());
     expect([...host.querySelectorAll("button")].some(button=>button.textContent?.startsWith("共卡成員"))).toBe(false);
     await click("首頁");
@@ -739,7 +792,7 @@ describe("simple companion booking", () => {
   });
   it("keeps blue self and orange other attendees regardless of who operated the booking when HIDDEN",async()=>{
     const data=memberProps();data.cancellationLeadMinutes=30;
-    data.bookings=[{...data.bookings[0],operatorName:"他人代約"},{...data.bookings[0],id:"other-booking",customerId:"family",customerName:"家人",operatorName:"會員本人"}];
+    data.bookings=[{...data.bookings[0],operatorName:"他人代約"},{...data.bookings[0],id:"other-booking",customerId:"family",customerName:"家人",operatorName:"會員本人",reserverCustomerId:"member"}];
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"bookings",sharedCardState:"HIDDEN"})));
     const names=[...host.querySelectorAll(".cp-booking-person-line strong")].map(node=>node.textContent);
     expect(names).toEqual(["🔵 會員本人","🟠 家人"]);

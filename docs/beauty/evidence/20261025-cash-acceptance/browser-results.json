@@ -1,0 +1,95 @@
+{
+  "deployment": "dpl_28VBekuzbTbf8WKSnGutQYBtFsnG",
+  "pageErrors": [],
+  "checks": [
+    {
+      "name": "real-login",
+      "success": true,
+      "session": {
+        "role": "OWNER",
+        "storeId": "beauty-hosted-20261021",
+        "staffId": "qa_beauty_1025_owner_a318f2a85f_staff"
+      }
+    },
+    {
+      "name": "catchup-close-authorized-1000-correct-store-date",
+      "success": true
+    },
+    {
+      "name": "old-drawer-catchup-closed",
+      "success": true
+    },
+    {
+      "name": "cash-open-1000",
+      "success": true
+    },
+    {
+      "name": "cash-opening-1000",
+      "success": true
+    },
+    {
+      "name": "cash-quote-loaded-correct-customer",
+      "success": true
+    },
+    {
+      "name": "cash-quote-900-ready",
+      "success": true
+    },
+    {
+      "name": "cash-discount-900-before-submit",
+      "success": true
+    },
+    {
+      "name": "replay-identical-qa-cash-collection",
+      "value": {
+        "captured": true,
+        "httpStatus": 200
+      }
+    },
+    {
+      "name": "cash-collected-roster-preserved",
+      "success": true
+    },
+    {
+      "name": "drawer-after-cash-sale-is1900",
+      "success": true
+    },
+    {
+      "name": "cash-drawer-after-sale1900",
+      "success": true
+    },
+    {
+      "name": "cash-refund900-before-confirm",
+      "success": true
+    },
+    {
+      "name": "replay-identical-qa-cash-refund",
+      "value": {
+        "captured": true,
+        "httpStatus": 200
+      }
+    },
+    {
+      "name": "cash-refund-recorded",
+      "success": true
+    },
+    {
+      "name": "cash-refund-restores-drawer1000",
+      "success": true
+    },
+    {
+      "name": "cash-drawer-after-refund1000",
+      "success": true
+    },
+    {
+      "name": "cash-final-closed1000",
+      "success": true
+    }
+  ],
+  "harnessLimitations": [
+    "Booking optional note was collapsed; fill timed out, no note entered.",
+    "First menu lookup used button instead of menuitem; corrected without mutating other records.",
+    "Final close assertion searched 已閉店, while UI renders 今日已結帳. Screenshot and SQL independently confirm CLOSED with zero difference.",
+    "HTTP200 replay responses alone are not business success evidence; exact payment/cashbook row counts were verified through SQL."
+  ]
+}

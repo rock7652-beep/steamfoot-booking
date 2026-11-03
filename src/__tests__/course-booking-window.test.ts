@@ -5,7 +5,7 @@ vi.mock("@/server/services/course-access",()=>({courseManager:m.manager}));
 vi.mock("@/lib/revalidation",()=>({revalidateShopConfig:vi.fn(),revalidateShopConfigInRoute:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 import {saveCourseBookingWindow} from "@/server/actions/course-booking-window";
-beforeEach(()=>{vi.resetAllMocks();vi.useFakeTimers();vi.setSystemTime(new Date("2026-09-17T10:00:00+08:00"));m.manager.mockResolvedValue({storeId:"s"});m.raw.mockResolvedValue([]);m.transaction.mockImplementation(async work=>work({$queryRaw:m.raw,shopConfig:{upsert:m.save}}));});
+beforeEach(()=>{vi.resetAllMocks();vi.useFakeTimers();vi.setSystemTime(new Date("2026-09-17T10:00:00+08:00"));m.manager.mockResolvedValue({storeId:"s"});m.raw.mockImplementation(async(sql)=>sql.join("").includes('FROM "Store"')?[{id:"s"}]:[]);m.transaction.mockImplementation(async work=>work({$queryRaw:m.raw,shopConfig:{upsert:m.save}}));});
 afterEach(()=>vi.useRealTimers());
 it("saves fixed date under the authorized course store lock with inclusive Taipei cutoff",async()=>{
  expect(await saveCourseBookingWindow({mode:"fixed",date:"2026-09-30"})).toMatchObject({success:true});expect(m.manager).toHaveBeenCalledWith("business_hours.manage");expect(m.raw.mock.calls[0][1]).toBe("s");expect(m.raw.mock.calls[1][2]).toEqual(new Date("2026-09-30T23:59:59.999+08:00"));expect(m.save).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:"s"},update:{bookableUntilDate:new Date("2026-09-30T00:00:00Z"),bookingOpensAt:null}}));
@@ -20,6 +20,12 @@ it.each([{mode:"fixed",date:"2026-02-30"},{mode:"fixed",date:"2026-09-16"},{mode
 it("permission failure cannot change any store",async()=>{m.manager.mockRejectedValue(new Error("denied"));expect(await saveCourseBookingWindow({mode:"rolling",days:7})).toMatchObject({success:false});expect(m.save).not.toHaveBeenCalled();});
 
 const receipt={expectedStoreId:"s",requestKey:"c35cfeba-1a78-4c84-a6f2-8fb9e1669143",expectedRevision:JSON.stringify([null,14,null])};
+it.each([false,true])("both settings entries refuse a store paused after authorization (confirmed=%s)",async confirmed=>{
+ const {saveCourseBookingWindowConfirmed}=await import("@/server/actions/course-booking-window");
+ m.raw.mockReset().mockResolvedValue([]);
+ const result=confirmed?await saveCourseBookingWindowConfirmed({...receipt,values:{mode:"rolling",days:7}}):await saveCourseBookingWindow({mode:"rolling",days:7});
+ expect(result).toMatchObject({success:false,error:expect.stringContaining("已暫停")});expect(m.save).not.toHaveBeenCalled();expect(m.raw).toHaveBeenCalledTimes(1);
+});
 it("confirmed saves return persisted fields and reuse an applied retry without writing",async()=>{
  const {saveCourseBookingWindowConfirmed}=await import("@/server/actions/course-booking-window");
  let current={bookableUntilDate:null,bookingWindowDays:14,bookingOpensAt:null,updatedAt:new Date()} as {bookableUntilDate:Date|null;bookingWindowDays:number;bookingOpensAt:Date|null;updatedAt:Date};

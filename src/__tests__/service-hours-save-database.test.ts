@@ -21,6 +21,9 @@ beforeAll(async()=>{db=new PGlite();client=db;await db.exec(`
  CREATE TABLE "SpecialBusinessDay" (id text primary key,"storeId" text,date date,type text,reason text,"openTime" text,"closeTime" text,"slotInterval" int,"defaultCapacity" int,segments jsonb,"updatedAt" timestamp NOT NULL,unique("storeId",date));
  CREATE TABLE "SlotOverride" (id text primary key,"storeId" text,date date,"startTime" text,type text,capacity int,reason text,"updatedAt" timestamp NOT NULL,unique("storeId",date,"startTime"));
  CREATE TABLE "AuditLog" (id text primary key,"actorUserId" text,"targetType" text,"targetId" text,action text,"beforeJson" jsonb,"afterJson" jsonb,"createdAt" timestamp);
+ CREATE TABLE "Store" (id text primary key);
+ INSERT INTO "Store" VALUES ('s'),('other');
+ CREATE TABLE "BeautyAppointment" ("storeId" text,"startsAt" timestamptz,"occupiedEndsAt" timestamptz,status text);
  CREATE TABLE "Booking" ("storeId" text,"bookingDate" date,"slotTime" text,people int,"bookingStatus" text);
  CREATE TABLE "SpaBooking" ("storeId" text,"bookingDate" date,"startTime" text,"endTime" text,people int,status text);
  `);});
@@ -29,7 +32,7 @@ beforeEach(async()=>{
  vi.clearAllMocks();m.permission.mockResolvedValue({id:"owner"});m.store.mockResolvedValue("s");m.module.mockResolvedValue("steamfoot");m.cache.mockReset();
  const transaction=async(work:(tx:unknown)=>unknown)=>db.transaction(async c=>{client=c;try{return await work(tx);}finally{client=db;}});
  m.steam.mockImplementation(transaction);m.spa.mockImplementation(transaction);
- await db.exec(`TRUNCATE "BusinessHours","SpecialBusinessDay","SlotOverride","AuditLog","Booking","SpaBooking";INSERT INTO "BusinessHours" VALUES ('h','s',4,true,'10:00','18:00',60,6,NULL,now()),('other','other',4,true,'09:00','22:00',30,9,NULL,now());`);
+ await db.exec(`TRUNCATE "BusinessHours","SpecialBusinessDay","SlotOverride","AuditLog","Booking","SpaBooking","BeautyAppointment";INSERT INTO "BusinessHours" VALUES ('h','s',4,true,'10:00','18:00',60,6,NULL,now()),('other','other',4,true,'09:00','22:00',30,9,NULL,now());`);
 });
 const values={date:"2030-10-10",status:"custom",mode:"day",weeks:0,reason:"調整營業",periods:[{openTime:"11:00",closeTime:"17:00",slotInterval:60,defaultCapacity:6}]};
 async function input(extra:Record<string,unknown>={}){return {expectedStoreId:"s",requestKey:crypto.randomUUID(),expectedRevision:serviceHoursRevision(await readServiceHoursState(tx as never,"s")),values:{...values,...extra}};}
@@ -44,16 +47,29 @@ it("rejects existing Steam bookings outside hours or exceeding reduced capacity,
  await db.exec(`INSERT INTO "Booking" VALUES ('s','2030-10-10','10:00',2,'CONFIRMED');`);expect(await saveServiceHours(await input())).toMatchObject({success:false});expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "SpecialBusinessDay"')).rows[0].count).toBe(0);
  expect(await saveServiceHours(await input({periods:[{openTime:"10:00",closeTime:"18:00",slotInterval:60,defaultCapacity:1}]}))).toMatchObject({success:false});
 });
-it("uses only SPA bookings and schedule lock, rejecting appointments extending past closing",async()=>{
- m.module.mockResolvedValue("spa");await db.exec(`INSERT INTO "SpaBooking" VALUES ('s','2030-10-10','16:30','17:30',1,'CONFIRMED');INSERT INTO "Booking" VALUES ('s','2030-10-10','11:00',999,'CONFIRMED');`);
- expect(await saveServiceHours(await input({periods:[{openTime:"11:00",closeTime:"17:00",slotInterval:30,defaultCapacity:6}]}))).toMatchObject({success:false});expect(m.steam).not.toHaveBeenCalled();expect(raw.mock.calls.some(([s])=>s.join("").includes('FROM "Booking"'))).toBe(false);expect(write.mock.calls.some(c=>c[1]==="spa-schedule:s")).toBe(true);
- expect(await saveServiceHours(await input({periods:[{openTime:"11:00",closeTime:"18:00",slotInterval:30,defaultCapacity:6}]}))).toMatchObject({success:true});
+it("rejects retired SPA hours before a transaction or schedule write",async()=>{
+ m.module.mockResolvedValue("spa");
+ const receipt=await input();raw.mockClear();write.mockClear();
+ expect(await saveServiceHours(receipt)).toMatchObject({success:false});
+ expect(m.steam).not.toHaveBeenCalled();expect(m.spa).not.toHaveBeenCalled();
+ expect(raw).not.toHaveBeenCalled();expect(write).not.toHaveBeenCalled();
+ expect((await db.query('SELECT id FROM "SpecialBusinessDay"')).rows).toEqual([]);
 });
 it("copies arbitrary dates with skip, retains source overrides, and undoes from database snapshots",async()=>{
  await db.exec(`INSERT INTO "SpecialBusinessDay" VALUES ('existing','s','2030-10-12','closed','原公休',NULL,NULL,NULL,NULL,NULL,now());INSERT INTO "SlotOverride" VALUES ('override','s','2030-10-10','12:00','capacity_change',4,NULL,now());`);
  const result=await saveServiceHours(await input({mode:"dates",targetDates:["2030-10-11","2030-10-12"],conflictMode:"skip",includeSlotOverrides:true}));expect(result).toMatchObject({success:true,data:{count:1,skipped:[{date:"2030-10-12"}],operationId:expect.any(String)}});
  if(!result.success)throw Error("missing receipt");expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "SlotOverride"')).rows[0].count).toBe(2);
  const undo={...await input({mode:"undo",operationId:result.data.operationId,periods:[]}),expectedRevision:result.data.day.hoursRevision};expect(await saveServiceHours(undo)).toMatchObject({success:true});expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "SlotOverride"')).rows[0].count).toBe(1);expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "SpecialBusinessDay"')).rows[0].count).toBe(1);
+});
+it("skips an entire target with only slot adjustments by default; explicit replace updates persisted hours and the calendar",async()=>{
+ await db.exec(`INSERT INTO "BusinessHours" VALUES ('friday','s',5,true,'08:30','19:00',60,4,NULL,now());INSERT INTO "SlotOverride" VALUES ('target-slot','s','2030-10-11','08:30','capacity_change',4,NULL,now());`);
+ const skipped=await saveServiceHours(await input({mode:"dates",targetDates:["2030-10-11"]}));
+ expect(skipped).toMatchObject({success:true,data:{count:0,skipped:[{date:"2030-10-11",reason:"已有單一時段調整"}],summary:{"2030-10-11":{status:"open",openTime:"08:30",closeTime:"19:00",overrideCount:1}}}});
+ expect((await db.query('SELECT id FROM "SpecialBusinessDay" WHERE date=\'2030-10-11\'')).rows).toEqual([]);
+ const replaced=await saveServiceHours(await input({mode:"dates",targetDates:["2030-10-11"],conflictMode:"replace"}));
+ expect(replaced).toMatchObject({success:true,data:{count:1,skipped:[],summary:{"2030-10-11":{status:"custom",openTime:"11:00",closeTime:"17:00",overrideCount:0}}}});
+ expect((await db.query('SELECT "openTime","closeTime" FROM "SpecialBusinessDay" WHERE date=\'2030-10-11\'')).rows).toEqual([{openTime:"11:00",closeTime:"17:00"}]);
+ expect((await db.query('SELECT id FROM "SlotOverride" WHERE date=\'2030-10-11\'')).rows).toEqual([]);
 });
 it("template copies overrides while retaining closed exceptions; weekly edits preserve source special dates",async()=>{
  await db.exec(`INSERT INTO "SpecialBusinessDay" VALUES ('closed','s','2030-10-17','closed','保留',NULL,NULL,NULL,NULL,NULL,now());INSERT INTO "SlotOverride" VALUES ('override','s','2030-10-10','12:00','disabled',NULL,NULL,now());`);
@@ -62,11 +78,36 @@ it("template copies overrides while retaining closed exceptions; weekly edits pr
 });
 it("closed and training copies retain future slot overrides for reopening",async()=>{
  for(const status of ["closed","training"]){
-  await db.exec(`TRUNCATE "SpecialBusinessDay","SlotOverride";INSERT INTO "SlotOverride" VALUES ('source','s','2030-10-10','12:00','disabled',NULL,NULL,now()),('future','s','2030-10-17','12:00','capacity_change',4,'保留',now());`);
+  await db.exec(`TRUNCATE "SpecialBusinessDay","SlotOverride";INSERT INTO "SlotOverride" VALUES ('source','s','2030-10-10','12:00','disabled',NULL,NULL,now()),('future','s','2030-10-17','12:00','capacity_change',4,'保留',now()),('old-enabled','s','2030-10-17','13:00','enabled',4,'加開',now());`);
   expect(await saveServiceHours(await input({mode:"copy",weeks:1,status,periods:[]}))).toMatchObject({success:true,data:{count:1}});
-  expect((await db.query<Record<string,unknown>>('SELECT capacity,reason FROM "SlotOverride"')).rows).toEqual([{capacity:4,reason:"保留"}]);
+  expect((await db.query<Record<string,unknown>>('SELECT capacity,reason FROM "SlotOverride"')).rows).toEqual(status==="closed"?[{capacity:4,reason:"保留"}]:[{capacity:4,reason:"保留"},{capacity:4,reason:"加開"}]);
  }
 });
 it("single-slot reductions protect bookings; committed cache failure returns a warning",async()=>{
  await db.exec(`INSERT INTO "Booking" VALUES ('s','2030-10-10','12:00',3,'CONFIRMED');`);expect(await saveServiceHours(await input({mode:"slots",changes:[{startTime:"12:00",action:"capacity",capacity:2}]}))).toMatchObject({success:false});m.cache.mockImplementation(()=>{throw Error("cache down");});expect(await saveServiceHours(await input({mode:"slots",changes:[{startTime:"12:00",action:"capacity",capacity:4}]}))).toMatchObject({success:true,syncWarning:true,data:{day:{slots:expect.arrayContaining([expect.objectContaining({startTime:"12:00",capacity:4})])}}});
+});
+
+it("Beauty hours protect full occupied duration and normalize starts to a half-hour grid",async()=>{
+ m.module.mockResolvedValue('beauty');await db.exec(`INSERT INTO "BeautyAppointment" VALUES ('s','2030-10-10T10:00:00+08','2030-10-10T11:15:00+08','RESERVED'),('other','2030-10-10T20:00:00+08','2030-10-10T21:00:00+08','RESERVED');`);
+ expect(await saveServiceHours(await input())).toMatchObject({success:false,error:expect.stringContaining('已有預約')});
+ expect(await saveServiceHours(await input({periods:[{openTime:'09:00',closeTime:'18:00',slotInterval:15,defaultCapacity:1}]}))).toMatchObject({success:true,data:{day:{slotInterval:30}}});
+ expect(await saveServiceHours(await input({mode:'slots',changes:[{startTime:'11:00',action:'disable'}]}))).toMatchObject({success:false,error:expect.stringContaining('已有預約')});
+ expect(await saveServiceHours(await input({mode:'slots',changes:[{startTime:'12:00',action:'disable'}]}))).toMatchObject({success:true});
+});
+it('saves multiple beauty weekdays atomically and retains protected appointments, exceptions and stored capacity',async()=>{
+ m.module.mockResolvedValue('beauty');
+ await db.exec(`INSERT INTO "BeautyAppointment" VALUES ('s','2030-10-10T10:00:00+08','2030-10-10T11:15:00+08','RESERVED');INSERT INTO "SpecialBusinessDay" VALUES ('holiday','s','2030-10-11','closed','保留',null,null,null,null,null,now());`);
+ const weeklyDays=[{dayOfWeek:4,isOpen:true,periods:[{openTime:'10:00',closeTime:'18:00'}]},{dayOfWeek:5,isOpen:false,periods:[]}];
+ const receipt=await input({mode:'weekly',status:'open',periods:[],weeklyDays});
+ expect(await saveServiceHours(receipt)).toMatchObject({success:true,data:{count:2}});
+ expect((await db.query<Record<string,unknown>>('SELECT "dayOfWeek","defaultCapacity","slotInterval" FROM "BusinessHours" WHERE "storeId"=\'s\' ORDER BY "dayOfWeek"')).rows).toEqual([{dayOfWeek:4,defaultCapacity:6,slotInterval:30},{dayOfWeek:5,defaultCapacity:6,slotInterval:30}]);
+ expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "SpecialBusinessDay" WHERE id=\'holiday\'')).rows[0].count).toBe(1);
+ const rejected=await input({mode:'weekly',status:'open',periods:[],weeklyDays:[{...weeklyDays[0],periods:[{openTime:'12:00',closeTime:'18:00'}]},{dayOfWeek:2,isOpen:false,periods:[]}]});
+ expect(await saveServiceHours(rejected)).toMatchObject({success:false});
+ expect((await db.query<Record<string,unknown>>('SELECT "openTime" FROM "BusinessHours" WHERE "storeId"=\'s\' AND "dayOfWeek"=4')).rows[0].openTime).toBe('10:00');expect((await db.query<Record<string,unknown>>('SELECT count(*) FROM "BusinessHours" WHERE "storeId"=\'s\' AND "dayOfWeek"=2')).rows[0].count).toBe(0);
+ expect(await saveServiceHours(receipt)).toMatchObject({success:true});
+});
+it('rejects duplicate batch weekdays or a non-beauty weekly batch without writes',async()=>{
+ const day={dayOfWeek:4,isOpen:true,periods:[{openTime:'10:00',closeTime:'18:00'}]};
+ expect(await saveServiceHours(await input({mode:'weekly',weeklyDays:[day]}))).toMatchObject({success:false});m.module.mockResolvedValue('beauty');expect(await saveServiceHours(await input({mode:'weekly',weeklyDays:[day,day]}))).toMatchObject({success:false});expect(write).not.toHaveBeenCalled();
 });

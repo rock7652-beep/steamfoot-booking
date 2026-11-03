@@ -1,0 +1,15 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "new fee defaults to real service quota",
+    "actual count and price persist after reopen",
+    "sharing and backend purchase scope persist",
+    "edit updates the same plan and survives authoritative reopen",
+    "editing does not create a duplicate plan",
+    "1366 original fee dialog contained",
+    "1024 original fee dialog contained",
+    "768 original fee dialog contained",
+    "no browser errors"
+  ],
+  "errors": []
+}

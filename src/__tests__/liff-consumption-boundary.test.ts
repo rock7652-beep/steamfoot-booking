@@ -33,15 +33,14 @@ describe("LIFF consumption read boundary", () => {
     expect(m.receipts).not.toHaveBeenCalled();
   });
 
-  it("limits SPA and shared purchases to the viewed store and resolved customer", async () => {
-    m.industry.mockResolvedValue("spa");
-    const date = new Date("2026-09-27T04:00:00Z");
-    m.sales.mockResolvedValue([{ id: "sale", createdAt: date, name: "療程", amount: 1200, paymentMethod: "CASH" }]);
-    expect(await fetchLiffConsumption()).toEqual({ status: "ok", rows: [{ id: "spa-sale:sale", date: date.toISOString(), item: "療程", amount: 1200, paymentMethod: "現金", status: "已收款" }] });
-    expect(m.membership).toHaveBeenCalledWith("user", "viewed-store");
-    expect(m.canonical).not.toHaveBeenCalled();
-    for (const query of [m.transactions, m.cashbook, m.sales]) expect(query).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ storeId: "viewed-store", customerId: "local-customer" }) }));
-    expect(m.receipts).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "viewed-store", booking: { customerId: "local-customer" } } }));
+  it("does not read purchases or receipts for a denied retired store", async () => {
+    m.industry.mockRejectedValueOnce(new Error("SPA 模組已移除"));
+    const log=vi.spyOn(console,"error").mockImplementation(()=>{});
+    try {
+      expect(await fetchLiffConsumption()).toEqual({status:"service_unavailable"});
+      expect(m.membership).not.toHaveBeenCalled(); expect(m.canonical).not.toHaveBeenCalled();
+      for(const query of [m.transactions,m.cashbook,m.sales,m.receipts]) expect(query).not.toHaveBeenCalled();
+    } finally {log.mockRestore();}
   });
 
   it.each(["no customer", "no store", "staff"])("does not read consumption for %s", async (condition) => {
@@ -53,7 +52,7 @@ describe("LIFF consumption read boundary", () => {
   });
 
   it("returns unavailable without reading data when identity resolution fails", async () => {
-    m.industry.mockResolvedValue("spa");
+    m.industry.mockResolvedValue("course");
     m.membership.mockRejectedValue(new Error("identity conflict"));
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     try {

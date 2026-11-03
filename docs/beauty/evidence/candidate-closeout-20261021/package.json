@@ -1,0 +1,44 @@
+{
+  "passed": true,
+  "synthetic": true,
+  "hosted": false,
+  "buildId": "XBpjgg-XVxOd_4g-r77Hw",
+  "artifact": "/tmp/beauty-release-qa/artifact-candidate",
+  "files": 7219,
+  "staticFiles": 271,
+  "sourceDirectoriesAbsent": true,
+  "envFilesAbsent": true,
+  "clients": [
+    "@prisma/client",
+    "generated/beauty-client",
+    "generated/course-client",
+    "generated/spa-client"
+  ],
+  "traces": 652,
+  "missingTraceFiles": 0,
+  "build": {
+    "passed": true,
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 135894,
+    "productionRuntime": true,
+    "moduleEnabled": true,
+    "hosted": false,
+    "migrationsSkipped": true
+  },
+  "sourceHashes": {
+    "next.config.ts": "73dee58517f792d4a5ff530da2ac740abf0d7621b834ed2e281f516ce88a7d2b",
+    "scripts/consultation-preview-scope.mjs": "7bb8213eaad7f3012594d855feefbc148368330f2c52cbf86c88cb4d463048f4",
+    "src/server/services/settings-save-route.ts": "1f2d92f1be26af46ac8bafd5d93c2d26736a4f6223d5bdb6042c97630091b52d",
+    "src/server/actions/customer-merge.ts": "08ac88bf9c4f41396c941636fdf7d986e84f215ee1e0af94b04c62fc2354b1b3",
+    "src/server/services/customer-merge.ts": "66676a3f20273e93d4f8a1d99f09b37f7e0a87b23b4790c85cb509c60cb14362",
+    "src/app/(dashboard)/dashboard/cash-drawer/save/route.ts": "fce49db845eefce9cc4a19cb20420d1579081b01aafafe0464bc1f1ff8b6b2ad",
+    "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx": "880df4aa0a12aa49f28d682ce8cc6bbc1a815faf203b4cdad9c83a7fc5ad83f3",
+    "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-action-form.tsx": "f4cc7e9484abe98d0015efebadab77c258dc1f31b2e664a70880aa30c03a7345",
+    "src/app/(dashboard)/dashboard/cash-drawer/inline-cashbook-form.tsx": "02bbe588de761ebdc8c3a6da79fa4ab28496a33bf9c736fc55178b9a06164809",
+    "src/server/services/cash-drawer-form.ts": "b44cc547a5310963c108751daf543be4fe7eef96a20296460b6bc8fa6c355e5f",
+    "src/lib/cash-drawer-form-client.ts": "66779ef56495a7f1c948cd5ad29d1a60a09da1035d7c6bcc58507460026f852c",
+    "scripts/sql/beauty-module-candidate.sql": "d274d8bb0e964129c72a7e6f27f1a58454276c519a691d24419f95b91067aaec",
+    "scripts/sql/beauty-data-role-candidate.sql": "ac7e1801c14b212f1a641e53d2ea4c6164708b6d93887da7abe31c5152a69257"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "status": 200,
+  "htmlHasImmutable": false,
+  "htmlHasGeist": false,
+  "staticRefs": [
+    "/_next/static/chunks/1113eysi2-5iu.css",
+    "/_next/static/chunks/074prxct1iqr1.js",
+    "/_next/static/chunks/0~k6u5_j-9bf2.js",
+    "/_next/static/chunks/0_fepd95ptoqy.js",
+    "/_next/static/chunks/18cilrg3kkkfk.js",
+    "/_next/static/chunks/04.i-__.as.dk.js",
+    "/_next/static/chunks/10787q4ojjapa.js",
+    "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+    "/_next/static/chunks/0fjb2kp5wf-40.js",
+    "/_next/static/chunks/0i.l9589uvx0j.js",
+    "/_next/static/chunks/0qkeyi~1xx38p.js",
+    "/_next/static/chunks/13sar8s1k4vkv.js",
+    "/_next/static/chunks/03~yq9q893hmn.js",
+    "/_next/static/chunks/074prxct1iqr1.js"
+  ],
+  "scriptFindings": [
+    {
+      "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+      "status": 200,
+      "markers": [
+        "vercel"
+      ],
+      "immutableContexts": []
+    }
+  ]
+}

@@ -11,7 +11,7 @@ describe("course UI final fixes", () => {
 
     expect(table).toContain('min-h-11 min-w-14 shrink-0 whitespace-nowrap');
     expect(toolbar).toContain('placeholder="搜尋姓名 / 電話 / LINE 名稱"');
-    expect(picker).toContain('placeholder="搜尋姓名／電話／LINE 名稱"');
+    expect(picker).toContain('"搜尋姓名／電話／LINE 名稱"');
     const search = read("src/server/actions/course-browse.ts");
     expect(search).toContain('["name", "phone", "lineName"]');
   });
@@ -21,7 +21,7 @@ describe("course UI final fixes", () => {
     expect(workspace).toContain("方案商品");
     expect(workspace).toContain("顧客持有方案");
     expect(workspace).toContain('planArea === "cards"');
-    expect(workspace).toContain("每堂");
+    expect(workspace).toContain("顧客可購買");
   });
 
   it("shows textual session states in addition to color", () => {
@@ -58,7 +58,7 @@ describe("course UI final fixes", () => {
     expect(workspace).toContain("onMemberBookingReadyChange={setMemberBookingReady}");
     expect(workspace).toContain('courseDialog.kind === "member-booking" &&');
     expect(workspace).toContain("!memberBookingReady");
-    expect(roster).toContain("沒有可用方案，請先指派方案。");
+    expect(roster).toContain("請先核對學員方案。");
     expect(roster).not.toContain("改用體驗預約");
   });
 

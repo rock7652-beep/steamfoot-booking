@@ -1,4 +1,4 @@
-import { readFileSync, mkdtempSync, chmodSync, writeFileSync, statSync, rmSync, symlinkSync, mkdirSync } from "node:fs";
+import { readFileSync, realpathSync, mkdtempSync, chmodSync, writeFileSync, statSync, rmSync, symlinkSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
@@ -204,7 +204,7 @@ describe("actual generated SQL in isolated Postgres", () => {
 });
 
 describe("credential-free private CLI", () => {
-  const dir = mkdtempSync(join(tmpdir(), "legacy-cli-synthetic-")); chmodSync(dir, 0o700);
+  const dir = mkdtempSync(join(realpathSync(tmpdir()), "legacy-cli-synthetic-")); chmodSync(dir, 0o700);
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
   const write = (name: string, value: string) => { const path = join(dir, name); writeFileSync(path, value, { mode: 0o600 }); return path; };
   function args() {

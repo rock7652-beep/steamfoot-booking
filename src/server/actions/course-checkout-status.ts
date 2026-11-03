@@ -1,14 +1,15 @@
 "use server";
+import {musicPaymentDate} from "@/lib/music-tuition";
 import { courseManager } from "@/server/services/course-access";
 import { coursePrisma } from "@/lib/course-db";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { handleActionError } from "@/lib/errors";
 
-export async function getCourseCheckoutCashStatus() {
+export async function getCourseCheckoutCashStatus(paymentDate?:string) {
   try {
     const { storeId } = await courseManager("transaction.create");
     await courseManager("wallet.create");
-    const day = new Date(toLocalDateStr() + "T00:00:00Z");
+    const day = new Date(toLocalDateStr(musicPaymentDate(paymentDate)) + "T00:00:00Z");
     const rows = await coursePrisma.$queryRaw<Array<{status:string}>>`SELECT status::text FROM "CashDrawerSession" WHERE "storeId"=${storeId} AND "businessDate"=${day}`;
     return { success: true as const, status: rows[0]?.status ?? null };
   } catch (error) {

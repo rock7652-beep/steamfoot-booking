@@ -22,7 +22,7 @@ describe("marketing usage daily refresh", () => {
     const result = await calculateMarketingUsage(new Date("2026-10-02T17:00:00Z"));
     expect(result).toEqual({ stores: 3, customers: 328, completedPeople: 1631, remindersSent: 641, asOf: "2026-10-02" });
     const bindings = mocks.query.mock.calls[0].slice(1);
-    expect(bindings).toEqual(["2026-10-03", "2026-10-03", "2026-10-03", new Date("2026-10-02T16:00:00Z"), "2026-10-03", new Date("2026-10-02T16:00:00Z"), new Date("2026-10-02T16:00:00Z")]);
+    expect(bindings).toEqual(["2026-10-03", "2026-10-03", "2026-10-03", new Date("2026-10-02T16:00:00Z"), new Date("2026-10-02T16:00:00Z"), new Date("2026-10-02T16:00:00Z")]);
     expect(JSON.parse(JSON.stringify(result))).toEqual(result);
   });
   it("does not advance the cutoff before Taiwan midnight", async () => {
@@ -73,7 +73,7 @@ describe("marketing usage daily refresh", () => {
     vi.stubEnv("CRON_SECRET", "test-only-secret");
     const result = await GET(new Request("https://example.com/api/cron/marketing-usage", { headers: { authorization: "Bearer test-only-secret" } }));
     expect(result.status).toBe(200);
-    expect(mocks.tag).toHaveBeenCalledWith("marketing-usage-v4", "max");
+    expect(mocks.tag).toHaveBeenCalledWith("marketing-usage-v5", "max");
     expect(mocks.path).toHaveBeenCalledWith("/pricing/business");
     expect(await result.json()).not.toHaveProperty("customers");
   });

@@ -22,7 +22,6 @@ it("clips only the summary text and reserves source labels instead of shrinking 
 });
 it.each([
   ["steam", "../app/(dashboard)/dashboard/bookings/day-detail-panel.module.css", "booking-roster", ["min-width: 1000px", "max-width: 639px", "min-width: 640px"]],
-  ["spa", "../app/(dashboard)/dashboard/spa-schedule/booking-roster.module.css", "spa-roster", ["max-width: 959px", "max-width: 559px"]],
   ["sports", "../app/(dashboard)/dashboard/courses/sports-roster.module.css", "sports-roster", ["max-width: 1023px", "max-width: 879px", "max-width: 639px", "max-width: 359px"]],
 ] as const)("%s keeps container-responsive tracks and the original 56px minimum row", (_module, relative, name, requiredBreakpoints) => {
   void _module;

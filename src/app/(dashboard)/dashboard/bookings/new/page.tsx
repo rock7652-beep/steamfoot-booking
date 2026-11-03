@@ -6,7 +6,7 @@ import { fetchDaySlots } from "@/server/actions/slots";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
-import { spaPrisma } from "@/lib/spa-db";
+
 import { enumerateBookableDates } from "@/lib/bookable-window";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { resolveBookableUntilDate } from "@/lib/shop-config";
@@ -18,21 +18,12 @@ import { redirect } from "next/navigation";
 import { CustomerAndPlanFields } from "./customer-and-plan-fields";
 import { DashboardBookingForm } from "./booking-form";
 import { FormErrorToast } from "@/components/form-error-toast";
-import { BookingRequestKeyField } from "@/components/booking-request-key-field";
+
 import { BookingCreateForm, BookingCreateSubmit } from "./booking-create-form";
-import { SpaBookingFields } from "./spa-booking-fields";
-import {
-  PageShell,
-  PageHeader,
-  FormShell,
-  FormSection,
-  StickyFormActions,
-} from "@/components/desktop";
-import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
-import { inferSpaDemoResourceType } from "@/lib/spa-demo-catalog";
-import { inferSpaTreatmentKind } from "@/lib/spa-store-identifiers";
+
+import { PageShell, PageHeader, FormShell, FormSection, StickyFormActions } from "@/components/desktop";
+
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { createSpaQuickBooking } from "@/server/actions/spa-quick-booking";
 
 interface PageProps {
   searchParams: Promise<{
@@ -65,37 +56,14 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const isSpaStore = activeStoreId
     ? (await getStoreIndustryModule(activeStoreId)) === "spa"
     : false;
-  const spaSchemaReady = isSpaStore ? await isSpaOperationalSchemaReady() : false;
+
   const requestedSlotTime = /^\d{2}:\d{2}$/.test(params.slotTime ?? "")
     ? params.slotTime
     : undefined;
   const [defaultServiceStaff, spaTreatments, defaultCustomer, shopConfig] =
     await Promise.all([
-      isSpaStore && activeStoreId && params.serviceStaffId
-        ? prisma.staff.findFirst({
-            where: {
-              id: params.serviceStaffId,
-              storeId: activeStoreId,
-              status: "ACTIVE",
-              isOwner: false,
-            },
-            select: { id: true, displayName: true, colorCode: true },
-          })
-        : Promise.resolve(null),
-      isSpaStore && spaSchemaReady && activeStoreId
-        ? spaPrisma.spaTreatment.findMany({
-            where: { storeId: activeStoreId, isActive: true },
-            select: {
-              id: true,
-              name: true,
-              variantLabel: true,
-              price: true,
-              serviceMinutes: true,
-              bufferMinutes: true,
-            },
-            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-          })
-        : Promise.resolve([]),
+      Promise.resolve(null),
+      Promise.resolve([]),
       params.customerId
         ? prisma.customer.findFirst({
             where: {
@@ -161,21 +129,8 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       .filter(Boolean);
 
     if (!customerId) {
-      if (!isSpaStore) return { error: "請選擇顧客" };
-      redirect(
-        `/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent("請選擇顧客")}`,
-      );
-    }
+      return { error: "請選擇顧客" };
 
-    if (isSpaStore) {
-      if (!requestKey || !serviceStaffId || treatmentIds.length === 0) {
-        redirect(`/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent("請完整選擇服務、芳療師與時段")}`);
-      }
-      const spaResult = await createSpaQuickBooking({ customerId, bookingDate, slotTime, serviceStaffId, treatmentIds, notes, requestKey });
-      if (!spaResult.success) {
-        redirect(`/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent(spaResult.error || "預約建立失敗")}`);
-      }
-      redirect(`/dashboard/spa-schedule?date=${bookingDate}&saved=${encodeURIComponent("已建立預約")}`);
     }
 
     const bookingInput = {
@@ -216,13 +171,11 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       <PageHeader
         title="新增預約"
         subtitle={
-          isSpaStore
-            ? "先確認日期與服務，再直接選可用時段；顧客資料最後填"
-            : "左側選時段、右側選顧客與方案，確認後建立"
+          "左側選時段、右側選顧客與方案，確認後建立"
         }
         actions={
           <Link
-            href={isSpaStore ? "/dashboard/spa-schedule" : "/dashboard/bookings"}
+            href={"/dashboard/bookings"}
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
             ← 預約總覽
@@ -232,28 +185,11 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
       <FormShell width="lg">
         <BookingCreateForm action={handleCreate} preserveOnFailure={!isSpaStore}>
-          {isSpaStore && <BookingRequestKeyField />}
-          <div className={isSpaStore ? "space-y-6" : styles.columns}>
+
+          <div className={styles.columns}>
             {/* 左欄：預約資訊 */}
             <div className="space-y-6">
-              {isSpaStore ? (
-                <SpaBookingFields
-                  days={days}
-                  defaultDate={defaultDate}
-                  treatments={spaTreatments.map((treatment) => ({
-                    ...treatment,
-                    price: Number(treatment.price),
-                    kind: inferSpaTreatmentKind(treatment.name),
-                    resourceType: inferSpaDemoResourceType({
-                      treatmentId: treatment.id,
-                      treatmentName: treatment.name,
-                    }),
-                  }))}
-                  defaultServiceStaffId={defaultServiceStaff?.id}
-                  defaultServiceStaffName={defaultServiceStaff?.displayName}
-                  defaultSlotTime={requestedSlotTime}
-                />
-              ) : (
+              {(
                 <FormSection title="預約資訊" description="日期、時段與人數">
                   <DashboardBookingForm
                     days={days}
@@ -271,7 +207,6 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
             <div className="space-y-6">
               <CustomerAndPlanFields
                 defaultMode={defaultMode}
-                spaMode={isSpaStore}
                 defaultCustomerId={defaultCustomer?.id}
                 defaultCustomerLabel={
                   defaultCustomer
@@ -307,9 +242,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
             info={<span>成功後會回到預約當日總覽</span>}
           >
             <Link
-              href={isSpaStore
-                ? `/dashboard/spa-schedule?date=${defaultDate}`
-                : `/dashboard/bookings?view=day&date=${defaultDate}`}
+              href={`/dashboard/bookings?view=day&date=${defaultDate}`}
               className="rounded-lg border border-earth-300 bg-white px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
             >
               取消
@@ -321,4 +254,3 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     </PageShell>
   );
 }
-

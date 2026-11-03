@@ -5,12 +5,31 @@
  * 供 server component / server action 使用。
  */
 
-import {cache} from "react";
-import {sportsNativePreview} from "@/lib/sports-native-preview";
+/**
+ * Store Plan 讀取工具
+ *
+ * 從 Store.plan 讀取當前店舖的 PricingPlan。
+ * 供 server component / server action 使用。
+ */
+/**
+ * Store Plan 讀取工具
+ *
+ * 從 Store.plan 讀取當前店舖的 PricingPlan。
+ * 供 server component / server action 使用。
+ */
+/**
+ * Store Plan 讀取工具
+ *
+ * 從 Store.plan 讀取當前店舖的 PricingPlan。
+ * 供 server component / server action 使用。
+ */
+import { cache } from "react";
+import {memoizeReadRequest} from "@/server/services/read-request-memo";
+import { sportsNativePreview } from "@/lib/sports-native-preview";
 import { prisma } from "@/lib/db";
 import { getActiveStoreForRead } from "@/lib/store";
 import { requireStaffSession } from "@/lib/session";
-import { isSpaDemoStoreId, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+
 import type { PricingPlan, Store, Prisma } from "@prisma/client";
 
 /** Store plan 查詢所需的 select 欄位 */
@@ -49,7 +68,7 @@ export async function getCurrentStorePlan(): Promise<PricingPlan> {
 
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) return "ALLIANCE"; // ADMIN 全部分店 → 解鎖全部功能
-  if (isSpaDemoStoreId(storeId)) return "ALLIANCE";
+
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: { plan: true },
@@ -78,20 +97,6 @@ export async function getCurrentStoreForPlan(): Promise<StorePlanFields> {
     };
   }
 
-  if (isSpaDemoStoreId(storeId)) {
-    return {
-      id: SPA_DEMO_STORE.id,
-      plan: "ALLIANCE",
-      planStatus: "ACTIVE", planEffectiveAt: null, planExpiresAt: null,
-      maxStaffOverride: null,
-      maxCustomersOverride: null,
-      maxMonthlyBookingsOverride: null,
-      maxMonthlyReportsOverride: null,
-      maxReminderSendsOverride: null,
-      maxStoresOverride: null,
-    };
-  }
-
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: STORE_PLAN_SELECT,
@@ -106,7 +111,7 @@ export async function getCurrentStoreForPlan(): Promise<StorePlanFields> {
 
 /** 依 storeId 取得 plan（供 cron / 非 session 場景使用） */
 export async function getStorePlanById(storeId: string): Promise<PricingPlan> {
-  if (isSpaDemoStoreId(storeId)) return "ALLIANCE";
+
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: { plan: true },
@@ -127,23 +132,14 @@ export async function getStoreForPlanByStoreId(
   storeId: string,
   client: Pick<Prisma.TransactionClient, "store"> = prisma,
 ): Promise<StorePlanFields> {
-  if (isSpaDemoStoreId(storeId)) {
-    return {
-      id: SPA_DEMO_STORE.id,
-      plan: "ALLIANCE",
-      planStatus: "ACTIVE", planEffectiveAt: null, planExpiresAt: null,
-      maxStaffOverride: null,
-      maxCustomersOverride: null,
-      maxMonthlyBookingsOverride: null,
-      maxMonthlyReportsOverride: null,
-      maxReminderSendsOverride: null,
-      maxStoresOverride: null,
-    };
-  }
-  const store = client===prisma&&sportsNativePreview(storeId)?await readPreviewPlan(storeId):await client.store.findUnique({
+
+  const read=async()=>client===prisma&&(await sportsNativePreview(storeId))?await readPreviewPlan(storeId):await client.store.findUnique({
     where: { id: storeId },
     select: STORE_PLAN_SELECT,
   });
+  // Only an explicitly scoped HTTP read may share the ordinary reader's result.
+  // Transaction readers always query their own connection and snapshot.
+  const store=await (client===prisma?memoizeReadRequest(`store.plan:${storeId}`,read):read());
   if (!store) throw new Error(`Store not found: ${storeId}`);
   return store;
 }

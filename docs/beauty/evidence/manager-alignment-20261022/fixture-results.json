@@ -1,0 +1,25 @@
+{
+  "fixture": {
+    "service": "驗收服務-80eb043b",
+    "plan": "驗收方案-2ac55f7e"
+  },
+  "results": [
+    {
+      "case": "created only an isolated inactive QA service",
+      "passed": true
+    },
+    {
+      "case": "pricing writes real stored values through charging entry",
+      "passed": true
+    },
+    {
+      "case": "service edit retains single/trial pricing",
+      "passed": true
+    },
+    {
+      "case": "inactive QA plan reminder persists independently",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

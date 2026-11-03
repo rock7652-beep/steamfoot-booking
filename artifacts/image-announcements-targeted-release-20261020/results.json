@@ -1,0 +1,53 @@
+{
+  "passed": true,
+  "realPostgres": true,
+  "realPrismaCLI": true,
+  "productionHandler": true,
+  "productionConnectionUsed": false,
+  "postgresMajor": 17,
+  "deferredMigrations": 23,
+  "unrelatedHistoryUnchanged": true,
+  "history": "Real applied baseline plus the 23 missing production migration names; unrelated SQL replaced by sentinel writes, not a production database clone",
+  "results": [
+    {
+      "step": "first-apply-actual-prisma-migration-and-exact-schema",
+      "passed": true
+    },
+    {
+      "step": "rerun-preserves-published-data-and-ledger",
+      "passed": true
+    },
+    {
+      "step": "anonymous-and-authenticated-direct-access-denied",
+      "passed": true
+    },
+    {
+      "step": "schema-and-access-drift-block-rerun",
+      "passed": true
+    },
+    {
+      "step": "concurrent-handler-lock-rejected",
+      "passed": true
+    },
+    {
+      "step": "23-historical-pending-remain-unapplied-and-unmodified",
+      "passed": true
+    },
+    {
+      "step": "unrelated-failed-history-still-blocks-release",
+      "passed": true
+    },
+    {
+      "step": "checksum-ledger-drift-rejected",
+      "passed": true
+    },
+    {
+      "step": "partial-existing-table-rejected-before-deploy",
+      "passed": true
+    },
+    {
+      "step": "failed-target-ddl-rolls-back-and-blocks-retry",
+      "passed": true
+    }
+  ]
+}

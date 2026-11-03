@@ -32,7 +32,7 @@ const STAGE_ZH: Record<string, string> = {
   INACTIVE: "已停用",
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
   const allowed = await checkPermission(session.user.role, session.user.staffId, "customer.export");
@@ -50,16 +50,19 @@ export async function GET() {
   const dataExportLocked = await requireDataExportFeature(activeStoreId);
   if (dataExportLocked) return dataExportLocked;
 
-  if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "course") {
+  const industry=activeStoreId?await getStoreIndustryModule(activeStoreId):null;
+  if (activeStoreId && (industry === "course"||industry === "beauty")) {
     if (!(await checkPermission(user.role,user.staffId,"customer.read"))) return new NextResponse("Forbidden",{status:403});
     const { resolveStoreViewContextFromCookie } = await import("@/lib/store-view-context-server");
     if ((await resolveStoreViewContextFromCookie(user))?.isViewMode) return new NextResponse("Forbidden in view mode",{status:403});
     const { getCourseCustomerCsv } = await import("@/server/queries/course-customer-export");
-    const csv = await getCourseCustomerCsv(activeStoreId,{
+    const exportCsv=industry==="beauty"?(await import("@/server/queries/beauty-customer-export")).getBeautyCustomerCsv:getCourseCustomerCsv;
+    const access={
       cards:await checkPermission(user.role,user.staffId,"wallet.read"),
       bookings:await checkPermission(user.role,user.staffId,"booking.read"),
-    });
-    return new NextResponse(csv,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":`attachment; filename="course-customers-${toLocalDateStr()}.csv"`,"Cache-Control":"no-store"}});
+    };
+    const csv=industry==="beauty"?await exportCsv(activeStoreId,access):await getCourseCustomerCsv(activeStoreId,access,new URL(request.url).searchParams.get("dataScope")??undefined);
+    return new NextResponse(csv,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":`attachment; filename="${industry}-customers-${toLocalDateStr()}.csv"`,"Cache-Control":"no-store"}});
   }
 
   // 匯出符合當前店舖視角的顧客

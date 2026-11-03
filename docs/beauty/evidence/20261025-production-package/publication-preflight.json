@@ -1,0 +1,106 @@
+{
+  "checkedAtTaipei": "2026-10-25 15:35",
+  "status": "AUTHORIZED_BLOCKED_TOOL_INVALID_REQUEST_STATE",
+  "releaseScope": {
+    "hqCanCreateBeautyStores": true,
+    "createStoresNow": false,
+    "copyPreviewData": false,
+    "existingStoreCount": 9,
+    "existingModuleCounts": {
+      "COURSE": 6,
+      "STEAMFOOT": 3
+    },
+    "beautyStores": 0
+  },
+  "production": {
+    "project": "qijlnhtpbintanzpxkvf",
+    "name": "steamfoot",
+    "region": "ap-northeast-1",
+    "status": "ACTIVE_HEALTHY",
+    "postgresVersion": "17.6.1.104",
+    "baseTables": 0,
+    "beautyRoles": [],
+    "aliases": [
+      {
+        "alias": "steamfoot.com",
+        "deployment": "dpl_3hvffPdypf9z2wT4YjFAwXzbzjPe",
+        "redirect": "www.steamfoot.com",
+        "redirectStatus": 308
+      },
+      {
+        "alias": "www.steamfoot.com",
+        "deployment": "dpl_3hvffPdypf9z2wT4YjFAwXzbzjPe",
+        "redirect": null,
+        "redirectStatus": null
+      }
+    ],
+    "deployment": {
+      "id": "dpl_3hvffPdypf9z2wT4YjFAwXzbzjPe",
+      "readyState": "READY",
+      "commit": "62480ec422d7952f7b1dc9310350b38d2a258fca",
+      "branch": "main"
+    },
+    "remoteMain": "62480ec422d7952f7b1dc9310350b38d2a258fca"
+  },
+  "envMetadata": {
+    "truncated": true,
+    "omittedArrayItems": 82,
+    "visibleCount": 100,
+    "productionBeautyObserved": [],
+    "visibleProductionConnections": [
+      {
+        "key": "DIRECT_URL",
+        "type": "sensitive",
+        "gitBranch": null
+      },
+      {
+        "key": "DATABASE_URL",
+        "type": "sensitive",
+        "gitBranch": null
+      },
+      {
+        "key": "NEXTAUTH_URL",
+        "type": "sensitive",
+        "gitBranch": null
+      },
+      {
+        "key": "AUTH_SECRET",
+        "type": "encrypted",
+        "gitBranch": null
+      }
+    ],
+    "secretsDecrypted": false
+  },
+  "backup": {
+    "verified": true,
+    "evidenceSource": "User-supplied screenshot; no backup API read or restore drill",
+    "visibleProject": "steamfoot",
+    "visibleBranch": "main",
+    "visibleEnvironment": "PRODUCTION",
+    "latestListedType": "PHYSICAL",
+    "latestListedTimeUTC": "2026-10-24T17:26:47Z",
+    "latestListedTimeTaipei": "2026-10-25T01:26:47+08:00",
+    "restoreEntryVisible": true,
+    "restoreTestPerformed": false,
+    "storageObjectsIncluded": false,
+    "previewBackupNotUsed": true
+  },
+  "plannedRole": "steamfoot_beauty_prod_20261025",
+  "actualRuntimeConnectionTest": false,
+  "productionMutations": [],
+  "deploymentsCreated": 0,
+  "lineChanges": false,
+  "platformStatus": {
+    "source": "https://status.supabase.com/api/v2/summary.json",
+    "summary": "All Systems Operational",
+    "nonOperationalComponents": [],
+    "openIncident": "Elevated Mgmt API Error Rates in Multiple Regions",
+    "incidentState": "monitoring",
+    "lastUpdatedUTC": "2026-10-23T10:54:49Z",
+    "incidentResolved": false,
+    "tokyoUnaffectedProven": false
+  },
+  "formalAuthorizationGranted": true,
+  "formalUpgradeApplied": false,
+  "deploymentCreated": false
+}

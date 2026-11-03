@@ -1,0 +1,36 @@
+/* Size by workspace width, including sidebars and embedded reports. */
+.container { container-type: inline-size; }
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: .5rem;
+}
+.toolbar > label, .toolbar > div:not([data-toolbar-actions]) {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.toolbar > label { font-size: .875rem; }
+.toolbar input:not([type="hidden"]), .toolbar select, .toolbar button, .toolbar > a {
+  min-height: 44px;
+  min-width: 0;
+}
+.toolbar input:not([type="hidden"]), .toolbar select { width: 100%; }
+.toolbar > input[type="hidden"] { display: none; }
+@container (min-width: 48rem) {
+  .toolbar > label, .toolbar > div:not([data-toolbar-actions]) {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-basis: 15rem;
+  }
+  .toolbar > label { flex-basis: 11.5rem; }
+  .toolbar label { white-space: nowrap; }
+  .toolbar > label > input, .toolbar > label > select,
+  .toolbar > div > input, .toolbar > div > select {
+    flex: 1;
+    width: 0;
+    margin-top: 0;
+  }
+  .toolbar > div > label { margin: 0; }
+}

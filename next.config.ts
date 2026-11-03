@@ -1,3 +1,8 @@
+// Isolated feature review: hosted builds must stop before migrations or deployment.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/image-announcements")) {
+  throw new Error("Image announcements review cannot deploy or execute migrations; use the isolated local Preview.");
+}
+
 // Review-only branch: reject hosted builds before database work.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/sports-series-capacity-isolation-20261019")) {
   throw new Error("Sports series isolation review cannot deploy or execute migrations.");
@@ -52,6 +57,27 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
 const HEALTH_TRACKER_URL = "https://www.healthflow-ai.com/liff";
 
 const nextConfig: NextConfig = {
+  ...(process.env.BEAUTY_SHARED_PAGES_BUILD_QA==='1'?{distDir:'.next-beauty-shared-pages-build-qa',typescript:{tsconfigPath:'tsconfig.beauty-shared-pages-build-qa.json'},experimental:{cpus:2}}:{}),
+  ...(process.env.BEAUTY_SHARED_PAGES_LOCAL_QA==='1'?{distDir:'.next-beauty-shared-pages-qa',typescript:{tsconfigPath:'tsconfig.beauty-shared-pages-qa.json'}}:{}),
+  // Review documents and QA artifacts are not runtime dependencies.
+  outputFileTracingExcludes: {"/*": ["./docs/**", "./artifacts/**", "./scripts/qa/**"]},
+  outputFileTracingIncludes: {
+    "/*": ["./generated/course-client/**", "./generated/beauty-client/**", "./scripts/certs/supabase-root-2021.crt"],
+  },
+  ...(process.env.BEAUTY_RELEASE_QA === '1' ? {
+    distDir: '.next-beauty-release-qa',
+    output: 'standalone' as const,
+    typescript: { tsconfigPath: 'tsconfig.beauty-release-qa.json' },
+    experimental: { cpus: 2 },
+  } : {}),
+  ...(process.env.BEAUTY_PRODUCTION_QA === '1' ? {
+    distDir: '.next-beauty-production-qa',
+    typescript: { tsconfigPath: 'tsconfig.beauty-production-qa.json' },
+    experimental: { cpus: 2 },
+  } : {}),
+  ...(process.env.BEAUTY_SANDBOX_QA === '1' ? {
+    allowedDevOrigins:['sb-5xmothc5nvzv.vercel.run'],
+  } : {}),
   images: isGuideUiPreview() ? {
     unoptimized: true,
     remotePatterns: [],
@@ -84,7 +110,7 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     // Vercel marks Preview explicitly; production behavior is unchanged.
-    return process.env.VERCEL_ENV === "preview"
+    return process.env.VERCEL_ENV === "preview" || process.env.BEAUTY_SANDBOX_QA === '1'
       ? [{ source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }]
       : [];
   },

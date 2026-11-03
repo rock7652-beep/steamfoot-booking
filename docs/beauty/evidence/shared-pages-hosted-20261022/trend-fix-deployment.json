@@ -1,0 +1,10 @@
+{
+  "commit": "d7580ccea1fc49228885fbc7f4c3d765a310533c",
+  "deploymentId": "dpl_9iaii9qxt8DV2hxiD1CBkGRnNocH",
+  "url": "https://steamfoot-booking-o6w9qt68c-rock7652-2111s-projects.vercel.app",
+  "state": "READY",
+  "hostedFixAcceptance": "passed; read-only login and numeric/list/iPad checks on this version",
+  "scope": "Original settings-save and role/tenant acceptance belongs to 8f00554d; this fix retested analytics and three-page rendering only",
+  "lineEnabled": false,
+  "productionOperations": false
+}

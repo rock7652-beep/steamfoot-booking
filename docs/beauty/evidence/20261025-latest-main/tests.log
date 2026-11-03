@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/steamfoot-beauty-production-review
+
+
+ Test Files  206 passed (206)
+      Tests  1649 passed (1649)
+   Start at  04:45:02
+   Duration  29.41s (transform 11.99s, setup 0ms, import 26.61s, tests 20.13s, environment 13.20s)
+

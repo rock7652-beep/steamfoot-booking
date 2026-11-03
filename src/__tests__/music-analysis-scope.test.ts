@@ -1,0 +1,30 @@
+import {afterEach,beforeEach,expect,it,vi} from "vitest";
+const m=vi.hoisted(()=>({customers:vi.fn(),sessions:vi.fn(),purchases:vi.fn(),fees:vi.fn(),receipts:vi.fn(),refunds:vi.fn()}));
+vi.mock("@/lib/session",()=>({getCurrentUser:vi.fn().mockResolvedValue({role:"OWNER"})}));
+vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:vi.fn().mockResolvedValue(true),readMusicFinanceScope:vi.fn().mockResolvedValue(null)}));
+vi.mock("@/lib/industry-module-server",()=>({requireCourseStore:vi.fn()}));
+vi.mock("@/server/services/course-teacher-fee",()=>({readTeacherFeeSeats:vi.fn().mockResolvedValue(new Map()),capturedTeacherFee:()=>({amount:0})}));
+vi.mock("@/lib/db",()=>({prisma:{customer:{findMany:m.customers},staff:{findMany:vi.fn().mockResolvedValue([])},store:{findUniqueOrThrow:vi.fn().mockResolvedValue({createdAt:new Date("2026-09-01")})}}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:async(fn:(tx:unknown)=>unknown)=>fn({$queryRaw:vi.fn().mockResolvedValue([]),courseSession:{findMany:m.sessions},coursePurchase:{findMany:m.purchases},courseCompensationSnapshot:{findMany:m.fees},courseTrialPayment:{findMany:m.receipts},coursePurchaseRefund:{findMany:m.refunds}})}}));
+import {getCourseBusinessAnalytics} from "@/server/queries/course-business-analytics";
+import {musicCustomerWhere,musicSessionWhere} from "@/server/services/music-data-scope";
+import {musicPurchaseWhere,musicTrialBookingWhere} from "@/server/services/music-finance-scope";
+import {musicBookingCustomerWhere,musicAttendanceScopeSql} from "@/server/services/music-analysis-scope";
+const env={VERCEL:"1",VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feat/music-opening-state-20261007",VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",DATABASE_URL:"postgresql://postgres:test@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",DIRECT_URL:"postgresql://postgres:test@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",WORKERS_CI_BRANCH:"",CF_PAGES_BRANCH:""};
+beforeEach(()=>{vi.clearAllMocks();for(const fn of Object.values(m))fn.mockResolvedValue([]);for(const [k,v]of Object.entries(env))vi.stubEnv(k,v);});
+afterEach(()=>vi.unstubAllEnvs());
+it.each([undefined,"legacy"])("uses one cohort for all business-analysis branches (%s)",async scope=>{
+ await getCourseBusinessAnalytics("store-lubymusic",{startDate:"2026-09-01",endDate:"2026-10-15"},{view:"store",person:"all"},{money:true,customers:true,fees:true},scope);
+ expect(m.customers.mock.calls[0][0].where).toMatchObject(musicCustomerWhere("store-lubymusic",scope));
+ expect(m.sessions.mock.calls[0][0].where).toMatchObject(musicSessionWhere("store-lubymusic",scope));
+ expect(m.sessions.mock.calls[0][0].select.bookings.where).toMatchObject(musicBookingCustomerWhere("store-lubymusic",scope));
+ expect(m.purchases.mock.calls[0][0].where).toMatchObject(musicPurchaseWhere("store-lubymusic",scope));
+ expect(m.refunds.mock.calls[0][0].where.purchase).toEqual(musicPurchaseWhere("store-lubymusic",scope));
+ expect(m.receipts.mock.calls[0][0].where.booking).toEqual(musicTrialBookingWhere("store-lubymusic",scope));
+ expect(m.fees.mock.calls[0][0].where.sessionId).toEqual(musicSessionWhere("store-lubymusic",scope).id);
+});
+it("binds exact attendance cohort IDs and leaves production unchanged",()=>{
+ const sql=musicAttendanceScopeSql("store-lubymusic");expect(sql.text).toContain('b."customerId" IS NULL');expect(sql.values).toHaveLength(5);
+ expect(musicAttendanceScopeSql("store-lubymusic","legacy").text).not.toContain("NOT(");
+ vi.stubEnv("VERCEL_ENV","production");expect(musicBookingCustomerWhere("store-lubymusic")).toEqual({});expect(musicAttendanceScopeSql("store-lubymusic").text).toBe("");
+});

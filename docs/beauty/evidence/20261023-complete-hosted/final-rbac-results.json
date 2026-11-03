@@ -1,0 +1,28 @@
+{
+  "results": [
+    {
+      "case": "低權限直接送出顧客變更遭拒",
+      "passed": true
+    },
+    {
+      "case": "跨店顧客變更遭拒",
+      "passed": true
+    },
+    {
+      "case": "跨店顧客讀取遭拒",
+      "passed": true
+    },
+    {
+      "case": "低權限可讀通知但無法處理",
+      "passed": true
+    },
+    {
+      "case": "跨店人員編輯遭拒",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "stage": "cross-store-staff",
+  "scope": "steamfoot-preview / beauty-hosted-20261021",
+  "finalDeploymentCommit": "eca98f9c350b3b5543f0e398ac9f96922f0f079d"
+}

@@ -1,17 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  useTransition,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore, useTransition, type FormEvent, type ReactNode } from "react";
 import { getBookingSubmitErrors, type BookingSubmitErrors } from "./booking-submit-validation";
 import { unstable_rethrow } from "next/navigation";
 import { createBookingRequestKey, isBookingRequestKeyMismatch } from "@/lib/booking-request-key";
@@ -103,17 +92,12 @@ export function BookingCreateForm({ action, children, preserveOnFailure = false 
     const nextErrors = getBookingSubmitErrors({
       customerId: data.get("customerId"),
       slotTime: data.get("slotTime"),
-      spaMode: data.get("spaMode"),
-      treatmentIds: data.getAll("treatmentIds"),
     });
 
     if (Object.keys(nextErrors).length > 0) {
       event.preventDefault();
       setErrors(nextErrors);
-      const isSpa = data.get("spaMode") === "on";
-      focusField(form, isSpa
-        ? nextErrors.treatment ? "treatment" : nextErrors.slot ? "slot" : "customer"
-        : nextErrors.customer ? "customer" : nextErrors.treatment ? "treatment" : "slot");
+      focusField(form, nextErrors.customer ? "customer" : nextErrors.treatment ? "treatment" : "slot");
       return;
     }
 
@@ -155,4 +139,3 @@ export function BookingCreateForm({ action, children, preserveOnFailure = false 
     </BookingFormValidationContext.Provider>
   );
 }
-

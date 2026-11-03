@@ -9,23 +9,18 @@
  *
  * 設計合約（per PR-G1 audit + 拍板）：
  *   1. 嚴格 CUSTOMER role only（staff 後台仍用既有 createBooking）
- *   2. **零 client 參數**（除 bookingDate / slotTime）：
- *      - 不接受 customerId / storeId / walletId / servicePlanId / staffId
+ *   2. 接受日期、時段、人數與選填的優先方案 customerPlanWalletId：
+ *      - 不接受 customerId / storeId / servicePlanId / staffId
  *      - 全走 `requireSession` + `getCanonicalCustomerIdForSession` + `user.storeId`
- *   3. **不傳 customerPlanWalletId** 給 `createBooking`：
- *      - 依賴 `createBooking` 內建 FEFO 自動 selecting（booking.ts:289-307）
- *      - 排序：expiryDate ASC nulls last → createdAt ASC → id ASC
- *      - 顧客有多張 ACTIVE wallet 時 deterministic 選一張，無歧義
+ *   3. 指定方案只代表優先扣抵，由 createBooking 重驗歸屬、門市與期限；
+ *      未指定時沿用最早到期優先，補課券仍優先於方案。
  *   4. **不 throw 給 caller** — 全部 status discriminated union
  *   5. read-only 對 wallet — 不創 wallet、不退錢、不付款
  *   6. **canonical safety pattern**：mirror submitLiffTrialBooking byte-for-byte
  *
- * **Dead-code 階段（PR-G2）**：本檔上 prod 時**無 UI caller**（PR-G3 才接 LIFF UI
- * 在 /liff/wallets 頁底加「立即預約」secondary button）。由 vitest 涵蓋全部 status
- * 分支，先驗 action 邏輯再 wire UI。
+ * 供 /liff/member-booking 使用；顧客身分與門市一律從後端 session 解析。
  *
  * 不在此 PR 範圍：
- *   - 不接 UI（PR-G3 才做 /liff/member-booking page + form）
  *   - 不接 payment / wallet purchase / 續約 / 延長 / 堂數調整
  *   - 不動 createBooking 本體（這是 web / staff / LIFF 共用的 SoT）
  *   - 不動 schema / migration / Wallet / WalletSession model
@@ -50,6 +45,7 @@ const InputSchema = z.object({
   slotTime: z.string().regex(/^\d{2}:\d{2}$/, "invalid_slot_format"),
   // PR-NoShow-2：LIFF 也支援多人預約（1~4）；未帶預設 1。
   people: z.number().int().min(1).max(4).optional(),
+  customerPlanWalletId: z.string().trim().min(1).max(191).optional(),
   requestKey: bookingSubmissionRequestKeySchema.optional(),
 });
 
@@ -67,16 +63,19 @@ export type SubmitLiffMemberBookingResult =
       slotTime: string;
       // PR-NoShow-2：本次是否自動使用了補課券（供成功畫面顯示）。
       usedMakeup: boolean;
+      usedMakeupCount: number;
+      planSessionCount: number;
     }
   | {
       status: "invalid_input";
-      field: "bookingDate" | "slotTime";
+      field: "bookingDate" | "slotTime" | "customerPlanWalletId";
     }
   | { status: "no_customer" }
   | { status: "profile_incomplete" }
   | { status: "no_wallet_available" }
   | { status: "payment_pending" }
   | { status: "wallet_expired" }
+  | { status: "wallet_unavailable" }
   | { status: "insufficient_sessions" }
   | { status: "slot_full" }
   | { status: "slot_unavailable" }
@@ -97,10 +96,10 @@ export async function submitLiffMemberBooking(
     const field = parsed.error.issues[0]?.path[0];
     return {
       status: "invalid_input",
-      field: field === "slotTime" ? "slotTime" : "bookingDate",
+      field: field === "slotTime" || field === "customerPlanWalletId" ? field : "bookingDate",
     };
   }
-  const { bookingDate, slotTime, requestKey } = parsed.data;
+  const { bookingDate, slotTime, requestKey, customerPlanWalletId } = parsed.data;
   const people = parsed.data.people ?? 1;
 
   // ── 2. Require CUSTOMER session ────────────────────
@@ -142,14 +141,15 @@ export async function submitLiffMemberBooking(
   //   - 對 CUSTOMER 跳過 assertStoreAccess（已用 canonical override）
   //   - 不寫 Transaction / Cashbook / Wallet purchase（PACKAGE_SESSION booking 純扣堂語意）
   //
-  // 我們**不傳** customerPlanWalletId / servicePlanId / makeupCreditId / expectedAmount —
-  // FEFO（方案）/ 最早到期券（補課）皆由 server 自動選。
+  // 只傳優先方案；createBooking 驗證其顧客／門市歸屬及實際預約日效期。
+  // 補課券仍由 server 自動優先選用，不接受 client 指定券或付款欄位。
   const bookingInput = {
     customerId,
     bookingDate,
     slotTime,
     bookingType: "PACKAGE_SESSION" as const,
     people,
+    ...(customerPlanWalletId ? { customerPlanWalletId } : {}),
   };
   const result = requestKey
     ? await createBooking(bookingInput, { requestKey, source: "liff-member" })
@@ -161,12 +161,20 @@ export async function submitLiffMemberBooking(
 
   // Derive the wrapper response from the persisted result. On keyed replay the
   // current credit inventory may differ from the first attempt, but the booking
-  // keeps the original isMakeup outcome as stable replay evidence.
-  let persistedBooking: { isMakeup: boolean } | null;
+  // keeps its actual credit links as stable replay evidence.
+  let persistedBooking: {
+    people: number;
+    makeupCreditId: string | null;
+    _count: { makeupCreditLinks: number };
+  } | null;
   try {
     persistedBooking = await prisma.booking.findFirst({
       where: { id: result.data.bookingId, customerId, storeId },
-      select: { isMakeup: true },
+      select: {
+        people: true,
+        makeupCreditId: true,
+        _count: { select: { makeupCreditLinks: true } },
+      },
     });
   } catch (err) {
     console.error("[submitLiffMemberBooking] persisted booking lookup failed", err);
@@ -179,12 +187,15 @@ export async function submitLiffMemberBooking(
     });
     return { status: "service_unavailable" };
   }
+  const usedMakeupCount = persistedBooking._count.makeupCreditLinks || (persistedBooking.makeupCreditId ? 1 : 0);
   return {
     status: "ok",
     bookingId: result.data.bookingId,
     bookingDate,
     slotTime,
-    usedMakeup: persistedBooking.isMakeup,
+    usedMakeup: usedMakeupCount > 0,
+    usedMakeupCount,
+    planSessionCount: Math.max(0, persistedBooking.people - usedMakeupCount),
   };
 }
 
@@ -222,6 +233,9 @@ function mapCreateBookingErrorToStatus(
   }
 
   // ── Wallet-specific (PACKAGE_SESSION 專屬) ──
+  if (/所選方案|指定的方案不屬於該顧客|CustomerPlanWallet.*不一致/.test(msg)) {
+    return { status: "wallet_unavailable" };
+  }
   // booking.ts:250 「目前沒有可使用的方案，請先購買課程方案或聯繫店家協助」(CUSTOMER role)
   // booking.ts:251 「此顧客目前沒有可用方案，請先指派或購買方案後再建立預約」(STAFF/ADMIN role — 防禦性 catch)
   // booking.ts:302 「找不到可用方案，請先指派或購買方案後再建立預約」(FEFO fallback)

@@ -1,3 +1,4 @@
+import { musicRetirementSql } from "@/server/services/music-retirement-sql";
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -7,7 +8,7 @@ export const COURSE_UNASSIGNED_PAGE_SIZE = 30;
 /** Same predicate for the home count and paged list. History is not an active-balance test. */
 export function courseUnassignedPlanWhere(storeId: string, staffScope: string | null) {
   return Prisma.sql`
-    c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL
+    c."storeId"=${storeId} ${musicRetirementSql(storeId,"Customer","c.id")} AND c."mergedIntoCustomerId" IS NULL
     AND (u.id IS NULL OR u.status='ACTIVE')
     ${staffScope ? Prisma.sql`AND c."assignedStaffId"=${staffScope}` : Prisma.empty}
     AND NOT EXISTS (

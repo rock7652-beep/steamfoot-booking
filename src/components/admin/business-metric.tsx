@@ -1,0 +1,2 @@
+import type React from 'react';
+export function BusinessMetric({label,value,note,action}:{label:string;value:string;note?:string;action?:React.ReactNode}) {return <div className="min-h-20 rounded-xl border border-earth-200 bg-white p-3"><p className="text-sm text-earth-600">{label}</p><strong className="mt-1 block text-xl text-primary-900">{value}</strong>{note&&<p className="mt-1 text-xs text-earth-500">{note}</p>}{action}</div>;}

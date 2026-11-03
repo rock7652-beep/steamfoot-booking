@@ -1,0 +1,138 @@
+import 'server-only';
+import {requireBeautyServiceAddOnManagement} from '@/server/services/add-on-access';
+import {isDeepStrictEqual} from 'node:util';
+import {requirePermission} from '@/lib/permissions';
+import {beautyChargeRulesEnabled,beautyChargeEditingEnabled,maintainCatalogCharge,initializeEmptyBeautyOpening} from './charge-runtime';
+import type {Prisma} from '../../../generated/beauty-client';
+import {loadBeautyPrismaRuntime} from '@/lib/generated-prisma-runtime';
+// JSON null sentinels must come from the same runtime as beautyPrisma.
+const {Prisma:runtimePrisma}=loadBeautyPrismaRuntime();
+import {AppError} from '@/lib/errors';
+import {toLocalDateStr} from '@/lib/date-utils';
+import {serviceInput,technicianInput,planInput,rate} from '@/lib/beauty/contracts';
+import {audit,type BeautyActor} from './access';
+
+/** Single catalog validator/writer shared by all management interfaces. */
+export async function persistBeautyCatalog(tx:Prisma.TransactionClient,a:BeautyActor,kind:'service'|'technician'|'plan',input:unknown){
+      let record:unknown;
+      if (kind === "service") {
+        const { id, revision, ...d } = serviceInput.parse(input);
+        const previous=id?await tx.beautyService.findFirst({where:{id,storeId:a.storeId}}):null;
+        if(!isDeepStrictEqual(d.addOnGroups??[],previous?.addOnGroups??[])){await requirePermission('add_ons.manage');await requireBeautyServiceAddOnManagement(a.storeId,tx);}
+        if(d.addOnGroups?.some(g=>g.kind==='SHARED_GOODS'))throw new AppError('VALIDATION','共同商品不可設在個人加做，請保留逐人服務設定');
+        const images=[d.imageId,...(d.addOnGroups??[]).flatMap(g=>g.options.map(o=>o.imageId))].filter((value):value is string=>!!value);
+        if(images.length&&(await tx.beautyServiceImage.count({where:{storeId:a.storeId,id:{in:[...new Set(images)]}}}))!==new Set(images).size)throw new AppError('FORBIDDEN','圖片不屬於本店');
+        const {defaultRate,...fields}=d;
+        const values={...fields,...(defaultRate===undefined?{}:{defaultRate:defaultRate??runtimePrisma.DbNull})};
+        if (id) {
+          const prior = await tx.beautyService.findFirst({
+            where: { storeId: a.storeId, id, revision },
+          });
+          if (!prior) throw new AppError("CONFLICT", "服務已更新，請重新開啟");
+          if(beautyChargeRulesEnabled(a.storeId)&&(d.price!==prior.price||d.trialPrice!==prior.trialPrice||(d.trialDuration??null)!==(prior.trialDuration??null)))throw new AppError("CONFLICT","請使用新版收費方式設定價格及體驗");
+          if (
+            !d.active &&
+            (await tx.beautyAppointment.count({
+              where: { storeId: a.storeId, serviceId: id, status: "RESERVED" },
+            }))
+          )
+            throw new AppError("CONFLICT", "請先處理未來預約再下架");
+          if(d.defaultRate===null&&prior.defaultRate){
+            const inheriting=await tx.beautyTechnician.findMany({where:{storeId:a.storeId,serviceIds:{has:id}},select:{rates:true}});
+            if(inheriting.some(t=>!rate.safeParse((t.rates as Record<string,unknown>)[id]).success))throw new AppError('CONFLICT','仍有技師沿用本項預設計酬，請先設定個別計酬');
+          }
+          record = await tx.beautyService.update({
+            where: { id },
+            data: { ...values, revision: { increment: 1 } },
+          });
+        } else {
+          await initializeEmptyBeautyOpening(tx,a.storeId);
+          record = await tx.beautyService.create({ data: { ...values, storeId: a.storeId } });
+        }
+      } else if (kind === "plan") {
+        if(beautyChargeRulesEnabled(a.storeId)&&!beautyChargeEditingEnabled(a.storeId))throw new AppError("FORBIDDEN","收費編輯目前暫停，原有預約限制仍生效");
+        const { id, revision, ...d } = planInput.parse(input);
+        if(!id&&beautyChargeRulesEnabled(a.storeId))throw new AppError("CONFLICT","請使用新版收費方式建立方案");
+        if (
+          (await tx.beautyService.count({
+            where: { storeId: a.storeId, id: { in: d.serviceIds } },
+          })) !== new Set(d.serviceIds).size
+        )
+          throw new AppError("FORBIDDEN", "方案包含非本店服務");
+        if (id) {
+          if (
+            !(await tx.beautyPlan.findFirst({
+              where: { storeId: a.storeId, id, revision },
+            }))
+          )
+            throw new AppError("CONFLICT", "方案已更新");
+          record = await tx.beautyPlan.update({
+            where: { id },
+            data: { ...d, revision: { increment: 1 } },
+          });
+        } else
+          record = await tx.beautyPlan.create({ data: { ...d, storeId: a.storeId } });
+      } else {
+        const { id, revision, ...d } = technicianInput.parse(input);
+        if (
+          (await tx.beautyService.count({
+            where: { storeId: a.storeId, id: { in: d.serviceIds } },
+          })) !== new Set(d.serviceIds).size
+        )
+          throw new AppError("FORBIDDEN", "包含非本店服務");
+        // Qualification and pay are separate settings. An unpaid/unconfigured
+        // qualification may be saved; allocation still requires a valid rate.
+        if (
+          d.userId &&
+          !(await tx.$queryRaw<
+            Array<{ id: string }>
+          >`SELECT c.id FROM "Customer" c WHERE c."storeId"=${a.storeId} AND c."userId"=${d.userId} AND c."mergedIntoCustomerId" IS NULL`.then(
+            (r) => r.length,
+          ))
+        )
+          throw new AppError("FORBIDDEN", "請選擇本店已連結會員帳號");
+        if (id) {
+          if (
+            !(await tx.beautyTechnician.findFirst({
+              where: { storeId: a.storeId, id, revision },
+            }))
+          )
+            throw new AppError("CONFLICT", "技師設定已更新");
+          const future = await tx.beautyAppointment.findMany({
+            where: {
+              storeId: a.storeId,
+              technicianId: id,
+              status: "RESERVED",
+              occupiedEndsAt: { gt: new Date() },
+            },
+          });
+          const { availableTechnician } =
+            await import("@/lib/beauty/allocation");
+          if (
+            future.some(
+              (b) =>
+                !d.active ||
+                !d.serviceIds.includes(b.serviceId) ||
+                (b.preference !== "ANY" && b.preference !== d.gender) ||
+                !availableTechnician(
+                  { ...d, id },
+                  toLocalDateStr(b.startsAt),
+                  +b.startsAt,
+                  +b.occupiedEndsAt,
+                ),
+            )
+          )
+            throw new AppError("CONFLICT", "設定影響既有預約，請先處理班表");
+          record=await tx.beautyTechnician.update({
+            where: { id },
+            data: { ...d, revision: { increment: 1 } },
+          });
+        } else
+          record=await tx.beautyTechnician.create({
+            data: { ...d, storeId: a.storeId },
+          });
+      }
+      if(kind!=='technician')await maintainCatalogCharge(tx,a.storeId,kind,record as {id:string;revision:number;serviceIds?:string[]},!(input as {id?:string}).id);
+      await audit(tx, a, "CATALOG", JSON.stringify({ kind, input }));
+      return { saved: true, record };
+}

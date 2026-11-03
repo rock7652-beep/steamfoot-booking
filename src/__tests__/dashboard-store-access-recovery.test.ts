@@ -2,7 +2,7 @@ import React from "react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AppError } from "@/lib/errors";
-const mocks = vi.hoisted(() => ({ user: vi.fn(), active: vi.fn(), options: vi.fn(), audit: vi.fn(), ownStore: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: vi.fn(), active: vi.fn(), options: vi.fn(), audit: vi.fn(), ownStore: vi.fn(), permissions: vi.fn() }));
 vi.mock("@/server/services/store-operation-audit-access", () => ({resolveOperationAuditScope: mocks.audit}));
 vi.mock("@/components/admin/roster-preview-diagnostics", () => ({}));
 vi.mock("@/lib/module-roster-preview-diagnostics", () => ({}));
@@ -22,7 +22,7 @@ vi.mock("next/navigation", () => ({redirect: vi.fn(), notFound: vi.fn()}));
 vi.mock("next/headers", () => ({headers: vi.fn().mockResolvedValue({get: () => null}), cookies: vi.fn()}));
 vi.mock("@/lib/session", () => ({getCurrentUser: mocks.user, requireHqStoreSwitchActor: vi.fn()}));
 vi.mock("@/server/actions/auth", () => ({}));
-vi.mock("@/lib/permissions", () => ({}));
+vi.mock("@/lib/permissions", () => ({ getUserPermissions: mocks.permissions }));
 vi.mock("@/lib/query-cache", () => ({}));
 vi.mock("@/lib/store", () => ({getActiveStoreForRead: mocks.active, getStoreOptions: mocks.options}));
 vi.mock("@/components/operation-audit-access", () => ({}));
@@ -47,6 +47,8 @@ const user = { id: "owner", role: "OWNER", staffId: "staff", storeId: "own" };
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.user.mockResolvedValue(user);
+  mocks.permissions.mockResolvedValue([]);
+  mocks.options.mockResolvedValue([]);
   mocks.ownStore.mockResolvedValue({slug: "own-store"});
   mocks.active.mockRejectedValue(new AppError("FORBIDDEN", "private requested-store metadata"));
 });
@@ -58,6 +60,7 @@ it.each(["FORBIDDEN", "NOT_FOUND"] as const)("renders safe recovery for %s befor
   expect(html).not.toContain("private");
   expect(mocks.audit).not.toHaveBeenCalled();
   expect(mocks.options).not.toHaveBeenCalled();
+  expect(mocks.permissions).not.toHaveBeenCalled();
   expect(mocks.ownStore).toHaveBeenCalledWith(expect.objectContaining({where: expect.objectContaining({id: "own"})}));
 });
 it("offers sign-in when the own store is unavailable", async () => {

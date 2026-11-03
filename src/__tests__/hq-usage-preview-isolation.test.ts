@@ -1,3 +1,5 @@
+// Runtime isolation is tested here; the Prisma strategy extension has its own contract tests.
+vi.mock("@/lib/explicit-relation-joins",()=>({withExplicitRelationJoins:(client:unknown)=>client}));
 vi.mock("@/lib/retired-store-boundary", () => ({ retiredStoreBoundary: () => null }));
 import { spawnSync } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,9 +11,9 @@ vi.hoisted(async () => {
 });
 const spies = vi.hoisted(() => ({ auth: vi.fn(), prisma: vi.fn(), spa: vi.fn(), course: vi.fn(), send: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ auth: (handler: (...args: unknown[]) => unknown) => (...args: unknown[]) => { spies.auth(); return handler(...args); } }));
-vi.mock("@prisma/client", () => ({ PrismaClient: class { constructor() { spies.prisma(); } } }));
-vi.mock("../../generated/spa-client", () => ({ PrismaClient: class { constructor() { spies.spa(); } } }));
-vi.mock("../../generated/course-client", () => ({ PrismaClient: class { constructor() { spies.course(); } } }));
+vi.mock("@prisma/client", async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), PrismaClient: class { constructor() { spies.prisma(); } } }));
+vi.mock("../../generated/spa-client", async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), PrismaClient: class { constructor() { spies.spa(); } } }));
+vi.mock("../../generated/course-client", async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), PrismaClient: class { constructor() { spies.course(); } } }));
 vi.mock("@/lib/audit-db-context", () => ({ withAuditDatabaseContext: (client: unknown) => client }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => ({ get: () => undefined }) }));
 vi.mock("resend", () => ({ Resend: class { emails = { send: spies.send }; } }));
@@ -72,7 +74,7 @@ describe("exact HQ usage UI-only preview", () => {
     enable(); vi.resetModules();
     const cached = { connected: true };
     globals.prisma = cached; globals.spaPrisma = cached; globals.coursePrisma = cached;
-    const clients = [(await import("@/lib/db")).prisma, (await import("@/lib/spa-db")).spaPrisma, (await import("@/lib/course-db")).coursePrisma];
+    const clients = [(await import("@/lib/db")).prisma,  (await import("@/lib/course-db")).coursePrisma];
     for (const client of clients) {
       expect(Object.is(client, cached)).toBe(false);
       for (const key of ["$connect", "$transaction", "$queryRaw", "$executeRaw", "trialApplication", "user"]) expect(() => Reflect.get(client, key)).toThrow("no database access");

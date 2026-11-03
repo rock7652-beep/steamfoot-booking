@@ -78,7 +78,7 @@ describe.each(cases)("$name toggle feedback", item => {
     const request = deferred();
     item.toggle.mockReturnValue(request.promise);
     await render(item.render());
-    const status = summary().querySelector('[role="status"]')!;
+    const status = summary().querySelector('[role="status"].w-16')!;
     const className = status.className;
     expect(className).toContain("w-16");
     expect(className).toContain("shrink-0");
@@ -89,24 +89,24 @@ describe.each(cases)("$name toggle feedback", item => {
     expect(status.className).toBe(className);
   });
 
-  it("shows pending while collapsed, locks same-tick clicks and confirms state only after success", async () => {
+  it("shows the requested state immediately while pending and locks only same-card writes", async () => {
     const request = deferred();
     item.toggle.mockReturnValue(request.promise);
     await render(item.render());
     await act(async () => { toggle().click(); toggle().click(); });
     expect(item.toggle).toHaveBeenCalledExactlyOnceWith(...item.args);
     expect(host.querySelector("details")!.open).toBe(false);
-    expect(summary().querySelector('[role="status"]')!.textContent).toBe("儲存中…");
+    expect(summary().querySelector('[role="status"].w-16')!.textContent).toBe("儲存中…");
     expect(toggle().disabled).toBe(true);
     expect(toggle().getAttribute("aria-busy")).toBe("true");
-    expect(toggle().getAttribute("aria-checked")).toBe("false");
+    expect(toggle().getAttribute("aria-checked")).toBe("true");
     expect(latestGuard()).toEqual({ dirty: false, pending: true });
     expect(actions.success).not.toHaveBeenCalled();
 
     await act(async () => request.resolve({ success: true }));
     expect(toggle().getAttribute("aria-checked")).toBe("true");
     expect(toggle().disabled).toBe(false);
-    expect(summary().querySelector('[role="status"]')!.textContent).toBe("開啟");
+    expect(summary().querySelector('[role="status"].w-16')!.textContent).toBe("開啟");
     expect(latestGuard()).toEqual({ dirty: false, pending: false });
     expect(actions.success).toHaveBeenCalledOnce();
   });
@@ -153,9 +153,9 @@ describe.each(cases)("$name toggle feedback", item => {
       if (outcome === "success") oldRequest.resolve({ success: true });
       else oldRequest.reject(new Error("old store connection lost"));
     });
-    expect(toggle().getAttribute("aria-checked")).toBe("false");
+    expect(toggle().getAttribute("aria-checked")).toBe("true");
     expect(toggle().disabled).toBe(true);
-    expect(summary().querySelector('[role="status"]')!.textContent).toBe("儲存中…");
+    expect(summary().querySelector('[role="status"].w-16')!.textContent).toBe("儲存中…");
     expect(actions.success).not.toHaveBeenCalled();
     expect(actions.error).not.toHaveBeenCalled();
     await act(async () => currentRequest.resolve({ success: true }));
@@ -198,7 +198,7 @@ describe.each(formCases)("$name form feedback", item => {
     expect(textarea.disabled).toBe(true);
     if (map) expect(map.disabled).toBe(true);
     expect(saveButton().textContent).toBe("儲存中…");
-    expect(summary().querySelector('[role="status"]')!.textContent).toBe("關閉");
+    expect(summary().querySelector('[role="status"].w-16')!.textContent).toBe("關閉");
     expect(latestGuard()).toEqual({ dirty: true, pending: true });
 
     await act(async () => request.reject(new Error("connection lost")));

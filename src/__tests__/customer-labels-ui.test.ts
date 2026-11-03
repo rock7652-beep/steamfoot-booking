@@ -5,6 +5,7 @@ import {createRoot, type Root} from 'react-dom/client';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {nextCustomerLabelRevision, type LabelSnapshot} from '@/lib/customer-labels';
 const m=vi.hoisted(()=>({load:vi.fn(),save:vi.fn(),error:vi.fn()}));
+vi.mock('@/lib/customer-label-reader',()=>({readCustomerLabels:m.load}));
 vi.mock('@/server/actions/customer-labels',()=>({loadCustomerLabels:m.load,setCustomerLabel:m.save}));
 vi.mock('next/navigation',()=>({usePathname:()=>'/dashboard/customers',useRouter:()=>({replace:vi.fn()}),useSearchParams:()=>new URLSearchParams()}));
 vi.mock('@/components/dashboard-link',()=>({DashboardLink:()=>null}));

@@ -1,0 +1,10 @@
+{
+  "source": "read-only steamfoot-preview snapshot, replayed locally through fixed presentation adapter",
+  "asOf": "2026-10-22T14:00:30.941873+00:00",
+  "oldRawAggregate": 5,
+  "expectedCompleted": 1,
+  "dailyCompleted": 1,
+  "monthlyCompleted": 1,
+  "passed": true,
+  "hostedFixAcceptance": false
+}

@@ -1,0 +1,68 @@
+{
+  "synthetic": true,
+  "actualBackend": false,
+  "actualLINE": false,
+  "errors": [],
+  "sizes": [
+    {
+      "width": 360,
+      "height": 800,
+      "overflow": false,
+      "inputFont": 16,
+      "submitHeight": 44,
+      "draftPreserved": true,
+      "timePreserved": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "inputFont": 16,
+      "submitHeight": 44,
+      "draftPreserved": true,
+      "timePreserved": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "inputFont": 16,
+      "submitHeight": 44,
+      "draftPreserved": true,
+      "timePreserved": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false,
+      "inputFont": 16,
+      "submitHeight": 44,
+      "draftPreserved": true,
+      "timePreserved": true
+    },
+    {
+      "width": 1366,
+      "height": 900,
+      "overflow": false,
+      "inputFont": 16,
+      "submitHeight": 44,
+      "draftPreserved": true,
+      "timePreserved": true
+    }
+  ],
+  "tests": [
+    "service selector remains visible even with one configured trial",
+    "entering confirmation from a scrolled mobile page resets to the page top",
+    "three gentle massage reminders appear on confirmation without a consent checkbox",
+    "validation still focuses the invalid field without a step-top reset",
+    "reduced-height viewport keeps submit reachable (keyboard simulation only)",
+    "returning to the service step and completing a synthetic booking also reset to top",
+    "synthetic booking success and complete receipt",
+    "verified LINE status stays within 40px without shrinking input fonts or repeating login actions",
+    "verified identity leads to an explicitly linked receipt without a second phone step (synthetic backend)",
+    "notification retry repairs the confirmed synthetic reservation without a second booking",
+    "multi-person long service names remain responsive; per-person trial duration and total match",
+    "unknown result locks edits, then retries same booking",
+    "empty and closed states avoid collecting personal information"
+  ]
+}

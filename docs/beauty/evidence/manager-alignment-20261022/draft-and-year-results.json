@@ -1,0 +1,13 @@
+{
+  "results": [
+    {
+      "case": "settings draft survives category RSC navigation and discards without saving",
+      "passed": true
+    },
+    {
+      "case": "real hosted calendar covers previous-year Monday through Sunday",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

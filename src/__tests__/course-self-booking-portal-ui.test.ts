@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/central-member-store", () => ({ selectCentralMemberStoreAction: vi.fn() }));
 vi.mock("@/server/actions/course-teacher-session",()=>({loadCourseTeacherSession:vi.fn(),changeCourseTeacherSession:vi.fn()}));
 import { act, createElement as el } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CoursePortalData } from "@/app/(customer)/book/course-portal";
-const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), note: vi.fn(), purchase: vi.fn(), booking: vi.fn(), cancel: vi.fn(), join: vi.fn(), leave: vi.fn(), load: vi.fn(), confirm: vi.fn(), reschedule: vi.fn(), sportsTrial: vi.fn() }));
+const m = vi.hoisted(() => ({ goods:vi.fn(), refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), note: vi.fn(), purchase: vi.fn(), booking: vi.fn(), cancel: vi.fn(), join: vi.fn(), leave: vi.fn(), load: vi.fn(), confirm: vi.fn(), reschedule: vi.fn(), sportsTrial: vi.fn() }));
+vi.mock("@/server/actions/customer-booking-goods",()=>({readCustomerBookingGoods:m.goods}));
 vi.mock("@/server/actions/sports-staging",()=>({bookSportsTrial:m.sportsTrial}));
 vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn(),loadCourseStoreNotices:vi.fn(),markCourseStoreNotice:vi.fn()}));
 vi.mock("@/server/actions/course-teacher-changes",()=>({loadCourseTeacherChange:vi.fn(),loadCourseTeacherLeave:vi.fn(),changeCourseTeacherBooking:vi.fn()}));
@@ -38,13 +40,21 @@ const notificationData = (enabled = true, trial = false) => ({ success: true, se
 const button = (text: string, scope: ParentNode = document.body) => [...scope.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent === text && !node.closest("[hidden]"));
 const dialog = () => document.body.querySelector('[role="dialog"]')!;
 async function click(text: string, scope?: ParentNode) { const node = button(text, scope); expect(node, text).toBeTruthy(); await act(async () => node!.click()); }
-async function render(data = props()) { await act(async () => root.render(el(CoursePortalClient, data))); }
+async function render(data = props()) {
+  await act(async () => root.render(el(CoursePortalClient, data)));
+  // The unified calendar now defaults to own lessons; browsing is explicit.
+  if (data.initialView === "schedule" && data.selfBookingEnabled !== false && !dialog()) {
+    const open = button("開放選課");
+    if (open) await act(async () => open.click());
+  }
+}
 async function selectSession() { await act(async () => { const input = dialog().querySelector("select")!; input.value = "new-session"; input.dispatchEvent(new Event("change", { bubbles: true })); }); }
 beforeEach(() => {
   vi.resetAllMocks(); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   window.history.replaceState(null, "", "/s/a/book"); window.scrollTo = vi.fn(); HTMLElement.prototype.scrollIntoView = vi.fn();
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   for (const action of [m.booking, m.cancel, m.join, m.leave, m.confirm, m.reschedule, m.purchase, m.attendance, m.sportsTrial]) action.mockResolvedValue({ success: true });
+  m.goods.mockResolvedValue({success:true,data:null});
   m.load.mockResolvedValue(notificationData());
 });
 afterEach(async () => { vi.restoreAllMocks(); await act(async () => root.unmount()); host.remove(); });
@@ -90,7 +100,7 @@ describe("student booking switch portal", () => {
     const filter=host.querySelector<HTMLSelectElement>('.cp-filters select')!;
     await act(async()=>{filter.value='template';filter.dispatchEvent(new Event('change',{bubbles:true}));});
     await click("我的工作"); await click("會員");
-    expect(host.querySelector('.cp-nav button[aria-current="page"]')?.textContent).toBe("預約");
+    expect(host.querySelector('.cp-nav button[aria-current="page"]')?.textContent).toBe("課表");
     expect((host.querySelector('.cp-filters select') as HTMLSelectElement).value).toBe("template");
     expect(host.querySelector('.cp-daily h2')?.textContent).toContain("1/20");
   });
@@ -99,7 +109,7 @@ describe("student booking switch portal", () => {
     const data=props();
     data.bookings=[{...data.sessions[0],id:"booking",sessionId:"session",status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31"}] as unknown as CoursePortalData["bookings"];
     await render({...data,initialView:"bookings"} as unknown as typeof data);
-    await click("查看明細 ⌄"); await click("取消"); await click("首頁"); await click("我的預約");
+    await click("查看明細 ⌄"); await click("取消"); await click("首頁"); await click("課表");
     expect(host.querySelector('.cp-inline-confirm')).toBeNull();
     expect(m.cancel).not.toHaveBeenCalled();
   });
@@ -117,11 +127,11 @@ describe("student booking switch portal", () => {
   it("keeps the schedule visible, changes entry labels and blocks both booking and new waitlists", async () => {
     const data = props(); data.selfBookingEnabled = false;
     await render({ ...data, initialView: "home" } as unknown as typeof data);
-    expect(host.textContent).toContain("看課表"); expect(host.textContent).toContain(message); expect(button("立即預約")).toBeUndefined();
-    await click("看課表"); expect(host.textContent).toContain("瑜珈");
-    expect((host.querySelector(".cp-lesson button") as HTMLButtonElement).disabled).toBe(true);
+    expect(host.textContent).toContain("看課表"); expect(button("立即預約")).toBeUndefined();
+    await click("查看課表"); expect(button("開放選課")).toBeUndefined();
+    expect(host.querySelector(".cp-lesson")).toBeNull();
     data.sessions[0].occupied = 3; await render(data);
-    expect((host.querySelector(".cp-lesson button") as HTMLButtonElement).disabled).toBe(true);
+    expect(host.querySelector(".cp-lesson")).toBeNull();
     expect(m.booking).not.toHaveBeenCalled(); expect(m.join).not.toHaveBeenCalled();
   });
 
@@ -140,7 +150,7 @@ describe("student booking switch portal", () => {
     const data = props(); data.selfBookingEnabled = false;
     data.sessions[0] = { ...data.sessions[0], waitlistPosition: 2, waitlistAllowed: false, occupied: 3, waitlistRemaining: 0 };
     data.bookingWindow.closesAt = "2099-01-01T00:00:00Z";
-    await render(data); await click("候補中・第 2 位");
+    await render(data); expect(host.textContent).not.toContain("當日沒有課程"); expect(host.textContent).not.toContain("當天沒有課程"); await click("候補中・第 2 位");
     expect(dialog().textContent).toContain("目前候補第 2 位"); expect(dialog().textContent).toContain("暫停自動遞補");
     data.sessions[0].waitlistPosition = 1; await render({ ...data });
     expect(dialog().textContent).toContain("目前候補第 1 位");
@@ -240,3 +250,11 @@ it("shows the fresh debit notice before confirming a cancellation deep link",asy
  await click("確認取消",dialog());
  expect(m.cancel).toHaveBeenCalledExactlyOnceWith({bookingId:"booking",status:"CANCELLED",member:true});
 });
+
+it("does not append an empty open-course message beneath an existing personal lesson",async()=>{
+ const data=props();data.selfBookingEnabled=false;
+ data.bookings=[{...data.sessions[0],id:"booking",sessionId:"session",status:"ATTENDED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31"}] as unknown as CoursePortalData["bookings"];
+ await render(data);expect(host.textContent).toContain("已出席");expect(host.textContent).not.toContain("當天沒有課程");expect(host.textContent).not.toContain("當日沒有課程");
+});
+
+it('submits selected goods once with the same member reservation and keeps candidate metadata separate from quota',async()=>{m.goods.mockResolvedValue({success:true,data:{revision:3,groups:[{id:'g',title:'飲品',kind:'SHARED_GOODS',multiple:true,required:false,options:[{id:'tea',name:'茶',price:80,duration:0,active:true}]}]}});await render(props());await click('預約');const d=dialog();await act(async()=>d.querySelector<HTMLInputElement>('[aria-label="加購商品選購"] input')!.click());await act(async()=>d.querySelector<HTMLButtonElement>('[aria-label="增加茶"]')!.click());await click('確認預約',d);expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({sessionId:'session',sharedGoods:{revision:3,selections:[{id:'tea',quantity:2}]}}));});

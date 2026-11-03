@@ -1,0 +1,52 @@
+{
+  "branch": "review/beauty-production-integration-20261025",
+  "beauty_parent": "9d65e0f8c1b246946daa50069cb76561eef7d1ad",
+  "main_parent": "4efcd72bf513953521665f2556f719d1f73b5e8c",
+  "remote_head_reconfirmed": false,
+  "conflicted_files": 74,
+  "conflict_sections": 209,
+  "remaining_conflicts": 0,
+  "final_regression": {
+    "files": 160,
+    "tests": 1360,
+    "failed": 0,
+    "kind": "mocked, pure, jsdom; sockets blocked"
+  },
+  "typecheck": {
+    "exit_code": 0,
+    "command": "tsc --noEmit --incremental false"
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 13
+  },
+  "not_executed": {
+    "database_writes": true,
+    "database_retries": true,
+    "migrations": true,
+    "database_cleanup": true,
+    "push": true,
+    "deployment": true,
+    "production_actions": true,
+    "line_enablement": true,
+    "live_browser_acceptance": true
+  },
+  "database_sql": "review only; six-field SQL unchanged and outside auto migration directory",
+  "checksums": {
+    "prisma-generate.log": "f7ee28f54afe5c19f5882e34c8400397e5539f902bd55f374182130f36e40e02",
+    "group2-manifest.json": "21646c19e2b2e78fe02d518da27a8dc710069fee0cfe756517055fb9d1192a31",
+    "group0-manifest.json": "bc6cf20ae0c87d6df5c3725069fc63ceb02cbcb0f0f9e8cf8d9f5746da067e7d",
+    "final-manifest.json": "9c6f3f98d676774ef05d0fc3ae61088e948eeeda856e3920374f4cdef69b0b37",
+    "conflict-resolutions.json": "964ac10486be0cf94ba55b1b6674d99226f5b80d18501a9d66ef478a58ecc1c8",
+    "final-tests.log": "47a67e1a9be88e075a56a87a6a3e13ae1bd9da8be00295e0d46801dac9da50d6",
+    "eslint-supplement.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "group3-manifest.json": "c728115f94fb10a0d59e76d4b9a12a2b3771db4c20dbe91cc6546a2252fe2fd0",
+    "group1-manifest.json": "d3b1fd9b96f8ef530212cefc3987e3cac810c537961c078ac072139cc84cfcb9",
+    "eslint-final.log": "f666951a6622b07f331f5102ca2fba1a095e7e79b7b9c0524ceb278a574fa082",
+    "group1-tests.log": "0dfaebc1a4e7c0a453d223ec0ac9630174ec161148236aca04be5420c8eb37c9",
+    "group3-tests.log": "0dea74f2ffcadf68c02013c11940f5d388a451432b81f2875d8d196818ccbaab",
+    "excluded-checks.json": "55afa1861be412e3624161e2104ac8af215ab1ea82c45e6867a6ae478b0139c6",
+    "tsc-complete.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "group2-tests.log": "d2abf335922cb42b79d8500a87f3d7f6ee16a43420f33085c517ea52b46a5881"
+  }
+}

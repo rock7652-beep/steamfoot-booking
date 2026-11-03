@@ -1,0 +1,8 @@
+
+ RUN  v4.1.4 /tmp/steamfoot-beauty-daily-flow
+
+
+ Test Files  134 passed (134)
+      Tests  1060 passed (1060)
+   Start at  21:40:14
+   Duration  40.70s (transform 13.00s, setup 0ms, import 26.68s, tests 63.20s, environment 9.12s)

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 
 const h = vi.hoisted(() => ({
+  allowed: vi.fn(),
   store: vi.fn(),
   claim: vi.fn(),
   staff: vi.fn(),
@@ -18,6 +19,7 @@ const h = vi.hoisted(() => ({
   claimLog: vi.fn(),
   push: vi.fn(),
 }));
+vi.mock("@/server/beauty/manager-notifications",()=>({beautyManagerDeliveryAllowed:h.allowed}));
 vi.mock("@/lib/line", () => ({ pushMessage: h.push }));
 vi.mock("@/lib/db", () => {
   const tx = {
@@ -108,6 +110,20 @@ describe("manager delivery preferences and durable deduplication", () => {
     ).toBe(false);
     expect(managerPreferences({ sameDay: true }, false).sameDay).toBe(false);
   });
+  it('quarantines pre-resume event delivery even when a new retry log is claimed today',async()=>{
+    vi.stubEnv('LINE_DELIVERY_RESUME_AT',new Date(Date.now()-60_000).toISOString());
+    try{
+      await deliverManagerNotification({...event,eventCreatedAt:new Date(Date.now()-120_000)});
+      expect(h.push).not.toHaveBeenCalled();
+      expect(h.updateLog).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:'SKIPPED',errorMessage:'停發期間的舊通知不補發'})}));
+    }finally{vi.unstubAllEnvs();}
+  });
+  it('keeps a retry tied to its original saved event time after restoration',async()=>{
+    const at=new Date(Date.now()-60_000),old=new Date(at.getTime()-1000);
+    vi.stubEnv('LINE_DELIVERY_RESUME_AT',at.toISOString());
+    h.createLog.mockRejectedValue(duplicate());h.findLog.mockResolvedValue({id:'old-retry',status:'FAILED',createdAt:old,renderedBody:'old'});h.claimLog.mockResolvedValue({count:1});
+    try{await deliverManagerNotification(event);expect(h.push).not.toHaveBeenCalled();expect(h.updateLog).toHaveBeenCalledWith(expect.objectContaining({where:{id:'old-retry'},data:expect.objectContaining({status:'SKIPPED'})}));}finally{vi.unstubAllEnvs();}
+  });
   it("honors a master switch turned off after recipient selection", async () => {
     h.current.mockResolvedValue(null);
     await deliverManagerNotification(event);
@@ -134,6 +150,7 @@ describe("manager delivery preferences and durable deduplication", () => {
       "line-b",
       [expect.objectContaining({ type: "flex", altText: expect.stringContaining("預約通知") })],
       expect.any(String),
+      expect.any(Date),
     );
   });
   it.each([
@@ -197,6 +214,7 @@ describe("manager delivery preferences and durable deduplication", () => {
       "line-a",
       [{ type: "text", text: "original" }],
       "retry-uuid",
+      expect.any(Date),
     );
   });
   it("retries the exact saved Flex payload even when the event body changes", async () => {
@@ -205,7 +223,7 @@ describe("manager delivery preferences and durable deduplication", () => {
     h.findLog.mockResolvedValue({ id: "retry-flex", status: "FAILED", createdAt: new Date(), renderedBody: "old", renderedMessages: saved });
     h.claimLog.mockResolvedValue({ count: 1 });
     await deliverManagerNotification(event);
-    expect(h.push).toHaveBeenCalledWith("store-a", "line-a", saved, "retry-flex");
+    expect(h.push).toHaveBeenCalledWith("store-a", "line-a", saved, "retry-flex", expect.any(Date));
   });
   it("does not retry beyond LINE's deduplication window", async () => {
     h.createLog.mockRejectedValue(duplicate());
@@ -314,4 +332,14 @@ describe("legacy migration", () => {
     await migrateManagerRecipients("store-a");
     expect(h.staff).not.toHaveBeenCalled();
   });
+});
+
+describe("Beauty shared transport boundary",()=>{
+ beforeEach(()=>{vi.resetAllMocks();h.store.mockResolvedValue({industryModule:"BEAUTY",slug:"beauty",managerRecipientsMigrated:false});h.recipients.mockResolvedValue([recipient()]);h.current.mockResolvedValue(recipient());h.createLog.mockImplementation(async({data})=>({...data,createdAt:new Date()}));h.push.mockResolvedValue({success:true});h.allowed.mockResolvedValue(true);});
+ it("does not migrate any Beauty staff/environment recipient",async()=>{await migrateManagerRecipients("store-a");expect(h.claim).not.toHaveBeenCalled();expect(h.staff).not.toHaveBeenCalled();expect(h.createRecipient).not.toHaveBeenCalled();});
+ it("disabled Beauty stops before recipient read, receipt or push",async()=>{h.allowed.mockResolvedValue(false);expect(await deliverManagerNotification(event)).toMatchObject({status:"skipped",reason:"delivery_disabled"});expect(h.recipients).not.toHaveBeenCalled();expect(h.createLog).not.toHaveBeenCalled();expect(h.push).not.toHaveBeenCalled();});
+ it("rechecks a closed store switch before creating the receipt",async()=>{h.allowed.mockResolvedValueOnce(true).mockResolvedValue(false);await deliverManagerNotification(event);expect(h.createLog).not.toHaveBeenCalled();expect(h.push).not.toHaveBeenCalled();});
+ it("a switch closed after claiming records SKIPPED and never pushes",async()=>{h.allowed.mockResolvedValueOnce(true).mockResolvedValueOnce(true).mockResolvedValue(false);await deliverManagerNotification(event);expect(h.updateLog).toHaveBeenCalledWith({where:{id:expect.any(String)},data:{status:"SKIPPED",errorMessage:expect.any(String)}});expect(h.push).not.toHaveBeenCalled();});
+ it("a changed business subject stops before queueing",async()=>{const check=vi.fn().mockResolvedValue(false);await deliverManagerNotification({...event,beforeDeliver:check});expect(h.createLog).not.toHaveBeenCalled();expect(h.push).not.toHaveBeenCalled();});
+ it("recipient pause after receipt claim is checked before push",async()=>{h.current.mockResolvedValueOnce(recipient()).mockResolvedValue(null);await deliverManagerNotification(event);expect(h.push).not.toHaveBeenCalled();expect(h.updateLog).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:"SKIPPED"})}));});
 });

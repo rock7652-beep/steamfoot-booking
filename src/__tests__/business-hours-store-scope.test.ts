@@ -80,8 +80,8 @@ describe("business-hours store isolation", () => {
     mocks.specialUpsert.mockResolvedValue({ id: "special-a" });
   });
 
-  it("rejects reopening a closed day without writing misleading slot overrides", async () => {
-    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: true }, slotOverrides: [] });
+  it("rejects reopening a training day", async () => {
+    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: true, status: "training", source: "special" }, slotOverrides: [] });
     const result = await applyDaySlotOverrides({
       date: "2026-09-21",
       changes: [{ startTime: "09:30", action: "enable" }],
@@ -89,6 +89,15 @@ describe("business-hours store isolation", () => {
     expect(result.success).toBe(false);
     expect(mocks.txSlotOverrideUpsert).not.toHaveBeenCalled();
     expect(mocks.loadDayBusinessHoursContext).toHaveBeenCalledWith("branch-a", "2026-09-21");
+  });
+
+  it.each(["weekly", "special"])("opens only an explicit slot on a %s closed day", async (source) => {
+    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: true, status: "closed", source }, slotOverrides: [] });
+    const result = await applyDaySlotOverrides({date:"2026-11-03",changes:[{startTime:"19:30",action:"enable",capacity:4}]});
+    expect(result.success).toBe(true);
+    expect(mocks.txSlotOverrideUpsert).toHaveBeenCalledWith(expect.objectContaining({create:expect.objectContaining({storeId:"branch-a",startTime:"19:30",type:"enabled",capacity:4})}));
+    expect(mocks.txSpecialUpsert).not.toHaveBeenCalled();
+    expect(mocks.specialUpsert).not.toHaveBeenCalled();
   });
 
   it("replaces a custom day's legacy slot overrides only after booking validation", async () => {
@@ -152,7 +161,7 @@ describe("business-hours store isolation", () => {
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
       },
     });
-    expect(mocks.specialUpsert).toHaveBeenCalledWith(
+    expect(mocks.txSpecialUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { storeId_date: { storeId: "branch-a", date: new Date("2026-08-01") } },
         create: expect.objectContaining({ storeId: "branch-a" }),

@@ -1,0 +1,13 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "original roster controller owns the service list",
+    "course-only attendance is not exposed as a service action",
+    "1366 original roster modal contained",
+    "1024 original roster modal contained",
+    "768 original roster modal contained",
+    "original roster filtering works without another page",
+    "no browser errors"
+  ],
+  "errors": []
+}

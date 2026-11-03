@@ -1,0 +1,15 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({user:vi.fn(),store:vi.fn(),industry:vi.fn(),current:vi.fn(),all:vi.fn(),hq:vi.fn()}));
+vi.mock('next/navigation',()=>({notFound:()=>{throw Error('NOT_FOUND');}}));
+vi.mock('@/lib/session',()=>({getCurrentUser:m.user}));
+vi.mock('@/lib/store',()=>({getActiveStoreForRead:m.store}));
+vi.mock('@/lib/industry-module-server',()=>({getStoreIndustryModule:m.industry}));
+vi.mock('@/lib/hq-store-view-context',()=>({getHqStoreViewContext:m.hq}));
+vi.mock('@/server/actions/line-official-accounts',()=>({getCurrentLineOfficialAccountStatus:m.current,getAllLineOfficialAccountStatuses:m.all}));
+vi.mock('@/components/desktop',()=>({PageHeader:()=>null,PageShell:()=>null}));
+vi.mock('@/app/(dashboard)/dashboard/settings/line-official-accounts/line-official-accounts-card',()=>({LineOfficialAccountsCard:()=>null}));
+import Page from '@/app/(dashboard)/dashboard/settings/line-official-accounts/page';
+beforeEach(()=>{vi.clearAllMocks();m.user.mockResolvedValue({id:'admin',role:'ADMIN'});m.store.mockResolvedValue('beauty');m.industry.mockResolvedValue('beauty');m.hq.mockReturnValue({storeId:'beauty'});m.current.mockResolvedValue({storeSlug:'soulife',storeName:'美業店',status:'NORMAL'});});
+it('blocks direct links to retired Beauty LINE integration diagnostics',async()=>{await expect(Page()).rejects.toThrow('NOT_FOUND');expect(m.current).not.toHaveBeenCalled();expect(m.all).not.toHaveBeenCalled();});
+it('also blocks store users without exposing account status',async()=>{m.user.mockResolvedValue({id:'owner',role:'OWNER'});m.hq.mockReturnValue(null);await expect(Page()).rejects.toThrow('NOT_FOUND');expect(m.current).not.toHaveBeenCalled();expect(m.all).not.toHaveBeenCalled();});
+it('retains the existing all-store HQ behavior outside the beauty workspace',async()=>{m.store.mockResolvedValue(null);m.hq.mockReturnValue(null);m.all.mockResolvedValue([]);expect(await Page()).toBeTruthy();expect(m.all).toHaveBeenCalledOnce();expect(m.current).not.toHaveBeenCalled();});

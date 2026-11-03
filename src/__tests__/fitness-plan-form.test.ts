@@ -4,9 +4,9 @@ import {createRoot} from "react-dom/client";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 import {OperationScope} from "@/components/operations/operation-scope";
 import {CoursePlanDraftForm} from "@/app/(dashboard)/dashboard/courses/course-profile-forms";
-const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn()}));
+const m=vi.hoisted(()=>({sportsSave:vi.fn(),save:vi.fn(),refresh:vi.fn()}));
 vi.mock("@/server/actions/course-members",()=>({saveCourseCustomer:vi.fn(),saveCoursePointPlan:m.save}));
-vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh})}));
+vi.mock("next/navigation",()=>({useSearchParams:()=>new URLSearchParams(),usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh})}));
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 let host:HTMLDivElement,root:ReturnType<typeof createRoot>;
 beforeEach(()=>{vi.stubGlobal("fetch",async (_url:string,init:RequestInit)=>({json:async()=>m.save(JSON.parse(String(init.body)))}));sessionStorage.clear();vi.resetAllMocks();m.save.mockResolvedValue({success:false,error:"保留輸入"});host=document.createElement("div");document.body.append(host);root=createRoot(host);});
@@ -47,18 +47,63 @@ it("does not submit an unsaved sharing addition after the gate changes",async()=
  await act(async()=>host.querySelector<HTMLInputElement>('input[name="allowShared"]')!.click());
  await mount({plan,sharedCardState:"HIDDEN"});await submit();expect(m.save.mock.calls[0][0].allowShared).toBe(false);
 });
-it("keeps music sharing control independent of this sports gate",async()=>{
- await mount({music:true,sharedCardState:"HIDDEN"});expect(host.querySelector('input[name="allowShared"]')).not.toBeNull();
+it("preserves existing music sharing independently of the sports gate",async()=>{
+ await mount({music:true,plan:{...sharedPlan,templateIds:["t"]},sharedCardState:"HIDDEN",subjects:[{id:"guitar",name:"吉他",category:"",isActive:true}],templates:[{id:"t",name:"吉他",category:"",isActive:true,musicSubjectId:"guitar"}],musicTeachers:[{id:"teacher",name:"教師",active:true,qualificationIds:["t"]}]});
+ await submit();expect(m.save.mock.calls[0][0].allowShared).toBe(true);
 });
 it("delivers the committed plan and retains the original payload after an ambiguous reply",async()=>{
  const saved=vi.fn();await mount({onSaved:saved});
  const input=host.querySelector<HTMLInputElement>('input[name="name"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"十堂方案");input.dispatchEvent(new Event("input",{bubbles:true}));});
  m.save.mockRejectedValueOnce(new Error("lost response"));await submit();expect(host.textContent).toContain("尚未確認儲存結果");
- const row={id:"P",name:"十堂方案",points:10,price:0,storeCost:0,validDays:90,isActive:true,customerPurchasable:true,allowShared:false,unit:"POINT",templateIds:[],termSessionIds:[],musicTerms:null,musicBonusLessons:0,musicTermSizes:[],lowBalanceEnabled:false,lowBalanceThreshold:null};
+ const row={chargeSettings:null,id:"P",name:"十堂方案",points:10,price:0,storeCost:0,validDays:90,isActive:true,customerPurchasable:true,allowShared:false,unit:"POINT",templateIds:[],termSessionIds:[],musicTerms:null,musicBonusLessons:0,musicTermSizes:[],lowBalanceEnabled:false,lowBalanceThreshold:null};
  m.save.mockResolvedValueOnce({success:true,storeId:"store",data:row});await submit();
  expect(m.save.mock.calls[0][0]).toEqual(m.save.mock.calls[1][0]);expect(saved).toHaveBeenCalledExactlyOnceWith(row);expect(m.refresh).not.toHaveBeenCalled();
 });
 
 // Server actions are transport boundaries; keep these UI regressions isolated from auth/database loading.
-vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: vi.fn(), sportsStagingCommand: vi.fn() }));
+vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: m.sportsSave, sportsStagingCommand: vi.fn() }));
+
+
+const sportsData={storeId:"store",subjects:[{id:"subject",name:"瑜珈",category:"",active:true,updatedAt:"v1",templateId:"t"}],fees:[],lessons:[],students:[],customers:[],coaches:[{id:"coach",name:"教練",templates:["t"]}],rooms:[],date:"2026-10-19"};
+it("new assigned plans select their own coach without repeating global qualification setup",async()=>{
+ m.sportsSave.mockResolvedValue({success:false,error:"保留輸入"});
+ await mount({sportsData,subjects:[{id:"subject",name:"瑜珈",category:"",isActive:true}]});
+ expect(host.querySelector('[aria-label="方案適用方式"]')).not.toBeNull();
+ expect(host.querySelector('[data-fee-coaches]')).toBeNull();
+ expect(host.querySelector('[aria-label="教師計酬方式"]')).toBeNull();
+ await act(async()=>host.querySelector<HTMLInputElement>('fieldset:not([hidden]) input[type="checkbox"]')!.click());
+ await act(async()=>{const kind=host.querySelector<HTMLSelectElement>('[aria-label="收費類型"]')!;kind.value='plan';kind.dispatchEvent(new Event('change',{bubbles:true}));});
+ await select('計費方式','POINT');
+ const cost=host.querySelector<HTMLInputElement>('[aria-label="每堂使用額度"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(cost,"2");cost.dispatchEvent(new Event("input",{bubbles:true}));});
+ await submit();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({sportsMode:"ASSIGNED",subject:"subject",cost:2,coachIds:[]});
+});
+it("universal-card setup removes subject, course cost and coach requirements",async()=>{
+ m.sportsSave.mockResolvedValue({success:false,error:"保留輸入"});
+ await mount({sportsData,subjects:[]});
+ const mode=host.querySelector<HTMLSelectElement>('[aria-label="方案適用方式"]')!;
+ await act(async()=>{mode.value="OPEN";mode.dispatchEvent(new Event("change",{bubbles:true}));});
+ expect(host.querySelector('[aria-label="教學項目"]')).toBeNull();
+ expect(host.querySelector('[aria-label="每堂使用額度"]')).toBeNull();
+ expect(host.querySelector('[data-fee-coaches]')).toBeNull();
+ await act(async()=>host.querySelector<HTMLInputElement>('fieldset:not([hidden]) input[type="checkbox"]')!.click());
+ await submit();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({sportsMode:"OPEN",subject:undefined});
+});
+
+it.each([false,true])('native sports purchase choice survives saving from backend=%s',async(initial)=>{
+ m.sportsSave.mockResolvedValue({success:false,error:'保留輸入'});
+ const plan={...sharedPlan,id:'native-plan',sportsMode:'ASSIGNED',sportsSubjectId:'subject',sportsCost:1,unit:'SESSION',templateIds:['t'],customerPurchasable:initial,chargeSettings:{kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['coach']}};
+ await mount({plan,sportsData,subjects:[{id:'subject',name:'瑜珈',category:'',isActive:true}]});
+ await act(async()=>host.querySelector<HTMLInputElement>('input[name="purchaseMode"][value="customer"]')!.click());
+ expect(host.querySelector<HTMLInputElement>('input[name="purchaseMode"][value="customer"]')!.checked).toBe(true);
+ await submit();expect(m.sportsSave).toHaveBeenCalled();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({customerPurchasable:true});
+});
+it('edits legacy purchase visibility without requiring new provider settings or replacing its teaching rule',async()=>{
+ m.sportsSave.mockResolvedValue({success:false,error:'保留輸入'});
+ const legacy={...sharedPlan,id:'legacy-plan',name:'舞蹈(常態)-10堂',points:10,price:5800,unit:'SESSION',sportsMode:'LEGACY',sportsSubjectId:null,sportsCost:null,templateIds:['old-rule'],customerPurchasable:false,chargeSettings:null};
+ const data={...sportsData,fees:[{id:'legacy-plan',subject:'subject',name:legacy.name,unit:'堂數',amount:10,price:5800,days:90,cost:1,shared:true,templateId:'old-rule',snapshot:JSON.stringify(legacy)}]};
+ await mount({plan:legacy,sportsData:data,templates:[{id:'old-rule',name:'舊舞蹈',category:'',isActive:true,musicSubjectId:'subject'}],subjects:[{id:'subject',name:'舞蹈（常態課程）',category:'',isActive:true}]});
+ await act(async()=>host.querySelector<HTMLInputElement>('input[name="purchaseMode"][value="customer"]')!.click());
+ await submit();expect(m.sportsSave).toHaveBeenCalled();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({id:'legacy-plan',customerPurchasable:true,chargeSettings:null});
+});

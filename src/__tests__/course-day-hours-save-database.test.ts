@@ -1,3 +1,4 @@
+import { rawQueryParts } from "./helpers/raw-query";
 import {PGlite} from "@electric-sql/pglite";
 import {beforeAll,afterAll,beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({manager:vi.fn(),transaction:vi.fn(),hours:vi.fn(),specials:vi.fn(),entitlement:vi.fn(),revalidate:vi.fn()}));
@@ -15,8 +16,8 @@ async function query(sql:string,values:unknown[]=[]){
  const result=await (client??db).query<Record<string,unknown>>(sql,values.map(v=>v instanceof Date?v.toISOString():v));
  return result.rows.map(row=>{for(const key of ["date","startsAt","endsAt","createdAt","updatedAt"]){if(typeof row[key]==="string")row[key]=new Date(row[key] as string);}return row;});
 }
-const raw=vi.fn(async(strings:TemplateStringsArray,...values:unknown[])=>query(strings.reduce((s,p,i)=>s+(i?`$${i}`:"")+p,""),values));
-const write=vi.fn(async(strings:TemplateStringsArray,...values:unknown[])=>{await raw(strings,...values);return 1;});
+const raw=vi.fn(async(strings:Parameters<typeof rawQueryParts>[0],...values:unknown[])=>query(rawQueryParts(strings,values).strings.reduce((s,p,i)=>s+(i?`$${i}`:"")+p,""),[...rawQueryParts(strings,values).values]));
+const write=vi.fn(async(strings:Parameters<typeof rawQueryParts>[0],...values:unknown[])=>{await raw(strings,...values);return 1;});
 beforeAll(async()=>{
  db=new PGlite();await db.exec(`
  CREATE TABLE "BusinessHours" (id text primary key,"storeId" text,"dayOfWeek" int,"isOpen" boolean,"openTime" text,"closeTime" text,segments jsonb,"slotInterval" int,"defaultCapacity" int,"createdAt" timestamptz,"updatedAt" timestamptz,unique("storeId","dayOfWeek"));
@@ -30,7 +31,7 @@ afterAll(async()=>db.close());
 beforeEach(async()=>{
  vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"s"});m.entitlement.mockResolvedValue({id:"music"});
  m.hours.mockImplementation(()=>query('SELECT * FROM "BusinessHours" WHERE "storeId"=\'s\''));m.specials.mockImplementation(()=>query('SELECT * FROM "SpecialBusinessDay" WHERE "storeId"=\'s\''));
- raw.mockImplementation(async(strings,...values)=>query(strings.reduce((s,p,i)=>s+(i?`$${i}`:"")+p,""),values));write.mockImplementation(async(strings,...values)=>{await raw(strings,...values);return 1;});
+ raw.mockImplementation(async(strings,...values)=>query(rawQueryParts(strings,values).strings.reduce((s,p,i)=>s+(i?`$${i}`:"")+p,""),[...rawQueryParts(strings,values).values]));write.mockImplementation(async(strings,...values)=>{await raw(strings,...values);return 1;});
  const tx={$queryRaw:raw,$executeRaw:write,courseSession:{findMany:async()=>query('SELECT "startsAt","endsAt" FROM "CourseSession" WHERE "storeId"=\'s\' AND "cancelledAt" IS NULL AND "startsAt">NOW()')}};
  m.transaction.mockImplementation(async(_store,work)=>db.transaction(async connection=>{client=connection;try{return await work(tx);}finally{client=db;}}));
  await db.exec(`TRUNCATE "BusinessHours","SpecialBusinessDay","ShopConfig","CourseSession","DutyAssignment";

@@ -48,24 +48,10 @@ beforeEach(() => {
     mocks.purchases, mocks.courseRefunds, mocks.trials]) fn.mockResolvedValue([]);
 });
 
-it("keeps SPA voids and internal uses out of collected revenue, but includes cashbook only once", async () => {
-  mocks.industry.mockResolvedValue("spa");
-  mocks.receipts.mockResolvedValue([
-    { id: "good", paidAt: new Date("2026-09-02T04:00:00Z"), amount: 900, paymentMethod: "CASH" },
-    { id: "void", paidAt: new Date("2026-09-02T04:00:00Z"), amount: 800, paymentMethod: "CASH" },
-    { id: "used", paidAt: new Date("2026-09-02T04:00:00Z"), amount: 200, paymentMethod: "ENTITLEMENT" },
-  ]);
-  mocks.sales.mockResolvedValue([{ id: "sale", createdAt: new Date("2026-09-03T04:00:00Z"), kind: "PACKAGE", amount: 4000, paymentMethod: "TRANSFER" }]);
-  mocks.spaRefunds.mockResolvedValue([{ id: "refund", createdAt: new Date("2026-09-04T04:00:00Z"), amount: 100, paymentMethod: "CASH" }]);
-  mocks.voids.mockResolvedValue([{ kind: "RECEIPT", sourceId: "void", refundId: null }]);
-  mocks.cashbook.mockResolvedValue([
-    { entryDate: new Date("2026-09-04T00:00:00Z"), type: "INCOME", category: "零售-商品", amount: 300 },
-    { entryDate: new Date("2026-09-04T00:00:00Z"), type: "EXPENSE", category: "材料", amount: 200 },
-  ]);
-  const mix = await getIndustryRevenueMix("spa-store", "2026-09-01", "2026-09-30");
-  expect(mix).toMatchObject({ packageRevenue: 4000, otherRevenue: 900, retailRevenue: 300,
-    refunds: 100, expense: 200, netRevenue: 5100, balance: 4900 });
-  expect(mocks.receipts).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ storeId: "spa-store" }) }));
+it("does not read either financial ledger when store module resolution denies a retired store", async () => {
+  mocks.industry.mockRejectedValueOnce(new Error("SPA 模組已移除"));
+  await expect(getIndustryRevenueMix("spa-store","2026-09-01","2026-09-30")).rejects.toThrow("SPA 模組已移除");
+  for(const query of [mocks.legacy,mocks.cashbook,mocks.receipts,mocks.sales,mocks.spaRefunds,mocks.voids]) expect(query).not.toHaveBeenCalled();
 });
 
 it("groups course receipts and refunds by their own business months", async () => {

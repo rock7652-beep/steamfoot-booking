@@ -34,7 +34,8 @@ describe("store feature catalog", () => {
 
     expect(grouped).toEqual({
       顧客經營: ["customer_labels", "digital_butler", "customer_care", "line_reminder", "member_portal", "referral_share"],
-      營運: ["store_operation_audit", "shared_card", "work_orders", "frontend_preview", "device_preview", "cash_drawer", "service_fee_calculator", "course_waitlist", "inventory", "data_export"],
+      營運: ["beauty_service_add_ons",
+      "add_ons", "store_operation_audit", "shared_card", "work_orders", "frontend_preview", "device_preview", "cash_drawer", "service_fee_calculator", "course_waitlist", "inventory", "data_export"],
       分析: ["basic_reports"],
       健康: ["ai_health_summary"],
       展店: ["multi_store"],
@@ -76,4 +77,10 @@ describe("store feature catalog", () => {
     });
     expect(getStoreFeatureLabel(FEATURES.AI_HEALTH_SUMMARY)).toBe("健康評估與體態追蹤");
   });
+});
+
+it('keeps beauty-specific controls out of other HQ store modules',async()=>{
+ const {getManageableStoreFeatures}=await import('@/lib/store-feature-catalog');
+ expect(getManageableStoreFeatures('BEAUTY',false).some(f=>f.key==='beauty_service_add_ons')).toBe(true);
+ for(const industry of ['STEAMFOOT','COURSE']){const features=getManageableStoreFeatures(industry,true);expect(features.some(f=>f.key==='beauty_service_add_ons')).toBe(false);expect(features.some(f=>f.key==='add_ons')).toBe(true);}
 });

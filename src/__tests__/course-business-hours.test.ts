@@ -10,7 +10,7 @@ import { assertCourseSessionsFitHours } from "@/server/services/course-business-
 const input={date:"2026-10-01",status:"closed",mode:"copy",weeks:2,reason:"測試公休",periods:[]};
 const tx={$queryRaw:m.raw,$executeRaw:m.write,courseSession:{findMany:m.sessions}};
 beforeEach(()=>{
- vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"course-store"});m.transaction.mockImplementation(async(_id,work)=>work(tx));m.raw.mockResolvedValue([]);m.sessions.mockResolvedValue([]);m.hours.mockResolvedValue([]);m.special.mockResolvedValue([]);m.entitlement.mockResolvedValue(null);
+ vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"course-store",user:{id:"owner"}});m.transaction.mockImplementation(async(_id,work)=>work(tx));m.raw.mockResolvedValue([]);m.sessions.mockResolvedValue([]);m.hours.mockResolvedValue([]);m.special.mockResolvedValue([]);m.entitlement.mockResolvedValue(null);
 });
 it("writes source and following weeks under one store transaction without touching bookings or cards",async()=>{
  expect(await saveCourseDayHours(input)).toMatchObject({success:true});
@@ -82,4 +82,23 @@ it("confirms weekly receipts, skips lost-response repeats and rejects stale or f
  expect((await saveCourseWeeklyHours({...input,days:[{...before,isOpen:false}]})).success).toBe(false);expect(m.write).toHaveBeenCalledTimes(1);
  expect(weeklyRevision({...before,periods:[{openTime:"10:00",closeTime:"18:00"}]})).not.toBe(weeklyRevision(before));
  m.transaction.mockClear();expect((await saveCourseWeeklyHours({...input,receipt:{...receipt,expectedStoreId:"other"}})).success).toBe(false);expect(m.transaction).not.toHaveBeenCalled();
+});
+
+it("persists explicit default-week confirmation once per store, without rewriting identical hours",async()=>{
+ const days=Array.from({length:7},(_,dayOfWeek)=>({dayOfWeek,isOpen:true,periods:[{openTime:"09:00",closeTime:"18:00"}]}));
+ m.raw.mockResolvedValue(days.map(day=>({...day,openTime:"09:00",closeTime:"18:00",segments:day.periods})));
+ const input={confirmForSetup:true,days,receipt:{expectedStoreId:"course-store",requestKey:"123e4567-e89b-42d3-a456-426614174000",expected:days.map(day=>({...day,persisted:true}))}};
+ expect(await saveCourseWeeklyHours(input)).toMatchObject({success:true});
+ expect(m.write).toHaveBeenCalledTimes(1);expect(m.write.mock.calls[0][0].join("")).toContain('INSERT INTO "AuditLog"');expect(m.write.mock.calls[0]).toContain("course-hours-confirmed:course-store");expect(m.write.mock.calls[0]).toContain("owner");
+ expect(m.write.mock.calls[0][0].join("")).toContain("ON CONFLICT (id) DO NOTHING");
+});
+it("cannot confirm an incomplete week, all-closed week, stale revision or another store",async()=>{
+ const days=Array.from({length:7},(_,dayOfWeek)=>({dayOfWeek,isOpen:false,periods:[]}));
+ const receipt={expectedStoreId:"course-store",requestKey:"123e4567-e89b-42d3-a456-426614174000",expected:days.map(day=>({...day,persisted:true}))};
+ expect(await saveCourseWeeklyHours({confirmForSetup:true,days,receipt})).toMatchObject({success:false});
+ expect(await saveCourseWeeklyHours({confirmForSetup:true,days:days.slice(1),receipt})).toMatchObject({success:false});expect(m.write).not.toHaveBeenCalled();
+ const open=days.map(day=>({...day,isOpen:true,periods:[{openTime:"09:00",closeTime:"18:00"}]}));
+ expect(await saveCourseWeeklyHours({confirmForSetup:true,days:open,receipt:{...receipt,expectedStoreId:"other"}})).toMatchObject({success:false});expect(m.write).not.toHaveBeenCalled();
+ m.raw.mockResolvedValue(open.map(day=>({...day,openTime:"10:00",closeTime:"18:00",segments:[{openTime:"10:00",closeTime:"18:00"}]})));
+ expect(await saveCourseWeeklyHours({confirmForSetup:true,days:open,receipt:{...receipt,expected:open.map(day=>({...day,persisted:true}))}})).toMatchObject({success:false});expect(m.write).not.toHaveBeenCalled();
 });

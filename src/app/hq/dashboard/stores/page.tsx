@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/session";
 import { listStoresAction } from "@/server/actions/store-onboarding";
 import { STORE_OPERATING_STATUS_LABELS } from "@/lib/store-operating-status";
 import { singleStoreTrialSummary } from "@/lib/single-store-trial";
+import { getStoreBusinessLabel } from "@/lib/store-business-profile";
 
 import { StoreArchiveButton } from "@/components/store-archive-button";
 
@@ -87,18 +88,17 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
           </thead>
           <tbody className="divide-y divide-earth-100">
             {stores.map((store) => {
+              const retired = store.industryModule === "SPA";
               const trial = singleStoreTrialSummary(store);
               const status = STATUS_LABELS[store.planStatus] ?? { label: store.planStatus, color: "bg-gray-100 text-gray-600" };
-              const operatingColor = OPERATING_STATUS_COLORS[store.operatingStatus] ?? "bg-gray-100 text-gray-600";
+              const operatingColor = retired ? "bg-gray-100 text-gray-500" : OPERATING_STATUS_COLORS[store.operatingStatus] ?? "bg-gray-100 text-gray-600";
               return (
                 <tr key={store.id} className="hover:bg-earth-50/50">
                   <td className="px-4 py-3 font-medium text-earth-900">{store.name}{store.archivedAt && <span className="ml-2 text-sm text-earth-500">已封存</span>}</td>
                   <td className="px-4 py-3 text-earth-500 font-mono text-xs">{store.slug}</td>
                   <td className="px-4 py-3 text-earth-600">{store.plan}</td>
                   <td className="px-4 py-3 text-earth-600">
-                    {store.industryModule === "COURSE"
-                      ? store.businessProfile === "MUSIC" ? "音樂教室" : "運動教室"
-                      : store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}
+                    {getStoreBusinessLabel(store.industryModule, store.businessProfile === "MUSIC" ? ["business.music"] : [])}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}>
@@ -108,7 +108,7 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${operatingColor}`}>
-                      {STORE_OPERATING_STATUS_LABELS[store.operatingStatus] ?? store.operatingStatus}
+                      {retired ? "模組已停用" : STORE_OPERATING_STATUS_LABELS[store.operatingStatus] ?? store.operatingStatus}
                     </span>
                   </td>
                   <td className="px-4 py-3">

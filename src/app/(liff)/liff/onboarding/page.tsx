@@ -6,6 +6,7 @@ import {
 } from "@/lib/store-resolver";
 import { liffMessages } from "@/lib/liff/messages";
 import { OnboardingForm } from "./onboarding-form";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 /**
  * /s/[storeSlug]/liff/onboarding — LIFF 補手機綁定頁 (PR-C2)
@@ -53,6 +54,7 @@ export default async function LiffOnboardingPage() {
       storeName={presentation.name}
       liffId={liffId}
       contactUrl={presentation.contactUrl}
+      firstRegistration={await getStoreIndustryModule(presentation.id) === "beauty"}
     />
   );
 }

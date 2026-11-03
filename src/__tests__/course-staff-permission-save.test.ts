@@ -1,3 +1,4 @@
+import { rawQueryText } from "./helpers/raw-query";
 vi.mock("@/server/services/music-finance-access",()=>({canMusicFinance:async()=>true,requireMusicFinance:async()=>{},isMusicFinanceStore:()=>m.music(),readMusicFinanceScope:()=>m.scope()}));
 import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({music:vi.fn(),scope:vi.fn(),manager:vi.fn(),feature:vi.fn(),limits:vi.fn(),staff:vi.fn(),count:vi.fn(),update:vi.fn(),user:vi.fn(),permission:vi.fn(),permissionUpdate:vi.fn(),raw:vi.fn(),linkFind:vi.fn(),linkCreate:vi.fn(),linkDelete:vi.fn()}));
@@ -39,7 +40,7 @@ it("saves and revokes course export permissions independently",async()=>{
 });
 it("blocks coach removal with an ongoing class but allows confirmed whole-person revocation without suspending the member account",async()=>{
  m.staff.mockResolvedValue({id:"manager2",userId:"u2",status:"ACTIVE",courseCoachEnabled:true,courseQualifiedTemplateIds:[],user:{role:"STAFF"}});
- m.raw.mockImplementation(async(sql:TemplateStringsArray)=>sql.join("").includes('FROM "CourseSession"') ? [{id:"ongoing",name:"進行中課程",startsAt:new Date(),capacity:5}] : []);
+ m.raw.mockImplementation(async(sql:Parameters<typeof rawQueryText>[0])=>rawQueryText(sql).includes('FROM "CourseSession"') ? [{id:"ongoing",name:"進行中課程",startsAt:new Date(),capacity:5}] : []);
  expect(await saveCourseStaff({...input,coachEnabled:false})).toMatchObject({success:false,conflicts:[{id:"ongoing"}]});
  expect(m.update).not.toHaveBeenCalled();
  expect(await saveCourseStaff({...input,active:false})).toMatchObject({success:false});

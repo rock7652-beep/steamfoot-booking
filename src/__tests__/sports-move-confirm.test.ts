@@ -31,3 +31,15 @@ it("網路結果不明時鎖住重送，只讀核對已完成的貼上",async()=
  const submit=()=>host.querySelector('form')!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}));await act(async()=>{submit();});expect(host.textContent).toContain("貼上結果待核對");await act(async()=>{submit();});expect(m.move).toHaveBeenCalledTimes(1);
  await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==="核對貼上結果")!.click());expect(m.read).toHaveBeenCalledExactlyOnceWith("s");expect(saved).toHaveBeenCalledExactlyOnceWith("2027-01-05",[expect.objectContaining({roomId:"r",coachId:"c"})]);expect(m.move).toHaveBeenCalledTimes(1);await act(async()=>root.unmount());host.remove();
 });
+
+it('service source keeps the shared move form and uses position/technician feedback',async()=>{
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host),saved=vi.fn();
+ const source={save:vi.fn().mockResolvedValue({success:false,error:'位置已有預約'}),read:vi.fn()};m.move.mockReset();
+ try{
+  await act(async()=>root.render(createElement(SportsMoveConfirm,{source,clipboard:{sessionId:'beauty-a',templateId:'service',roomId:'bed',coachId:'technician',durationMinutes:60,scope:'SINGLE',label:'做臉'},seed:{date:'2099-10-26',time:'10:30',roomId:'bed',coachId:'technician'},rooms:[],coaches:[],onClose:vi.fn(),onSaved:saved})));
+  await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+  expect(source.save).toHaveBeenCalledExactlyOnceWith({date:'2099-10-26',time:'10:30',roomId:'bed',coachId:'technician',durationMinutes:60});
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain('請調整時間、位置或技師，再次確認。');
+  expect(host.querySelector('[role="alert"]')?.textContent).not.toContain('教練');expect(saved).not.toHaveBeenCalled();expect(m.move).not.toHaveBeenCalled();
+ }finally{await act(async()=>root.unmount());host.remove();}
+});

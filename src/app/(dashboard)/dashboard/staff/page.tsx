@@ -1,3 +1,10 @@
+import {BeautyNativeAccountWorkspace} from '@/components/beauty/native-account-source';
+import {nativeBeautyAccount} from '@/lib/beauty/native-staff';
+import {savedStaffPerson} from '@/lib/staff-settings-save';
+import {beautyPrisma} from '@/lib/beauty-db';
+import {getStoreLimitsByStoreId} from '@/lib/feature-gate';
+import type {CourseOrderSnapshot} from '@/lib/course-display-order';
+import {BEAUTY_PERMISSIONS} from '@/lib/beauty/permissions';
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { CourseStaffPage } from "../courses/staff-page";
 import { hasCurrentStoreFeature } from "@/lib/feature-gate";
@@ -10,15 +17,14 @@ import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
 import { notFound, redirect } from "next/navigation";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader, PageShell } from "@/components/desktop";
-import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { StaffWorkspace, type StaffWorkspacePerson } from "./staff-workspace";
 import type { UserRole } from "@prisma/client";
-import { spaPrisma } from "@/lib/spa-db";
-import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
+
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { canManageStaffRole } from "@/lib/staff-role-policy";
-import { spaSkillKeyFromId } from "@/lib/spa-store-identifiers";
 
 export default async function StaffPage({
   searchParams,
@@ -28,7 +34,9 @@ export default async function StaffPage({
   const { createError } = await searchParams;
   const user = await getCurrentUser();
   if (!user) notFound();
-  if (!(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
+  if (!(await checkPermission(user.role, user.staffId, "staff.view"))) {
+    return <PageShell><PageHeader title="人員管理" /><EmptyState icon="lock" title="沒有查看人員管理的權限" description="請聯絡店長調整帳號權限。" action={{ label: "返回首頁", href: "/dashboard" }} /></PageShell>;
+  }
 
   const activeStoreId = await getActiveStoreForRead(user);
   const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : null;
@@ -43,39 +51,16 @@ export default async function StaffPage({
   const canManage = canManagePermission && !adminMissingStore;
   const actorPermissions = user.role === "MANAGER" && user.staffId ? await getStaffPermissions(user.staffId, activeStoreId!) : new Set(ALL_PERMISSIONS);
   const isSpaStore = industryModule === "spa";
-  const spaSchemaReady = isSpaStore ? await isSpaOperationalSchemaReady() : false;
-  const spaCompensationReady = isSpaStore ? await isSpaCompensationSchemaReady() : false;
-  let storedSkills: Array<{ staffId: string; skill: { id: string } }> = [];
-  let storedAvailability: Array<{ staffId: string; dayOfWeek: number; startTime: string; endTime: string }> = [];
-  let storedExceptions: Array<{ staffId: string; date: Date; type: "UNAVAILABLE" | "AVAILABLE"; startTime: string | null; endTime: string | null; reason: string | null }> = [];
-  let storedCompensation: Array<{ staffId: string; mode: string; value: { toString(): string } }> = [];
-  let spaStaffDataReady = spaSchemaReady;
-  if (isSpaStore && spaSchemaReady) {
-    try {
-      [storedSkills, storedAvailability, storedExceptions] = await Promise.all([
-        spaPrisma.spaStaffSkill.findMany({ where: { storeId: activeStoreId! }, include: { skill: { select: { id: true } } } }),
-        spaPrisma.spaStaffAvailability.findMany({ where: { storeId: activeStoreId!, isActive: true }, orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] }),
-        spaPrisma.spaStaffAvailabilityException.findMany({ where: { storeId: activeStoreId!, date: { gte: parseTaiwanDateToDbDate(toLocalDateStr()) } }, orderBy: { date: "asc" } }),
-      ]);
-    } catch (error) {
-      spaStaffDataReady = false;
-      console.error("[spa-staff] optional operational data unavailable", {
-        storeId: activeStoreId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-  if (isSpaStore && spaCompensationReady) {
-    storedCompensation = await spaPrisma.spaStaffCompensation.findMany({
-      where: { storeId: activeStoreId!, isActive: true },
-    });
-  }
+  const spaSchemaReady = false;
+
+
+  const storedAvailability: Array<{ staffId: string; dayOfWeek: number; startTime: string; endTime: string }> = [];
+  const storedExceptions: Array<{ staffId: string; date: Date; type: "UNAVAILABLE" | "AVAILABLE"; startTime: string | null; endTime: string | null; reason: string | null }> = [];
+  const storedCompensation: Array<{ staffId: string; mode: string; value: { toString(): string } }> = [];
+
 
   const people: StaffWorkspacePerson[] = staffList.map((staff) => {
-    const persistedSkillKeys = storedSkills
-      .filter((row) => row.staffId === staff.id)
-      .map((row) => spaSkillKeyFromId(row.skill.id))
-      .filter((key): key is StaffWorkspacePerson["specialtyKeys"][number] => key !== null);
+    const persistedSkillKeys: string[] = [];
     const persistedAvailability = storedAvailability.filter((row) => row.staffId === staff.id).map(({ dayOfWeek, startTime, endTime }) => ({ dayOfWeek, startTime, endTime }));
     const persistedExceptions = storedExceptions.filter((row) => row.staffId === staff.id).map((row) => ({
       date: row.date.toISOString().slice(0, 10),
@@ -130,22 +115,9 @@ export default async function StaffPage({
         ? Number(formData.get("monthlySpaceFee"))
         : 0,
       role: roleValue as "OWNER" | "MANAGER" | "STAFF" | "PARTNER",
-      spaCompensation: isSpaStore && formData.get("compensationValue") !== null
-        ? {
-            mode: String(formData.get("compensationMode")) as "PERCENTAGE" | "FIXED",
-            value: Number(formData.get("compensationValue")),
-          }
-        : undefined,
-      spaSkillKeys: isSpaStore
-        ? formData.getAll("spaSkillKeys").map(String) as Array<"body" | "head" | "foot" | "face">
-        : undefined,
-      spaWeeklyAvailability: isSpaStore
-        ? formData.getAll("spaAvailabilityDays").map((day) => ({
-            dayOfWeek: Number(day),
-            startTime: String(formData.get("spaStartTime")),
-            endTime: String(formData.get("spaEndTime")),
-          }))
-        : undefined,
+      spaCompensation: undefined,
+      spaSkillKeys: undefined,
+      spaWeeklyAvailability: undefined,
     });
     if (!result.success) {
       redirect(`/dashboard/staff?createError=${encodeURIComponent(result.error || "新增人員失敗")}`);
@@ -153,12 +125,17 @@ export default async function StaffPage({
     redirect("/dashboard/staff");
   }
 
+  if(industryModule==='beauty'&&activeStoreId){
+    const [limits,orders]=await Promise.all([getStoreLimitsByStoreId(activeStoreId),beautyPrisma.$queryRaw<CourseOrderSnapshot[]>`SELECT ids,revision FROM "CourseDisplayOrder" WHERE "storeId"=${activeStoreId} AND kind='staff'`]);
+    return <FeatureGate plan={plan} feature={FEATURES.STAFF_MANAGEMENT} enabled={await hasCurrentStoreFeature(FEATURES.STAFF_MANAGEMENT)}><PageShell><PageHeader title="人員管理"/><BeautyNativeAccountWorkspace storeId={activeStoreId} staff={people.map(person=>{const row=staffList.find(row=>row.id===person.id);return nativeBeautyAccount(savedStaffPerson.parse({...person,birthday:row?.courseBirthday?.toISOString().slice(0,10)??'',emergencyContactName:row?.emergencyContactName??'',emergencyContactPhone:row?.emergencyContactPhone??'',emergencyContactRelation:row?.emergencyContactRelation??''}));})} canManage={canManage&&['OWNER','MANAGER','ADMIN'].includes(user.role)} canAssignRoles={user.role==='OWNER'||user.role==='ADMIN'} maxStaff={limits.maxStaff} displayOrder={orders[0]} editablePermissions={Array.from(actorPermissions).filter(p=>BEAUTY_PERMISSIONS.includes(p))} rolePresets={Object.fromEntries((['OWNER','MANAGER','STAFF'] as const).map(role=>[role,getDefaultPermissionsForRole(role).filter(p=>BEAUTY_PERMISSIONS.includes(p))]))} permissionGroups={Object.values(PERMISSION_GROUPS).map(group=>({label:group.label.replaceAll('教師','技師'),codes:group.codes.filter(code=>BEAUTY_PERMISSIONS.includes(code)).map(code=>({code,label:PERMISSION_LABELS[code].replaceAll('教師','技師')}))})).filter(group=>group.codes.length)}/></PageShell></FeatureGate>;
+  }
+
   return (
     <FeatureGate plan={plan} feature={FEATURES.STAFF_MANAGEMENT} enabled={await hasCurrentStoreFeature(FEATURES.STAFF_MANAGEMENT)}>
       <PageShell>
         <PageHeader
           title="人員管理"
-          subtitle={isSpaStore ? "管理人員、專業項目、接客時段與休假例外" : "管理人員帳號、角色與權限"}
+          subtitle={"管理人員帳號、角色與權限"}
         />
         {adminMissingStore ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -171,25 +148,22 @@ export default async function StaffPage({
                 新增人員失敗：{createError}
               </div>
             ) : null}
-            {isSpaStore && !spaStaffDataReady ? (
-              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                人員排班資料功能更新中，待資料表就緒後即可儲存。
-              </div>
-            ) : null}
+            {null}
             <StaffWorkspace key={activeStoreId} storeId={activeStoreId!}
               accountPolicy={{
                 canAssignRoles: user.role === "OWNER" || user.role === "ADMIN",
-                editablePermissions: Array.from(actorPermissions),
-                rolePresets: Object.fromEntries((["OWNER", "MANAGER", "STAFF", "PARTNER"] as const).map(role => [role, getDefaultPermissionsForRole(role)])),
-                permissionGroups: Object.values(PERMISSION_GROUPS).map(g => ({ label: g.label, codes: g.codes.filter(code => !code.startsWith("teacher.")).map(code => ({ code, label: PERMISSION_LABELS[code] })) })).filter(g => g.codes.length),
+                editablePermissions: Array.from(actorPermissions).filter(p=>industryModule!=='beauty'||BEAUTY_PERMISSIONS.includes(p)),
+                rolePresets: Object.fromEntries((["OWNER", "MANAGER", "STAFF", "PARTNER"] as const).map(role => [role, getDefaultPermissionsForRole(role).filter(p=>industryModule!=='beauty'||BEAUTY_PERMISSIONS.includes(p))])),
+                permissionGroups: Object.values(PERMISSION_GROUPS).map(g => ({ label: industryModule === "beauty" ? g.label.replaceAll("教師", "技師") : g.label, codes: g.codes.filter(code => industryModule==='beauty'?BEAUTY_PERMISSIONS.includes(code):!code.startsWith("teacher.")).map(code => ({ code, label: industryModule === "beauty" ? PERMISSION_LABELS[code].replaceAll("教師", "技師") : PERMISSION_LABELS[code] })) })).filter(g => g.codes.length),
               }}
+              beauty={industryModule==='beauty'}
               accountListOnly={!isSpaStore}
               showSteamfootRent={industryModule === "steamfoot"}
               people={people}
               today={toLocalDateStr()}
               canManage={canManage}
               canAssignRoles={user.role === "OWNER" || user.role === "ADMIN"}
-              showSpaCompensation={isSpaStore && spaCompensationReady}
+              showSpaCompensation={false}
               createAction={handleCreateStaff}
             />
           </>

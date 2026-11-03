@@ -36,6 +36,7 @@ const sessions = Array.from({ length: 8 }, (_, i) => ({
 const tx = {
   $executeRaw: m.execute,
   courseSession: { findMany: m.sessions },
+  courseTemplate:{findFirst:async()=>({musicSubjectId:"subject"}),findMany:async()=>[{id:"template"}]},
   courseCompensation:{findUnique:m.compensation},
   courseCompensationSnapshot:{upsert:m.snapshot},
   coursePointPlan: {
@@ -56,53 +57,29 @@ beforeEach(() => {
   m.compensation.mockResolvedValue(null);
   m.cards.mockResolvedValue([
     {
-      id: "used",
+      planId:"plan",templateIds:["template"],requestKey:"old",
+      id: "used",expiresAt:new Date("2099-11-01"),
       unit: "SESSION",
       remaining: 10,
       bookings: [{ pointCost: 3 }],
     },
-    { id: "available", unit: "SESSION", remaining: 10, bookings: [] },
+    { id: "available",expiresAt:new Date("2099-12-31"),planId:"plan",templateIds:["template"],requestKey:"old", unit: "SESSION", remaining: 10, bookings: [] },
   ]);
   m.card.mockResolvedValue({ id: "available", planId: "plan" });
   m.reserve.mockResolvedValue({ id: "booking" });
 });
-it("allocates one sufficient card for the full batch while preserving automatic intent", async () => {
-  await attachSportsSessionRules(tx, actor, "request", rule);
-  expect(m.cards).toHaveBeenCalledTimes(1);
-  expect(m.reserve).toHaveBeenCalledTimes(8);
-  for (const call of m.reserve.mock.calls)
-    expect(call[2].cardId).toBe("available");
-  expect(m.cards.mock.calls[0][0].where).toMatchObject({
-    storeId: "store",
-    planId: "plan",
-    expiresAt: { gte: sessions[7].startsAt },
-    members: { some: { customerId: "member" } },
-  });
-  for (const call of m.execute.mock.calls)
-    expect(JSON.parse(call.at(-1)).students[0].cardId).toBe(null);
-  expect(rule.students[0].cardId).toBe(null);
+it("arranges all lessons without reserving a particular plan or consuming credit",async()=>{
+ await attachSportsSessionRules(tx,actor,"request",rule);
+ expect(m.cards).not.toHaveBeenCalled();expect(m.reserve).toHaveBeenCalledTimes(8);
+ for(const call of m.reserve.mock.calls)expect(call[2]).toMatchObject({cardId:null,deferredPayment:true,customerId:"member"});
 });
-it("keeps an explicit existing card selection without reallocating it", async () => {
-  await attachSportsSessionRules(tx, actor, "request", {
-    ...rule,
-    students: [{ customerId: "member", cardId: "original" }],
-  });
-  expect(m.cards).not.toHaveBeenCalled();
-  expect(m.reserve.mock.calls[0][2].cardId).toBe("original");
+it("ignores a stale plan selection when arranging an item",async()=>{
+ await attachSportsSessionRules(tx,actor,"request",{...rule,students:[{customerId:"member",cardId:"original"}]});
+ expect(m.cards).not.toHaveBeenCalled();expect(m.reserve.mock.calls[0][2]).toMatchObject({cardId:null,deferredPayment:true});
 });
-it("rejects a batch with no sufficient card before creating any reservation", async () => {
-  m.cards.mockResolvedValue([
-    {
-      id: "held",
-      unit: "SESSION",
-      remaining: 10,
-      bookings: [{ pointCost: 8 }],
-    },
-  ]);
-  await expect(
-    attachSportsSessionRules(tx, actor, "request", rule),
-  ).rejects.toThrow("額度");
-  expect(m.reserve).not.toHaveBeenCalled();
+it("allows arrangement with no purchased plan; attendance is a separate command",async()=>{
+ m.cards.mockResolvedValue([]);await attachSportsSessionRules(tx,actor,"request",rule);
+ expect(m.reserve).toHaveBeenCalledTimes(8);expect(m.cards).not.toHaveBeenCalled();
 });
 
 it("captures each new hourly class independently without multiplying by pupils",async()=>{
@@ -111,4 +88,22 @@ it("captures each new hourly class independently without multiplying by pupils",
  await attachSportsSessionRules(tx,actor,"request",rule);
  expect(m.snapshot).toHaveBeenCalledTimes(8);
  expect(m.snapshot.mock.calls[0][0].create).toMatchObject({storeId:"store",rule:{mode:"HOUR",value:600,calculationVersion:3,durationMinutes:90},revision:2});
+});
+
+it.each(["OPEN","ASSIGNED"] as const)("%s 新課次優先保存個別教練費率，未改共用預設",async enrollment=>{
+ const scheduled={...sessions[0],coachId:"coach",endsAt:new Date(sessions[0].startsAt.getTime()+90*60000)};
+ m.sessions.mockResolvedValue([scheduled]);
+ m.compensation.mockImplementation(async({where})=>({rules:[{mode:"HOUR",value:where.storeId_templateId_staffId.staffId?800:600}],revision:3}));
+ await attachSportsSessionRules(tx,actor,"request",{...rule,enrollment,students:[]},[scheduled.id]);
+ expect(m.snapshot).toHaveBeenCalledOnce();
+ expect(m.snapshot.mock.calls[0][0].create).toMatchObject({staffId:"coach",rule:{mode:"HOUR",value:800,source:"SPORTS_COACH_FEE",calculationVersion:3,durationMinutes:90}});
+ expect(m.reserve).not.toHaveBeenCalled();
+});
+
+it('allows the shared transaction to enroll new trial learners while retaining the empty assigned-class guard',async()=>{
+ const trial={...sessions[0],isTrial:true,capacity:1};m.sessions.mockResolvedValue([trial]);
+ const input={...rule,frequency:'SINGLE' as const,planId:null,students:[]};
+ await expect(attachSportsSessionRules(tx,actor,'request',input)).rejects.toThrow('至少指定');
+ await attachSportsSessionRules(tx,actor,'request',input,undefined,1);expect(m.reserve).not.toHaveBeenCalled();expect(m.execute).toHaveBeenCalledOnce();
+ m.sessions.mockResolvedValue([{...trial,isTrial:false}]);await expect(attachSportsSessionRules(tx,actor,'request',input,undefined,1)).rejects.toThrow('體驗學員');
 });

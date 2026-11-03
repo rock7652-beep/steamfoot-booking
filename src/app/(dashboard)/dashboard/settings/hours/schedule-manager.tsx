@@ -1,21 +1,17 @@
 "use client";
-import {useSettingsSave} from "@/components/admin/use-settings-save";
-import {savedServiceHours} from "@/lib/service-hours-save";
-import {savedCourseDayHours} from "@/lib/course-day-hours-save";
-import {usePathname} from "next/navigation";
+import {TimeOfDayField} from "@/components/admin/time-of-day-field";
+import { useSettingsSave } from "@/components/admin/use-settings-save";
+import { savedServiceHours } from "@/lib/service-hours-save";
+import { savedCourseDayHours } from "@/lib/course-day-hours-save";
+import { usePathname } from "next/navigation";
 import { CourseWeeklyHoursEditor } from "../../courses/hours/weekly-hours-editor";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useCallback, useTransition, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
-import {
-  getMonthSpecialDays,
-  getMonthScheduleSummary,
-  getDaySlotDetails,
-  syncFromHeadquarters,
-} from "@/server/actions/business-hours";
-import {getCourseMonthSpecialDays,getCourseMonthScheduleSummary,getCourseDayHours} from "@/server/actions/course-business-hours";
-import {toLocalDateStr} from "@/lib/date-utils";
+import { getMonthSpecialDays, getMonthScheduleSummary, getDaySlotDetails, syncFromHeadquarters } from "@/server/actions/business-hours";
+import { getCourseMonthSpecialDays, getCourseMonthScheduleSummary, getCourseDayHours } from "@/server/actions/course-business-hours";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS, generateSlots, validateBusinessPeriods } from "@/lib/slot-generator";
 
 // ============================================================
@@ -23,6 +19,7 @@ import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS, generateSlots, validateBusines
 // ============================================================
 
 interface WeeklyHour {
+  persisted?:boolean;
   dayOfWeek: number;
   dayName: string;
   isOpen: boolean;
@@ -122,7 +119,8 @@ interface Props {
   canManage: boolean;
   isHeadquarters: boolean;
   isCourseStore?: boolean;
-  isSpaStore: boolean;
+  isBeautyStore?: boolean;
+  courseHoursConfirmationRequired?: boolean;
 }
 
 const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
@@ -147,13 +145,13 @@ export function ScheduleManager({
   initialMonth,
   canManage,
   isHeadquarters,
-  isSpaStore,
   isCourseStore = false,
+  isBeautyStore = false,
+  courseHoursConfirmationRequired = false,
 }: Props) {
-  // 蒸足採 30/60/90/120；SPA 保留既有 15/30 排程設定，不受此頁變更影響。
-  const intervalOptions = isSpaStore
-    ? SLOT_INTERVAL_OPTIONS.filter((option) => option.value === 15 || option.value === 30)
-    : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
+  // 各模組保留自己的預約單位；新版美業固定 30 分鐘。
+  const courseLayout=isCourseStore||isBeautyStore;
+  const intervalOptions = isBeautyStore ? SLOT_INTERVAL_OPTIONS.filter(o=>o.value===30) : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
   const [year, setYear] = useState(initialYear);
   const [month, setMonth] = useState(initialMonth);
   const [specialDays, setSpecialDays] = useState<SpecialDay[]>(initialSpecialDays);
@@ -182,7 +180,6 @@ export function ScheduleManager({
   const [editReason, setEditReason] = useState("");
   const [copyWeeks, setCopyWeeks] = useState(0);
   const [targetDates, setTargetDates] = useState<string[]>([]);
-  const [dateConflictMode, setDateConflictMode] = useState<"skip" | "replace">("skip");
   const [includeSlotOverrides, setIncludeSlotOverrides] = useState(false);
   const [dateSelectionAttempted, setDateSelectionAttempted] = useState(false);
   const [pickerYear, setPickerYear] = useState(initialYear);
@@ -235,7 +232,7 @@ export function ScheduleManager({
     );
   }, [editPeriods, editStatus]);
 
-  const draftKey = JSON.stringify([selectedDate, editStatus, editPeriods, editReason, applyMode, copyWeeks, targetDates, dateConflictMode, includeSlotOverrides, templateWeeks, dayDetail?.slots]);
+  const draftKey = JSON.stringify([selectedDate, editStatus, editPeriods, editReason, applyMode, copyWeeks, targetDates, includeSlotOverrides, templateWeeks, dayDetail?.slots]);
   const reviewing = reviewedDraft === draftKey;
   const periodValidation = editStatus === "custom" || (editStatus === "open" && applyMode !== "day")
     ? validateServicePeriods(editPeriods,isCourseStore) : { valid: true };
@@ -273,15 +270,7 @@ export function ScheduleManager({
     });
   }, [applyMode, isCourseStore, pickerMonth, pickerYear]);
 
-  useEffect(() => {
-    if (!dayDraftDirty) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dayDraftDirty]);
+
 
   /** 失效並強制重抓「目前月份」cache（mutation 後使用） */
   const invalidateAndReloadCurrentMonth = useCallback(async () => {
@@ -449,7 +438,6 @@ export function ScheduleManager({
   // ── 換月 ──
   const changeMonth = useCallback(async (dir: 1 | -1) => {
     if(locked||daySaveLock.current)return;
-    if (dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換月份嗎？")) return;
     let newMonth = month + dir;
     let newYear = year;
     if (newMonth < 1) { newMonth = 12; newYear--; }
@@ -472,7 +460,6 @@ export function ScheduleManager({
   const selectDate = useCallback(
     async (dateStr: string, opts: { bypassCache?: boolean } = {}) => {
       if((locked||daySaveLock.current)&&!opts.bypassCache)return;
-      if (selectedDate && selectedDate !== dateStr && dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換日期嗎？")) return;
       if(selectedDate!==dateStr) setShowAdvancedSlots(false);
       setSaveError(null);
       setDateSelectionAttempted(false);
@@ -562,7 +549,7 @@ export function ScheduleManager({
     if(daySaveLock.current||!selectedDate)return;daySaveLock.current=true;
     try{const result=await serviceRequest.save({expectedRevision,values:{date:selectedDate,status:"open",mode:"undo",weeks:0,reason:"",periods:[],operationId}});if(!result.success){setSaveError(result.error);toast.error(result.error);return;}adoptServiceReceipt(result.data);toast.success("已復原套用日期");}finally{daySaveLock.current=false;}
   }
-  async function saveServiceSlot(action:"capacity"|"reset"){
+  async function saveServiceSlot(action:"capacity"|"reset"|"enable"|"disable"){
     if(daySaveLock.current||!selectedDate||!selectedSlot||!dayDetail?.hoursRevision)return;daySaveLock.current=true;
     try{const result=await serviceRequest.save({expectedRevision:dayDetail.hoursRevision,values:{date:selectedDate,status:dayDetail.status,mode:"slots",weeks:0,reason:"",periods:[],changes:[{startTime:selectedSlot,action,...(action==="capacity"?{capacity:slotCapacityInput}:{})}]}});if(!result.success){setSaveError(result.error);toast.error(result.error);return;}adoptServiceReceipt(result.data);setSelectedSlot(null);toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"時段設定已儲存");}finally{daySaveLock.current=false;}
   }
@@ -589,10 +576,10 @@ export function ScheduleManager({
           toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"營業設定已儲存");return;
         }
         if(!dayDetail?.hoursRevision){setSaveError("日期資料尚未確認，請重新核對日期");return;}
-        const result=await serviceRequest.save({expectedRevision:dayDetail.hoursRevision,values:{date:selectedDate,status:editStatus,mode:applyMode,weeks:applyMode==="copy"?copyWeeks:templateWeeks,reason:editReason,periods:sortedPeriods,targetDates,conflictMode:dateConflictMode,includeSlotOverrides}});
+        const result=await serviceRequest.save({expectedRevision:dayDetail.hoursRevision,values:{date:selectedDate,status:editStatus,mode:applyMode,weeks:applyMode==="copy"?copyWeeks:templateWeeks,reason:editReason,periods:sortedPeriods,targetDates,conflictMode:"replace",includeSlotOverrides}});
         if(!result.success){setSaveError(result.error);toast.error(result.error);return;}
         adoptServiceReceipt(result.data);
-        toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":result.data.skipped.length?`設定已儲存；略過 ${result.data.skipped.length} 個已有設定的日期`:"營業設定已儲存",result.data.operationId?{duration:10000,action:{label:"復原",onClick:()=>void undoServiceDates(result.data.operationId!,result.data.day.hoursRevision)}}:undefined);
+        toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":applyMode==="dates"?`來源日已儲存；已套用 ${result.data.count} 個日期${result.data.skipped.length?`；略過 ${result.data.skipped.length} 個日期`:""}`:"營業設定已儲存",result.data.operationId?{duration:10000,action:{label:"復原",onClick:()=>void undoServiceDates(result.data.operationId!,result.data.day.hoursRevision)}}:undefined);
       } catch {
         toast.error("儲存失敗");
       } finally {daySaveLock.current=false;}
@@ -732,7 +719,6 @@ export function ScheduleManager({
           )}
         </div>
 
-
       </div>
 
       {/* ===== 右側：日設定面板 =====
@@ -759,7 +745,7 @@ export function ScheduleManager({
           <div className="space-y-3">
             <div className="rounded-xl border bg-white p-4 shadow-sm">
               <h3 className="mb-2 text-base font-bold text-earth-900">
-                {selectedDate.slice(5).replace("-", "/")}（{dayDetail.dayName}）{isCourseStore?"營業設定":"當日時段"}
+                {selectedDate.slice(5).replace("-", "/")}（{dayDetail.dayName}）{courseLayout?"營業設定":"當日時段"}
               </h3>
 
               <p className="mb-3 text-[11px] text-earth-500">
@@ -820,25 +806,25 @@ export function ScheduleManager({
                       <div className="grid min-w-0 grid-cols-2 gap-2">
                         <label className="col-span-2 min-w-0 overflow-hidden text-xs text-earth-500 sm:col-span-1">
                           開始
-                          <input type="time" style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} value={period.openTime} disabled={!canManage}
+                          <TimeOfDayField selectTimes={isBeautyStore} step={60} style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} value={period.openTime} disabled={!canManage}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, openTime: e.target.value } : item))}
                             className="mt-1 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border border-earth-300 bg-white px-2 py-1.5 text-base" />
                         </label>
                         <label className="col-span-2 min-w-0 overflow-hidden text-xs text-earth-500 sm:col-span-1">
                           結束
-                          <input type="time" style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} value={period.closeTime} disabled={!canManage}
+                          <TimeOfDayField selectTimes={isBeautyStore} step={60} style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} value={period.closeTime} disabled={!canManage}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, closeTime: e.target.value } : item))}
                             className="mt-1 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border border-earth-300 bg-white px-2 py-1.5 text-base" />
                         </label>
-                        <label hidden={isCourseStore} className="text-[11px] text-earth-500">
+                        <label hidden={courseLayout} className="text-[11px] text-earth-500">
                           預約時段間隔
-                          <select value={period.slotInterval} disabled={!canManage}
+                          <select value={isBeautyStore?30:period.slotInterval} disabled={!canManage||isBeautyStore}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, slotInterval: Number(e.target.value) } : item))}
                             className="mt-1 box-border block min-h-10 w-full min-w-0 max-w-full rounded border border-earth-300 bg-white px-2 py-1.5 text-base">
                             {intervalOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.value} 分鐘</option>)}
                           </select>
                         </label>
-                        <label hidden={isCourseStore} className="text-[11px] text-earth-500">
+                        <label hidden={courseLayout} className="text-[11px] text-earth-500">
                           每時段名額
                           <select value={period.defaultCapacity} disabled={!canManage}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, defaultCapacity: Number(e.target.value) } : item))}
@@ -852,7 +838,7 @@ export function ScheduleManager({
                   <button
                     type="button"
                     disabled={!canManage || editPeriods.length >= 8}
-                    onClick={() => setEditPeriods((items) => [...items, { openTime: "", closeTime: "", slotInterval: 60, defaultCapacity: editCapacity }])}
+                    onClick={() => setEditPeriods((items) => [...items, { openTime: "", closeTime: "", slotInterval: isBeautyStore?30:60, defaultCapacity: editCapacity }])}
                     className="w-full rounded-lg border border-dashed border-blue-300 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                   >
                     ＋ 新增一段
@@ -861,13 +847,13 @@ export function ScheduleManager({
                 </div>
               )}
 
-              <section hidden={isCourseStore} aria-label="開放時段預覽" className="mb-3 rounded-lg border border-primary-100 bg-primary-50 p-3">
+              <section hidden={courseLayout} aria-label="開放時段預覽" className="mb-3 rounded-lg border border-primary-100 bg-primary-50 p-3">
                 <h4 className="text-sm font-semibold text-primary-800">{dayDraftDirty ? "儲存後時段" : "目前開放時段"}</h4>
                 {canManage && editStatus !== "closed" && editStatus !== "training" && <button type="button" disabled={dayDraftDirty || loadingDay || isPending}
                   aria-expanded={showAdvancedSlots && !dayDraftDirty}
                   onClick={() => { setShowAdvancedSlots(!showAdvancedSlots); setSelectedSlot(null); }}
                   className="mt-1 text-xs text-primary-700 underline disabled:opacity-40">
-                  {dayDraftDirty ? "儲存後可調整名額" : showAdvancedSlots ? "返回預覽" : "調整名額"}
+                  {dayDraftDirty ? "請先儲存" : showAdvancedSlots ? "返回預覽" : isBeautyStore?"調整開放時段":"調整名額"}
                 </button>}
 
                 {(!showAdvancedSlots || dayDraftDirty) && (loadingDay ? <p role="status" className="mt-2 text-xs">讀取中…</p>
@@ -876,17 +862,17 @@ export function ScheduleManager({
                   : dayDraftDirty && editStatus === "open" ? <p className="mt-2 text-xs">{applyMode === "day" ? "沿用每週固定時段，保留當日時段微調。" : "依上方時間更新每週安排。"}</p>
                   : <div className="mt-2 flex flex-wrap gap-2">
                     {(dayDraftDirty && editStatus === "custom" ? draftSlotPreview : dayDetail.slots.filter((slot) => slot.isEnabled)).map((slot) => (
-                      <span key={slot.startTime} className="rounded-md border border-primary-200 bg-white px-2 py-1 text-sm text-primary-800">{slot.startTime}<span className="ml-1 text-xs text-earth-500">{slot.capacity} 位</span></span>
+                      <span key={slot.startTime} className="rounded-md border border-primary-200 bg-white px-2 py-1 text-sm text-primary-800">{slot.startTime}{!isBeautyStore&&<span className="ml-1 text-xs text-earth-500">{slot.capacity} 位</span>}</span>
                     ))}
                   </div>)}
               {showAdvancedSlots && !dayDraftDirty && (
               <div className="mt-3 min-w-0 border-t pt-3">
               <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-xs font-semibold text-earth-700">單一時段開放與名額</h4>
+                <h4 className="text-xs font-semibold text-earth-700">{isBeautyStore?"單一時段開放":"單一時段開放與名額"}</h4>
                 {loadingDay && dayDetail.slots.length === 0 ? (
                   <span className="text-[10px] text-earth-400">載入中…</span>
                 ) : canManage && dayDetail.slots.length > 0 && editStatus !== "closed" && editStatus !== "training" ? (
-                  <span className="text-[10px] text-earth-400">名額調整請點選時段</span>
+                  <span className="text-[10px] text-earth-400">{isBeautyStore?"點選時段調整開放":"名額調整請點選時段"}</span>
                 ) : null}
               </div>
               {editStatus === "closed" || editStatus === "training" ? (
@@ -920,6 +906,7 @@ export function ScheduleManager({
                       <SlotToggleButton
                         key={s.startTime}
                         slot={s}
+                        isBeautyStore={isBeautyStore}
                         editStatus={editStatus}
                         editOpenTime={editOpenTime}
                         editCloseTime={editCloseTime}
@@ -942,7 +929,7 @@ export function ScheduleManager({
                   {selectedSlot && selectedSlotDetail && canManage && (
                       <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-primary-50 px-3 py-2">
                         <span className="text-xs font-medium text-earth-700">{selectedSlot}</span>
-                        <span className="text-[10px] text-earth-400">預設 {selectedSlotDetail.templateCapacity} 位</span>
+                        {isBeautyStore?<><button type="button" disabled={isPending} onClick={()=>startTransition(async()=>{await saveServiceSlot(selectedSlotDetail.isEnabled?"disable":"enable");})}>{selectedSlotDetail.isEnabled?'關閉此時段':'開放此時段'}</button>{selectedSlotDetail.override&&<button type="button" disabled={isPending} onClick={()=>startTransition(async()=>{await saveServiceSlot('reset');})}>回復預設</button>}</>:<>                        <span className="text-[10px] text-earth-400">預設 {selectedSlotDetail.templateCapacity} 位</span>
                         <span className="text-earth-400">→</span>
                         <input
                           type="number"
@@ -971,14 +958,14 @@ export function ScheduleManager({
                           >
                             回復預設
                           </button>
-                        )}
+                        )}</>}
                       </div>
                   )}
                 </>
               )}
               {dayDetail.slots.some((s) => s.override) && (
                 <p className="mt-2 text-[10px] text-amber-600">
-                  ⚡ 有手動覆寫的時段（黃框 = 強制開放，紅框 = 手動關閉；點選時段可調整名額）
+                  {isBeautyStore?"有臨時開關的時段，點選可調整或回復預設。":"⚡ 有手動覆寫的時段（黃框 = 強制開放，紅框 = 手動關閉；點選時段可調整名額）"}
                 </p>
               )}
               </div>
@@ -1098,13 +1085,7 @@ export function ScheduleManager({
                                 一併複製來源日的 {sourceOverrideCount} 個單一時段調整
                               </label>
                             )}
-                            <div className="mt-3 border-t border-earth-100 pt-2">
-                              <p className="mb-1 text-[10px] font-medium text-earth-600">若日期已有整日設定或單一時段調整</p>
-                              <div className="flex flex-wrap gap-3 text-[11px] text-earth-700">
-                                <label className="flex items-center gap-1"><input type="radio" checked={dateConflictMode === "skip"} onChange={() => setDateConflictMode("skip")} className="accent-primary-600" />保留原設定並略過</label>
-                                <label className="flex items-center gap-1"><input type="radio" checked={dateConflictMode === "replace"} onChange={() => setDateConflictMode("replace")} className="accent-primary-600" />覆蓋原設定</label>
-                              </div>
-                            </div>
+                            <p className="mt-3 border-t border-earth-100 pt-2 text-sm text-earth-700">選取的日期會更新為本次設定，取代原有{isBeautyStore?"服務時間與單一時段開關":"服務時間、名額與單一時段調整"}。儲存後可復原。</p>
                           </div>
                         )}
                       </div>
@@ -1201,7 +1182,7 @@ export function ScheduleManager({
                         <div className="space-y-1 text-xs text-earth-700">
                           <p>來源：{selectedDate}；目標：{targetDates.join("、")}</p>
                           <p>只建立這些日期的特殊設定，不會變更每週固定規則。</p>
-                          <p>{dateConflictMode === "skip" ? "已有設定或單一時段調整的日期會保留並略過。" : "已有設定或單一時段調整會被本次內容覆蓋。"}{includeSlotOverrides ? "來源日的單一時段調整也會一起複製。" : "來源日的單一時段調整不會複製到目標日。"}</p>
+                          <p>這 {targetDates.length} 個日期原有的{isBeautyStore?"服務時間與單一時段開關":"服務時間、名額與單一時段調整"}，將取代為本次設定。{includeSlotOverrides ? "來源日的單一時段調整也會一起複製。" : "來源日的單一時段調整不會複製到目標日。"}儲存後可從完成提示復原。</p>
                         </div>
                       )}
                       {applyMode !== "day" && <p className="text-xs text-amber-800">這次不只影響一天，請再次確認套用範圍。</p>}
@@ -1249,13 +1230,15 @@ export function ScheduleManager({
               }} className="mt-3 min-h-11 rounded border px-3 text-sm">重新核對日期</button>}
             </div>
 
-
           </div>
         ) : null}
       </div>
       <div data-schedule-weekly className="min-w-0 space-y-3 xl:col-start-1">
-        {isCourseStore ? <CourseWeeklyHoursEditor key={storeId} storeId={storeId??""} initial={weeklyHours.map(day => ({ ...day, periods: day.periods ?? [] }))} canManage={canManage&&!locked} onSaved={async days => {
-          setWeeklyHours(previous => previous.map(day => { const updated = days.find(d => d.dayOfWeek === day.dayOfWeek)!; const periods = updated.periods.map(p => ({ ...p, slotInterval: 60, defaultCapacity: 6 })).sort((a, b) => a.openTime.localeCompare(b.openTime)); return { ...day, persisted:updated.persisted, isOpen: updated.isOpen, periods, openTime: updated.isOpen ? periods[0]?.openTime ?? null : null, closeTime: updated.isOpen ? periods.at(-1)?.closeTime ?? null : null }; }));
+        {courseLayout ? <CourseWeeklyHoursEditor key={storeId} storeId={storeId??""} confirmationRequired={isCourseStore&&courseHoursConfirmationRequired} initial={weeklyHours.map(day => ({ ...day, periods: day.periods ?? [] }))} source={isBeautyStore?{selectTimes:true,values:()=>({expectedRevision:serviceRevision,date:selectedDate??`${monthKey(year,month)}-01`}),transport:async input=>{
+          const response=await fetch(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/service-hours`,{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",cache:"no-store",body:JSON.stringify({expectedStoreId:input.expectedStoreId,requestKey:input.requestKey,expectedRevision:input.expectedRevision,values:{date:input.date,mode:"weekly",status:"open",weeks:0,reason:"",periods:[],weeklyDays:input.days}})});
+          const result=await response.json();if(result.success){setServiceRevision(result.data.day.hoursRevision);return {...result,data:result.data.weekly.map((day:{dayName:string})=>({...day,dayName:day.dayName.startsWith("週")?day.dayName:`週${day.dayName}`}))};}return result;
+        }}:undefined} canManage={canManage&&!locked} onSaved={async days => {
+          setWeeklyHours(previous => previous.map(day => { const updated = days.find(d => d.dayOfWeek === day.dayOfWeek)!; const periods = updated.periods.map(p => ({ ...p, slotInterval: isBeautyStore?30:60, defaultCapacity: day.defaultCapacity })).sort((a, b) => a.openTime.localeCompare(b.openTime)); return { ...day, persisted:updated.persisted, isOpen: updated.isOpen, periods, openTime: updated.isOpen ? periods[0]?.openTime ?? null : null, closeTime: updated.isOpen ? periods.at(-1)?.closeTime ?? null : null }; }));
           dayDetailCacheRef.current.clear(); monthCacheRef.current.clear();
           await invalidateAndReloadCurrentMonth();
           if (selectedDate && !dayDraftDirty) await selectDate(selectedDate, { bypassCache: true });
@@ -1285,7 +1268,7 @@ export function ScheduleManager({
                     canManage={canManage}
                     isPending={isPending}
                     uncertain={serviceRequest.uncertain}
-                    isSpaStore={isSpaStore} isCourseStore={isCourseStore}
+                    isCourseStore={isCourseStore} isBeautyStore={isBeautyStore}
                     onSave={saveWeeklyDay}
                   />
                 ))}
@@ -1295,7 +1278,7 @@ export function ScheduleManager({
         </div>
         </>}
         {/* 套用總部設定（僅非總部店顯示） */}
-        {canManage && !isHeadquarters && !isCourseStore && (
+        {canManage && !isHeadquarters && !courseLayout && (
           <details className="rounded-xl border bg-white p-4">
             <summary className="cursor-pointer text-sm font-medium text-earth-600">總部設定</summary>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -1314,7 +1297,6 @@ export function ScheduleManager({
           </details>
         )}
 
-
       </div>
     </div>
   );
@@ -1329,8 +1311,8 @@ function WeeklyDayRow({
   day,
   canManage,
   isPending,
-  isSpaStore,
   isCourseStore = false,
+  isBeautyStore = false,
   onSave,
 }: {
   uncertain?:boolean;
@@ -1338,17 +1320,15 @@ function WeeklyDayRow({
   canManage: boolean;
   isPending: boolean;
   isCourseStore?: boolean;
-  isSpaStore: boolean;
+  isBeautyStore?: boolean;
   onSave: (dow: number, isOpen: boolean, periods: BusinessPeriod[]) => Promise<boolean>;
 }) {
-  const intervalOptions = isSpaStore
-    ? SLOT_INTERVAL_OPTIONS.filter((option) => option.value === 15 || option.value === 30)
-    : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
+  const intervalOptions = isBeautyStore ? SLOT_INTERVAL_OPTIONS.filter(o=>o.value===30) : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
   const [isOpen, setIsOpen] = useState(day.isOpen);
-  const [periods, setPeriods] = useState<BusinessPeriod[]>(day.periods?.length ? day.periods : [{
+  const [periods, setPeriods] = useState<BusinessPeriod[]>(day.periods?.length ? day.periods.map(p=>({...p,slotInterval:isBeautyStore?30:p.slotInterval})) : [{
     openTime: day.openTime ?? "10:00",
     closeTime: day.closeTime ?? "22:00",
-    slotInterval: day.slotInterval ?? 60,
+    slotInterval: isBeautyStore?30:day.slotInterval ?? 60,
     defaultCapacity: day.defaultCapacity ?? 6,
   }]);
   const [dirty, setDirty] = useState(false);
@@ -1417,16 +1397,16 @@ function WeeklyDayRow({
           <p className="text-[10px] text-earth-500">中間未設定的時間會自動視為休息。</p>
           {periods.map((period, index) => (
             <div key={index} className="grid min-w-0 grid-cols-2 gap-2 overflow-hidden rounded border border-earth-200 bg-white p-2">
-              <input type="time" style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="開始時間" value={period.openTime} disabled={!canManage||uncertain} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border px-2 py-1 text-base sm:col-span-1"
+              <TimeOfDayField selectTimes={isBeautyStore} step={60} style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="開始時間" value={period.openTime} disabled={!canManage||uncertain} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border px-2 py-1 text-base sm:col-span-1"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, openTime: e.target.value } : item)); setDirty(true); }} />
-              <input type="time" style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="結束時間" value={period.closeTime} disabled={!canManage||uncertain} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border px-2 py-1 text-base sm:col-span-1"
+              <TimeOfDayField selectTimes={isBeautyStore} step={60} style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="結束時間" value={period.closeTime} disabled={!canManage||uncertain} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border px-2 py-1 text-base sm:col-span-1"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, closeTime: e.target.value } : item)); setDirty(true); }} />
-              <select hidden={isCourseStore} value={period.slotInterval} disabled={!canManage||uncertain} className="rounded border px-1 py-1 text-[11px]"
+              <select hidden={isCourseStore||isBeautyStore} value={isBeautyStore?30:period.slotInterval} disabled={!canManage||uncertain||isBeautyStore} className="rounded border px-1 py-1 text-[11px]"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, slotInterval: Number(e.target.value) } : item)); setDirty(true); }}>
                 {intervalOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.value}分鐘</option>)}
               </select>
               <div className="flex gap-1">
-                <select hidden={isCourseStore} value={period.defaultCapacity} disabled={!canManage||uncertain} className="min-w-0 flex-1 rounded border px-1 py-1 text-[11px]"
+                <select hidden={isCourseStore||isBeautyStore} value={period.defaultCapacity} disabled={!canManage||uncertain} className="min-w-0 flex-1 rounded border px-1 py-1 text-[11px]"
                   onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, defaultCapacity: Number(e.target.value) } : item)); setDirty(true); }}>
                   {CAPACITY_OPTIONS.map((capacity) => <option key={capacity} value={capacity}>{capacity}位</option>)}
                 </select>
@@ -1435,7 +1415,7 @@ function WeeklyDayRow({
             </div>
           ))}
           <button type="button" disabled={!canManage || periods.length >= 8}
-            onClick={() => { setPeriods((items) => [...items, { openTime: "", closeTime: "", slotInterval: 60, defaultCapacity: day.defaultCapacity }]); setDirty(true); }}
+            onClick={() => { setPeriods((items) => [...items, { openTime: "", closeTime: "", slotInterval: isBeautyStore?30:60, defaultCapacity: day.defaultCapacity }]); setDirty(true); }}
             className="w-full rounded border border-dashed border-earth-300 py-1.5 text-[11px] text-earth-600">
             ＋ 新增一段
           </button>
@@ -1450,6 +1430,7 @@ function WeeklyDayRow({
 // ============================================================
 
 function SlotToggleButton({
+  isBeautyStore=false,
   slot,
   editStatus,
   editOpenTime,
@@ -1458,6 +1439,7 @@ function SlotToggleButton({
   isSelected,
   onSelect,
 }: {
+  isBeautyStore?:boolean;
   slot: {
     startTime: string;
     capacity: number;
@@ -1516,13 +1498,13 @@ function SlotToggleButton({
           : slot.override === "enabled"
             ? `強制開放${slot.overrideReason ? `：${slot.overrideReason}` : ""}（請在預約管理的「管理時段」調整）`
             : isActive
-              ? `${slot.startTime}（${slot.capacity}位）— 點選調整名額`
+              ? isBeautyStore?`${slot.startTime} 可預約`:`${slot.startTime}（${slot.capacity}位）— 點選調整名額`
               : `${slot.startTime}（目前未開放）`
       }
     >
       <span className="whitespace-nowrap">{slot.startTime}</span>
       <span className={`whitespace-nowrap text-[10px] ${slot.override === "capacity_change" ? "font-bold text-amber-600" : "opacity-60"}`}>
-        {slot.capacity} 位
+        {isBeautyStore?(isActive?"開放":"關閉"):`${slot.capacity} 位`}
       </span>
       {slot.override === "disabled" && <span className="ml-0.5 text-[9px]">✕</span>}
       {slot.override === "enabled" && <span className="ml-0.5 text-[9px]">⚡</span>}

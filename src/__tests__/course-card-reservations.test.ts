@@ -22,6 +22,6 @@ it("limits shared-card details to visible learners",async()=>{
  expect(m.bookings).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:"store-a",cardId:"card-a",status:"RESERVED",customerId:{in:["learner-a"]}}}));
 });
 it("paginates reserved lessons with learner and exact quota",async()=>{
- m.bookings.mockResolvedValue(Array.from({length:21},(_,i)=>({id:String(i),customerName:"學員",pointCost:3,session:{nameSnapshot:"運動",startsAt:new Date("2026-10-01T00:00:00Z")}})));
+ m.bookings.mockResolvedValue(Array.from({length:21},(_,i)=>({id:String(i),customerName:"學員",pointCost:3,session:{nameSnapshot:"運動 · 83f866",startsAt:new Date("2026-10-01T00:00:00Z")}})));
  const r=await loadCourseCardReservations({cardId:"card-a",page:1});expect(r.success&&r.rows).toHaveLength(20);expect(r.success&&r.hasMore).toBe(true);expect(r.success&&r.rows[0]).toMatchObject({amount:3,name:"運動",customerName:"學員"});expect(m.bookings).toHaveBeenCalledWith(expect.objectContaining({skip:20,take:21}));
 });

@@ -1,0 +1,42 @@
+{
+  "commit": "8308ef160fddcf13e6d231a8244ee9dabc722369",
+  "results": [
+    {
+      "case": "fixed staff creation succeeded through real authenticated UI and persisted after reload",
+      "passed": true
+    },
+    {
+      "case": "same confirmed-save requestKey retry returns original staff without another account create",
+      "passed": true
+    },
+    {
+      "case": "new QA staff retired through original workflow after acceptance",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "deployment": "dpl_AjRh1HgRM2vs6khQPDtj6i7V8Yz6",
+  "scope": "Staff creation fix add-on only; original 35-step acceptance remains attributed to fe44babb",
+  "database": {
+    "project": "steamfoot-preview",
+    "userCount": 1,
+    "staffCount": 1,
+    "createReceiptCount": 1,
+    "createAuditCount": 1,
+    "totalSaveReceipts": 2,
+    "totalSaveReceiptsExplanation": "one creation and one retirement update",
+    "staffStatus": "INACTIVE",
+    "userStatus": "SUSPENDED",
+    "role": "STAFF",
+    "paymentCount": 10,
+    "paymentAmount": 15500,
+    "appointmentCount": 15
+  },
+  "runtimeLogs": {
+    "filter": "preview deployment; error/warning; last 15m",
+    "result": "No matching logs found; not a claim about all traffic"
+  },
+  "lineEnabled": false,
+  "productionOperations": false,
+  "physicalDeviceAcceptance": false
+}

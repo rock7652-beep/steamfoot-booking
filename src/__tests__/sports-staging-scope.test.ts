@@ -26,32 +26,37 @@ function isolated() {
   }))
     vi.stubEnv(key, value);
 }
-describe("sports redesign isolation boundary", () => {
-  it("is disabled without explicit opt-in", () => {
+describe("sports redesign isolation boundary", async () => {
+  it("is disabled without explicit opt-in", async () => {
     vi.stubEnv("SPORTS_REDESIGN_STAGING", undefined);
-    expect(sportsStagingEnabled()).toBe(false);
-    expect(() => requireSportsStaging()).toThrow();
+    expect(await sportsStagingEnabled()).toBe(false);
+    await expect(requireSportsStaging()).rejects.toThrow();
   });
-  it("accepts only the disposable local development station", () => {
+  it("accepts only the disposable local development station", async () => {
     isolated();
-    expect(sportsStagingEnabled()).toBe(true);
+    expect(await sportsStagingEnabled()).toBe(true);
   });
-  it.each(["production", "test"])("rejects NODE_ENV=%s", (value) => {
+  it.each(["production", "test"])("rejects NODE_ENV=%s", async (value) => {
     isolated();
     vi.stubEnv("NODE_ENV", value);
-    expect(() => sportsStagingEnabled()).toThrow();
+    await expect(sportsStagingEnabled()).rejects.toThrow();
   });
-  it.each(["VERCEL", "VERCEL_ENV", "CF_PAGES_BRANCH", "WORKERS_CI_BRANCH"])(
+  it.each(["VERCEL", "CF_PAGES_BRANCH", "WORKERS_CI_BRANCH"])(
     "rejects deployment metadata %s",
-    (key) => {
+    async (key) => {
       isolated();
       vi.stubEnv(key, "production");
-      expect(() => sportsStagingEnabled()).toThrow();
+      await expect(sportsStagingEnabled()).rejects.toThrow();
     },
   );
-  it.each(["DATABASE_URL", "DIRECT_URL"])("rejects a remote %s", (key) => {
+  it.each(["DATABASE_URL", "DIRECT_URL"])("rejects a remote %s", async (key) => {
     isolated();
     vi.stubEnv(key, "postgresql://postgres@db.example.invalid/production");
-    expect(() => sportsStagingEnabled()).toThrow();
+    await expect(sportsStagingEnabled()).rejects.toThrow();
   });
+});
+
+it("production without a store cannot activate a QA workspace", async () => {
+  vi.stubEnv("VERCEL_ENV", "production");
+  expect(await sportsStagingEnabled()).toBe(false);
 });

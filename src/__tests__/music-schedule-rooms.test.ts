@@ -1,0 +1,9 @@
+import {beforeEach,expect,it,vi} from "vitest";
+const m=vi.hoisted(()=>({access:vi.fn(),rooms:vi.fn(),sessions:vi.fn(),rentals:vi.fn(),rules:vi.fn()}));
+vi.mock("@/server/services/course-access",()=>({courseManager:m.access}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{courseRoom:{findMany:m.rooms},courseSession:{findMany:m.sessions},courseRental:{findMany:m.rentals},courseScheduleSeries:{findMany:m.rules}}}));
+vi.mock("@/lib/errors",()=>({AppError:class extends Error{constructor(_code:string,message:string){super(message);}},handleActionError:(e:Error)=>({success:false,error:e.message})}));
+import {getMusicScheduleRooms} from "@/server/actions/music-schedule-rooms";
+beforeEach(()=>{vi.resetAllMocks();m.access.mockResolvedValue({storeId:"store"});m.rooms.mockResolvedValue([{id:"one"},{id:"two"},{id:"three"},{id:"four"}]);m.sessions.mockResolvedValue([{roomId:"one"}]);m.rentals.mockResolvedValue([{roomId:"two"}]);m.rules.mockResolvedValue([{requestKey:"fixed",roomId:"three",coachId:"teacher",startsAt:new Date("2026-10-07T02:00:00Z"),endsAt:new Date("2026-10-07T03:00:00Z"),frequency:"WEEKLY",excludedDates:[],cancelledAt:null,untilDate:null}]);});
+it("prefills only rooms free for the complete duration, including rental buffers and unexpanded rules",async()=>{expect(await getMusicScheduleRooms({date:"2026-10-14",time:"10:00",durationMinutes:60})).toEqual({success:true,roomIds:["four"]});expect(m.rentals.mock.calls[0][0].where).toMatchObject({storeId:"store",occupiedStartsAt:{lt:new Date("2026-10-14T03:00:00Z")},occupiedEndsAt:{gt:new Date("2026-10-14T02:00:00Z")}});});
+it("rejects unauthorized reads before fetching room data",async()=>{m.access.mockRejectedValue(new Error("無權限"));expect(await getMusicScheduleRooms({date:"2026-10-14",time:"10:00",durationMinutes:60})).toEqual({success:false,error:"無權限"});expect(m.rooms).not.toHaveBeenCalled();});

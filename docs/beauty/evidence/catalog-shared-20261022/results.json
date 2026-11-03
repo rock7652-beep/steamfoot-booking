@@ -1,0 +1,31 @@
+{
+  "commit": "ca716bc4",
+  "scope": "Actual shared components rendered locally with synthetic data and stubbed Next navigation/server actions; NOT hosted login, real DB, physical devices or LINE acceptance",
+  "results": [
+    {
+      "name": "位置管理: shared list and original editor at desktop/tablet/mobile viewport widths",
+      "passed": true
+    },
+    {
+      "name": "服務項目: shared list and original editor at desktop/tablet/mobile viewport widths",
+      "passed": true
+    },
+    {
+      "name": "收費方式: shared list and original editor at desktop/tablet/mobile viewport widths",
+      "passed": true
+    },
+    {
+      "name": "service duration save uses Beauty adapter and preserves both prices (mock transport)",
+      "passed": true
+    },
+    {
+      "name": "new arbitrary session product uses shared form, explicit values and family sharing (mock transport)",
+      "passed": true
+    },
+    {
+      "name": "readonly screens expose inspection without mutation controls",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

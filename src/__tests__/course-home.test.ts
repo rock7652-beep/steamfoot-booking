@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const m=vi.hoisted(()=>({raw:vi.fn(),session:vi.fn(),live:vi.fn(),scope:vi.fn(),permission:vi.fn(),blocked:vi.fn(),finance:vi.fn()}));
 vi.mock("@/server/inventory-finance-access",()=>({requireInventoryFinanceAccess:async()=>{},canReadInventoryFinance:m.finance}));
 vi.mock("server-only",()=>({}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{coursePointCard:{findMany:vi.fn().mockResolvedValue([])}}}));
 vi.mock("@/lib/db",()=>({prisma:{$queryRaw:m.raw,cashDrawerSession:{findFirst:m.session}}}));
 vi.mock("@/lib/manager-visibility",()=>({getManagerCustomerWhere:m.scope}));
 vi.mock("@/server/queries/cash-drawer",()=>({computeLiveTotalsForOpenSession:m.live}));
@@ -18,7 +19,7 @@ describe("course home bounded read models",()=>{
  it("does not return a global customer count for self-only scope",async()=>{m.raw.mockResolvedValue([{total:300,mine:300}]);expect(await getCourseHomeCustomers("a","staff","staff")).toEqual({total:null,mine:300});expect(m.raw.mock.calls[0][0].sql).toContain('AND "assignedStaffId"=');});
  it("never invents personal count for account with no staff link",async()=>{m.raw.mockResolvedValue([{total:20,mine:0}]);expect(await getCourseHomeCustomers("a",null,null)).toEqual({total:20,mine:null});});
  it("does not query any todo source without corresponding permissions",async()=>{expect(await getCourseHomeTodos("a",{payments:false,attendance:false,followUp:false,staffScope:null})).toEqual({total:0,items:[]});expect(m.raw).not.toHaveBeenCalled();});
- it("only reads permitted sources, includes sessions as soon as they end, limits initial items",async()=>{m.raw.mockResolvedValue([{total:18,items:[{id:"lesson",kind:"attendance",label:"class",date:"2026-09-18T01:00:00Z"}]}]);const r=await getCourseHomeTodos("a",{payments:false,attendance:true,followUp:false,staffScope:null},new Date("2026-09-18T08:00:00Z"));const q=m.raw.mock.calls[0][0];expect(q.values).toContainEqual(new Date("2026-09-18T08:00:00Z"));expect(q.values).toContain(5);expect(q.sql).not.toContain("CoursePurchase");expect(q.sql).not.toContain("DigitalButlerLead");expect(r.items[0].href).toContain("date=2026-09-18&action=booking&session=lesson");});
+ it("only reads permitted sources, includes sessions as soon as they end, limits initial items",async()=>{m.raw.mockResolvedValue([{total:18,items:[{id:"lesson",kind:"attendance",label:"遠端肌力驗收 · 83f866",date:"2026-09-18T01:00:00Z"}]}]);const r=await getCourseHomeTodos("a",{payments:false,attendance:true,followUp:false,staffScope:null},new Date("2026-09-18T08:00:00Z"));expect(r.items[0]).toMatchObject({id:"lesson",label:"遠端肌力驗收"});const q=m.raw.mock.calls[0][0];expect(q.values).toContainEqual(new Date("2026-09-18T08:00:00Z"));expect(q.values).toContain(5);expect(q.sql).not.toContain("CoursePurchase");expect(q.sql).not.toContain("DigitalButlerLead");expect(r.items[0].href).toContain("date=2026-09-18&action=booking&session=lesson");});
  it("care is count-only, per-card available balance, not combined balances",async()=>{m.raw.mockResolvedValue([{birthday:100,low:10,expiring:20,inactive:0,trial:0}]);await getCourseCareCounts("a","staff",new Date("2026-09-18T08:00:00Z"));const q=m.raw.mock.calls[0][0];expect(q.sql).toContain('GREATEST(0,c.remaining-COALESCE(h.amount,0))');expect(q.sql).toContain('p."lowBalanceThreshold" IS NOT NULL');expect(q.sql).toContain('AND c."assignedStaffId"=');expect(q.sql).not.toContain('SELECT c.*');});
  it("propagates read failures instead of substituting zero",async()=>{m.raw.mockRejectedValue(new Error("offline"));await expect(getCourseHomeToday("a","2026-09-18")).rejects.toThrow("offline");});
  it("an open drawer is not reconciled until an actual closing count exists",async()=>{m.session.mockResolvedValue({businessDate:bookingDateToday(),status:"OPEN",openingActualCash:amount(200),openingDifference:amount(20),closingActualCash:null,closingDifference:null});m.live.mockResolvedValue({expectedClosingCash:amount(500)});expect(await getCourseHomeCash("a")).toEqual({state:"OPEN",expected:500,actual:null,difference:null,openingActual:200,openingDifference:20});});
@@ -34,3 +35,18 @@ describe("course home access",()=>{
 });
 
 it("hides the course-home drawer while preserving attendance and sales without cost visibility",async()=>{m.finance.mockResolvedValue(false);const a=await courseHomeAccess({id:"manager",role:"OWNER",staffId:"staff",storeId:"a"} as Parameters<typeof courseHomeAccess>[0],"a");expect(a.cash).toBe(false);expect(a.bookings).toBe(true);expect(a.revenue).toBe(true);});
+
+it("filters legacy attendance before counting/paging and preserves the classification on drill-down",async()=>{
+ const env={VERCEL:"1",VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feat/music-opening-state-20261007",VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",DATABASE_URL:"postgresql://postgres:test@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",DIRECT_URL:"postgresql://postgres:test@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",WORKERS_CI_BRANCH:"",CF_PAGES_BRANCH:""};
+ for(const [key,value]of Object.entries(env))vi.stubEnv(key,value);
+ try{
+  m.raw.mockResolvedValue([{total:40,items:[{id:"music-accept-v1-weekly-1-0",kind:"attendance",label:"課堂",date:"2026-09-28T07:00:00Z"},{id:"purchase",kind:"payment",label:"待核帳方案",date:"2026-09-27T17:00:00Z"}]}]);
+  const result=await getCourseHomeTodos("store-lubymusic",{payments:true,attendance:true,followUp:false,staffScope:null},new Date("2026-10-15"),30,30,"legacy");
+  const query=m.raw.mock.calls.at(-1)![0];
+  expect(query.sql).toContain('s.id = ANY(');expect(query.sql).toContain('"customerId" = ANY(');
+  expect(query.sql.indexOf('s.id = ANY(')).toBeLessThan(query.sql.indexOf('page AS'));
+  expect(query.values.some((value:unknown)=>Array.isArray(value)&&value.includes("music-accept-v1-weekly-1-0"))).toBe(true);
+  expect(result.total).toBe(40);expect(result.items[0].href).toContain("&dataScope=legacy");
+  expect(result.items[1].href).toBe("/dashboard/revenue?dateFrom=2026-09-28&dateTo=2026-09-28&status=PENDING&dataScope=legacy");
+ }finally{vi.unstubAllEnvs();}
+});

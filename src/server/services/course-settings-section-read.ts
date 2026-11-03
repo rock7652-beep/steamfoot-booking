@@ -3,6 +3,10 @@ import type { Prisma } from "../../../generated/course-client";
 import { courseSettingsSectionSchema,type CourseSettingsSectionInput } from "@/lib/course-settings-sections";
 
 export async function readCourseSettingsSection(tx:Prisma.TransactionClient,storeId:string,section:CourseSettingsSectionInput["section"]) {
+  if(section==="personnel") {
+    const [row]=await tx.$queryRaw<Array<{label:string|null}>>`SELECT "coursePersonnelLabel" AS label FROM "ShopConfig" WHERE "storeId"=${storeId}`;
+    return courseSettingsSectionSchema.parse({section,personnelLabel:row?.label??null});
+  }
   if(section==="booking") {
     const row=await tx.courseBookingRule.findUnique({where:{storeId}});
     return courseSettingsSectionSchema.parse({section,bookingLeadMinutes:row?.bookingLeadMinutes??0,cancellationLeadMinutes:row?.cancellationLeadMinutes??0});

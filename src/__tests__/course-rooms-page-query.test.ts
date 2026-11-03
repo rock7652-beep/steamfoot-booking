@@ -4,6 +4,7 @@ const m = vi.hoisted(() => ({ rooms: vi.fn(), features: vi.fn(), permission: vi.
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseRoom: { findMany: m.rooms } } }));
 vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findMany: m.features } } }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
+vi.mock("@/lib/sports-native-preview", () => ({ sportsNativePreview: () => true }));
 vi.mock("@/lib/store-view-context-server", () => ({ resolveStoreViewContextFromCookie: m.context }));
 vi.mock("@/server/services/course-display-order", () => ({ readCourseOrders: m.orders }));
 vi.mock("@/components/desktop", () => ({ PageShell: ({ children }: { children: unknown }) => createElement("main", null, children as never), PageHeader: () => null }));
@@ -27,4 +28,12 @@ it("permission checks independently gate room creation and editing", async () =>
   m.permission.mockImplementation(async (_role, _staff, permission) => permission !== "booking.create");
   const page = await CourseRoomsPage({ storeId: "store-a", user });
   expect(page.props.children[1].props).toMatchObject({ canCreate: false, canEdit: true });
+});
+it("passes the native sports mode to rooms without granting extra editing permissions", async () => {
+  m.features.mockResolvedValue([{ featureKey: "business.fitness" }]);
+  const page = await CourseRoomsPage({ storeId: "store-a", user });
+  expect(page.props.children[1].props).toMatchObject({ sportsNative: true, canEdit: true });
+  m.context.mockResolvedValue({ isViewMode: true });
+  const readonly = await CourseRoomsPage({ storeId: "store-a", user });
+  expect(readonly.props.children[1].props).toMatchObject({ sportsNative: true, canEdit: false, canCreate: false });
 });

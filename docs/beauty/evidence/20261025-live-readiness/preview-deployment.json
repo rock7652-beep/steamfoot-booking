@@ -1,0 +1,19 @@
+{
+  "deployment": {
+    "id": "dpl_DtNZuHcCH168q5WhBnK8frykD46W",
+    "url": "https://steamfoot-booking-4ptxd1vvp-rock7652-2111s-projects.vercel.app",
+    "commit": "25b935757663b38a15901192724afbe12fd6f9e5",
+    "branch": "preview/beauty-ui-alignment-20261021",
+    "state": "READY",
+    "target": "preview"
+  },
+  "automaticMigrationSkipped": true,
+  "notificationsBlocked": true,
+  "guard": "[beauty-hosted-preview] isolated_database=true migrations_skipped=true notifications_blocked=true",
+  "authenticatedAcceptance": {
+    "status": "blocked",
+    "reason": "Automatic approval review rejected creation of scoped OWNER/STAFF test identities; requires explicit authorization",
+    "accountsCreated": false
+  },
+  "productionChanged": false
+}

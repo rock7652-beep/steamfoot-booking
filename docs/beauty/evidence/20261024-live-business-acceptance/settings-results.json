@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "name": "actual store settings saved",
+      "passed": true
+    },
+    {
+      "name": "fresh reopened page reads saved map and renders control",
+      "passed": true
+    },
+    {
+      "name": "original settings restored and reopened",
+      "passed": true
+    }
+  ],
+  "restored": true
+}

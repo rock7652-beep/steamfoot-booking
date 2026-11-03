@@ -3,9 +3,35 @@ import { isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 export const SPORTS_SHARED_CARD_PREVIEW_BRANCH = "feat/sports-shared-card-controls-20261007";
 export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-photo-20261016";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
+  "feat/closed-day-slot-additions-20261101",
+  "fix/silverlily-calendar-loading-20261031",
+  "fix/plan-card-management-20261029",
+  "perf/digital-manager-initial-count-20261031", "feat/plan-session-adjustment-20261030",
+  "perf/sports-course-loading",
+  "review/plan-management-sports-performance",
+  "feat/store-manager-bell-20261030",
+  "fix/calendar-restored-month-consistency",
+  "fix/beauty-collection-calendar-remount",
+  "fix/customer-line-binding-management-20261029",
+  "fix/calendar-visible-legend-actions-20261029",
+  "release/day-beauty-polish-20261029",
+  "release/beauty-calendar-finance-20261029",
+  "codex/beauty-public-booking-ux",
+  "codex/soulife-line-additional-config",
+  "perf/reminder-feature-reads-20261022",
+  "perf/reminder-panel-reader-20261022",
+  "fix/reminder-tab-feedback-density-20261022",
+  "fix/manager-toggle-transport-20261022",
+  "fix/reminder-panel-reconciliation-20261022",
+  "fix/reminder-optimistic-switches-20261022",
+  "feat/line-quota-email-alerts-20261022",
+  "fix/line-quota-manager-tab-20261022",
+  "fix/manager-line-binding-beauty-reminders",
+  "fix/beauty-reminder-panel-navigation",
   SPORTS_SHARED_CARD_PREVIEW_BRANCH,
   "codex/sports-background-refresh",
   TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH,
+  "codex-announcement-image-layouts",
 ];
 
 /**

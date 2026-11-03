@@ -31,6 +31,13 @@ export async function authorizeFrontendPreview(input: FrontendPreviewSelection) 
     // Work frontends contain customer notes. Preserve owner-only personnel access.
     if (user.role !== "OWNER" && user.role !== "ADMIN") throw new AppError("FORBIDDEN", "需店長權限");
     if (moduleId === "steamfoot") throw new AppError("FORBIDDEN", "此模組沒有工作前台");
+    if(moduleId==='beauty'){
+      const {requireBeauty}=await import('@/server/beauty/access');await requireBeauty(input.storeId);
+      const {beautyPrisma}=await import('@/lib/beauty-db');
+      const technician=await beautyPrisma.beautyTechnician.findFirst({where:{id:input.personId,storeId:input.storeId,active:true},select:{id:true,name:true,userId:true}});
+      if(!technician)throw new AppError('NOT_FOUND','沒有符合條件的技師');
+      return {user,moduleId,storeId:input.storeId,personId:technician.id,name:technician.name,personUserId:technician.userId,role:input.role};
+    }
     const staff = await prisma.staff.findFirst({
       where: { id: input.personId, storeId: input.storeId, status: "ACTIVE", ...(moduleId === "course" ? { courseCoachEnabled: true } : {}) },
       select: { id: true, displayName: true, userId: true },
@@ -44,7 +51,7 @@ export async function authorizeFrontendPreview(input: FrontendPreviewSelection) 
     select: { id: true, name: true, userId: true },
   });
   if (!customer) throw new AppError("NOT_FOUND", "沒有符合條件的顧客");
-  const personUserId = moduleId === "course" ? await resolvePreviewMemberUserId(customer.id, input.storeId, customer.userId) : customer.userId;
+  const personUserId = (moduleId === "course"||moduleId === "beauty") ? await resolvePreviewMemberUserId(customer.id, input.storeId, customer.userId) : customer.userId;
   return { user, moduleId, storeId: input.storeId, personId: customer.id, name: customer.name, personUserId, role: input.role };
 }
 

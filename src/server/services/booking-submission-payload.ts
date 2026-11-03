@@ -7,6 +7,7 @@ export const BOOKING_SUBMISSION_PAYLOAD_VERSION = 1 as const;
 export type BookingWalletSelectionMode = "AUTO_FEFO" | "PREFERRED_WALLET";
 
 export type BookingCreateIntentInput = {
+  sharedGoods?:import("@/lib/customer-booking-goods").CustomerBookingGoodsInput;
   storeId: string;
   actorUserId: string;
   canonicalCustomerId: string;
@@ -24,6 +25,7 @@ export type BookingCreateIntentInput = {
 };
 
 export type CanonicalBookingCreateIntent = {
+  sharedGoods?:import("@/lib/customer-booking-goods").CustomerBookingGoodsInput;
   version: typeof BOOKING_SUBMISSION_PAYLOAD_VERSION;
   submissionType: "BOOKING_CREATE";
   storeId: string;
@@ -58,6 +60,7 @@ export function buildCanonicalBookingCreateIntent(
     : "AUTO_FEFO";
 
   return {
+    ...(input.sharedGoods?.selections.length?{sharedGoods:{revision:input.sharedGoods.revision,selections:[...input.sharedGoods.selections].sort((a,b)=>a.id.localeCompare(b.id))}}:{}),
     version: BOOKING_SUBMISSION_PAYLOAD_VERSION,
     submissionType: "BOOKING_CREATE",
     storeId: input.storeId,
@@ -114,6 +117,7 @@ export function hashCanonicalBookingCreateIntent(
   // Keep the tuple byte-for-byte compatible for all existing Steamfoot
   // booking retries. SPA composition is appended only when explicitly used.
   if (intent.treatmentIds) orderedTuple.push(intent.treatmentIds);
+  if(intent.sharedGoods)orderedTuple.push({sharedGoods:intent.sharedGoods});
   return createHash("sha256").update(JSON.stringify(orderedTuple)).digest("hex");
 }
 

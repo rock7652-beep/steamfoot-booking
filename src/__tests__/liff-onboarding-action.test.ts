@@ -22,6 +22,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockRecovery = vi.fn();
 vi.mock("@/server/services/liff-login-recovery", () => ({ requestLiffLoginRecovery: (...args: unknown[]) => mockRecovery(...args) }));
 const mockFirstActivation = vi.fn();
+const mockNotificationActivation = vi.hoisted(() => vi.fn(async () => "not_applicable"));
+vi.mock("@/server/services/verified-notification-first-login", () => ({ activateVerifiedNotificationMember: mockNotificationActivation }));
 vi.mock("@/server/services/precreated-first-line-login", () => ({ activateUnlinkedStoreMember: (...args: unknown[]) => mockFirstActivation(...args) }));
 const mockMember = vi.fn();
 vi.mock("@/server/services/verified-line-customer", () => ({ resolveVerifiedLineCustomer: (...args: unknown[]) => mockMember(...args) }));
@@ -34,6 +36,10 @@ const mockAuthorizedFirstCapture = vi.fn();
 const mockIdentitySync = vi.fn();
 const mockIndustry = vi.fn();
 const mockCourseOnboarding = vi.fn();
+const mockBeautyOnboarding = vi.fn();
+vi.mock("@/server/services/beauty-line-onboarding", () => ({
+  onboardVerifiedBeautyMember: (...args: unknown[]) => mockBeautyOnboarding(...args),
+}));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: (...args: unknown[]) => mockIndustry(...args) }));
 vi.mock("@/server/services/course-line-onboarding", () => ({ onboardCourseLineMember: (...args: unknown[]) => mockCourseOnboarding(...args) }));
 
@@ -94,6 +100,15 @@ function verifiedOk(overrides: { displayName?: string | null } = {}) {
 }
 
 describe("submitOnboarding action (PR-C2)", () => {
+  it("uses exact LINE identity on a form opened earlier, without requiring the entered name again", async () => {
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockNotificationActivation.mockResolvedValueOnce("activated");
+    expect(await submitOnboarding({ ...VALID_INPUT, name: "不同輸入拼法" })).toEqual({ status: "ok" });
+    expect(mockNotificationActivation).toHaveBeenCalledWith({ storeId: STORE.id, lineUserId: LINE_USER_ID });
+    expect(mockRecovery).not.toHaveBeenCalled();
+    expect(mockBindLine).not.toHaveBeenCalled();
+  });
   it("queues an exact verified login for staff confirmation without reporting success", async () => {
     const { storePhoneNeedsConfirmation } = await import("@/server/services/store-member-connection");
     mockVerify.mockResolvedValue(verifiedOk());
@@ -176,10 +191,12 @@ describe("submitOnboarding action (PR-C2)", () => {
   });
 
   beforeEach(() => {
+    mockNotificationActivation.mockReset().mockResolvedValue("not_applicable");
     mockFirstActivation.mockReset().mockResolvedValue("review");
     mockRecovery.mockReset().mockResolvedValue({ status: "review" });
     mockIndustry.mockReset().mockResolvedValue("steamfoot");
     mockCourseOnboarding.mockReset();
+    mockBeautyOnboarding.mockReset();
     mockMember.mockReset().mockResolvedValue(null);
     vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", CHANNEL);
     mockIdentitySync.mockReset().mockResolvedValue({ status: "upserted" });
@@ -208,6 +225,28 @@ describe("submitOnboarding action (PR-C2)", () => {
     expect(mockCourseOnboarding).toHaveBeenCalledWith(expect.objectContaining({ storeId: STORE.id, lineUserId: LINE_USER_ID }));
     expect(mockBindLine).not.toHaveBeenCalled();
     expect(mockIdentitySync).not.toHaveBeenCalled();
+  });
+  it.each(["ok", "identity_review_required", "service_unavailable"])("routes configured beauty registration through its own service: %s", async status => {
+    vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([{
+      storeId: STORE.id, slug: STORE.slug, providerId: "901", loginChannelId: "902",
+      messagingProviderId: "901", messagingChannelId: "903", liffId: "902-beauty",
+      basicId: "@beauty", destination: "U" + "a".repeat(32),
+      accessTokenEnv: "TEST_TOKEN", channelSecretEnv: "TEST_SECRET",
+    }]));
+    vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", "");
+    mockIndustry.mockResolvedValue("beauty");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockBeautyOnboarding.mockResolvedValue({ status });
+    expect(await submitOnboarding(VALID_INPUT)).toEqual({ status });
+    expect(mockVerify).toHaveBeenCalledWith(VALID_INPUT.idToken, "902");
+    expect(mockBeautyOnboarding).toHaveBeenCalledWith({
+      storeId: STORE.id, lineUserId: LINE_USER_ID, identityProvider: "line-provider:901",
+      name: VALID_INPUT.name, phone: VALID_INPUT.phone, lineName: verifiedOk().displayName,
+    });
+    expect(mockBindLine).not.toHaveBeenCalled();
+    expect(mockIdentitySync).not.toHaveBeenCalled();
+    expect(mockCourseOnboarding).not.toHaveBeenCalled();
   });
 
   // ────────────────────────────────────────────────────────

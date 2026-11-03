@@ -24,6 +24,10 @@
 
 import { useActionState, useEffect, type ReactNode } from "react";
 
+import { usePathname } from "next/navigation";
+import { postCashDrawerForm } from "@/lib/cash-drawer-form-client";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
+import { resolveDashboardHref } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionResult } from "@/types";
 
@@ -34,6 +38,7 @@ export type CashDrawerFormAction = (
 ) => Promise<ActionResult<unknown>>;
 
 interface Props {
+  direct?: { kind: "CLOSE" | "REOPEN"; sessionId: string };
   /** server action：父層 server component 綁好 sessionId / returnPath 等後傳入。 */
   action: CashDrawerFormAction;
   /** 成功後 hard navigate 的目標 URL（== 原本 redirect 的 returnPath）。 */
@@ -54,6 +59,7 @@ interface Props {
 
 export function CashDrawerActionForm({
   action,
+  direct,
   returnPath,
   submitLabel,
   submitClassName,
@@ -62,8 +68,15 @@ export function CashDrawerActionForm({
   className,
   children,
 }: Props) {
+  const pathname = usePathname();
   const [state, formAction] = useActionState<ActionResult<unknown> | null, FormData>(
-    action,
+    async (previous, form) => {
+      let result;
+      if(!direct)result=await action(previous,form);
+      else {form.set("sessionId",direct.sessionId);result=await postCashDrawerForm(pathname,direct.kind,form);}
+      if(result.success)publishMusicFinanceChange();
+      return result;
+    },
     null,
   );
 
@@ -71,7 +84,7 @@ export function CashDrawerActionForm({
     if (state?.success) {
       // 等效 F5：full page navigation，重新跑 page server components，
       // 不依賴 server action response 內 inline 的 RSC payload。
-      window.location.assign(returnPath);
+      window.location.assign(resolveDashboardHref(returnPath, window.location.pathname));
     }
   }, [state, returnPath]);
 

@@ -1,3 +1,5 @@
+import {getActiveStoreForRead} from "@/lib/store";
+import {getStoreIndustryModule} from "@/lib/industry-module-server";
 import { notFound } from "next/navigation";
 import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
 import { PageHeader, PageShell } from "@/components/desktop";
@@ -7,7 +9,10 @@ import { LineOfficialAccountsCard } from "./line-official-accounts-card";
 
 export default async function LineOfficialAccountsPage() {
   const user = await getCurrentUser();
-  if (!user || getHqStoreViewContext(user) || (user.role !== "OWNER" && user.role !== "ADMIN")) notFound();
+  if(!user)notFound();
+  const storeId=await getActiveStoreForRead(user);
+  if(storeId&&await getStoreIndustryModule(storeId)==="beauty")notFound();
+  if (getHqStoreViewContext(user) || (user.role !== "OWNER" && user.role !== "ADMIN")) notFound();
 
   const statuses = await getAllLineOfficialAccountStatuses();
 

@@ -1,0 +1,51 @@
+{
+  "cards": [
+    {
+      "id": "cmvhztrmn0001jp08i5zg59f9",
+      "closedAt": null,
+      "sessions": 5,
+      "remaining": 2
+    },
+    {
+      "id": "cmvi6lc260006lf07z7862prb",
+      "closedAt": null,
+      "sessions": 5,
+      "remaining": 5
+    }
+  ],
+  "payments": {
+    "net": 15500,
+    "count": 10
+  },
+  "services": [
+    {
+      "id": "beauty-hosted-face",
+      "name": "測試做臉",
+      "price": 1000,
+      "active": true,
+      "buffer": 15,
+      "duration": 60,
+      "trialPrice": 500
+    },
+    {
+      "id": "beauty-hosted-massage",
+      "name": "測試按摩",
+      "price": 1500,
+      "active": true,
+      "buffer": 0,
+      "duration": 90,
+      "trialPrice": 750
+    },
+    {
+      "id": "cmvj562s20000kz082w4uy7gm",
+      "name": "驗收服務-80eb043b",
+      "price": 1350,
+      "active": false,
+      "buffer": 15,
+      "duration": 90,
+      "trialPrice": 900
+    }
+  ],
+  "ledgerCount": 15,
+  "appointments": 15
+}

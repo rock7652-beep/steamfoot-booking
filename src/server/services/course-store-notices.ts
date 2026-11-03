@@ -1,7 +1,9 @@
 import "server-only";
+import {producesStoreNotice} from "@/lib/receivable-notice";
 import type {Prisma} from "../../../generated/course-client";
 import type {CourseActor} from "./course-booking";
 import {courseNoticeNeedsFollowup,type CourseNoticeKind} from "@/lib/course-store-notices";
+import {toLocalDateStr} from "@/lib/date-utils";
 
 /** Runs inside the booking transaction: no phantom or partial-operation notifications. */
 type StoreNoticeInput={
@@ -9,15 +11,15 @@ type StoreNoticeInput={
  previousStartsAt?:Date;previousCoachId?:string;affectedCount?:number;details?:unknown;
 };
 export async function recordCourseStoreNotice(tx:Prisma.TransactionClient,actor:CourseActor,inputOrLoad:StoreNoticeInput|(()=>Promise<StoreNoticeInput>)) {
- const rule=await tx.courseBookingRule.findUnique({where:{storeId:actor.storeId}});
- // Opt-in, including legacy/mocked rules. No old-data scanning when enabled again.
- if(!rule?.backendNoticesEnabled)return;
+ // The store's digital manager keeps receiving events independently of legacy switches.
  const input=typeof inputOrLoad==="function"?await inputOrLoad():inputOrLoad;
+ if(!producesStoreNotice(input.kind))return;
+ if(input.kind==="BOOKING"&&!actor.customerId)return;
  const coaches=await tx.$queryRaw<Array<{id:string;displayName:string}>>`SELECT id,"displayName" FROM "Staff" WHERE "storeId"=${actor.storeId} AND (id=${input.coachId} OR id=${input.previousCoachId??input.coachId})`;
  const coachName=coaches.find(c=>c.id===input.coachId)?.displayName??"未指派";
  const previousCoachName=input.previousCoachId?coaches.find(c=>c.id===input.previousCoachId)?.displayName??"未指派":null;
- const pending=courseNoticeNeedsFollowup(input.kind,!!actor.customerId);
  const now=new Date();
+ const pending=courseNoticeNeedsFollowup(input.kind,!!actor.customerId,toLocalDateStr(input.startsAt)===toLocalDateStr(now));
  const existing=await tx.courseStoreNotice.findUnique({where:{storeId_subjectKey:{storeId:actor.storeId,subjectKey:input.subjectKey}}});
  const data={kind:input.kind,customerName:input.customerName,courseName:input.courseName,coachName,
   previousCoachName:existing?.previousCoachName??previousCoachName,startsAt:input.startsAt,

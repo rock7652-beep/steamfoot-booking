@@ -1,0 +1,525 @@
+{
+  "synthetic": true,
+  "businessAcceptance": false,
+  "safari": false,
+  "cases": [
+    {
+      "music": false,
+      "width": 1366,
+      "height": 900,
+      "state": "HIDDEN",
+      "overflow": false,
+      "text": "後台異動通知開啟 目前沒有可使用的通知設定，請聯絡有權限的管理者。",
+      "links": []
+    },
+    {
+      "music": false,
+      "width": 1366,
+      "height": 900,
+      "state": "LOCKED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理未開通推薦分享未開通數位管家未開通",
+      "links": []
+    },
+    {
+      "music": false,
+      "width": 1366,
+      "height": 900,
+      "state": "ENABLED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理顧客提醒・人員通知・教練通知・發送紀錄管理推薦分享已開通編輯數位管家已開通管理",
+      "links": [
+        {
+          "label": "開啟提醒管理",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dcustomer"
+        },
+        {
+          "label": "開啟推薦分享",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=referral"
+        },
+        {
+          "label": "開啟數位管家",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=butler"
+        }
+      ]
+    },
+    {
+      "music": false,
+      "width": 1440,
+      "height": 900,
+      "state": "HIDDEN",
+      "overflow": false,
+      "text": "後台異動通知開啟 目前沒有可使用的通知設定，請聯絡有權限的管理者。",
+      "links": []
+    },
+    {
+      "music": false,
+      "width": 1440,
+      "height": 900,
+      "state": "LOCKED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理未開通推薦分享未開通數位管家未開通",
+      "links": []
+    },
+    {
+      "music": false,
+      "width": 1440,
+      "height": 900,
+      "state": "ENABLED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理顧客提醒・人員通知・教練通知・發送紀錄管理推薦分享已開通編輯數位管家已開通管理",
+      "links": [
+        {
+          "label": "開啟提醒管理",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dcustomer"
+        },
+        {
+          "label": "開啟推薦分享",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=referral"
+        },
+        {
+          "label": "開啟數位管家",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=butler"
+        }
+      ]
+    },
+    {
+      "music": false,
+      "width": 1024,
+      "height": 768,
+      "state": "HIDDEN",
+      "overflow": false,
+      "text": "後台異動通知開啟 目前沒有可使用的通知設定，請聯絡有權限的管理者。",
+      "links": []
+    },
+    {
+      "music": false,
+      "width": 1024,
+      "height": 768,
+      "state": "LOCKED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理未開通推薦分享未開通數位管家未開通",
+      "links": []
+    },
+    {
+      "music": false,
+      "width": 1024,
+      "height": 768,
+      "state": "ENABLED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理顧客提醒・人員通知・教練通知・發送紀錄管理推薦分享已開通編輯數位管家已開通管理",
+      "links": [
+        {
+          "label": "開啟提醒管理",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dcustomer"
+        },
+        {
+          "label": "開啟推薦分享",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=referral"
+        },
+        {
+          "label": "開啟數位管家",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=butler"
+        }
+      ]
+    },
+    {
+      "music": false,
+      "width": 768,
+      "height": 1024,
+      "state": "HIDDEN",
+      "overflow": false,
+      "text": "後台異動通知開啟 目前沒有可使用的通知設定，請聯絡有權限的管理者。",
+      "links": []
+    },
+    {
+      "music": false,
+      "width": 768,
+      "height": 1024,
+      "state": "LOCKED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理未開通推薦分享未開通數位管家未開通",
+      "links": []
+    },
+    {
+      "music": false,
+      "width": 768,
+      "height": 1024,
+      "state": "ENABLED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理顧客提醒・人員通知・教練通知・發送紀錄管理推薦分享已開通編輯數位管家已開通管理",
+      "links": [
+        {
+          "label": "開啟提醒管理",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dcustomer"
+        },
+        {
+          "label": "開啟推薦分享",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=referral"
+        },
+        {
+          "label": "開啟數位管家",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=butler"
+        }
+      ]
+    },
+    {
+      "music": false,
+      "width": 767,
+      "height": 1024,
+      "state": "HIDDEN",
+      "overflow": false,
+      "text": "後台異動通知開啟 目前沒有可使用的通知設定，請聯絡有權限的管理者。",
+      "links": []
+    },
+    {
+      "music": false,
+      "width": 767,
+      "height": 1024,
+      "state": "LOCKED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理未開通推薦分享未開通數位管家未開通",
+      "links": []
+    },
+    {
+      "music": false,
+      "width": 767,
+      "height": 1024,
+      "state": "ENABLED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理顧客提醒・人員通知・教練通知・發送紀錄管理推薦分享已開通編輯數位管家已開通管理",
+      "links": [
+        {
+          "label": "開啟提醒管理",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dcustomer"
+        },
+        {
+          "label": "開啟推薦分享",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=referral"
+        },
+        {
+          "label": "開啟數位管家",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=butler"
+        }
+      ]
+    },
+    {
+      "music": false,
+      "width": 560,
+      "height": 768,
+      "state": "HIDDEN",
+      "overflow": false,
+      "text": "後台異動通知開啟 目前沒有可使用的通知設定，請聯絡有權限的管理者。",
+      "links": []
+    },
+    {
+      "music": false,
+      "width": 560,
+      "height": 768,
+      "state": "LOCKED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理未開通推薦分享未開通數位管家未開通",
+      "links": []
+    },
+    {
+      "music": false,
+      "width": 560,
+      "height": 768,
+      "state": "ENABLED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理顧客提醒・人員通知・教練通知・發送紀錄管理推薦分享已開通編輯數位管家已開通管理",
+      "links": [
+        {
+          "label": "開啟提醒管理",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dcustomer"
+        },
+        {
+          "label": "開啟推薦分享",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=referral"
+        },
+        {
+          "label": "開啟數位管家",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=butler"
+        }
+      ]
+    },
+    {
+      "music": true,
+      "width": 1366,
+      "height": 900,
+      "state": "HIDDEN",
+      "overflow": false,
+      "text": "後台異動通知開啟 目前沒有可使用的通知設定，請聯絡有權限的管理者。",
+      "links": []
+    },
+    {
+      "music": true,
+      "width": 1366,
+      "height": 900,
+      "state": "LOCKED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理未開通推薦分享未開通數位管家未開通",
+      "links": []
+    },
+    {
+      "music": true,
+      "width": 1366,
+      "height": 900,
+      "state": "ENABLED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理顧客提醒・人員通知・教師通知・發送紀錄管理推薦分享已開通編輯數位管家已開通管理",
+      "links": [
+        {
+          "label": "開啟提醒管理",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dcustomer"
+        },
+        {
+          "label": "開啟推薦分享",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=referral"
+        },
+        {
+          "label": "開啟數位管家",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=butler"
+        }
+      ]
+    },
+    {
+      "music": true,
+      "width": 1440,
+      "height": 900,
+      "state": "HIDDEN",
+      "overflow": false,
+      "text": "後台異動通知開啟 目前沒有可使用的通知設定，請聯絡有權限的管理者。",
+      "links": []
+    },
+    {
+      "music": true,
+      "width": 1440,
+      "height": 900,
+      "state": "LOCKED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理未開通推薦分享未開通數位管家未開通",
+      "links": []
+    },
+    {
+      "music": true,
+      "width": 1440,
+      "height": 900,
+      "state": "ENABLED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理顧客提醒・人員通知・教師通知・發送紀錄管理推薦分享已開通編輯數位管家已開通管理",
+      "links": [
+        {
+          "label": "開啟提醒管理",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dcustomer"
+        },
+        {
+          "label": "開啟推薦分享",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=referral"
+        },
+        {
+          "label": "開啟數位管家",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=butler"
+        }
+      ]
+    },
+    {
+      "music": true,
+      "width": 1024,
+      "height": 768,
+      "state": "HIDDEN",
+      "overflow": false,
+      "text": "後台異動通知開啟 目前沒有可使用的通知設定，請聯絡有權限的管理者。",
+      "links": []
+    },
+    {
+      "music": true,
+      "width": 1024,
+      "height": 768,
+      "state": "LOCKED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理未開通推薦分享未開通數位管家未開通",
+      "links": []
+    },
+    {
+      "music": true,
+      "width": 1024,
+      "height": 768,
+      "state": "ENABLED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理顧客提醒・人員通知・教師通知・發送紀錄管理推薦分享已開通編輯數位管家已開通管理",
+      "links": [
+        {
+          "label": "開啟提醒管理",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dcustomer"
+        },
+        {
+          "label": "開啟推薦分享",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=referral"
+        },
+        {
+          "label": "開啟數位管家",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=butler"
+        }
+      ]
+    },
+    {
+      "music": true,
+      "width": 768,
+      "height": 1024,
+      "state": "HIDDEN",
+      "overflow": false,
+      "text": "後台異動通知開啟 目前沒有可使用的通知設定，請聯絡有權限的管理者。",
+      "links": []
+    },
+    {
+      "music": true,
+      "width": 768,
+      "height": 1024,
+      "state": "LOCKED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理未開通推薦分享未開通數位管家未開通",
+      "links": []
+    },
+    {
+      "music": true,
+      "width": 768,
+      "height": 1024,
+      "state": "ENABLED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理顧客提醒・人員通知・教師通知・發送紀錄管理推薦分享已開通編輯數位管家已開通管理",
+      "links": [
+        {
+          "label": "開啟提醒管理",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dcustomer"
+        },
+        {
+          "label": "開啟推薦分享",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=referral"
+        },
+        {
+          "label": "開啟數位管家",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=butler"
+        }
+      ]
+    },
+    {
+      "music": true,
+      "width": 767,
+      "height": 1024,
+      "state": "HIDDEN",
+      "overflow": false,
+      "text": "後台異動通知開啟 目前沒有可使用的通知設定，請聯絡有權限的管理者。",
+      "links": []
+    },
+    {
+      "music": true,
+      "width": 767,
+      "height": 1024,
+      "state": "LOCKED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理未開通推薦分享未開通數位管家未開通",
+      "links": []
+    },
+    {
+      "music": true,
+      "width": 767,
+      "height": 1024,
+      "state": "ENABLED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理顧客提醒・人員通知・教師通知・發送紀錄管理推薦分享已開通編輯數位管家已開通管理",
+      "links": [
+        {
+          "label": "開啟提醒管理",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dcustomer"
+        },
+        {
+          "label": "開啟推薦分享",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=referral"
+        },
+        {
+          "label": "開啟數位管家",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=butler"
+        }
+      ]
+    },
+    {
+      "music": true,
+      "width": 560,
+      "height": 768,
+      "state": "HIDDEN",
+      "overflow": false,
+      "text": "後台異動通知開啟 目前沒有可使用的通知設定，請聯絡有權限的管理者。",
+      "links": []
+    },
+    {
+      "music": true,
+      "width": 560,
+      "height": 768,
+      "state": "LOCKED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理未開通推薦分享未開通數位管家未開通",
+      "links": []
+    },
+    {
+      "music": true,
+      "width": 560,
+      "height": 768,
+      "state": "ENABLED",
+      "overflow": false,
+      "text": "後台異動通知開啟 提醒管理顧客提醒・人員通知・教師通知・發送紀錄管理推薦分享已開通編輯數位管家已開通管理",
+      "links": [
+        {
+          "label": "開啟提醒管理",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=reminders&panelQuery=tab%3Dcustomer"
+        },
+        {
+          "label": "開啟推薦分享",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=referral"
+        },
+        {
+          "label": "開啟數位管家",
+          "height": 44,
+          "href": "/s/synthetic/admin/dashboard/courses?view=settings&section=notifications&panel=butler"
+        }
+      ]
+    }
+  ],
+  "draftResize": true,
+  "revokedEditorUnmounted": true
+}

@@ -1,5 +1,9 @@
 import {beforeEach,describe,it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({findBooking:vi.fn(),writable:vi.fn(),account:vi.fn(),member:vi.fn(),manager:vi.fn(),transaction:vi.fn(),correct:vi.fn(),settle:vi.fn(),updateNote:vi.fn(),config:vi.fn(),raw:vi.fn(),execute:vi.fn(),count:vi.fn(),order:vi.fn(),plan:vi.fn(),createOrder:vi.fn(),createCard:vi.fn(),updateOrder:vi.fn()}));
+import {readFileSync} from "node:fs";
+import {PGlite} from "@electric-sql/pglite";
+vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
+vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
+const m=vi.hoisted(()=>({modeRule:vi.fn(),findBooking:vi.fn(),writable:vi.fn(),account:vi.fn(),member:vi.fn(),manager:vi.fn(),transaction:vi.fn(),correct:vi.fn(),settle:vi.fn(),updateNote:vi.fn(),config:vi.fn(),raw:vi.fn(),execute:vi.fn(),count:vi.fn(),order:vi.fn(),plan:vi.fn(),createOrder:vi.fn(),createCard:vi.fn(),updateOrder:vi.fn()}));
 vi.mock("@/lib/permissions",()=>({requireWritablePermission:m.writable}));
 vi.mock("@/lib/db",()=>({prisma:{shopConfig:{findUnique:m.config}}}));
 vi.mock("next/server",()=>({after:vi.fn()}));
@@ -10,7 +14,7 @@ vi.mock("@/server/services/course-booking",()=>({correctCourseAttendance:m.corre
 import {saveCourseAttendance,saveCourseCoachNote,purchaseCoursePlan,confirmCoursePurchase} from "@/server/actions/course-portal";
 import {revalidatePath} from "next/cache";
 const actor={storeId:"store-a",user:{id:"u",name:"教練"},customer:{id:"c"}};
-beforeEach(()=>{vi.clearAllMocks();m.correct.mockImplementation(async(_tx,_actor,id,target)=>({id,status:target,checkedInAt:null,updatedAt:new Date("2026-09-20T03:00:00Z")}));m.settle.mockImplementation(async(_tx,_actor,id)=>({id,status:"RESERVED",checkedInAt:new Date(),updatedAt:new Date("2026-09-20T03:00:00Z")}));m.account.mockResolvedValue(actor);m.member.mockResolvedValue(actor);m.manager.mockResolvedValue(actor);m.raw.mockResolvedValue([{id:"s",assignedStaffId:"developer",displayName:"開發人"}]);m.count.mockResolvedValue(2);m.updateNote.mockResolvedValue({count:1});m.order.mockResolvedValue(null);m.createOrder.mockResolvedValue({id:"purchase"});m.config.mockResolvedValue({bankName:"test",bankAccountNumber:"test"});m.transaction.mockImplementation(async(_s,cb)=>cb({$queryRaw:m.raw,$executeRaw:m.execute,courseBooking:{findFirst:m.findBooking,findFirstOrThrow:m.findBooking,count:m.count,updateMany:m.updateNote},coursePurchase:{findUnique:m.order,findFirst:m.order,create:m.createOrder,update:m.updateOrder},coursePointPlan:{findFirst:m.plan},coursePointCard:{create:m.createCard}}));});
+beforeEach(()=>{vi.clearAllMocks();m.correct.mockImplementation(async(_tx,_actor,id,target)=>({id,status:target,checkedInAt:null,updatedAt:new Date("2026-09-20T03:00:00Z")}));m.settle.mockImplementation(async(_tx,_actor,id)=>({id,status:"RESERVED",checkedInAt:new Date(),updatedAt:new Date("2026-09-20T03:00:00Z")}));m.account.mockResolvedValue(actor);m.member.mockResolvedValue(actor);m.manager.mockResolvedValue(actor);m.raw.mockResolvedValue([{id:"s",assignedStaffId:"developer",displayName:"開發人"}]);m.count.mockResolvedValue(2);m.updateNote.mockResolvedValue({count:1});m.order.mockResolvedValue(null);m.createOrder.mockResolvedValue({id:"purchase"});m.config.mockResolvedValue({bankName:"test",bankAccountNumber:"test"});m.transaction.mockImplementation(async(_s,cb)=>cb({courseBookingRule:{findUnique:m.modeRule},$queryRaw:m.raw,$executeRaw:m.execute,courseBooking:{findFirst:m.findBooking,findFirstOrThrow:m.findBooking,count:m.count,updateMany:m.updateNote},coursePurchase:{findUnique:m.order,findFirst:m.order,create:m.createOrder,update:m.updateOrder},coursePointPlan:{findFirst:m.plan},coursePointCard:{create:m.createCard}}));});
 const attendance={sessionId:"s",target:"ATTENDED",bookings:[{id:"a",status:"RESERVED"},{id:"b",status:"RESERVED"}]};
 describe("course portal mutations",()=>{
  it("undoes check-in without touching quota and records the change",async()=>{
@@ -26,15 +30,27 @@ describe("course portal mutations",()=>{
  it("batch check-in only accepts reserved learners and never calls debit correction",async()=>{expect(await saveCourseAttendance({...attendance,target:"CHECKED_IN"})).toMatchObject({success:true,attendanceUpdates:[{id:"a",status:"RESERVED",checkedIn:true,updatedAt:"2026-09-20T03:00:00.000Z"},{id:"b",checkedIn:true}]});expect(m.count.mock.calls[0][0].where.status).toBe("RESERVED");expect(m.settle).toHaveBeenCalledTimes(2);expect(m.settle.mock.calls[0][3]).toBe("CHECKED_IN");expect(m.correct).not.toHaveBeenCalled();expect(m.account).toHaveBeenCalledWith({write:true});});
  it("rejects a stale check-in batch before processing any learner",async()=>{m.count.mockResolvedValue(1);expect(await saveCourseAttendance({...attendance,target:"CHECKED_IN"})).toMatchObject({success:false});expect(m.settle).not.toHaveBeenCalled();});
  it("rejects duplicate batch IDs before opening a transaction",async()=>{expect(await saveCourseAttendance({...attendance,bookings:[attendance.bookings[0],attendance.bookings[0]]})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});
- it("notes require assigned active coach and use compare-and-set",async()=>{expect(await saveCourseCoachNote({bookingId:"b",notes:"new",previousNotes:"old"})).toEqual({success:true});expect(m.updateNote).toHaveBeenCalledWith({where:{id:"b",storeId:"store-a",status:{not:"CANCELLED"},notes:"old"},data:{notes:"new"}});const sql=m.raw.mock.calls[0][0].join("?");expect(sql).toContain('l."revokedAt" IS NULL');expect(sql).toContain("st.status::text='ACTIVE'");expect(m.account).toHaveBeenCalledWith({write:true});});
+ it("notes require assigned active coach and use compare-and-set",async()=>{expect(await saveCourseCoachNote({bookingId:"b",notes:"new",previousNotes:"old"})).toEqual({success:true});expect(m.updateNote).toHaveBeenCalledWith({where:{id:"b",storeId:"store-a",status:{not:"CANCELLED"},bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null,notes:"old"},data:{notes:"new"}});const sql=m.raw.mock.calls[0][0].join("?");expect(sql).toContain('l."revokedAt" IS NULL');expect(sql).toContain("st.status::text='ACTIVE'");expect(m.account).toHaveBeenCalledWith({write:true});});
  it("denies foreign coach notes and reports concurrent edits",async()=>{m.raw.mockResolvedValueOnce([]);expect(await saveCourseCoachNote({bookingId:"b",notes:"new",previousNotes:"old"})).toMatchObject({success:false});expect(m.updateNote).not.toHaveBeenCalled();m.updateNote.mockResolvedValue({count:0});expect(await saveCourseCoachNote({bookingId:"b",notes:"new",previousNotes:"old"})).toMatchObject({success:false});});
  it("rejects view-only confirmation before changing a purchase",async()=>{m.writable.mockRejectedValueOnce(new Error("read only"));expect(await confirmCoursePurchase({purchaseId:"p"})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});
  it("uses one store transaction for the full batch",async()=>{expect(await saveCourseAttendance(attendance)).toMatchObject({success:true,attendanceUpdates:[{id:"a",status:"ATTENDED"},{id:"b",status:"ATTENDED"}]});expect(m.transaction).toHaveBeenCalledTimes(1);expect(m.correct).toHaveBeenCalledTimes(2);});
  it("rejects cross-store/unassigned coaches and stale rosters before settlement",async()=>{m.raw.mockResolvedValue([]);expect(await saveCourseAttendance(attendance)).toMatchObject({success:false});expect(m.correct).not.toHaveBeenCalled();m.raw.mockResolvedValue([{id:"s",assignedStaffId:"developer",displayName:"開發人"}]);m.count.mockResolvedValue(1);expect(await saveCourseAttendance(attendance)).toMatchObject({success:false});expect(m.correct).not.toHaveBeenCalled();});
  it("propagates batch failure to the transaction",async()=>{m.correct.mockRejectedValueOnce(new Error("insufficient"));expect(await saveCourseAttendance(attendance)).toMatchObject({success:false});expect(m.correct).toHaveBeenCalledTimes(1);});
- it("takes purchase price from a customer-purchasable plan and does not issue a card before confirmation",async()=>{m.plan.mockResolvedValue({id:"p",name:"六堂",unit:"SESSION",points:6,price:600,storeCost:0,termSessionIds:[],validDays:30,templateIds:["t"]});expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234",price:1})).toEqual({success:true});expect(m.plan).toHaveBeenCalledWith({where:{id:"p",storeId:"store-a",isActive:true,customerPurchasable:true}});expect(m.createOrder.mock.calls[0][0].data.price).toBe(600);expect(m.createCard).not.toHaveBeenCalled();});
+ it("takes purchase price from a customer-purchasable plan and records a store-scoped pending notice in the purchase transaction",async()=>{m.plan.mockResolvedValue({id:"p",name:"六堂",unit:"SESSION",points:6,price:600,storeCost:0,termSessionIds:[],validDays:30,templateIds:["t"]});expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234",price:1})).toEqual({success:true});expect(m.plan).toHaveBeenCalledWith({where:{id:"p",storeId:"store-a",isActive:true,customerPurchasable:true}});expect(m.createOrder.mock.calls[0][0].data.price).toBe(600);expect(m.createCard).not.toHaveBeenCalled();expect(m.execute).toHaveBeenCalledOnce();expect(m.execute.mock.calls[0].slice(1)).toEqual([expect.any(String),"store-a","course-purchase-pending:purchase","TRANSFER_PENDING_CONFIRMATION","purchase"]);});
  it("accepts exactly four transfer digits",async()=>{expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"12345"})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});
  it("replayed purchase cannot be claimed by another customer",async()=>{m.order.mockResolvedValue({customerId:"other",planId:"p",transferLastFive:"1234"});expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234"})).toMatchObject({success:false});expect(m.createOrder).not.toHaveBeenCalled();});
+ it.each([600,0])("writes a valid checkout snapshot for a customer purchase priced %s",async price=>{
+  m.plan.mockResolvedValue({id:"p",name:"六堂",unit:"SESSION",points:6,price,storeCost:0,termSessionIds:[],validDays:30,templateIds:[]});
+  expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234"})).toMatchObject({success:true});
+  const data=m.createOrder.mock.calls[0][0].data;
+  const db=new PGlite();try{
+   await db.exec('CREATE TABLE "CoursePurchase" (price integer NOT NULL)');
+   await db.exec(readFileSync('prisma/migrations/20260920173000_course_assignment_checkout/migration.sql','utf8'));
+   await db.query('INSERT INTO "CoursePurchase" (price,"listPrice","discountKind","discountValue","paymentMethod","transferLastFour") VALUES ($1,$2,$3,$4,$5,$6)',[data.price,data.listPrice,data.discountKind,data.discountValue,data.paymentMethod,data.transferLastFour]);
+   const rows=await db.query('SELECT price,"listPrice","paymentMethod","transferLastFour" FROM "CoursePurchase"');
+   expect(rows.rows).toEqual([{price,listPrice:price,paymentMethod:price===0?'DISCOUNT':'BANK_TRANSFER',transferLastFour:'1234'}]);
+  }finally{await db.close();}
+ },30000);
  it("replayed confirmation never issues a second card or receipt",async()=>{m.order.mockResolvedValue({status:"CONFIRMED"});expect(await confirmCoursePurchase({purchaseId:"p"})).toEqual({success:true});expect(m.createCard).not.toHaveBeenCalled();expect(m.execute).not.toHaveBeenCalled();});
  it("refreshes both transaction entrances and the cash drawer after confirmation, but not rollback",async()=>{
   m.order.mockResolvedValue({status:"CONFIRMED"});await confirmCoursePurchase({purchaseId:"p"});
@@ -67,4 +83,18 @@ describe("course portal mutations",()=>{
    expect(m.createCard).toHaveBeenCalledWith({data:expect.objectContaining({remaining:5,musicTermSizes:[4],musicBonusLessons:1,musicValidityDays:35,expiresAt:new Date("2099-12-31T15:59:59.999Z")})});
    expect(m.plan).not.toHaveBeenCalled();
  });
+});
+
+it.each([{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:"right"}])("rejects undo check-in for opening rights before audit or booking changes: %j",async marker=>{
+ m.count.mockResolvedValue(1);m.findBooking.mockReset().mockResolvedValue({id:"a",status:"RESERVED",checkedInAt:new Date(),...marker});
+ expect(await saveCourseAttendance({...attendance,target:"UNDO_CHECK_IN",bookings:[attendance.bookings[0]]})).toMatchObject({success:false,error:expect.stringContaining("期初補課")});
+ expect(m.updateNote).not.toHaveBeenCalled();expect(m.execute).not.toHaveBeenCalled();expect(m.correct).not.toHaveBeenCalled();expect(m.settle).not.toHaveBeenCalled();
+ expect(m.count).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null})}));
+});
+
+it("rejects purchase of a disabled open-selection offer without changing existing orders",async()=>{
+ m.plan.mockResolvedValue({id:"p",sportsMode:"OPEN",name:"通用卡",unit:"POINT",points:10,price:600,storeCost:0,termSessionIds:[],validDays:30,templateIds:[]});
+ m.modeRule.mockResolvedValue({selfBookingEnabled:false,assignedSchedulingEnabled:true});
+ expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234"})).toMatchObject({success:false,error:expect.stringContaining("已關閉開放選課")});
+ expect(m.createOrder).not.toHaveBeenCalled();expect(m.createCard).not.toHaveBeenCalled();
 });

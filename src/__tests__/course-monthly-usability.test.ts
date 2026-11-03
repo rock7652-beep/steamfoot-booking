@@ -4,7 +4,7 @@ import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {readFileSync} from "node:fs";
 vi.mock("@/server/actions/course-fee-payment",()=>({payCourseFee:vi.fn(),correctCourseFee:vi.fn()}));
-vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()})}));
+vi.mock("next/navigation",()=>({useSearchParams: () => new URLSearchParams(), usePathname: () => "/hq/dashboard/revenue", useRouter:()=>({refresh:vi.fn()})}));
 vi.mock("@/server/actions/course-monthly-settlement",()=>({confirmCourseMonthlySettlement:vi.fn(),saveCourseSettlementSettings:vi.fn(),payCourseProfit:vi.fn(),correctCourseProfit:vi.fn()}));
 import {CourseMonthlyReport,CourseMonthlyPeople,CourseMonthlyConfirm,CourseProfitCorrect} from "@/app/(dashboard)/dashboard/service-fee-calculator/course-monthly-client";
 let host:HTMLDivElement,root:Root;
@@ -49,8 +49,7 @@ it("keeps unknown amounts, expanded labels and LINE prerequisite explicit",()=>{
  expect(monthly).not.toContain('CourseProfitPay');
  expect(monthly).toContain('歷史付款紀錄');
  expect(client).toContain("收合 －");
- expect(client).toContain("divide-earth-100");
- const reminder=readFileSync("src/app/(dashboard)/dashboard/courses/reminders/page.tsx","utf8");
+ const reminder=readFileSync("src/app/(dashboard)/dashboard/courses/reminders/course-reminder-view.tsx","utf8");
  expect(reminder).toContain('lineHealth?.status==="NOT_CONFIGURED"');
  expect(reminder).toContain("請先聯絡總部管理者完成串接");
 });
@@ -69,4 +68,11 @@ it("switches income totals, people and details without changing confirmation or 
  await click("全部");expect(host.querySelectorAll("details")).toHaveLength(3);
  const actions=await import("@/server/actions/course-monthly-settlement");
  expect(actions.saveCourseSettlementSettings).not.toHaveBeenCalled();expect(actions.confirmCourseMonthlySettlement).not.toHaveBeenCalled();
+});
+
+it("separates unpaid and overpaid amounts from confirmation",async()=>{
+ const base={kind:"FEE" as const,date:"2026-09-01",issue:null,payments:[],label:"課堂"};
+ await act(async()=>root.render(createElement(CourseMonthlyReport,{showPaymentStatus:true,status:createElement("span",null,"月結已確認"),lines:[{...base,id:"a",staffId:"a",name:"甲",amount:500,paid:0},{...base,id:"b",staffId:"b",name:"乙",amount:500,paid:600}]})));
+ const summary=host.querySelector('[aria-label="付款登錄狀態"]')!.textContent;
+ expect(summary).toContain("已登錄付款 NT$ 600");expect(summary).toContain("未付 NT$ 500");expect(summary).toContain("溢付 NT$ 100");expect(host.textContent).toContain("月結已確認");
 });

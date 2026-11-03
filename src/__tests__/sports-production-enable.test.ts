@@ -4,25 +4,28 @@ import {sportsProductionEnabled,sportsProductionRulesEnvironment} from '../../sc
 import {verifySportsProductionReadiness} from '../../scripts/sports-production-readiness.mjs';
 import {sportsStagingEnabled,requireSportsStaging} from '@/lib/sports-staging';
 import {sportsRulesAvailable} from '@/server/services/sports-production-readiness';
+vi.mock('@/lib/sports-production-store',()=>({sportsProductionStore:async(storeId?:string)=>!!storeId&&storeId==='pilot-store'}));
 const production=()=>({SPORTS_REDESIGN_PRODUCTION:'1',SPORTS_REDESIGN_STORE_IDS:'pilot-store',VERCEL:'1',VERCEL_ENV:'production',NODE_ENV:'production',VERCEL_GIT_COMMIT_REF:'main',VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:'postgresql://postgres.qijlnhtpbintanzpxkvf:placeholder@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres',DIRECT_URL:'postgresql://postgres:placeholder@db.qijlnhtpbintanzpxkvf.supabase.co:5432/postgres'});
 afterEach(()=>vi.unstubAllEnvs());
 describe('sports production boundary',()=>{
- it('defaults off and requires an explicit store',()=>{
+ it('enables every store in the verified production environment without a rollout list',()=>{
   expect(sportsProductionEnabled('pilot-store',{})).toBe(false);
   expect(sportsProductionEnabled('pilot-store',production())).toBe(true);
-  expect(sportsProductionEnabled('other-store',production())).toBe(false);
+  expect(sportsProductionEnabled('other-store',production())).toBe(true);
   expect(sportsProductionEnabled(undefined,production())).toBe(false);
-  expect(sportsProductionEnabled('pilot-store',{...production(),SPORTS_REDESIGN_STORE_IDS:''})).toBe(false);
+  expect(sportsProductionEnabled('pilot-store',{...production(),SPORTS_REDESIGN_STORE_IDS:''})).toBe(true);
+  expect(sportsProductionEnabled('new-store',{...production(),SPORTS_REDESIGN_PRODUCTION:undefined,SPORTS_REDESIGN_STORE_IDS:undefined})).toBe(true);
+  expect(sportsProductionEnabled('new-store',{...production(),SPORTS_REDESIGN_PRODUCTION:'0'})).toBe(true);
  });
- it.each([['VERCEL','0'],['VERCEL_ENV','preview'],['NODE_ENV','development'],['VERCEL_GIT_COMMIT_REF','other'],['VERCEL_GIT_REPO_OWNER','other'],['VERCEL_GIT_REPO_SLUG','other'],['WORKERS_CI_BRANCH','main'],['CF_PAGES_BRANCH','main'],['SPORTS_REDESIGN_STAGING','1'],['SPORTS_REDESIGN_PREVIEW','1'],['SPORTS_LIVE_FLOW_QA','1'],['DATABASE_URL','postgresql://postgres@127.0.0.1:55438/sports_live_flow_test'],['DIRECT_URL','postgresql://postgres@db.ttworfzgwejdeolegkxl.supabase.co/postgres'],['DIRECT_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/wrong_db'],['SPORTS_REDESIGN_STORE_IDS','*'],['SPORTS_REDESIGN_STORE_IDS','pilot-store,']])('rejects invalid metadata %s=%s',(key,value)=>{expect(()=>sportsProductionEnabled('pilot-store',{...production(),[key]:value})).toThrow();});
+ it.each([['VERCEL','0'],['NODE_ENV','development'],['VERCEL_GIT_COMMIT_REF','other'],['VERCEL_GIT_REPO_OWNER','other'],['VERCEL_GIT_REPO_SLUG','other'],['WORKERS_CI_BRANCH','main'],['CF_PAGES_BRANCH','main'],['SPORTS_REDESIGN_STAGING','1'],['SPORTS_REDESIGN_PREVIEW','1'],['SPORTS_LIVE_FLOW_QA','1'],['DATABASE_URL','postgresql://postgres@127.0.0.1:55438/sports_live_flow_test'],['DIRECT_URL','postgresql://postgres@db.ttworfzgwejdeolegkxl.supabase.co/postgres'],['DIRECT_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/wrong_db']])('rejects invalid metadata %s=%s',(key,value)=>{expect(()=>sportsProductionEnabled('pilot-store',{...production(),[key]:value})).toThrow();});
  it('keeps policy reading active when the UI is off',()=>{
   expect(sportsProductionRulesEnvironment({...production(),SPORTS_REDESIGN_PRODUCTION:undefined,SPORTS_REDESIGN_STORE_IDS:undefined})).toBe(true);
   expect(sportsProductionRulesEnvironment({VERCEL_ENV:'preview'})).toBe(false);
  });
- it('rejects direct entry without authorized store',()=>{
+ it('rejects direct entry without authorized store',async()=>{
   for(const[key,value]of Object.entries(production()))vi.stubEnv(key,value);
-  expect(sportsStagingEnabled('pilot-store')).toBe(true);
-  expect(()=>requireSportsStaging('other-store')).toThrow();expect(()=>requireSportsStaging()).toThrow();
+  expect(await sportsStagingEnabled('pilot-store')).toBe(true);
+  await expect(requireSportsStaging('other-store')).rejects.toThrow();await expect(requireSportsStaging()).rejects.toThrow();
  });
 });
 describe('actual connection readiness',()=>{

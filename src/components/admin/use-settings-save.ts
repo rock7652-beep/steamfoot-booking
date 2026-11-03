@@ -2,8 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
+export type SettingsSaveTransport=(input:Record<string,unknown>)=>Promise<unknown>;
+
 /** Confirmed mutations bypass RSC rendering. Ambiguous creates reuse payload/key. */
-export function useSettingsSave<T>(endpoint:string, storeId:string, rowSchema:z.ZodType<T,z.ZodTypeDef,unknown>) {
+export function useSettingsSave<T>(endpoint:string, storeId:string, rowSchema:z.ZodType<T,z.ZodTypeDef,unknown>,transport?:SettingsSaveTransport) {
   const lock=useRef(false), active=useRef(false), scope=useRef(storeId);
   scope.current=storeId;
   const attempt=useRef<Record<string,unknown>|null>(null);
@@ -16,8 +18,7 @@ export function useSettingsSave<T>(endpoint:string, storeId:string, rowSchema:z.
     const started=performance.now(), requestedStore=storeId;
     attempt.current??={...input,expectedStoreId:storeId,requestKey:crypto.randomUUID()};
     try {
-      const response=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",cache:"no-store",body:JSON.stringify(attempt.current),signal:AbortSignal.timeout(20000)});
-      const result=await response.json();
+      const result=await (transport?transport(attempt.current):fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",cache:"no-store",body:JSON.stringify(attempt.current),signal:AbortSignal.timeout(20000)}).then(response=>response.json())) as Record<string,unknown>;
       if(!active.current||scope.current!==requestedStore)return {success:false as const,error:"頁面已切換",uncertain:false};
       if(result.success===false&&result.uncertain!==true&&typeof result.error==="string"){
         attempt.current=null;setUncertain(false);return {success:false as const,error:result.error,uncertain:false,...(Array.isArray(result.conflicts)?{conflicts:z.array(z.object({id:z.string(),name:z.string(),startsAt:z.string(),endsAt:z.string().optional(),capacity:z.number(),bookedCount:z.number().optional()})).safeParse(result.conflicts).data??[]}: {})};

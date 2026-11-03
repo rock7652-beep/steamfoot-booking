@@ -1,0 +1,12 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "original customer menu exposes authorized CSV export",
+    "authenticated original export entry succeeds",
+    "CSV uses actual service balances and completion labels",
+    "actual local customer records are exported",
+    "export is not publicly cached",
+    "no browser errors"
+  ],
+  "errors": []
+}

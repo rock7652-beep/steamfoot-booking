@@ -11,7 +11,10 @@ export async function GET(request: Request) {
     return Response.json({ error: "Production only" }, { status: 403 });
   }
   try {
-    return Response.json(await retrySessionBalanceNotifications());
+    const notifications = await retrySessionBalanceNotifications();
+    const { retryQueuedLineQuotaEmails } = await import("@/server/services/line-quota-monitor");
+    const emailRetries = await retryQueuedLineQuotaEmails();
+    return Response.json({ ...notifications, emailRetries });
   } catch {
     console.error("[SessionBalanceNotification] retry run failed");
     return Response.json({ error: "Retry failed" }, { status: 500 });

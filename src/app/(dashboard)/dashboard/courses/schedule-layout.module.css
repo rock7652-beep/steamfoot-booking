@@ -2,6 +2,44 @@
   container: course-schedule / inline-size;
 }
 
+/* Fit the normal session editor without reducing text or touch targets.
+   Warnings and short/narrow viewports retain the sheet's inner scroll owner. */
+.sessionEditBody {
+  container: session-editor / inline-size;
+}
+
+.sessionEditForm {
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 8px;
+}
+
+.sessionEditForm > fieldset > label {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.sessionEditForm > fieldset > details > summary {
+  display: list-item;
+  min-height: 44px;
+  padding-block: 10px;
+}
+
+@container session-editor (min-width: 560px) {
+  .sessionEditForm {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .sessionEditForm > fieldset > label,
+  .sessionEditForm > fieldset > details:has([name="customName"]) {
+    grid-column: span 3;
+  }
+
+  .sessionEditForm > fieldset > label:has([name="scope"], [name="date"], [name="time"], [name="coachId"], [name="duration"], [name="capacity"]) {
+    grid-column: span 2;
+  }
+}
+
 /* Keep the desktop calendar density; use the actual workspace width in HQ
    and device previews, rather than the browser width. */
 @container course-schedule (max-width: 64rem) {
@@ -33,3 +71,115 @@
     min-height: 160px;
   }
 }
+
+/* Two operational rows; compact spacing, unchanged text and touch sizes. */
+.musicHeader {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.musicToolbar {
+  position: relative;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--color-earth-700);
+  font-size: 14px;
+}
+
+.musicToolbar > * { flex-shrink: 0; }
+.scheduleSearch { position: relative; width: 196px; min-width: 120px; }
+.legendShort { display: none; }
+
+@container course-schedule (max-width: 60rem) {
+  .scheduleSearch { width: 144px; }
+  .legendFull { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .legendShort { display: inline; }
+  .musicToolbar { gap: 4px; }
+}
+
+@container course-schedule (max-width: 42rem) {
+  .musicToolbar { flex-wrap: wrap; }
+}
+
+.musicHeader input[type="date"] { width: 124px; flex-shrink: 0; }
+.scheduleSearch [aria-label="學員搜尋結果"] { min-width: 240px; }
+@container course-schedule (max-width: 60rem) {
+  .musicToolbar [aria-label="課表課型圖例"] { column-gap: 4px; }
+  .musicToolbar [aria-label="課表課型圖例"] > span { column-gap: 4px; }
+}
+
+.musicHeader :is(button, a) {
+  min-height: 44px;
+  padding-inline: 8px;
+}
+
+/* Keep primary actions at the right edge while dates scroll independently. */
+.calendarHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.calendarNavigation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.calendarNavigation > * { flex-shrink: 0; }
+.calendarActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.calendarHeader :is(button, a, input[type="date"]) { min-height: 44px; }
+.calendarNavigation input[type="date"] { width: 144px; }
+
+/* Legends remain visible, with only the control area scrolling when needed. */
+.calendarToolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  gap: 8px;
+  overflow-x: auto;
+}
+.calendarToolbarControls {
+  display: flex;
+  flex: 1 1 0%;
+  align-items: center;
+  gap: 8px;
+  min-width: 88px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.calendarToolbarControls > * { flex-shrink: 0; }
+.calendarLegend { flex: 0 0 auto; margin-left: auto; }
+.calendarLegend > div { flex-wrap: nowrap; column-gap: 8px; }
+.calendarLegend .legendFull {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+}
+.calendarLegend .legendShort { display: none; }

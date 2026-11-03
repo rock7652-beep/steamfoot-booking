@@ -1,0 +1,27 @@
+import {createElement as h,type ReactNode} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({permission:vi.fn(),has:vi.fn(),read:vi.fn(),course:vi.fn()}));
+vi.mock('@/lib/session',()=>({getCurrentUser:async()=>({role:'OWNER',staffId:'owner'})}));
+vi.mock('@/lib/permissions',()=>({checkPermission:m.permission}));
+vi.mock('@/lib/feature-gate',()=>({hasStoreFeature:m.has}));
+vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{}}));
+vi.mock('@/server/beauty/access',()=>({beautyManager:vi.fn()}));
+vi.mock('@/server/beauty/revenue-breakdown',()=>({readBeautyRevenueBreakdown:m.read}));
+vi.mock('@/server/beauty/native-revenue',()=>({readBeautyRevenue:vi.fn(),readBeautyReceiptSummary:vi.fn()}));
+vi.mock('@/components/beauty/native-transaction-source',()=>({BeautyNativeTransaction:()=>null}));
+vi.mock('@/components/beauty/native-fee-source',()=>({BeautyNativeFeeReport:()=>null}));
+vi.mock('@/components/instant-filter-form',()=>({InstantFilterForm:({children}:{children:ReactNode})=>h('form',null,children)}));
+vi.mock('@/components/dashboard-link',()=>({DashboardLink:({children,...props}:{children:ReactNode})=>h('a',props,children)}));
+vi.mock('@/app/(dashboard)/dashboard/revenue/_components/operations-tabs',()=>({OperationsTabs:()=>h('nav',null,'營收明細 收入分類 現金帳 月結管理 報表匯出')}));
+vi.mock('@/app/(dashboard)/dashboard/revenue/_components/course-revenue',()=>({CourseRevenue:m.course}));
+import {BeautyNativeOperations} from '@/components/beauty/native-operations-source';
+import type {BeautyDashboardData} from '@/server/beauty/queries';
+const data={storeId:'store',access:{financeAccess:true,feeAccess:false},manage:{},assignmentStaff:[],techs:[]} as unknown as BeautyDashboardData;
+beforeEach(()=>{vi.resetAllMocks();m.permission.mockResolvedValue(true);m.has.mockResolvedValue(true);m.course.mockReturnValue(h('p',null,'原交易清單'));m.read.mockResolvedValue({storeId:'store',from:'2026-10-01',to:'2026-10-31',totals:{gross:0,refunds:0,net:0,storeAmount:0,managerAmount:0,unassignedAmount:0,unknownAmount:0,difference:0},managers:[],hasDifferences:false,technicians:null});});
+it('does not read the period-wide classification while opening the regular ledger',async()=>{const view=await BeautyNativeOperations({data,query:{},readOnly:true});expect(m.read).not.toHaveBeenCalled();const source=(view.props as {source:{tabs:ReactNode}}).source;expect(renderToStaticMarkup(source.tabs)).toContain('收入分類');});
+it('does not append technician monthly fees beneath the ledger',async()=>{
+ const view=await BeautyNativeOperations({data:{...data,access:{...data.access,feeAccess:true}},query:{},readOnly:true});
+ expect((view.props as {source:{fees?:ReactNode}}).source.fees).toBeUndefined();
+ expect(m.read).not.toHaveBeenCalled();
+});

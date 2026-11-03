@@ -1,5 +1,7 @@
 "use server";
+import {sportsAssignedStudentSubjects} from "@/server/services/sports-teaching-templates";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
+import {courseChargeSettings} from "@/lib/course-charge-settings";
 import { z } from "zod";
 import { sportsCompensation } from "@/lib/sports-staging-types";
 import { createHash } from "node:crypto";
@@ -39,11 +41,13 @@ import {
 } from "./course-trial";
 import { refundCoursePurchase } from "./course-refund";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
+import { sportsTeachingTemplateId } from "@/server/services/sports-teaching-rule";
 import { assertSportsProductionReady } from "@/server/services/sports-production-readiness";
+import { prepareCoursePurchaseIntent } from "./course-purchase-intent";
 const id = z.string().min(1).max(100);
 async function actor(permission: Parameters<typeof courseManager>[0]) {
   const a = await courseManager(permission);
-  requireSportsStaging(a.storeId);
+  (await requireSportsStaging(a.storeId));
   const fitness = await prisma.storeFeatureEntitlement.findFirst({
     where: {
       storeId: a.storeId,
@@ -62,7 +66,27 @@ async function result<T extends { success: boolean; error?: string }>(
   if (!r.success) throw new AppError("VALIDATION", r.error ?? "操作失敗");
   return r;
 }
-export async function loadSportsStaging(formOnly = false): Promise<
+
+/** The staging preview derives exactly the same checkout input for preparation
+ * and submission. Price, staff and expiry are rechecked server-side on both. */
+async function stagingPurchaseInput(payload: unknown, a: { storeId: string; user: { id: string } }) {
+  const d = z.object({ planId: id, customerId: id, requestKey: z.string().uuid(), expectedPrice: z.number() }).parse(payload);
+  const plan = await coursePrisma.coursePointPlan.findFirst({ where: { id: d.planId, storeId: a.storeId, isActive: true } });
+  if (!plan || plan.price !== d.expectedPrice) throw new AppError("CONFLICT", "價格已更新，請重新開啟");
+  const staff = await prisma.staff.findFirst({ where: { storeId: a.storeId, userId: a.user.id, status: "ACTIVE" } });
+  return { ...d, expiresDate: addTaiwanDuration(toLocalDateStr(), plan.validDays, "DAY"), expectedListPrice: plan.price,
+    expectedStoreCost: plan.storeCost, discountKind: "AMOUNT" as const, discountValue: 0,
+    paymentMethod: "CARD" as const, revenueStaffId: staff?.id ?? "" };
+}
+
+/** Register only. The actual purchase remains a separate explicit operation. */
+export async function prepareSportsStagingPurchaseIntent(payload: unknown) {
+  try {
+    const a = await actor("booking.read");
+    return await prepareCoursePurchaseIntent(await stagingPurchaseInput(payload, a));
+  } catch (e) { return handleActionError(e); }
+}
+export async function loadSportsStaging(formOnly = false, scheduleOptionsOnly = false): Promise<
   { success: true; data: SportsSnapshot } | { success: false; error: string }
 > {
   try {
@@ -82,12 +106,13 @@ export async function loadSportsStaging(formOnly = false): Promise<
       coaches,
       rooms,
       rules,
+      schedulingModes,
     ] = await Promise.all([
       coursePrisma.musicSubject.findMany({
         where: { storeId },
         orderBy: { name: "asc" },
       }),
-      coursePrisma.coursePointPlan.findMany({
+      formOnly && scheduleOptionsOnly ? [] : coursePrisma.coursePointPlan.findMany({
         where: { storeId },
         orderBy: { name: "asc" },
       }),
@@ -108,7 +133,7 @@ export async function loadSportsStaging(formOnly = false): Promise<
         orderBy: { startsAt: "asc" },
         take: 501,
       }),
-      coursePrisma.coursePointCard.findMany({
+      formOnly && scheduleOptionsOnly ? [] : coursePrisma.coursePointCard.findMany({
         where: { storeId, closedAt: null, expiresAt: { gte: new Date() } },
         include: { members: true, bookings: { where: { status: "RESERVED" } } },
       }),
@@ -135,6 +160,7 @@ export async function loadSportsStaging(formOnly = false): Promise<
           trialPrice: number;
         }>
       >`SELECT "sessionId",frequency,enrollment,"planId","trialPrice" FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`,
+      coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}}),
     ]);
     if (sessions.length > 500 || rentals.length > 500 || customers.length > 500)
       throw new AppError("VALIDATION", "目前資料量超過新版課表載入範圍，請聯絡管理者。");
@@ -143,13 +169,15 @@ export async function loadSportsStaging(formOnly = false): Promise<
       const t = templates.find((t) => t.id === p.templateIds[0]);
       return {
         id: p.id,
-        subject: t?.musicSubjectId ?? t?.id ?? "",
+        subject: p.sportsSubjectId??t?.musicSubjectId ?? t?.id ?? "",
+        chargeSettings:p.chargeSettings,
+        sportsMode:p.sportsMode,
         name: p.name,
         unit: p.unit === "POINT" ? "點數" : "堂數",
         amount: p.points,
         price: p.price,
         days: p.validDays,
-        cost: t?.pointCost ?? 1,
+        cost: p.sportsCost??t?.pointCost ?? 1,
         shared: p.allowShared,
         templateId: t?.id ?? "",
         snapshot: JSON.stringify(coursePlanValues.parse(p)),
@@ -233,33 +261,28 @@ export async function loadSportsStaging(formOnly = false): Promise<
       success: true,
       data: {
         storeId,
+        schedulingModes:schedulingModes??undefined,
         subjects: subjects.map((s) => ({
           id: s.id,
           name: s.name,
           category: s.category,
           active: s.isActive,
           updatedAt: s.updatedAt.toISOString(),
+          templateId:templates.find(t=>t.id===sportsTeachingTemplateId(storeId,s.id))?.id,
+          durationMinutes:templates.find(t=>t.id===sportsTeachingTemplateId(storeId,s.id))?.durationMinutes,
         })),
         fees,
         lessons,
-        students: cards
-          .filter((c) => {
-            const f = fees.find((f) => f.id === c.planId);
-            return (
-              f &&
-              (!c.templateIds.length || c.templateIds.includes(f.templateId))
-            );
-          })
-          .flatMap((c) =>
-            c.members.map((m) => ({
-              id: m.customerId,
-              name: customers.find((p) => p.id === m.customerId)?.name ?? "",
-              fee: c.planId,
-              cardId: c.id,
-              available:
-                c.remaining - c.bookings.reduce((n, b) => n + b.pointCost, 0),
-            })),
-          ),
+        students: cards.flatMap(c=>{
+          const assignedSubjects=sportsAssignedStudentSubjects(storeId,c,templates);
+          const fallback=c.sportsSubjectId??fees.find(f=>f.id===c.planId)?.subject;
+          const subjects=assignedSubjects.length?assignedSubjects:fallback?[fallback]:[];
+          return subjects.flatMap(subject=>c.members.map(m=>({
+            id:m.customerId,name:customers.find(p=>p.id===m.customerId)?.name??"",
+            fee:c.planId,subject,sportsMode:c.sportsMode,assignedEligible:assignedSubjects.includes(subject),
+            cardId:c.id,available:c.remaining-c.bookings.reduce((n,b)=>n+b.pointCost,0),
+          })));
+        }),
         customers,
         coaches: coaches.map((c) => ({
           id: c.id,
@@ -361,51 +384,60 @@ export async function saveSportsFee(input: unknown) {
   try {
     const d = z
       .object({
+        chargeSettings:courseChargeSettings.nullable().optional(),
         active:z.boolean().optional(),
         customerPurchasable:z.boolean().optional(),
         compensation: sportsCompensation.optional(),
         expectedCompensation: sportsCompensation.nullable().optional(),
         id: id.optional(),
-        subject: id,
+        sportsMode:z.enum(["LEGACY","ASSIGNED","OPEN"]).default("LEGACY"),
+        subject: id.optional(),
         name: z.string().trim().min(1).max(80),
         unit: z.enum(["點數", "堂數"]),
         amount: z.number().int().min(1).max(100000),
         price: z.number().int().min(0).max(10000000),
+        storeCost: z.number().int().min(0).max(10000000).optional(),
         days: z.number().int().min(1).max(3650),
         cost: z.number().int().min(1).max(10000),
         shared: z.boolean(),
-        coachIds: z.array(id).min(1, "請選擇至少一位可授課教練"),
+        coachIds: z.array(id).default([]),
         requestKey: z.string().uuid(),
         snapshot: z.string().optional(),
       })
       .parse(input);
     const { storeId } = await actor("plans.edit");
-    await courseManager("booking.create");
-    await courseManager("staff.manage");
     const base: Partial<z.infer<typeof coursePlanValues>> = d.snapshot
       ? coursePlanValues.parse(JSON.parse(d.snapshot))
       : {};
+    // Explicit null preserves an existing legacy charge; omitted settings retain the old setup workflow.
+    const preserveLegacyCharge=!!d.id&&d.chargeSettings===null&&!!d.snapshot&&base.sportsMode==="LEGACY"&&base.chargeSettings===null;
+    const preservesTeaching=!!d.id&&!!d.chargeSettings||preserveLegacyCharge;
+    if(d.sportsMode==="LEGACY"&&!preservesTeaching){await courseManager("booking.create");await courseManager("staff.manage");if(!d.subject||!d.coachIds.length)throw new AppError("VALIDATION","請選教學項目與授課教練");}
     return await saveCoursePointPlan({
       ...base,
       id: d.id,
+      chargeSettings:d.chargeSettings??base.chargeSettings??null,
       name: d.name,
       unit: d.unit === "點數" ? "POINT" : "SESSION",
       points: d.amount,
       price: d.price,
       validDays: d.days,
-      storeCost: 0,
+      storeCost: d.storeCost??base.storeCost??0,
       allowShared: d.shared,
       isActive: d.active ?? base.isActive ?? true,
       customerPurchasable:d.customerPurchasable??base.customerPurchasable??true,
-      templateIds: [],
-      sportsSetup: {
+      templateIds: d.sportsMode==="LEGACY"&&preservesTeaching?base.templateIds??[]:[],
+      sportsMode:d.sportsMode,
+      sportsSubjectId:d.sportsMode==="ASSIGNED"?d.subject??null:null,
+      sportsCost:d.sportsMode==="ASSIGNED"?(d.unit==="堂數"?1:d.cost):null,
+      sportsSetup: d.sportsMode==="LEGACY"&&!preservesTeaching?{
         compensation: d.compensation,
         expectedCompensation: d.expectedCompensation,
         subject: d.subject,
         cost: d.cost,
         coachIds: d.coachIds,
         requestKey: d.requestKey,
-      },
+      }:undefined,
       expectedSnapshot: d.snapshot,
       receipt: { expectedStoreId: storeId, requestKey: d.requestKey },
     });
@@ -448,16 +480,19 @@ export async function sportsStagingCommand(input: unknown) {
           waitlistStopMinutes:z.number().int().min(0).max(10080).optional(),
           count: z.number().int().min(1).max(24),
           coach: z.string(),
+          coachId: id.optional(),
           room: z.string(),
           capacity: z.number().int().min(1).max(50),
           students: z.array(id),
           price: z.number().int().min(0).max(1000000),
+          trialLearner:z.object({participantKey:z.string().uuid(),name:z.string().trim().min(1).max(80),phone:z.string().regex(/^09\d{8}$/)}).optional(),
           customerId: z.string().min(1).nullable().optional(),
           customer: z.string().default(""),
           phone: z.string().default(""),
           requestKey: z.string().uuid(),
         })
         .parse(p);
+      if(d.trialLearner&&(d.kind!=="體驗"||d.students.length))throw new AppError("VALIDATION","新體驗學員不可與既有名單混用");
       const room = await coursePrisma.courseRoom.findFirst({
         where: { storeId, name: d.room, isActive: true },
       });
@@ -477,22 +512,32 @@ export async function sportsStagingCommand(input: unknown) {
           }),
         );
       const plan = await coursePrisma.coursePointPlan.findFirst({
-        where: { id: d.fee, storeId, isActive: true },
+        where: { id: d.kind==="體驗"?d.fee??"":"", storeId, isActive: true },
       });
-      if (!plan) throw new AppError("VALIDATION", "請選收費方式");
+      if (d.kind==="體驗" && d.fee && !plan) throw new AppError("VALIDATION", "請選有效收費方式");
+      if(d.kind==="體驗"&&d.mode==="指定學員"){
+        const settings=courseChargeSettings.safeParse(plan?.chargeSettings);
+        if(!settings.success||settings.data.kind!=="single"||settings.data.trialPrice===null)throw new AppError("VALIDATION","請選擇已設定體驗價的單次收費");
+      }
       const template = await coursePrisma.courseTemplate.findFirst({
         where: {
-          id: plan.templateIds[0],
+          id: plan?.templateIds[0]??sportsTeachingTemplateId(storeId,d.subject),
           storeId,
           musicSubjectId: d.subject,
           isActive: true,
         },
       });
-      if (!template) throw new AppError("VALIDATION", "教學項目與收費方式不符");
-      const coach = await prisma.staff.findFirst({
-        where: { storeId, displayName: d.coach, status: "ACTIVE" },
+      if (!template) throw new AppError("VALIDATION", "請先在教學項目設定授課教練與課程規則");
+      const coaches = await prisma.staff.findMany({
+        where: {
+          storeId, status: "ACTIVE", courseCoachEnabled: true,
+          courseQualificationsConfirmed: true,
+          courseQualifiedTemplateIds: { has: template.id },
+          ...(d.coachId ? { id: d.coachId } : { displayName: d.coach }),
+        },
       });
-      if (!coach) throw new AppError("VALIDATION", "請選有效教練");
+      if (coaches.length !== 1) throw new AppError("VALIDATION", "請重新選擇具本課程授課資格的教練；同名教練請重新整理後選擇。");
+      const coach = coaches[0];
       if (room.capacity !== null && d.capacity > room.capacity)
         throw new AppError("VALIDATION", "人數超過空間容量");
       const frequency =
@@ -501,7 +546,7 @@ export async function sportsStagingCommand(input: unknown) {
           : d.kind === "隔週固定"
             ? "BIWEEKLY"
             : "SINGLE";
-      const perpetual=sportsNativePreview(storeId)&&frequency!=="SINGLE";
+      const perpetual=(await sportsNativePreview(storeId))&&frequency!=="SINGLE";
       const count=frequency==="SINGLE"||perpetual?1:d.count;
       // Resolve cards only after createCourseSchedule holds the Store lock and
       // has checked for an existing receipt. Retries preserve original intent.
@@ -509,6 +554,8 @@ export async function sportsStagingCommand(input: unknown) {
       if (d.kind === "體驗") await courseManager("trial.create");
       return await result(
         createCourseSchedule({
+          ...(d.kind==="體驗"?{learners:d.trialLearner?[{customerId:null,cardId:null,participantKey:d.trialLearner.participantKey,customerName:d.trialLearner.name,customerPhone:d.trialLearner.phone}]:d.students.map(customerId=>({customerId,cardId:null})),bookingAudience:d.mode==="指定學員"?"ASSIGNED":"OPEN"}:{}),
+          chargePlanId:plan?.chargeSettings?plan.id:undefined,
           templateId: template.id,
           roomId: room.id,
           coachId: coach.id,
@@ -528,10 +575,10 @@ export async function sportsStagingCommand(input: unknown) {
           sportsStaging: {
             perpetual:perpetual?true:undefined,
             frequency,
-            ...(sportsNativePreview(storeId)&&d.waitlistLimit!==undefined?{waitlist:{limit:d.mode==="開放選課"?d.waitlistLimit:0,stopMinutes:d.waitlistStopMinutes??240}}:{}),
+            ...((await sportsNativePreview(storeId))&&d.waitlistLimit!==undefined?{waitlist:{limit:d.mode==="開放選課"?d.waitlistLimit:0,stopMinutes:d.waitlistStopMinutes??240}}:{}),
             enrollment: d.mode === "指定學員" ? "ASSIGNED" : "OPEN",
-            planId: d.kind === "體驗" ? null : plan.id,
-            students,
+            planId: null,
+            students:d.kind==="體驗"?[]:students,
             trialPrice: d.price,
           },
         }),
@@ -572,38 +619,7 @@ export async function sportsStagingCommand(input: unknown) {
       );
     }
     if (data.operation === "purchase") {
-      const d = z
-        .object({
-          planId: id,
-          customerId: id,
-          requestKey: z.string().uuid(),
-          expectedPrice: z.number(),
-        })
-        .parse(p);
-      const plan = await coursePrisma.coursePointPlan.findFirst({
-        where: { id: d.planId, storeId, isActive: true },
-      });
-      if (!plan || plan.price !== d.expectedPrice)
-        throw new AppError("CONFLICT", "價格已更新，請重新開啟");
-      const staff = await prisma.staff.findFirst({
-        where: { storeId, userId: user.id, status: "ACTIVE" },
-      });
-      return await result(
-        assignCoursePointCard({
-          ...d,
-          expiresDate: addTaiwanDuration(
-            toLocalDateStr(),
-            plan.validDays,
-            "DAY",
-          ),
-          expectedListPrice: plan.price,
-          expectedStoreCost: plan.storeCost,
-          discountKind: "AMOUNT",
-          discountValue: 0,
-          paymentMethod: "CARD",
-          revenueStaffId: staff?.id ?? "",
-        }),
-      );
+      return await result(assignCoursePointCard(await stagingPurchaseInput(p, {storeId,user})));
     }
     if (data.operation === "attendance")
       return await result(updateCourseBookingStatus(p));
@@ -636,44 +652,13 @@ export async function sportsStagingCommand(input: unknown) {
         })
         .parse(p);
       const rule = await coursePrisma.$queryRaw<
-        Array<{ planId: string | null; trialPrice: number }>
-      >`SELECT "planId","trialPrice" FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId} AND "sessionId"=${d.sessionId}`;
+        Array<{ planId: string | null; trialPrice: number; enrollment:string }>
+      >`SELECT "planId","trialPrice",enrollment FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId} AND "sessionId"=${d.sessionId}`;
       if (!rule[0]) throw new AppError("NOT_FOUND", "課程不在測試改版入口");
-      if (!rule[0].planId)
-        return await result(
-          createCourseTrial({ ...d, price: rule[0].trialPrice }),
-        );
-      const session = await coursePrisma.courseSession.findFirst({
-        where: { id: d.sessionId, storeId, cancelledAt: null },
-      });
-      if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
-      const cards = await coursePrisma.coursePointCard.findMany({
-        where: {
-          storeId,
-          planId: rule[0].planId,
-          closedAt: null,
-          expiresAt: { gte: session.startsAt },
-          members: { some: { customerId: d.customerId } },
-          OR: [
-            { templateIds: { isEmpty: true } },
-            { templateIds: { has: session.templateId } },
-          ],
-        },
-        include: {
-          bookings: {
-            where: { status: "RESERVED" },
-            select: { pointCost: true },
-          },
-        },
-        orderBy: { expiresAt: "asc" },
-      });
-      const card = cards.find(
-        (c) =>
-          c.remaining - c.bookings.reduce((n, b) => n + b.pointCost, 0) >=
-          (c.unit === "SESSION" ? 1 : session.pointCost),
-      );
-      if (!card) throw new AppError("VALIDATION", "沒有適用方案");
-      return await result(createCourseBooking({ ...d, cardId: card.id }));
+      const session = await coursePrisma.courseSession.findFirst({where:{id:d.sessionId,storeId,cancelledAt:null}});
+      if(!session)throw new AppError("NOT_FOUND","找不到本店課程");
+      if(session.isTrial)return await result(createCourseTrial({...d,price:rule[0].trialPrice}));
+      return await result(createCourseBooking({...d,autoCard:true}));
     }
     if (data.operation === "trial-collect")
       return await result(collectCourseTrial(p));
@@ -699,7 +684,7 @@ export async function bookSportsTrial(input: unknown) {
       })
       .parse(input);
     const { storeId, user, customer } = await courseMember({ write: true });
-    requireSportsStaging(storeId);
+    (await requireSportsStaging(storeId));
     const fitness = await prisma.storeFeatureEntitlement.findFirst({
       where: { storeId, featureKey: "business.fitness", status: "ENABLED" },
     });

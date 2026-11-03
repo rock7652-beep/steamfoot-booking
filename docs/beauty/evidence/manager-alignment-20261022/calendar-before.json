@@ -1,0 +1,125 @@
+{
+  "measurements": [
+    {
+      "label": "週表",
+      "settledMs": 1400,
+      "responses": [
+        {
+          "status": 200,
+          "timing": {
+            "startTime": 1792647199291.1812,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.594,
+            "responseStart": 565.642,
+            "responseEnd": 1337.222
+          }
+        }
+      ]
+    },
+    {
+      "label": "月表",
+      "settledMs": 1459,
+      "responses": [
+        {
+          "status": 200,
+          "timing": {
+            "startTime": 1792647200704.9612,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 1.588,
+            "responseStart": 662.122,
+            "responseEnd": 1400.999
+          }
+        }
+      ]
+    },
+    {
+      "label": "日表",
+      "settledMs": 1395,
+      "responses": [
+        {
+          "status": 200,
+          "timing": {
+            "startTime": 1792647202153.6628,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.453,
+            "responseStart": 594.449,
+            "responseEnd": 1351.286
+          }
+        }
+      ]
+    },
+    {
+      "label": "週表",
+      "settledMs": 1583,
+      "responses": [
+        {
+          "status": 200,
+          "timing": {
+            "startTime": 1792647203552.886,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.642,
+            "responseStart": 724.609,
+            "responseEnd": 1525.922
+          }
+        }
+      ]
+    },
+    {
+      "label": "月表",
+      "settledMs": 1521,
+      "responses": [
+        {
+          "status": 200,
+          "timing": {
+            "startTime": 1792647205136.294,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 1.562,
+            "responseStart": 726.202,
+            "responseEnd": 1470.88
+          }
+        }
+      ]
+    },
+    {
+      "label": "日表",
+      "settledMs": 1496,
+      "responses": [
+        {
+          "status": 200,
+          "timing": {
+            "startTime": 1792647206669.1921,
+            "domainLookupStart": -1,
+            "domainLookupEnd": -1,
+            "connectStart": -1,
+            "secureConnectionStart": -1,
+            "connectEnd": -1,
+            "requestStart": 0.669,
+            "responseStart": 678.293,
+            "responseEnd": 1432.956
+          }
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

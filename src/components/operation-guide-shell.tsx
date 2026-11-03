@@ -46,28 +46,9 @@ export function OperationGuideShell({ enabled, children, contextPath, access = {
   }, []);
   const close = useCallback(() => { panel.current?.close(); setOpened(false); }, []);
   useEffect(() => {
-    const root = shell.current;
-    if (!enabled || access.module !== "spa" || !root) return;
-    const header = root.querySelector<HTMLElement>('[data-spa-admin="true"] [data-dashboard-header]');
-    if (!header) return;
-    let active = true;
-    const updateHeight = () => {
-      if (!active) return;
-      const height = header.getBoundingClientRect().height;
-      if (Number.isFinite(height) && height > 0) {
-        root.style.setProperty("--spa-customer-header-height", `${height}px`);
-      }
-    };
-    updateHeight();
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateHeight);
-    observer?.observe(header);
-    if (!observer) window.addEventListener("resize", updateHeight);
-    return () => {
-      active = false;
-      observer?.disconnect();
-      if (!observer) window.removeEventListener("resize", updateHeight);
-      root.style.removeProperty("--spa-customer-header-height");
-    };
+
+    return;
+
   }, [enabled, access.module]);
   useEffect(() => {
     if (!enabled || !opened) return;

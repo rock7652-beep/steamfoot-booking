@@ -1,0 +1,16 @@
+[
+  {
+    "storeId": "store-soulife",
+    "slug": "soulife",
+    "identityMode": "CENTRAL",
+    "providerId": "2005295754",
+    "loginChannelId": "2010761154",
+    "messagingProviderId": "2005295754",
+    "messagingChannelId": "2012197466",
+    "liffId": "2010761154-CmcQZ9Db",
+    "basicId": "@046mqwnp",
+    "destination": "Uec3fa0f9f44e06537c198f132da5a531",
+    "accessTokenEnv": "LINE_SOULIFE_CHANNEL_ACCESS_TOKEN",
+    "channelSecretEnv": "LINE_SOULIFE_CHANNEL_SECRET"
+  }
+]

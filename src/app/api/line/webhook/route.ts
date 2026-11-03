@@ -1,5 +1,7 @@
+import { bindStoreLineNotificationRecipient } from "@/server/services/store-line-notification-binding";
 import { handleMemberConnectionWebhook } from "@/server/services/store-member-connection-webhook";
 import { handleConfiguredCourseLineWebhook } from "@/server/services/configured-course-line-webhook";
+import { completePhoneLineRebind } from "@/server/services/phone-line-rebind";
 // ============================================================
 // LINE Webhook — 完整事件處理（B7-4.5: store-aware）
 //
@@ -258,7 +260,7 @@ async function handleLineEvent(event: LineWebhookEvent, storeId: string, destina
       break;
     }
     case "follow":
-      await handleFollow(lineUserId, storeId, event.replyToken);
+      await handleFollow(lineUserId, storeId);
       break;
 
     case "unfollow":
@@ -290,7 +292,7 @@ async function handleLineEvent(event: LineWebhookEvent, storeId: string, destina
 // follow — 新好友加入 / 封鎖後重新加入
 // ============================================================
 
-async function handleFollow(lineUserId: string, storeId: string, replyToken?: string) {
+async function handleFollow(lineUserId: string, storeId: string) {
   console.log(`[LINE] Follow received`, { userId: maskLineUserId(lineUserId), storeId });
 
   // 若之前被封鎖，自動恢復綁定（限同店）
@@ -319,24 +321,8 @@ async function handleFollow(lineUserId: string, storeId: string, replyToken?: st
     }
   }
 
-  // 回覆歡迎訊息
-  if (replyToken) {
-    const result = await replyMessage(storeId, replyToken, [
-      {
-        type: "text",
-        text: [
-          "歡迎加入蒸足官方帳號！",
-          "",
-          "如需開啟預約提醒與方案通知，請直接輸入您的手機號碼完成通知設定。",
-          "",
-          "例如：0912345678",
-          "",
-          "系統會依照店舖與手機號碼對應到店長建立的顧客資料。",
-        ].join("\n"),
-      },
-    ]);
-    console.log("[LINE] Follow reply result:", result);
-  }
+  // Friendship state is updated above; adding a friend never sends a system welcome.
+
 }
 
 // ============================================================
@@ -448,6 +434,13 @@ async function handleTextMessage(
   }
   const normalizedPhone = normalizePhone(text);
   if (/^09\d{8}$/.test(normalizedPhone)) {
+    if (verifiedDestination) {
+      const rebind = await completePhoneLineRebind({ storeIds: [storeId], destination: verifiedDestination, lineUserId, phone: normalizedPhone, timestamp: eventIdentity?.timestamp ?? 0 });
+      if (rebind !== "not_requested") {
+        if (replyToken) await replyMessage(storeId, replyToken, [{ type: "text", text: rebind === "linked" ? "LINE 綁定已完成。" : "目前無法完成綁定，請聯繫門市確認資料。" }]);
+        return;
+      }
+    }
     // A phone number can be both a Digital Butler answer and a notification
     // binding request. Let an active Butler conversation consume and persist
     // the answer first; then perform the binding without spending the LINE
@@ -509,35 +502,8 @@ async function handleNotificationRecipientBinding(
   storeId: string,
   replyToken?: string,
 ) {
-  const recipient = await prisma.storeLineNotificationRecipient.findFirst({
-    where: { storeId, bindingCode },
-    select: { id: true, displayName: true, bindingCodeExpiresAt: true },
-  });
-  let reply = "綁定連結無效，請回到店家後台重新新增通知人員。";
-  if (recipient && recipient.bindingCodeExpiresAt && recipient.bindingCodeExpiresAt > new Date()) {
-    const occupied = await prisma.storeLineNotificationRecipient.findFirst({
-      where: { storeId, lineUserId, NOT: { id: recipient.id } },
-      select: { id: true },
-    });
-    if (occupied) {
-      reply = "這個 LINE 已是本店通知人員；如需調整姓名或身分，請先在後台解除原綁定。";
-    } else {
-      await prisma.storeLineNotificationRecipient.update({
-        where: { id: recipient.id },
-        data: {
-          lineUserId,
-          bindingCode: null,
-          bindingCodeExpiresAt: null,
-          linkedAt: new Date(),
-          isActive: true,
-        },
-      });
-      reply = `${recipient.displayName}，店家重要通知已綁定成功 ✓\n\n之後顧客有 VIP 續購、新體驗預約或留下聯絡資料時，系統會主動通知您。`;
-    }
-  } else if (recipient) {
-    reply = "這個綁定連結已超過 24 小時，請回到店家後台重新新增。";
-  }
-  if (replyToken) await replyMessage(storeId, replyToken, [{ type: "text", text: reply }]);
+  const result=await bindStoreLineNotificationRecipient({storeIds:[storeId],lineUserId,bindingCode});
+  if(replyToken)await replyMessage(storeId,replyToken,[{type:"text",text:result.reply}]);
 }
 
 async function replyDigitalButlerMessages(
@@ -954,15 +920,13 @@ async function handleBindingRequest(
     }
   }
 
-  // 5. 執行綁定
-  await prisma.customer.update({
-    where: { id: customer.id },
-    data: {
-      lineUserId,
-      lineLinkStatus: "LINKED",
-      lineLinkedAt: new Date(),
-    },
-  });
+  // 5. Consume once with compare-and-set and identity conflict checks.
+  const { consumeCustomerLineBindingCode } = await import("@/server/services/customer-line-binding-code");
+  const bound = await consumeCustomerLineBindingCode({ customerId: customer.id, storeId, code: bindingCode, lineUserId });
+  if (!bound) {
+    if (replyToken) await replyMessage(storeId, replyToken, [{ type: "text", text: "綁定狀態已異動或身分需核對，請聯繫店家重新確認。" }]);
+    return;
+  }
 
   console.log("[LINE] Binding success", { customerId: customer.id, userId: maskLineUserId(lineUserId), storeId });
 

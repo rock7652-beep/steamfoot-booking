@@ -167,8 +167,9 @@ describe("marketing usage aggregate SQL in isolated PostgreSQL", () => {
     await courseSession("future", { endsAt: "2026-10-03T10:00:00Z" });
     await courseBooking("future-session", { sessionId: "future" });
 
-    // 2 + 3 + 0 steam, 2 course attendees, 4 SPA, and 6 at the second store.
-    expect(await aggregate()).toEqual({ stores: 2, customers: 3, completedPeople: 17, remindersSent: 0, asOf: "2026-10-02" });
+    // 2 + 3 + 0 steam, 2 course attendees, and 6 at the second store.
+    // Archived SPA rows above must contribute no usage.
+    expect(await aggregate()).toEqual({ stores: 2, customers: 3, completedPeople: 13, remindersSent: 0, asOf: "2026-10-02" });
   });
 
   it("excludes test customers, acceptance notes, and cross-store customer/session joins", async () => {

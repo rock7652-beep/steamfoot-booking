@@ -1,0 +1,21 @@
+{
+  "localSyntheticOnly": true,
+  "productionBuild": true,
+  "results": [
+    "typed-but-unselected companion blocks accidental anonymous submission",
+    "manual duplicate technician is blocked",
+    "manual duplicate bed is blocked",
+    "backend rejects forged duplicate assignments without partial bookings",
+    "mixed charge modes: member uses plan, companion uses trial",
+    "stale identity creation leaves no orphan customer",
+    "backend rejects linking the primary customer into the companion",
+    "foreign booking identity update rejected",
+    "existing-phone flow requires explicit selection and does not duplicate customer",
+    "identical identity retry is idempotent",
+    "synthetic mixed-mode reservation released",
+    "synthetic mixed-mode reservation released",
+    "mixed-mode booking and identity changes preserve plan balance",
+    "no browser errors"
+  ],
+  "errors": []
+}

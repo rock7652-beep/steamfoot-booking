@@ -1,0 +1,12 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "selected service label agrees with trial duration",
+    "trial end time is 09:35",
+    "trial buffer ends at 09:50",
+    "general end time remains 10:00",
+    "general buffer ends at 10:15",
+    "blank trial duration actually uses regular 60 minutes in booking",
+    "actual stored booking agrees with price, trial time and buffer"
+  ]
+}

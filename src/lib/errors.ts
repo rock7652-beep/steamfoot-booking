@@ -84,6 +84,7 @@ export function handleActionError(e: unknown, ctx?: ErrorContext): ActionResult<
   }
 
   const msg = e instanceof Error ? e.message : String(e);
+  if (msg.includes("MUSIC_RECORD_ARCHIVED")) return { success: false, error: "此資料已封存，僅供查閱；請返回目前的營運資料操作。" };
 
   // Dynamic import to avoid pulling prisma/db into client bundle
   // error-logger.ts imports db.ts which crashes on client-side (no DATABASE_URL)

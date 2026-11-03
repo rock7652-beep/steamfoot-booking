@@ -1,0 +1,114 @@
+{
+  "commit": "674ad61ebe89fb98e7cd2e09f510386a21298991",
+  "deployment": "dpl_2GbmSd4NhdZ5XgiCTxTg1zcwYxzp",
+  "url": "https://steamfoot-booking-gfc1i3cnf-rock7652-2111s-projects.vercel.app",
+  "target": "preview",
+  "state": "READY",
+  "databaseProject": "ttworfzgwejdeolegkxl",
+  "syntheticFixture": false,
+  "checks": [
+    {
+      "case": "顧客真實登入",
+      "passed": true
+    },
+    {
+      "case": "欄位與技師",
+      "passed": true
+    },
+    {
+      "case": "方案與草稿",
+      "passed": true
+    },
+    {
+      "case": "半小時與摘要",
+      "passed": true
+    },
+    {
+      "case": "真實預約",
+      "passed": true
+    },
+    {
+      "case": "顧客五尺寸無溢出",
+      "passed": true
+    },
+    {
+      "case": "店長真實登入",
+      "passed": true
+    },
+    {
+      "case": "店長 首頁",
+      "passed": true
+    },
+    {
+      "case": "店長 班表",
+      "passed": true
+    },
+    {
+      "case": "店長 顧客管理",
+      "passed": true
+    },
+    {
+      "case": "店長 營運",
+      "passed": true
+    },
+    {
+      "case": "店長 分析",
+      "passed": true
+    },
+    {
+      "case": "店長 技師管理",
+      "passed": true
+    },
+    {
+      "case": "店長iPad班表",
+      "passed": true
+    },
+    {
+      "case": "分項改期",
+      "passed": true
+    },
+    {
+      "case": "部分取消",
+      "passed": true
+    },
+    {
+      "case": "不同服務與單次",
+      "passed": true
+    },
+    {
+      "case": "技師登入及新預約",
+      "passed": true
+    },
+    {
+      "case": "體驗入口",
+      "passed": true
+    },
+    {
+      "case": "店長補同行者身分",
+      "passed": true
+    },
+    {
+      "case": "技師完成改期服務",
+      "passed": true
+    }
+  ],
+  "database": {
+    "customerCountBefore": 5,
+    "customerCountAfter": 5,
+    "sharedCardRemainingBefore": 4,
+    "sharedCardRemainingAfterCompletion": 3,
+    "heldAfterTwoPersonBooking": 2,
+    "heldAfterCancellationAndCompletionAndSecondBooking": 1,
+    "completionDebitRows": 1,
+    "cancelledCompanionDebitRows": 0,
+    "doubleClickSubmittedGroups": 1
+  },
+  "lineEnabled": false,
+  "productionDeploymentUnchanged": "dpl_6Kcn8tzbMHG96oCwXZLHjKTy4xEH",
+  "limits": [
+    "Physical devices and shop signoff pending",
+    "LINE delivery and login not tested; disabled",
+    "Harness reruns corrected date labels, plan fixture applicability and menu targeting; successful checks aggregated without repeating successful writes",
+    "Not a complete regression of every existing module"
+  ]
+}

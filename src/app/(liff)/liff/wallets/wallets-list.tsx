@@ -22,19 +22,78 @@
  * Mobile-first：max-w-md。文案一律 `liffMessages.wallets.*` / `liffMessages.error.*`，不寫 inline 中文。
  */
 
+/**
+ * LIFF My Wallets List (PR-E2)
+ *
+ * 流程：
+ *   1. mount → initLiff → isInLineClient → ready
+ *   2. ready → call fetchLiffWallets → 分 3 個 section 顯示
+ *
+ * 範圍（per PR-E2 拍板）：
+ *   ✅ 三段 section：有效方案 / 已過期 / 歷史方案
+ *   ✅ Hero 大字「可預約 X 堂」(walletAvailableToBook，非 raw remainingSessions)
+ *   ✅ 拆分小字：方案剩餘 R/T + 待到店 / 已使用 / 已註銷
+ *   ✅ 7 天內到期 badge
+ *   ✅ Defensive 分類：ACTIVE+0 視同 USED_UP；ACTIVE+過期 視同 EXPIRED
+ *   ✅ 空狀態 + 聯絡店家 CTA
+ *   ✅ 購買 / 續購留在 LIFF 專屬頁面，共用既有付款與通知後端
+ *   ❌ 不導向顧客網頁版；延長 / 註銷 / 編輯仍由店家處理
+ *   ❌ 不顯示 WalletSession 明細
+ *   ❌ 不從預約頁加入口（PR-E2 拍板）
+ *
+ * Mobile-first：max-w-md。文案一律 `liffMessages.wallets.*` / `liffMessages.error.*`，不寫 inline 中文。
+ */
+/**
+ * LIFF My Wallets List (PR-E2)
+ *
+ * 流程：
+ *   1. mount → initLiff → isInLineClient → ready
+ *   2. ready → call fetchLiffWallets → 分 3 個 section 顯示
+ *
+ * 範圍（per PR-E2 拍板）：
+ *   ✅ 三段 section：有效方案 / 已過期 / 歷史方案
+ *   ✅ Hero 大字「可預約 X 堂」(walletAvailableToBook，非 raw remainingSessions)
+ *   ✅ 拆分小字：方案剩餘 R/T + 待到店 / 已使用 / 已註銷
+ *   ✅ 7 天內到期 badge
+ *   ✅ Defensive 分類：ACTIVE+0 視同 USED_UP；ACTIVE+過期 視同 EXPIRED
+ *   ✅ 空狀態 + 聯絡店家 CTA
+ *   ✅ 購買 / 續購留在 LIFF 專屬頁面，共用既有付款與通知後端
+ *   ❌ 不導向顧客網頁版；延長 / 註銷 / 編輯仍由店家處理
+ *   ❌ 不顯示 WalletSession 明細
+ *   ❌ 不從預約頁加入口（PR-E2 拍板）
+ *
+ * Mobile-first：max-w-md。文案一律 `liffMessages.wallets.*` / `liffMessages.error.*`，不寫 inline 中文。
+ */
+/**
+ * LIFF My Wallets List (PR-E2)
+ *
+ * 流程：
+ *   1. mount → initLiff → isInLineClient → ready
+ *   2. ready → call fetchLiffWallets → 分 3 個 section 顯示
+ *
+ * 範圍（per PR-E2 拍板）：
+ *   ✅ 三段 section：有效方案 / 已過期 / 歷史方案
+ *   ✅ Hero 大字「可預約 X 堂」(walletAvailableToBook，非 raw remainingSessions)
+ *   ✅ 拆分小字：方案剩餘 R/T + 待到店 / 已使用 / 已註銷
+ *   ✅ 7 天內到期 badge
+ *   ✅ Defensive 分類：ACTIVE+0 視同 USED_UP；ACTIVE+過期 視同 EXPIRED
+ *   ✅ 空狀態 + 聯絡店家 CTA
+ *   ✅ 購買 / 續購留在 LIFF 專屬頁面，共用既有付款與通知後端
+ *   ❌ 不導向顧客網頁版；延長 / 註銷 / 編輯仍由店家處理
+ *   ❌ 不顯示 WalletSession 明細
+ *   ❌ 不從預約頁加入口（PR-E2 拍板）
+ *
+ * Mobile-first：max-w-md。文案一律 `liffMessages.wallets.*` / `liffMessages.error.*`，不寫 inline 中文。
+ */
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { initLiff, isInLineClient, getIDToken } from "@/lib/liff/client";
-import {
-  fetchLiffWallets,
-  type LiffWalletRow,
-  type LiffMakeupCreditRow,
-} from "@/server/actions/liff-my-wallets";
+import { fetchLiffWallets, type LiffWalletRow, type LiffMakeupCreditRow } from "@/server/actions/liff-my-wallets";
 import { isExpiringSoon } from "@/lib/liff/my-wallets";
 import { liffMessages } from "@/lib/liff/messages";
-import { fetchSpaLiffEntitlements } from "@/server/actions/spa-liff-member";
+
 import { fetchLiffConsumption, type LiffConsumptionRow } from "@/server/actions/liff-consumption";
 import type { IndustryModuleId } from "@/lib/industry-modules";
 
@@ -82,7 +141,7 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
       if (cancelled) return;
 
       if (!isInLineClient()) {
-        if (!allowBrowserSession || dataSource !== "spa") {
+        {
           setState({ kind: "not_in_line_app" });
           return;
         }
@@ -111,7 +170,7 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
       let consumption;
       try {
         [result, consumption] = await Promise.all([
-          dataSource === "spa" ? fetchSpaLiffEntitlements() : fetchLiffWallets(),
+          fetchLiffWallets(),
           fetchLiffConsumption(),
         ]);
       } catch (err) {
@@ -150,17 +209,13 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">
-      {dataSource === "spa" && (
-        <Link href={`/s/${storeSlug}/book`} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-700">
-          ← 返回會員專區
-        </Link>
-      )}
+
       <header className="text-center">
         <p className="text-xs uppercase tracking-widest text-earth-500">
           {storeName}
         </p>
         <h1 className="mt-1 text-xl font-bold text-earth-900">
-          {dataSource === "spa" ? "我的療程" : liffMessages.wallets.title}
+          {liffMessages.wallets.title}
         </h1>
       </header>
 
@@ -320,7 +375,7 @@ export function WalletReadyView({
           連 /liff/member-booking (PR-G3 主體 page)。 */}
       {activeTab === "plans" && showBookNow && (
         <Link
-          href={dataSource === "spa" ? `/s/${storeSlug}/book/new` : `/s/${storeSlug}/liff/member-booking`}
+          href={`/s/${storeSlug}/liff/member-booking`}
           className="mt-4 inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-primary-700 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-primary-800 active:scale-[0.98]"
         >
           {liffMessages.wallets.ctaBookNow}

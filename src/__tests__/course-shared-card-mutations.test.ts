@@ -5,8 +5,9 @@ const m = vi.hoisted(() => ({
   plan: vi.fn(), createPlan: vi.fn(), updatePlan: vi.fn(), validateTerm: vi.fn(),
   card: vi.fn(), bookings: vi.fn(), remove: vi.fn(), add: vi.fn(), template: vi.fn(),
 }));
+vi.mock("@/lib/auth",()=>({auth:vi.fn()}));
 vi.mock("next/server", () => ({ after: vi.fn() }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn(),unstable_cache:(fn:unknown)=>fn }));
 vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findFirst: m.music } } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseTemplate: { count: vi.fn().mockResolvedValue(1), findFirst: m.template } } }));
 vi.mock("@/server/services/course-access", () => ({ courseManager: m.access, courseTransaction: m.transaction }));
@@ -157,4 +158,11 @@ it("keeps music's existing per-plan restriction even for member removals", async
   m.card.mockResolvedValue({ id: "card", termSessionIds: [], plan: { allowShared: false }, members: [{ customerId: "owner" }, { customerId: "existing" }] });
   expect(await setCourseCardMembers({ cardId: "card", customerIds: ["owner"] })).toMatchObject({ success: false, error: "此方案未開放共卡" });
   expect(m.remove).not.toHaveBeenCalled();
+});
+
+it.each(["ASSIGNED","OPEN"])("preserves existing %s rights when a generic edit omits hidden sports fields",async sportsMode=>{
+ const rights={sportsMode,sportsSubjectId:sportsMode==="ASSIGNED"?"subject":null,sportsCost:sportsMode==="ASSIGNED"?2:null};
+ m.plan.mockResolvedValue({...oldPlan,...rights});
+ expect(await saveCoursePointPlan({...planInput,id:"plan",name:"改名"})).toMatchObject({success:true});
+ expect(m.updatePlan.mock.calls[0][0].data).toMatchObject({...rights,name:"改名"});
 });

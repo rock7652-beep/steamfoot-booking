@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { checkPermission } from "@/lib/permissions";
+import {getManagerReadFilter} from "@/lib/manager-visibility";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
 import {
@@ -55,6 +56,7 @@ export async function GET(req: NextRequest) {
   }
 
   const filters: ReportFilters = {
+    dataScope: sp.get("dataScope"),
     startDate,
     endDate,
     storeId: getEffectiveActorRole(user) === "ADMIN" ? sp.get("storeId") : reportsStoreId,
@@ -67,15 +69,34 @@ export async function GET(req: NextRequest) {
   const level = sp.get("level") ?? "summary";
 
   try {
-    if (analysisStoreId && await getStoreIndustryModule(analysisStoreId) === "course") {
-      const report = await getCourseRevenueReport(analysisStoreId, filters);
+    const industry=analysisStoreId?await getStoreIndustryModule(analysisStoreId):null;
+    if(analysisStoreId&&industry==='steamfoot'){
+      const report=await (await import('@/server/queries/steamfoot-revenue-report')).getSteamfootRevenueReport(analysisStoreId,{...filters,storeFilter:{...filters.storeFilter,storeId:analysisStoreId}},{customers:await checkPermission(user.role,user.staffId,'customer.read'),reader:readUser});
+      const headers={'Cache-Control':'private, no-store'};
+      if(level==='summary')return NextResponse.json({summary:report.summary,kpi:report.kpi},{headers});
+      if(level==='payment-methods')return NextResponse.json({paymentMethods:report.paymentMethods},{headers});
+      const page=Math.max(1,Math.floor(Number(sp.get('page'))||1)),pageSize=Math.min(1000,Math.max(1,Math.floor(Number(sp.get('pageSize'))||50)));
+      const details={data:report.data.slice((page-1)*pageSize,page*pageSize),total:report.data.length,page,pageSize};
+      return NextResponse.json(level==='details'?details:{summary:report.summary,kpi:report.kpi,details},{headers});
+    }
+    if (analysisStoreId && (industry === "course"||industry==="beauty")) {
+      if(industry==="beauty"){
+        const scope=getManagerReadFilter(readUser.role,readUser.staffId??null,"revenueStaffId",analysisStoreId);
+        if(typeof scope.revenueStaffId==="string"){
+          if(filters.coachId&&filters.coachId!==scope.revenueStaffId)return new NextResponse("Forbidden",{status:403});
+          filters.coachId=scope.revenueStaffId;
+        }
+      }
+      if(industry==="beauty"&&level!=="summary"&&level!=="payment-methods"&&(!(await checkPermission(user.role,user.staffId,"transaction.read"))||!(await hasStoreFeature(analysisStoreId,FEATURES.TRANSACTION_MANAGEMENT))))return NextResponse.json({error:"Forbidden"},{status:403});
+      const report = industry==="beauty"?await (await import("@/server/queries/beauty-revenue-report")).getBeautyRevenueReport(analysisStoreId,filters,{customers:await checkPermission(user.role,user.staffId,"customer.read")}):await getCourseRevenueReport(analysisStoreId, filters);
+      const headers={"Cache-Control":"private, no-store"};
       const page = Math.max(1, Math.floor(Number(sp.get("page")) || 1));
       const pageSize = Math.min(1000, Math.max(1, Math.floor(Number(sp.get("pageSize")) || 50)));
-      if (level === "summary") return NextResponse.json({ summary: report.summary, kpi: report.kpi });
-      if (level === "payment-methods") return NextResponse.json({paymentMethods:report.paymentMethods});
+      if (level === "summary") return NextResponse.json({ summary: report.summary, kpi: report.kpi },{headers});
+      if (level === "payment-methods") return NextResponse.json({paymentMethods:report.paymentMethods},{headers});
       const details = {data:report.data.slice((page-1)*pageSize,page*pageSize),total:report.data.length,page,pageSize};
-      if (level === "details") return NextResponse.json(details);
-      return NextResponse.json({summary:report.summary,kpi:report.kpi,details});
+      if (level === "details") return NextResponse.json(details,{headers});
+      return NextResponse.json({summary:report.summary,kpi:report.kpi,details},{headers});
     }
     if (level === "summary") {
       const [summary, kpi] = await Promise.all([
@@ -105,7 +126,7 @@ export async function GET(req: NextRequest) {
     ]);
     return NextResponse.json({ summary, kpi, details });
   } catch (e) {
-    if (e instanceof AppError && e.code === "VALIDATION") return NextResponse.json({ error: e.message }, { status: 400 });
+    if (e instanceof AppError && ["VALIDATION","FORBIDDEN"].includes(e.code)) return NextResponse.json({ error: e.message }, { status: e.code==="FORBIDDEN"?403:400 });
     console.error("Store revenue API error:", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -3,7 +3,7 @@
 import { FeatureEntry, useFeaturePresentation } from "@/components/feature-presentation";
 import { FEATURES } from "@/lib/feature-flags";
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
-import { loadCustomerLabels, setCustomerLabel } from "@/server/actions/customer-labels";
+import { setCustomerLabel } from "@/server/actions/customer-labels";
 import { EMPTY_LABELS, labelColor, nextCustomerLabelRevision, newerLabelSnapshot, receiveCustomerLabelSnapshot, type LabelMetadata, type LabelSnapshot } from "@/lib/customer-labels";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { courseSettingsPanelHref } from "@/lib/course-settings-panels";
 import { LabelManager } from "@/app/(dashboard)/dashboard/settings/customer-labels/label-manager";
 import { DashboardLink } from "@/components/dashboard-link";
+import {readCustomerLabels} from "@/lib/customer-label-reader";
 type ContextValue = {snapshot: LabelSnapshot; register:(id:string)=>()=>void; refresh:()=>Promise<void>; seed:(snapshot:LabelSnapshot)=>void; update:(id:string,labels:string[])=>void; pendingIds: Set<string>; lock:(id:string)=>boolean; unlock:(id:string)=>void};
 const Context = createContext<ContextValue|null>(null);
 const LABEL_CACHE_MS = 60_000;
@@ -40,7 +41,7 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
     queued.current=false;
     const run=(async()=>{
       try {
-        const batches=await Promise.all(Array.from({length:Math.max(1,Math.ceil(requested.length/500))},(_,i)=>initial.storeId?loadCustomerLabels(requested.slice(i*500,(i+1)*500),initial.storeId):loadCustomerLabels(requested.slice(i*500,(i+1)*500))));
+        const batches=await Promise.all(Array.from({length:Math.max(1,Math.ceil(requested.length/500))},(_,i)=>initial.storeId?readCustomerLabels(requested.slice(i*500,(i+1)*500),initial.storeId):readCustomerLabels(requested.slice(i*500,(i+1)*500))));
         if(!mounted.current)return;
         const result={...batches[0],clientRevision,assignments:Object.assign({},...batches.map(batch=>batch.assignments))};
         setSnapshot(old=>{

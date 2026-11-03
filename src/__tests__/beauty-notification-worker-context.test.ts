@@ -1,0 +1,11 @@
+import { beforeEach, expect, it, vi } from 'vitest';
+vi.mock('@/lib/db', () => ({ prisma: {} }));
+const m = vi.hoisted(() => ({ plan: vi.fn(), grant: vi.fn(), base: vi.fn() }));
+vi.mock('@/lib/store-plan', () => ({ getStoreForPlanByStoreId: m.plan }));
+vi.mock('@/lib/feature-flags', () => ({ FEATURES: { LINE_REMINDER: 'line_reminder' }, hasFeature: m.base }));
+import { beautyWorkerLineAllowed } from '@/server/beauty/notification-worker-context';
+const tx = { storeFeatureEntitlement: { findUnique: m.grant } }, now = new Date('2026-10-25T15:00Z');
+beforeEach(() => { vi.resetAllMocks(); m.plan.mockResolvedValue({ plan: 'PROFESSIONAL' }); m.base.mockReturnValue(true); m.grant.mockResolvedValue(null); });
+it('reads both plan and grant from the supplied transaction', async () => { expect(await beautyWorkerLineAllowed(tx as unknown as Parameters<typeof beautyWorkerLineAllowed>[0], 's', now)).toBe(true); expect(m.plan).toHaveBeenCalledWith('s', tx); expect(m.grant).toHaveBeenCalledWith({ where: { uq_store_feature_entitlement: { storeId: 's', featureKey: 'line_reminder' } } }); });
+it.each(['HIDDEN', 'LOCKED', 'DISABLED'])('honors current %s overrides', async (status) => { m.grant.mockResolvedValue({ status, startsAt: null, expiresAt: null }); expect(await beautyWorkerLineAllowed(tx as unknown as Parameters<typeof beautyWorkerLineAllowed>[0], 's', now)).toBe(false); });
+it('ignores an expired override and follows the actual plan', async () => { m.grant.mockResolvedValue({ status: 'DISABLED', expiresAt: new Date('2026-10-24'), startsAt: null }); expect(await beautyWorkerLineAllowed(tx as unknown as Parameters<typeof beautyWorkerLineAllowed>[0], 's', now)).toBe(true); });

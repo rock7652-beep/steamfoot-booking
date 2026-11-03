@@ -1,0 +1,258 @@
+{
+  "operations": {
+    "results": [
+      {
+        "operation": "technician-profile-save",
+        "passed": true
+      },
+      {
+        "operation": "technician-profile-reopen",
+        "passed": true
+      }
+    ],
+    "errors": []
+  },
+  "rental-settings": {
+    "results": [
+      {
+        "operation": "room-rental-settings-save-reopen",
+        "passed": true
+      },
+      {
+        "operation": "shared-service-form-repeated-save",
+        "passed": true
+      },
+      {
+        "operation": "booking-window-save-reopen",
+        "passed": true
+      },
+      {
+        "operation": "shared-rental-create-and-read-receipt",
+        "passed": true
+      }
+    ],
+    "errors": []
+  },
+  "collision": {
+    "results": [
+      {
+        "operation": "rental-blocks-service-duration-and-buffer",
+        "passed": true,
+        "options": [
+          "請選擇時間",
+          "09:00",
+          "09:30",
+          "10:00",
+          "10:30",
+          "15:30",
+          "16:00",
+          "16:30",
+          "17:00",
+          "17:30",
+          "18:00",
+          "18:30",
+          "19:00",
+          "19:30"
+        ]
+      },
+      {
+        "operation": "service-blocks-overlapping-shared-rental",
+        "passed": true
+      }
+    ],
+    "errors": []
+  },
+  "permissions": [
+    {
+      "operation": "owner-cross-store-write-rejected",
+      "status": 400,
+      "body": {
+        "success": false,
+        "error": "店家已切換"
+      }
+    },
+    {
+      "operation": "limited-settings-write-rejected",
+      "status": 400,
+      "body": {
+        "success": false,
+        "error": "目前無法完成此操作，請重新整理頁面再試；若持續發生，請聯繫店家協助"
+      }
+    },
+    {
+      "operation": "limited-technician-page-protected",
+      "url": "http://localhost:3123/s/beauty-shared-qa/admin/dashboard",
+      "hasCreate": 0
+    },
+    {
+      "operation": "foreign-store-read-protected",
+      "status": 200
+    }
+  ],
+  "rental-cancel": {
+    "results": [
+      {
+        "operation": "shared-room-history-includes-cancelled-rental",
+        "passed": true
+      },
+      {
+        "operation": "rental-cancel-releases-service-slot",
+        "passed": true
+      }
+    ],
+    "errors": []
+  },
+  "plan-save": {
+    "operation": "shared-plan-create-save-reopen",
+    "persisted": {
+      "points": "7",
+      "price": "6300",
+      "days": "120"
+    },
+    "errors": []
+  },
+  "bank-staff": {
+    "results": [
+      {
+        "operation": "shared-bank-form-save-reopen",
+        "passed": true
+      },
+      {
+        "operation": "original-staff-account-editor",
+        "text": "編輯人員\n關閉\n基本資料\n後台帳號／權限\n姓名 *\n狀態\n啟用\n停用\n電話（選填）\n識別色\n尚未修改\n取消\n儲存"
+      }
+    ],
+    "errors": []
+  },
+  "rwd": {
+    "results": [
+      {
+        "width": 1920,
+        "height": 1080,
+        "tab": "位置管理",
+        "overflow": false
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "tab": "服務項目",
+        "overflow": false
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "tab": "收費方式",
+        "overflow": false
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "tab": "技師管理",
+        "overflow": false
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "tab": "技師編輯",
+        "bounds": {
+          "x": 500,
+          "y": 200,
+          "width": 920,
+          "height": 680
+        },
+        "contained": true
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "tab": "設定",
+        "overflow": false
+      },
+      {
+        "width": 1024,
+        "height": 768,
+        "tab": "位置管理",
+        "overflow": false
+      },
+      {
+        "width": 1024,
+        "height": 768,
+        "tab": "服務項目",
+        "overflow": false
+      },
+      {
+        "width": 1024,
+        "height": 768,
+        "tab": "收費方式",
+        "overflow": false
+      },
+      {
+        "width": 1024,
+        "height": 768,
+        "tab": "技師管理",
+        "overflow": false
+      },
+      {
+        "width": 1024,
+        "height": 768,
+        "tab": "技師編輯",
+        "bounds": {
+          "x": 52,
+          "y": 44,
+          "width": 920,
+          "height": 680
+        },
+        "contained": true
+      },
+      {
+        "width": 1024,
+        "height": 768,
+        "tab": "設定",
+        "overflow": false
+      },
+      {
+        "width": 768,
+        "height": 1024,
+        "tab": "位置管理",
+        "overflow": false
+      },
+      {
+        "width": 768,
+        "height": 1024,
+        "tab": "服務項目",
+        "overflow": false
+      },
+      {
+        "width": 768,
+        "height": 1024,
+        "tab": "收費方式",
+        "overflow": false
+      },
+      {
+        "width": 768,
+        "height": 1024,
+        "tab": "技師管理",
+        "overflow": false
+      },
+      {
+        "width": 768,
+        "height": 1024,
+        "tab": "技師編輯",
+        "bounds": {
+          "x": 24,
+          "y": 172,
+          "width": 720,
+          "height": 680
+        },
+        "contained": true
+      },
+      {
+        "width": 768,
+        "height": 1024,
+        "tab": "設定",
+        "overflow": false
+      }
+    ],
+    "errors": []
+  }
+}

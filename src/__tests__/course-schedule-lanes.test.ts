@@ -15,3 +15,12 @@ it("separates rooms but detects teacher overlap across rooms",()=>{
  expect(scheduleLanes(rows).get("one")?.count).toBe(1);
  expect(scheduleLanes(rows,"coachId").get("two")?.count).toBe(2);
 });
+
+it("places simultaneous classes in different rooms and with different teachers beside one another in the combined week",()=>{
+ const rows=[row("room-a","10:00","11:00","a","alice"),row("room-b","10:30","11:30","b","bob"),row("later","11:30","12:30","b","bob")];
+ const lanes=scheduleLanes(rows,"all");
+ expect(lanes.get("room-a")).toEqual({lane:0,count:2});
+ expect(lanes.get("room-b")).toEqual({lane:1,count:2});
+ expect(lanes.get("later")).toEqual({lane:0,count:1});
+ expect(rows.map(row=>row.roomId)).toEqual(["a","b","b"]);
+});

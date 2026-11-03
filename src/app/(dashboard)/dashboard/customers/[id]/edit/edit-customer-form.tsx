@@ -10,12 +10,7 @@ import { updateCustomer } from "@/server/actions/customer";
 import { normalizePhone, normalizeEmail } from "@/lib/normalize";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { BirthdayFields } from "@/components/birthday-fields";
-import {
-  FormShell,
-  FormSection,
-  FormGrid,
-  StickyFormActions,
-} from "@/components/desktop";
+import { FormShell, FormSection, FormGrid, StickyFormActions } from "@/components/desktop";
 
 interface CustomerData {
   id: string;
@@ -228,59 +223,7 @@ export function EditCustomerForm({
 
           {/* 右欄 */}
           <div className="space-y-3">
-            {isSpa && (
-              <FormSection title="個人資訊">
-                <div className="space-y-4">
-                  <div>
-                    <label className={labelCls}>
-                      性別
-                      <span className="ml-1 text-xs text-earth-400">
-                        （選填）
-                      </span>
-                    </label>
-                    <select
-                      name="gender"
-                      value={fields.gender} onChange={e => draft.set("gender", e.target.value)}
-                      className={`mt-1 ${inputCls}`}
-                    >
-                      <option value="">未填寫</option>
-                      <option value="male">男</option>
-                      <option value="female">女</option>
-                      <option value="other">其他</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelCls}>
-                      生日
-                      <span className="ml-1 text-xs text-earth-400">
-                        （選填）
-                      </span>
-                    </label>
-                    <BirthdayFields
-                      parts={{ year: fields.birthYear, month: fields.birthMonth, day: fields.birthDay }} onPartsChange={p => draft.setMany({ birthYear: p.year, birthMonth: p.month, birthDay: p.day })}
-                      className={inputCls}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls}>
-                    身高 (cm)
-                    <span className="ml-1 text-xs text-earth-400">
-                      （選填）
-                    </span>
-                  </label>
-                  <input
-                    name="height"
-                    type="number"
-                    step="0.1"
-                    min="50"
-                    max="250"
-                    value={fields.height} onChange={e => draft.set("height", e.target.value)}
-                    className={`mt-1 ${inputCls}`}
-                  />
-                </div>
-              </FormSection>
-            )}
+
             <FormSection title="系統關聯">
               <div>
                 <label className={labelCls}>
@@ -329,7 +272,7 @@ export function EditCustomerForm({
         <StickyFormActions
           info={
             <span>
-              {isSpa ? "儲存後回到此顧客的搜尋結果" : "儲存後會回到顧客詳情"}
+              {"儲存後會回到顧客詳情"}
             </span>
           }
         >

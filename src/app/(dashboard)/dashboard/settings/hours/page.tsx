@@ -1,8 +1,8 @@
+import {CourseHoursWorkspace} from "../../courses/hours/hours-workspace";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { notFound } from "next/navigation";
-import {loadServiceHoursForSettings} from "@/server/services/service-hours-read";
-
+import { loadServiceHoursForSettings } from "@/server/services/service-hours-read";
 
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -14,7 +14,8 @@ import { BookableUntilForm } from "./bookable-until-form";
 
 const WEEK_DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 
-export default async function ScheduleSettingsPage() {
+export default async function ScheduleSettingsPage({searchParams}:{searchParams?:Promise<{tab?:string}>}) {
+  const params=await searchParams;
   const user = await getCurrentUser();
   if (!user) notFound();
   if (!(await checkPermission(user.role, user.staffId, "business_hours.view"))) notFound();
@@ -63,39 +64,13 @@ export default async function ScheduleSettingsPage() {
     dayName: WEEK_DAY_NAMES[h.dayOfWeek],
   }));
   const isHeadquarters = currentStore?.isDefault ?? false;
-  const isSpaStore =
-    (await getStoreIndustryModule(effectiveStoreId)) === "spa";
+  const hoursIndustry = await getStoreIndustryModule(effectiveStoreId);
+  const isBeautyStore=hoursIndustry === "beauty";
 
-  return (
-    <PageShell>
-      <PageHeader
-        title={isSpaStore ? "營業與預約時間" : "服務時間與預約開放"}
-        subtitle={isSpaStore ? "設定每週營業時間、15／30 分鐘預約單位及特殊休假" : "管理當日服務時間、預約時段間隔與每時段可接人數"}
-        actions={
-          <Link
-            href="/dashboard/settings?section=booking"
-            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
-          >
-            ← 返回設定
-          </Link>
-        }
-      />
-
-      {/* 顧客可預約到日期 */}
-      <BookableUntilForm
-        key={`bookable-until-${effectiveStoreId}`}
-        storeId={effectiveStoreId}
-        spa={isSpaStore}
-        initialOpensAt={shopConfig?.bookingOpensAt?.toISOString() ?? null}
-        initialDate={bookableUntilInitial}
-        initialDays={shopConfig?.bookingWindowDays ?? 14}
-        today={todayStr}
-        canManage={canManage}
-      />
-
-      <ScheduleManager key={`schedule-${effectiveStoreId}`} storeId={effectiveStoreId} initialHoursRevision={hoursSnapshot.day.hoursRevision}
+  const schedule=(<ScheduleManager key={`schedule-${effectiveStoreId}`} storeId={effectiveStoreId} initialHoursRevision={hoursSnapshot.day.hoursRevision}
             weeklyHours={weeklyHours.map((h) => ({
               dayOfWeek: h.dayOfWeek,
+              persisted:h.persisted,
               dayName: h.dayName,
               isOpen: h.isOpen,
               openTime: h.openTime,
@@ -110,8 +85,39 @@ export default async function ScheduleSettingsPage() {
             initialMonth={nowMonth}
             canManage={canManage}
             isHeadquarters={isHeadquarters}
-            isSpaStore={isSpaStore}
-          />
+            isBeautyStore={isBeautyStore}
+          />);
+  if(isBeautyStore){
+    return <PageShell><PageHeader title="營業與公休" actions={<Link href="/dashboard/beauty?tab=設定&section=booking">返回設定</Link>}/><CourseHoursWorkspace initialSection={params?.tab} schedule={schedule}/></PageShell>;
+  }
+
+  return (
+    <PageShell>
+      <PageHeader
+        title="服務時間與預約開放"
+        subtitle="管理當日服務時間、預約時段間隔與每時段可接人數"
+        actions={
+          <Link
+            href="/dashboard/settings?section=booking"
+            className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+          >
+            ← 返回設定
+          </Link>
+        }
+      />
+
+      {/* 顧客可預約到日期 */}
+      {!isBeautyStore&&<BookableUntilForm
+        key={`bookable-until-${effectiveStoreId}`}
+        storeId={effectiveStoreId}
+        initialOpensAt={shopConfig?.bookingOpensAt?.toISOString() ?? null}
+        initialDate={bookableUntilInitial}
+        initialDays={shopConfig?.bookingWindowDays ?? 14}
+        today={todayStr}
+        canManage={canManage}
+      />}
+
+      {schedule}
     </PageShell>
   );
 }

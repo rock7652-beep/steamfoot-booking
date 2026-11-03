@@ -1,0 +1,11 @@
+import {createElement as h,type ReactNode} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {expect,it,vi} from 'vitest';
+vi.mock('@/components/instant-filter-form',()=>({InstantFilterForm:({children,...props}:{children:ReactNode})=>h('form',props,children)}));
+import {BeautyRevenueBreakdownView} from '@/components/beauty/revenue-breakdown-view';
+import {beautyRevenueBreakdown} from '@/lib/beauty/revenue-breakdown';
+import type {BeautyRevenueBreakdownData} from '@/server/beauty/revenue-breakdown';
+const data={storeId:'store',storeName:'合成店',from:'2026-10-01',to:'2026-10-31',...beautyRevenueBreakdown([{staffId:'manager',coachName:'所屬店長',netAmount:5000,refund:false,saleAllocation:{storeAmount:1000,managerAmount:4000,unassignedAmount:0,unknownAmount:0}}]),technicians:[{id:'tech',name:'合成技師',services:2,fee:800,paid:300,unpaid:500,overpaid:0}]} satisfies BeautyRevenueBreakdownData;
+it('presents separate receipt shares and technician obligations with their distinct date basis',()=>{const html=renderToStaticMarkup(h(BeautyRevenueBreakdownView,{data}));for(const label of ['收入分類','店家分配','所屬店長分潤','未歸屬','待核對','應付服務費','累計已付','尚未支付','服務日','付款沖回','NT$ 4,000','NT$ 1,000','NT$ 500'])expect(html).toContain(label);expect(html).toContain('name="area"');expect(html).toContain('value="income"');expect(html).toContain('分類合計與淨收款一致');});
+it('renders no technician names or financial fields when compensation access is absent',()=>{const html=renderToStaticMarkup(h(BeautyRevenueBreakdownView,{data:{...data,technicians:null}}));expect(html).not.toContain('合成技師');expect(html).not.toContain('應付服務費');expect(html).toContain('顧客所屬店長');});
+it('shows conservation differences as alerts and keeps pending amounts visible',()=>{const html=renderToStaticMarkup(h(BeautyRevenueBreakdownView,{data:{...data,hasDifferences:true}}));expect(html).toContain('role="alert"');expect(html).toContain('差額');});

@@ -7,6 +7,7 @@ import { requireWritablePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
+import {PENDING_STATUSES} from "@/lib/booking-constants";
 import type { ActionResult } from "@/types";
 
 const editWalletExpirySchema = z.object({
@@ -78,6 +79,12 @@ export async function editWalletExpiry(
     const nextStatus = wallet.status === "EXPIRED" ? "ACTIVE" : wallet.status;
 
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "CustomerPlanWallet" WHERE id=${wallet.id} AND "storeId"=${wallet.storeId} FOR UPDATE`;
+      const current=await tx.customerPlanWallet.findUnique({where:{id:wallet.id},select:{status:true,expiryDate:true}});
+      if(!current||current.status!==wallet.status||current.expiryDate?.getTime()!==wallet.expiryDate?.getTime())throw new AppError("CONFLICT","方案狀態或期限已更新，請重新開啟核對");
+      const bookingWhere={bookingStatus:{in:[...PENDING_STATUSES]},bookingDate:{gt:newExpiry}};
+      const [direct,reserved]=await Promise.all([tx.booking.count({where:{storeId:wallet.storeId,customerPlanWalletId:wallet.id,isMakeup:false,...bookingWhere}}),tx.walletSession.count({where:{walletId:wallet.id,status:"RESERVED",booking:bookingWhere}})]);
+      if(direct||reserved)throw new AppError("BUSINESS_RULE","新期限早於既有預約，請先調整相關預約");
       await tx.customerPlanWallet.update({
         where: { id: wallet.id },
         data: {

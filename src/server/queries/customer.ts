@@ -492,8 +492,11 @@ export async function getCustomerDrawerDetailForUser(
   }
   const config = await prisma.shopConfig.findUnique({ where: { storeId: customer.storeId }, select: { bookableUntilDate: true } });
   const bookingDays = enumerateBookableDates(toLocalDateStr(), resolveBookableUntilDate(config?.bookableUntilDate));
+  // The drawer crosses the Server Action boundary; Prisma Decimal is not an
+  // RSC-serializable value. Keep the ledger untouched and return display data.
+  const drawerCustomer = { ...customer, planWallets: customer.planWallets.map(wallet => ({ ...wallet, purchasedPrice: Number(wallet.purchasedPrice) })) };
   const canReadConsumption = user.role !== "CUSTOMER" && await checkPermission(user.role, user.staffId, "transaction.read");
-  if (!canReadConsumption) return { ...customer, canReadBookings, canBook, canAssignPlan, bookingDays, recentConsumption: null, canAdjustWallet };
+  if (!canReadConsumption) return { ...drawerCustomer, canReadBookings, canBook, canAssignPlan, bookingDays, recentConsumption: null, canAdjustWallet };
   const [transactions, cashbookEntries] = await Promise.all([
     prisma.transaction.findMany({
       where: { storeId: customer.storeId, customerId: customer.id },
@@ -531,7 +534,7 @@ export async function getCustomerDrawerDetailForUser(
   ].sort((a, b) => b.sortAt.getTime() - a.sortAt.getTime()).slice(0, 5)
     .map((row) => ({ id: row.id, date: row.date, label: row.label, amount: row.amount, payment: row.payment }));
 
-  return { ...customer, canReadBookings, canBook, canAssignPlan, bookingDays, recentConsumption, canAdjustWallet };
+  return { ...drawerCustomer, canReadBookings, canBook, canAssignPlan, bookingDays, recentConsumption, canAdjustWallet };
 }
 
 // ============================================================
@@ -543,6 +546,7 @@ export async function getCustomerDrawerDetailForUser(
 // ============================================================
 
 export type CustomerMergePreviewRow = {
+  serviceMode?:boolean;
   courseMode?: boolean;
   healthCount?: number;
   id: string;
@@ -632,6 +636,13 @@ export async function getCustomerMergePreview(
         prisma.customerHealthRecord.count({ where: { storeId: row.storeId, customerId: row.id } }),
       ]);
       Object.assign(row, { courseMode: true, bookingCount: bookings, walletCount: members, transactionCount: purchases, healthCount: health });
+    }));
+  }
+  if(source.store.industryModule==="BEAUTY"&&source.storeId===target.storeId){
+    const {beautyPrisma}=await import("@/lib/beauty-db");
+    await Promise.all([sourceRow,targetRow].map(async row=>{
+      const [bookings,cards,purchases,health]=await Promise.all([beautyPrisma.beautyAppointment.count({where:{storeId:row.storeId,customerId:row.id}}),beautyPrisma.beautyCard.count({where:{storeId:row.storeId,OR:[{customerId:row.id},{memberIds:{has:row.id}}]}}),beautyPrisma.beautyPurchase.count({where:{storeId:row.storeId,customerId:row.id}}),prisma.customerHealthRecord.count({where:{storeId:row.storeId,customerId:row.id}})]);
+      Object.assign(row,{courseMode:true,serviceMode:true,bookingCount:bookings,walletCount:cards,transactionCount:purchases,healthCount:health});
     }));
   }
   return { source: sourceRow, target: targetRow };

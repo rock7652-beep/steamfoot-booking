@@ -1,0 +1,111 @@
+{
+  "passed": true,
+  "realNext": true,
+  "realCredentialsLogin": true,
+  "realPostgres": true,
+  "exactMigration": true,
+  "results": [
+    {
+      "step": "database-direct-access-restricted",
+      "passed": true,
+      "rls": true,
+      "anonymousDirectReadDenied": true,
+      "authenticatedDirectReadDenied": true
+    },
+    {
+      "step": "real-owner-login-and-empty-manager",
+      "passed": true,
+      "login": "credentials UI",
+      "store": "image-qa-a"
+    },
+    {
+      "step": "real-image-upload-and-database-persistence",
+      "passed": true,
+      "revision": 1,
+      "images": 2
+    },
+    {
+      "step": "public-api-and-actual-jpeg-response",
+      "passed": true,
+      "list": 200,
+      "image": 200
+    },
+    {
+      "step": "other-store-isolation-and-forged-write-rejected",
+      "passed": true,
+      "crossStoreRead": 404,
+      "crossStoreWrite": 403
+    },
+    {
+      "step": "real-customer-login-and-homepage-data",
+      "passed": true,
+      "realCustomerLogin": true,
+      "width": 358,
+      "height": 506,
+      "naturalWidth": 840,
+      "naturalHeight": 1188
+    },
+    {
+      "step": "homepage-six-second-carousel-and-modal",
+      "passed": true,
+      "autoplay": true,
+      "manualPause": true,
+      "zoom": true,
+      "close": true,
+      "realNavigation": true
+    },
+    {
+      "step": "sort-and-replace-images-with-real-saves",
+      "passed": true,
+      "sortPersisted": true,
+      "replacedAssetRemoved": true
+    },
+    {
+      "step": "schedule-and-disable-hide-public-assets",
+      "passed": true,
+      "futureHidden": true,
+      "disabledHidden": true,
+      "noEmptyFrame": true
+    },
+    {
+      "step": "expired-images-hidden-and-owner-preview-authorized",
+      "passed": true,
+      "expiredHidden": true,
+      "anonymousPreviewDenied": true,
+      "ownerPreview": 200
+    },
+    {
+      "step": "five-image-cap-with-real-upload",
+      "passed": true,
+      "images": 5,
+      "capEnforced": true
+    },
+    {
+      "step": "concurrent-editor-conflict-preserves-draft",
+      "passed": true,
+      "staleWriteRejected": true,
+      "draftPreserved": true,
+      "ipadViewport": true
+    },
+    {
+      "step": "delete-images-and-remove-assets-atomically",
+      "passed": true,
+      "images": 0,
+      "assets": 0
+    },
+    {
+      "step": "manager-publish-and-staff-read-only-authorization",
+      "passed": true,
+      "managerPublish": true,
+      "managerDelete": true,
+      "staffReadOnly": true,
+      "staffWrite": 403
+    }
+  ],
+  "limitations": [
+    "Real LINE SDK/app and physical iPad/Safari not verified",
+    "No cloud deployment performed; standalone local production build recorded separately"
+  ],
+  "runtime": "local compiled Next.js production server",
+  "productionBuildPassed": true
+}

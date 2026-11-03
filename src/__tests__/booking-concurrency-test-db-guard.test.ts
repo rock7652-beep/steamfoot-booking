@@ -8,6 +8,7 @@ describe("booking concurrency test database guard", () => {
     "postgresql://tester:secret@localhost:5432/booking_concurrency_test",
     "postgresql://tester:secret@127.0.0.1:5432/booking_concurrency_test",
     "postgresql://tester:secret@[::1]:5432/booking_concurrency_test",
+    "postgresql://tester:secret@127.0.0.1:5432/booking_concurrency_test?connection_limit=1&pool_timeout=15&schema=public&sslmode=disable",
   ])("allows a loopback PostgreSQL _test database", (url) => {
     expect(resolveBookingConcurrencyTestDatabaseUrl({
       BOOKING_CONCURRENCY_TEST_DATABASE_URL: url,
@@ -44,6 +45,16 @@ describe("booking concurrency test database guard", () => {
     expect(resolveBookingConcurrencyTestDatabaseUrl({
       BOOKING_CONCURRENCY_TEST_DATABASE_URL: "",
     })).toBeUndefined();
+  });
+
+  it.each([
+    "?host=db.example.com", "?host=%2Ftmp%2Fpostgres", "?options=-csearch_path%3Dprivate",
+    "?schema=public&schema=private", "?connection_limit=1&connection_limit=10", "?schema=public%2Cprivate",
+    "?sslmode=unknown", "?pool_timeout=-1", "#remote",
+  ])("rejects query overrides, duplicate options and malformed values: %s", (suffix) => {
+    expect(() => resolveBookingConcurrencyTestDatabaseUrl({
+      BOOKING_CONCURRENCY_TEST_DATABASE_URL: `postgresql://localhost/booking_concurrency_test${suffix}`,
+    })).toThrow(/Unsafe booking concurrency test database URL/);
   });
 
   it("does not inspect DATABASE_URL or DIRECT_URL fallbacks", () => {

@@ -1,0 +1,48 @@
+{
+  "authorization": {
+    "granted": true,
+    "scope": "Formal Beauty schema/role, dedicated connection, deploy after verification; no stores or data copying; LINE off"
+  },
+  "status": "BLOCKED_TOOL_INVALID_REQUEST_STATE_NO_RETRY",
+  "writeAttempts": [
+    {
+      "tool": "supabase_apply_migration",
+      "project": "qijlnhtpbintanzpxkvf",
+      "name": "beauty_production_base_20261025",
+      "sqlSha256": "930cec851bc799eda0105392c575c35bd6b1840b15843171e8e29fa4403bc233",
+      "result": "McpServerError: Invalid or expired requestState",
+      "errorReason": "invalid_request_state"
+    }
+  ],
+  "before": {
+    "user": "postgres",
+    "database": "postgres",
+    "roleExists": false,
+    "staffCount": 17,
+    "storeCount": 9,
+    "storeDigest": "dd65d72d935a0e6ff4330ef243c3a5f6",
+    "beautyTables": 0,
+    "cashbookCount": 110,
+    "customerCount": 618,
+    "beautyFunctions": 0,
+    "publicTableGrants": []
+  },
+  "readonlyAfter": {
+    "beautyEnum": false,
+    "staffCount": 17,
+    "storeCount": 9,
+    "runtimeRole": false,
+    "storeDigest": "dd65d72d935a0e6ff4330ef243c3a5f6",
+    "beautyTables": [],
+    "cashbookCount": 110,
+    "customerCount": 618
+  },
+  "matchingMigrationHistoryRows": 0,
+  "roleStageAttempted": false,
+  "passwordCreated": false,
+  "envChanges": 0,
+  "mainPushed": false,
+  "deploymentCreated": false,
+  "mutationRetry": false,
+  "lineChanges": false
+}

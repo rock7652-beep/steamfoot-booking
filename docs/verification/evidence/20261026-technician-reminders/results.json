@@ -1,0 +1,29 @@
+{
+  "results": [
+    {
+      "module": "beauty",
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    }
+  ],
+  "errors": []
+}

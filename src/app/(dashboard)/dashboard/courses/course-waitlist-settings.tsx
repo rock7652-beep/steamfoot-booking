@@ -13,7 +13,7 @@ export function CourseWaitlistSettings({
   canEdit,
 }: {
   storeId:string;
-  onSaved:(values:SavedWaitlistSettings)=>void;
+  onSaved:(values:SavedWaitlistSettings,syncWarning:boolean)=>void;
   initial: { enabled: boolean; defaultLimit: number; autoPromoteStopMinutes: number };
   canEdit: boolean;
 }) {
@@ -39,7 +39,7 @@ export function CourseWaitlistSettings({
     setMessage("");setError("");
     const result=await request.save({enabled,defaultLimit,autoPromoteStopMinutes:stopMinutes,expectedRevision:waitlistRevision(saved)});
     if(!result.success){setError(result.error??"儲存失敗");return;}
-    setEnabled(result.data.enabled);setDefaultLimit(result.data.defaultLimit);setStopMinutes(result.data.autoPromoteStopMinutes);setSaved(result.data);onSaved(result.data);
+    setEnabled(result.data.enabled);setDefaultLimit(result.data.defaultLimit);setStopMinutes(result.data.autoPromoteStopMinutes);setSaved(result.data);onSaved(result.data,result.syncWarning);
     setMessage(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");
   }
 

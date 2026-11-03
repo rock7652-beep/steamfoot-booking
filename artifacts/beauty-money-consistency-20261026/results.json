@@ -1,0 +1,56 @@
+{
+  "synthetic": true,
+  "databaseWrites": false,
+  "physicalDevice": false,
+  "results": [
+    {
+      "view": "detail",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "view": "detail",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "view": "detail",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "view": "detail",
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    },
+    {
+      "view": "refund",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "view": "refund",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "view": "refund",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "view": "refund",
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    }
+  ],
+  "errors": []
+}

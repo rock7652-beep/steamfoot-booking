@@ -1,8 +1,12 @@
 import "server-only";
-import { sportsProductionEnabled } from "../../scripts/sports-production-scope.mjs";
+import { sportsProductionStore } from "./sports-production-store";
 import { sportsStagingEnabled } from "./sports-staging";
-/** Historical name retained for callers; production requires the exact opt-in and store allowlist. */
-export function sportsNativePreview(storeId?: string) {
-  if (sportsProductionEnabled(storeId)) return true;
-  return process.env.VERCEL_ENV === "preview" && storeId === "sports-live-flow-store" && sportsStagingEnabled(storeId);
+import {memoizeReadRequest} from "@/server/services/read-request-memo";
+/** Production sports stores always use native workflows; isolated QA stays scoped. */
+export async function sportsNativePreview(storeId?: string) {
+  return memoizeReadRequest(JSON.stringify(["sports.native.eligibility",storeId]),()=>readSportsNative(storeId));
+}
+async function readSportsNative(storeId?:string){
+  if (process.env.VERCEL_ENV === "production") return sportsProductionStore(storeId);
+  return process.env.VERCEL_ENV === "preview" && storeId === "sports-live-flow-store" && await sportsStagingEnabled(storeId);
 }

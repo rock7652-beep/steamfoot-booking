@@ -17,6 +17,7 @@ import { CustomerPanelSummaryView } from "./customer-panel-summary";
 import { CustomerPanelRecordsList } from "./customer-panel-records";
 
 import { AdjustWalletForm } from "../[id]/adjust-wallet-form";
+import {SteamPlanClose} from "@/components/admin/steam-plan-close";
 import { ExtendWalletExpiryForm } from "../[id]/extend-wallet-expiry-form";
 import { BackfillUsedSessionsForm } from "../[id]/backfill-used-sessions-form";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
@@ -200,7 +201,8 @@ export function CustomerDetailDrawerContent({
           </div>
         </section>
 
-        {!readOnly && <StoreMemberConnectionPanel key={customer.id} customerId={customer.id} />}
+        {!readOnly && <StoreMemberConnectionPanel key={`member-connection:${customer.id}`} customerId={customer.id} pendingOnly />}
+        <CustomerPanelAdvanced key={`line-management:${customer.id}`} managerSimple active customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
         <CustomerPanelSummaryView initialData={initialSummary} customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} />
 
         {/* 課程方案 / 堂數 */}
@@ -259,6 +261,7 @@ export function CustomerDetailDrawerContent({
                         {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && <AdjustWalletForm controlledOpen={activeEditor === `${w.id}:adjust`} onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:adjust` : null);}} walletId={w.id} currentRemaining={remaining} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
                         {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && available > 0 && <BackfillUsedSessionsForm controlledOpen={activeEditor === `${w.id}:backfill`} onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:backfill` : null);}} walletId={w.id} available={available} reserved={reserved} startDateLocal={toLocalDateStr(w.startDate)} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
                         {!readOnly && customer.canAdjustWallet && w.expiryDate && (w.status === "ACTIVE" || w.status === "EXPIRED") && <ExtendWalletExpiryForm controlledOpen={activeEditor === `${w.id}:expiry`} onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:expiry` : null);}} walletId={w.id} currentExpiry={toLocalDateStr(w.expiryDate)} expired={expired} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
+                        {!readOnly && customer.canAdjustWallet && <SteamPlanClose wallet={w} onSaved={handleMutated}/> }
                         <CustomerPanelSessions key={`${w.id}-${revision}`} customerId={customer.id} walletId={w.id} planName={w.plan.name} canVoid={!readOnly && customer.canAdjustWallet} onMutated={handleMutated} />
                       </div>
                     </details>
@@ -318,7 +321,6 @@ export function CustomerDetailDrawerContent({
             {[["電話", phoneDisplay], ["Email", customer.email], ["LINE 名稱", customer.lineName], ["性別", customer.gender === "MALE" ? "男" : customer.gender === "FEMALE" ? "女" : null], ["生日", customer.birthday ? formatTWTime(customer.birthday, {dateOnly:true}) : null], ["身高", customer.height ? `${customer.height} cm` : null]].filter(([,value])=>!!value && value !== "—").map(([label,value]) => <div key={label} className="contents"><dt className="text-earth-500">{label}</dt><dd className="break-words text-earth-800">{value || "—"}</dd></div>)}
           </dl>
         </CollapsibleSection>
-        <CustomerPanelAdvanced managerSimple active customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
         </section>
       </div>
       {view !== "overview" && <div className="min-h-0 flex-1 overflow-y-auto p-4">

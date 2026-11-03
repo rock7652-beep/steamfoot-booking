@@ -7,7 +7,7 @@ const source = readFileSync("src/app/(dashboard)/dashboard/courses/workspace.tsx
 it("mobile calendar shows counts, closures, and retains the accessible date action", () => {
   expect(source).toContain('styles.monthDay');
   expect(source).toContain('{total.classes}堂・{total.people}人次');
-  expect(source).toContain('`${date}，${isClosed ? closureLabel : `${total.classes} 堂課，${total.rentals} 筆租借，${total.people} 人次`}');
+  expect(source).toContain('isClosed ? closureLabel : `${total.classes} 堂課，${total.rentals} 筆租借，${total.people} 人次`');
   expect(source).toContain('calendarDay?.status === "training" ? "員工訓練" : "公休"');
   expect(source).not.toContain('list.slice(0, 2).map');
 });
@@ -15,7 +15,7 @@ it("mobile calendar shows counts, closures, and retains the accessible date acti
 it("resource tables scroll horizontally and retain view and edit actions", () => {
   expect(source).toContain('overflow-x-auto rounded-xl border border-earth-200 bg-white');
   expect(source).toContain('min-w-[740px]');
-  expect(source).toContain('查看{template ? "課程" : "教室"}');
+  expect(source).toContain('label={`${item.name}操作`}');
   expect(source).toContain('setEditing(');
   expect(source).toContain('人數上限');
 });

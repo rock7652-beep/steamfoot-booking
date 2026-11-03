@@ -1,0 +1,162 @@
+{
+  "deploymentId": "dpl_GkMWFozXDjjcrffPh937fkVXmCRG",
+  "commit": "c3417ac6937d1b1111e9dcb2ae5a4c59b62a9ffc",
+  "project": "steamfoot-preview",
+  "storeId": "beauty-hosted-20261021",
+  "verification": "real authenticated HTTP API plus Preview database reconciliation; no browser interaction",
+  "settingsRestored": true,
+  "existingData": [
+    {
+      "name": "Customer",
+      "count": 8,
+      "fingerprint": "6acc6feee6fdce05d6b4345c17c46b60",
+      "unchanged": true
+    },
+    {
+      "name": "BeautyAppointment",
+      "count": 33,
+      "fingerprint": "8b87ac082c71f0eb07330210375ea56e",
+      "unchanged": true
+    },
+    {
+      "name": "BeautyGroup",
+      "count": 19,
+      "fingerprint": "420893baf2f93ea04a579802c83331a9",
+      "unchanged": true
+    },
+    {
+      "name": "BeautyCard",
+      "count": 4,
+      "fingerprint": "57d28bff89a9060babbe19092642ac80",
+      "unchanged": true
+    },
+    {
+      "name": "BeautyPayment",
+      "count": 21,
+      "fingerprint": "5121da478ef707894aa69b5d7a39644f",
+      "unchanged": true
+    },
+    {
+      "name": "BeautyLedger",
+      "count": 34,
+      "fingerprint": "00547d7c352cb818034f794ba902195e",
+      "unchanged": true
+    },
+    {
+      "name": "BeautyService",
+      "count": 4,
+      "fingerprint": "c1d09a89f95e44a12efb66d1465f3274",
+      "unchanged": true
+    },
+    {
+      "name": "BeautyPlan",
+      "count": 6,
+      "fingerprint": "50cd78c82d66c38b769f1c03a0d3bf24",
+      "unchanged": true
+    },
+    {
+      "name": "BeautyTechnician",
+      "count": 9,
+      "fingerprint": "795eed86b42933027d69f8358bbc195c",
+      "unchanged": true
+    },
+    {
+      "name": "CourseRoom",
+      "count": 7,
+      "fingerprint": "c1b2106aa228df26bb2456070f865f03",
+      "unchanged": true
+    },
+    {
+      "name": "ShopConfig",
+      "count": 1,
+      "fingerprint": "76f2a23d02a64628fc32c2af93760d23",
+      "unchanged": true
+    }
+  ],
+  "preClose": {
+    "card": {
+      "closed": false,
+      "sessions": 5,
+      "remaining": 5
+    },
+    "ledger": [
+      {
+        "kind": "GRANT",
+        "delta": 5
+      },
+      {
+        "kind": "RESERVE",
+        "delta": 0
+      },
+      {
+        "kind": "CORRECTION",
+        "delta": -1
+      },
+      {
+        "kind": "CORRECTION",
+        "delta": 1
+      }
+    ],
+    "payments": [
+      {
+        "id": "cmvmju0dl0007js07y5rdbp28",
+        "kind": "SALE",
+        "amount": 5000,
+        "cardId": "cmvmju0ci0005js07rc4lfdu4",
+        "appointmentId": null
+      },
+      {
+        "id": "cmvmjx36w000jjs07iq3fpoje",
+        "kind": "SALE",
+        "amount": 900,
+        "cardId": null,
+        "appointmentId": "cmvmjv9c6000bjs07r1fnd93i"
+      }
+    ],
+    "appointments": [
+      {
+        "id": "cmvmjv9e0000ejs07olzrilpb",
+        "debit": false,
+        "price": 1000,
+        "cardId": "cmvmju0ci0005js07rc4lfdu4",
+        "status": "RESERVED",
+        "revision": 2,
+        "locationId": "beauty-hosted-room-a",
+        "technicianId": "beauty-hosted-female"
+      },
+      {
+        "id": "cmvmjv9c6000bjs07r1fnd93i",
+        "debit": false,
+        "price": 1000,
+        "cardId": null,
+        "status": "RESERVED",
+        "revision": 1,
+        "locationId": "bcf97ee2-c1d3-4a65-b1c7-714d6662c92c",
+        "technicianId": "beauty-hosted-male"
+      }
+    ]
+  },
+  "closeout": {
+    "card": {
+      "closed": true,
+      "remaining": 0
+    },
+    "saleCount": 2,
+    "cashbookNet": 0,
+    "netPayments": 0,
+    "refundCount": 2,
+    "cashbookRows": 4,
+    "paymentCount": 4,
+    "planInactive": true,
+    "lineNotificationsOff": true,
+    "cancelledNewAppointments": 2
+  },
+  "temporaryAliasAccessRevoked": true,
+  "applicationSignoutCompleted": false,
+  "applicationSignoutNote": "Preview access revoked first; local credential files discarded instead of reauthorizing solely to sign out.",
+  "physicalDeviceResult": "user confirmed previously",
+  "productionChanged": false,
+  "lineEnabled": false,
+  "migrationRun": false,
+  "localCredentialsDiscarded": true
+}

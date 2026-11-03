@@ -205,23 +205,36 @@ export function resolveDayRule(input: {
   };
 }
 
+/** 時段預約的單日例外；不改寫每週規則或特殊公休日資料。
+ * 進修日、尚未完成營業設定的日期仍禁止加開。
+ */
+export function resolveSlotDayRule(rule: DayRule, overrides: SlotOverrideRow[]): DayRule {
+  if (!rule.closed || rule.status !== "closed" || rule.source === "none") return rule;
+  const enabled = overrides.filter((item) => item.type === "enabled").sort((a, b) => a.startTime.localeCompare(b.startTime));
+  if (!enabled.length) return rule;
+  const lastTime = enabled.at(-1)!.startTime;
+  const endMinutes = Math.min(24 * 60, Number(lastTime.slice(0, 2)) * 60 + Number(lastTime.slice(3)) + rule.slotInterval);
+  const closeTime = `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
+  return { ...rule, status: "custom", closed: false, openTime: enabled[0].startTime, closeTime, periods: [] };
+}
+
 /**
  * 純函式：將 SlotOverride 套到 DayRule 上，回傳該日 slot 列表。
  *
  * 不做 duty 過濾；呼叫端依需求（前台才需要）自行過濾。
  *
  * 規則：
- *   - rule.closed：不會生成任何 slot（即使有 enabled override，公休日仍視為公休）
+ *   - rule.closed：不生成預設時段；僅公休日可用明確 enabled override 加開
  *   - disabled override：保留在列表（isEnabled=false），讓後台可看到關閉狀態
  *   - capacity_change：覆寫 capacity
  *   - enabled：強制加入不在生成範圍內的時段
  */
 export function applySlotOverrides(rule: DayRule, overrides: SlotOverrideRow[]): ResolvedSlot[] {
-  if (rule.closed || rule.periods.length === 0) {
+  if (rule.closed && (rule.status !== "closed" || rule.source === "none")) {
     return [];
   }
 
-  const generated = rule.periods.flatMap((period) =>
+  const generated = (rule.closed ? [] : rule.periods).flatMap((period) =>
     generateSlots(period.openTime, period.closeTime, period.slotInterval, period.defaultCapacity),
   );
   const overrideMap = new Map(overrides.map((o) => [o.startTime, o]));
@@ -274,15 +287,15 @@ export function applySlotOverrides(rule: DayRule, overrides: SlotOverrideRow[]):
     };
   });
 
-  // 加入「強制 enabled」但不在生成範圍內的時段
+  // 保留規則外的加開／關閉時段，讓後台可重新開放；前台會過濾 disabled。
   for (const ov of overrides) {
-    if (ov.type !== "enabled") continue;
+    if (ov.type !== "enabled" && ov.type !== "disabled") continue;
     if (slots.some((s) => s.startTime === ov.startTime)) continue;
     slots.push({
       startTime: ov.startTime,
       capacity: ov.capacity ?? rule.defaultCapacity,
-      override: "enabled",
-      isEnabled: true,
+      override: ov.type,
+      isEnabled: ov.type === "enabled",
       overrideReason: ov.reason,
       inRange: false,
       reason: ov.reason,
@@ -377,7 +390,10 @@ export async function loadMonthBusinessHoursContext(
 
   const rules = new Map<string, DayRule>();
   for (const { dateStr, dow } of enumerateMonthDates(year, month)) {
-    rules.set(dateStr, resolveDayRule({ dateStr, dow, specialDayMap, businessHoursMap }));
+    rules.set(dateStr, resolveSlotDayRule(
+      resolveDayRule({ dateStr, dow, specialDayMap, businessHoursMap }),
+      slotOverrideRows.filter((item) => item.date.toISOString().slice(0, 10) === dateStr),
+    ));
   }
 
   return {
@@ -397,6 +413,8 @@ export async function loadMonthBusinessHoursContext(
 }
 
 export interface DayBusinessHoursContext {
+  /** 時段例外生效前的營業規則，用於設定寫入與模組限制。 */
+  baseRule: DayRule;
   rule: DayRule;
   slotOverrides: SlotOverrideRow[];
   /** "YYYY-MM-DD" 對應的 UTC midnight Date 物件，方便呼叫端做 booking 查詢 */
@@ -441,9 +459,11 @@ export async function loadDayBusinessHoursContext(
   const businessHoursMap = new Map<number, BusinessHoursRow>();
   if (businessHour) businessHoursMap.set(dow, businessHour);
 
-  const rule = resolveDayRule({ dateStr, dow, specialDayMap, businessHoursMap });
+  const baseRule = resolveDayRule({ dateStr, dow, specialDayMap, businessHoursMap });
+  const rule = resolveSlotDayRule(baseRule, slotOverrides);
 
   return {
+    baseRule,
     rule,
     slotOverrides: slotOverrides.map((o) => ({
       date: o.date,
@@ -513,10 +533,7 @@ export async function computeMonthScheduleSummary(
   const days: MonthSummary = {};
   for (const { dateStr } of enumerateMonthDates(year, month)) {
     const rule = ctx.rules.get(dateStr)!;
-    const slotCount = rule.periods.reduce(
-      (count, period) => count + generateSlots(period.openTime, period.closeTime, period.slotInterval, 1).length,
-      0,
-    );
+    const slotCount = applySlotOverrides(rule, ctx.slotOverrides.filter((item) => item.date.toISOString().slice(0, 10) === dateStr)).filter((slot) => slot.isEnabled).length;
     days[dateStr] = {
       status: rule.status,
       openTime: rule.openTime,

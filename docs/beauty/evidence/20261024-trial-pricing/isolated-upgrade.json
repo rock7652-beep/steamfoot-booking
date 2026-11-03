@@ -1,0 +1,50 @@
+{
+  "project": "ttworfzgwejdeolegkxl",
+  "store": "beauty-hosted-20261021",
+  "nullableTrialDuration": true,
+  "existingDataUnchanged": true,
+  "before": [
+    {
+      "kind": "services",
+      "count": 4,
+      "digest": "b02b8be0ce3e401e61d639a50d1ebe9f"
+    },
+    {
+      "kind": "appointments",
+      "count": 33,
+      "digest": "87f1b44b0838f437d11a5011d5185c64"
+    },
+    {
+      "kind": "ledger",
+      "count": 33,
+      "digest": "41fb9e31e75164c28896f5c30a58fcd3"
+    },
+    {
+      "kind": "payments",
+      "count": 21,
+      "digest": "e7b9108c3274bcdf6bf1d94f3c909c7f"
+    }
+  ],
+  "after": [
+    {
+      "kind": "services",
+      "count": 4,
+      "digest": "b02b8be0ce3e401e61d639a50d1ebe9f"
+    },
+    {
+      "kind": "appointments",
+      "count": 33,
+      "digest": "87f1b44b0838f437d11a5011d5185c64"
+    },
+    {
+      "kind": "ledger",
+      "count": 33,
+      "digest": "41fb9e31e75164c28896f5c30a58fcd3"
+    },
+    {
+      "kind": "payments",
+      "count": 21,
+      "digest": "e7b9108c3274bcdf6bf1d94f3c909c7f"
+    }
+  ]
+}

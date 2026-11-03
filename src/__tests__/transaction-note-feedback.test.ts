@@ -13,7 +13,7 @@ vi.mock("@/server/actions/transaction", () => ({
   updateTransactionPaymentMethod: m.payment, updateTransactionOwnerStaff: m.staff,
   voidTransaction: m.void, refundTransaction: m.refund,
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }) }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => "/dashboard/transactions", useRouter: () => ({ refresh: m.refresh }) }));
 vi.mock("@/components/admin/right-sheet", () => ({
   RightSheet: ({ open, children, onClose }: { open: boolean; children: ReactNode; onClose: () => void }) => open
     ? createElement("div", { role: "dialog" }, children, createElement("button", { onClick: onClose }, "模擬背景關閉")) : null,

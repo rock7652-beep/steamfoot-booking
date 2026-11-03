@@ -1,0 +1,152 @@
+{
+  "synthetic": true,
+  "actualBackend": false,
+  "actualLINE": false,
+  "physicalDevice": false,
+  "results": [
+    {
+      "name": "full-discount-1366",
+      "overflow": false
+    },
+    {
+      "name": "full-discount-1920",
+      "overflow": false
+    },
+    {
+      "name": "full-discount-1024",
+      "overflow": false
+    },
+    {
+      "name": "full-discount-768",
+      "overflow": false
+    },
+    {
+      "name": "full-discount-390",
+      "overflow": false
+    },
+    {
+      "name": "settled-roster-1366",
+      "overflow": false
+    },
+    {
+      "name": "settled-roster-1920",
+      "overflow": false
+    },
+    {
+      "name": "settled-roster-1024",
+      "overflow": false
+    },
+    {
+      "name": "settled-roster-768",
+      "overflow": false
+    },
+    {
+      "name": "settled-roster-390",
+      "overflow": false
+    },
+    {
+      "name": "move-sync-failure-1366",
+      "overflow": false
+    },
+    {
+      "name": "move-sync-failure-1920",
+      "overflow": false
+    },
+    {
+      "name": "move-sync-failure-1024",
+      "overflow": false
+    },
+    {
+      "name": "move-sync-failure-768",
+      "overflow": false
+    },
+    {
+      "name": "move-sync-failure-390",
+      "overflow": false
+    },
+    {
+      "name": "move-sync-recovered-1366",
+      "overflow": false
+    },
+    {
+      "name": "move-sync-recovered-1920",
+      "overflow": false
+    },
+    {
+      "name": "move-sync-recovered-1024",
+      "overflow": false
+    },
+    {
+      "name": "move-sync-recovered-768",
+      "overflow": false
+    },
+    {
+      "name": "move-sync-recovered-390",
+      "overflow": false
+    },
+    {
+      "name": "created-calendar-1366",
+      "overflow": false
+    },
+    {
+      "name": "created-calendar-1920",
+      "overflow": false
+    },
+    {
+      "name": "created-calendar-1024",
+      "overflow": false
+    },
+    {
+      "name": "created-calendar-768",
+      "overflow": false
+    },
+    {
+      "name": "created-calendar-390",
+      "overflow": false
+    },
+    {
+      "name": "home-no-guide-1366",
+      "overflow": false
+    },
+    {
+      "name": "home-no-guide-1920",
+      "overflow": false
+    },
+    {
+      "name": "home-no-guide-1024",
+      "overflow": false
+    },
+    {
+      "name": "home-no-guide-768",
+      "overflow": false
+    },
+    {
+      "name": "home-no-guide-390",
+      "overflow": false
+    },
+    {
+      "name": "settings-guide-retained-1366",
+      "overflow": false
+    },
+    {
+      "name": "settings-guide-retained-1920",
+      "overflow": false
+    },
+    {
+      "name": "settings-guide-retained-1024",
+      "overflow": false
+    },
+    {
+      "name": "settings-guide-retained-768",
+      "overflow": false
+    },
+    {
+      "name": "settings-guide-retained-390",
+      "overflow": false
+    }
+  ],
+  "errors": [],
+  "collectionCount": 1,
+  "moveCount": 2,
+  "retryResends": 0
+}

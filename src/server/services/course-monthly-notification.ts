@@ -91,11 +91,11 @@ export async function sendCourseMonthlyNotice(actor:{storeId:string;userId:strin
   const lease=new Date(now.getTime()+120000);
   await tx.$executeRaw`INSERT INTO "CourseMonthlyNotification" (id,"storeId","settlementId","staffId","userId","customerId","recipientHash",channel,body,"retryKey",status,"leaseUntil","actorUserId") VALUES (${id},${storeId},${ctx.last!.id},${staffId},${target.userId},${target.customerId},${hash},${target.channel},${body},${retryKey},'PENDING',${lease},${userId}) ON CONFLICT (id) DO UPDATE SET status='PENDING',"leaseUntil"=EXCLUDED."leaseUntil"`;
   await tx.$executeRaw`INSERT INTO "MessageLog" (id,"storeId","customerId",channel,status,"renderedBody","createdAt") VALUES (${id},${storeId},${target.customerId},'LINE','PENDING',${body},${now}) ON CONFLICT (id) DO UPDATE SET status='PENDING',"errorMessage"=NULL`;
-  return {retryKey,body};
+  return {retryKey,body,eventCreatedAt:old?.firstAttemptAt??now};
  });
  if(!claimed)return {status:'SENT' as const};
  let result:{success:boolean;httpStatus?:number};
- try {result=target.channel==='STORE'?await pushMessage(storeId,target.recipient,[{type:'text',text:claimed.body}],claimed.retryKey):await pushSteamButlerMessage(target.recipient,[{type:'text',text:claimed.body}],claimed.retryKey);}catch{result={success:false};}
+ try {result=target.channel==='STORE'?await pushMessage(storeId, target.recipient, [{type:'text',text:claimed.body}], claimed.retryKey, claimed.eventCreatedAt):await pushSteamButlerMessage(target.recipient, [{type:'text',text:claimed.body}], claimed.retryKey, claimed.eventCreatedAt);}catch{result={success:false};}
  const status=result.success?'SENT':result.httpStatus&&result.httpStatus>=400&&result.httpStatus<500&&result.httpStatus!==429?'BLOCKED':'FAILED';
  // A delayed success may upgrade a failure; a delayed failure never overwrites SENT.
  await courseTransaction(storeId,async tx=>{

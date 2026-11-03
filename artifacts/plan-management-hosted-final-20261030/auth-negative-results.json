@@ -1,0 +1,7 @@
+{
+  "complete": true,
+  "wrongPasswordRefused": true,
+  "noSessionOnWrongPassword": true,
+  "correctCredentialsStillWork": true,
+  "ownStoreEnforced": true
+}

@@ -1,0 +1,16 @@
+{
+  "deploymentId": "dpl_7eG6XBFLALZUdyf9KNJv89ZoUa8R",
+  "url": "https://steamfoot-booking-k9ihww44q-rock7652-2111s-projects.vercel.app",
+  "state": "READY",
+  "target": "preview",
+  "branch": "preview/beauty-ui-alignment-20261021",
+  "commit": "5ce9496c2104d774b301fe04c9a269b73c59b96b",
+  "migrationSkippedBuildMarker": true,
+  "notificationsBlockedBuildMarker": true,
+  "hqLoginHttpStatus": 200,
+  "hqLoginResponse": "client loading shell, no server application error",
+  "authenticatedStoreSwitchVerified": false,
+  "databaseOperationsRunByAgent": false,
+  "productionChanged": false,
+  "musicAliasChanged": false
+}

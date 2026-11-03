@@ -1,0 +1,15 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "original revenue workspace owns the summary",
+    "original revenue table and filtering are present",
+    "original transaction detail uses actual service-card quota",
+    "unsupported course developer allocation is not presented as service accounting",
+    "1366 original transaction modal contained",
+    "1024 original transaction modal contained",
+    "768 original transaction modal contained",
+    "technician month report has no payment registration",
+    "no browser errors"
+  ],
+  "errors": []
+}

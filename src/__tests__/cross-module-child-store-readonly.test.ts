@@ -14,12 +14,12 @@ describe("cross-module child-store read-only contract", () => {
     expect(readHelper).not.toContain("resolveWriteStoreId(user)");
   });
 
-  it("keeps SPA reads separate from resource mutations", () => {
-    const access = source("src/server/actions/spa-resources.ts");
-    expect(access).toContain("export async function spaResourceStoreRead");
-    expect(access).toContain("getActiveStoreForRead(user)");
-    expect(source("src/app/(dashboard)/dashboard/spa-resources/page.tsx")).toContain("readOnly={isChildStoreView}");
-    expect(source("src/app/(dashboard)/dashboard/spa-staff/page.tsx")).toContain("readOnly={isChildStoreView}");
+  it("denies retired SPA resource routes for parent and child stores", async () => {
+    const {isRetiredModuleRoute}=await import("@/lib/retired-module-routes");
+    for(const prefix of ["", "/s/parent/admin", "/s/child/admin", "/hq"])
+      for(const path of ["/dashboard/spa-resources","/dashboard/spa-staff","/dashboard/settings-save/spa/staff"])
+        expect(isRetiredModuleRoute(prefix+path,new URLSearchParams())).toBe(true);
+    expect(source("src/proxy.ts")).toContain("isRetiredModuleRoute");
   });
 
   it("turns off course management controls while viewing a child store", () => {

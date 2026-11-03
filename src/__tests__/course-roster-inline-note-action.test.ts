@@ -13,7 +13,7 @@ vi.mock("@/server/services/course-booking", () => ({ reserveCourse: vi.fn(), set
 import { saveCourseRosterNote } from "@/server/actions/course-members";
 import { AppError } from "@/lib/errors";
 const input = { sessionId: "session-a", bookingId: "booking-a", note: " next\nline ", expectedNote: "old" };
-const scope = { id: "booking-a", sessionId: "session-a", storeId: "store-a", status: { not: "CANCELLED" } };
+const scope = { id: "booking-a", sessionId: "session-a", storeId: "store-a", status: { not: "CANCELLED" }, bookingKind: { not: "OPENING_MAKEUP" }, musicOpeningMakeupEntitlementId: null };
 beforeEach(() => {
   vi.resetAllMocks();
   m.access.mockResolvedValue({ storeId: "store-a", user: { id: "user-a" } });
@@ -58,4 +58,13 @@ it("preserves the legacy booking detail contract and the separate teacher-note m
   expect(await saveCourseRosterNote({ sessionId: "session-a", note: " teacher " })).toEqual({ success: true });
   expect(m.teacher).toHaveBeenCalledExactlyOnceWith({ where: { id: "session-a", storeId: "store-a", cancelledAt: null }, data: { teacherNote: "teacher" } });
   expect(m.refresh).toHaveBeenCalledTimes(6);
+});
+it("leaves teacher-note reconciliation to the compare-and-save editor without a duplicate route render", async () => {
+  expect(await saveCourseRosterNote({ sessionId: "session-a", note: " teacher ", expectedNote: "before" })).toEqual({ success: true });
+  expect(m.access).toHaveBeenCalledExactlyOnceWith("booking.update");
+  expect(m.teacher).toHaveBeenCalledExactlyOnceWith({
+    where: { id: "session-a", storeId: "store-a", cancelledAt: null, teacherNote: "before" },
+    data: { teacherNote: "teacher" },
+  });
+  expect(m.refresh).not.toHaveBeenCalled();
 });

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {CourseSettingsWorkspaceEntry} from '@/app/(dashboard)/dashboard/courses/non-calendar-view-entries';
 const m = vi.hoisted(() => ({ config: vi.fn(), store: vi.fn(), feature: vi.fn(), view: vi.fn(), usage: vi.fn(), rule: vi.fn() }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("not found"); }, redirect: () => { throw new Error("redirect"); } }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: async () => ({ role: "OWNER", staffId: "staff" }) }));
@@ -9,7 +10,7 @@ vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: async (
 vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findFirst: async()=>null }, store: { findUnique: m.store }, shopConfig: { findUnique: m.config } } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBookingRule: { findUnique: m.rule }, courseWaitlistSetting: { findUnique: async () => null } } }));
 vi.mock("@/server/queries/usage", () => ({ getStoreUsage: m.usage }));
-vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature }));
+vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature, isStoreFeatureEnabledForRead: m.feature }));
 vi.mock("@/lib/shop-config", () => ({ DEFAULT_BOOKABLE_DAYS_AHEAD: 14, TRIAL_DEFAULTS: { trialEnabled: true, trialDefaultPrice: 499 } }));
 vi.mock("@/components/desktop", () => ({ PageShell: () => null, PageHeader: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/settings-workspace", () => ({ CourseSettingsWorkspace: () => null }));
@@ -18,7 +19,7 @@ import { FEATURES } from "@/lib/feature-flags";
 vi.mock("@/server/queries/course-setup", () => ({getCourseSetup:async()=>null}));
 async function props() {
  const tree=await CourseSharedHub({view:"settings"});
- function find(node: unknown): Record<string,unknown> | undefined { if(!node||typeof node!=="object")return;const el=node as {type?:unknown;props?:{children?:unknown}};if(typeof el.type==="function"&&el.type.name==="CourseSettingsWorkspace")return el.props as Record<string,unknown>;for(const child of [el.props?.children].flat(Infinity)){const match=find(child);if(match)return match;} }
+ function find(node: unknown): Record<string,unknown> | undefined { if(!node||typeof node!=="object")return;const el=node as {type?:unknown;props?:{children?:unknown}};if(el.type===CourseSettingsWorkspaceEntry)return el.props as Record<string,unknown>;for(const child of [el.props?.children].flat(Infinity)){const match=find(child);if(match)return match;} }
  return find(tree)!;
 }
 beforeEach(() => {
@@ -47,4 +48,12 @@ it("passes the self-booking flag and revision through both editable and read-onl
 it("defaults older stores to enabled revision zero",async()=>{
   m.rule.mockResolvedValue(null);
   expect(await props()).toMatchObject({selfBookingEnabled:true,selfBookingRevision:0});
+});
+
+it("starts feature and permitted usage reads while shop configuration is pending", async () => {
+ let finish!: (value: unknown) => void;
+ m.config.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+ const pending = CourseSharedHub({ view: "settings" });
+ try { await vi.waitFor(() => { expect(m.feature).toHaveBeenCalledWith("a", FEATURES.LINE_REMINDER); expect(m.usage).toHaveBeenCalled(); }, { timeout: 1000, interval: 5 }); }
+ finally { finish(null); await pending; }
 });

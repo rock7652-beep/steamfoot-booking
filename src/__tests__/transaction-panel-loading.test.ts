@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({read: vi.fn(), note: vi.fn(), refresh: vi.fn()}));
 vi.mock("@/server/actions/transaction", () => ({fetchTransactionDetailDTO:m.read, updateTransactionNote:m.note, updateTransactionPaymentMethod:vi.fn(), updateTransactionOwnerStaff:vi.fn(), voidTransaction:vi.fn(), refundTransaction:vi.fn()}));
-vi.mock("next/navigation", () => ({useRouter: () => ({refresh:m.refresh})}));
+vi.mock("next/navigation", () => ({useSearchParams: () => new URLSearchParams(), usePathname: () => "/hq/dashboard/revenue", useRouter: () => ({refresh:m.refresh})}));
 vi.mock("@/components/admin/right-sheet", () => ({RightSheet: ({open,children}: {open:boolean;children: React.ReactNode}) => open ? React.createElement("div", {role:"dialog"}, children) : null}));
 import { TransactionDrawer } from "@/app/(dashboard)/dashboard/transactions/_components/TransactionDrawer";
 import { TransactionRowActions } from "@/app/(dashboard)/dashboard/transactions/_components/TransactionRowActions";

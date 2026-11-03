@@ -13,5 +13,5 @@ export async function CashbookShortcut({ readOnly = false, triggerClassName }: {
   if (!user || !(await checkPermission(user.role, user.staffId, "cashbook.read"))) return null;
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || !(await hasStoreFeature(storeId, FEATURES.CASHBOOK))) return null;
-  return <QuickCashbook compact={sportsNativePreview(storeId)} key={`${user.id}:${storeId}`} instantSearch={await getStoreIndustryModule(storeId) === "steamfoot"} storeId={storeId} triggerClassName={triggerClassName} />;
+  return <QuickCashbook compact={(await sportsNativePreview(storeId))} key={`${user.id}:${storeId}`} instantSearch={await getStoreIndustryModule(storeId) === "steamfoot"} storeId={storeId} triggerClassName={triggerClassName} />;
 }

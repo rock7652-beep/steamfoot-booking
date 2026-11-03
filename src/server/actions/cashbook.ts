@@ -1,4 +1,5 @@
 "use server";
+import { canManageCashbookEntry } from "@/server/cashbook-management-access";
 
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { revalidatePath } from "next/cache";
@@ -201,6 +202,7 @@ export async function updateCashbookEntry(
     });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
     assertStoreAccess(user, entry.storeId);
+    if (entry.id.startsWith("addon:")) throw new AppError("BUSINESS_RULE", "附加項目款項不能直接修改或刪除，請從預約附加項目處理退款。");
     if (entry.id.startsWith("inventory:")) throw new AppError("BUSINESS_RULE", "此為進銷存連動款項，不能單獨修改或刪除現金帳。");
     if (entry.id.startsWith("course-rental:") || entry.id.startsWith("course-rental-void:") || entry.id.startsWith("course-profit:") || entry.id.startsWith("course-profit-void:") || entry.id.startsWith("course-fee:") || entry.id.startsWith("course-fee-void:") || entry.id.startsWith("course-trial:") || entry.id.startsWith("course-trial-void:") || entry.id.startsWith("course-purchase:") || (entry.id.startsWith("course-refund:") || entry.id.startsWith("course-void:")))
       throw new AppError("BUSINESS_RULE", "此為課程購買／退款連動紀錄，請由營運交易工作台處理，不能單獨修改現金帳。");
@@ -229,10 +231,8 @@ export async function updateCashbookEntry(
     }
 
     // 非 Owner 員工只能修改自己的紀錄
-    if (getEffectiveActorRole(user) !== "ADMIN") {
-      if (!user.staffId || entry.staffId !== user.staffId) {
-        throw new AppError("FORBIDDEN", "無法修改其他員工的現金帳紀錄");
-      }
+    if (!canManageCashbookEntry(user, entry)) {
+      throw new AppError("FORBIDDEN", "無法修改其他員工的現金帳紀錄");
     }
 
     const updateData: Record<string, unknown> = {};
@@ -292,6 +292,7 @@ export async function deleteCashbookEntry(entryId: string): Promise<ActionResult
     const entry = await prisma.cashbookEntry.findUnique({ where: { id: entryId } });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
     assertStoreAccess(user, entry.storeId);
+    if (entry.id.startsWith("addon:")) throw new AppError("BUSINESS_RULE", "附加項目款項不能直接修改或刪除，請從預約附加項目處理退款。");
     if (entry.id.startsWith("inventory:")) throw new AppError("BUSINESS_RULE", "此為進銷存連動款項，不能單獨修改或刪除現金帳。");
     if (entry.id.startsWith("course-rental:") || entry.id.startsWith("course-rental-void:") || entry.id.startsWith("course-profit:") || entry.id.startsWith("course-profit-void:") || entry.id.startsWith("course-fee:") || entry.id.startsWith("course-fee-void:") || entry.id.startsWith("course-trial:") || entry.id.startsWith("course-trial-void:") || entry.id.startsWith("course-purchase:") || (entry.id.startsWith("course-refund:") || entry.id.startsWith("course-void:")))
       throw new AppError("BUSINESS_RULE", "此為課程購買／退款連動紀錄，請由營運交易工作台處理，不能單獨修改現金帳。");

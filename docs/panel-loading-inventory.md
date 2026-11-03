@@ -6,8 +6,15 @@
 
 | 入口 | 資料來源／共用資源 | 策略 |
 | --- | --- | --- |
+| 運動／舞蹈新增排課 | sports-schedule-options → scoped GET → loadSportsStaging(true, true) | 先用已授權課表的教學項目／老師／教室顯示表單，不預載整店卡片或餘額；選項以 keyed panel reader 15 秒短暫預讀／在途去重。最新選項成功前禁止提交及新增顧客，回讀不覆蓋已填時段；錯誤原視窗重試。外部模組已有 props 則直接使用。提交仍核對當下權限、設定、衝突及額度 |
+| 音樂／運動／美業上課或預約名單 | 當前課表範圍預先完成完整名單 → 同權限工作區資料 | 依使用者要求，進入課表及換月份時先完成全範圍明細，不把點擊作為正常首次讀取起點；開窗直接初始化完整名單、付款／用量／餘額／候補與教師狀態。無全域或持久化財務快取；帳號／店別／權限範圍隔離。異動開始作廢課表持有資料，完成後重讀；所有提交仍做即時後端授權、版本與額度檢查。讀取失敗不得將不完整資料標為準備完成，合法舊入口保留獨立 TTL 0 reader 與錯誤處理 |
+| 音樂學員課程／逐期紀錄 | music-periods → music-period-read GET | 獨立讀取且no-store，沿用逐期資格、customer.read及booking.read／wallet.read檢查；只讀取原紀錄，取消／補課／更正保留原action；Date欄位在傳輸後還原，關閉與換學員晚到隔離 |
+| 原生運動顧客持有方案 | course-card-browse → scoped card-read GET | 共用 panel reader、TTL 0及關閉／換人晚到隔離，避免 Server Action 排隊；首頁未篩選時，以同一份全量權威卡投影算合計、只回傳20列，歷史／搜尋／換頁仍獨立查全量合計；原服務兩項權限與可見範圍不變 |
+| 運動／音樂名單原地繳費 | course-purchase-options → scoped GET → 共用購課選項服務 | 獨立於 Server Action 操作佇列，panel reader TTL 0、同門市預約／購課與收款權限重新核對；關閉／切課晚到隔離，成功購買仍由權威名單重讀，不把選項當餘額 |
+| 美業核對收款／恢復狀態 | beauty-service-collection → collection-read POST → 原 quote／intent read | 名單隨同權限資料帶入完整收費摘要，付款方式立即可選；同一視窗直接採用已授權名單的完整報價；背景 panel reader TTL 0 核對，報價變動或錯誤即阻擋，既有未確認收款請求仍須先恢復核對。純讀取使用 READ ONLY／RepeatableRead，不排入 Store 寫入鎖；送出仍依版本、已收款及原請求核對。唯讀 HTTP 避免 Next Action layout 回傳，仍逐次核對店家／權限／功能／對象；寫入保留原 action。班表座標不作工作區重掛載識別，明確切換對象仍關閉舊財務視窗，晚到讀取不得回填 |
 | 預約詳情 | booking-detail-cache → client-read-cache | 先摘要／有限舊值，每次 authoritative revalidate；修改後失效 |
 | 蒸足新增／補課 | steam-booking-form | intent 在途預讀、TTL 0 完整表單（包含名額），提交後失效；切換日期亦讀取最新名額 |
+| 美業公開體驗日期與時段 | 第一頁確認服務與聯絡資料，第二頁點日期自動讀取時段；營業及特殊公休由已授權店家 catalog 投影為公開開放狀態，公休淡化不可選，不以滿額當公休。選日／返回取消舊讀取世代，失敗保留資料原頁重試；第三頁才核對到店與提醒資訊，送出仍沿用原後端資格、衝突與原請求檢查 |
 | 體驗新增 | trial-booking-form、steam-day-slots | 表單 intent 預讀；時段 TTL 0，日期／關閉世代保護 |
 | 一般顧客 | customer-detail | 清單姓名／電話／同門市標籤直接顯示，intent 預讀、15 秒快取；頁面 rows／pathname 修訂隔離、修改後失效，現有 request gate；摘要無寫入操作 |
 | SPA 顧客列表 | spa-customer-profile | 15 秒 bounded 快取，server rows 修訂及修改 callback 失效 |
@@ -31,10 +38,12 @@
 | 入口 | 處理 |
 | --- | --- |
 | 現金收支編輯、方案表單、獎金規則、SPA 方案／人員編輯、值班日編輯 | props 直接顯示，不額外等待 |
+| 美業空間租借明細 | 當前班表同店、同權限預先取得完整租借與成功付款摘要，開啟時固定該筆快照直接顯示；缺少快照才沿用原讀取。不建立持久快取，切換對象重置；異動仍由原版本、付款及現金帳檢查決定 |
 | 課程工作台課次、今日名單、音樂科目、方案購買／交易操作、SPA 營收操作 | props 直接顯示；mutation 沿用後端版本與額度檢查、router.refresh |
-| 共用設定中心、課程設定、工時／提醒／數位管家等設定面板 | RSC／DashboardLink 路由預讀，面板內容由伺服器提供，保留 dirty/pending guard |
+| 共用設定中心、課程設定、工時／數位管家等設定面板 | RSC／DashboardLink 路由預讀，面板內容由伺服器提供，保留 dirty/pending guard |
 | CourseStatusButton 停用／下架確認 | 不快取權威 impact，使用者操作時新查；避免預讀造成錯誤影響數量 |
 | 操作說明、課程設定引導、手機導覽 | 靜態內容直接顯示 |
+| 提醒管理分頁（蒸足／課程／音樂） | 首次沿用 RSC props；已開啟面板內切換／篩選改以 GET /api/settings/reminder-panel，usePanelReader TTL 0，只去重在途請求；每次驗證帳號、門市、模組、權限與功能。通過 receipt 才更新 URL；dirty/pending guard、錯誤重試、晚到回應隔離、卸載清除，背景 layout／標籤不重讀 |
 | 共用顧客標籤 | 已有 RSC seed、batch 讀取、版本／本地修改保護與訂閱更新；維持專用一致性流程，不另加互相干擾的 cache |
 
 ## 驗證與限制
@@ -138,3 +147,14 @@
 - 工作台仍共用原 CashDrawerPage／CashDrawerWorkspace，保留 read、功能、成本權限、門市核對、course 人員歸屬、view-mode 與原寫入授權。內部目的地直接請求回 404；一般完整頁不變。
 - 店家解析與檢視情境並行；非 ADMIN／view-mode 不讀無用途的人員指派清單。現金金額仍每次權威讀取，沒有預載金額或 stale 快取。
 - 回歸測試涵蓋實際 proxy rewrite／門市 headers、未登入與角色限制、直接內部 URL、course 人員歸屬及草稿保留；真實網路耗時、桌機／iPad 操作仍待 Preview 實測，未宣稱毫秒級改善。
+
+
+## 美業後台第一批視窗與班表（2026-10-22）
+
+- 預約清單與明細共用置中 RightSheet；已有頁面 props 直接顯示，清單／明細不額外疊開右滑面板。資料更新中鎖定明細操作；返回清單保留搜尋與勾選狀態。
+- 班表沿用 `usePanelReader`、TTL 0 私有 GET；`peek` 只提供同帳號／門市／權限 scope 內的暫顯資料。暫顯期間不開放預約卡片、新增或清單，失敗還原原視角，寫入後仍由後端檢查。
+- 收費目錄儲存後等待路由更新，更新完成前不開放重新編輯，避免舊修訂與舊數值。實測範圍、耗時及實機限制見 `docs/beauty/manager-batch1-20261022.md`；不代表其餘美業內頁或正式站已驗收。
+
+## 數位管家初始數量（2026-10-31）
+
+Dashboard layout 在既有登入、門市與 booking.read 可見性核對後並行預讀數量，沿用各模組原 reader 的完整授權。首頁使用摘要時才套用額外等待上限 250ms；其他首頁資料載入期間已完成的摘要直接使用，不提前丟棄。逾時即回傳空值，該次使用結果不再採用晚到摘要。僅序列化同店 count／latestAt；無跨請求快取、無清單／處理權限。有效初始數量只在初次掛載採用，原背景更新／focus／處理後失效與晚到回應隔離保留；打開通知仍新查權限與清單。

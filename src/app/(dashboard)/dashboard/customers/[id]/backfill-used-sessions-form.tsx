@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useActionState } from "react";
@@ -25,6 +26,7 @@ export function BackfillUsedSessionsForm({
   onSuccess,
   controlledOpen, onOpenChange,
 }: Props) {
+  const personnelText = useCoursePersonnelText();
   const today = todayLocalDateString();
   const [localOpen, setLocalOpen] = useState(false);
   const open = controlledOpen ?? localOpen;
@@ -150,8 +152,7 @@ export function BackfillUsedSessionsForm({
           堂
         </div>
         <div className="mt-1 text-earth-400">
-          此操作不影響預約、不產生營收 / 付款 / 教練業績紀錄。
-        </div>
+          {personnelText(" 此操作不影響預約、不產生營收 / 付款 / 教練業績紀錄。 ")}</div>
       </div>
 
       {state.error && (

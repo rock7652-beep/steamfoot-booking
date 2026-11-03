@@ -1,10 +1,10 @@
 /** Partition overlapping sessions within one resource and Taiwan calendar day. */
-export function scheduleLanes<T extends {id:string; startsAt:string; endsAt:string; roomId:string; coachId:string}>(sessions:T[], resource:"roomId"|"coachId"="roomId") {
+export function scheduleLanes<T extends {id:string; startsAt:string; endsAt:string; roomId:string; coachId:string}>(sessions:T[], resource:"roomId"|"coachId"|"all"="roomId") {
   const result = new Map<string,{lane:number;count:number}>();
   const groups = new Map<string,T[]>();
   for (const session of sessions) {
     // Compare instants rather than mixing serialized offsets and local clock text.
-    const key = session[resource];
+    const key = resource === "all" ? "all" : session[resource];
     const rows = groups.get(key) ?? [];
     rows.push(session); groups.set(key,rows);
   }

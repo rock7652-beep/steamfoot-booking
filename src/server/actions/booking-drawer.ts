@@ -4,15 +4,11 @@ import { resolveSingleBookingTotal } from "@/lib/single-booking-price";
 import { OperationTiming } from "@/lib/operation-timing";
 
 import { prisma } from "@/lib/db";
-import { spaPrisma } from "@/lib/spa-db";
+
 import { requirePermission } from "@/lib/permissions";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
-import {
-  resolveStoreViewContextFromCookie,
-  storeIdForViewContext,
-  userForViewContext,
-} from "@/lib/store-view-context-server";
+import { resolveStoreViewContextFromCookie, storeIdForViewContext, userForViewContext } from "@/lib/store-view-context-server";
 import { getBookingDetailForUser } from "@/server/queries/booking";
 import { loadIndividualCustomerVisitSummary } from "@/server/queries/booking-participant-facts";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
@@ -20,7 +16,6 @@ import { getTrialSettings } from "@/lib/shop-config";
 import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
-import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 const singleTransactionSelect = {
   id: true,
@@ -50,6 +45,7 @@ async function findCollectedSingleTransaction(
 
 export interface BookingDrawerPayload {
   participantCheckout?: {
+    addOns?: {storeId:string;canView:boolean;canEdit:boolean;canCollect:boolean;canRefund:boolean;sharedGoods?:boolean};
     canCollect: boolean; canResolve: boolean; canCollectUnregistered?: boolean;
     canSell: boolean; canDiscount: boolean;
     plans: Array<{ id: string; name: string; category: string; price: number; sessionCount: number; validityDays: number | null }>;
@@ -190,93 +186,6 @@ export interface BookingDrawerPayload {
   } | null;
 }
 
-async function fetchSpaBookingDetail(bookingId: string, storeId: string): Promise<BookingDrawerPayload> {
-  const booking = await spaPrisma.spaBooking.findFirst({
-    where: { id: bookingId, storeId },
-    include: {
-      items: { orderBy: { sortOrder: "asc" } },
-      payments: { where: { refundOfPaymentId: null }, orderBy: { createdAt: "desc" }, take: 1 },
-    },
-  });
-  if (!booking) throw new Error("BOOKING_NOT_FOUND");
-
-  const [customer, staff, wallet, entitlements, completedCount, lastVisit, activeCount] = await Promise.all([
-    prisma.customer.findFirst({ where: { id: booking.customerId, storeId }, select: { id: true, name: true, phone: true, serviceNote: true } }),
-    prisma.staff.findMany({ where: { id: { in: [booking.serviceStaffId, ...(booking.revenueStaffId ? [booking.revenueStaffId] : [])] }, storeId }, select: { id: true, displayName: true, colorCode: true } }),
-    spaPrisma.spaStoredValueWallet.findUnique({ where: { storeId_customerId: { storeId, customerId: booking.customerId } } }),
-    spaPrisma.spaEntitlement.findMany({ where: { storeId, customerId: booking.customerId, status: "ACTIVE", remainingUses: { gt: 0 } }, orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }] }),
-    spaPrisma.spaBooking.count({ where: { storeId, customerId: booking.customerId, status: "COMPLETED" } }),
-    spaPrisma.spaBooking.findFirst({ where: { storeId, customerId: booking.customerId, status: "COMPLETED", id: { not: booking.id } }, select: { bookingDate: true }, orderBy: { bookingDate: "desc" } }),
-    spaPrisma.spaBooking.count({ where: { storeId, customerId: booking.customerId, status: { in: ["PENDING", "CONFIRMED"] } } }),
-  ]);
-  if (!customer) throw new Error("SPA_BOOKING_CUSTOMER_NOT_FOUND");
-  const serviceStaff = staff.find((person) => person.id === booking.serviceStaffId) ?? null;
-  const revenueStaff = staff.find((person) => person.id === booking.revenueStaffId) ?? null;
-  const payment = booking.payments[0] ?? null;
-  const serviceMinutes = booking.items.reduce((sum, item) => sum + item.serviceMinutes, 0);
-  const bufferMinutes = booking.items.reduce((sum, item) => sum + item.bufferMinutes, 0);
-  const checkoutWallets = entitlements.map((entitlement, index) => ({
-    id: entitlement.id,
-    planName: entitlement.nameSnapshot,
-    remainingSessions: entitlement.remainingUses,
-    expiryDate: entitlement.expiryDate?.toISOString().slice(0, 10) ?? null,
-    recommended: index === 0,
-  }));
-
-  return {
-    booking: {
-      id: booking.id,
-      bookingDate: booking.bookingDate.toISOString().slice(0, 10),
-      slotTime: booking.startTime,
-      bookingStatus: booking.status,
-      bookingType: "SINGLE",
-      people: booking.people,
-      isMakeup: false,
-      isCheckedIn: booking.checkedInAt != null,
-      notes: booking.notes,
-      treatmentNameSnapshot: booking.serviceNameSnapshot,
-      treatmentPriceSnapshot: Number(booking.totalPriceSnapshot),
-      treatmentServiceMinutesSnapshot: serviceMinutes,
-      treatmentBufferMinutesSnapshot: bufferMinutes,
-      customer,
-      revenueStaff,
-      serviceStaff,
-      servicePlan: null,
-      customerPlanWallet: null,
-      makeupCreditLinks: [],
-      walletSessions: [],
-      expectedAmount: Number(booking.totalPriceSnapshot),
-      attendedPeople: null,
-    },
-    customerSummary: {
-      totalBookings: completedCount,
-      lastVisit: lastVisit?.bookingDate.toISOString().slice(0, 10) ?? null,
-      isNewCustomer: activeCount <= 1,
-    },
-    trial: null,
-    single: {
-      collected: payment != null,
-      collectedAmount: payment ? Number(payment.netAmount) : null,
-      collectedOriginalAmount: payment ? Number(payment.grossAmount) : null,
-      collectedDiscountAmount: payment ? Number(payment.grossAmount) - Number(payment.netAmount) : null,
-      collectedMethod: payment?.paymentMethod ?? null,
-      collectedAt: payment?.paidAt ? toLocalDateStr(payment.paidAt) : null,
-      defaultPrice: Number(booking.totalPriceSnapshot),
-    },
-    storedValue: wallet ? { balance: Number(wallet.balance), status: wallet.status } : null,
-    checkout: {
-      canAdjustToPackage: payment == null && (booking.status === "PENDING" || booking.status === "CONFIRMED") && checkoutWallets.length > 0,
-      reason: payment
-        ? "此預約已完成付款"
-        : checkoutWallets.length === 0
-          ? "此顧客目前沒有可用療程"
-          : null,
-      wallets: checkoutWallets,
-    },
-    checkoutToSingle: null,
-  };
-}
-
 export async function fetchBookingDetail(
   bookingId: string,
   resolvedStoreId?: string,
@@ -309,12 +218,7 @@ async function fetchBookingDetailMeasured(
   const isViewMode = resolvedStoreId
     ? user.role !== "ADMIN" && resolvedStoreId !== user.storeId
     : storeViewContext?.isViewMode === true;
-  if (
-    bookingStoreId &&
-    (await getStoreIndustryModule(bookingStoreId)) === "spa"
-  ) {
-    return fetchSpaBookingDetail(bookingId, bookingStoreId);
-  }
+
   // 重用已解析的 staff user，避免 getBookingDetail 內再 requireSession 一次
   const booking = await timing.measure("booking", () => getBookingDetailForUser(
     bookingId,
@@ -462,7 +366,9 @@ async function fetchBookingDetailMeasured(
       }, select: { id: true, customerId: true, expiryDate: true, plan: { select: { name: true } },
         _count: { select: { sessions: { where: { status: "AVAILABLE" } } } } },
         orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }] });
-      participantCheckout = { slots: slots.map(person => ({ ...person,
+      const canViewAddOns=process.env.STEAMFOOT_ADD_ONS_ENABLED==='1'&&await checkPermission(user.role,user.staffId,'transaction.read');
+      const addOns=process.env.STEAMFOOT_ADD_ONS_ENABLED==='1'?{storeId:booking.storeId,sharedGoods:canViewAddOns&&await (await import('@/server/services/shared-goods-availability')).sharedGoodsAvailable(booking.storeId,'STEAMFOOT',booking.id),canView:canViewAddOns,canEdit:!isViewMode&&canEditBookingNote,canCollect:!isViewMode&&await checkPermission(user.role,user.staffId,'transaction.create'),canRefund:!isViewMode&&await checkPermission(user.role,user.staffId,'transaction.refund')}:undefined;
+      participantCheckout = { ...(addOns?{addOns}:{}),slots: slots.map(person => ({ ...person,
         wallets: ownWallets.filter(wallet => wallet.customerId === person.customerId && wallet._count.sessions > 0)
           .map(wallet => ({ id: wallet.id, name: wallet.plan.name, available: wallet._count.sessions, expiryDate: wallet.expiryDate?.toISOString().slice(0, 10) ?? null })),
       })),

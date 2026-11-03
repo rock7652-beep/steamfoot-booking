@@ -25,9 +25,9 @@ it("retains failed and unattempted edits without resaving earlier successes", as
   mocks.save.mockResolvedValueOnce({ success: true }).mockResolvedValueOnce({ success: false, error: "失敗" }); await click("儲存全部修改"); expect(host.textContent).toContain("其餘修改已保留");
   await click("儲存全部修改"); expect(mocks.save.mock.calls.map(c => c[0].planId)).toEqual(["p0", "p15", "p15"]);
 });
-it("validates hidden drafts before saving and confirms discard", async () => {
+it("validates hidden drafts before saving and discards immediately", async () => {
   await input("方案00 提醒門檻", ""); await click("下一頁"); await click("儲存全部修改"); expect(mocks.save).not.toHaveBeenCalled(); expect(host.textContent).toContain("方案00");
-  await click("取消全部修改"); await click("繼續編輯"); expect(host.textContent).toContain("1 項未儲存"); await click("取消全部修改"); await click("捨棄修改"); expect(host.textContent).toContain("所有設定已儲存");
+  await click("取消全部修改"); expect(host.textContent).not.toContain("捨棄全部未儲存修改"); expect(host.textContent).toContain("所有設定已儲存");
 });
 
 it("keeps custom expiry days across pages and saves them with the quota setting", async()=>{

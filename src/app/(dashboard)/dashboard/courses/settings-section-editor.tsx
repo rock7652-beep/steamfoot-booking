@@ -7,6 +7,7 @@ import { courseSettingsSectionRevision,savedCourseSettingsSection,type CourseSet
 
 type Field = { key: string; label: string; type?: "text" | "url" | "number"; max?: number };
 const fields: Record<CourseSettingsSectionInput["section"], Field[]> = {
+  personnel: [],
   store: [{ key: "name", label: "店家名稱", max: 100 }, { key: "address", label: "店家地址", max: 300 }, { key: "shopPhone", label: "店家電話", max: 50 }, { key: "mapUrl", label: "地圖網址", type: "url" }, { key: "lineOfficialId", label: "官方 LINE ID", max: 100 }, { key: "lineOfficialUrl", label: "LINE 官方帳號網址", type: "url" }],
   booking: [{ key: "bookingLeadMinutes", label: "預約截止時間", type: "number" }, { key: "cancellationLeadMinutes", label: "自行取消截止時間", type: "number" }],
   payment: [{ key: "bankName", label: "銀行名稱", max: 100 }, { key: "bankCode", label: "銀行代號", max: 20 }, { key: "bankAccountNumber", label: "銀行帳號", max: 50 }],
@@ -30,44 +31,45 @@ function DurationInput({ name, label, value, onChange }: { name: string; label: 
     <select aria-label={`${label}單位`} value={unit} onChange={event => { const next = Number(event.target.value); setUnit(next); setDisplay({ canonical: value, text: value === "" ? "" : String(Number(value) / next) }); }} className="min-h-10 shrink-0 rounded-lg border border-earth-300 bg-white px-3 text-sm"><option value={60}>小時</option><option value={1}>分鐘</option></select>
   </div></div>;
 }
-type Props = {storeId:string;onSaved:(row:CourseSettingsSectionInput)=>void; initial: CourseSettingsSectionInput; onStatus: (section: CourseSettingsSectionInput["section"], dirty: boolean, pending: boolean) => void };
-export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved }: Props) {
+type Props = {savePath?:string;storeId:string;onSaved:(row:CourseSettingsSectionInput,syncWarning:boolean)=>void; initial: CourseSettingsSectionInput; onStatus: (section: CourseSettingsSectionInput["section"], dirty: boolean, pending: boolean) => void };
+export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved,savePath }: Props) {
   const section = initial.section;
-  const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(initial).filter(([key]) => key !== "section").map(([key, value]) => [key, String(value)])));
+  const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(initial).filter(([key]) => key !== "section").map(([key, value]) => [key, String(value??"")])));
   const [saved, setSaved] = useState(draft);
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
+
   const [message, setMessage] = useState("");
   const pathname=usePathname();
-  const mutation=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/section`,storeId,savedCourseSettingsSection);
+  const mutation=useSettingsSave(savePath??`${pathname.split("/dashboard")[0]}/dashboard/settings-save/course/section`,storeId,savedCourseSettingsSection);
   const pending=mutation.pending;
   const revision=useRef(courseSettingsSectionRevision(initial));
   const saving = useRef(false);
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
   useEffect(() => { onStatus(section, dirty, pending||mutation.uncertain); }, [section, dirty, pending, mutation.uncertain,onStatus]);
-  const label = section === "store" ? "店家資料" : section === "booking" ? "預約截止規則" : "銀行資訊";
+  const label = section === "personnel" ? "授課人員稱呼" : section === "store" ? "店家資料" : section === "booking" ? "預約截止規則" : "銀行資訊";
   return <form aria-label={`編輯${label}`} className={`${styles.root} m-0`} onSubmit={event => {
     event.preventDefault();
     if (saving.current || !dirty || !event.currentTarget.reportValidity()) return;
     saving.current = true;
     setMessage("");
-    const input = section === "booking" ? { section, bookingLeadMinutes: Number(draft.bookingLeadMinutes), cancellationLeadMinutes: Number(draft.cancellationLeadMinutes) } : { ...draft, section };
+    const input = section === "personnel" ? {section,personnelLabel:draft.personnelLabel||null} : section === "booking" ? { section, bookingLeadMinutes: Number(draft.bookingLeadMinutes), cancellationLeadMinutes: Number(draft.cancellationLeadMinutes) } : { ...draft, section };
     void mutation.save({values:input,expectedRevision:revision.current}).then(result=>{
       if(!result.success){setMessage(result.error);return;}
-      const confirmed=Object.fromEntries(Object.entries(result.data.values).filter(([key])=>key!=="section").map(([key,value])=>[key,String(value)]));
+      const confirmed=Object.fromEntries(Object.entries(result.data.values).filter(([key])=>key!=="section").map(([key,value])=>[key,String(value??"")]));
       setDraft(confirmed);setSaved(confirmed);revision.current=result.data.revision;
-      setConfirmDiscard(false);setMessage(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");onSaved(result.data.values);
+      if(result.data.values.section==="personnel") window.dispatchEvent(new CustomEvent("course-personnel-label-saved", {detail:{storeId,label:result.data.values.personnelLabel}}));
+      setMessage(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");onSaved(result.data.values,result.syncWarning);
     }).finally(()=>{saving.current=false;});
   }}>
     <fieldset disabled={pending||mutation.uncertain} className={`${styles.courseFields} ${section === "payment" ? `${styles.bankFields} items-end` : ""}`}>
+      {section==="personnel" && <label className="min-w-0 text-sm text-earth-700">授課人員稱呼<select aria-label="授課人員稱呼" value={draft.personnelLabel} onChange={event=>{setDraft(previous=>({...previous,personnelLabel:event.target.value}));setMessage("");}} className="mt-1 min-h-10 w-full rounded-lg border border-earth-300 bg-white px-3 py-2"><option value="">沿用模組預設</option><option value="老師">老師</option><option value="教練">教練</option></select></label>}
       {fields[section].map(field => section === "booking" ? <DurationInput key={field.key} name={field.key} label={field.label} value={draft[field.key]} onChange={value => { setDraft(previous => ({ ...previous, [field.key]: value })); setMessage(""); }} /> : <label key={field.key} className={`min-w-0 text-sm text-earth-700 ${field.type === "url" ? styles.fullWidth : ""}`}>
         {field.label}<input name={field.key} type={field.type ?? "text"} value={draft[field.key]} required={field.key === "name" || field.type === "number"} min={field.type === "number" ? 0 : undefined} max={field.type === "number" ? 43200 : undefined} maxLength={field.max} step={field.type === "number" ? 1 : undefined} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setMessage(""); }} className="mt-1 min-h-10 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-900" />
       </label>)}
     </fieldset>
     {message && <p role="status" className="mt-2 text-sm text-primary-700">{message}</p>}
-    {confirmDiscard && <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm"><p>尚有未儲存內容，要捨棄本區修改嗎？</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-10 rounded border px-3 text-sm">繼續編輯</button><button type="button" onClick={() => { setDraft(saved); setConfirmDiscard(false); setMessage(""); }} className="min-h-10 rounded border px-3 text-sm">捨棄本區修改</button></div></div>}
     <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-earth-100 bg-white py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <span className="mr-auto text-sm text-earth-500">{pending ? "儲存中…" : dirty ? "未儲存" : ""}</span>
-      <button type="button" disabled={pending || mutation.uncertain || !dirty} onClick={() => setConfirmDiscard(true)} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg border px-3 text-sm disabled:opacity-40">取消</button>
+      <button type="button" disabled={pending || mutation.uncertain || !dirty} onClick={() => { mutation.reset(); setDraft(saved); setMessage(""); }} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg border px-3 text-sm disabled:opacity-40">取消</button>
       <button type="submit" disabled={pending || !dirty} className="min-h-10 min-w-24 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 text-sm text-white disabled:opacity-30">{pending ? "儲存中…" : mutation.uncertain ? "重試確認儲存結果" : "儲存"}</button>
     </div>
   </form>;

@@ -1,0 +1,42 @@
+{
+  "files": [
+    "src/__tests__/music-tuition.test.ts",
+    "src/__tests__/beauty-roster-retention.test.ts",
+    "src/__tests__/course-fee-payment-sync.test.ts",
+    "src/__tests__/beauty-catalog-dispatch.test.ts",
+    "src/__tests__/music-purchase-display.test.ts",
+    "src/__tests__/beauty-transaction-correction.test.ts",
+    "src/__tests__/beauty-catalog-adapter.test.ts",
+    "src/__tests__/beauty-allocation.test.ts",
+    "src/__tests__/music-purchase-snapshot-panel.test.ts",
+    "src/__tests__/beauty-charge-editor-ui.test.ts",
+    "src/__tests__/beauty-transaction-revisions.test.ts",
+    "src/__tests__/music-period-payments.test.ts",
+    "src/__tests__/music-checkout-transport.test.ts",
+    "src/__tests__/course-fee-payment.test.ts",
+    "src/__tests__/beauty-charge-technician-rule.test.ts",
+    "src/__tests__/music-tuition-cashflow.test.ts",
+    "src/__tests__/course-plan-business-rules.test.ts",
+    "src/__tests__/course-purchase-correction-action.test.ts",
+    "src/__tests__/beauty-charge-action.test.ts",
+    "src/__tests__/music-checkout-request.test.ts",
+    "src/__tests__/beauty-collection-scope.test.ts",
+    "src/__tests__/course-purchase-correction.test.ts",
+    "src/__tests__/beauty-charge-rule-storage.test.ts",
+    "src/__tests__/music-purchase-periods.test.ts",
+    "src/__tests__/beauty-charge-runtime.test.ts",
+    "src/__tests__/music-purchase-snapshot.test.ts",
+    "src/__tests__/course-sale-allocation.test.ts",
+    "src/__tests__/beauty-course-plan-ui.test.ts",
+    "src/__tests__/course-assignment-checkout.test.ts",
+    "src/__tests__/music-checkout-route.test.ts",
+    "src/__tests__/course-assignment-payment-ui.test.ts",
+    "src/__tests__/music-tuition-details-ui.test.ts",
+    "src/__tests__/beauty-transactions.test.ts",
+    "src/__tests__/music-tuition-purchase-ui.test.ts",
+    "src/__tests__/beauty-charge-editor-rules.test.ts"
+  ],
+  "excluded_database_tests": [
+    "src/__tests__/music-tuition-ledger.test.ts"
+  ]
+}

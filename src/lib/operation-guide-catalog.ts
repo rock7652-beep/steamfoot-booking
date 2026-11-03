@@ -1,7 +1,10 @@
+import { planActivationGuideDetail } from "./operation-guide-plan-activation";
+import {sessionAdjustmentGuide} from './operation-guide-session-adjustment';
+import {retiredSpaCatalogGuides} from "./operation-guide-retired-spa";
 import type { OperationGuide, GuideCategory } from "./operation-guide-types";
 
 /** Source-reviewed content; draft updates and interaction verification remain separate. */
-export const guideCategories: GuideCategory[] = [
+const catalogGuideCategories: GuideCategory[] = [
   {
     "id": "start",
     "label": "開始使用",
@@ -21,7 +24,8 @@ export const guideCategories: GuideCategory[] = [
     "label": "營業與時段",
     "routes": [
       "/dashboard/settings/hours",
-      "/dashboard/settings/duty"
+      "/dashboard/settings/duty",
+      "/dashboard/image-announcements"
     ]
   },
   {
@@ -119,9 +123,7 @@ export const guideCategories: GuideCategory[] = [
     "id": "spa",
     "label": "服務排程",
     "routes": [
-      "/dashboard/spa-schedule",
-      "/dashboard/spa-staff",
-      "/dashboard/spa-resources"
+
     ]
   },
   {
@@ -134,7 +136,10 @@ export const guideCategories: GuideCategory[] = [
   }
 ];
 
+export const guideCategories = catalogGuideCategories.filter(category => category.id !== "spa");
+
 export const additionalGuides: OperationGuide[] = [
+  sessionAdjustmentGuide,
   {
     "id": "S01",
     "category": "start",
@@ -264,16 +269,19 @@ export const additionalGuides: OperationGuide[] = [
     "steps": [
       "在上方選月份與日期；手機篩選會獨立成一列，月曆與名單只在自己的區塊捲動。",
       "點月曆日期開啟當日清單，依統計與圖例辨識預約中、已完成、未到、補課及待收款；再用姓名／電話、人員或未收款篩選。平板窄欄會改為緊湊列，不必縮放整頁。",
-      "名單優先顯示顧客、時間、方案及主要狀態；點電話旁的撥打聯絡顧客，要處理預約才開該列明細。",
+      "名單優先顯示顧客、時間、方案及主要狀態；點電話旁的撥打聯絡顧客。要處理預約時可開該列詳情，或從「⋯」直接選購買方案、改時間、未到、取消；方案預約另可切單次。",
       "關閉後留在原月份與篩選；月曆圖例旁可看最後更新時間並按手動更新。"
     ],
     "important": "「撥打」只開啟裝置的電話功能，不會改預約狀態；沒有電話時顯示「未留電話」。",
     "success": "當日清單顯示正確預約；點電話不會誤開詳情或更改資料。",
-    "keywords": "月曆 今天 明天 查詢 今日預約 當日預約 精簡清單 緊湊名單 舊iPad 平板 所屬店長 顧客電話 直接撥打 未留電話 預約中 已完成 未到 補課 未收款 狀態統計 手機 篩選獨立一列 管理時段",
+    "keywords": "月曆 今天 明天 查詢 今日預約 當日預約 精簡清單 緊湊名單 舊iPad 平板 所屬店長 顧客電話 直接撥打 未留電話 預約中 已完成 未到 補課 未收款 狀態統計 手機 篩選獨立一列 管理時段 剩餘堂數 方案名稱 到期日 方案待核對 無到期限制 更多操作 購買方案 單次 改時間 取消預約",
     "details": [
       "手機與 iPad 窄寬度會重排月份、篩選與主要操作；平板橫直向及舊 iPad 會優先壓縮欄距與文字，月曆、聯絡、方案、備註與時段管理不得因版面縮小消失。",
       "點電話不會開詳情或改狀態；號碼錯誤請回顧客資料修正。所屬店長顯示帳號的店內名稱，不能據此改派顧客。",
-      "未收款篩選包含待處理體驗與單次預約。自動更新目前為每 60 秒，編輯、批次或個別操作期間可能暫停。"
+      "未收款篩選包含待處理體驗與單次預約。自動更新目前為每 60 秒，編輯、批次或個別操作期間可能暫停。",
+      "月曆待到店的逐人方案摘要會顯示「剩 X 堂・方案名稱・到期日」，不再只顯示預留 1 堂；沒有到期限制會明列「無到期限制」。這是顯示恢復，內部仍保留本次預約，另按完成才正式扣堂，不能把剩餘堂數都當成可再預約堂數。",
+      "摘要顯示「方案待核對」或「到期日待確認」時，先開原預約與方案核對，不當成零堂、無期限或已扣堂。已完成者另顯示已扣 1 堂；同組多人摘要以分隔顯示，體驗待處理與方案扣堂分開看。",
+      "「⋯」只縮短進入既有操作的路徑，仍會讀取權威明細並顯示原確認畫面；購買方案、切換單次、改時間、未到與取消都不會因點選選單就直接送出。可見項目依預約類型、狀態與權限顯示。"
     ],
     "modules": [
       "steamfoot"
@@ -284,7 +292,9 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/bookings/booking-calendar-desktop.tsx",
       "src/app/(dashboard)/dashboard/bookings/day-detail-panel.tsx",
       "src/app/(dashboard)/dashboard/bookings/bookings-manager.tsx",
-      "src/app/(dashboard)/dashboard/bookings/booking-layout.module.css"
+      "src/app/(dashboard)/dashboard/bookings/booking-layout.module.css",
+      "src/server/queries/booking.ts",
+      "src/lib/booking-plan-expiry.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -497,13 +507,13 @@ export const additionalGuides: OperationGuide[] = [
     "summary": "當日時段管理可增開或調整單一時段，不必為一天的變動修改整週設定。",
     "path": "預約管理 → 當日時段管理",
     "steps": [
-      "選要處理的日期，開啟當日時段管理。",
+      "選要處理的日期，開啟「管理時段」；公休日也能直接新增當日時段，不必先修改營業時間。",
       "選擇新增時段，或對既有時段關閉／重新開放；需要調整名額時可用加減按鈕或輸入數字。",
       "核對已調整標記、時間、已預約人數與名額，儲存後回到當日清單確認。"
     ],
-    "important": "這是時段供應的調整；已存在的預約仍需另外處理。",
+    "important": "公休日只開放明確加開的時間，不改每週設定；關閉最後一個加開時段後恢復公休。已存在的預約保留，需另外處理；有啟用排班聯動時仍須安排值班。進修日不開放加開。",
     "success": "當日時段開放狀態符合設定。",
-    "keywords": "加開 增開 關閉 重開 當日時段 已調整 名額 0 已額滿",
+    "keywords": "加開 增開 公休 公休日 臨時時段 關閉 重開 當日時段 已調整 名額 0 已額滿",
     "details": [],
     "modules": [
       "steamfoot"
@@ -611,20 +621,20 @@ export const additionalGuides: OperationGuide[] = [
     "id": "C03",
     "category": "customers",
     "title": "顧客姓名或電話填錯，怎麼修正？",
-    "summary": "顧客基本資料可以在右側資料視窗編輯；儲存後同一位顧客與清單會同步更新，但不會自動更換 LINE 綁定。",
+    "summary": "顧客視窗先顯示姓名、標籤、基本資料與重要備註；需要修改時再展開編輯，儲存後同一位顧客與清單同步更新。",
     "path": "顧客管理 → 點選顧客 → 編輯基本資料",
     "steps": [
-      "從顧客清單開啟正確顧客，先核對目前姓名與電話。",
-      "進入編輯，修改需要更正的欄位後儲存；送出中不要關閉或連按。",
+      "從顧客清單開啟正確顧客，先核對姓名、標籤、所屬資訊與基本資料摘要。",
+      "點基本資料的編輯入口，修改需要更正的欄位後儲存；送出中不要關閉或連按。",
       "留在同一位顧客核對更新後資料，再核對背景清單的姓名、電話或備註已同步。"
     ],
     "important": "更正聯絡資料不等於重新綁定 LINE；若遇到電話衝突，保留提示再處理。",
     "success": "目前顧客視窗與背景清單都顯示正確資料，搜尋與篩選仍保留。",
-    "keywords": "名字 手機 更正 編輯 顧客右側視窗 清單同步 保留搜尋 保留篩選 重新整理",
+    "keywords": "名字 手機 更正 編輯 顧客右側視窗 基本資料 摘要 標籤 重要備註 清單同步 保留搜尋 保留篩選 重新整理",
     "details": [
       "儲存成功會失效並重讀目前顧客，再在背景更新清單；不必關閉重開，也不要因短暫舊值重複修改。",
       "關閉顧客視窗只移除目前顧客參數，不會清掉原搜尋、分頁或篩選；瀏覽器上一頁／下一頁可依網址重開對應顧客。",
-      "SPA 顧客儲存後同樣會重讀目前顧客並更新清單；總部跨店查看為唯讀，不會顯示編輯。"
+      "總部跨店查看為唯讀，不會顯示編輯。"
     ],
     "modules": [
       "steamfoot",
@@ -635,31 +645,31 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/customers/_components/customers-list-with-drawer.tsx",
       "src/app/(dashboard)/dashboard/customers/_components/customer-detail-drawer-content.tsx",
-      "src/app/(dashboard)/dashboard/customers/_components/spa-customers-workspace.tsx",
-      "src/app/(dashboard)/dashboard/customers/_components/spa-customer-overview.tsx"
+
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "顧客基本資料可以在右側資料視窗編輯；儲存後同一位顧客與清單會同步更新，但不會自動更換 LINE 綁定。"
+    "answer": "先從顧客摘要核對本人，再進基本資料編輯；儲存後同一位顧客與清單同步更新，但不會自動更換 LINE 綁定。"
   },
   {
     "id": "C04",
     "category": "customers",
     "title": "哪裡可以看顧客的預約與消費紀錄？",
-    "summary": "顧客資料頁分開列出預約與消費紀錄；消費可依期間、類型、付款方式及文字篩選。",
+    "summary": "顧客視窗把預約與消費收在過往紀錄；先看摘要，需要時再展開篩選與完整明細。",
     "path": "顧客管理 → 顧客資料 → 過往紀錄",
     "steps": [
-      "打開顧客資料，找到過往紀錄。",
-      "切換預約紀錄或消費紀錄；消費頁可選期間、消費類型、付款方式或輸入品項文字。",
+      "打開顧客資料，找到「過往紀錄」並展開需要的預約或消費區塊。",
+      "先核對摘要；需要完整查找時再進階查看。消費可選期間、類型、付款方式或輸入品項文字。",
       "核對篩選後的筆數與合計，再查看方案、零售、服務、退款或其他收入明細。",
       "需要更多資訊時，開啟對應預約、交易或現金收支明細。"
     ],
     "important": "預約次數與消費筆數不同；只有已關聯此顧客的店內收入才會出現在消費紀錄。",
     "success": "",
-    "keywords": "歷史 歷次 消費 紀錄 篩選 合計 方案 零售 服務 退款 付款方式",
+    "keywords": "歷史 歷次 過往紀錄 展開 進階查看 消費 紀錄 篩選 合計 方案 零售 服務 退款 付款方式",
     "details": [
       "方案交易、退款與店內手動收入會依各自日期合併排序；支出不列為顧客消費。",
-      "店內收入若未選關聯顧客，不會事後依姓名或備註猜測歸戶。"
+      "店內收入若未選關聯顧客，不會事後依姓名或備註猜測歸戶。",
+      "蒸足多人首次體驗按每位已完成者計入本人到店紀錄與最近到店日，不必等整組結束；未建檔同行不會冒用預約人的紀錄。已服務後退款也不會抹掉服務事實。"
     ],
     "modules": [
       "steamfoot",
@@ -670,7 +680,9 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
       "src/app/(dashboard)/dashboard/customers/[id]/records/page.tsx",
-      "src/app/(dashboard)/dashboard/customers/[id]/records/customer-consumption-filters.tsx"
+      "src/app/(dashboard)/dashboard/customers/[id]/records/customer-consumption-filters.tsx",
+      "src/server/queries/customer-list-helpers.ts",
+      "src/server/queries/booking-participant-facts.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -680,16 +692,16 @@ export const additionalGuides: OperationGuide[] = [
     "id": "C05",
     "category": "customers",
     "title": "店內備註和本次預約備註有什麼不同？",
-    "summary": "店內／服務備註用來保留長期需求；本次預約備註只記錄這一次的交代。",
+    "summary": "店內／服務備註會放在顧客的重要備註區，保留長期需求；本次預約備註只記錄這一次的交代。",
     "path": "顧客資料／預約明細",
     "steps": [
       "長期服務需求放在顧客的店內／服務備註。",
       "僅本次服務要注意的事情，放在預約的本次備註。",
-      "修改後確認儲存結果，避免把一次性事項留在長期備註。"
+      "修改後先核對畫面預覽，再以成功訊息與重新開啟結果確認已儲存；避免把一次性事項留在長期備註。"
     ],
     "important": "例如「今天晚到」適合本次備註；不要把敏感資訊寫進不必要的欄位。",
     "success": "",
-    "keywords": "註記 長期 晚到 備註",
+    "keywords": "註記 長期 晚到 備註 重要備註 待儲存預覽",
     "details": [],
     "modules": [
       "steamfoot",
@@ -708,22 +720,26 @@ export const additionalGuides: OperationGuide[] = [
     "id": "C07",
     "category": "customers",
     "title": "顧客登入後看不到原本方案，先查什麼？",
-    "summary": "先核對門市與顧客身分，並展開「已過期／歷史方案」；看不到方案不一定是資料消失。",
+    "summary": "店家先查正確門市的既有顧客、方案效期與本店 LINE 確認；看不到方案不一定是資料消失。",
     "path": "顧客管理 → 顧客資料 → LINE 與通知設定",
     "steps": [
       "確認顧客開啟的是正確門市入口。",
-      "請顧客進入方案頁；若有「已過期」或「歷史方案」標題，點標題展開，再核對方案名稱與期限。",
+      "在後台顧客詳情核對持有方案名稱、效期及歷史狀態；過期方案不會因重新登入恢復。",
       "用原本電話查找舊資料，核對預約、方案與 LINE 綁定。",
-      "若疑似登入另一身分，保留錯誤畫面與時間，交由有權限的人員核對。"
+      "會員登入仍有問題時，保留錯誤畫面、時間與查核編號，再查本店顧客姓名、電話及原登入關係；不要新增同名顧客或重發方案。只有後台確實列出待確認申請時，才按申請核對本人處理。",
+      "在「本店會員與 LINE」分開看會員資料、登入、通知。若是「會員登入待確認」，由具顧客修改權限者核對本人、手機與同一組確認碼，再選「已核對本人與確認碼，允許重新登入」；不要按「確認通知連結」代替登入授權。"
     ],
     "important": "不要先新增同名顧客或重發方案，避免把資料分散到另一個身分。",
     "success": "",
-    "keywords": "登入 找不到 舊資料 LINE 綁定 已有會員 重新註冊 暫時無法使用 登入逾時 已過期 歷史方案 收合 展開",
+    "keywords": "登入 找不到 舊資料 LINE 綁定 已有會員 重新註冊 暫時無法使用 登入逾時 已過期 歷史方案 收合 展開 本店會員與LINE 已核對本人 確認綁定 首次會員登入 登入前持續有效 撤銷登入授權 會員登入待確認 允許重新登入 已授權 登入連結已恢復",
     "details": [
-      "方案頁的「已過期」與「歷史方案」預設收合，標題旁顯示該區筆數；沒有該類方案時不顯示區塊。展開只是查看，不會恢復效期、增加堂數或改變扣堂規則。",
+      "後台查到方案仍須核對顧客身分、所屬門市與資格。查看歷史不會恢復效期、增加堂數或改變扣堂規則。",
       "顯示「您已有會員帳號」時，請使用原本的 LINE 登入方式，或聯繫店家核對；不要另建帳號。",
       "顯示「會員資料需要店家協助確認」屬於身分核對，不需要重新註冊或解除 LINE 綁定。",
-      "顯示「服務暫時無法使用」不代表是新客；保留畫面與時間，稍後再試或聯繫店家。只有「登入已逾時」才依提示重新從 LINE 開啟。"
+      "顯示「服務暫時無法使用」不代表是新客；保留畫面與時間，稍後再試或聯繫店家。只有「登入已逾時」才依提示重新從 LINE 開啟。",
+      "公開體驗後已買方案但首次會員登入受阻時，先核對同一筆本店顧客與確認狀態。尚無帳號或 LINE 關聯的新學員，須姓名及手機都符合唯一既有名單才能首次連結；已有帳號、通知綁定或身分衝突須另核對，不以電話直接覆蓋。",
+      "蒸足一般聊天室手機綁定只設定本店通知對象，不建立或移轉登入帳號；通知設定完成不代表會員登入已恢復。只有精確本人核對的登入授權才可持續有效到使用或撤銷；一般舊授權及通知確認不因此延長，也不能拿過期通知確認推定可登入。",
+      "登入顯示「已授權，等待顧客重新進入並完成登入」時，只完成店家核對；「登入連結已恢復，尚需顧客確認實際登入」也不是已成功登入證明。請顧客確認實際結果，不要重發方案。尚未核對的申請仍有 24 小時期限，過期須重新提交、核對新碼；已精確核對的登入授權則顯示「已核對，登入前持續有效；等待顧客完成登入」，不因等待天數失效。這不代表所有舊過期授權都恢復。"
     ],
     "modules": [
       "steamfoot",
@@ -737,29 +753,40 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(liff)/liff/onboarding/onboarding-form.tsx",
       "src/app/(liff)/liff/wallets/wallets-list.tsx",
       "src/lib/liff/messages.ts",
-      "src/server/services/verified-line-customer.ts"
+      "src/server/services/verified-line-customer.ts",
+      "src/components/admin/store-member-connection-panel.tsx",
+      "src/server/services/store-member-connection.ts",
+      "src/server/services/liff-login-rebind.ts",
+      "src/server/services/precreated-first-line-login.ts",
+      "src/server/services/liff-review-diagnostic.ts",
+      "src/server/services/liff-login-recovery.ts",
+      "src/server/actions/store-member-connection.ts",
+      "src/app/api/line/webhook/route.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
-    "answer": "先核對門市與顧客身分，並展開「已過期／歷史方案」；看不到方案不一定是資料消失。"
+    "answer": "在後台核對既有顧客與方案，再查本店會員及 LINE 確認；不要先新增顧客或重發方案。"
   },
   {
     "id": "C08",
     "category": "customers",
     "title": "顧客換 LINE 或綁定有衝突怎麼辦？",
-    "summary": "LINE 綁定衝突要先確認本人及原資料，再由有權限的人員處理，不能只憑同名就合併或重綁。",
-    "path": "顧客管理 → 顧客資料 → 管理 LINE 綁定",
+    "summary": "先分清中央會員身分、本店會員連結與接收通知的 LINE；有衝突時核對本人及原資料，不能只憑同名合併或重綁。",
+    "path": "顧客管理 → 顧客資料 → 本店會員與 LINE／管理 LINE 綁定",
     "steps": [
-      "先核對顧客本人、電話及目前綁定紀錄。",
-      "由具 LINE 重新綁定權限的人員查看申請與診斷資訊。",
+      "先核對顧客本人、電話、中央會員身分、本店會員連結及目前通知綁定紀錄。",
+      "蒸足一般聊天室手機通知綁定不再要求會員確認碼；先查本店電話與通知結果。只有後台列出待確認申請時，才由具顧客修改權限者核對本人、電話及該申請確認碼：會員登入選「已核對本人與確認碼，允許重新登入」，LINE 通知選「已核對本人，確認通知連結」。更換既有有效 LINE 另走具重新綁定權限的管理流程。",
       "依畫面處理；無法唯一確認身分時，整理資料請支援協助。"
     ],
     "important": "不能因為同名就直接移轉身分；重新綁定不等於新建會員。",
     "success": "",
-    "keywords": "換帳號 重綁 衝突 會員資料需要店家協助確認 通知綁定 登入身分",
+    "keywords": "換帳號 重綁 衝突 中央會員 本店會員連結 首次確認 通知綁定 登入身分 會員資料需要店家協助確認 本店會員與LINE 確認碼 已核對本人 確認綁定 已連結 確認通知連結 允許重新登入 登入確認申請已過期 登入前持續有效 撤銷登入授權",
     "details": [
-      "登入身分與接收通知的 LINE 綁定不一定是同一件事。開通通知不能用來覆蓋原有登入帳號。",
-      "若顯示「您的會員資料需要店家協助確認」，請聯繫店家，不需要重新註冊或解除 LINE 綁定；不要把身分衝突當成暫時連線問題反覆重試。"
+      "中央會員、本店會員連結與接收通知的 LINE 不一定是同一件事。門市核對同一人後可沿用唯一既有會員，不另建重複帳號；同一位換 LINE 時只更新本店連結，不覆蓋其他店或刪除原登入帳號。",
+      "一般聊天室手機匹配只設定本店通知對象，不建立或移轉登入帳號；收到「通知設定完成」也不代表會員登入已恢復。後台申請確認成功後直接顯示已連結，仍不等於實際送達。申請逾時、電話已變更、多人身分衝突或 LINE 屬於本店別人時仍會阻擋。",
+      "登入受阻時保留查核編號與發生時間供支援核對；重試只重新驗證，不能核准身分、延長過期授權或保證個案已修好。",
+      "若顯示「您的會員資料需要店家協助確認」，請聯繫店家，不需要重新註冊或解除 LINE 綁定；不要把身分衝突當成暫時連線問題反覆重試。",
+      "登入申請與通知申請分開核對，確認其中一種不代表另一種完成。尚未核對的登入確認申請已過期時，重新取得申請及確認碼；精確已核對授權持續到完成登入或撤銷，每次仍檢查本人 LINE、手機、門市與原登入快照。需要終止時由具重新綁定權限者在進階綁定狀態選「撤銷登入授權」，確認後核對「會員登入授權已撤銷」。一般通知連結與舊限時重新綁定不套用此永久等待規則，不用舊畫面反覆確認。"
     ],
     "modules": [
       "steamfoot",
@@ -771,11 +798,16 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
       "src/server/actions/customer-auth.ts",
       "src/server/services/bind-line-to-customer.ts",
-      "src/lib/liff/messages.ts"
+      "src/app/(dashboard)/dashboard/customers/[id]/line-binding-section.tsx",
+      "src/server/services/liff-login-recovery.ts",
+      "src/lib/liff/messages.ts",
+      "src/components/admin/store-member-connection-panel.tsx",
+      "src/server/actions/store-member-connection.ts",
+      "src/server/services/store-member-connection.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
-    "answer": "LINE 綁定衝突要先確認本人及原資料，再由有權限的人員處理，不能只憑同名就合併或重綁。"
+    "answer": "先分清中央會員、本店連結與通知 LINE，再由有權限的人員核對本人處理；不能只憑同名或同電話合併。"
   },
   {
     "id": "D02",
@@ -791,7 +823,9 @@ export const additionalGuides: OperationGuide[] = [
     "important": "「尚待確認」需確認入帳後才發放堂數；不可把未入帳款項當已收款。",
     "success": "顧客資料能查到正確方案與款項狀態。",
     "keywords": "買課 開卡 指派 購買",
-    "details": [],
+    "details": [
+      "若方案是誤建且尚未使用，可從原交易依權限取消；只有不增減金額與堂數的零效果紀錄不會誤判成另一個方案來源。仍有其他購買、退款、堂數調整或已使用／預約時，系統會阻擋，先核對方案明細。"
+    ],
     "modules": [
       "steamfoot"
     ],
@@ -810,16 +844,16 @@ export const additionalGuides: OperationGuide[] = [
     "id": "D03",
     "category": "plans",
     "title": "在哪裡看剩餘堂數與到期日？",
-    "summary": "剩餘堂數不一定全都能再預約，還要扣除已被預約保留的堂數，並確認到期日。",
+    "summary": "顧客摘要先列有效方案與剩餘；要看已預約、可再預約、效期或逐堂狀態，再從該卡的管理入口展開。",
     "path": "顧客管理 → 顧客資料 → 方案",
     "steps": [
-      "找到顧客目前方案，核對方案名稱。",
-      "分別查看方案剩餘、已預約、可再預約與到期日。",
+      "找到顧客目前有效方案摘要，核對方案名稱、剩餘與到期日。",
+      "點該方案的管理入口，分別查看已預約、可再預約、效期與堂數明細。",
       "有多張方案時逐張核對，不只看合計。"
     ],
     "important": "已預約堂數占用可預約額度；畫面提示明細不一致時先查紀錄。",
     "success": "",
-    "keywords": "剩餘 可用 可預約 效期",
+    "keywords": "持有方案 方案摘要 管理方案 剩餘 可用 可預約 效期",
     "details": [],
     "modules": [
       "steamfoot"
@@ -935,7 +969,7 @@ export const additionalGuides: OperationGuide[] = [
     "success": "交易不再待確認，對應方案狀態正確。",
     "keywords": "核帳 入帳 轉帳 匯款 後四碼 待確認收款 付款確認工作台",
     "details": [
-      "此題說明蒸足方案的待確認收款；SPA 請查看「SPA 服務完成後，怎麼收款或扣方案？」。",
+      "此題說明蒸足方案的待確認收款；課程方案核帳依課程營運入口處理，不混用交易。",
       "送出購買申請時還不會開通堂數。確認失敗或顯示已處理時，先查原交易及方案，不要重新指派或再建訂單。"
     ],
     "modules": [
@@ -1023,12 +1057,13 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "預設零售收入只是方便開始輸入，不代表系統已判斷分類；非零售請先改成其他收入或支出。非現金收支與抽屜現金不同，付款方式要如實填寫。",
     "success": "收支明細出現正確紀錄。",
-    "keywords": "支出 收入 記帳 操作視窗 現金抽屜 關聯顧客 消費項目 預設零售收入 零售分類 其他收入 補登日期 搜尋記帳 全部收入 提領 調整 顧客電話 備註 讀取失敗 重試 進銷存 連動 唯讀",
+    "keywords": "支出 收入 記帳 操作視窗 現金抽屜 關聯顧客 消費項目 預設零售收入 零售分類 其他收入 補登日期 搜尋記帳 全部收入 提領 調整 顧客電話 備註 讀取失敗 重試 進銷存 連動 唯讀 新版運動 查看明細 返回清單 更多操作",
     "details": [
       "記帳時選零售收入會納入零售分析；選其他收入會納入其他收入分析。顧客姓名不影響分類。",
       "已結帳日期補登現金異動須依提示確認；補紀錄不會重算原本的關帳快照。",
       "搜尋框最多取前 60 字並短暫等待輸入完成；切換月份會清除自訂起訖日期，其他篩選可組合使用。",
-      "面板讀取失敗時會保留原位置並提供重試；不要連按新增。由進銷存收付款建立的現金紀錄會標示來源，必須回原銷貨／進貨單處理，現金帳不可獨立修改或刪除。銷貨退貨、退款或作廢請依 O09；付款方式誤登或重複登收款請依 O10，收款更正本身不會退款給顧客。"
+      "面板讀取失敗時會保留原位置並提供重試；不要連按新增。由進銷存收付款建立的現金紀錄會標示來源，必須回原銷貨／進貨單處理，現金帳不可獨立修改或刪除。銷貨退貨、退款或作廢請依 O09；付款方式誤登或重複登收款請依 O10，收款更正本身不會退款給顧客。",
+      "新版運動從課表「現金收支」開今日清單，該列「⋯」可查看明細；具權限且可編輯的一般收入／支出才顯示編輯或刪除。明細按「返回清單」不新增紀錄，補登其他日期到完整現金管理。預約與方案現金已計入抽屜，不再手動重記。"
     ],
     "modules": [
       "steamfoot",
@@ -1150,21 +1185,24 @@ export const additionalGuides: OperationGuide[] = [
     "id": "F01",
     "category": "care",
     "title": "顧客提醒與店長通知在哪裡分開設定？",
-    "summary": "提醒面板分店長通知、顧客提醒與發送紀錄；店長卡片可先用示範資料預覽，不會發送 LINE。",
+    "summary": "提醒面板依通知對象分頁；顧客通知以完整設定列顯示，店長通知先選收件人，發送紀錄另有入口。",
     "path": "設定 → 通知與顧客經營 → 提醒管理",
     "steps": [
       "開啟提醒管理；桌機在設定側邊面板、手機在滿版面板操作。",
-      "切到店長通知、顧客提醒或發送紀錄；顧客提醒再分預約前、體驗後關懷與方案使用提醒。店長通知可展開預設收合的「查看訊息預覽」，從「通知類型」切換卡片。",
-      "店長通知開關變更後等待「已儲存」；需要儲存的其他設定明確送出，再重新開啟核對開關與收件人。實際發送結果另從發送紀錄查。"
+      "選顧客通知、店長通知或技師／老師／教練通知（依模組與門市稱呼顯示）；發送紀錄位於右側。顧客通知直接列出預約、關懷、方案，工單開通時才顯示取件提醒。",
+      "店長通知先選「通知收件人」，再調整這位人員的個別開關；各列可展開預覽。開關各自儲存，數位管家不受個人 LINE 偏好影響。顧客通知一次展開一列，切換時保留草稿；文字須儲存才生效，取消會還原。實際發送結果另從發送紀錄查。"
     ],
     "important": "顧客與店長是不同收件對象；開啟前先核對。預覽按鈕不跳轉業務操作、不發 LINE，不需為了看樣式建立真實預約或收款。",
     "success": "各分頁的設定符合預期。",
-    "keywords": "LINE 通知 開關 提醒 設定側邊面板 顧客提醒 店長通知 發送紀錄 預約前 體驗後 方案使用 查看訊息預覽 通知類型 Flex 示範資料 9種",
+    "keywords": "LINE 通知 開關 提醒 設定側邊面板 顧客提醒 店長通知 工單待取件 發送紀錄 提醒類型 下拉選單 預約前 體驗後 方案使用 查看訊息預覽 通知類型 通知分類 設定提醒 收合 精簡列 Email 額度 Flex 示範資料 9種",
     "details": [
-      "提醒面板有未儲存內容或正在儲存時，關閉會先阻擋；顯示摘要不等於已送出任何通知。",
-      "蒸足／SPA 的共用店長預覽列出 9 種示範：當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、要求真人客服、真人客服催辦、待確認付款、服務未完成、每日待辦摘要。實際發送仍依門市業務事件與收件人偏好，不會因切換預覽而啟用。",
+      planActivationGuideDetail,
+      "編輯列收合時會保留草稿；切換分頁或關閉面板前，請先儲存需要保留的內容。正在儲存時，切換或關閉會先阻擋。一般表單依序送出；店長通知的不同個別開關各自儲存，只鎖定正在處理的同一項。若失敗會保留未送出的畫面值並顯示錯誤，不要把畫面切換當成成功。顯示摘要不等於已送出任何通知。",
+      "蒸足的店長預覽列出 9 種示範：當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、要求真人客服、真人客服催辦、待確認付款、服務未完成、每日待辦摘要。實際發送仍依門市業務事件與收件人偏好，不會因切換預覽而啟用。",
       "預覽類型數不等於個別開關數；真人客服催辦共用「要求真人客服」開關。運動／音樂店長預覽是適用的 7 種，入口與差異見 C123。",
-      "預覽只供查看卡片內容與風格；實際 LINE 排版、門市及按鈕目的地仍須在 LINE 核對，不能以預覽代替送達驗收。"
+      "預覽只供查看卡片內容與風格；實際 LINE 排版、門市及按鈕目的地仍須在 LINE 核對，不能以預覽代替送達驗收。",
+      "店長通知的進階區另有 LINE 額度 Email 通知；它寄給本店啟用中老闆的登入信箱，與下方店長 LINE 綁定及個別提醒開關不同，操作見 F13。",
+      "切換提醒分頁只讀該分頁需要的資料；畫面保留讀取回饋，關閉設定視窗會回原設定位置，不必等待整個後台重新載入。空白或讀取中不代表設定被刪除。"
     ],
     "modules": [
       "steamfoot",
@@ -1178,7 +1216,10 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/reminders/line-notification-recipients-card.tsx",
       "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
       "src/lib/manager-notification-preview.ts",
-      "src/lib/manager-notification-preferences.ts"
+      "src/lib/manager-notification-preferences.ts",
+      "src/app/(dashboard)/dashboard/reminders/reminder-section-picker.tsx",
+      "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
+      "src/app/(dashboard)/dashboard/reminders/reminder-panel-reader.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -1188,19 +1229,19 @@ export const additionalGuides: OperationGuide[] = [
     "id": "F03",
     "category": "care",
     "title": "當日臨時預約，要怎麼通知店長？",
-    "summary": "蒸足的當日預約店長通知需開啟對應設定，並確認收件人已完成 LINE 綁定；SPA 共用預覽不代表已接上當日預約通知。",
+    "summary": "蒸足的當日預約店長通知需開啟對應設定，並確認收件人已完成 LINE 綁定。",
     "path": "提醒管理 → 店長通知",
     "steps": [
       "在店長通知找到正確收件人，確認 LINE 已綁定並開啟「接收 LINE 通知」。",
-      "點「設定提醒」，核對「當日新預約」開關；變更後等待「已儲存」。",
-      "要看卡片樣式時展開「查看訊息預覽」，在「通知類型」選「當日新預約」；實際發送結果從發送紀錄核對。"
+      "選擇「通知收件人」，核對這位人員的「當日新預約」開關；變更後等待「已儲存」。",
+      "要看卡片樣式時展開「當日新預約」列的「預覽」；實際發送結果從發送紀錄核對。"
     ],
     "important": "接收人需完成本店 LINE 綁定；示範預覽不發送通知，也不能測試綁定或送達，不要為看樣式新增真實預約。",
     "success": "開關與收件人正確，能追查通知結果。",
     "keywords": "當天 臨時預約 店長通知 當日新預約 查看訊息預覽 通知類型 Flex 示範資料",
     "details": [
       "新版當日新預約店長通知使用 Flex 卡片。預覽按鈕僅展示，不會跳轉；實際卡片需另核對正確門市與預約連結。",
-      "預覽不改變觸發規則。此當日通知針對蒸足顧客自行預約今天的服務，SPA 預約目前未接此觸發；共用預覽不代表各模組都會發送。課程店另有自己的當日新預約通知，設定入口見 C123。開啟設定不會把任意舊預約重新發送。"
+      "預覽不改變觸發規則。此當日通知針對蒸足顧客自行預約今天的服務；共用預覽不代表各模組都會發送。課程店另有自己的當日新預約通知，設定入口見 C123。開啟設定不會把任意舊預約重新發送。"
     ],
     "modules": [
       "steamfoot",
@@ -1218,7 +1259,7 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "蒸足的當日預約店長通知需開啟對應設定，並確認收件人已完成 LINE 綁定；SPA 共用預覽不代表已接上當日預約通知。"
+    "answer": "蒸足的當日預約店長通知需開啟對應設定，並確認收件人已完成 LINE 綁定。"
   },
   {
     "id": "F04",
@@ -1229,11 +1270,11 @@ export const additionalGuides: OperationGuide[] = [
     "steps": [
       "用發送紀錄確認該訊息是成功、失敗還是尚未發送。",
       "核對正確門市、通知規則、發送時間及收件身分；店長通知再查該收件人的 LINE 綁定、接收總開關與個別偏好。",
-      "若失敗，保留原因，檢查綁定與官方帳號狀態後處理。"
+      "若失敗，保留原因，檢查綁定與官方帳號狀態後處理；收到 LINE 額度 Email 時，另確認是分店或共用 LINE、剩餘額度及每日失敗摘要。"
     ],
     "important": "沒有紀錄與發送失敗不是同一件事；不要直接重複發送。預覽看起來正確或發送紀錄顯示成功，不代表本人已在 LINE 看見或點過連結。",
     "success": "",
-    "keywords": "收不到 漏發 失敗 紀錄 體驗預約 通知尚未完成 LINE 通知已連結 店長 Flex 文字 重試 保存卡片 收件人偏好",
+    "keywords": "收不到 漏發 失敗 紀錄 體驗預約 通知尚未完成 LINE 額度 Email 80% 95% 用完 每日失敗摘要 共用LINE 分店LINE 通知已連結 店長 Flex 文字 重試 保存卡片 收件人偏好 登入前持續有效 撤銷登入授權 會員登入待確認 確認通知連結 允許重新登入 LINE 通知設定完成 簡短回覆",
     "details": [
       "新版店長自動通知的 9 種店務事件使用 Flex 卡片；系統重試沿用該次已保存的卡片內容。舊紀錄若沒有保存卡片，仍以原文字重試，所以舊通知顯示文字不一定是異常。",
       "上述卡片範圍是當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、真人客服要求與催辦、待確認付款、服務未完成／出席待處理及每日待辦。週報、LINE 綁定回覆與顧客手動訊息不在此範圍；原觸發規則不因卡片樣式改變。",
@@ -1242,8 +1283,13 @@ export const additionalGuides: OperationGuide[] = [
       "加入官方 LINE、送出電話或開啟設定連結都不等於通知已成功。以完成頁的「LINE 通知已連結」、LINE 回覆「通知設定完成」及後續發送紀錄分別核對。",
       "通知設定完成不代表會員已能登入。蒸足顧客登入時若出現確認碼，請在顧客資料的「本店會員與 LINE」核對本人、手機及同一組確認碼，再按「已核對本人與確認碼，允許重新登入」。請顧客重新進入會員專區完成登入；後台顯示已授權時，仍不代表顧客已登入。",
       "尚未核對的登入申請逾時時，請顧客重新提交，由店家核對新的確認碼。透過會員登入確認完成本人核對後，指定 LINE 身分的授權會持續有效到完成登入，或由有權限人員撤銷；不因等待天數失效。不要反覆設定通知、重新註冊或解除原 LINE 綁定。",
+      "後台的會員資料、登入與通知分列；「已核對本人，確認通知連結」只處理 LINE 通知，「允許重新登入」只授權登入恢復，兩者不能互相代替。工單待取件通知也不能把登入申請當成有效通知收件連結。",
       "若 LINE 對話當時正在回答數位管家問題，電話格式正確但選單不接受輸入時，系統會改回報綁定結果；不要因原選單錯誤就反覆送出電話。",
-      "課程門市共用同一官方 LINE 時，通知連結仍須保留門市；未知好友或一般聊天不會猜門市、建立顧客或跨店綁定。"
+      "課程門市共用同一官方 LINE 時，通知連結仍須保留門市；未知好友或一般聊天不會猜門市、建立顧客或跨店綁定。",
+      "蒸足一般聊天室直接送出手機可設定本店通知，不再要求會員確認碼；它只匹配唯一顧客並處理通知對象，不建立登入帳號。查無資料、同電話多筆或已有其他有效 LINE 時仍要店長核對，不能反覆重綁。",
+      "後台的「會員已連結／本店通知尚未確認」是不同摘要，不能單憑文字推定本次登入成功或通知故障；仍核對發送紀錄與實際通道。工單本店 QR 連結及課程共享官方 LINE 保留自己的確認流程。",
+      "蒸足一般手機通知綁定成功，現在簡短回覆「LINE 通知設定完成！」並提醒保持好友且未封鎖，不再附登入處理步驟；不是漏掉核准。通知成功不代表已登入，登入問題另外由後台核對本人，不反覆綁定通知。",
+      "LINE 額度 Email 的每日失敗摘要是紀錄數，可能含重試，不等於未收到訊息的顧客人數。寄信服務接受、發送紀錄成功與本人實際收信／閱讀仍是三件事；操作見 F13。"
     ],
     "modules": [
       "steamfoot",
@@ -1261,7 +1307,13 @@ export const additionalGuides: OperationGuide[] = [
       "src/server/services/manager-notification-delivery.ts",
       "src/lib/manager-notification-preferences.ts",
       "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
-      "docs/manager-line-flex-inventory.md"
+      "docs/manager-line-flex-inventory.md",
+      "src/components/admin/store-member-connection-panel.tsx",
+      "src/server/services/liff-login-recovery.ts",
+      "src/server/services/store-member-connection.ts",
+      "src/server/services/work-order-ready-notification.ts",
+      "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
+      "src/server/services/line-quota-monitor.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
@@ -1342,7 +1394,7 @@ export const additionalGuides: OperationGuide[] = [
     "details": [
       "後續邀請階段會檢查購買與預約條件。第一階段仍依其他啟用、時間及停止關懷條件判斷。",
       "蒸足顧客已有本店套票購買申請、仍待核帳時，也會略過後續邀請；這不代表已付款或已開通堂數。",
-      "已略過的階段不補發。訂單取消後，尚未到發送時間的階段仍依當時狀態判斷；SPA 與課程各用自己的購買及預約紀錄。"
+      "已略過的階段不補發。訂單取消後，尚未到發送時間的階段仍依當時狀態判斷；課程另用自己的購買及預約紀錄。"
     ],
     "modules": [
       "steamfoot",
@@ -1406,7 +1458,7 @@ export const additionalGuides: OperationGuide[] = [
     "details": [
       "生日依年度、關懷原因分開記錄；舊的一般聯繫紀錄不會自動視為今年生日已處理。",
       "有未來預約時顯示已預約；取消後重新依條件與追蹤日期判斷，實際完成回店後原條件會重新計算。",
-      "蒸足、SPA、課程使用各自的預約、方案與權限規則；記錄祝福本身不會發送 LINE。"
+      "蒸足與課程使用各自的預約、方案與權限規則；記錄祝福本身不會發送 LINE。"
     ],
     "modules": [
       "steamfoot",
@@ -1428,12 +1480,12 @@ export const additionalGuides: OperationGuide[] = [
     "id": "G01",
     "category": "staff",
     "title": "新增後台人員時，角色與工作身分怎麼選？",
-    "summary": "先建立後台帳號並選 Staff／Manager／Owner；教練、教師或芳療師是另一種工作身分，要另外連結。",
+    "summary": "先在統一人員工作區建立後台帳號並選 Staff／Manager／Owner；教練、教師或芳療師是另一種工作身分，要另外設定與連結。",
     "path": "人員管理 → 新增人員",
     "steps": [
-      "到左側「人員管理」點「＋ 新增人員」，填姓名、手機、Email 與初始密碼。",
+      "到左側「人員管理」選後台人員分頁，點「＋ 新增人員」，填姓名、手機、Email 與初始密碼。",
       "一般日常人員選 Staff；需管理店務與較多權限時由 Owner 評估 Manager；只有實際店主才選 Owner。",
-      "建立後開啟該人員，核對角色與細項權限；需要教練、教師或芳療師工作身分時，再到對應模組完成連結與排班。",
+      "建立後在同一編輯視窗切到「後台帳號／權限」，核對角色與細項權限；需要教練、教師或芳療師工作身分時，再到對應分頁完成授課／服務資格、LINE 與排班。",
       "請本人重新登入正確門市，確認只看得到被授權的入口。"
     ],
     "important": "後台角色、細項權限與教練／教師／芳療師身分是三件事；新增業務身分不會自動給後台全權。",
@@ -1442,7 +1494,8 @@ export const additionalGuides: OperationGuide[] = [
     "details": [
       "Manager 可管理 Staff／舊帳號，但不能管理自己、Owner、Admin 或其他 Manager，也不能授出自己沒有的權限。",
       "只有 Owner／Admin 可指派 Owner、Manager、Staff；既有 PARTNER 保留原授權，不會自動改角色。",
-      "建立或明確勾選套用角色預設時才寫入預設權限；後續角色切換預設保留個別授權，除非勾選取代。"
+      "建立或明確勾選套用角色預設時才寫入預設權限；後續角色切換預設保留個別授權，除非勾選取代。",
+      "統一工作區只是把後台人員與工作身分放在同一入口，資料、登入與歷史仍分開；新增成功後應留在原視窗核對，不能只憑清單暫時消失判斷失敗。"
     ],
     "modules": [
       "steamfoot",
@@ -1470,7 +1523,7 @@ export const additionalGuides: OperationGuide[] = [
     "path": "人員管理／設定",
     "steps": [
       "確認登入者、目前門市與後台角色是 Owner、Manager、Staff 或舊帳號。",
-      "到人員管理核對該功能所需的查看／建立／管理／成本等細項權限，以及是否套用角色預設或已自訂。",
+      "到人員管理開啟該人員的「後台帳號／權限」，核對查看／建立／管理／成本等細項權限，以及是否套用角色預設或已自訂；工作身分另到授課設定或 LINE 與權限核對。",
       "再核對門市是否已開通該模組與功能；隱藏、鎖定或未開通時，不會因勾權限就出現。",
       "由有 staff.manage 且階層允許的人員調整；儲存後請當事人重新登入並再次確認。"
     ],
@@ -1480,7 +1533,8 @@ export const additionalGuides: OperationGuide[] = [
     "details": [
       "Owner 在所屬門市內擁有已開通功能的權限；Manager／Staff 依實際 StaffPermission 判定，不能只看角色名稱。",
       "權限變更會清除快取；角色或帳號狀態變更會撤銷舊登入狀態。若仍看到舊畫面，先重新登入，不要重複儲存。",
-      "教練、教師、芳療師或會員連結不等於後台權限；需分別核對工作身分與人員帳號。"
+      "教練、教師、芳療師或會員連結不等於後台權限；統一工作區也不會把兩種權限合併，需分別核對工作身分與人員帳號。",
+      "教師／教練的查看本人薪酬、代學員請假與替學員改期是各自的工作權限；查看本人薪酬還需要門市已開放本人收入及已確認月結。"
     ],
     "modules": [
       "steamfoot",
@@ -1556,7 +1610,7 @@ export const additionalGuides: OperationGuide[] = [
     "details": [
       "日期範圍包含起始日與結束日；結束日不可早於起始日。若期間涵蓋今天之後，當期只統計到台灣今天，並用相同進度比較前期及去年同期。",
       "營收結構摘要依上方日期篩選；近六個月圖固定從本月往前六個月，本月只統計至今天，不跟著摘要區間縮短。零售依記帳時選擇的分類計算；提款不算支出，待確認收款不算已收營業額。",
-      "蒸足與 SPA 分別讀取本模組資料；課程店會轉到課程分析，不共用此頁的蒸足／SPA 統計口徑。"
+      "本頁讀取蒸足資料；課程店會轉到課程分析，不共用此頁統計口徑。"
     ],
     "modules": [
       "steamfoot",
@@ -1620,7 +1674,7 @@ export const additionalGuides: OperationGuide[] = [
     "keywords": "對不上 數字 差異 分析 人次 組數 不重複顧客 較前期 去年同期",
     "details": [
       "較前期與去年同期使用同樣的期間進度；下方六個月趨勢是固定長期視角，不能拿單一自訂區間直接逐格相比。",
-      "SPA 分析只計本店 SPA 完成服務與 SPA 方案銷售；蒸足及課程資料不會補進 SPA 數字。"
+      "各模組以自己的完成服務及方案紀錄計算；蒸足與課程不混用統計口徑。"
     ],
     "modules": [
       "steamfoot",
@@ -1630,9 +1684,9 @@ export const additionalGuides: OperationGuide[] = [
     "feature": "basic_reports",
     "sources": [
       "src/app/(dashboard)/dashboard/reports/page.tsx",
-      "src/app/(dashboard)/dashboard/reports/spa-analysis-page.tsx",
+
       "src/server/queries/analysis-period.ts",
-      "src/server/queries/spa-analysis.ts"
+
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
@@ -1708,13 +1762,14 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "",
     "success": "",
-    "keywords": "串接 多店 分店 總部 HQ 查看 唯讀 SPA 顧客 實際權限 OWNER 功能隱藏 功能鎖定 HIDDEN LOCKED 不冒用 店員 現金簿 返回總部",
+    "keywords": "串接 多店 分店 總部 HQ 查看 唯讀 顧客 實際權限 OWNER 功能隱藏 功能鎖定 HIDDEN LOCKED 不冒用 店員 現金簿 返回總部 無法存取此店舖 返回自己的店舖 重新登入",
     "details": [
       "母店店主也只能查看下層店；母店跨店查看不能新增或編輯顧客，也不提供預約、收款、扣次或退款，不會把本店 OWNER／MANAGER 的寫入權限延伸到其他店。",
       "HQ 選店後，系統保留真實 HQ 操作者與稽核來源，再依該店 OWNER 可用能力、訂閱方案及功能狀態決定畫面；不是切換成該店員工。",
       "HIDDEN 功能完全不顯示，也不掛載資料讀取；LOCKED 功能以未開通／不可用狀態呈現，後端同樣拒絕動作。",
       "HQ 門市視角的讀取、寫入與匯出都限定目前選店；跨店稽核、修復與總部工具要返回 HQ 使用。",
-      "需要真實 Staff 身分或個人歸屬的操作不會因 HQ 選店而放寬，例如個人名下現金簿編輯。"
+      "需要真實 Staff 身分或個人歸屬的操作不會因 HQ 選店而放寬，例如個人名下現金簿編輯。",
+      "若顯示「無法存取此店舖」，先用畫面提供的「返回自己的店舖」、「返回總部」或「重新登入」恢復正確範圍；系統依目前帳號與可用店家顯示合適入口，返回會重新載入共用外框。不要重複切入無權限店家、拼接網址或把拒絕存取當成資料已刪除。"
     ],
     "modules": [
       "steamfoot",
@@ -1729,7 +1784,8 @@ export const additionalGuides: OperationGuide[] = [
       "src/lib/hq-store-view.ts",
       "src/lib/hq-store-view-context.ts",
       "src/lib/core-feature-permissions.ts",
-      "src/components/dashboard-layout.tsx"
+      "src/components/dashboard-layout.tsx",
+      "src/components/ui/error-state.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "explanation",
@@ -1917,182 +1973,7 @@ export const additionalGuides: OperationGuide[] = [
     "kind": "howto",
     "answer": "轉真人的需求會列在數位管家名單，可指派負責人與更新狀態；更新狀態不代表已回覆顧客。"
   },
-  {
-    "id": "J01",
-    "category": "spa",
-    "title": "服務名稱、價格與時間在哪裡設定？",
-    "summary": "療程的售價、服務時間與整理時間在方案管理設定；排程會把整理時間一起納入占用。",
-    "path": "方案管理 → 療程 → 設定",
-    "steps": [
-      "選療程，修改名稱、規格、售價與服務時間。",
-      "設定整理時間及需要的專業項目。",
-      "確認是否開放顧客自行預約，再儲存。"
-    ],
-    "important": "整理時間不顯示給顧客，但會占用排程；儲值金與堂數權益另行管理。",
-    "success": "療程列表顯示正確售價、顧客時間與實際占用。",
-    "keywords": "療程 服務 整理時間 價格",
-    "details": [],
-    "modules": [
-      "spa"
-    ],
-    "permission": "plans.edit",
-    "feature": null,
-    "sources": [
-      "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
-      "src/app/(dashboard)/dashboard/spa-resources/workspace.tsx",
-      "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx"
-    ],
-    "verification": "source-reviewed",
-    "kind": "howto",
-    "answer": "療程的售價、服務時間與整理時間在方案管理設定；排程會把整理時間一起納入占用。"
-  },
-  {
-    "id": "J03",
-    "category": "spa",
-    "title": "美容床、美甲桌或服務位置怎麼新增？",
-    "summary": "服務位置用來管理美容床或美甲桌等資源，新增後要設定可提供的療程。",
-    "path": "服務位置 → 新增位置",
-    "steps": [
-      "輸入可辨識的位置名稱。",
-      "設定啟用狀態與適用療程。",
-      "儲存後回查位置列表及適用療程。"
-    ],
-    "important": "停用後不再提供新預約選用，既有預約仍保留。",
-    "success": "服務位置與適用療程正確列出。",
-    "keywords": "床位 房間 美甲桌 位置",
-    "details": [],
-    "modules": [
-      "spa"
-    ],
-    "permission": "business_hours.manage",
-    "feature": null,
-    "sources": [
-      "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
-      "src/app/(dashboard)/dashboard/spa-resources/workspace.tsx",
-      "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx"
-    ],
-    "verification": "source-reviewed",
-    "kind": "howto",
-    "answer": "服務位置用來管理美容床或美甲桌等資源，新增後要設定可提供的療程。"
-  },
-  {
-    "id": "J04",
-    "category": "spa",
-    "title": "怎麼看芳療師當日排程與空檔？",
-    "summary": "排程按人員顯示預約與空檔；15／30 分鐘是畫面刻度，不是療程固定長度。",
-    "path": "預約排程",
-    "steps": [
-      "選排程日期，依需要切換 15 或 30 分鐘間隔。",
-      "查看服務人員的預約與空白時段。",
-      "點預約看摘要；新增前先核對服務與可承接人員。"
-    ],
-    "important": "時間顯示間隔與療程實際占用時間不同。",
-    "success": "",
-    "keywords": "芳療師 時刻表 排程 空檔",
-    "details": [],
-    "modules": [
-      "spa"
-    ],
-    "permission": "booking.read",
-    "feature": null,
-    "sources": [
-      "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
-      "src/app/(dashboard)/dashboard/spa-resources/workspace.tsx",
-      "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx"
-    ],
-    "verification": "source-reviewed",
-    "kind": "explanation",
-    "answer": "排程按人員顯示預約與空檔；15／30 分鐘是畫面刻度，不是療程固定長度。"
-  },
-  {
-    "id": "J07",
-    "category": "spa",
-    "title": "多人同行選不同服務，怎麼安排？",
-    "summary": "多人同行可以逐位安排不同服務；整組有衝突時不會只建立其中一部分。",
-    "path": "預約排程 → 新增預約",
-    "steps": [
-      "選顧客與時間，逐位設定需要的服務。",
-      "分別核對服務人員、位置與整組摘要。",
-      "整組送出；若有衝突，保留內容調整後再試。"
-    ],
-    "important": "整組有衝突時不會建立半套預約，不要另補一筆造成重複。",
-    "success": "整組每位顧客的服務與排程均正確。",
-    "keywords": "多人 同行 不同服務 整組",
-    "details": [],
-    "modules": [
-      "spa"
-    ],
-    "permission": "booking.create",
-    "feature": null,
-    "sources": [
-      "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
-      "src/app/(dashboard)/dashboard/spa-resources/workspace.tsx",
-      "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx"
-    ],
-    "verification": "source-reviewed",
-    "kind": "howto",
-    "answer": "多人同行可以逐位安排不同服務；整組有衝突時不會只建立其中一部分。"
-  },
-  {
-    "id": "J08",
-    "category": "spa",
-    "title": "人員或服務位置衝突時怎麼處理？",
-    "summary": "系統會檢查人員、位置及整段服務占用時間，空白格不一定足夠容納服務與整理時間。",
-    "path": "預約排程 → 預約面板",
-    "steps": [
-      "讀取衝突提示，確認是人員還是服務位置。",
-      "核對服務與整理時間所占用的完整區間。",
-      "改用可用的人員、位置或時段後，重新核對摘要再送出。"
-    ],
-    "important": "空白格不一定足以容納整段服務時間，不應忽略衝突提示。",
-    "success": "",
-    "keywords": "撞期 衝突 床位 重疊",
-    "details": [],
-    "modules": [
-      "spa"
-    ],
-    "permission": "booking.create",
-    "feature": null,
-    "sources": [
-      "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
-      "src/app/(dashboard)/dashboard/spa-resources/workspace.tsx",
-      "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx"
-    ],
-    "verification": "source-reviewed",
-    "kind": "troubleshooting",
-    "answer": "系統會檢查人員、位置及整段服務占用時間，空白格不一定足夠容納服務與整理時間。"
-  },
-  {
-    "id": "J09",
-    "category": "spa",
-    "title": "服務人員請假，怎麼調整？",
-    "summary": "在人員的日期班表調整當天班別，整天請假可選「整天休息」；變更必須先避開既有預約。",
-    "path": "人員管理 → 選擇排班人員 → 日期排班",
-    "steps": [
-      "選擇排班人員，點開要調整的日期。",
-      "部分時段休息時修改或移除班別；整天請假則點「整天休息」。",
-      "核對日期與班別後點「套用至 1 天」。若提示班別未涵蓋既有預約，先安排那些預約再重新儲存。"
-    ],
-    "important": "班表調整不會自動取消既有預約。發生衝突時整批不會儲存。",
-    "success": "日期班表顯示新的班別或休息，重新開啟該日仍可看到儲存結果。",
-    "keywords": "請假 代班 換班 臨時加班",
-    "details": [
-      "一天可設定多段班別，中間空檔不接受預約。",
-      "多選日期會把相同班別套用到所選日期，取代各日原班表。"
-    ],
-    "modules": [
-      "spa"
-    ],
-    "permission": "duty.manage",
-    "feature": null,
-    "sources": [
-      "src/app/(dashboard)/dashboard/spa-staff/workspace.tsx",
-      "src/server/actions/spa-resources.ts"
-    ],
-    "verification": "source-reviewed",
-    "kind": "howto",
-    "answer": "在人員的日期班表調整當天班別，整天請假可選「整天休息」；變更必須先避開既有預約。"
-  },
+
   {
     "id": "L01",
     "category": "support",
@@ -2100,7 +1981,7 @@ export const additionalGuides: OperationGuide[] = [
     "summary": "先核對門市模組、帳號權限與目前紀錄狀態，再比對教學；不同模組不一定有相同按鈕。",
     "path": "操作指南／目前功能頁",
     "steps": [
-      "確認使用的是時段預約、SPA 服務或課程模組。",
+      "確認使用的是時段（蒸足）、運動教室或音樂教室；兩種教室共用課程引擎，但業務規則分開。",
       "核對門市、登入角色、方案及目前紀錄狀態。",
       "若仍不同，保留畫面與功能名稱請支援核對。"
     ],
@@ -2350,76 +2231,15 @@ export const additionalGuides: OperationGuide[] = [
     "kind": "explanation",
     "answer": "購買方案歸在實際購買月份；本月購買再區分本月體驗與過往體驗追蹤，不能把兩者都算成本月體驗轉換。"
   },
-  {
-    "id": "J10",
-    "category": "spa",
-    "title": "多天班表一樣，能一次設定嗎？",
-    "summary": "可以。多選日期會套用同一組班別；複製上一週則會連休息日一起取代本週班表。",
-    "path": "人員管理 → 選擇排班人員 → 日期班表",
-    "steps": [
-      "選「多選日期」，勾選日期後點「設定選取日期」。",
-      "設定班別或整天休息，逐項核對所選日期。",
-      "點「套用至 N 天」。如果任一天與既有預約衝突，整批都不會儲存。"
-    ],
-    "important": "會取代所選日期的原班表。",
-    "success": "重新查看各選取日期，班別與設定相符。",
-    "keywords": "多天班表一樣，能一次設定嗎？ 可以。多選日期會套用同一組班別；複製上一週則會連休息日一起取代本週班表。",
-    "details": [
-      "要複製上一週，先點開本週日期，再選「此週套用上一週班表」。逐日核對預覽七天後，點「確認套用這七天」。"
-    ],
-    "modules": [
-      "spa"
-    ],
-    "permission": "duty.manage",
-    "feature": null,
-    "sources": [
-      "src/app/(dashboard)/dashboard/spa-staff/workspace.tsx",
-      "src/server/actions/spa-resources.ts"
-    ],
-    "verification": "source-reviewed",
-    "kind": "howto",
-    "answer": "可以。多選日期會套用同一組班別；複製上一週則會連休息日一起取代本週班表。"
-  },
-  {
-    "id": "J11",
-    "category": "spa",
-    "title": "SPA 服務完成後，怎麼收款或扣方案？",
-    "summary": "從預約明細進入結帳，核對服務與付款方式後才完成；使用方案或儲值金需核對本人可用權益。",
-    "path": "預約排程 → 預約明細 → 完成並結帳",
-    "steps": [
-      "點開預約，核對顧客與實際服務，選「完成並結帳」。",
-      "選付款方式；使用方案或儲值金時核對適用服務、可用次數或餘額。",
-      "確認實際收款或扣款／扣次後，勾選確認欄並送出結帳。"
-    ],
-    "important": "整組現金、刷卡或匯款可依畫面處理；各人使用方案或儲值金需逐人結帳。",
-    "success": "預約顯示完成，結帳資料與所選付款或權益相符。",
-    "keywords": "SPA 服務完成後，怎麼收款或扣方案？ 從預約明細進入結帳，核對服務與付款方式後才完成；使用方案或儲值金需核對本人可用權益。",
-    "details": [],
-    "modules": [
-      "spa"
-    ],
-    "permission": "booking.update",
-    "feature": null,
-    "sources": [
-      "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
-      "src/app/(dashboard)/dashboard/spa-schedule/checkout-panel.tsx",
-      "src/server/actions/spa-checkout.ts"
-    ],
-    "verification": "source-reviewed",
-    "kind": "howto",
-    "answer": "從預約明細進入結帳，核對服務與付款方式後才完成；使用方案或儲值金需核對本人可用權益。",
-    "additionalPermissions": [
-      "transaction.create"
-    ]
-  },
+
   {
     "id": "H05",
     "category": "analysis",
     "title": "營運資料如何匯出 Excel？",
     "summary": "選擇資料類型、期間與狀態，下載 Excel。",
-    "path": "營運 → 匯出資料",
+    "path": "營運 → 報表匯出 → 資料匯出",
     "steps": [
-      "點「匯出資料」，選要下載的資料類型。",
+      "切換「報表匯出 → 資料匯出」，選要下載的資料類型。",
       "選本月、上月或自訂期間，需要時再選狀態。",
       "核對門市與期間，點「匯出 Excel」，開啟下載檔確認範圍。"
     ],
@@ -2451,13 +2271,13 @@ export const additionalGuides: OperationGuide[] = [
     "summary": "方案的「堂數明細」可逐堂查看狀態及日期；紙本補登顯示「已使用（補登）」，不會有對應預約。",
     "path": "顧客管理 → 顧客資料 → 方案 → 管理 → 堂數明細",
     "steps": [
-      "找到正確顧客與方案，展開「管理」；唯讀畫面則展開「堂數明細」。",
+      "找到正確顧客與方案，在方案摘要點「管理方案」；唯讀畫面則展開「堂數明細」。",
       "逐堂核對「可使用」「已預約」「已使用」「已註銷」與「已使用（補登）」狀態。",
       "有疑問時比對預約日期、來店日期或註銷原因，確認原因後再決定是否更正。"
     ],
     "important": "",
     "success": "",
-    "keywords": "每一堂是預約中、已使用還是被註銷，在哪裡查？ 方案的「堂數明細」可逐堂查看狀態及日期；紙本補登顯示「已使用（補登）」，不會有對應預約。",
+    "keywords": "每一堂是預約中、已使用還是被註銷，在哪裡查？ 管理方案 方案的「堂數明細」可逐堂查看狀態及日期；紙本補登顯示「已使用（補登）」，不會有對應預約。",
     "details": [
       "「已預約」表示該堂已保留給預約使用，不能同時拿去另約。",
       "舊方案若尚未建立逐堂明細，畫面會提示；請保留方案資訊交由支援核對，不要重複建立方案。"
@@ -2538,70 +2358,7 @@ export const additionalGuides: OperationGuide[] = [
     "kind": "troubleshooting",
     "answer": "不一定。「已略過」通常代表沒有符合發送條件；先看紀錄中的原因，不要直接重複發送。"
   },
-  {
-    "id": "J12",
-    "category": "spa",
-    "title": "顧客有 SPA 方案，為什麼結帳時不能扣次？",
-    "summary": "方案必須屬於本店及該顧客、狀態有效、日期適用、可用次數足夠，且適用這筆預約的全部服務，才會列為可扣次方案。",
-    "path": "預約排程 → 預約明細 → 完成並結帳",
-    "steps": [
-      "先核對預約顧客與門市，確認使用的是該顧客的方案。",
-      "核對方案的開始日與到期日，同時涵蓋預約日和今天；再查是否已被其他預約保留次數。",
-      "確認方案適用這筆預約的所有療程；不符合時，先與顧客確認其他可用付款方式。"
-    ],
-    "important": "多人同行使用各自方案或儲值金時，需逐人結帳，不能把其中一人的權益當成整組付款來源。",
-    "success": "",
-    "keywords": "顧客有 SPA 方案，為什麼結帳時不能扣次？ 方案必須屬於本店及該顧客、狀態有效、日期適用、可用次數足夠，且適用這筆預約的全部服務，才會列為可扣次方案。",
-    "details": [],
-    "modules": [
-      "spa"
-    ],
-    "permission": "booking.update",
-    "feature": null,
-    "sources": [
-      "src/server/spa-checkout-credit.ts",
-      "src/app/(dashboard)/dashboard/spa-schedule/checkout-panel.tsx",
-      "src/server/actions/spa-checkout.ts"
-    ],
-    "verification": "source-reviewed",
-    "kind": "troubleshooting",
-    "answer": "方案必須屬於本店及該顧客、狀態有效、日期適用、可用次數足夠，且適用這筆預約的全部服務，才會列為可扣次方案。",
-    "additionalPermissions": [
-      "transaction.create"
-    ]
-  },
-  {
-    "id": "J13",
-    "category": "spa",
-    "title": "SPA 結帳顯示餘額不足或已經扣款，怎麼辦？",
-    "summary": "先核對該筆預約的付款與扣款結果，再處理差額；不要為了略過錯誤另建一筆相同預約。",
-    "path": "預約排程 → 預約明細 → 完成並結帳",
-    "steps": [
-      "保存錯誤提示，核對顧客、預約與所選方案或儲值帳戶。",
-      "餘額不足或帳戶停用時，與顧客確認其他付款方式；堂數已變更時，重新開啟結帳核對可用次數。",
-      "若提示已有扣款或收款紀錄，先查看原預約及帳務結果；仍不一致時，把時間與錯誤內容交給支援。"
-    ],
-    "important": "連線失敗不代表一定沒入帳；重新操作前先確認結果。",
-    "success": "",
-    "keywords": "SPA 結帳顯示餘額不足或已經扣款，怎麼辦？ 先核對該筆預約的付款與扣款結果，再處理差額；不要為了略過錯誤另建一筆相同預約。",
-    "details": [],
-    "modules": [
-      "spa"
-    ],
-    "permission": "booking.update",
-    "feature": null,
-    "sources": [
-      "src/server/spa-checkout-credit.ts",
-      "src/server/actions/spa-checkout.ts",
-      "src/app/(dashboard)/dashboard/spa-schedule/checkout-panel.tsx"
-    ],
-    "verification": "source-reviewed",
-    "kind": "troubleshooting",
-    "answer": "先核對該筆預約的付款與扣款結果，再處理差額；不要為了略過錯誤另建一筆相同預約。",
-    "additionalPermissions": [
-      "transaction.create"
-    ]
-  },
+
   {
     "id": "I06",
     "category": "settings",
@@ -2652,7 +2409,7 @@ export const additionalGuides: OperationGuide[] = [
     "success": "申請先顯示待店家確認；核帳成功後才顯示已確認付款並可核對方案。",
     "keywords": "線上購買 轉帳 後四碼 購買此方案 待店家確認 複製付款資訊 沒有購買按鈕",
     "details": [
-      "本流程限蒸足；SPA 公開方案卡仍由顧客聯繫店長，不套用此轉帳購買教學。",
+      "本流程限蒸足；課程方案購買與核帳依課程入口處理。",
       "卡片只列本店上架且開放顧客購買的套票；店家未設定轉帳帳號時不顯示購買按鈕。無公開方案時請聯繫店長。",
       "LINE 通知依店家設定發送。複製資料或開啟 LINE 不等於已把訊息送給店長。",
       "已存在同方案待核帳申請或送出結果不明時，先提供訂單編號請店家查詢，不要直接重做。"
@@ -2684,9 +2441,9 @@ export const additionalGuides: OperationGuide[] = [
       "首間分店免串接費，第 2～5 間每間 $500／月，第 6～15 間每間 $300／月，分段計算；16 間起另行報價。",
       "增加串接額度或超過 15 間時，聯繫平台確認費用及開通安排。各分店系統月費另計。"
     ],
-    "important": "展店版的功能全含適用於購買展店版的總部店，不會自動把同樣功能開給所有分店。",
+    "important": "展店版適用工具與經營功能內含於購買展店版的總部店；進銷存、工單額外加購，不會自動把同樣功能開給所有分店。",
     "success": "",
-    "keywords": "分店串接費 展店版 額度 已串接 自動扣款 500 300 分段計算",
+    "keywords": "分店串接費 展店版 額度 已串接 自動扣款 500 300 分段計算 2980 月繳 年繳 十二個月承諾 十四個月 加購",
     "details": [
       "例：串接 6 間，串接費為 首間免費 ＋ 4 × $500 ＋ 1 × $300 ＝ $2,300／月。採月繳時，總部方案 NT$2,980／月，最低承諾 12 個月（主方案合約總額 NT$35,760），加串接費每月共 NT$5,280；採年繳時，總部主方案 NT$35,760，優惠期間使用 14 個月，平均約 NT$2,554／月，串接費 NT$2,300／月另計。兩種方式皆未包含各分店系統月費。",
       "已開通可串接 10 間、實際只串接 3 間時，串接費按 3 間計算，首間免費，其餘 2 間各 $500，即 $1,000／月；本頁試算不是自動扣款。"
@@ -2888,22 +2645,24 @@ export const additionalGuides: OperationGuide[] = [
     "id": "I08",
     "category": "settings",
     "title": "裝置預覽與前台唯讀預覽有何不同？",
-    "summary": "上方預覽工具可用手機、平板橫向、平板直向與桌機尺寸檢查後台；前台唯讀預覽則查會員與工作畫面。",
+    "summary": "上方預覽工具可用手機、平板與桌機尺寸檢查後台；前台唯讀預覽則查會員與工作畫面。",
     "answer": "裝置框內後台操作仍可能生效；只有前台預覽內容受到唯讀保護，尺寸不代表資料隔離。",
     "path": "後台上方工具 → 預覽",
     "steps": [
       "從上方「預覽」開啟選單，核對目前門市與頁面。",
-      "選手機 390×844、平板橫向 1024×768、平板直向 768×1024 或桌機 1440×900，依實際工作畫面核對各尺寸。",
-      "旋轉或換尺寸後核對內容沒有整頁水平溢出、主操作可到達且草稿仍保留；要查會員／工作畫面再選前台唯讀預覽。"
+      "選手機 390×844、平板 1024×768 或桌機 1440×900，依實際工作畫面核對各尺寸。",
+      "換尺寸後核對內容沒有整頁水平溢出、主操作可到達且草稿仍保留；要查會員／工作畫面再選前台唯讀預覽。"
     ],
     "important": "裝置預覽使用目前門市資料，操作仍可能生效；它不是靜態圖片或隔離資料庫。",
-    "success": "預覽維持正確頁面與草稿，四種裝置尺寸可切換，且操作指南仍只有上方唯一入口。",
-    "keywords": "上方預覽 裝置預覽 前台唯讀預覽 平板 橫向 1024 768 手機 桌機 390 844 1440 900 iPad RWD",
+    "success": "預覽維持正確頁面與草稿，三種裝置尺寸可切換，且操作指南仍只有上方唯一入口。",
+    "keywords": "上方預覽 裝置預覽 前台唯讀預覽 平板 1024 768 手機 桌機 390 844 1440 900 iPad RWD 載入較慢 仍在讀取 返回歷史 同店家",
     "details": [
-      "預覽是瀏覽器內尺寸模擬，不等於真實 iPad、Safari 或觸控驗收；實際直向版型仍需真機另驗。",
+      "預覽是瀏覽器內尺寸模擬，不等於真實 iPad、Safari 或觸控驗收。",
       "前台預覽另需 frontend_preview 授權，裝置預覽不能繞過。",
       "桌機後台可使用側欄以外的可用寬度；個別表單仍可保留閱讀寬度，不能只憑左右留白判定故障。",
-      "裝置預覽內仍是真實後台，操作可能生效；尺寸模擬不替代 LINE 登入或業務驗收。"
+      "裝置預覽內仍是真實後台，操作可能生效；尺寸模擬不替代 LINE 登入或業務驗收。",
+      "已啟用新版運動的裝置預覽，超過 20 秒提示「載入較慢，仍在讀取…」，不單憑等待判定失敗；真正失敗依畫面重試。登入失效需重新登入，不把 Vercel 登入頁當成蒸管家。",
+      "新版運動預覽內同店頁面導覽會同步上方頁面選擇；換尺寸不應另載入整份文件，瀏覽器返回還原目標頁。仍需核對門市、權限及草稿；音樂／蒸足沿用原預覽行為。"
     ],
     "modules": [
       "steamfoot",
@@ -2987,291 +2746,9 @@ export const additionalGuides: OperationGuide[] = [
     "verification": "source-reviewed",
     "sources": [
       "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx",
-      "src/app/(dashboard)/dashboard/spa-staff/workspace.tsx",
-      "src/app/(dashboard)/dashboard/spa-resources/workspace.tsx",
-      "src/server/actions/spa-customer-booking.ts"
+
     ]
   },
-  {
-    "id": "J15",
-    "category": "spa",
-    "title": "怎麼讓本店會員成為服務人員？",
-    "summary": "從本店會員加入或連結既有人員，接著設定服務與班表。",
-    "answer": "從本店會員加入或連結既有人員，接著設定服務與班表。",
-    "path": "店長後台 → 人員管理 → 新增人員／連結會員",
-    "keywords": "新增人員 會員連結 LINE 技師 芳療師 工作權限",
-    "steps": [
-      "由店長開啟人員管理，點「＋新增人員」；已有排班人員但尚未連結時，選該人員再點「連結會員」。",
-      "輸入會員姓名或手機搜尋，核對遮罩電話、LINE 綁定與既有人員狀態，再選正確會員。",
-      "加入後設定「可提供服務」及日期班表，請本人重新登入本店前台查看「我的工作」。"
-    ],
-    "important": "找不到會員時先確認本店會員註冊及 LINE 綁定；不要另建同名人員來略過身分核對。",
-    "details": [
-      "加入人員不會自動開放接單。",
-      "停用工作權限不等於刪除會員身分或方案。"
-    ],
-    "success": "人員顯示會員已連結，且本人可查看自己的工作。",
-    "permission": "duty.manage",
-    "feature": null,
-    "modules": [
-      "spa"
-    ],
-    "kind": "howto",
-    "verification": "source-reviewed",
-    "sources": [
-      "src/app/(dashboard)/dashboard/spa-staff/new-person.tsx",
-      "src/app/(dashboard)/dashboard/spa-staff/workspace.tsx",
-      "src/app/(dashboard)/dashboard/spa-staff/page.tsx",
-      "src/app/(liff)/liff/spa-work/staff-work-screen.tsx"
-    ]
-  },
-  {
-    "id": "J16",
-    "category": "spa",
-    "title": "療程已上架，為什麼會員還是找不到可約時段？",
-    "summary": "可約時段需同時滿足療程、人員資格與班表、位置以及完整占用時間。",
-    "answer": "可約時段需同時滿足療程、人員資格與班表、位置以及完整占用時間。",
-    "path": "方案管理／人員管理／服務位置 → 會員預約",
-    "keywords": "沒有時段 無法預約 不指定 空檔 整理時間 上架",
-    "steps": [
-      "確認療程開放顧客預約、日期在可預約範圍內，並重新查詢該日。",
-      "由店長核對可提供此療程的人員與當日班表，再確認啟用位置適用所有選取療程。",
-      "檢查既有預約及服務加整理時間；改選日期或服務後重新選時段與人員。"
-    ],
-    "important": "畫面空白不代表足夠容納整段服務；選「不指定」也不會略過資格或衝突檢查。",
-    "details": [],
-    "success": "符合條件的日期出現可選時段；仍無時段時能指出需調整的條件。",
-    "permission": "booking.read",
-    "feature": null,
-    "modules": [
-      "spa"
-    ],
-    "kind": "howto",
-    "verification": "source-reviewed",
-    "sources": [
-      "src/app/(customer)/book/new/spa-customer-booking-form.tsx",
-      "src/server/actions/spa-customer-booking.ts",
-      "src/app/(dashboard)/dashboard/spa-staff/workspace.tsx"
-    ]
-  },
-  {
-    "id": "J17",
-    "category": "spa",
-    "title": "如何引導會員自行預約 SPA 療程？",
-    "summary": "會員依序選服務、日期時間、人員，再核對摘要送出。",
-    "answer": "會員依序選服務、日期時間、人員，再核對摘要送出。",
-    "path": "會員專區 → 立即預約",
-    "keywords": "會員預約 顧客前台 指定人員 不指定 自動安排 服務位置",
-    "steps": [
-      "會員登入正確門市，點立即預約，選取需要的服務，再選日期及上午、下午或晚上的可用時段。",
-      "選指定服務人員，或點「不指定（由系統安排）」。",
-      "核對日期時間、服務、人員、預估時間與價格，再送出；成功後查看我的 SPA 預約。"
-    ],
-    "important": "這個會員表單沒有手選位置步驟，系統會安排可用位置；實際安排可在成功後的預約卡查看。",
-    "details": [
-      "修改服務或日期後需重新選時段與人員。",
-      "送出有衝突時先閱讀提示並重選；不確定是否成功時先查已有預約。"
-    ],
-    "success": "預約卡顯示正確服務、人員、位置與日期時間。",
-    "permission": "booking.read",
-    "feature": null,
-    "modules": [
-      "spa"
-    ],
-    "kind": "howto",
-    "verification": "source-reviewed",
-    "sources": [
-      "src/app/(customer)/book/new/spa-customer-booking-form.tsx",
-      "src/server/actions/spa-customer-booking.ts",
-      "src/app/(customer)/book/page.tsx"
-    ]
-  },
-  {
-    "id": "J18",
-    "category": "spa",
-    "title": "會員怎麼取消 SPA 預約？為什麼不能取消？",
-    "summary": "在預約卡確認取消；目前自行取消限制為服務開始前至少 12 小時。",
-    "answer": "在預約卡確認取消；目前自行取消限制為服務開始前至少 12 小時。",
-    "path": "會員預約頁 → 我的 SPA 預約 → 取消這筆預約",
-    "keywords": "會員取消 取消截止 十二小時 12 小時 退費 釋放",
-    "steps": [
-      "核對本店、日期時間及服務，點「取消這筆預約」。",
-      "閱讀確認內容後點「確認取消」；若保留原安排則點「保留預約」。",
-      "確認卡片顯示已取消；距離開始不足 12 小時或狀態不允許時，請聯繫店家協助。"
-    ],
-    "important": "取消預約不等於退款；已付費款項另由店家核對。",
-    "details": [
-      "成功取消會保留歷史並釋放人員、位置及該筆預約的保留權益。",
-      "這是 SPA 會員自行取消規則，不套用課程模組的取消設定。"
-    ],
-    "success": "原預約顯示已取消，或清楚顯示需聯繫店家的原因。",
-    "permission": "booking.read",
-    "feature": null,
-    "modules": [
-      "spa"
-    ],
-    "kind": "howto",
-    "verification": "source-reviewed",
-    "sources": [
-      "src/app/(customer)/book/new/spa-customer-booking-form.tsx",
-      "src/server/actions/spa-customer-booking.ts"
-    ]
-  },
-  {
-    "id": "J19",
-    "category": "spa",
-    "title": "會員在哪裡查 SPA 剩餘次數與預約保留？",
-    "summary": "從會員專區查看我的療程，分別核對剩餘、已預約及可用次數。",
-    "answer": "從會員專區查看我的療程，分別核對剩餘、已預約及可用次數。",
-    "path": "會員專區 → 我的療程",
-    "keywords": "剩餘次數 保留 可用次數 過期 歷史療程 扣次",
-    "steps": [
-      "會員先確認門市及登入身分，再打開我的療程。",
-      "核對療程名稱、期限、剩餘次數及已預約保留；需要時查看過期與歷史區。",
-      "若有剩餘卻不能結帳扣次，請店家核對適用服務、有效期及保留紀錄。"
-    ],
-    "important": "可用次數會扣除已預約保留；預約保留不代表服務已完成或款項已結清。",
-    "details": [
-      "目前會員單一服務預約會在有適用權益時保留一次；多服務組合不可一律推論會自動保留。",
-      "本頁讀取 SPA 療程權益，不會把蒸足方案或課程額度合併。"
-    ],
-    "success": "能對應療程期限、剩餘與保留數量，異常交由店家查原紀錄。",
-    "permission": "customer.read",
-    "feature": null,
-    "modules": [
-      "spa"
-    ],
-    "kind": "howto",
-    "verification": "source-reviewed",
-    "sources": [
-      "src/app/(customer)/book/page.tsx",
-      "src/app/(liff)/liff/wallets/wallets-list.tsx",
-      "src/server/actions/spa-liff-member.ts",
-      "src/server/actions/spa-customer-booking.ts"
-    ]
-  },
-  {
-    "id": "J20",
-    "category": "spa",
-    "title": "SPA 服務人員怎麼查看我的工作與備註？",
-    "summary": "切到我的工作，選日期並展開預約查看服務明細及預約備註。",
-    "answer": "切到我的工作，選日期並展開預約查看服務明細及預約備註。",
-    "path": "會員專區 → 我的工作",
-    "keywords": "服務人員 我的工作 月曆 藍點 休假 備註 完成服務",
-    "steps": [
-      "以已連結的本店會員登入，切到「我的工作」。",
-      "選月曆日期；藍點表示有預約，休假日另有標示，可用「回到今天」返回。",
-      "點開預約卡，核對顧客、時間、服務位置、服務與整理時間及預約備註。"
-    ],
-    "important": "此工作頁目前提供查看，沒有課程教練的點名、更正出席或編輯備註按鈕；完成服務與結帳由有權限者在後台處理。",
-    "details": [
-      "工作頁只列本人被指派的預約，取消的預約不列入。",
-      "當日無預約不代表已開放接單，仍以店內班表為準。"
-    ],
-    "success": "選取日期的本人行程與展開明細一致。",
-    "permission": "booking.read",
-    "feature": null,
-    "modules": [
-      "spa"
-    ],
-    "kind": "howto",
-    "verification": "source-reviewed",
-    "sources": [
-      "src/app/(liff)/liff/spa-work/staff-work-screen.tsx",
-      "src/server/actions/spa-liff-staff-work.ts",
-      "src/components/spa-identity-mode-switcher.tsx"
-    ]
-  },
-  {
-    "id": "J21",
-    "category": "spa",
-    "title": "服務人員看不到我的工作，怎麼排查？",
-    "summary": "先區分工作權限不足與暫時無法讀取，再核對本人及門市連結。",
-    "answer": "先區分工作權限不足與暫時無法讀取，再核對本人及門市連結。",
-    "path": "我的工作 → 提示訊息；店長後台 → 人員管理",
-    "keywords": "尚未取得本店工作權限 無法讀取 會員綁定 重新登入",
-    "steps": [
-      "確認正在正確門市，且以店長連結的那個會員身分登入。",
-      "顯示「尚未取得本店工作權限」時，請店長核對本店會員與服務人員連結；剛設定完成可重新登入。",
-      "顯示「目前無法讀取工作資料」時先重新整理；持續失敗請提供時間與畫面請店家協助。"
-    ],
-    "important": "暫時讀取失敗不能直接當作沒有預約，也不要重建會員或分享他人的登入帳號。",
-    "details": [],
-    "success": "恢復顯示本人工作，或明確確認需修正的連結／讀取問題。",
-    "permission": "booking.read",
-    "feature": null,
-    "modules": [
-      "spa"
-    ],
-    "kind": "howto",
-    "verification": "source-reviewed",
-    "sources": [
-      "src/app/(liff)/liff/spa-work/staff-work-screen.tsx",
-      "src/server/actions/spa-liff-staff-work.ts",
-      "src/app/(dashboard)/dashboard/spa-staff/new-person.tsx"
-    ]
-  },
-  {
-    "id": "J22",
-    "category": "spa",
-    "title": "店長如何修改或取消原本的 SPA 預約？",
-    "summary": "從原預約修改日期、服務、人員或位置，避免另外新增造成重複。",
-    "answer": "從原預約修改日期、服務、人員或位置，避免另外新增造成重複。",
-    "path": "預約排程 → 原預約",
-    "keywords": "改期 改時間 換人員 換位置 取消 預約備註",
-    "steps": [
-      "點開原預約並核對顧客、日期、服務及狀態。",
-      "要調整時修改必要欄位與備註，核對可用人員、位置及摘要後點「儲存修改」。",
-      "要取消時點「取消預約」再確認；完成後重查原預約狀態。"
-    ],
-    "important": "只有待確認、已預約且具修改權限的預約可操作；已完成或取消的預約不能用此方式重改。",
-    "details": [
-      "提示預約已變更時，重新開啟原預約讀取最新內容後再決定。",
-      "備註最多 500 字，可在服務人員工作明細看到；取消不等於退款。"
-    ],
-    "success": "原紀錄呈現新安排或已取消，沒有新增重複預約。",
-    "permission": "booking.update",
-    "feature": null,
-    "modules": [
-      "spa"
-    ],
-    "kind": "howto",
-    "verification": "source-reviewed",
-    "sources": [
-      "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
-      "src/server/actions/spa-booking.ts",
-      "src/app/(liff)/liff/spa-work/staff-work-screen.tsx"
-    ]
-  },
-  {
-    "id": "J23",
-    "category": "spa",
-    "title": "SPA 預約成功卻沒收到 LINE，應該重約嗎？",
-    "summary": "先查系統內預約紀錄；畫面同步成功不能當作 LINE 已送達。",
-    "answer": "先查系統內預約紀錄；畫面同步成功不能當作 LINE 已送達。",
-    "path": "會員我的預約／店長預約排程",
-    "keywords": "LINE 沒通知 未送達 預約成功 重複預約 同步",
-    "steps": [
-      "會員先查看自己的 SPA 預約，店長核對同日期與服務的原紀錄。",
-      "已有預約時保留該筆，確認服務人員工作畫面是否列入；另核對本店 LINE 綁定及通知紀錄。",
-      "沒有通知或查詢失敗時記下時間與提示請店家查明，不要用重新預約來測試通知。"
-    ],
-    "important": "會員表單的「店長與服務人員會同步看到」是系統行程同步，不是 LINE 送達保證。",
-    "details": [
-      "是否發通知仍須依實際使用入口、通知設定與發送結果查核；不能套用展示預覽流程的通知承諾。"
-    ],
-    "success": "能區分預約已建立、工作可見與 LINE 通知結果。",
-    "permission": "booking.read",
-    "feature": null,
-    "modules": [
-      "spa"
-    ],
-    "kind": "howto",
-    "verification": "source-reviewed",
-    "sources": [
-      "src/app/(customer)/book/new/spa-customer-booking-form.tsx",
-      "src/server/actions/spa-customer-booking.ts",
-      "src/server/actions/spa-liff-staff-work.ts"
-    ]
-  }
+
+  ...retiredSpaCatalogGuides.filter(old=>old.id!=="J14"),
 ];

@@ -1,10 +1,17 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import { CourseWorkspace } from "@/app/(dashboard)/dashboard/courses/workspace";
 import { courseTemplateInput } from "@/lib/course-scheduling";
 import { courseTemplateRevision } from "@/lib/course-template-save";
+vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: vi.fn() }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-attendance-panel", () => ({ SportsAttendancePanel: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-cancel-course", () => ({ SportsCancelCourse: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-move-confirm", () => ({ SportsMoveConfirm: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/courses/sports-schedule-fields", () => ({ SportsScheduleFields: () => null }));
+vi.mock("@/components/admin/course-customer-picker", () => ({ CourseCustomerPicker: () => null }));
 const m = vi.hoisted(() => ({ refresh: vi.fn(), fetch: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/s/music-test/admin/dashboard/courses", useSearchParams: () => new URLSearchParams("view=catalog&action=create") }));
 vi.mock("@/server/actions/course-slot-matches", () => ({ getMusicSlotMatches: vi.fn() }));

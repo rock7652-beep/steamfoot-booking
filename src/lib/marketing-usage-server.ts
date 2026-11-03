@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { verifiedMarketingUsageSnapshot, type MarketingUsageSnapshot } from "@/lib/marketing-usage-snapshot";
 
-export const MARKETING_USAGE_TAG = "marketing-usage-v4";
+export const MARKETING_USAGE_TAG = "marketing-usage-v5";
 
 // One read-only statement produces a consistent snapshot across all modules.
 export async function calculateMarketingUsage(now = new Date()): Promise<MarketingUsageSnapshot> {
@@ -37,13 +37,6 @@ export async function calculateMarketingUsage(now = new Date()): Promise<Marketi
       JOIN "Customer" c ON c.id = b."customerId" AND c."storeId" = b."storeId"
       WHERE b.status = 'ATTENDED' AND session."endsAt" < ${timestampCutoff}
         AND session."cancelledAt" IS NULL
-        AND c.name !~* '測試|驗收|test|demo'
-        AND COALESCE(b.notes, '') !~* '驗收|測試預約|test booking|demo'
-      UNION ALL
-      SELECT b."storeId", b."customerId", b.people::bigint
-      FROM "SpaBooking" b JOIN eligible s ON s.id = b."storeId"
-      JOIN "Customer" c ON c.id = b."customerId" AND c."storeId" = b."storeId"
-      WHERE b.status = 'COMPLETED' AND b."bookingDate" < ${cutoff}::date
         AND c.name !~* '測試|驗收|test|demo'
         AND COALESCE(b.notes, '') !~* '驗收|測試預約|test booking|demo'
     ), reminder_messages AS (

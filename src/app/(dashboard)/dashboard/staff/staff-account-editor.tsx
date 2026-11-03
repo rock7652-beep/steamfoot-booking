@@ -1,4 +1,6 @@
 "use client";
+import {CourseStaffBasicFields,CourseStaffEditorTabs,CourseStaffPermissionFields} from "../courses/staff-editor-fields";
+import { canCloseConfirmedSettingsSave } from "@/lib/settings-save-outcome";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { UserRole } from "@prisma/client";
@@ -22,8 +24,8 @@ export const emptyStaffAccountPolicy: StaffAccountPolicy = { canAssignRoles: fal
 const field = "min-h-11 min-w-0 w-full rounded-xl border border-earth-200 bg-white px-3 py-2 text-base text-earth-800 focus:border-primary-500 focus:ring-2 focus:ring-primary-100";
 const button = "min-h-11 rounded-xl border border-earth-200 px-3 py-2 text-sm text-primary-800 disabled:opacity-50";
 
-export function StaffAccountEditor({ person, policy, onClose, storeId="", onSaved }: {
-  storeId?:string; onSaved?:(person:StaffWorkspacePerson,syncWarning:boolean)=>void; person: StaffWorkspacePerson; policy: StaffAccountPolicy; onClose: () => void;
+export function StaffAccountEditor({ person, policy, onClose, storeId="", onSaved,courseStyle=false }: {
+  courseStyle?:boolean;storeId?:string; onSaved?:(person:StaffWorkspacePerson,syncWarning:boolean)=>void; person: StaffWorkspacePerson; policy: StaffAccountPolicy; onClose: () => void;
 }) {
   const titleId = useId();
   const [tab, setTab] = useState("basic");
@@ -41,6 +43,7 @@ export function StaffAccountEditor({ person, policy, onClose, storeId="", onSave
   const saving=request.pending,locked=saving||request.uncertain;
   const submitLock=useRef(false);
   const [error, setError] = useState("");
+  const [committedWarning,setCommittedWarning]=useState(false);
   const allCodes = policy.permissionGroups.flatMap(g => g.codes.map(c => c.code));
   const fullAccess = role === "OWNER" || role === "ADMIN";
   const searchTerm = search.trim().toLowerCase();
@@ -48,7 +51,7 @@ export function StaffAccountEditor({ person, policy, onClose, storeId="", onSave
     .filter(group => searchTerm || group.label === category)
     .map(group => ({ ...group, codes: group.codes.filter(c => !searchTerm || `${group.label} ${c.label} ${c.code}`.toLowerCase().includes(searchTerm)) }))
     .filter(group => group.codes.length);
-  const dirty = status !== person.status || email !== (person.email === "尚未設定" ? "" : person.email) || name !== person.displayName || phone !== (person.phone ?? "") || color !== person.colorCode || role !== (person.role ?? "STAFF") || [...permissions].sort().join() !== [...(person.permissions ?? [])].sort().join();
+  const dirty = !committedWarning && (status !== person.status || email !== (person.email === "尚未設定" ? "" : person.email) || name !== person.displayName || phone !== (person.phone ?? "") || color !== person.colorCode || role !== (person.role ?? "STAFF") || [...permissions].sort().join() !== [...(person.permissions ?? [])].sort().join());
   useEffect(() => {
     if (!dirty) return;
     const guard = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
@@ -63,7 +66,7 @@ export function StaffAccountEditor({ person, policy, onClose, storeId="", onSave
     setPermissions(current => granted ? [...new Set([...current, code])] : current.filter(c => c !== code));
   }
   async function save() {
-    if (submitLock.current || saving || !person.canEdit) return;
+    if (submitLock.current || saving || committedWarning || !person.canEdit) return;
     if (!request.uncertain && role !== (person.role ?? "STAFF") && !window.confirm(`確認將 ${person.displayName} 的後台角色改為 ${role}？將依目前選定的權限儲存。`)) return;
     if (!request.uncertain && person.status === "ACTIVE" && status === "INACTIVE" && !window.confirm(`確認停用 ${person.displayName}？後台登入將停止，歷史紀錄保留。`)) return;
     submitLock.current=true; setError("");
@@ -77,28 +80,31 @@ export function StaffAccountEditor({ person, policy, onClose, storeId="", onSave
       }});
       if (!result.success) { setError(result.error || "儲存失敗"); return; }
       onSaved?.(result.data,result.syncWarning);
-      onClose();
+      if (canCloseConfirmedSettingsSave(result, setError)) onClose();
+      else setCommittedWarning(true);
     } catch { setError("儲存失敗，請重試；輸入內容已保留。"); }
     finally { submitLock.current=false; }
   }
-  return createPortal(<RightSheet open presentation="centered" width={920} maxHeight={680}
+  return createPortal(<RightSheet open presentation="centered" width={800} maxHeight={680} fitContent
     className={`${styles.panel} fitness-management-editor`} labelledById={titleId} onClose={close} closeOnEscape={!locked}>
     <header className="flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-2">
       <h2 id={titleId} className="font-semibold">{person.canEdit ? "編輯人員" : "查看人員"}</h2>
       <button type="button" className={button} disabled={locked} onClick={close}>關閉</button>
     </header>
-    <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2" aria-label="人員編輯分頁">
+    {courseStyle?<CourseStaffEditorTabs value={tab} disabled={locked} items={[["basic","基本資料"],["permissions","後台帳號／權限"]]} onChange={setTab}/>:(    <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2" aria-label="人員編輯分頁">
       {[["basic", "基本資料"], ["permissions", "後台帳號／權限"]].map(([id, label]) => <button type="button" key={id} className={`${button} ${tab === id ? "!border-primary-300 !bg-primary-50 font-medium" : ""}`} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}
-    </nav>
-    <form className="flex min-h-0 flex-1 flex-col" onSubmit={e => { e.preventDefault(); void save(); }}>
+    </nav>)}
+
+    <form className="@container/staff flex min-h-0 flex-1 flex-col" onSubmit={e => { e.preventDefault(); void save(); }}>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
         {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
-        <fieldset disabled={locked || !person.canEdit} className="space-y-3">
-          <div hidden={tab !== "basic"} className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
-            <label className="block text-sm">姓名 *<input name="displayName" required maxLength={100} className={field} value={name} onChange={e => setName(e.target.value)}/></label>
+        <fieldset disabled={locked || committedWarning || !person.canEdit} className="space-y-3">
+          <div hidden={tab !== "basic"} className="grid grid-cols-1 gap-3 @min-[28rem]/staff:grid-cols-2">
+            {courseStyle?<CourseStaffBasicFields name={name} active={status==='ACTIVE'} phone={phone} onName={setName} onPhone={setPhone} onActive={v=>setStatus(v?'ACTIVE':'INACTIVE')} nameField="displayName" statusField="status" activeValue="ACTIVE" inactiveValue="INACTIVE"><label className="block text-sm">識別色<input name="colorCode" type="color" className="block h-11 w-20 rounded-xl border border-earth-200" value={color} onChange={e=>setColor(e.target.value)}/></label></CourseStaffBasicFields>:<>            <label className="block text-sm">姓名 *<input name="displayName" required maxLength={100} className={field} value={name} onChange={e => setName(e.target.value)}/></label>
             <label className="block text-sm">電話<input name="phone" maxLength={30} className={field} value={phone} onChange={e => setPhone(e.target.value)}/></label>
             <label className="block text-sm">識別色<input name="colorCode" type="color" className="block h-11 w-20 rounded-xl border border-earth-200" value={color} onChange={e => setColor(e.target.value)}/></label>
-            <label className="block text-sm">狀態<select name="status" className={field} value={status} onChange={e => setStatus(e.target.value)}><option value="ACTIVE">啟用</option><option value="INACTIVE">停用</option></select></label>
+            <label className="block text-sm">狀態<select name="status" className={field} value={status} onChange={e => setStatus(e.target.value)}><option value="ACTIVE">啟用</option><option value="INACTIVE">停用</option></select></label></>}
+
           </div>
           <div hidden={tab !== "permissions"} className="space-y-2">
             <div className={styles.staffAccountFields}>
@@ -106,7 +112,7 @@ export function StaffAccountEditor({ person, policy, onClose, storeId="", onSave
               <StaffRoleControl compact role={role} canAssignRoles={policy.canAssignRoles} presets={policy.rolePresets} onRole={setRole} onPreset={setPermissions}/>
             </div>
             <p className="text-sm text-earth-600">{fullAccess ? "此角色權限全開放。" : "切換角色保留權限；套用預設後可逐項調整。"}</p>
-            {!fullAccess && <section className="space-y-2">
+            {courseStyle?<CourseStaffPermissionFields groups={policy.permissionGroups} permissions={permissions} editableCodes={policy.editablePermissions} disabled={fullAccess} onChange={setPermissions}/>:<>            {!fullAccess && <section className="space-y-2">
               <h3 className="font-semibold text-primary-800">店內管理權限 · {allCodes.filter(c => permissions.includes(c)).length}／{allCodes.length}</h3>
               <div className={styles.staffPermissionFilters}>
                 <select aria-label="權限分類" className={field} value={category} onChange={e => { setCategory(e.target.value); setSearch(""); }}>
@@ -123,14 +129,15 @@ export function StaffAccountEditor({ person, policy, onClose, storeId="", onSave
               </section>)}
               {!visibleGroups.length && <p className="py-3 text-sm text-earth-500">沒有符合條件的權限</p>}
               </div>
-            </section>}
+            </section>}</>}
+
           </div>
         </fieldset>
         {tab === "permissions" && person.canResetPassword && !dirty && !locked && <div className="mt-3"><ResetPasswordButton userId={person.userId} displayName={person.displayName}/></div>}
       </div>
       <footer className={`${fitnessEditorFooter} flex flex-wrap items-center justify-between gap-2`}>
         <span className={`text-sm ${dirty ? "text-amber-800" : "text-earth-500"}`}>{saving ? "儲存中…" : dirty ? "未儲存" : "尚未修改"}</span>
-        <div className="flex gap-2"><button type="button" className={button} disabled={locked} onClick={close}>取消</button>{person.canEdit && <button type="submit" disabled={saving || !dirty} className={`${fitnessEditorSave} bg-primary-600 text-white disabled:opacity-50`}>{saving ? "儲存中…" : request.uncertain ? "重試確認儲存結果" : "儲存"}</button>}</div>
+        <div className="flex gap-2"><button type="button" className={button} disabled={locked} onClick={close}>取消</button>{person.canEdit && <button type="submit" disabled={saving || committedWarning || (!dirty&&!request.uncertain)} className={`${fitnessEditorSave} bg-primary-600 text-white disabled:opacity-50`}>{saving ? "儲存中…" : request.uncertain ? "重試確認儲存結果" : "儲存"}</button>}</div>
       </footer>
     </form>
   </RightSheet>, document.body);

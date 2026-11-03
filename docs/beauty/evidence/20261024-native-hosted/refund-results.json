@@ -1,0 +1,10 @@
+{
+  "hosted": true,
+  "results": [
+    "appended transaction correction survives reopen",
+    "original refund UI accepted and closes the actual test plan",
+    "exact refund retry accepted without another instruction",
+    "refund survives authoritative reopen"
+  ],
+  "commit": "47cd56400aae2c53a026a52c4811446945a3b761"
+}

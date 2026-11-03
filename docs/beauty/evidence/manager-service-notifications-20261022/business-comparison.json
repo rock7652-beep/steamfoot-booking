@@ -1,0 +1,26 @@
+{
+  "unchanged": true,
+  "appointments": 15,
+  "payments": 10,
+  "paymentSum": 15500,
+  "cardBalances": [
+    2,
+    5
+  ],
+  "sharedMembersUnchanged": true,
+  "notifications": false,
+  "recipients": 0,
+  "managerLogs": 0,
+  "messageLogs": 0,
+  "careLogs": 0,
+  "eventStates": [
+    {
+      "status": "AUDIT",
+      "count": 87
+    },
+    {
+      "status": "SKIPPED",
+      "count": 39
+    }
+  ]
+}

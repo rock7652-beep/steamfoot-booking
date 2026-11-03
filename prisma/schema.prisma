@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -367,6 +368,7 @@ enum StoreOperatingStatus {
 // Store-level module firewall. Business actions must authorize against this
 // persisted value; isDemo and hard-coded store IDs are not module boundaries.
 enum IndustryModule {
+  BEAUTY
   STEAMFOOT
   SPA
   COURSE
@@ -596,6 +598,10 @@ model VerificationToken {
 // ============================================================
 
 model Store {
+  lineQuotaSetting LineQuotaSetting?
+  lineQuotaAlerts LineQuotaAlert[]
+  imageAnnouncementSet ImageAnnouncementSet?
+  imageAnnouncementAssets ImageAnnouncementAsset[]
   inventorySuppliers InventorySupplier[]
   inventoryProducts InventoryProduct[]
   inventoryOrders InventoryOrder[]
@@ -2397,6 +2403,7 @@ model SpaceFeeRecord {
 // ============================================================
 
 model ShopConfig {
+  coursePersonnelLabel String? // Per-store presentation only: 老師 / 教練; null preserves module defaults
   workOrderReadyNotificationEnabled Boolean @default(false)
   id                       String    @id @default(cuid())
   storeId                  String    @unique
@@ -2483,6 +2490,30 @@ model MessageTemplate {
 // ============================================================
 // MessageLog（訊息發送紀錄）
 // ============================================================
+
+// Cross-module transactional outbox. Source references remain module-owned.
+model PlanActivationNotification {
+  id            String @id
+  storeId       String
+  customerId    String
+  module        String
+  sourceId      String
+  entitlementId String
+  snapshot      Json
+  body          String
+  status        String @default("PENDING")
+  errorMessage  String?
+  retryKey      String
+  route         Json?
+  attempts      Int @default(0)
+  nextAttemptAt DateTime @default(now()) @db.Timestamp(3)
+  createdAt     DateTime @default(now()) @db.Timestamp(3)
+  loggedAt      DateTime? @db.Timestamp(3)
+  lastAttemptAt DateTime? @db.Timestamp(3)
+
+  @@unique([storeId, module, entitlementId], map: "PlanActivationNotification_storeId_module_entitlementId_key")
+  @@index([module, status, nextAttemptAt], map: "PlanActivationNotification_pending_idx")
+}
 
 model MessageLog {
   id              String             @id @default(cuid())
@@ -3487,4 +3518,145 @@ model BookingParticipant {
   @@unique([groupId, position])
   @@unique([id, storeId])
   @@index([storeId, customerId])
+}
+
+// Image-only, store-scoped homepage announcements. Assets never travel in RSC JSON.
+model ImageAnnouncementSet {
+  storeId String @id
+  revision Int @default(0)
+  items Json @default("[]")
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+model ImageAnnouncementAsset {
+  id String @id
+  storeId String
+  content Bytes
+  mimeType String
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  @@index([storeId])
+}
+
+// Private server-only notice data; Store FKs and capture trigger live in SQL.
+model SteamfootNoticeSetting {
+  storeId String @id
+  enabled Boolean @default(true)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+}
+
+model SteamfootStoreNotice {
+  id String @id @default(dbgenerated("gen_random_uuid()::text"))
+  storeId String
+  bookingId String
+  kind String
+  customerName String
+  serviceName String
+  staffName String
+  previousStaffName String?
+  startsAt DateTime @db.Timestamptz(3)
+  previousStartsAt DateTime? @db.Timestamptz(3)
+  affectedCount Int @default(1)
+  details Json @default("{}")
+  publishedAt DateTime @default(now()) @db.Timestamptz(3)
+  readAt DateTime? @db.Timestamptz(3)
+  readById String?
+  readByName String?
+  handledAt DateTime? @db.Timestamptz(3)
+  handledById String?
+  handledByName String?
+  revision Int @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@unique([storeId, bookingId])
+  @@index([storeId, handledAt, startsAt])
+  @@index([storeId, publishedAt(sort: Desc), id(sort: Desc)])
+}
+
+// Default-on monitoring for all real operating stores; explicit opt-outs are retained.
+model LineQuotaSetting {
+  storeId String @id
+  enabled Boolean @default(true)
+  activatedAt DateTime @default(now())
+  snapshot Json?
+  lastCheckedAt DateTime?
+  lastError String?
+  updatedAt DateTime @updatedAt
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+model LineQuotaAlert {
+  id String @id @default(cuid())
+  storeId String
+  eventKey String
+  email String
+  subject String
+  body String
+  status String @default("PENDING")
+  lastAttemptAt DateTime?
+  sentAt DateTime?
+  error String?
+  createdAt DateTime @default(now())
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  @@unique([storeId, eventKey])
+  @@index([storeId, createdAt])
+}
+
+// Module-specific adapters own authorization and payment; common snapshots never change scheduling.
+model ServiceAddOnCatalog {
+  enabled Boolean @default(false)
+  storeId String
+  module String
+  revision Int @default(0)
+  groups Json @default("[]")
+  @@id([storeId,module])
+}
+model ServiceAddOnImage {
+  id String @id
+  storeId String
+  module String
+  content Bytes
+  thumbnail Bytes
+  createdAt DateTime @default(now())
+  @@index([storeId,module])
+}
+model ServiceAddOnOrder {
+  id String @id
+  storeId String
+  module String
+  bookingId String
+  participantId String?
+  ownership String @default("PERSON")
+  reservationKey String?
+  items Json @default("[]")
+  total Int @default(0)
+  revision Int @default(0)
+  cancelled Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([id,storeId])
+  @@unique([storeId,module,participantId])
+  @@unique([storeId,module,bookingId,reservationKey])
+  @@index([storeId,module,ownership])
+  @@index([storeId,module,bookingId])
+}
+model ServiceAddOnReceipt {
+  id String @id
+  storeId String
+  orderId String
+  amount Int
+  method String
+  originalId String?
+  actorId String
+  createdAt DateTime @default(now())
+  @@unique([id,storeId])
+  @@index([storeId,orderId])
+  @@index([storeId,originalId])
+}
+model ServiceAddOnCommand {
+  storeId String
+  requestKey String
+  hash String
+  result Json
+  createdAt DateTime @default(now())
+  @@id([storeId,requestKey])
 }

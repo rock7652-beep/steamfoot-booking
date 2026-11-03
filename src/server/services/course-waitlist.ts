@@ -1,3 +1,8 @@
+import {sportsNativePreview} from "@/lib/sports-native-preview";
+import { loadCoursePrismaRuntime } from "@/lib/generated-prisma-runtime";
+const courseClientRuntime = loadCoursePrismaRuntime();
+import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
+import { readSportsSessionRule } from "./sports-staging-schedule";
 import {sessionWaitlistPolicy} from "./sports-session-waitlist";
 import { isMusicCourseStore } from "./course-business-profile";
 import { courseSelfBookingEnabled } from "@/lib/course-self-booking";
@@ -14,7 +19,7 @@ import { AppError } from "@/lib/errors";
 import { reserveCourseInTransaction, type CourseActor } from "@/server/services/course-booking";
 import { lockCourseStore } from "@/server/services/course-store-lock";
 import { getCourseSharedCardStateInTransaction } from "./course-shared-card";
-import { Prisma } from "../../../generated/course-client";
+import type { Prisma } from "../../../generated/course-client";
 import { waitlistGroups, withinAutoPromoteWindow } from "@/lib/course-waitlist";
 
 export type CourseWaitlistSettings = {
@@ -89,16 +94,17 @@ export async function joinCourseWaitlist(
       }),
       tx.$queryRaw<Array<{ id: string; name: string }>>`
         SELECT id,name FROM "Customer"
-        WHERE "storeId"=${actor.storeId} AND id IN (${Prisma.join(customerIds)})
+        WHERE "storeId"=${actor.storeId} AND id IN (${courseClientRuntime.Prisma.join(customerIds)})
           AND "mergedIntoCustomerId" IS NULL
       `,
       tx.courseBookingRule.findUnique({ where: { storeId: actor.storeId } }),
     ]);
-    if (actor.customerId) assertCourseSelfBookingEnabled(rule);
+    if (actor.customerId || await sportsNativePreview(actor.storeId)) assertCourseSelfBookingEnabled(rule);
     if (!session) fail("找不到本店有效課程");
     if (!card) fail("找不到本店有效方案");
     const activeSession = session!;
     const activeCard = card!;
+    if (actor.customerId && activeSession.bookingAudience === "ASSIGNED") fail("此堂為指定學員課程，不開放自行候補");
     if (customers.length !== customerIds.length) fail("請選擇本店有效候補人");
     const policy=await sessionWaitlistPolicy(tx,actor.storeId,activeSession.id,activeSession.template);
     if (!policy.waitlistEnabled) fail("本課程未開放候補");
@@ -106,9 +112,12 @@ export async function joinCourseWaitlist(
       fail("本課程目前不開放候補");
     if (activeSession.startsAt <= new Date()) fail("課程已開始，不能加入候補");
     if (activeCard.closedAt) fail("方案已退款或結清，不能候補");
-    if (activeCard.expiresAt < activeSession.startsAt) fail("方案不涵蓋上課日期，不能候補");
-    if (activeCard.templateIds.length && !activeCard.templateIds.includes(activeSession.templateId))
-      fail("此方案不適用本堂課");
+    if (activeCard.musicOpeningStateRequired || activeCard.expiresAt === null) fail("期初方案須由店家使用已核對的來源堂次流程安排");
+    if (activeCard.expiresAt! < activeSession.startsAt) fail("方案不涵蓋上課日期，不能候補");
+    const sportsRule=await readSportsSessionRule(tx,actor.storeId,activeSession.id);
+    if(sportsRule?.enrollment==="ASSIGNED")fail("指定學員課程不開放候補");
+    const rights=resolveSportsEntitlement({...activeCard,templateRestricted:activeCard.requestKey?.startsWith("no-show-makeup:")??false},{templateId:activeSession.templateId,subjectId:activeSession.template.musicSubjectId??null,pointCost:activeSession.pointCost,enrollment:sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null});
+    if(!rights.eligible)fail(rights.reason);
     if (activeCard.termSessionIds.length && !activeCard.termSessionIds.includes(activeSession.id))
       fail("此方案僅能使用指定課次");
     if (!customerIds.every(customerId => activeCard.members.some(member => member.customerId === customerId)))
@@ -135,7 +144,7 @@ export async function joinCourseWaitlist(
         fail("此課程尚未開放會員候補");
     }
 
-    const bookingCost = activeCard.unit === "SESSION" ? 1 : activeSession.pointCost;
+    const bookingCost = rights.eligible?rights.cost:0;
     const [occupied, waitingCount, existingBookings, existingWaitlist, held] = await Promise.all([
       tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: activeSession.id, status: { not: "CANCELLED" } } }),
       tx.courseWaitlistEntry.count({ where: { storeId: actor.storeId, sessionId: activeSession.id, status: "WAITING" } }),
@@ -246,7 +255,7 @@ export async function promoteCourseWaitlistForSession(
   // All callers hold the same store lock as settings writes. Pause before any
   // per-entry processing: disabled self-booking must never turn WAITING into SKIPPED.
   const rule = await tx.courseBookingRule.findUnique({ where: { storeId } });
-  if (!options.manual && !courseSelfBookingEnabled(rule)) return [];
+  if (!courseSelfBookingEnabled(rule) && (!options.manual || await sportsNativePreview(storeId))) return [];
   const settings = await getCourseWaitlistSettings(storeId, tx);
   if (!settings.featureAvailable || !settings.enabled) return [];
   const session = await tx.courseSession.findFirst({
@@ -256,6 +265,7 @@ export async function promoteCourseWaitlistForSession(
   if (!session) return [];
   const policy=await sessionWaitlistPolicy(tx,storeId,session.id,session.template);
   if(!policy.waitlistEnabled)return [];
+  if (session.bookingAudience === "ASSIGNED" && !options.manual) return [];
   const stopMinutes = policy.waitlistStopMinutes ?? settings.autoPromoteStopMinutes;
   if (!options.ignoreCutoff && !withinAutoPromoteWindow(session.startsAt, stopMinutes)) return [];
 

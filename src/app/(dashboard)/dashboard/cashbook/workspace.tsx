@@ -1,0 +1,340 @@
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
+import { canReadInventoryFinance } from "@/server/inventory-finance-access";
+import {ExclusiveMenu} from "@/components/admin/exclusive-menu";
+import {sportsNativePreview} from "@/lib/sports-native-preview";
+import { CashbookEditor } from "./cashbook-editor";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { isReadOnlyStoreTarget } from "@/lib/store-read-only";
+import { hasCurrentStoreFeature } from "@/lib/feature-gate";
+/** Shared operations ledger. Point counting stays in the authorized drawer. */
+
+import { listCashbookEntries, getMonthlySummary } from "@/server/queries/cashbook";
+import { listClosedBusinessDates } from "@/server/queries/cash-drawer";
+import { listStaffSelectOptions } from "@/server/queries/staff";
+import { getCurrentUser } from "@/lib/session";
+import { checkPermission } from "@/lib/permissions";
+import { getCachedStorePlan } from "@/lib/query-cache";
+import { FEATURES } from "@/lib/feature-flags";
+import { FeatureGate } from "@/components/feature-gate";
+import { FormErrorToast } from "@/components/form-error-toast";
+import { getActiveStoreForRead } from "@/lib/store";
+import {
+  resolveStoreViewContextFromCookie,
+  storeIdForViewContext,
+} from "@/lib/store-view-context-server";
+import { redirect } from "next/navigation";
+import { DashboardLink as Link } from "@/components/dashboard-link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageShell, PageHeader } from "@/components/desktop";
+import { toLocalDateStr } from "@/lib/date-utils";
+import type { CashbookEntryType } from "@prisma/client";
+import { CashbookEntryDeleteButton } from "./cashbook-entry-delete-button";
+import { CashbookRecordFilters } from "./_components/cashbook-record-filters";
+import { OperationHistoryButton } from "@/components/operation-history-button";
+
+const ENTRY_TYPE_LABEL: Record<CashbookEntryType, string> = {
+  INCOME: "收入",
+  EXPENSE: "支出",
+  WITHDRAW: "提領",
+  ADJUSTMENT: "調整",
+};
+
+const ENTRY_TYPE_COLOR: Record<CashbookEntryType, string> = {
+  INCOME: "bg-green-100 text-green-700",
+  EXPENSE: "bg-red-100 text-red-700",
+  WITHDRAW: "bg-orange-100 text-orange-700",
+  ADJUSTMENT: "bg-earth-100 text-earth-600",
+};
+
+// PR-4：付款方式 badge。現金（影響現金抽屜）用偏藍、其他用中性灰，色調低調不搶眼。
+const PAYMENT_METHOD_LABEL: Record<"CASH" | "OTHER", string> = {
+  CASH: "現金",
+  OTHER: "其他",
+};
+
+const PAYMENT_METHOD_COLOR: Record<"CASH" | "OTHER", string> = {
+  CASH: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+  OTHER: "bg-earth-50 text-earth-500 ring-1 ring-earth-200",
+};
+
+interface PageProps {
+  searchParams: Promise<{
+    month?: string;
+    type?: CashbookEntryType;
+    categoryGroup?: string;
+    q?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: string;
+    cashDrawerError?: string;
+    area?: string;
+  }>;
+}
+
+export default async function CashbookPage({ searchParams }: PageProps) {
+  const user = await getCurrentUser();
+  if (!user || !(await checkPermission(user.role, user.staffId, "cashbook.read"))) {
+    redirect("/dashboard");
+  }
+
+
+  const params = await searchParams;
+  const page = Number(params.page ?? 1);
+
+  const today = toLocalDateStr();
+  const currentMonth = today.slice(0, 7); // "YYYY-MM"
+  const month = params.month ?? currentMonth;
+
+  const [year, mon] = month.split("-").map(Number);
+  const monthDateFrom = `${month}-01`;
+  const lastDay = new Date(year, mon, 0).getDate();
+  const monthDateTo = `${month}-${String(lastDay).padStart(2, "0")}`;
+  const validDate = (date: string | undefined) => !!date && /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(date));
+  const hasDateRange = validDate(params.dateFrom) && validDate(params.dateTo) && params.dateFrom! <= params.dateTo!;
+  const dateFrom = hasDateRange ? params.dateFrom! : monthDateFrom;
+  const dateTo = hasDateRange ? params.dateTo! : monthDateTo;
+  const categoryGroup = params.categoryGroup === "retail" || params.categoryGroup === "other" ? params.categoryGroup : undefined;
+  const keyword = params.q?.trim().slice(0, 60) ?? "";
+  const selectedKind = categoryGroup && params.type === "INCOME" ? categoryGroup
+    : params.type === "EXPENSE" ? "expense"
+    : params.type === "WITHDRAW" ? "withdraw"
+    : params.type === "ADJUSTMENT" ? "adjustment"
+    : params.type === "INCOME" ? "income" : "";
+
+  const activeStoreId = await getActiveStoreForRead(user);
+  const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : null;
+  const isCourse = industryModule === "course";
+  const useInlineEditor = true;
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const cashbookStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  const nativeSports = await sportsNativePreview(cashbookStoreId ?? undefined);
+  const isViewMode = !!storeViewContext?.isViewMode || isReadOnlyStoreTarget(user, cashbookStoreId);
+  const canManageCashbook =
+    !isViewMode && (await checkPermission(user.role, user.staffId, "cashbook.create"));
+
+  const canFullFinance = await canReadInventoryFinance(cashbookStoreId,user);
+  // Independent ledger reads.
+  const [cashbookList, summary, plan] = await Promise.all([
+    listCashbookEntries({
+      dateFrom,
+      dateTo,
+      type: params.type,
+      categoryGroup,
+      keyword,
+      page,
+      pageSize: 30,
+      activeStoreId: cashbookStoreId,
+    }),
+    canFullFinance ? getMonthlySummary(month, cashbookStoreId) : Promise.resolve(null),
+    getCachedStorePlan(cashbookStoreId ?? undefined),
+
+  ]);
+
+  const editorStaff = useInlineEditor && canManageCashbook ? await listStaffSelectOptions() : [];
+  const [todayYear, todayMonth, todayDay] = today.split("-").map(Number);
+  const historyStart = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay));
+  historyStart.setUTCDate(historyStart.getUTCDate() - 180);
+  const historyStartDate = historyStart.toISOString().slice(0, 10);
+  const closedDates = useInlineEditor && cashbookStoreId && canManageCashbook
+    ? await listClosedBusinessDates(cashbookStoreId, dateFrom < historyStartDate ? dateFrom : historyStartDate, dateTo > today ? dateTo : today)
+    : [];
+  const editorProps = { storeId: cashbookStoreId ?? "", instantSearch: industryModule === "steamfoot", presentation: "centered" as const, today, closedDates, staffOptions: editorStaff, canAssignStaff: getEffectiveActorRole(user) === "ADMIN" };
+  const { entries, total, pageSize } = cashbookList;
+  const totalPages = Math.ceil(total / pageSize);
+
+  return (
+    <FeatureGate plan={plan} feature={FEATURES.CASHBOOK} enabled={await hasCurrentStoreFeature(FEATURES.CASHBOOK)}>
+      <PageShell>
+        <FormErrorToast />
+
+        <PageHeader
+          title="現金帳"
+          subtitle="完整收支與歷史紀錄；開閉店點錢請使用頂欄現金抽屜"
+          actions={
+            isViewMode ? (
+              <span className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
+                查看模式：不可新增記帳
+              </span>
+            ) : useInlineEditor ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} />) : (
+              <Link
+                href="/dashboard/cashbook/new"
+                className="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
+              >
+                + 新增記帳
+              </Link>
+            )
+          }
+        />
+
+        {/* 下方：月度現金帳紀錄（與 workspace 視覺分隔） */}
+        <section id="cashbook-records" className="space-y-4 border-t border-earth-200 pt-6">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-earth-900">現金帳紀錄</h2>
+            <p className="text-xs text-earth-500">
+              這裡是所有現金帳紀錄，包含現金與其他付款。只有
+              <span className="font-medium text-sky-700">「現金」</span>
+              會影響現金抽屜金額。
+            </p>
+          </div>
+
+          <CashbookRecordFilters month={month} kind={selectedKind} keyword={keyword} />
+
+          {(hasDateRange || categoryGroup) && (
+            <p className="text-xs text-primary-700">
+              分析明細：{dateFrom} 至 {dateTo}{categoryGroup === "retail" ? " · 零售" : categoryGroup === "other" ? " · 其他手動收入" : ""}。
+              下方月度統計仍顯示整月資料；切換月份可返回月份篩選。
+            </p>
+          )}
+
+          {/* 月度統計：compact stats row（手機 1 col、桌機 / iPad 橫向 3 col） */}
+          {!summary&&<p className="text-sm text-earth-600">進貨付款已依權限隱藏；完整收支統計與結帳需有成本權限。</p>}
+          {summary&&<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="flex items-baseline justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5">
+              <p className="text-xs text-green-600">收入</p>
+              <p className="text-lg font-bold tabular-nums text-green-700">
+                NT$ {summary.income.toLocaleString()}
+              </p>
+            </div>
+            <div className="flex items-baseline justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5">
+              <p className="text-xs text-red-600">支出 + 提領</p>
+              <p className="text-lg font-bold tabular-nums text-red-700">
+                NT$ {summary.expense.toLocaleString()}
+              </p>
+            </div>
+            <div
+              className={`flex items-baseline justify-between gap-2 rounded-lg border px-4 py-2.5 ${
+                summary.net >= 0 ? "border-primary-200 bg-primary-50" : "border-orange-200 bg-orange-50"
+              }`}
+            >
+              <p className={`text-xs ${summary.net >= 0 ? "text-primary-600" : "text-orange-600"}`}>
+                淨額
+              </p>
+              <p
+                className={`text-lg font-bold tabular-nums ${
+                  summary.net >= 0 ? "text-primary-700" : "text-orange-700"
+                }`}
+              >
+                NT$ {summary.net.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          }
+          {/* 明細列表 */}
+          <div className="max-w-full overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm" role="region" aria-label="現金帳明細，可橫向捲動" tabIndex={0}>
+            <table className="w-full min-w-[1050px] divide-y divide-gray-200 text-sm [&_th]:whitespace-nowrap [&_td]:align-top">
+              <thead className="bg-earth-50">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">日期</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">類型</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">付款方式</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">分類</th>
+                  <th className="px-3 py-2 text-right font-medium text-earth-600">金額</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">登錄人</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">備註</th>
+                  <th className="px-3 py-2 text-left font-medium text-earth-600">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-earth-100">
+                {entries.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-0">
+                      <EmptyState
+                        icon="empty"
+                        title={keyword || categoryGroup || params.type ? "沒有符合條件的紀錄" : "尚無現金帳記錄"}
+                        description={keyword || categoryGroup || params.type ? "請調整關鍵字或收支類型" : "新增第一筆現金帳記錄來開始追蹤"}
+                      />
+                    </td>
+                  </tr>
+                )}
+                {entries.map((e) => (
+                  <tr key={e.id} className="hover:bg-earth-50">
+                    <td className="px-3 py-2 text-earth-600">
+                      {new Date(e.entryDate).toLocaleDateString("zh-TW")}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-medium ${
+                          ENTRY_TYPE_COLOR[e.type]
+                        }`}
+                      >
+                        {ENTRY_TYPE_LABEL[e.type]}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-medium ${
+                          PAYMENT_METHOD_COLOR[e.paymentMethod]
+                        }`}
+                      >
+                        {PAYMENT_METHOD_LABEL[e.paymentMethod]}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-earth-600"><span>{e.category ?? "—"}</span>{e.category?.startsWith("零售-")&&!e.id.startsWith("inventory:")&&<span className="ml-2 text-sm text-earth-500">手動記帳</span>}{e.customer && <Link href={`/dashboard/customers/${e.customer.id}`} className="mt-0.5 block text-xs text-primary-700 hover:underline">{e.customer.name}</Link>}</td>
+                    <td
+                      className={`whitespace-nowrap px-3 py-2 text-right font-medium ${
+                        e.type === "INCOME" ? "text-green-700" : "text-red-700"
+                      }`}
+                    >
+                      NT$ {Number(e.amount).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 text-earth-600">
+                      {e.staff?.displayName ?? (isCourse ? e.createdBy?.name : null) ?? "未指定"}
+                    </td>
+                    <td className="w-64 max-w-64 px-3 py-2 text-earth-600">{e.note?<details className="w-56"><summary className="flex min-h-11 cursor-pointer items-center gap-2"><span className="min-w-0 flex-1 truncate">{e.note}</span><span className="shrink-0 text-primary-700">展開</span></summary><p className="whitespace-pre-wrap break-words pb-2">{e.note}</p></details>:"—"}</td>
+                    <td className="px-3 py-2">
+                      {isViewMode ? (
+                        <span className="text-earth-400">僅可查看</span>
+                      ) : (
+                        <CashbookActionsMenu compact={nativeSports}>
+                          <OperationHistoryButton portal={nativeSports} targetType="CashbookEntry" targetId={e.id} />
+                          {e.id.startsWith("inventory:") ? <Link href={`/dashboard/inventory?reference=${encodeURIComponent(e.id.split(":")[1])}`} className="text-sm text-primary-700 hover:underline">進銷存連動・查看原單</Link> : <>
+                          {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} inMenu={nativeSports} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
+                            href={`/dashboard/cashbook/${e.id}/edit`}
+                            className="text-primary-600 hover:underline"
+                          >
+                            編輯
+                          </Link>}
+                          {canManageCashbook && <CashbookEntryDeleteButton entryId={e.id} />}
+                          </>}
+                        </CashbookActionsMenu>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between text-sm text-earth-600">
+              <span>
+                共 {total} 筆，第 {page} / {totalPages} 頁
+              </span>
+              <div className="flex gap-2">
+                {page > 1 && (
+                  <Link
+                    href={`?${new URLSearchParams(Object.fromEntries(Object.entries({ ...params, page: String(page - 1) }).filter(([, v]) => v != null)))}`}
+                    className="rounded border px-3 py-1 hover:bg-earth-50"
+                  >
+                    上一頁
+                  </Link>
+                )}
+                {page < totalPages && (
+                  <Link
+                    href={`?${new URLSearchParams(Object.fromEntries(Object.entries({ ...params, page: String(page + 1) }).filter(([, v]) => v != null)))}`}
+                    className="rounded border px-3 py-1 hover:bg-earth-50"
+                  >
+                    下一頁
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+      </PageShell>
+    </FeatureGate>
+  );
+}
+
+function CashbookActionsMenu({compact,children}:{compact:boolean;children:React.ReactNode}){return compact?<ExclusiveMenu quiet triggerText="⋯" label="記帳操作"><div className="flex flex-col items-stretch [&_button]:min-h-11 [&_button]:text-left">{children}</div></ExclusiveMenu>:<div className="flex items-center gap-3">{children}</div>;}

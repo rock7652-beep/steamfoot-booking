@@ -1,0 +1,45 @@
+{
+  "commit": "947ea7e79b1111947cec723e0ab2ccc6963651e1",
+  "origin": "https://steamfoot-booking-5yjexkiu7-rock7652-2111s-projects.vercel.app",
+  "results": [
+    {
+      "case": "real owner follows shared growth entry into Beauty consumption",
+      "passed": true
+    },
+    {
+      "case": "actual CSV and visible rows match; unpaid completed service and future QA services excluded; net receipts 15000",
+      "passed": true
+    },
+    {
+      "case": "shared filter modal preserves Beauty cancellation exclusion and result route",
+      "passed": true
+    },
+    {
+      "case": "foreign plan is rejected by both real page and direct CSV",
+      "passed": true
+    },
+    {
+      "case": "real settings entry uses shared reminder panel and distinguishes unsupported delivery",
+      "passed": true
+    },
+    {
+      "case": "real reminder tabs and filter form remain inside same settings panel",
+      "passed": true
+    },
+    {
+      "case": "manager notification view offers no binding mutations; Escape returns to original settings category",
+      "passed": true
+    },
+    {
+      "case": "customer login cannot read backend consumption CSV or reminder settings",
+      "passed": true
+    },
+    {
+      "case": "technician login cannot read backend consumption CSV or reminder settings",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "readOnly": true,
+  "physicalDevice": false
+}

@@ -1,10 +1,13 @@
+// Notice persistence is covered by course-store-notices and PostgreSQL tests.
+vi.mock("@/server/services/course-store-notices", () => ({ recordCourseStoreNotice: vi.fn() }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Prisma } from "../../generated/course-client";
 
 const m = vi.hoisted(() => ({
-  state: vi.fn(), transaction: vi.fn(), feature: vi.fn(), limits: vi.fn(), window: vi.fn(), audit: vi.fn(),
+  sportsRule: vi.fn(), state: vi.fn(), transaction: vi.fn(), feature: vi.fn(), limits: vi.fn(), window: vi.fn(), audit: vi.fn(),
   db: {} as Record<string, unknown>,
 }));
+vi.mock("@/server/services/sports-staging-schedule", () => ({ readSportsSessionRule: m.sportsRule }));
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: new Proxy({}, { get: (_target, key) => m.db[key as string] }) }));
 vi.mock("@/lib/feature-gate", () => ({ getStoreLimitsByStoreId: m.limits, hasStoreFeature: m.feature }));
@@ -33,6 +36,7 @@ const booking = { id: "booking", ...companion, session, card, operatorUserId: "m
 const db = {
   courseBooking: { findUnique: vi.fn(), findFirst: vi.fn(), findFirstOrThrow: vi.fn(), findMany: vi.fn(), count: vi.fn(), aggregate: vi.fn(), create: vi.fn(), update: vi.fn() },
   courseSession: { findFirst: vi.fn(), update: vi.fn() },
+  courseTemplate: { findMany: vi.fn().mockResolvedValue([]) },
   coursePointCard: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   courseBookingRule: { findUnique: vi.fn() },
   coursePointEntry: { create: vi.fn(), findUnique: vi.fn() },
@@ -46,6 +50,7 @@ let waitingEntries: ReturnType<typeof entry>[] = [];
 beforeEach(() => {
   vi.resetAllMocks();
   waitingEntries = [];
+  m.sportsRule.mockResolvedValue(null);
   m.state.mockResolvedValue("ENABLED");
   m.feature.mockResolvedValue(true);
   m.limits.mockResolvedValue({ maxMonthlyBookings: null });
@@ -61,6 +66,7 @@ beforeEach(() => {
   db.courseBooking.create.mockImplementation(async ({ data }) => ({ id: `new-${data.customerId ?? "guest"}`, ...data }));
   db.courseBooking.update.mockImplementation(async ({ data }) => ({ ...booking, ...data }));
   db.courseSession.findFirst.mockResolvedValue(session);
+  db.courseTemplate.findMany.mockResolvedValue([]);
   db.coursePointCard.findFirst.mockResolvedValue(card);
   db.coursePointCard.updateMany.mockResolvedValue({ count: 1 });
   db.courseWaitlistSetting.findUnique.mockResolvedValue({ enabled: true, defaultLimit: 5, autoPromoteStopMinutes: 240 });
@@ -316,4 +322,45 @@ it("keeps cancelling an existing waitlist group available while self-booking is 
   expect(await cancelMemberCourseWaitlist(actor,{sessionId:"session"})).toEqual({count:2});
   expect(db.courseWaitlistEntry.updateMany).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:"sports",sessionId:"session",groupKey:"a",status:"WAITING"},data:expect.objectContaining({status:"CANCELLED"})}));
   expect(db.courseBookingRule.findUnique).not.toHaveBeenCalled();
+});
+
+
+describe("explicit sports rights in the booking transaction", () => {
+  const input = { sessionId: "session", cardId: "card", customerId: "owner", requestKey: "rights-test" };
+  it("records the learner purchase cost instead of the scheduled package cost", async () => {
+    m.sportsRule.mockResolvedValue({ enrollment: "ASSIGNED", planId: "other-package" });
+    db.courseSession.findFirst.mockResolvedValue({ ...session, pointCost: 3, template: { ...session.template, musicSubjectId: "yoga" } });
+    db.coursePointCard.findFirst.mockResolvedValue({ ...card, planId: "learner-package", templateIds: ["old-price-template"], sportsMode: "ASSIGNED", sportsSubjectId: "yoga", sportsCost: 4 });
+    await expect(reserveCourseInTransaction(tx, manager, input, null)).resolves.toMatchObject({ pointCost: 4 });
+    expect(db.courseBooking.create.mock.calls[0][0].data.pointCost).toBe(4);
+  });
+  it("rejects cross-mode rights before creating or debiting a booking", async () => {
+    m.sportsRule.mockResolvedValue({ enrollment: "ASSIGNED", planId: null });
+    db.coursePointCard.findFirst.mockResolvedValue({ ...card, sportsMode: "OPEN", sportsSubjectId: null, sportsCost: null });
+    await expect(reserveCourseInTransaction(tx, manager, input, null)).rejects.toThrow("通用卡僅適用開放選課");
+    expect(db.courseBooking.create).not.toHaveBeenCalled();
+    expect(db.coursePointEntry.create).not.toHaveBeenCalled();
+  });
+  it("uses the open course cost without binding a universal card to a sales package", async () => {
+    m.sportsRule.mockResolvedValue({ enrollment: "OPEN", planId: "old-scheduled-plan" });
+    db.coursePointCard.findFirst.mockResolvedValue({ ...card, planId: "universal", sportsMode: "OPEN", sportsSubjectId: null, sportsCost: null });
+    await expect(reserveCourseInTransaction(tx, actor, input, null)).resolves.toMatchObject({ pointCost: 2 });
+  });
+});
+describe("per-session assigned audience",()=>{
+ it("rejects member reservations before any booking or balance write",async()=>{
+  db.courseSession.findFirst.mockResolvedValue({...session,bookingAudience:"ASSIGNED"});
+  await expect(reserveCourseInTransaction(tx,actor,companion,null)).rejects.toThrow("指定學員");
+  expect(db.courseBooking.create).not.toHaveBeenCalled();expect(db.coursePointCard.updateMany).not.toHaveBeenCalled();
+ });
+ it("keeps authorized staff reservations available",async()=>{
+  db.courseSession.findFirst.mockResolvedValue({...session,bookingAudience:"ASSIGNED"});
+  await expect(reserveCourseInTransaction(tx,manager,{sessionId:"session",cardId:"card",customerId:"owner",requestKey:"staff-assigned"},null)).resolves.toMatchObject({customerId:"owner",operatorUserId:"manager"});
+ });
+ it("rejects member waitlist joins and automatic promotion",async()=>{
+  db.courseSession.findFirst.mockResolvedValue({...session,bookingAudience:"ASSIGNED"});
+  await expect(joinCourseWaitlist(actor,{sessionId:"session",cardId:"card",customerIds:["owner"],requestKey:"6c1a52c3-bb19-4e66-94b2-460a76594d1b"})).rejects.toThrow("指定學員");
+  expect(await promoteCourseWaitlistForSession(tx,"sports","session")).toEqual([]);
+  expect(db.courseWaitlistEntry.create).not.toHaveBeenCalled();expect(db.courseBooking.create).not.toHaveBeenCalled();
+ });
 });

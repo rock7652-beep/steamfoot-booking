@@ -79,3 +79,13 @@ it("external save can retry an uncertain weekly result without internal buttons"
  expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual(JSON.parse(fetch.mock.calls[1][1].body));
  expect(m.guard).toHaveBeenLastCalledWith({dirty:false,pending:false});
 });
+
+it('uses the Beauty time picker and saves the selected value through the same revision writer',async()=>{
+ const read=async()=>({revision:'a'.repeat(64),inheritStoreHours:false,weekly:[{dayOfWeek:0,periods:[{openTime:'09:15',closeTime:'18:00'}]}],exceptions:[],retainedSessions:[]});
+ const save=vi.fn(async(input:Record<string,unknown>)=>({success:true,storeId:'s',data:{revision:'b'.repeat(64),inheritStoreHours:false,weekly:(input.values as {days:unknown}).days,exceptions:[],retainedSessions:[]}}));
+ await act(async()=>root.render(createElement(CourseStaffAvailabilityEditor,{key:'beauty-time',storeId:'s',staffId:'coach',fitness:true,source:{selectTimes:true,read,save},onGuard:m.guard})));
+ const select=host.querySelector<HTMLSelectElement>('select[aria-label="週日第1段開始"]')!;expect(select.value).toBe('09:15');
+ await act(async()=>{select.value='10:30';select.dispatchEvent(new Event('change',{bubbles:true}));});await act(async()=>button('儲存時間').click());
+ expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][0]).toMatchObject({expectedRevision:'a'.repeat(64),values:{days:expect.arrayContaining([{dayOfWeek:0,periods:[{openTime:'10:30',closeTime:'18:00'}]}])}});
+ expect(m.success).toHaveBeenCalled();
+});

@@ -1,5 +1,8 @@
 "use client";
+import {useSearchParams} from "next/navigation";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
+import toolbar from "@/components/operations/filter-toolbar.module.css";
 import { useState, useCallback, useEffect } from "react";
 import { toLocalDateStr, toLocalMonthStr, monthRange } from "@/lib/date-utils";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -37,6 +40,7 @@ interface StoreSummaryRow {
   packageRevenue: number;
   singleRevenue: number;
   otherRevenue: number;
+  retailRevenue?:number;otherIncomeRevenue?:number;supplementRevenue?:number;
 }
 
 interface CoachSummaryRow {
@@ -84,6 +88,10 @@ interface PaymentMethodSummary { paymentMethod: string; amount: number }
 type ReportMode = "store" | "coach";
 
 interface Props {
+  steamfootMode?:boolean;
+  canReadDetails?:boolean;
+  serviceMode?:boolean;
+  dataScope?: string;
   courseMode?: boolean;
   musicMode?: boolean;
   mode: ReportMode;
@@ -107,7 +115,7 @@ function fmtMoney(n: number): string {
 
 function fmtPlanType(t: string | null): string {
   if (!t) return "-";
-  const m: Record<string, string> = { TRIAL: "體驗", SINGLE: "單次", PACKAGE: "套餐", POINT: "點數方案", SESSION: "堂數方案" };
+  const m: Record<string, string> = { TRIAL: "體驗", SINGLE: "單次", PACKAGE: "套餐", POINT: "點數方案", SESSION: "堂數方案", RETAIL:"零售收入",OTHER:"其他收入",SUPPLEMENT:"補差額" };
   return m[t] ?? t;
 }
 
@@ -121,13 +129,13 @@ function fmtPayment(m: string): string {
 }
 
 function fmtStatus(s: string): string {
-  const map: Record<string, string> = { SUCCESS: "成功", CANCELLED: "已取消", REFUNDED: "已退款" };
+  const map: Record<string, string> = { SUCCESS: "成功", CANCELLED: "已取消", REFUNDED: "已退款", REVERSED:"收款更正沖回" };
   return map[s] ?? s;
 }
 
 function fmtRole(r: string | null): string {
   if (!r) return "-";
-  const map: Record<string, string> = { ADMIN: "總部", OWNER: "店長", PARTNER: "合作店長" };
+  const map: Record<string, string> = { ADMIN: "總部", OWNER: "店長", MANAGER:"店長", STAFF:"門市人員", PARTNER: "合作店長" };
   return map[r] ?? r;
 }
 
@@ -142,7 +150,11 @@ function fmtDate(iso: string): string {
 
 export function RevenueReportClient({
   mode,
+  canReadDetails=true,
+  serviceMode=false,
+  steamfootMode=false,
   courseMode = false,
+  dataScope,
   musicMode = false,
   stores,
   coaches,
@@ -153,6 +165,8 @@ export function RevenueReportClient({
   defaultStartDate,
   defaultEndDate,
 }: Props) {
+  const personnelText = useCoursePersonnelText();
+  const searchParams=useSearchParams();
   // Filters
   const [periodType, setPeriodType] = useState<"today" | "month" | "custom">("month");
   const [startDate, setStartDate] = useState(defaultStartDate);
@@ -160,9 +174,9 @@ export function RevenueReportClient({
   const [storeId, setStoreId] = useState("");
   const [coachId, setCoachId] = useState("");
   const [coachRole, setCoachRole] = useState("");
-  const [planType, setPlanType] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [keyword, setKeyword] = useState("");
+  const [planType, setPlanType] = useState(searchParams?.get("area")==="exports"?searchParams.get("reportPlanType")??"":"");
+  const [paymentMethod, setPaymentMethod] = useState(searchParams?.get("area")==="exports"?searchParams.get("reportPaymentMethod")??"":"");
+  const [keyword, setKeyword] = useState(searchParams?.get("area")==="exports"?searchParams.get("reportKeyword")??"":"");
 
   // Data
   const [kpi, setKpi] = useState<KpiData | null>(null);
@@ -181,6 +195,7 @@ export function RevenueReportClient({
   // Build query string
   const buildParams = useCallback(() => {
     const p = new URLSearchParams();
+    if(courseMode&&dataScope==="legacy")p.set("dataScope","legacy");
     p.set("startDate", startDate);
     p.set("endDate", endDate);
     if (storeId) p.set("storeId", storeId);
@@ -190,7 +205,7 @@ export function RevenueReportClient({
     if (paymentMethod) p.set("paymentMethod", paymentMethod);
     if (keyword) p.set("keyword", keyword);
     return p;
-  }, [startDate, endDate, storeId, coachId, coachRole, planType, paymentMethod, keyword]);
+  }, [startDate, endDate, storeId, coachId, coachRole, planType, paymentMethod, keyword,courseMode,dataScope]);
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -208,6 +223,13 @@ export function RevenueReportClient({
         : "/api/reports/coach-revenue";
 
       const params = buildParams();
+      const url=new URL(window.location.href);
+      if(url.searchParams.get("area")==="exports") {
+        for(const [key,value] of Object.entries({dateFrom:startDate,dateTo:endDate,reportPlanType:planType,reportPaymentMethod:paymentMethod,reportKeyword:keyword})) {
+          if(value)url.searchParams.set(key,value);else url.searchParams.delete(key);
+        }
+        window.history.replaceState(null,"",url);
+      }
 
       // Fetch summary + KPI
       params.set("level", "summary");
@@ -231,6 +253,7 @@ export function RevenueReportClient({
         setCoachSummary(summaryData.summary);
       }
 
+      if(!canReadDetails){setDetails([]);setDetailTotal(0);return;}
       // Fetch details page 1
       params.set("level", "details");
       params.set("page", "1");
@@ -248,7 +271,7 @@ export function RevenueReportClient({
     } finally {
       setLoading(false);
     }
-  }, [mode, courseMode, buildParams, startDate, endDate]);
+  }, [mode, courseMode, canReadDetails, buildParams, startDate, endDate, planType, paymentMethod, keyword]);
 
   // Fetch details page
   const fetchDetailsPage = useCallback(async (page: number) => {
@@ -259,6 +282,13 @@ export function RevenueReportClient({
         : "/api/reports/coach-revenue";
 
       const params = buildParams();
+      const url=new URL(window.location.href);
+      if(url.searchParams.get("area")==="exports") {
+        for(const [key,value] of Object.entries({dateFrom:startDate,dateTo:endDate,reportPlanType:planType,reportPaymentMethod:paymentMethod,reportKeyword:keyword})) {
+          if(value)url.searchParams.set(key,value);else url.searchParams.delete(key);
+        }
+        window.history.replaceState(null,"",url);
+      }
       params.set("level", "details");
       params.set("page", String(page));
       params.set("pageSize", String(pageSize));
@@ -275,7 +305,7 @@ export function RevenueReportClient({
     } finally {
       setLoading(false);
     }
-  }, [mode, buildParams]);
+  }, [mode, buildParams, startDate, endDate, planType, paymentMethod, keyword]);
 
   // Period type handlers
   function handlePeriodChange(type: "today" | "month" | "custom") {
@@ -305,7 +335,6 @@ export function RevenueReportClient({
   // Auto-fetch on mount
   useEffect(() => {
     // Initialize the existing request loader once; later filter changes wait for Search.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -314,21 +343,21 @@ export function RevenueReportClient({
   const buildExportUrl = useCallback(() => {
     const params = buildParams();
     params.set("reportType", mode);
-    params.set("level", "all");
+    params.set("level", canReadDetails?"all":"summary");
     params.set("periodType", periodType);
     const storeName = stores.find(s => s.id === storeId)?.name ?? "全部";
     const coachName = coaches.find(c => c.id === coachId)?.name ?? "全部";
     params.set("storeName", storeName);
     params.set("coachName", coachName);
     return `/api/reports/export?${params.toString()}`;
-  }, [buildParams, mode, periodType, storeId, coachId, stores, coaches]);
+  }, [canReadDetails, buildParams, mode, periodType, storeId, coachId, stores, coaches]);
 
   const totalPages = Math.ceil(detailTotal / pageSize);
 
   return (
     <div className="space-y-6">
       {/* ===== Filters ===== */}
-      <div className="rounded-xl bg-white p-4 shadow-sm border border-earth-200 space-y-3">
+      <div className={`${toolbar.container} rounded-xl bg-white p-3 border border-earth-200 space-y-2`}>
         {/* Period pills */}
         <div className="flex flex-wrap items-center gap-2">
           {(["today", "month", "custom"] as const).map((t) => (
@@ -336,7 +365,7 @@ export function RevenueReportClient({
               key={t}
               type="button"
               onClick={() => handlePeriodChange(t)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              className={`min-h-11 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
                 periodType === t
                   ? "bg-primary-600 text-white shadow-sm"
                   : "bg-earth-100 text-earth-700 hover:bg-earth-200"
@@ -348,12 +377,12 @@ export function RevenueReportClient({
         </div>
 
         {/* Date + Filters */}
-        <div className="flex flex-wrap items-end gap-2">
+        <div className={toolbar.toolbar}>
           <div>
             <label className="block text-xs text-earth-500 mb-0.5">開始日期</label>
             <input
               type="date"
-              value={startDate}
+              aria-label="開始日期" value={startDate}
               onChange={(e) => { setStartDate(e.target.value); setPeriodType("custom"); setDateError(null); }}
               className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             />
@@ -362,7 +391,7 @@ export function RevenueReportClient({
             <label className="block text-xs text-earth-500 mb-0.5">結束日期</label>
             <input
               type="date"
-              value={endDate}
+              aria-label="結束日期" value={endDate}
               onChange={(e) => { setEndDate(e.target.value); setPeriodType("custom"); setDateError(null); }}
               className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             />
@@ -372,7 +401,7 @@ export function RevenueReportClient({
             <div>
               <label className="block text-xs text-earth-500 mb-0.5">分店</label>
               <select
-                value={storeId}
+                aria-label="分店" value={storeId}
                 onChange={(e) => setStoreId(e.target.value)}
                 className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
               >
@@ -385,9 +414,9 @@ export function RevenueReportClient({
           {mode === "coach" && coaches.length > 0 && (
             <>
               <div>
-                <label className="block text-xs text-earth-500 mb-0.5">教練</label>
+                <label className="block text-xs text-earth-500 mb-0.5">{serviceMode?"所屬店長":personnelText("教練")}</label>
                 <select
-                  value={coachId}
+                  aria-label="人員" value={coachId}
                   onChange={(e) => setCoachId(e.target.value)}
                   className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
                 >
@@ -396,15 +425,15 @@ export function RevenueReportClient({
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-earth-500 mb-0.5">教練角色</label>
+                <label className="block text-xs text-earth-500 mb-0.5">{serviceMode?"角色":personnelText("教練角色")}</label>
                 <select
-                  value={coachRole}
+                  aria-label="人員角色" value={coachRole}
                   onChange={(e) => setCoachRole(e.target.value)}
                   className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
                 >
                   <option value="">全部</option>
                   <option value="OWNER">店長</option>
-                  <option value="PARTNER">合作店長</option>
+                  <option value="PARTNER">合作店長</option>{serviceMode&&<><option value="MANAGER">店長</option><option value="STAFF">門市人員</option></>}
                 </select>
               </div>
             </>
@@ -413,12 +442,12 @@ export function RevenueReportClient({
           <div>
             <label className="block text-xs text-earth-500 mb-0.5">方案類型</label>
             <select
-              value={planType}
+              aria-label="方案類型" value={planType}
               onChange={(e) => setPlanType(e.target.value)}
               className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             >
               <option value="">全部</option>
-              {courseMode ? <>{!musicMode && <option value="POINT">點數方案</option>}<option value="SESSION">堂數方案</option><option value="TRIAL">體驗</option></> : <><option value="TRIAL">體驗</option><option value="SINGLE">單次</option><option value="PACKAGE">套餐</option></>}
+              {courseMode ? <>{!musicMode&&!serviceMode && <option value="POINT">點數方案</option>}<option value="SESSION">{serviceMode?"次數方案":"堂數方案"}</option>{serviceMode&&<option value="SINGLE">單次服務</option>}<option value="TRIAL">體驗</option></> : <><option value="TRIAL">體驗</option><option value="SINGLE">單次</option><option value="PACKAGE">套餐</option>{steamfootMode&&<><option value="SUPPLEMENT">補差額</option><option value="RETAIL">零售收入</option><option value="OTHER">其他收入</option></>}</>}
             </select>
           </div>
 
@@ -426,7 +455,7 @@ export function RevenueReportClient({
             <div>
               <label className="block text-xs text-earth-500 mb-0.5">收款方式</label>
               <select
-                value={paymentMethod}
+                aria-label="收款方式" value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
               >
@@ -444,7 +473,7 @@ export function RevenueReportClient({
             <label className="block text-xs text-earth-500 mb-0.5">關鍵字</label>
             <input
               type="text"
-              value={keyword}
+              aria-label="關鍵字" value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="客戶/方案/單號"
               className="block w-32 rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
@@ -479,10 +508,10 @@ export function RevenueReportClient({
       {/* ===== KPI Cards ===== */}
       {kpi && (
         <div className={`grid gap-3 ${mode === "coach" ? "grid-cols-2 sm:grid-cols-4 lg:grid-cols-8" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"}`}>
-          <KpiCard label={courseMode ? "收款登錄" : "總營收"} value={fmtMoney(kpi.totalRevenue)} color="primary" />
-          <KpiCard label={courseMode ? "退款／沖銷" : "退款金額"} value={fmtMoney(kpi.refundAmount)} color="red" />
-          <KpiCard label={courseMode ? "淨收入" : "淨營收"} value={fmtMoney(kpi.netRevenue)} color="green" />
-          <KpiCard label={courseMode ? "收款紀錄數" : "交易筆數"} value={kpi.txCount} color="blue" />
+          <KpiCard label={steamfootMode?"收款入帳":courseMode ? "收款登錄" : "總營收"} value={fmtMoney(kpi.totalRevenue)} color="primary" />
+          <KpiCard label={steamfootMode?"退款／沖回":courseMode ? "退款／沖銷" : "退款金額"} value={fmtMoney(kpi.refundAmount)} color="red" />
+          <KpiCard label={steamfootMode?"淨收款":courseMode ? "淨收入" : "淨營收"} value={fmtMoney(kpi.netRevenue)} color="green" />
+          <KpiCard label={steamfootMode?"收入筆數":courseMode ? "收款紀錄數" : "交易筆數"} value={kpi.txCount} color="blue" />
           <KpiCard label={courseMode ? "付款顧客數" : "客戶數"} value={kpi.customerCount} color="amber" />
           <KpiCard label="平均客單價" value={fmtMoney(kpi.avgPerCustomer)} color="earth" />
           {mode === "coach" && kpi.newCustomerRevenue != null && (
@@ -505,18 +534,18 @@ export function RevenueReportClient({
               : "border-transparent text-earth-500 hover:text-earth-700"
           }`}
         >
-          {mode === "store" ? "店營收總表" : "教練營收總表"}
+          {mode === "store" ? "店營收總表" : serviceMode?"店長歸屬收入總表":personnelText("教練營收總表")}
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab("details")}
+          disabled={!canReadDetails} onClick={() => setActiveTab("details")}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === "details"
               ? "border-primary-600 text-primary-700"
               : "border-transparent text-earth-500 hover:text-earth-700"
           }`}
         >
-          {mode === "store" ? "店營收明細" : "教練營收明細"}
+          {mode === "store" ? "店營收明細" : serviceMode?"店長歸屬收入明細":personnelText("教練營收明細")}
         </button>
       </div>
 
@@ -538,10 +567,10 @@ export function RevenueReportClient({
           )}
           {mode === "store" && storeSummary.length > 0 && (
             <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
                 <thead className="bg-earth-50">
                   <tr>
-                    {(courseMode ? ["分店名稱", "收款登錄", "退款／沖銷", "淨收入", "收款紀錄數", "付款顧客數", "平均客單價"] : ["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"]).map((h) => (
+                    {(courseMode ? ["分店名稱", "收款登錄", "退款／沖銷", "淨收入", "收款紀錄數", "付款顧客數", "平均客單價"] : steamfootMode?["分店名稱","收款入帳","退款／沖回","淨收款","收入筆數","客戶數","平均客單價","體驗","方案","單次","補差額","零售收入","其他收入"]:["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"]).map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -559,7 +588,7 @@ export function RevenueReportClient({
                       {!courseMode && <><td className="px-3 py-2 text-right">{fmtMoney(s.trialRevenue)}</td>
                       <td className="px-3 py-2 text-right">{fmtMoney(s.packageRevenue)}</td>
                       <td className="px-3 py-2 text-right">{fmtMoney(s.singleRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.otherRevenue)}</td></>}
+                      <td className="px-3 py-2 text-right">{fmtMoney(steamfootMode?s.supplementRevenue??0:s.otherRevenue)}</td>{steamfootMode&&<><td className="px-3 py-2 text-right">{fmtMoney(s.retailRevenue??0)}</td><td className="px-3 py-2 text-right">{fmtMoney(s.otherIncomeRevenue??0)}</td></>}</>}
                     </tr>
                   ))}
                 </tbody>
@@ -582,14 +611,14 @@ export function RevenueReportClient({
           )}
 
           {mode === "coach" && coachSummary.length === 0 && (
-            <EmptyState title="無資料" description="所選條件下無教練營收資料" />
+            <EmptyState title="無資料" description={serviceMode?"所選條件下無店長歸屬營收資料":personnelText("所選條件下無教練營收資料")} />
           )}
           {mode === "coach" && coachSummary.length > 0 && (
             <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
                 <thead className="bg-earth-50">
                   <tr>
-                    {["教練姓名", "教練角色", "分店", "歸屬總收入", "退款", "淨收入", "筆數", "客戶數", "平均單筆", "新客收入", "舊客收入", "體驗", "正式方案", "票券", "商品"].map((h) => (
+                    {[serviceMode?"所屬店長":personnelText("教練姓名"), serviceMode?"角色":personnelText("教練角色"), "分店", "歸屬總收入", "退款", "淨收入", "筆數", "客戶數", "平均單筆", "新客收入", "舊客收入", "體驗", "正式方案", "票券", "商品"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -630,12 +659,12 @@ export function RevenueReportClient({
           {details.length > 0 && (
             <>
               <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-                <table className="min-w-full text-sm">
+                <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
                   <thead className="bg-earth-50">
                     <tr>
                       {(mode === "store"
                         ? (courseMode ? ["入帳日期", "分店", "客戶", "電話", "方案", "類型", "收退款金額", "收款方式", "狀態", "備註", "操作人員", "入帳時間"] : ["交易日期", "交易單號", "分店", "客戶", "電話", "方案", "類型", "原價", "折扣", "實收", "收款方式", "狀態", "備註", "建立人員", "建立時間"])
-                        : ["交易日期", "交易單號", "分店", "教練", "角色", "客戶", "電話", "方案", "類型", "實收", "收款方式", "狀態", "新客", "備註", "建立時間"]
+                        : ["交易日期", "交易單號", "分店", serviceMode?"所屬店長":personnelText("教練"), "角色", "客戶", "電話", "方案", "類型", "實收", "收款方式", "狀態", "新客", "備註", "建立時間"]
                       ).map((h) => (
                         <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
                       ))}

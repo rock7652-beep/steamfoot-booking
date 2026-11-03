@@ -1,28 +1,23 @@
+// Runtime isolation is tested here; the Prisma strategy extension has its own contract tests.
+vi.mock('@/lib/explicit-relation-joins',()=>({withExplicitRelationJoins:(client:unknown)=>client}));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CONSULTATION_PREVIEW_BRANCH } from "../../scripts/consultation-preview-scope.mjs";
 
 const mocks = vi.hoisted(() => ({
   construct: vi.fn(), query: vi.fn(), audit: vi.fn((client: unknown) => client),
 }));
-vi.mock("@prisma/client", () => ({ PrismaClient: class {
+vi.mock("@prisma/client", async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), PrismaClient: class {
   $queryRaw = mocks.query;
   constructor(options: unknown) { mocks.construct("main", options); }
 } }));
-vi.mock("../../generated/spa-client", () => ({ PrismaClient: class {
-  $queryRaw = mocks.query;
-  constructor(options: unknown) { mocks.construct("spa", options); }
-} }));
-vi.mock("../../generated/course-client", () => ({ PrismaClient: class {
-  $queryRaw = mocks.query;
-  constructor(options: unknown) { mocks.construct("course", options); }
-} }));
+vi.mock("@/lib/generated-prisma-runtime", async () => {const runtime=await import("../../generated/course-client");return {loadCoursePrismaRuntime:()=>({...runtime,PrismaClient:class{$queryRaw=mocks.query;constructor(options:unknown){mocks.construct("course",options);}}})}});
 vi.mock("@/lib/audit-db-context", () => ({ withAuditDatabaseContext: mocks.audit }));
 
 const direct = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
 const pool = "postgresql://postgres.ttworfzgwejdeolegkxl:synthetic@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
 const clients = [
   { name: "main", key: "prisma", load: async () => (await import("@/lib/db")).prisma },
-  { name: "spa", key: "spaPrisma", load: async () => (await import("@/lib/spa-db")).spaPrisma },
+
   { name: "course", key: "coursePrisma", load: async () => (await import("@/lib/course-db")).coursePrisma },
 ];
 const invalidSettings = [

@@ -1,0 +1,18 @@
+{
+  "deploymentId": "dpl_GkMWFozXDjjcrffPh937fkVXmCRG",
+  "state": "READY",
+  "target": "preview",
+  "commit": "c3417ac6937d1b1111e9dcb2ae5a4c59b62a9ffc",
+  "url": "https://steamfoot-booking-2obkt3gg2-rock7652-2111s-projects.vercel.app",
+  "branchAlias": "https://steamfoot-booking-git-preview-be-a99dad-rock7652-2111s-projects.vercel.app",
+  "testFiles": 3,
+  "testsPassed": 58,
+  "typeScript": "passed",
+  "eslint": "passed",
+  "remoteBuild": "passed",
+  "migrationsSkipped": true,
+  "notificationsBlocked": true,
+  "databaseReadOrWriteByAgent": false,
+  "browserVisualAcceptance": false,
+  "productionChanged": false
+}

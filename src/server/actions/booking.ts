@@ -1,4 +1,6 @@
 "use server";
+import {addonsPrisma} from '@/lib/addons-db';
+import {persistCustomerBookingGoods} from "@/server/services/customer-booking-goods";
 
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { createFinancialTransaction } from "@/server/services/financial-transaction";
@@ -9,83 +11,37 @@ import { after } from "next/server";
 import { notifySameDayBookingManagers } from "@/server/services/same-day-booking-manager-notification";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
-import {
-  requireWritablePermission,
-} from "@/lib/permissions";
-import {
-  assertStoreSubscriptionWritable,
-  BOOKING_EXPIRED_MESSAGE,
-} from "@/lib/subscription-guard";
+import { requireWritablePermission } from "@/lib/permissions";
+import { assertStoreSubscriptionWritable, BOOKING_EXPIRED_MESSAGE } from "@/lib/subscription-guard";
 import { AppError, handleActionError } from "@/lib/errors";
-import {
-  createBookingSchema,
-  updateBookingSchema,
-  completeBookingSchema,
-} from "@/lib/validators/booking";
-import {
-  getNowTaipeiHHmm,
-  toLocalDateStr,
-  dayRange,
-} from "@/lib/date-utils";
-import {
-  getBookingDateTime,
-  PENDING_STATUSES,
-  NO_SHOW_MAKEUP_VALID_DAYS,
-  type NoShowChoice,
-} from "@/lib/booking-constants";
+import { createBookingSchema, updateBookingSchema, completeBookingSchema } from "@/lib/validators/booking";
+import { getNowTaipeiHHmm, toLocalDateStr, dayRange } from "@/lib/date-utils";
+import { getBookingDateTime, PENDING_STATUSES, NO_SHOW_MAKEUP_VALID_DAYS, type NoShowChoice } from "@/lib/booking-constants";
 import { revalidateBookingMutation } from "@/lib/booking-route-mutation";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
-import {
-  applySlotOverrides,
-  loadDayBusinessHoursContext,
-} from "@/lib/business-hours-resolver";
+import { applySlotOverrides, loadDayBusinessHoursContext } from "@/lib/business-hours-resolver";
 import type { ActionResult } from "@/types";
 import { checkBookingLimit, resolveBookableUntilDate } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { currentStoreId, resolveWriteStoreId } from "@/lib/store";
-import {
-  assertCustomerInOperationStore,
-  assertSameStore,
-} from "@/lib/store-consistency";
-import {
-  getStoreOperatingStatus,
-  getStoreUnavailableMessage,
-  isStoreBookableStatus,
-} from "@/lib/store-operating-status";
-import {
-  createBookingCreatedEvent,
-  createBookingCompletedEvent,
-} from "@/server/services/referral-events";
+import { assertCustomerInOperationStore, assertSameStore } from "@/lib/store-consistency";
+import { getStoreOperatingStatus, getStoreUnavailableMessage, isStoreBookableStatus } from "@/lib/store-operating-status";
+import { createBookingCreatedEvent, createBookingCompletedEvent } from "@/server/services/referral-events";
 import { awardFirstBookingReferralPointsIfEligible } from "@/server/services/referral-points";
-import {
-  dispatchSessionBalanceNotifications,
-  enqueueSessionBalanceNotifications,
-} from "@/server/services/session-balance-notifications";
+import { dispatchSessionBalanceNotifications, enqueueSessionBalanceNotifications } from "@/server/services/session-balance-notifications";
 import { requireCustomerBookingEligibility } from "@/lib/customer-booking-eligibility";
-import {
-  acquireBookingSlotLocks,
-  bookingSlotTimeVariants,
-} from "@/server/services/booking-slot-lock";
+import { acquireBookingSlotLocks, bookingSlotTimeVariants } from "@/server/services/booking-slot-lock";
 import { buildBookingCreatePayloadHash } from "@/server/services/booking-submission-payload";
-import {
-  claimBookingSubmission,
-  finalizeBookingSubmissionFinalFailure,
-  finalizeBookingSubmissionRetryableFailure,
-  finalizeBookingSubmissionSuccess,
-  type BookingIdempotencyEnvelope,
-} from "@/server/services/booking-submission";
+import { claimBookingSubmission, finalizeBookingSubmissionFinalFailure, finalizeBookingSubmissionRetryableFailure, finalizeBookingSubmissionSuccess, type BookingIdempotencyEnvelope } from "@/server/services/booking-submission";
 // PR-H3 清理：PR #194 之後 createBooking 走 allocateSessionsFefo，revert 走
 // reReserveSessionsFefo；單 wallet 版本不再被 booking.ts 直接使用 → 移除 unused import。
-import {
-  allocateSessionsFefo,
-  releaseSessions,
-  partialReleaseSessions,
-  completeSessions,
-  uncompleteSessions,
-  reReserveSessionsFefo,
-} from "@/server/services/wallet-session";
+// PR-H3 清理：PR #194 之後 createBooking 走 allocateSessionsFefo，revert 走
+// reReserveSessionsFefo；單 wallet 版本不再被 booking.ts 直接使用 → 移除 unused import。
+import { allocateSessionsFefo, releaseSessions, partialReleaseSessions, completeSessions, uncompleteSessions, reReserveSessionsFefo } from "@/server/services/wallet-session";
 import { Prisma } from "@prisma/client";
 import { isWalletUsableForServiceDate } from "@/lib/wallet-booking-integrity";
+// PR-1.5a：Booking.revenueStaffId 快照規則 helper（鎖定 + 防回歸）。
+// 規則與禁止項見該 helper 的 JSDoc 與 spec §3.4。
 // PR-1.5a：Booking.revenueStaffId 快照規則 helper（鎖定 + 防回歸）。
 // 規則與禁止項見該 helper 的 JSDoc 與 spec §3.4。
 import { snapshotRevenueStaffForBooking } from "./booking-helpers";
@@ -270,10 +226,8 @@ export async function createBooking(
     await assertStaffBookingWritable(user);
     const data = createBookingSchema.parse(input);
     const storeId = await resolveWriteStoreId(user);
-    const industryModule = await getStoreIndustryModule(storeId);
-    if (industryModule === "spa") {
-      throw new AppError("FORBIDDEN", "SPA 預約必須使用獨立的 SPA 預約流程");
-    }
+    await getStoreIndustryModule(storeId);
+
     if (data.treatmentIds?.length) {
       throw new AppError("FORBIDDEN", "蒸足門市不可使用 SPA 療程欄位");
     }
@@ -408,6 +362,7 @@ export async function createBooking(
         canonicalCustomerId: effectiveCustomerId,
         bookingType: data.bookingType,
         servicePlanId: data.servicePlanId,
+        sharedGoods:data.sharedGoods,
         treatmentIds: data.treatmentIds,
         bookingDate: data.bookingDate,
         slotTime: data.slotTime,
@@ -672,7 +627,8 @@ export async function createBooking(
     }
 
     // ── 9. 建立預約（不扣堂，狀態 = PENDING）
-    const booking = await prisma.$transaction(async (tx) => {
+    const booking = await (data.sharedGoods?.selections.length?addonsPrisma:prisma).$transaction(async (tx) => {
+      if(data.sharedGoods?.selections.length)await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
       // 所有會改變時段容量的入口共用同一 transaction advisory lock。
       // 取得鎖後才重新讀取容量，避免兩個請求同時通過
       // transaction 外的舊快照後造成超賣。同一顧客可以在同時段
@@ -802,6 +758,8 @@ export async function createBooking(
         }
       }
 
+      if(data.sharedGoods?.selections.length&&data.bookingType!=="FIRST_TRIAL")throw new AppError("VALIDATION","此入口目前只開放首次體驗的商品選購");
+      await persistCustomerBookingGoods(tx,storeId,created.id,undefined,data.sharedGoods);
       if (activeSubmission) {
         await finalizeBookingSubmissionSuccess(tx, {
           ...activeSubmission,

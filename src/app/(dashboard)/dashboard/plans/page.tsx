@@ -1,20 +1,15 @@
 import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { hasCurrentStoreFeature } from "@/lib/feature-gate";
-import {SpaPackagesManager} from "./_components/spa-packages-manager";
-import { spaPrisma } from "@/lib/spa-db";
+
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { getSpaServiceStaff } from "@/server/queries/spa-service-staff";
-import { SpaSkillsManager } from "./_components/spa-skills-manager";
+
 import { listPlans } from "@/server/queries/plan";
 import { selectOrdinaryServicePlans } from "@/lib/ordinary-service-plans";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getCachedStorePlan } from "@/lib/query-cache";
-import {
-  resolveStoreViewContextFromCookie,
-  storeIdForViewContext,
-} from "@/lib/store-view-context-server";
+import { resolveStoreViewContextFromCookie, storeIdForViewContext } from "@/lib/store-view-context-server";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { redirect } from "next/navigation";
@@ -22,10 +17,6 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { PlansManager } from "./_components/plans-manager";
 import type { PlanRow } from "./_components/plan-form-drawer";
-import { TreatmentWorkspace } from "./_components/treatment-workspace";
-import type { TreatmentRow } from "@/lib/spa-treatment-defaults";
-import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
-import { spaSkillKeyFromId } from "@/lib/spa-store-identifiers";
 
 export default async function PlansPage() {
   await requireDashboardCoreFeature("plan_management");
@@ -45,17 +36,7 @@ export default async function PlansPage() {
   const isSpaStore = plansStoreId
     ? (await getStoreIndustryModule(plansStoreId)) === "spa"
     : false;
-  const spaSchemaReady = isSpaStore ? await isSpaOperationalSchemaReady() : false;
 
-  const isSpa = isSpaStore;
-  if(isSpa && plansStoreId){
-    const [spaAssignments, spaLocations, packages] = await Promise.all([
-      getSpaServiceStaff(plansStoreId),
-      spaPrisma.spaServiceLocation.findMany({where:{storeId:plansStoreId},select:{id:true,name:true,isActive:true}}),
-      spaPrisma.spaPackage.findMany({where:{storeId:plansStoreId},orderBy:{name:"asc"}}),
-    ]);
-    return <PageShell><PageHeader title="方案管理" subtitle="設定服務、人員與次數方案"/><SpaSkillsManager key={plansStoreId} storeId={plansStoreId} services={spaAssignments.services} people={spaAssignments.people} locations={spaLocations} canManage={canManage}/><SpaPackagesManager key={plansStoreId} storeId={plansStoreId} packages={packages.map(p=>({...p,price:Number(p.price)}))} services={spaAssignments.services} canManage={canManage}/></PageShell>;
-  }
 
   // 桌機版 manager 自己處理 status / category / visibility 篩選，所以
   // 一律抓 includeInactive，client 再 filter — 不再依賴 ?showAll 參數。
@@ -87,32 +68,13 @@ export default async function PlansPage() {
     ...p,
     price: Number(p.price) as unknown as PlanRow["price"],
   }));
-  const storedTreatments = isSpaStore && spaSchemaReady && plansStoreId
-    ? await spaPrisma.spaTreatment.findMany({
-        where: { storeId: plansStoreId, isActive: true },
-        include: { skills: { include: { skill: { select: { id: true } } } } },
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      })
-    : [];
-  const spaTreatmentRows: TreatmentRow[] = storedTreatments.map((item) => ({
-        id: item.id as TreatmentRow["id"],
-        name: item.name,
-        variant: item.variantLabel ?? `${item.serviceMinutes} 分鐘`,
-        price: Number(item.price),
-        serviceMinutes: item.serviceMinutes,
-        bufferMinutes: item.bufferMinutes,
-        publicVisible: item.publicVisible,
-        skillKeys: item.skills
-          .map(({ skill }) => spaSkillKeyFromId(skill.id))
-          .filter((key): key is TreatmentRow["skillKeys"][number] => key !== null),
-      }));
 
   return (
     <FeatureGate plan={storePlan} feature={FEATURES.PLAN_MANAGEMENT} enabled={await hasCurrentStoreFeature(FEATURES.PLAN_MANAGEMENT)}>
       <PageShell>
         <PageHeader
-          title={isSpaStore ? "療程管理" : "方案管理"}
-          subtitle={isSpaStore ? "設定療程金額、服務時間、整理時間與必要專業" : "管理前台可購買與店內可指派方案"}
+          title={"方案管理"}
+          subtitle={"管理前台可購買與店內可指派方案"}
           actions={
             <Link
               href="/dashboard"
@@ -123,12 +85,8 @@ export default async function PlansPage() {
           }
         />
 
-        {isSpaStore && !spaSchemaReady ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            療程資料功能更新中，待資料表就緒後即可儲存。
-          </div>
-        ) : null}
-        {isSpaStore ? <TreatmentWorkspace initialTreatments={spaTreatmentRows} canManage={canManage && spaSchemaReady} /> : <PlansManager storeId={plansStoreId??""} key={plansStoreId} initialPlans={planRows} canManage={canManage} readOnly={isViewMode} />}
+        {null}
+        {<PlansManager storeId={plansStoreId??""} key={plansStoreId} initialPlans={planRows} canManage={canManage} readOnly={isViewMode} />}
       </PageShell>
     </FeatureGate>
   );

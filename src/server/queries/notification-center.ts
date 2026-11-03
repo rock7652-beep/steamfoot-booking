@@ -35,8 +35,37 @@ export async function listNotificationCenterLogs(
     1,
     Math.min(1000, Number.parseInt(params.page ?? "1", 10) || 1),
   );
+  const where = notificationCenterWhere(params);
+  const [rows, rules] = await Promise.all([
+    prisma.$queryRaw<NotificationRow[]>(Prisma.sql`
+    WITH notifications AS (
+      SELECT 'manager:'||id AS id, 'manager' AS audience, "recipientName" AS recipient, type, status, "renderedBody" AS body, "errorMessage" AS error, COALESCE("sentAt","createdAt") AS at, NULL::text AS "customerId", 'LINE（分店）' AS channel, NULL::text AS "responseAction", NULL::text AS "planName", NULL::text AS "managerStatus", NULL::text AS "managerError" FROM "ManagerNotificationLog" WHERE "storeId"=${storeId}
+      UNION ALL
+      SELECT 'message:'||m.id, 'customer', c.name, COALESCE(r.name,t.name,'手動發送'), m.status::text, m."renderedBody", m."errorMessage",COALESCE(m."sentAt",m."createdAt"),c.id,CASE WHEN m.channel::text='LINE' THEN CASE m."lineRoute"::text WHEN 'CENTRAL' THEN 'LINE（中央）' WHEN 'STORE' THEN 'LINE（分店）' ELSE 'LINE（舊紀錄）' END ELSE m.channel::text END,NULL,NULL,NULL,NULL FROM "MessageLog" m JOIN "Customer" c ON c.id=m."customerId" AND c."storeId"=m."storeId" LEFT JOIN "ReminderRule" r ON r.id=m."ruleId" AND r."storeId"=m."storeId" LEFT JOIN "MessageTemplate" t ON t.id=m."templateId" AND t."storeId"=m."storeId" WHERE m."storeId"=${storeId}
+      UNION ALL
+      SELECT 'balance:'||n.id, 'customer', c.name, n.type::text,n.status::text,n."renderedBody",n."errorMessage",COALESCE(n."sentAt",n."createdAt"),c.id,'LINE',n."responseAction",p.name,n."managerNotificationStatus"::text,n."managerNotificationError" FROM "SessionBalanceNotification" n JOIN "Customer" c ON c.id=n."customerId" AND c."storeId"=n."storeId" LEFT JOIN "CustomerPlanWallet" w ON w.id=n."walletId" AND w."storeId"=n."storeId" LEFT JOIN "ServicePlan" p ON p.id=w."planId" AND p."storeId"=n."storeId" WHERE n."storeId"=${storeId}
+      UNION ALL
+      SELECT 'quota-email:'||id, 'manager', email, 'LINE 額度 Email 通知', status, body, error, COALESCE("sentAt","createdAt"),NULL,'Email',NULL,NULL,NULL,NULL FROM "LineQuotaAlert" WHERE "storeId"=${storeId}
+    ) SELECT * FROM notifications ${where} ORDER BY at DESC,id DESC LIMIT 31 OFFSET ${(page - 1) * 30}
+  `),
+    prisma.reminderRule.findMany({
+      where: { storeId },
+      select: { name: true },
+      distinct: ["name"],
+    }),
+  ]);
+  return {
+    rows: rows.slice(0, 30),
+    page,
+    hasMore: rows.length > 30,
+    typeOptions: ["手動發送", "LINE 額度 Email 通知", "方案開通通知", ...rules.map((r) => r.name)],
+  };
+}
+
+/** Shared filter semantics for module-specific notification sources. */
+export function notificationCenterWhere(params: Record<string, string | undefined>) {
   const conditions: Prisma.Sql[] = [];
-  if (params.audience && ["manager", "customer"].includes(params.audience))
+  if (params.audience && ["manager", "customer", "personnel"].includes(params.audience))
     conditions.push(Prisma.sql`audience=${params.audience}`);
   if (
     params.status &&
@@ -54,29 +83,7 @@ export async function listNotificationCenterLogs(
     if (Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()))
       conditions.push(Prisma.sql`at >= ${start} AND at <= ${end}`);
   }
-  const where = conditions.length
+  return conditions.length
     ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
     : Prisma.empty;
-  const [rows, rules] = await Promise.all([
-    prisma.$queryRaw<NotificationRow[]>(Prisma.sql`
-    WITH notifications AS (
-      SELECT 'manager:'||id AS id, 'manager' AS audience, "recipientName" AS recipient, type, status, "renderedBody" AS body, "errorMessage" AS error, COALESCE("sentAt","createdAt") AS at, NULL::text AS "customerId", 'LINE（分店）' AS channel, NULL::text AS "responseAction", NULL::text AS "planName", NULL::text AS "managerStatus", NULL::text AS "managerError" FROM "ManagerNotificationLog" WHERE "storeId"=${storeId}
-      UNION ALL
-      SELECT 'message:'||m.id, 'customer', c.name, COALESCE(r.name,t.name,'手動發送'), m.status::text, m."renderedBody", m."errorMessage",COALESCE(m."sentAt",m."createdAt"),c.id,CASE WHEN m.channel::text='LINE' THEN CASE m."lineRoute"::text WHEN 'CENTRAL' THEN 'LINE（中央）' WHEN 'STORE' THEN 'LINE（分店）' ELSE 'LINE（舊紀錄）' END ELSE m.channel::text END,NULL,NULL,NULL,NULL FROM "MessageLog" m JOIN "Customer" c ON c.id=m."customerId" AND c."storeId"=m."storeId" LEFT JOIN "ReminderRule" r ON r.id=m."ruleId" AND r."storeId"=m."storeId" LEFT JOIN "MessageTemplate" t ON t.id=m."templateId" AND t."storeId"=m."storeId" WHERE m."storeId"=${storeId}
-      UNION ALL
-      SELECT 'balance:'||n.id, 'customer', c.name, n.type::text,n.status::text,n."renderedBody",n."errorMessage",COALESCE(n."sentAt",n."createdAt"),c.id,'LINE',n."responseAction",p.name,n."managerNotificationStatus"::text,n."managerNotificationError" FROM "SessionBalanceNotification" n JOIN "Customer" c ON c.id=n."customerId" AND c."storeId"=n."storeId" LEFT JOIN "CustomerPlanWallet" w ON w.id=n."walletId" AND w."storeId"=n."storeId" LEFT JOIN "ServicePlan" p ON p.id=w."planId" AND p."storeId"=n."storeId" WHERE n."storeId"=${storeId}
-    ) SELECT * FROM notifications ${where} ORDER BY at DESC,id DESC LIMIT 31 OFFSET ${(page - 1) * 30}
-  `),
-    prisma.reminderRule.findMany({
-      where: { storeId },
-      select: { name: true },
-      distinct: ["name"],
-    }),
-  ]);
-  return {
-    rows: rows.slice(0, 30),
-    page,
-    hasMore: rows.length > 30,
-    typeOptions: ["手動發送", ...rules.map((r) => r.name)],
-  };
 }

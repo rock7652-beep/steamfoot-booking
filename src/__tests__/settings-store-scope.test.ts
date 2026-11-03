@@ -46,7 +46,7 @@ describe("settings active-store authorization", () => {
     await expect(getActiveStoreForRead(user)).resolves.toBe("branch-a");
     await expect(resolveWriteStoreId(user)).resolves.toBe("branch-a");
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { operatingStatus: { in: ["ACTIVE", "TRIAL"] } },
+      where: expect.objectContaining({ operatingStatus: { in: ["ACTIVE", "TRIAL"] } }),
     }));
   });
 

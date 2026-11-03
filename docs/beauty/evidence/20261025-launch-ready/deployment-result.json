@@ -1,0 +1,49 @@
+{
+  "id": "dpl_ANWs7d1tLNza8JXuYHMsYP5aKuDp",
+  "state": "READY",
+  "url": "steamfoot-booking-1lm9q0bnz-rock7652-2111s-projects.vercel.app",
+  "sha": "4d30dc62a0fbaec57e1987e8acc1e37665c86e0d",
+  "aliases": [
+    {
+      "alias": "steamfoot.com",
+      "deploymentId": "dpl_ANWs7d1tLNza8JXuYHMsYP5aKuDp"
+    },
+    {
+      "alias": "www.steamfoot.com",
+      "deploymentId": "dpl_ANWs7d1tLNza8JXuYHMsYP5aKuDp"
+    }
+  ],
+  "gates": [
+    {
+      "text": "[beauty-production-preflight] runtime_login=true tls=true prisma=true schema_tables=14 readonly=true migration_target_absent=true charge_scope=module editing_enabled=true",
+      "type": "stdout",
+      "created": 1792922894442
+    },
+    {
+      "text": "ci-migrate: migration_skipped_no_target",
+      "type": "stdout",
+      "created": 1792922898491
+    }
+  ],
+  "flags": [
+    {
+      "key": "BEAUTY_CHARGE_RULES_SCOPE",
+      "value": "module",
+      "type": "plain",
+      "target": [
+        "production"
+      ]
+    },
+    {
+      "key": "BEAUTY_NOTIFICATIONS_ENABLED",
+      "value": "0",
+      "type": "plain",
+      "target": [
+        "production"
+      ]
+    }
+  ],
+  "runtimeLogs": [
+    "## Runtime Logs\n\n**Project:** prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR\n**Deployment:** dpl_ANWs7d1tLNza8JXuYHMsYP5aKuDp\n**Time range:** 2026-10-25T10:03:15.606Z → 2026-10-25T10:13:15.606Z\n\nNo logs found for the specified criteria."
+  ]
+}

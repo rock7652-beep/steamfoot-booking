@@ -1,0 +1,293 @@
+{
+  "localSyntheticOnly": true,
+  "remoteBusinessWrites": false,
+  "fixtureDate": "2026-12-05",
+  "phases": [
+    {
+      "name": "initial-navigation",
+      "shellMs": null,
+      "readyMs": 847.0979089999998
+    },
+    {
+      "name": "customer-open-1",
+      "shellMs": 935.3872049999991,
+      "readyMs": 995.4804179999992
+    },
+    {
+      "name": "customer-support-expand",
+      "shellMs": null,
+      "readyMs": 103.63141499999983
+    },
+    {
+      "name": "customer-return-1",
+      "shellMs": null,
+      "readyMs": 51.80587700000069
+    },
+    {
+      "name": "customer-open-2",
+      "shellMs": 127.97269799999958,
+      "readyMs": 264.06672099999923
+    },
+    {
+      "name": "customer-return-2",
+      "shellMs": null,
+      "readyMs": 62.35699000000022
+    },
+    {
+      "name": "customer-open-3",
+      "shellMs": 137.24931199999992,
+      "readyMs": 259.9630269999998
+    },
+    {
+      "name": "customer-return-3",
+      "shellMs": null,
+      "readyMs": 52.2882239999999
+    },
+    {
+      "name": "move-form-open-1",
+      "shellMs": null,
+      "readyMs": 129.19144199999937
+    },
+    {
+      "name": "move-form-return-1",
+      "shellMs": null,
+      "readyMs": 47.42903800000022
+    },
+    {
+      "name": "move-form-open-2",
+      "shellMs": null,
+      "readyMs": 113.676386000001
+    },
+    {
+      "name": "move-form-return-2",
+      "shellMs": null,
+      "readyMs": 56.49394499999835
+    },
+    {
+      "name": "move-form-open-3",
+      "shellMs": null,
+      "readyMs": 107.64212199999929
+    },
+    {
+      "name": "move-form-return-3",
+      "shellMs": null,
+      "readyMs": 52.27752200000032
+    },
+    {
+      "name": "purchase-open",
+      "shellMs": null,
+      "readyMs": 119.26995199999874
+    },
+    {
+      "name": "purchase-cash-check-1",
+      "shellMs": null,
+      "readyMs": 67.2775930000007
+    },
+    {
+      "name": "purchase-cash-check-2",
+      "shellMs": null,
+      "readyMs": 73.36780700000054
+    },
+    {
+      "name": "purchase-return",
+      "shellMs": null,
+      "readyMs": 64.45835999999872
+    },
+    {
+      "name": "collection-open-1",
+      "shellMs": 831.5540349999992,
+      "readyMs": 841.494659
+    },
+    {
+      "name": "collection-return-1",
+      "shellMs": null,
+      "readyMs": 55.96697200000017
+    },
+    {
+      "name": "collection-open-2",
+      "shellMs": 45.51842300000135,
+      "readyMs": 138.03125
+    },
+    {
+      "name": "collection-return-2",
+      "shellMs": null,
+      "readyMs": 93.33887099999993
+    },
+    {
+      "name": "collection-open-3",
+      "shellMs": 42.00371600000108,
+      "readyMs": 139.89110000000073
+    },
+    {
+      "name": "collection-return-3",
+      "shellMs": null,
+      "readyMs": 89.68051100000048
+    },
+    {
+      "name": "save-attendance",
+      "shellMs": null,
+      "readyMs": 237.22921099999985
+    },
+    {
+      "name": "collection-before-save",
+      "shellMs": 63.08627299999898,
+      "readyMs": 153.4769269999997
+    },
+    {
+      "name": "save-collection-and-sync",
+      "shellMs": 178.28973399999995,
+      "readyMs": 288.4859460000007
+    }
+  ],
+  "requests": [
+    {
+      "phase": "initial-navigation",
+      "name": "roster-api",
+      "ttfbMs": 199,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=175.5, authorization;dur=84.3, permissions;dur=15.3, version;dur=7.4, bookings;dur=4.3, metadata;dur=18",
+      "totalMs": 200,
+      "unchanged": false,
+      "hasData": true,
+      "success": true
+    },
+    {
+      "phase": "initial-navigation",
+      "name": "loadBeautyStoreNotices",
+      "ttfbMs": 83,
+      "status": 200
+    },
+    {
+      "phase": "idle-7s",
+      "name": "roster-api",
+      "ttfbMs": 87,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=55.9, authorization;dur=44.4, permissions;dur=2.4, version;dur=7.4",
+      "totalMs": 88,
+      "unchanged": true,
+      "hasData": false,
+      "success": true
+    },
+    {
+      "phase": "idle-7s",
+      "name": "roster-api",
+      "ttfbMs": 43,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=26.2, authorization;dur=18.5, permissions;dur=2.4, version;dur=4",
+      "totalMs": 43,
+      "unchanged": true,
+      "hasData": false,
+      "success": true
+    },
+    {
+      "phase": "customer-open-1",
+      "name": "customer-api.cards",
+      "ttfbMs": 77,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=56.7, scope_authorization;dur=14.8, authorization;dur=13.5, customer_permission;dur=11.2, customer_scope;dur=1.4, cards;dur=3.3, holds_ledger;dur=2.7, data;dur=41.7",
+      "totalMs": 78
+    },
+    {
+      "phase": "customer-support-expand",
+      "name": "customer-api.support",
+      "ttfbMs": 61,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=46.7, scope_authorization;dur=13.5, authorization;dur=12.1, customer_scope;dur=2.7, membership;dur=15.5, advanced;dur=18",
+      "totalMs": 63
+    },
+    {
+      "phase": "customer-open-2",
+      "name": "customer-api.cards",
+      "ttfbMs": 79,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=57.2, scope_authorization;dur=11.9, authorization;dur=12.5, customer_permission;dur=19.3, customer_scope;dur=1.6, cards;dur=2.1, holds_ledger;dur=1, data;dur=44.9",
+      "totalMs": 80
+    },
+    {
+      "phase": "customer-open-3",
+      "name": "customer-api.cards",
+      "ttfbMs": 72,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=52.9, scope_authorization;dur=14.4, authorization;dur=12.1, customer_permission;dur=12.6, customer_scope;dur=2, cards;dur=2, holds_ledger;dur=0.9, data;dur=38.5",
+      "totalMs": 73
+    },
+    {
+      "phase": "move-form-open-1",
+      "name": "roster-api",
+      "ttfbMs": 53,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=35.6, authorization;dur=24.7, permissions;dur=3.5, version;dur=5.8",
+      "totalMs": 54,
+      "unchanged": true,
+      "hasData": false,
+      "success": true
+    },
+    {
+      "phase": "purchase-cash-check-1",
+      "name": "customer-api.cash",
+      "ttfbMs": 52,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=36.1, scope_authorization;dur=12, data;dur=24.1",
+      "totalMs": 53
+    },
+    {
+      "phase": "purchase-cash-check-2",
+      "name": "customer-api.cash",
+      "ttfbMs": 51,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=34.5, scope_authorization;dur=12.5, data;dur=22",
+      "totalMs": 53
+    },
+    {
+      "phase": "collection-open-1",
+      "name": "readBeautyCollection",
+      "ttfbMs": 54,
+      "status": 200,
+      "totalMs": 56
+    },
+    {
+      "phase": "collection-open-2",
+      "name": "readBeautyCollection",
+      "ttfbMs": 53,
+      "status": 200,
+      "totalMs": 54
+    },
+    {
+      "phase": "collection-open-3",
+      "name": "readBeautyCollection",
+      "ttfbMs": 52,
+      "status": 200
+    },
+    {
+      "phase": "save-attendance",
+      "name": "updateBeautyRosterAttendance",
+      "ttfbMs": 110,
+      "status": 200
+    },
+    {
+      "phase": "collection-before-save",
+      "name": "readBeautyCollection",
+      "ttfbMs": 58,
+      "status": 200,
+      "totalMs": 62
+    },
+    {
+      "phase": "save-collection-and-sync",
+      "name": "collectBeautyPayment",
+      "ttfbMs": 87,
+      "status": 200,
+      "totalMs": 90
+    },
+    {
+      "phase": "save-collection-and-sync",
+      "name": "readBeautyRosterOperation",
+      "ttfbMs": 79,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "verification": {
+    "rows": 2,
+    "collected": 1000
+  }
+}

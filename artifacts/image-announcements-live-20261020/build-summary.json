@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "exitCode": 0,
+  "runtime": "local isolated production build",
+  "compiledSeconds": 57,
+  "typecheckSeconds": 71,
+  "staticPages": 230,
+  "deployment": false,
+  "warning": "Existing Prisma dynamic-path asset trace warnings"
+}

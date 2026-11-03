@@ -1,4 +1,4 @@
-import "../../spa-admin.css";
+
 import { notFound } from "next/navigation";
 import { PanelFixture, PanelDeviceReview, type PanelMode } from "./panel-review";
 
@@ -14,6 +14,6 @@ export default async function PanelReviewPage({ searchParams }: {
   const mode = modes.find(item => item === query.mode) ?? "settings";
   const spa = query.theme === "spa";
   return query.frame === "1"
-    ? <div data-spa-admin={spa ? "true" : undefined}><PanelFixture mode={mode} /></div>
+    ? <div data-spa-admin={undefined}><PanelFixture mode={mode} /></div>
     : <PanelDeviceReview mode={mode} spa={spa} />;
 }

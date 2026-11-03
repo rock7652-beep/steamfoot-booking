@@ -6,12 +6,14 @@ import { createPortal } from "react-dom";
 export const rosterRowClassName = "items-center gap-2 bg-white px-3 py-1 text-sm hover:bg-earth-50";
 export const rosterStatusButtonClassName = "relative z-20 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-primary-600 disabled:opacity-50";
 
+export { RosterTable } from "./roster-table";
+
 export function RosterToolbar({ children, label }: { children: ReactNode; label: string }) {
   return <div className="flex shrink-0 flex-wrap items-center gap-2" aria-label={label}>{children}</div>;
 }
 
 /** Fixed menu keeps row actions visible inside a scrolling dialog. */
-export function RosterMoreMenu({ name, disabled, onOpen, actions = [] }: { name: string; disabled?: boolean; onOpen: () => void; actions?: { label: string; onSelect: () => void; danger?: boolean }[] }) {
+export function RosterMoreMenu({ name, disabled, onOpen, openLabel="查看／編輯預約", actions = [] }: { name: string; disabled?: boolean; onOpen: () => void; openLabel?:string; actions?: { label: string; onSelect: () => void; danger?: boolean }[] }) {
   const [position, setPosition] = useState<{top: number; left: number} | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -40,6 +42,11 @@ export function RosterMoreMenu({ name, disabled, onOpen, actions = [] }: { name:
       const index = items.indexOf(document.activeElement as HTMLButtonElement);
       const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
       items[next]?.focus();
-    }} style={position} className="fixed z-[160] w-40 rounded-lg border border-earth-200 bg-white p-1 shadow-lg"><button type="button" role="menuitem" className="min-h-11 w-full rounded px-3 text-left text-sm hover:bg-earth-50" disabled={disabled} onClick={() => {setPosition(null); trigger.current?.focus(); onOpen();}}>查看／編輯預約</button>{actions.map(action => <button key={action.label} type="button" role="menuitem" disabled={disabled} className={`min-h-11 w-full rounded px-3 text-left text-sm hover:bg-earth-50 disabled:opacity-50 ${action.danger ? "text-red-700" : "text-earth-700"}`} onClick={() => {setPosition(null); trigger.current?.focus(); action.onSelect();}}>{action.label}</button>)}</div>, document.body)}
+    }} style={position} className="fixed z-[160] w-40 rounded-lg border border-earth-200 bg-white p-1 shadow-lg"><button type="button" role="menuitem" className="min-h-11 w-full rounded px-3 text-left text-sm hover:bg-earth-50" disabled={disabled} onClick={() => {setPosition(null); trigger.current?.focus(); onOpen();}}>{openLabel}</button>{actions.map(action => <button key={action.label} type="button" role="menuitem" disabled={disabled} className={`min-h-11 w-full rounded px-3 text-left text-sm hover:bg-earth-50 disabled:opacity-50 ${action.danger ? "text-red-700" : "text-earth-700"}`} onClick={() => {setPosition(null); trigger.current?.focus(); action.onSelect();}}>{action.label}</button>)}</div>, document.body)}
   </>;
+}
+
+/** Same inactive-group control for course and Beauty management lists. */
+export function InactiveRosterToggle({label="停用人員",count,expanded,forced=false,onToggle}:{label?:string;count:number;expanded:boolean;forced?:boolean;onToggle:()=>void}) {
+ return <button type="button" disabled={forced} aria-expanded={expanded} className="flex min-h-11 w-full items-center justify-between gap-3 text-left font-medium text-earth-600 disabled:cursor-default" onClick={onToggle}><span>{label}（{count}）</span><span>{forced?'篩選結果':expanded?'收合':'展開'}</span></button>;
 }

@@ -6,7 +6,7 @@ import { requirePermission } from "@/lib/permissions";
 import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { AppError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
     try {
         const ctx = await inventoryContext();
         await requirePermission("report.export");
@@ -18,9 +18,9 @@ export async function GET(request?: Request) {
         const data = await inventoryData(ctx), book = new ExcelJS.Workbook();
         const sheet = book.addWorksheet("商品庫存與盤點");
         sheet.columns = [{ header: "商品", key: "name", width: 32 }, {header:"品牌",key:"brand",width:20},{header:"規格",key:"specification",width:24},{header:"單位",key:"unit",width:10},{header:"商品編號",key:"code",width:20}, { header: "帳面庫存", key: "stock", width: 16 }, { header: "預設售價", key: "price", width: 16 }, ...(ctx.canCost ? [{ header: "平均成本", key: "averageCost", width: 18 }] : []), { header: "使用狀態", key: "status", width: 14 }, { header: "實際盤點數量", key: "actual", width: 18 }, { header: "盤點備註", key: "note", width: 32 }];
-        const query=new URL(request?.url||"https://inventory.local").searchParams.get("q")||"";
-        const brand=new URL(request?.url||"https://inventory.local").searchParams.get("brand")||"";
-        const status=new URL(request?.url||"https://inventory.local").searchParams.get("status")||"";
+        const query=new URL(request.url).searchParams.get("q")||"";
+        const brand=new URL(request.url).searchParams.get("brand")||"";
+        const status=new URL(request.url).searchParams.get("status")||"";
         for (const p of data.products.filter(p=>(!status||(status==="active"?p.active:status==="inactive"?!p.active:status==="low"?p.stock<(p.minimumStock||0):true))&&(!brand||p.brand===brand)&&productSearch(p,query)))
             sheet.addRow({ ...p, averageCost:p.costPending?"待確認":p.averageCost,status: p.active ? "使用中" : "停用", actual: "", note: "" });
         sheet.getRow(1).font = { bold: true };

@@ -1,4 +1,7 @@
 "use client";
+import {CustomerBookingGoodsField,CustomerBookingGoodsSummary} from "@/components/add-ons/customer-booking-goods";
+import {bookingGoodsInput,type CustomerBookingGoodsDraft} from "@/lib/customer-booking-goods";
+
 
 /**
  * LIFF Trial Booking Form (PR-D1B)
@@ -87,6 +90,7 @@ interface Props {
 }
 
 export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: Props) {
+  const [goods,setGoods]=useState<CustomerBookingGoodsDraft>();
   const requestKey = useBookingRequestKey();
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "initializing" });
@@ -227,6 +231,7 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
     let result: SubmitLiffTrialBookingResult;
     try {
       result = await submitLiffTrialBooking({
+        sharedGoods:bookingGoodsInput(goods,storeSlug),
         bookingDate: selectedDate,
         slotTime: selectedSlot,
         requestKey: requestKey.current(),
@@ -422,13 +427,13 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
       )}
 
       {state.kind === "success" && (
-        <SuccessCard
+        <><CustomerBookingGoodsSummary draft={goods}/><SuccessCard
           storeName={storeName}
           storeSlug={storeSlug}
           bookingDate={state.bookingDate}
           slotTime={state.slotTime}
           contactUrl={contactUrl}
-        />
+        /></>
       )}
 
       {state.kind === "already_has_trial" && (
@@ -493,6 +498,7 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
             />
           )}
 
+          <CustomerBookingGoodsField slug={storeSlug} draft={goods} disabled={state.kind==="submitting"} onChange={next=>{requestKey.complete();setGoods(next);}}/>
           <button
             type="button"
             disabled={submitDisabled}

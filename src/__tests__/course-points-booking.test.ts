@@ -1,3 +1,5 @@
+// Notice persistence is covered by course-store-notices and PostgreSQL tests.
+vi.mock("@/server/services/course-store-notices", () => ({ recordCourseStoreNotice: vi.fn() }));
 vi.mock("@/lib/feature-gate", () => ({
   getStoreLimitsByStoreId: async () => ({ maxMonthlyBookings: null }),
 }));
@@ -9,6 +11,8 @@ const m = vi.hoisted(() => ({
     courseBooking: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      findFirstOrThrow: vi.fn(),
+      findMany: vi.fn(),
       count: vi.fn(),
       aggregate: vi.fn(),
       create: vi.fn(),
@@ -31,7 +35,10 @@ import {
   reserveCourse,
   reserveCourseMembers,
   settleCourseBooking,
+  correctCourseAttendance,
+  refundTeacherAbsentSession,
 } from "@/server/services/course-booking";
+import { changeCompanionUsage } from "@/server/services/course-companions";
 import type { Prisma } from "../../generated/course-client";
 const actor = {
   storeId: "store-a",
@@ -72,6 +79,7 @@ beforeEach(() => {
   });
   m.tx.coursePointCard.findFirst.mockResolvedValue({
     id: "card",
+    unit: "POINT", templateIds: [], requestKey: "test-card",
     remaining: 5,
     expiresAt: new Date("2026-10-01T00:00:00Z"),
     members: [{ customerId: "a" }, { customerId: "b" }],
@@ -90,7 +98,7 @@ beforeEach(() => {
 });
 describe("course shared card reservations", () => {
   it.each([["POINT", 3], ["SESSION", 1]] as const)("%s cards reserve and debit their own unit", async (unit, cost) => {
-    m.tx.coursePointCard.findFirst.mockResolvedValue({ id: "card", unit, remaining: unit === "SESSION" ? 1 : 3, expiresAt: new Date("2026-10-01"), members: [{customerId:"a"},{customerId:"b"}] });
+    m.tx.coursePointCard.findFirst.mockResolvedValue({ id: "card", templateIds: [], requestKey: "test-card", unit, remaining: unit === "SESSION" ? 1 : 3, expiresAt: new Date("2026-10-01"), members: [{customerId:"a"},{customerId:"b"}] });
     await reserveCourse(actor, input);
     expect(m.tx.courseBooking.create).toHaveBeenCalledWith({data: expect.objectContaining({pointCost:cost})});
     m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:cost});
@@ -240,14 +248,14 @@ describe("course point settlement", () => {
   });
   it("student no-show spends one term lesson without granting a makeup card", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:1,card:{...reserved().card,termSessionIds:["s1","s2","s3","s4"]}});
-    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","NO_SHOW","DEDUCTED_WITH_MAKEUP");
+    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","NO_SHOW","DEDUCTED");
     expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:{remaining:{decrement:1}}}));
     expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"DEBIT",points:1})});
   });
   it("rejects makeup coupons for music even if a caller sends the old option", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
     m.tx.$queryRaw.mockResolvedValue([{featureKey:"business.music"}]);
-    await expect(settleCourseBooking(tx,{...actor,customerId:undefined},"booking","NO_SHOW","DEDUCTED_WITH_MAKEUP")).rejects.toThrow("音樂教室曠課只扣堂");
+    await expect(settleCourseBooking(tx,{...actor,customerId:undefined},"booking","NO_SHOW","DEDUCTED_WITH_MAKEUP")).rejects.toThrow("未出席扣堂不發補課券");
     expect(m.tx.courseBooking.update).not.toHaveBeenCalled();
     expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
   });
@@ -404,6 +412,16 @@ it("manager proxy booking retains the mature exemption from member opening windo
 });
 
 describe("course trial shares booking safety without using a card",()=>{
+ it('uses the captured fee price on every trial entry and retry, preserving a zero price',async()=>{
+  const settings={kind:'single',durationMinutes:60,trialPrice:0,trialDuration:20,providerIds:['teacher']};
+  m.tx.courseSession.findFirst.mockResolvedValue({id:'session',template:{isActive:true,visibility:'PUBLIC'},startsAt:new Date('2026-09-16T10:00:00Z'),capacity:2,pointCost:1,chargeSnapshot:{planId:'fee',name:'單次',price:800,settings,trialPrice:0,isTrial:true}});
+  await reserveTrialCourse({storeId:'store-a',userId:'manager',name:'店長'},{sessionId:'session',customerId:'b',requestKey:'trial',trialPrice:499});
+  expect(m.tx.courseBooking.create).toHaveBeenCalledWith({data:expect.objectContaining({bookingKind:'TRIAL',trialPrice:0,pointCost:0})});
+  m.tx.courseBooking.findUnique.mockResolvedValue({operatorUserId:'manager',sessionId:'session',customerId:'b',cardId:null,trialPrice:0,bookingKind:'TRIAL'});
+  m.tx.courseBooking.create.mockClear();
+  await reserveTrialCourse({storeId:'store-a',userId:'manager',name:'店長'},{sessionId:'session',customerId:'b',requestKey:'trial',trialPrice:999});
+  expect(m.tx.courseBooking.create).not.toHaveBeenCalled();
+ });
  it("reserves a real seat and writes no point entry",async()=>{await reserveTrialCourse({storeId:"store-a",userId:"manager",name:"店長"},{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499});expect(m.tx.courseBooking.create).toHaveBeenCalledWith({data:expect.objectContaining({cardId:null,bookingKind:"TRIAL",pointCost:0,trialPrice:499,customerId:"b"})});expect(m.tx.coursePointCard.findFirst).not.toHaveBeenCalled();expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();});
  it("blocks duplicate learner and full class even without quota",async()=>{m.tx.courseBooking.findFirst.mockResolvedValue({id:"existing"});await expect(reserveTrialCourse({storeId:"store-a",userId:"manager",name:"店長"},{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499})).rejects.toThrow("已預約");m.tx.courseBooking.findFirst.mockResolvedValue(null);m.tx.courseBooking.count.mockResolvedValue(2);await expect(reserveTrialCourse({storeId:"store-a",userId:"manager",name:"店長"},{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499})).rejects.toThrow("滿班");});
  it("does not let a member call the internal manager trial reservation",async()=>{await expect(reserveTrialCourse(actor,{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499})).rejects.toThrow("僅由");});
@@ -419,7 +437,7 @@ describe("music manager full-class enrollment",()=>{
  const manager={storeId:"store-a",userId:"manager",name:"店長"};
  beforeEach(()=>{
   m.tx.courseSession.findFirst.mockResolvedValue({id:"session",template:{isActive:true,visibility:"PUBLIC",musicSubject:{isActive:true}},startsAt:new Date("2026-09-16T10:00:00Z"),endsAt:new Date("2026-09-16T11:00:00Z"),capacity:2,pointCost:1});
-  m.tx.coursePointCard.findFirst.mockResolvedValue({id:"card",unit:"SESSION",remaining:5,expiresAt:new Date("2026-10-01"),members:[{customerId:"a"},{customerId:"b"}]});
+  m.tx.coursePointCard.findFirst.mockResolvedValue({id:"card",templateIds:[],requestKey:"test-card",unit:"SESSION",remaining:5,expiresAt:new Date("2026-10-01"),members:[{customerId:"a"},{customerId:"b"}]});
   m.tx.courseBooking.count.mockResolvedValue(2);
  });
  it("requires explicit manager confirmation",async()=>{await expect(reserveCourse(manager,input)).rejects.toThrow("滿班");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
@@ -429,4 +447,27 @@ describe("music manager full-class enrollment",()=>{
  it("fitness manager can add only with explicit capacity confirmation",async()=>{m.tx.courseSession.findFirst.mockResolvedValue({id:"session",template:{isActive:true,visibility:"PUBLIC"},startsAt:new Date("2026-09-16T10:00:00Z"),capacity:2,pointCost:1});await expect(reserveCourse(manager,input)).rejects.toThrow("滿班");await reserveCourse(manager,{...input,allowOverCapacity:true});expect(m.tx.courseBooking.create).toHaveBeenCalledOnce();});
  it("confirmed addition still rejects learner timetable collisions",async()=>{m.tx.courseBooking.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({id:"overlap"});await expect(reserveCourse(manager,{...input,allowOverCapacity:true})).rejects.toThrow("同時段");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
  it("confirmed addition still rejects duplicate enrollment",async()=>{m.tx.courseBooking.findFirst.mockResolvedValue({id:"duplicate"});await expect(reserveCourse(manager,{...input,allowOverCapacity:true})).rejects.toThrow("已預約");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
+});
+
+describe("opening makeup cannot fall through ordinary mutation services",()=>{
+ const markers=[{bookingKind:"OPENING_MAKEUP",musicOpeningMakeupEntitlementId:null},{bookingKind:"CARD",musicOpeningMakeupEntitlementId:"right"}];
+ const noWrites=()=>{for(const write of [m.tx.courseBooking.create,m.tx.courseBooking.update,m.tx.coursePointCard.updateMany,m.tx.coursePointEntry.create,m.tx.$executeRaw])expect(write).not.toHaveBeenCalled();};
+ it.each(markers)("blocks every ordinary settlement and correction before writes: %j",async marker=>{
+  m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),...marker,card:null,cardId:null,pointCost:0});
+  for(const target of ["CANCELLED","ATTENDED","CHECKED_IN","NO_SHOW","STUDENT_LEAVE"] as const)await expect(settleCourseBooking(tx,actor,"booking",target)).rejects.toThrow("期初補課");
+  for(const target of ["RESERVED","ATTENDED","NO_SHOW","CANCELLED"] as const)await expect(correctCourseAttendance(tx,actor,"booking",target,"RESERVED")).rejects.toThrow("期初補課");
+  noWrites();
+ });
+ it.each(markers)("preflights the whole teacher absence batch before touching the native first learner: %j",async marker=>{
+  m.tx.courseBooking.findMany.mockResolvedValue([reserved(),{...reserved(),id:"opening",...marker,card:null,cardId:null,pointCost:0}]);
+  await expect(refundTeacherAbsentSession(tx,actor,"session")).rejects.toThrow("期初補課");noWrites();
+ });
+ it.each(markers)("rejects ordinary reserve and companion conversion including linked replay: %j",async marker=>{
+  await expect(reserveCourse(actor,{...input,...marker})).rejects.toThrow("期初補課");
+  await expect(reserveCourseMembers(actor,{...input,customerIds:["b"],...marker})).rejects.toThrow("期初補課");
+  m.tx.courseBooking.findUnique.mockResolvedValue({...reserved(),...marker});
+  await expect(reserveCourse(actor,input)).rejects.toThrow("期初補課");
+  m.tx.$queryRaw.mockResolvedValue([]);m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),...marker});
+  await expect(changeCompanionUsage(tx,actor,{bookingId:"booking",mode:"TRIAL",expectedUpdatedAt:"2026-10-01T00:00:00Z",requestKey:"req"})).rejects.toThrow("期初補課");noWrites();
+ });
 });

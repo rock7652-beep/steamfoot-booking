@@ -1,0 +1,12 @@
+
+/workspace/steamfoot-beauty-ui/src/components/reports/RevenueReportClient.tsx
+  313:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+
+/workspace/steamfoot-beauty-ui/src/server/reconciliation/engine.ts
+  176:71  warning  '_targetMonth' is defined but never used  @typescript-eslint/no-unused-vars
+  313:76  warning  '_targetMonth' is defined but never used  @typescript-eslint/no-unused-vars
+  365:77  warning  '_targetMonth' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 4 problems (0 errors, 4 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

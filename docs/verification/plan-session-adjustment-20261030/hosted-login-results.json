@@ -1,0 +1,91 @@
+{
+  "complete": true,
+  "base": "https://steamfoot-booking-zn85a72wl-rock7652-2111s-projects.vercel.app",
+  "commit": "e51ac89ec4bf78057256e85f4e177bae8ba32e04",
+  "scope": "Protected hosted Preview; real login and Server Actions; synthetic QA1476 fixtures only; browser desktop/iPad simulation",
+  "results": [
+    {
+      "module": "sports",
+      "step": "real-owner-login"
+    },
+    {
+      "module": "sports",
+      "step": "existing-plan-panel"
+    },
+    {
+      "module": "sports",
+      "step": "backfill-date-optional-reason-doubleclick-one-debit",
+      "remaining": 9
+    },
+    {
+      "module": "sports",
+      "step": "partial-void-preserves-plan",
+      "remaining": 8
+    },
+    {
+      "module": "sports",
+      "step": "two-corrections-once-retain-originals-no-navigation",
+      "remaining": 10
+    },
+    {
+      "module": "sports",
+      "step": "reload-keeps-all-four-audit-records"
+    },
+    {
+      "module": "music",
+      "step": "real-owner-login"
+    },
+    {
+      "module": "music",
+      "step": "existing-plan-panel"
+    },
+    {
+      "module": "music",
+      "step": "backfill-date-optional-reason-doubleclick-one-debit",
+      "remaining": 9
+    },
+    {
+      "module": "music",
+      "step": "partial-void-preserves-plan",
+      "remaining": 8
+    },
+    {
+      "module": "music",
+      "step": "two-corrections-once-retain-originals-no-navigation",
+      "remaining": 10
+    },
+    {
+      "module": "music",
+      "step": "reload-keeps-all-four-audit-records"
+    },
+    {
+      "module": "beauty",
+      "step": "real-owner-login"
+    },
+    {
+      "module": "beauty",
+      "step": "existing-plan-panel"
+    },
+    {
+      "module": "beauty",
+      "step": "backfill-date-optional-reason-doubleclick-one-debit",
+      "remaining": 9
+    },
+    {
+      "module": "beauty",
+      "step": "partial-void-preserves-plan",
+      "remaining": 8
+    },
+    {
+      "module": "beauty",
+      "step": "two-corrections-once-retain-originals-no-navigation",
+      "remaining": 10
+    },
+    {
+      "module": "beauty",
+      "step": "reload-keeps-all-four-audit-records"
+    }
+  ],
+  "errors": [],
+  "assetsFailed": []
+}

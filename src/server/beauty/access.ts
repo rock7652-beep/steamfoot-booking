@@ -1,0 +1,148 @@
+import {beautyReadStep} from './read-timing';
+import {beautyRequestCheck,beautyRequestStore} from './request-scope';
+import {assertBeautyIsolatedPurchaseStore} from '@/lib/beauty/isolated-purchase-scope';
+import "server-only";
+import { prisma } from "@/lib/db";
+import { beautyPrisma } from "@/lib/beauty-db";
+import { AppError } from "@/lib/errors";
+import { requirePermission, type PermissionCode } from "@/lib/permissions";
+import { requireSession } from "@/lib/session";
+import { resolveWriteStoreId, getActiveStoreForRead } from "@/lib/store";
+import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
+import { requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
+import { getStoreContext } from "@/lib/store-context";
+import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
+import type { Prisma } from "../../../generated/beauty-client";
+export type BeautyActor = {
+  storeId: string;
+  userId: string | null;
+  name?:string;
+  customerId?: string;
+  technicianId?: string;
+  grants?: string[];
+  manager?: boolean;
+  actorKey?: string;
+  verifiedStore?: {id:string;name:string;slug:string};
+};
+export async function requireBeauty(storeId: string, write = false) {
+  // The special hosted acceptance environment is restricted at runtime as
+  // well as at build time. Ordinary environments do not enable this marker.
+  assertBeautyIsolatedPurchaseStore(storeId);
+  if (process.env.BEAUTY_MODULE_ENABLED !== "1")
+    throw new AppError("FORBIDDEN", "美業模組尚未開放");
+  const store = await prisma.store.findFirst({
+    where: {
+      id: storeId,
+      industryModule: "BEAUTY",
+      operatingStatus: { in: ["ACTIVE", "TRIAL"] },
+    },
+    select: { id: true, name: true, slug: true },
+  });
+  if (!store) throw new AppError("FORBIDDEN", "此功能僅適用已開通美業店家");
+  await requireStoreFeature(storeId, FEATURES.BASIC_BOOKING);
+  if (write) await assertStoreSubscriptionWritable(storeId);
+  return store;
+}
+export async function beautyManager(
+  permission: PermissionCode,
+  write = false,
+): Promise<BeautyActor> {
+ return beautyRequestCheck(`manager:${permission}:${write}`,async()=>{
+  const user = await requirePermission(permission, undefined, {
+    deferSubscriptionGuard: true,
+  });
+  const storeId = await beautyRequestStore(user,write,async()=>{
+  const storeId = write
+    ? await resolveWriteStoreId(user)
+    : await getActiveStoreForRead(user);
+  if (!storeId) throw new AppError("FORBIDDEN", "請先選擇店家");
+  const checkStaff = () => user.role !== "ADMIN" && storeId === user.storeId
+    ? prisma.staff.findFirst({
+      where: {
+        id: user.staffId ?? "",
+        storeId,
+        userId: user.id,
+        status: "ACTIVE",
+        user: { status: "ACTIVE" },
+      },
+      select: { id: true },
+    }) : Promise.resolve(true);
+  // Reads may verify these independent gates together. Writes keep their
+  // existing subscription and membership ordering.
+  let staff;
+  if (write) {
+    await requireBeauty(storeId, true);
+    staff = await checkStaff();
+  } else {
+    [, staff] = await Promise.all([requireBeauty(storeId), checkStaff()]);
+  }
+  if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
+  return storeId;
+  });
+  return { storeId, userId: user.id, name:user.name, manager: true };
+ });
+}
+export async function beautyMember(write = false): Promise<BeautyActor> {
+  const [user,ctx]=await Promise.all([requireSession(),getStoreContext()]);
+  if (!ctx) throw new AppError("FORBIDDEN", "請從店家入口登入");
+  const [verifiedStore,active,linked]=await Promise.all([
+    requireBeauty(ctx.storeId,write),
+    prisma.user.findFirst({where:{id:user.id,status:"ACTIVE"},select:{id:true}}),
+    resolveCentralMemberCustomerForStore(user.id,ctx.storeId),
+  ]);
+  if(!active)throw new AppError("FORBIDDEN","帳號已停用");
+  if(!linked)throw new AppError("FORBIDDEN","請先連結本店會員");
+  return {
+    storeId: ctx.storeId,
+    userId: user.id,
+    customerId: linked.customerId,
+    verifiedStore,
+  };
+}
+export async function beautyWorker(write = false): Promise<BeautyActor> {
+  const a = await beautyMember(write);
+  const [,t]=await Promise.all([
+    requireStoreFeature(a.storeId, FEATURES.STAFF_MANAGEMENT),
+    beautyPrisma.beautyTechnician.findFirst({where:{storeId:a.storeId,userId:a.userId,active:true}}),
+  ]);
+  if (!t) throw new AppError("FORBIDDEN", "技師工作身分尚未開放");
+  return { ...a, technicianId: t.id, grants: t.grants };
+}
+/** Every module mutation, shared-card reservation and configuration writer uses
+ * the same Store row lock. No client can choose the actor or store. */
+export async function beautyTransaction<T>(
+  a: BeautyActor,
+  work: (tx: Prisma.TransactionClient) => Promise<T>,
+) {
+  return beautyPrisma.$transaction(
+    async (tx) => {
+      const rows = await beautyReadStep('db_lock',()=>tx.$queryRaw<
+        Array<{ id: string }>
+      >`SELECT id FROM "Store" WHERE id=${a.storeId} AND "industryModule"::text='BEAUTY' AND "operatingStatus"::text IN ('ACTIVE','TRIAL') FOR UPDATE`);
+      if (rows.length !== 1)
+        throw new AppError("FORBIDDEN", "店家已停用或模組已變更");
+      return beautyReadStep('db_work',()=>work(tx));
+    },
+    { timeout: 20000 },
+  );
+}
+export {command} from './command';
+export async function audit(
+  tx: Prisma.TransactionClient,
+  a: BeautyActor,
+  kind: string,
+  body: string,
+  appointmentId?: string,
+) {
+  await tx.beautyEvent.create({
+    data: {
+      storeId: a.storeId,
+      kind,
+      body,
+      appointmentId,
+      userId: a.userId,
+      status: "AUDIT",
+    },
+  });
+}

@@ -1,0 +1,26 @@
+import {createElement} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({totals:vi.fn(),transactions:vi.fn(),fees:vi.fn()}));
+vi.mock('@/components/instant-filter-form',()=>({InstantFilterForm:({children}:{children:React.ReactNode})=>createElement('form',null,children)}));
+vi.mock('@/lib/auth',()=>({auth:vi.fn()}));
+vi.mock('@/lib/db',()=>({prisma:{}}));
+vi.mock('@/lib/course-db',()=>({coursePrisma:{}}));
+vi.mock('@/server/queries/course-home',()=>({getCourseReceiptTotals:m.totals}));
+vi.mock('@/server/queries/music-revenue-transactions',()=>({getMusicRevenueTransactions:m.transactions}));
+vi.mock('@/app/(dashboard)/dashboard/revenue/_components/course-fees',()=>({CourseFees:m.fees}));
+vi.mock('@/components/dashboard-link',()=>({DashboardLink:({children,...p}:{children:React.ReactNode;href:string})=>createElement('a',p,children)}));
+vi.mock('@/components/feature-presentation',()=>({FeatureEntry:({children}:{children:React.ReactNode})=>children}));
+import {CourseRevenue} from '@/app/(dashboard)/dashboard/revenue/_components/course-revenue';
+import type {CourseRevenueSource,CourseRevenueSnapshot} from '@/app/(dashboard)/dashboard/revenue/_components/course-revenue-source';
+const totals={gross:0,refunds:0,voids:0,net:0,purchases:0,trial:0,purchaseCount:0};
+beforeEach(()=>vi.resetAllMocks());
+it('keeps beauty report reads and routes on its supplied core without falling back to course fees',async()=>{
+ const snapshot={rows:[],count:0,page:1,pages:1,pendingCount:0,receiptTotals:totals,staffRows:[],confirmationActors:[]} as CourseRevenueSnapshot;
+ const source:CourseRevenueSource={read:vi.fn().mockResolvedValue(snapshot),summary:vi.fn(),href:href=>'/beauty'+href,actions:vi.fn(),tabs:createElement('span',null,'美業報表分類'),queryFields:{tab:'營運'}};
+ const tree=await CourseRevenue({source,storeId:'beauty-store',params:{dateFrom:'2026-10-01',dateTo:'2026-10-25'},readOnly:true,canRefund:false,canConfirm:false,canEdit:false,canVoid:false});
+ const html=renderToStaticMarkup(tree);
+ expect(source.read).toHaveBeenCalledExactlyOnceWith({from:'2026-10-01',to:'2026-10-25',status:undefined,staff:undefined,page:1});
+ expect(m.totals).not.toHaveBeenCalled();expect(m.transactions).not.toHaveBeenCalled();expect(m.fees).not.toHaveBeenCalled();
+ expect(html).toContain('美業報表分類');expect(html).toContain('/beauty/dashboard');expect(html).toContain('name="tab"');
+});

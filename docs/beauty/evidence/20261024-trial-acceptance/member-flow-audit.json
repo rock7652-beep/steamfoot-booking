@@ -1,0 +1,37 @@
+{
+  "localSyntheticOnly": true,
+  "realSyntheticMemberLogin": true,
+  "emulatedTouchOnly": true,
+  "observations": [
+    {
+      "entry": "member direct ?view=book",
+      "heading": "會員首頁"
+    },
+    {
+      "entry": "member booking fee choices",
+      "options": [
+        "單次消費 · NT$ 1,200"
+      ],
+      "hasTrial": false
+    },
+    {
+      "entry": "member general-service confirmation",
+      "summary": "2026-11-20\n本人 · ACCEPT24 定價驗收\n\n15:00–16:00\n\n不指定（男女皆可）\n\n單次 NT$ 1,200\n\n單次應付 NT$ 1,200"
+    },
+    {
+      "entry": "public trial choice",
+      "label": "ACCEPT24 定價驗收｜35分鐘｜NT$680"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "member-trial-choice",
+      "detail": "Member form offers card/single only; public trial is a separate entry and backend member resolver forces general service."
+    },
+    {
+      "id": "member-book-deep-link",
+      "detail": "Direct member ?view=book currently opens 會員首頁; navigation booking button works."
+    }
+  ],
+  "browserErrors": []
+}

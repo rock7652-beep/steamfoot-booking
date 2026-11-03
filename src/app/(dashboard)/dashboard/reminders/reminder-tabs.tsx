@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { useCoursePersonnelText } from "@/components/course-personnel-label";
 import { useRouter } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
 import { useSettingsPanelNavigation } from "@/components/admin/settings-panel-context";
@@ -11,6 +12,7 @@ export function ReminderTabs({
   customerOnly = false,
   coach = false,
   music = false,
+  beauty = false,
 }: {
   active: string;
   explicit: boolean;
@@ -19,7 +21,9 @@ export function ReminderTabs({
   customerOnly?: boolean;
   coach?: boolean;
   music?: boolean;
+  beauty?: boolean;
 }) {
+  const personnelText = useCoursePersonnelText();
   const router = useRouter();
   const panelNavigate = useSettingsPanelNavigation();
   const storageKey = `reminder-tab:${storeId}:${baseHref}`;
@@ -32,26 +36,28 @@ export function ReminderTabs({
       const saved = localStorage.getItem(storageKey);
       if (
         saved &&
-        (customerOnly ? ["customer", "logs"] : ["manager", "customer", "logs", ...(coach?["coach"]:[])]).includes(saved) &&
+        (customerOnly ? ["customer", "logs"] : ["manager", "customer", "logs", ...(coach?["coach"]:[]), ...(beauty?["technician"]:[])]).includes(saved) &&
         saved !== active
       )
         if (panelNavigate) panelNavigate(`${baseHref}?tab=${saved}`); else router.replace(`?tab=${saved}`);
     } catch {}
-  }, [active, explicit, router, storageKey, customerOnly, coach, panelNavigate, baseHref]);
+  }, [active, explicit, router, storageKey, customerOnly, coach, beauty, panelNavigate, baseHref]);
   return (
-    <nav aria-label="提醒管理分頁" className="flex border-b border-earth-200">
+    <nav aria-label="提醒管理分頁" className="flex flex-wrap items-center gap-1 border-b border-earth-200">
       {[
+        { key: "customer", label: "顧客通知" },
         { key: "manager", label: "店長通知" },
-        { key: "customer", label: "顧客提醒" },
-        ...(coach?[{key:"coach",label:music ? "教師通知" : "教練通知"}]:[]),
+        ...(beauty?[{key:"technician",label:"技師通知"}]:[]),
+        ...(coach?[{key:"coach",label:personnelText(music ? "老師通知" : "教練通知")}]:[]),
         { key: "logs", label: "發送紀錄" },
-      ].filter(t => !customerOnly || t.key !== "manager").map((t) => (
+      ].filter(t => !customerOnly || ["customer","logs"].includes(t.key)).map((t) => (
         <DashboardLink
           key={t.key}
           href={`${baseHref}?tab=${t.key}`}
           aria-current={active === t.key ? "page" : undefined}
+          onClick={event=>{if(panelNavigate&&!event.metaKey&&!event.ctrlKey&&!event.shiftKey&&!event.altKey){event.preventDefault();panelNavigate(`${baseHref}?tab=${t.key}`);}}}
           onMouseDown={(event) => event.preventDefault()}
-          className={`flex-1 border-b-2 px-3 py-3 text-center text-sm font-medium outline-none transition-colors focus:ring-0 focus:outline-none focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-1 sm:flex-none ${active === t.key ? "border-primary-700 text-primary-700" : "border-transparent text-earth-500 hover:text-primary-700"}`}
+          className={`${t.key === "logs" ? "ml-auto rounded-lg border border-earth-200" : "border-b-2"} min-h-11 px-3 py-3 text-center text-sm font-medium outline-none transition-colors focus:ring-0 focus:outline-none focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-1 sm:flex-none ${active === t.key ? "border-primary-700 text-primary-700" : "border-transparent text-earth-500 hover:text-primary-700"}`}
         >
           {t.label}
         </DashboardLink>

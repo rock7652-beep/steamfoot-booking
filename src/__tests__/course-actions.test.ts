@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  schedulingRule: vi.fn(),
+  quote:vi.fn(),execute:vi.fn(),reserve:vi.fn(),
   bookings: vi.fn(),
   permission: vi.fn(),
   store: vi.fn(),
@@ -16,7 +18,16 @@ const mocks = vi.hoisted(() => ({
   cancelForMove: vi.fn(),
   catalogUpdate: vi.fn(),
   revalidate: vi.fn(),
+  planName: vi.fn(),
 }));
+vi.mock("@/server/services/course-charge",()=>({resolveScheduleCharge:mocks.quote}));
+vi.mock("@/lib/shop-config",()=>({getTrialSettings:async()=>({trialEnabled:true,trialDefaultPrice:499,trialAllowPriceEdit:true,trialMinPrice:0,trialMaxPrice:1000000}),clampTrialTotal:(price:number|undefined)=>price??499}));
+vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:async()=>({maxCustomers:null,maxMonthlyBookings:null})}));
+vi.mock("@/server/services/music-teaching-item",()=>({readTeachingTrialPrice:async()=>null,ensureMusicTeachingItem:async()=>{}}));
+vi.mock("@/server/services/course-booking",()=>({reserveCourseInTransaction:mocks.reserve}));
+vi.mock("@/lib/sports-staging", () => ({ requireSportsStaging: vi.fn(), sportsStagingEnabled: () => false }));
+vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findFirst: async () => ({ id: "fitness" }) } } }));
+vi.mock("@/server/services/sports-staging-schedule", () => ({ attachSportsSessionRules: vi.fn(),readSportsSessionRule:vi.fn() }));
 vi.mock("@/server/services/course-access", () => ({
   courseTransaction: async (_storeId: string, work: (tx: unknown) => Promise<unknown>) => {
     const {coursePrisma} = await import("@/lib/course-db");
@@ -29,7 +40,7 @@ vi.mock("@/server/services/course-access", () => ({
     return { user, storeId };
   },
 }));
-vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission }));
+vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission,isOwner:(role:string)=>["OWNER","ADMIN"].includes(role),isNonOwnerStaff:(role:string)=>["STAFF","MANAGER"].includes(role) }));
 vi.mock("@/lib/store", () => ({ resolveWriteStoreId: mocks.store }));
 vi.mock("@/lib/industry-module-server", () => ({
   requireCourseStore: mocks.module,
@@ -37,10 +48,13 @@ vi.mock("@/lib/industry-module-server", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/lib/course-db", () => ({
   coursePrisma: {
-    courseSession: { findFirst: async()=>({id:"session-created"}) },
+    courseTemplate:{findFirst:mocks.template,findMany:async()=>[]},
+    coursePointPlan:{findMany:async()=>[]},
+    courseSession: { findFirst: async()=>({id:"session-created"}), findMany:async()=>[] },
     $transaction: async (fn: (tx: unknown) => unknown) =>
       fn({
         $queryRaw: mocks.raw,
+        $executeRaw:mocks.execute,
         courseSession: {
           findMany: mocks.existing,
           findFirst: mocks.conflict,
@@ -48,6 +62,9 @@ vi.mock("@/lib/course-db", () => ({
           update: mocks.update,
           updateMany: mocks.cancelForMove,
         },
+        courseRental:{findFirst:async()=>null},
+        courseScheduleSeries: {findMany:async()=>[],findUnique:async()=>null},
+        courseBookingRule: {findUnique:mocks.schedulingRule},
         courseSessionMove: { create: mocks.move },
         courseBooking: { findMany: mocks.bookings },
         courseTemplate: {
@@ -55,6 +72,7 @@ vi.mock("@/lib/course-db", () => ({
           updateMany: mocks.catalogUpdate,
         },
         courseRoom: { findFirst: mocks.room, updateMany: mocks.catalogUpdate },
+        coursePointPlan: { findFirst: mocks.planName,findMany:async()=>[] },
       }),
   },
 }));
@@ -79,6 +97,8 @@ const input = {
 };
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.quote.mockResolvedValue(null);
+  mocks.schedulingRule.mockResolvedValue(null);
   mocks.bookings.mockResolvedValue([]);
   mocks.permission.mockResolvedValue({ id: "owner-a" });
   mocks.store.mockResolvedValue("store-a");
@@ -238,13 +258,21 @@ describe("course editing", () => {
   });
 });
 describe("course scheduling action", () => {
+  it.each(["OPEN","ASSIGNED"] as const)("names %s enrollment after the teaching item instead of a pricing package", async enrollment => {
+    mocks.template.mockResolvedValue({ id:"yoga",name:"舊重量訓練 · abcdef",musicSubject:{name:"重量訓練"},pointCost:2,isActive:true,visibility:"PUBLIC" });
+    mocks.planName.mockResolvedValue({ name:"5次" });
+    const result = await createCourseSchedule({ ...input, repeatUntil:undefined, sportsStaging:{frequency:"SINGLE",enrollment,planId:null,students:[],trialPrice:0} });
+    expect(result).toMatchObject({success:true});
+    expect(mocks.create.mock.calls[0][0].data[0].nameSnapshot).toBe("重量訓練");
+    expect(mocks.planName).not.toHaveBeenCalled();
+  });
   it("derives store and cost on the server, and writes one batch", async () => {
     const result = await createCourseSchedule({
       ...input,
       storeId: "victim",
       pointCost: 0,
     });
-    expect(result).toEqual({ success: true, data: { count: 3, sessionId: "session-created" } });
+    expect(result).toMatchObject({ success: true, data: { count: 3, sessionId: "session-created" } });
     const rows = mocks.create.mock.calls[0][0].data;
     expect(rows).toHaveLength(3);
     expect(
@@ -254,6 +282,13 @@ describe("course scheduling action", () => {
       ),
     ).toBe(true);
     expect(mocks.permission).toHaveBeenCalledWith("booking.create");
+  });
+  it("persists the chosen audience for every occurrence and rejects unknown modes",async()=>{
+    expect(await createCourseSchedule({...input,bookingAudience:"ASSIGNED"})).toMatchObject({success:true});
+    expect(mocks.create.mock.calls[0][0].data.every((s:{bookingAudience:string})=>s.bookingAudience==="ASSIGNED")).toBe(true);
+    mocks.create.mockClear();
+    expect(await createCourseSchedule({...input,bookingAudience:"INVALID"})).toMatchObject({success:false});
+    expect(mocks.create).not.toHaveBeenCalled();
   });
   it("does not write any occurrence if a later week conflicts", async () => {
     mocks.conflict.mockResolvedValue({
@@ -279,16 +314,17 @@ describe("course scheduling action", () => {
         ...range,
         ...input,
         createdById: "owner-a",
+        bookingAudience: "OPEN",
         isTrial: false,
       })),
     );
-    expect(await createCourseSchedule(input)).toEqual({
+    expect(await createCourseSchedule(input)).toMatchObject({
       success: true,
       data: { count: 3, sessionId: "session-created" },
     });
     expect(mocks.create).not.toHaveBeenCalled();
     expect(
-      await createCourseSchedule({ ...input, capacity: 11 }),
+      await createCourseSchedule({ ...input, bookingAudience: "ASSIGNED" }),
     ).toMatchObject({ success: false });
   });
   it("blocks writes when store access or module authorization fails", async () => {
@@ -392,4 +428,51 @@ describe("catalogue availability", () => {
     expect(await createCourseSchedule(input)).toMatchObject({ success: false });
     expect(mocks.create).not.toHaveBeenCalled();
   });
+});
+
+it.each([[true,true],[true,false],[false,true],[false,false]])("enforces both scheduling flags before creating occurrences (%s/%s)",async(open,assigned)=>{
+ mocks.schedulingRule.mockResolvedValue({selfBookingEnabled:open,assignedSchedulingEnabled:assigned});
+ for(const audience of ["OPEN","ASSIGNED"] as const){mocks.create.mockClear();const result=await createCourseSchedule({...input,bookingAudience:audience});expect(result.success).toBe(audience==="OPEN"?open:assigned);if(!result.success)expect(mocks.create).not.toHaveBeenCalled();}
+});
+
+it("does not apply learner scheduling mode switches to the separate rental class",async()=>{
+ mocks.schedulingRule.mockResolvedValue({selfBookingEnabled:false,assignedSchedulingEnabled:false});mocks.template.mockResolvedValue({id:"yoga",name:"租借",pointCost:0,isActive:true,visibility:"PUBLIC",classType:"RENTAL"});expect(await createCourseSchedule({...input,repeatUntil:undefined})).toMatchObject({success:true});
+});
+
+describe('sports guest trial transaction',()=>{
+ const requestKey='00000000-0000-4000-8000-000000000001',participantKey='00000000-0000-4000-8000-000000000002';
+ const input={templateId:'yoga',roomId:'room-a',coachId:'coach-a',date:'2099-01-01',time:'10:00',durationMinutes:60,capacity:1,requestKey,isTrial:true,chargePlanId:'single',bookingAudience:'ASSIGNED',sportsStaging:{frequency:'SINGLE',enrollment:'ASSIGNED',planId:null,students:[],trialPrice:1},learners:[{customerId:null,cardId:null,participantKey,customerName:'體驗學員',customerPhone:'0912345678'}]};
+ function setup(existingCustomer=false){
+  mocks.permission.mockResolvedValue({id:'owner-a',role:'OWNER',name:'店長'});
+  mocks.quote.mockResolvedValue({snapshot:{planId:'single'},duration:90,trialPrice:480});
+  mocks.existing.mockImplementation(async(args:{select?:{id?:boolean}})=>args.select?.id?[{id:'created'}]:[]);
+  const fallback=mocks.raw.getMockImplementation()!;
+  mocks.raw.mockImplementation(async(sql:TemplateStringsArray,...args:unknown[])=>sql.join('').includes('FROM "Customer"')?(existingCustomer?[{id:'existing-customer',assignedStaffId:null}]:[]):fallback(sql,...args));
+ }
+ it.each([false,true])('creates a trial booking using the authoritative quote; existing phone reused=%s',async existingCustomer=>{
+  setup(existingCustomer);
+  mocks.template.mockResolvedValue({id:'yoga',name:'舊項目 · abcdef',musicSubject:{name:'A課程'},pointCost:2,isActive:true,visibility:'PUBLIC'});
+  mocks.planName.mockResolvedValue({name:'A課程-20堂'});
+  expect(await createCourseSchedule(input)).toMatchObject({success:true,data:{count:1}});
+  expect(mocks.permission).toHaveBeenCalledWith('customer.create');
+  const writes=mocks.execute.mock.calls.filter(c=>c[0].join('').includes('INSERT INTO "Customer"'));
+  expect(writes).toHaveLength(existingCustomer?0:1);
+  expect(mocks.create.mock.calls[0][0].data[0]).toMatchObject({isTrial:true,enrollmentFingerprint:expect.any(String)});
+  expect(mocks.create.mock.calls[0][0].data[0].nameSnapshot).toBe('A課程');
+  expect(mocks.planName).not.toHaveBeenCalled();
+  const session=mocks.create.mock.calls[0][0].data[0];expect((session.endsAt-session.startsAt)/60000).toBe(90);
+  expect(mocks.reserve).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:'store-a'}),expect.objectContaining({sessionId:'created',customerId:existingCustomer?'existing-customer':`trial:${participantKey}`,trialPrice:480,cardId:null}),null);
+ });
+ it('checks customer creation permission before any schedule/customer writes',async()=>{
+  setup();mocks.permission.mockImplementation(async(permission:string)=>{if(permission==='customer.create')throw new Error('FORBIDDEN');return {id:'owner-a',role:'OWNER'};});
+  expect((await createCourseSchedule(input)).success).toBe(false);expect(mocks.create).not.toHaveBeenCalled();expect(mocks.execute).not.toHaveBeenCalled();expect(mocks.reserve).not.toHaveBeenCalled();
+ });
+ it('replays the same guest intent without creating another customer or booking',async()=>{
+  setup();await createCourseSchedule(input);const session={...mocks.create.mock.calls[0][0].data[0],id:'created'};
+  mocks.existing.mockResolvedValue([session]);mocks.bookings.mockResolvedValue([{sessionId:'created',customerId:`trial:${participantKey}`,cardId:null,trialPrice:480,requestKey:`schedule:${requestKey}:created:${participantKey}`}]);
+  const {readSportsSessionRule}=await import('@/server/services/sports-staging-schedule');vi.mocked(readSportsSessionRule).mockResolvedValue({payload:{...input.sportsStaging,trialPrice:480}} as never);
+  mocks.create.mockClear();mocks.reserve.mockClear();mocks.execute.mockClear();
+  expect(await createCourseSchedule(input)).toMatchObject({success:true,data:{count:1}});expect(mocks.create).not.toHaveBeenCalled();expect(mocks.reserve).not.toHaveBeenCalled();expect(mocks.execute).not.toHaveBeenCalled();
+  expect((await createCourseSchedule({...input,learners:[{...input.learners[0],customerPhone:'0999999999'}]})).success).toBe(false);
+ });
 });

@@ -1,0 +1,438 @@
+▲ Next.js 16.2.2 (Turbopack)
+- Experiments (use with caution):
+  · cpus: 2
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 42s
+  Running TypeScript ...
+  Finished TypeScript in 87s ...
+  Collecting page data using 2 workers ...
+  Generating static pages using 2 workers (0/234) ...
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"278c1732-6af5-45d6-9feb-724c34bbbcd4","ok":false,"totalMs":12.4,"spans":[{"name":"authorization","durationMs":11.3,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"a57c5d98-d8d5-4c56-a46e-950b32fbc15f","ok":false,"totalMs":3,"spans":[{"name":"authorization","durationMs":2.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"fdb89629-4f8e-45a1-a2b1-b33ac1a29e9a","ok":false,"totalMs":2.5,"spans":[{"name":"authorization","durationMs":2.2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"a92d0b56-fa2e-490d-a154-fbc84ea2b4b0","ok":false,"totalMs":1.7,"spans":[{"name":"authorization","durationMs":1.4,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"004b7dd8-6b1b-4efb-b9fa-c7832f12f04a","ok":false,"totalMs":1.7,"spans":[{"name":"authorization","durationMs":1.4,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"3dd38d6f-2472-4a97-9791-2855f7e70a36","ok":false,"totalMs":1.7,"spans":[{"name":"authorization","durationMs":1.5,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"d286ad02-04cd-4919-aceb-0c9590ea694f","ok":false,"totalMs":2.4,"spans":[{"name":"authorization","durationMs":2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"dfa8c3e4-acd9-4661-9238-6dceb5842e41","ok":false,"totalMs":1.9,"spans":[{"name":"authorization","durationMs":1.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"3b88219f-0df7-4006-90b9-2940faabba0b","ok":false,"totalMs":1.5,"spans":[{"name":"authorization","durationMs":1.4,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"765f0d26-af14-4568-88ad-99fef151147c","ok":false,"totalMs":1.4,"spans":[{"name":"authorization","durationMs":1.2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"de0050ef-4021-4715-98c1-e0600a6fad08","ok":false,"totalMs":1.3,"spans":[{"name":"authorization","durationMs":1.1,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"a577f2cc-d1b2-498c-bfb3-8b73fd20aba4","ok":false,"totalMs":1.9,"spans":[{"name":"authorization","durationMs":1.7,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"50b1f608-30ae-4ce5-aa52-7191f2dea18b","ok":false,"totalMs":1.6,"spans":[{"name":"authorization","durationMs":1.4,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"23902440-8a92-4d45-b975-14bc0d11bc35","ok":false,"totalMs":2.4,"spans":[{"name":"authorization","durationMs":2.2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"b1713537-2eb5-4c73-a4b5-3b2bc5883a56","ok":false,"totalMs":1.1,"spans":[{"name":"authorization","durationMs":1,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"8954f5bb-db55-420c-a30d-76ea015681d6","ok":false,"totalMs":1.9,"spans":[{"name":"authorization","durationMs":1.5,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"684dd65b-9f4d-4337-8279-aad897f60718","ok":false,"totalMs":3.6,"spans":[{"name":"authorization","durationMs":3.4,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"39bcc898-1e6f-4e25-948a-80eeeafacce3","ok":false,"totalMs":1.5,"spans":[{"name":"authorization","durationMs":1.3,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"82bc2a5d-66dd-4021-9fb4-31514de556cf","ok":false,"totalMs":2.2,"spans":[{"name":"authorization","durationMs":1.9,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"083bdc6c-ec29-4468-a01a-33695ab1bd60","ok":false,"totalMs":1.6,"spans":[{"name":"authorization","durationMs":1.4,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"9462bfdc-c319-4ad3-a560-9ab79b3cd2a8","ok":false,"totalMs":1.1,"spans":[{"name":"authorization","durationMs":1,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"42e0b8ea-d105-4588-948e-68298921d36b","ok":false,"totalMs":2.8,"spans":[{"name":"authorization","durationMs":1.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"56f7f7f2-2c5d-4533-ae9f-7c8e5c732f10","ok":false,"totalMs":1.4,"spans":[{"name":"authorization","durationMs":1.2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"849c12f0-adec-4a52-81a9-20dc201be96b","ok":false,"totalMs":1.5,"spans":[{"name":"authorization","durationMs":1.3,"ok":false}]}
+  Generating static pages using 2 workers (58/234) 
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"4b385cbb-203d-44bb-be40-46e07450a5fd","ok":false,"totalMs":2.1,"spans":[{"name":"authorization","durationMs":1.9,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"6b8d5421-fc78-4e24-95db-20c289072287","ok":false,"totalMs":1.4,"spans":[{"name":"authorization","durationMs":1.3,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"305d07a2-ef8e-4c5d-b41a-07e53c826fff","ok":false,"totalMs":1.4,"spans":[{"name":"authorization","durationMs":1.3,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"64102031-a6ed-4ac4-88b0-cb9821b62b61","ok":false,"totalMs":1.4,"spans":[{"name":"authorization","durationMs":1.2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"d58c55c3-e266-491e-9729-ada47032d9e0","ok":false,"totalMs":1.2,"spans":[{"name":"authorization","durationMs":1.1,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"3807c856-3091-4a46-8bbd-c12036d8f3b6","ok":false,"totalMs":1.3,"spans":[{"name":"authorization","durationMs":1.2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"15e56d7b-12a9-4393-8311-04408f8ed31e","ok":false,"totalMs":1.8,"spans":[{"name":"authorization","durationMs":1.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"381248d8-5f51-4cab-92a4-95bdb2103f52","ok":false,"totalMs":1.4,"spans":[{"name":"authorization","durationMs":1.1,"ok":false}]}
+  Generating static pages using 2 workers (116/234) 
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"b9e310c8-4d17-4daa-9524-9f5866594c56","ok":false,"totalMs":1.1,"spans":[{"name":"authorization","durationMs":1,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"572619df-c90d-4a54-9ec4-45901b04ce53","ok":false,"totalMs":0.8,"spans":[{"name":"authorization","durationMs":0.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"de706a61-8fbc-4282-b86e-42bc25c9515b","ok":false,"totalMs":1.1,"spans":[{"name":"authorization","durationMs":1,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"189395c3-03d0-4223-9eb5-e6413af0d946","ok":false,"totalMs":0.9,"spans":[{"name":"authorization","durationMs":0.7,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"52d6dd01-d690-4f79-baaf-46faff19204c","ok":false,"totalMs":0.9,"spans":[{"name":"authorization","durationMs":0.8,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"d091c793-077e-4a44-8045-ae21ff9dae88","ok":false,"totalMs":0.8,"spans":[{"name":"authorization","durationMs":0.7,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"db915d77-f07d-44ff-bf08-5f65f780db60","ok":false,"totalMs":2,"spans":[{"name":"authorization","durationMs":1.8,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"5ceef49b-2580-4bb6-bd72-c5492108a1d5","ok":false,"totalMs":0.5,"spans":[{"name":"authorization","durationMs":0.4,"ok":false}]}
+[OPERATION_PERF] {"operation":"course-reminders.read","totalMs":0,"spans":[]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"80348e15-5eea-4b1f-a056-2f0132723c23","ok":false,"totalMs":1.4,"spans":[{"name":"authorization","durationMs":1,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"4f0aad93-cfae-4212-8421-0648230b9e6e","ok":false,"totalMs":0.7,"spans":[{"name":"authorization","durationMs":0.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"a13c87fc-82a6-475e-b31f-4de47a505a9f","ok":false,"totalMs":0.7,"spans":[{"name":"authorization","durationMs":0.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"cfc08391-1662-435c-bf22-2ccece069309","ok":false,"totalMs":0.8,"spans":[{"name":"authorization","durationMs":0.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"707fa370-d5fc-4028-9e5c-6557728787e4","ok":false,"totalMs":1,"spans":[{"name":"authorization","durationMs":0.9,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"ffb00057-34eb-4112-9fbe-08184e6611ab","ok":false,"totalMs":0.8,"spans":[{"name":"authorization","durationMs":0.7,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"71173b79-b54b-4c23-baac-a7aab4b2075b","ok":false,"totalMs":0.7,"spans":[{"name":"authorization","durationMs":0.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"0b8520ce-b8e3-4ded-ac40-de95fc039151","ok":false,"totalMs":1.8,"spans":[{"name":"authorization","durationMs":1.4,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"179e72cc-f3d6-42f6-8aee-5429977dee92","ok":false,"totalMs":1.2,"spans":[{"name":"authorization","durationMs":1.1,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"1452b062-141a-4ea4-8565-a08ffb2b46b4","ok":false,"totalMs":1.6,"spans":[{"name":"authorization","durationMs":1.4,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"a5635961-934a-47d6-be8c-0eb316ca3c69","ok":false,"totalMs":1.2,"spans":[{"name":"authorization","durationMs":1.1,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"fc81a67a-a045-4410-8aa6-a89042eee2b0","ok":false,"totalMs":1.6,"spans":[{"name":"authorization","durationMs":1.3,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"bb157eb0-a45a-4c39-9bfc-13a9b62faa8d","ok":false,"totalMs":0.7,"spans":[{"name":"authorization","durationMs":0.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"d1fba159-52ab-4bbd-a3fa-e6670c6f2863","ok":false,"totalMs":0.9,"spans":[{"name":"authorization","durationMs":0.8,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"6a74d297-b1c5-4799-9361-063c8cd017ea","ok":false,"totalMs":0.7,"spans":[{"name":"authorization","durationMs":0.5,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"6fc63072-2b56-4978-b9c7-63e7094b38cb","ok":false,"totalMs":2.1,"spans":[{"name":"authorization","durationMs":2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"74098ddb-57fa-4f2e-8ea8-a025dca87ace","ok":false,"totalMs":1.2,"spans":[{"name":"authorization","durationMs":1,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"d83fe976-33d4-482c-8202-b76826ae698f","ok":false,"totalMs":1.8,"spans":[{"name":"authorization","durationMs":1.5,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"bff0c1d4-6f00-4c65-9728-e296d54607fb","ok":false,"totalMs":1.8,"spans":[{"name":"authorization","durationMs":1.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"9d508356-ecf7-410a-bab3-fc0e761ce5e7","ok":false,"totalMs":1.8,"spans":[{"name":"authorization","durationMs":1.5,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"59ab47aa-9093-46c3-a009-ed07c927ddc0","ok":false,"totalMs":0.9,"spans":[{"name":"authorization","durationMs":0.7,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"a650134f-539b-446d-9209-e504afb959f4","ok":false,"totalMs":1.4,"spans":[{"name":"authorization","durationMs":1.2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"ee974f11-33bf-4e5b-80b8-bb52e9e51c21","ok":false,"totalMs":0.9,"spans":[{"name":"authorization","durationMs":0.8,"ok":false}]}
+  Generating static pages using 2 workers (175/234) 
+⚠ metadataBase property in metadata export is not set for resolving social open graph or twitter images, using "http://localhost:3000". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"2c026328-cd08-4621-9467-f321bac9070f","ok":false,"totalMs":3.1,"spans":[{"name":"authorization","durationMs":2.9,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"89fdb51b-6110-426a-9c3a-b2d063d8fb9e","ok":false,"totalMs":2,"spans":[{"name":"authorization","durationMs":1.8,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"9e2110be-1860-4537-adf8-d9d0e9b3b6a7","ok":false,"totalMs":0.9,"spans":[{"name":"authorization","durationMs":0.8,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"eafcfbb9-090d-4776-a432-5fa863fd56e7","ok":false,"totalMs":1.4,"spans":[{"name":"authorization","durationMs":1.2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"e87f247b-c634-49d6-81dc-fef969ef29a1","ok":false,"totalMs":1.1,"spans":[{"name":"authorization","durationMs":0.9,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"1fad4d7e-5f7d-48c5-a3ab-36a3fb37111c","ok":false,"totalMs":1.5,"spans":[{"name":"authorization","durationMs":1.3,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"96448dd0-2221-4414-abab-fda2effd60e0","ok":false,"totalMs":1.5,"spans":[{"name":"authorization","durationMs":1.3,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"819ba397-f92f-4218-8a60-158bd6c30891","ok":false,"totalMs":1.3,"spans":[{"name":"authorization","durationMs":1.2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"a2cbc542-f607-444a-84a4-f5bf6e5ecbbf","ok":false,"totalMs":1.3,"spans":[{"name":"authorization","durationMs":1.2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"0382b64d-3b0b-446a-9042-d8106a30f52d","ok":false,"totalMs":1.6,"spans":[{"name":"authorization","durationMs":1.3,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"5b1cf5bb-8151-4bea-b630-387ed7d58527","ok":false,"totalMs":1.5,"spans":[{"name":"authorization","durationMs":1.1,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"cee1cb5a-276d-4da6-a72c-1ec313158e31","ok":false,"totalMs":1.8,"spans":[{"name":"authorization","durationMs":1.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"783a4afc-4b55-486b-804d-cca5f4acc4a2","ok":false,"totalMs":2,"spans":[{"name":"authorization","durationMs":1.8,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"2c900148-41dc-455c-beef-0462e6b5a18f","ok":false,"totalMs":1.2,"spans":[{"name":"authorization","durationMs":1,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"e7228374-69e0-4b36-8553-06c628e75fb9","ok":false,"totalMs":1.8,"spans":[{"name":"authorization","durationMs":1.7,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"ad5cbbf4-b70b-4043-8266-ff2878983167","ok":false,"totalMs":1.5,"spans":[{"name":"authorization","durationMs":1.2,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"8a091f34-8283-48f5-b2b1-af7981ff3b8e","ok":false,"totalMs":1.8,"spans":[{"name":"authorization","durationMs":1.3,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"e5bcd90e-deab-4fe4-bd99-cc76276bcd1e","ok":false,"totalMs":1,"spans":[{"name":"authorization","durationMs":0.9,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"46bc9436-645c-48c2-8fdf-869c615aa828","ok":false,"totalMs":1.1,"spans":[{"name":"authorization","durationMs":0.9,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"c24c75a6-1373-472b-9969-a047f7b8bb9b","ok":false,"totalMs":1.6,"spans":[{"name":"authorization","durationMs":1.5,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"81f67153-c197-4fff-a17d-92e995fa020c","ok":false,"totalMs":1,"spans":[{"name":"authorization","durationMs":0.8,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"0e7b82a3-917f-47b8-83cc-73d2d8f3140b","ok":false,"totalMs":0.9,"spans":[{"name":"authorization","durationMs":0.6,"ok":false}]}
+[SETTINGS_READ_PERF] {"operation":"layout","traceId":"befd8cba-3faf-4197-812a-f64e0b4f37ee","ok":false,"totalMs":1.2,"spans":[{"name":"authorization","durationMs":1,"ok":false}]}
+✓ Generating static pages using 2 workers (234/234) in 1441ms
+  Finalizing page optimization ...
+
+Route (app)                                             Revalidate  Expire
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /activate
+├ ƒ /activate/verify
+├ ƒ /api/admin/course-line-acceptance
+├ ƒ /api/admin/messenger/audit
+├ ƒ /api/admin/messenger/audit/[id]
+├ ƒ /api/admin/messenger/graph-diagnostic
+├ ƒ /api/admin/messenger/repair
+├ ƒ /api/admin/messenger/token-fingerprint
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/beauty/calendar
+├ ƒ /api/beauty/portal-details
+├ ƒ /api/beauty/portal-role
+├ ƒ /api/beauty/settings/store
+├ ƒ /api/bookings/client-timing
+├ ƒ /api/bookings/detail
+├ ƒ /api/bookings/month
+├ ƒ /api/bookings/slots
+├ ƒ /api/bookings/status
+├ ƒ /api/bookings/trial-correction
+├ ƒ /api/bookings/trial-payment
+├ ƒ /api/cashbook/quick
+├ ƒ /api/coach/readiness
+├ ƒ /api/course/settings/booking-window
+├ ƒ /api/course/settings/day-hours
+├ ƒ /api/course/settings/plan
+├ ƒ /api/course/settings/room
+├ ƒ /api/course/settings/section
+├ ƒ /api/course/settings/self-booking
+├ ƒ /api/course/settings/staff
+├ ƒ /api/course/settings/staff-availability
+├ ƒ /api/course/settings/template
+├ ƒ /api/course/settings/waitlist
+├ ƒ /api/course/settings/weekly-hours
+├ ƒ /api/course/settings/work-permission
+├ ƒ /api/courses/rooms
+├ ƒ /api/courses/subjects
+├ ƒ /api/cron/audit-retention
+├ ƒ /api/cron/beauty-notifications
+├ ƒ /api/cron/course-coach-notifications
+├ ƒ /api/cron/daily-action-digest
+├ ƒ /api/cron/human-support-reminders
+├ ƒ /api/cron/incomplete-service-reminders
+├ ƒ /api/cron/marketing-usage
+├ ƒ /api/cron/operation-audit-retry
+├ ƒ /api/cron/reminders
+├ ƒ /api/cron/reminders-retry
+├ ƒ /api/cron/session-balance-retry
+├ ƒ /api/cron/spa-demo-reminders
+├ ƒ /api/cron/trial-application-notifications
+├ ƒ /api/cron/trial-care
+├ ƒ /api/customers/search
+├ ƒ /api/customers/search-index
+├ ƒ /api/data-export
+├ ƒ /api/export/course-analysis
+├ ƒ /api/export/customer-consumption
+├ ƒ /api/export/customer-consumption-summary
+├ ƒ /api/export/customers
+├ ƒ /api/export/spa-analysis
+├ ƒ /api/export/staff-monthly
+├ ƒ /api/export/store-monthly
+├ ƒ /api/health/reminders-cron
+├ ƒ /api/healthflow/link-callback
+├ ƒ /api/hq/store-view
+├ ƒ /api/image-announcements
+├ ƒ /api/image-announcements/[id]
+├ ƒ /api/inventory/export
+├ ƒ /api/liff/exchange
+├ ƒ /api/liff/public-trial-entry
+├ ƒ /api/line-oauth/mobile/start
+├ ƒ /api/line-oauth/taichung/complete
+├ ƒ /api/line-oauth/taichung/coordinator
+├ ƒ /api/line-oauth/taichung/finalize
+├ ƒ /api/line-oauth/taichung/start
+├ ƒ /api/line/webhook
+├ ƒ /api/messenger/webhook
+├ ƒ /api/oauth-line-stage
+├ ƒ /api/qa/member-workorder
+├ ƒ /api/referral/me
+├ ƒ /api/reports/coach-revenue
+├ ƒ /api/reports/export
+├ ƒ /api/reports/store-revenue
+├ ƒ /api/settings/booking-window
+├ ƒ /api/settings/duty
+├ ƒ /api/settings/save
+├ ƒ /api/settings/service-hours
+├ ƒ /api/settings/staff
+├ ƒ /api/settings/steam-plan
+├ ƒ /api/settlements/export
+├ ƒ /api/spa/settings/booking-window
+├ ƒ /api/spa/settings/location
+├ ƒ /api/spa/settings/package
+├ ƒ /api/spa/settings/service
+├ ƒ /api/spa/settings/staff
+├ ƒ /api/store-settlements/export
+├ ƒ /api/trial-applications
+├ ƒ /api/trial-applications/[id]/attachments/[index]
+├ ƒ /beauty
+├ ƒ /beauty-trial/[slug]
+├ ƒ /book
+├ ƒ /book/income
+├ ƒ /book/new
+├ ƒ /book/reminders
+├ ƒ /book/shop
+├ ƒ /book/shop/[planId]/checkout
+├ ƒ /book/shop/thank-you
+├ ƒ /cash-drawer-panel
+├ ƒ /course-portal-acceptance
+├ ƒ /dashboard
+├ ƒ /dashboard/advanced-reports
+├ ƒ /dashboard/analytics
+├ ƒ /dashboard/beauty
+├ ƒ /dashboard/bonus-rules
+├ ƒ /dashboard/bookings
+├ ƒ /dashboard/bookings/[id]
+├ ƒ /dashboard/bookings/new
+├ ƒ /dashboard/bookings/source
+├ ƒ /dashboard/brand-overview
+├ ƒ /dashboard/cash-drawer
+├ ƒ /dashboard/cash-drawer/save
+├ ƒ /dashboard/cashbook
+├ ƒ /dashboard/cashbook/[id]/edit
+├ ƒ /dashboard/cashbook/new
+├ ƒ /dashboard/central-line-recipients
+├ ƒ /dashboard/central-user-merges
+├ ƒ /dashboard/changelog
+├ ƒ /dashboard/coach-revenue
+├ ƒ /dashboard/courses
+├ ƒ /dashboard/courses/calendar-read
+├ ƒ /dashboard/courses/hours
+├ ƒ /dashboard/courses/notes
+├ ƒ /dashboard/courses/reminders
+├ ƒ /dashboard/courses/rooms
+├ ƒ /dashboard/courses/session-detail
+├ ƒ /dashboard/courses/showcase
+├ ƒ /dashboard/courses/staging
+├ ƒ /dashboard/courses/subjects
+├ ƒ /dashboard/courses/todos
+├ ƒ /dashboard/courses/unassigned-plans
+├ ƒ /dashboard/customers
+├ ƒ /dashboard/customers/[id]
+├ ƒ /dashboard/customers/[id]/edit
+├ ƒ /dashboard/customers/[id]/health
+├ ƒ /dashboard/customers/[id]/records
+├ ƒ /dashboard/customers/central-binding
+├ ƒ /dashboard/customers/merge
+├ ƒ /dashboard/customers/new
+├ ƒ /dashboard/data-export
+├ ƒ /dashboard/device-preview
+├ ƒ /dashboard/digital-butler/leads
+├ ƒ /dashboard/duty
+├ ƒ /dashboard/duty/[date]
+├ ƒ /dashboard/frontend-preview
+├ ƒ /dashboard/growth
+├ ƒ /dashboard/growth/candidates
+├ ƒ /dashboard/growth/consumption
+├ ƒ /dashboard/growth/referrals
+├ ƒ /dashboard/growth/stagnation
+├ ƒ /dashboard/growth/top-candidates
+├ ƒ /dashboard/guide
+├ ƒ /dashboard/health
+├ ƒ /dashboard/image-announcements
+├ ƒ /dashboard/inventory
+├ ƒ /dashboard/inventory/document
+├ ƒ /dashboard/member-link-reviews
+├ ƒ /dashboard/operation-audits
+├ ƒ /dashboard/ops
+├ ƒ /dashboard/payments
+├ ƒ /dashboard/plans
+├ ƒ /dashboard/plans/[id]/edit
+├ ƒ /dashboard/plans/new
+├ ƒ /dashboard/ranking
+├ ƒ /dashboard/reconciliation
+├ ƒ /dashboard/reminders
+├ ƒ /dashboard/reminders/tools
+├ ƒ /dashboard/reminders/zhubei-line-health
+├ ƒ /dashboard/reports
+├ ƒ /dashboard/revenue
+├ ƒ /dashboard/service-fee-calculator
+├ ƒ /dashboard/settings
+├ ƒ /dashboard/settings-save/booking-window
+├ ƒ /dashboard/settings-save/course/booking-window
+├ ƒ /dashboard/settings-save/course/day-hours
+├ ƒ /dashboard/settings-save/course/plan
+├ ƒ /dashboard/settings-save/course/room
+├ ƒ /dashboard/settings-save/course/section
+├ ƒ /dashboard/settings-save/course/self-booking
+├ ƒ /dashboard/settings-save/course/staff
+├ ƒ /dashboard/settings-save/course/staff-availability
+├ ƒ /dashboard/settings-save/course/template
+├ ƒ /dashboard/settings-save/course/waitlist
+├ ƒ /dashboard/settings-save/course/weekly-hours
+├ ƒ /dashboard/settings-save/duty
+├ ƒ /dashboard/settings-save/service-hours
+├ ƒ /dashboard/settings-save/shop
+├ ƒ /dashboard/settings-save/spa/booking-window
+├ ƒ /dashboard/settings-save/spa/location
+├ ƒ /dashboard/settings-save/spa/package
+├ ƒ /dashboard/settings-save/spa/service
+├ ƒ /dashboard/settings-save/spa/staff
+├ ƒ /dashboard/settings-save/staff
+├ ƒ /dashboard/settings-save/steam-plan
+├ ƒ /dashboard/settings/customer-labels
+├ ƒ /dashboard/settings/digital-butler
+├ ƒ /dashboard/settings/duty
+├ ƒ /dashboard/settings/hours
+├ ƒ /dashboard/settings/line-official-accounts
+├ ƒ /dashboard/settings/messenger-audit
+├ ƒ /dashboard/settings/payment
+├ ƒ /dashboard/settings/perf
+├ ƒ /dashboard/settings/plan
+├ ƒ /dashboard/settings/plans
+├ ƒ /dashboard/settings/referral-share
+├ ƒ /dashboard/settings/trial
+├ ƒ /dashboard/settlements
+├ ƒ /dashboard/spa-resources
+├ ƒ /dashboard/spa-schedule
+├ ƒ /dashboard/spa-staff
+├ ƒ /dashboard/staff
+├ ƒ /dashboard/staff/[id]/edit
+├ ƒ /dashboard/staff/[id]/rent
+├ ƒ /dashboard/store-revenue
+├ ƒ /dashboard/system-status
+├ ƒ /dashboard/talent
+├ ƒ /dashboard/teachers
+├ ƒ /dashboard/training
+├ ƒ /dashboard/transactions
+├ ƒ /dashboard/trial-follow-up
+├ ƒ /dashboard/upgrade-requests
+├ ƒ /dashboard/work-orders
+├ ƒ /dashboard/work-orders/document
+├ ○ /experience/zhubei
+├ ƒ /forgot-password
+├ ƒ /frontend-preview
+├ ƒ /health
+├ ƒ /health/new
+├ ƒ /hq-usage-preview
+├ ƒ /hq/dashboard/stores
+├ ƒ /hq/dashboard/stores/[storeId]
+├ ƒ /hq/dashboard/stores/[storeId]/features
+├ ƒ /hq/dashboard/stores/new
+├ ƒ /hq/dashboard/stores/organization
+├ ƒ /hq/dashboard/stores/subscriptions
+├ ƒ /hq/dashboard/stores/subscriptions/[storeId]
+├ ƒ /hq/dashboard/stores/subscriptions/[storeId]/trial
+├ ƒ /hq/dashboard/trial-applications
+├ ○ /hq/forgot-password
+├ ○ /hq/login
+├ ○ /hq/reset-password
+├ ○ /icon.png
+├ ƒ /liff
+├ ƒ /liff/bookings
+├ ƒ /liff/design-preview
+├ ƒ /liff/design-preview/booking
+├ ƒ /liff/health
+├ ƒ /liff/health/[recordId]/edit
+├ ƒ /liff/health/new
+├ ƒ /liff/manager-preview
+├ ƒ /liff/member-booking
+├ ƒ /liff/onboarding
+├ ƒ /liff/profile
+├ ƒ /liff/public-trial
+├ ƒ /liff/service-flow-preview
+├ ƒ /liff/spa-work
+├ ƒ /liff/staff-preview
+├ ƒ /liff/trial-booking
+├ ƒ /liff/wallets
+├ ƒ /liff/wallets/shop
+├ ƒ /liff/wallets/shop/[planId]
+├ ƒ /liff/wallets/shop/thank-you
+├ ƒ /line-entry
+├ ƒ /line-oauth/complete
+├ ƒ /login
+├ ƒ /member-connect
+├ ƒ /member-link
+├ ƒ /member-stores
+├ ƒ /my-bookings
+├ ƒ /my-bookings/[id]/cancel
+├ ƒ /my-bookings/[id]/reschedule
+├ ƒ /my-growth
+├ ƒ /my-plans
+├ ƒ /my-points
+├ ƒ /my-referrals
+├ ƒ /oauth-confirm
+├ ƒ /oauth-confirm/activate
+├ ƒ /oauth-confirm/finalize
+├ ƒ /oauth-confirm/login
+├ ƒ /preview-review
+├ ƒ /pricing
+├ ƒ /pricing/addon-review
+├ ○ /pricing/business                                           1h      1y
+├ ƒ /pricing/cases
+├ ƒ /pricing/experience/[storeSlug]/book
+├ ○ /pricing/experience/zhubei
+├ ƒ /pricing/experience/zhubei/book
+├ ƒ /pricing/features
+├ ○ /pricing/features/fitness
+├ ○ /pricing/features/music
+├ ○ /pricing/features/slots
+├ ƒ /pricing/guides
+├ ƒ /pricing/guides/[slug]
+├ ƒ /pricing/header-review
+├ ƒ /pricing/management-review
+├ ƒ /pricing/panel-review
+├ ƒ /pricing/preview-review
+├ ƒ /pricing/schedule-review
+├ ƒ /pricing/submit
+├ ○ /pricing/trial
+├ ƒ /pricing/trial/guide/[topic]
+├ ƒ /pricing/trial/review
+├ ○ /privacy
+├ ƒ /profile
+├ ƒ /register
+├ ƒ /reset-password
+├ ƒ /robots.txt
+├ ƒ /single-pricing-preview
+├ ƒ /sitemap.xml
+├ ○ /spa-preview
+├ ○ /spa-preview/manager
+├ ○ /spa-preview/staff
+├ ƒ /spa-retirement-preview
+├ ○ /staff-login
+├ ƒ /staff-schedule
+├ ƒ /store-select
+└ ○ /trial-booking/manage
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

@@ -28,3 +28,7 @@ it("reserves each lesson under the same transaction and replays without duplicat
 it("propagates an unavailable lesson instead of reporting partial success",async()=>{
  m.reserve.mockRejectedValueOnce(new Error("額度不足"));expect((await enrollCourseSeries(input)).success).toBe(false);expect(m.reserve).toHaveBeenCalledTimes(1);
 });
+
+it.each([{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:"right"}])("rejects opening markers before ordinary series enrollment: %j",async marker=>{
+ expect(await enrollCourseSeries({...input,...marker})).toMatchObject({success:false});expect(m.reserve).not.toHaveBeenCalled();
+});

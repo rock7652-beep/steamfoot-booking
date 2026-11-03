@@ -79,10 +79,8 @@ type StoreManagerNotificationEvent =
       waitingSupportDetails?: Array<{ name: string; provider: string | null; lastMessageAt: Date | null }>;
     };
 
-export type StoreManagerNotificationResult =
-  | { status: "sent"; sentCount: number; failedCount: number }
-  | { status: "skipped"; reason: "recipient_not_configured" }
-  | { status: "failed"; error: string };
+export type { ManagerDeliveryResult as StoreManagerNotificationResult } from "./manager-notification-delivery";
+import type { ManagerDeliveryResult as StoreManagerNotificationResult } from "./manager-notification-delivery";
 
 function recipientEnvKey(storeSlug: string): string {
   return `LINE_MANAGER_USER_ID_${storeSlug.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase()}`;
@@ -114,7 +112,7 @@ function bookingUrl(storeSlug: string, bookingId: string): string {
 }
 
 export function buildStoreManagerNotificationMessage(
-  event: StoreManagerNotificationEvent,
+  event: StoreManagerNotificationEvent & {eventCreatedAt?:Date},
 ): Extract<LineMessage, { type: "text" }>[] {
   switch (event.type) {
     case "DIGITAL_BUTLER_LEAD_CREATED":
@@ -233,12 +231,13 @@ export function buildStoreManagerNotificationMessage(
  * customer-facing lead, booking, payment, or handoff flow.
  */
 export async function notifyStoreManagerOnLine(
-  event: StoreManagerNotificationEvent,
+  event: StoreManagerNotificationEvent & {eventCreatedAt?:Date},
 ): Promise<StoreManagerNotificationResult> {
   return deliverManagerNotification({
     storeId: event.storeId,
     eventKey: event.type === "PUBLIC_TRIAL_BOOKING_CREATED" ? `booking-created:${event.bookingId}` : event.eventKey,
     type: event.type,
+    eventCreatedAt:event.eventCreatedAt,
     sameDayTrial: event.type === "PUBLIC_TRIAL_BOOKING_CREATED" && event.bookingDate === toLocalDateStr(),
     messages: buildStoreManagerNotificationMessage(event),
   });

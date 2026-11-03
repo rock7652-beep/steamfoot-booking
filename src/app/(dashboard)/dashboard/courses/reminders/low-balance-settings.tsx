@@ -1,4 +1,5 @@
 "use client";
+import {ReminderSettingRow} from "@/components/admin/reminder-settings-list";
 import { NotificationSwitch } from "@/components/admin/notification-switch";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
@@ -8,6 +9,7 @@ import { LineCardPreview } from "../../reminders/line-card-preview";
 import { coursePlanReminderSchema } from "@/lib/course-plan-reminders";
 
 type Plan = {
+  revision?: number;
   id: string;
   name: string;
   unit: string;
@@ -25,19 +27,21 @@ const DEFAULT_DRAFT: Draft = {
   expiryDays: "14, 7",
 };
 
+const BEAUTY_DEFAULT_DRAFT = {...DEFAULT_DRAFT,expiryEnabled:false};
+
 const same = (a: Draft, b: Draft) =>
   a.enabled === b.enabled &&
   a.threshold === b.threshold &&
   a.expiryEnabled === b.expiryEnabled &&
   a.expiryDays === b.expiryDays;
 
-const isDefault = (draft: Draft) => same(draft, DEFAULT_DRAFT);
+const isDefault = (draft: Draft, defaults = DEFAULT_DRAFT) => same(draft, defaults);
 
-function normalizedDraft(plan: Plan): Draft {
+function normalizedDraft(plan: Plan, defaults = DEFAULT_DRAFT): Draft {
   return {
     enabled: plan.lowBalanceEnabled,
     threshold: plan.lowBalanceThreshold?.toString() ?? "",
-    expiryEnabled: plan.expiry?.enabled ?? true,
+    expiryEnabled: plan.expiry?.enabled ?? defaults.expiryEnabled,
     expiryDays: (plan.expiry?.days ?? [14, 7]).join(", "),
   };
 }
@@ -52,8 +56,10 @@ function expirySummary(draft: Draft) {
   return draft.expiryDays ? `${draft.expiryDays.replace(/,\s*/g, "、")} 天前` : "已開啟";
 }
 
-export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan[]; music?: boolean }) {
-  const initial = () => Object.fromEntries(plans.map(plan => [plan.id, normalizedDraft(plan)]));
+export function CourseLowBalanceSettings({ plans, music = false, beauty = false, readOnly = false, storeId, saveSetting = saveCoursePlanReminderSetting }: { plans: Plan[]; music?: boolean; beauty?: boolean; readOnly?: boolean; storeId?: string; saveSetting?: (input:unknown)=>Promise<{success:boolean;error?:string;revision?:number}> }) {
+  const defaults = beauty ? BEAUTY_DEFAULT_DRAFT : DEFAULT_DRAFT;
+  const revisions = useRef(Object.fromEntries(plans.map(plan=>[plan.id,plan.revision])));
+  const initial = () => Object.fromEntries(plans.map(plan => [plan.id, normalizedDraft(plan,defaults)]));
   const [saved, setSaved] = useState<Record<string, Draft>>(initial);
   const [drafts, setDrafts] = useState<Record<string, Draft>>(initial);
   const [query, setQuery] = useState("");
@@ -62,7 +68,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
   const [editing, setEditing] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [discard, setDiscard] = useState(false);
+  const [, setDiscard] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, start] = useTransition();
   const saving = useRef(false);
@@ -82,19 +88,19 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
         const matchesQuery = plan.name.toLocaleLowerCase().includes(q);
         if (!matchesQuery) return false;
         if (filter === "enabled") return current.enabled || current.expiryEnabled;
-        if (filter === "custom") return !isDefault(current);
+        if (filter === "custom") return !isDefault(current, defaults);
         if (filter === "inactive") return !plan.isActive;
         if (filter === "changed") return changedIds.has(plan.id);
         return true;
       })
       .sort((a, b) => {
         if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
-        const aCustom = !isDefault(saved[a.id]);
-        const bCustom = !isDefault(saved[b.id]);
+        const aCustom = !isDefault(saved[a.id],defaults);
+        const bCustom = !isDefault(saved[b.id],defaults);
         if (aCustom !== bCustom) return aCustom ? -1 : 1;
         return a.name.localeCompare(b.name, "zh-TW");
       });
-  }, [changedIds, filter, plans, query, saved]);
+  }, [changedIds, filter, plans, query, saved, defaults]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / 15));
   const currentPage = Math.min(page, pages);
@@ -123,14 +129,15 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
   async function persist(plan: Plan) {
     const parsed = parse(plan);
     if (!parsed.success) {
-      setMessage(`「${plan.name}」請確認剩餘門檻為 0–1000000 的整數，到期天數為 1–365（最多 6 次）。`);
+      setMessage(`「${plan.name}」請確認剩餘門檻為 0–${beauty?"10000":"1000000"} 的整數，到期天數為 1–365（最多 6 次）。`);
       return false;
     }
-    const result = await saveCoursePlanReminderSetting(parsed.data);
+    const result = await saveSetting({...parsed.data,...(beauty?{expectedStoreId:storeId,expectedRevision:revisions.current[plan.id]}:{})});
     if (!result.success) {
       setMessage(`「${plan.name}」：${result.error}`);
       return false;
     }
+    if (result.revision !== undefined) revisions.current[plan.id]=result.revision;
     const value: Draft = {
       enabled: parsed.data.enabled,
       threshold: parsed.data.threshold?.toString() ?? "",
@@ -198,7 +205,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
   }
 
   function restoreDefault(id: string) {
-    setDrafts(previous => ({ ...previous, [id]: { ...DEFAULT_DRAFT } }));
+    setDrafts(previous => ({ ...previous, [id]: { ...defaults } }));
     setMessage("");
   }
 
@@ -211,10 +218,10 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
         const current = next[plan.id];
         next[plan.id] =
           kind === "balance"
-            ? { ...current, enabled: DEFAULT_DRAFT.enabled, threshold: DEFAULT_DRAFT.threshold }
+            ? { ...current, enabled: defaults.enabled, threshold: defaults.threshold }
             : kind === "expiry"
-              ? { ...current, expiryEnabled: DEFAULT_DRAFT.expiryEnabled, expiryDays: DEFAULT_DRAFT.expiryDays }
-              : { ...DEFAULT_DRAFT };
+              ? { ...current, expiryEnabled: defaults.expiryEnabled, expiryDays: defaults.expiryDays }
+              : { ...defaults };
       });
       return next;
     });
@@ -223,18 +230,9 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
   }
 
   return (
-    <details open className="rounded-xl border border-earth-200 bg-white">
-      <summary className="flex min-h-12 cursor-pointer flex-wrap items-center justify-between gap-2 px-4 py-2">
-        <div>
-          <h2 className="text-sm font-semibold text-primary-900">方案提醒設定</h2>
-          <p className="mt-0.5 text-xs text-earth-500">每個方案可獨立設定剩餘額度與到期提醒</p>
-        </div>
-        <span className="text-sm tabular-nums text-earth-600">
-          共 {plans.length} 項{changes.length > 0 ? ` · ${changes.length} 項未儲存` : ""}
-        </span>
-      </summary>
+    <ReminderSettingRow title="方案餘額與到期設定" description="依各方案分別設定開關、門檻與到期天數" control={<span className="text-sm text-earth-500">依方案設定・{plans.length} 項</span>} action="管理方案" pending={pending}>
 
-      <div className="flex max-h-[64vh] min-h-0 flex-col border-t border-earth-100">
+      <div className="flex max-h-[min(48dvh,420px)] min-h-0 flex-col border-t border-earth-100">
         <div className="flex shrink-0 flex-wrap items-center gap-2 p-3">
           <input
             aria-label="搜尋提醒方案"
@@ -257,6 +255,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
           </select>
           <button
             type="button"
+            disabled={readOnly}
             onClick={() => setBulkOpen(value => !value)}
             className="min-h-10 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700"
           >
@@ -280,7 +279,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
         <div className="min-h-0 flex-1 overflow-y-auto">
           {!visible.length ? (
             <p className="p-3 text-sm text-earth-600">
-              {plans.length ? "沒有符合條件的方案。" : music ? "建立堂數方案後，可在此設定提醒。" : "建立點數／堂數方案後，可在此設定提醒。"}
+              {plans.length ? "沒有符合條件的方案。" : music ? "建立堂數方案後，可在此設定提醒。" : "建立方案後，可在此設定提醒。"}
             </p>
           ) : null}
 
@@ -293,9 +292,9 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
 
           {visible.map(plan => {
             const draft = drafts[plan.id];
-            const unit = plan.unit === "SESSION" ? "堂" : "點";
+            const unit = beauty ? "次" : plan.unit === "SESSION" ? "堂" : "點";
             const changed = changedIds.has(plan.id);
-            const custom = !isDefault(saved[plan.id]);
+            const custom = !isDefault(saved[plan.id],defaults);
             const open = editing === plan.id;
 
             return (
@@ -315,6 +314,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
                     <button
                       type="button"
                       aria-expanded={open}
+                      disabled={readOnly}
                       onClick={() => { setEditing(open ? null : plan.id); setPreview(null); }}
                       className="min-h-9 min-w-20 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50"
                     >
@@ -324,7 +324,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
                 </div>
 
                 {open ? (
-                  <fieldset disabled={pending} className="border-t border-earth-100 bg-earth-50/40 px-3 py-3">
+                  <fieldset disabled={pending || readOnly} className="border-t border-earth-100 bg-earth-50/40 px-3 py-3">
                     <div className="grid gap-3 lg:grid-cols-2">
                       <section className="rounded-lg border border-earth-200 bg-white p-3">
                         <label className="flex min-h-10 items-center justify-between gap-3">
@@ -338,7 +338,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
                               aria-label={`${plan.name} 提醒門檻`}
                               type="number"
                               min="0"
-                              max="1000000"
+                              max={beauty?10000:1000000}
                               step="1"
                               value={draft.threshold}
                               onChange={event => update(plan.id, { threshold: event.target.value })}
@@ -387,7 +387,7 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
                     {preview === plan.id ? (
                       <div className="mt-3 grid gap-3 border-t border-earth-100 pt-3 md:grid-cols-2">
                         <LineCardPreview title="方案可用額度提醒" subtitle="示意資料，非真實發送" actions={[{ label: "查看我的方案", variant: "primary" }, { label: "立即預約" }, { label: "購買／續購方案" }, {label:"諮詢店長",variant:"link"}, { label: "停止／管理此類提醒", variant: "link" }]}>
-                          {courseLowBalanceBody(plan.name, 5, 3, plan.unit)}
+                          {beauty ? `「${plan.name}」剩餘 5 次，已預約占用 3 次，可用 2 次。各張共用方案分開計算。` : courseLowBalanceBody(plan.name, 5, 3, plan.unit)}
                         </LineCardPreview>
                         <LineCardPreview title="方案即將到期提醒" subtitle={`設定：到期前 ${draft.expiryDays || "尚未填寫"} 天`} actions={[{ label: "查看方案與期限" },{label:"立即預約"},{label:"購買／續購方案"},{label:"諮詢店長",variant:"link"}]}>
                           <p>{plan.name}</p>
@@ -414,21 +414,13 @@ export function CourseLowBalanceSettings({ plans, music = false }: { plans: Plan
         <div className="shrink-0 border-t bg-white p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p role="status" className="text-sm text-primary-800">{message || (changes.length ? `${changes.length} 項尚未儲存` : "所有設定已儲存")}</p>
-            {discard ? (
-              <div role="alert" className="flex flex-wrap items-center gap-2">
-                <span className="text-sm">捨棄全部未儲存修改？</span>
-                <button type="button" className="min-h-9 rounded border px-3 text-sm" onClick={() => setDiscard(false)}>繼續編輯</button>
-                <button type="button" className="min-h-9 rounded border px-3 text-sm" onClick={() => { setDrafts(saved); setDiscard(false); setEditing(null); setPreview(null); setMessage(""); }}>捨棄修改</button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <button type="button" disabled={pending || !changes.length} onClick={() => setDiscard(true)} className="min-h-10 rounded-lg border px-4 text-sm disabled:opacity-40">取消全部修改</button>
-                <button type="button" disabled={pending || !changes.length} onClick={saveAll} className="min-h-10 rounded-lg bg-primary-700 px-4 text-sm text-white disabled:opacity-40">{pending ? "儲存中…" : "儲存全部修改"}</button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <button type="button" disabled={readOnly || pending || !changes.length} onClick={() => { setDrafts(saved); setDiscard(false); setEditing(null); setPreview(null); setMessage(""); }} className="min-h-10 rounded-lg border px-4 text-sm disabled:opacity-40">取消全部修改</button>
+              <button type="button" disabled={readOnly || pending || !changes.length} onClick={saveAll} className="min-h-10 rounded-lg bg-primary-700 px-4 text-sm text-white disabled:opacity-40">{pending ? "儲存中…" : "儲存全部修改"}</button>
+            </div>
           </div>
         </div>
       </div>
-    </details>
+    </ReminderSettingRow>
   );
 }

@@ -50,8 +50,9 @@ it("resolves a cross-store view name only when the caller has HQ authority",asyn
   expect(m.stores.mock.calls[0][0].where.id.in).toEqual(["own","previous"]);
 });
 
-it("reads SPA target names only with the exact authorized store and target, without legacy booking reads",async()=>{
-  await resolveAuditPresentation([{id:"a",storeId:"spa-own",targetType:"SpaBooking",targetId:"spa-booking",action:"UPDATE"}]);
-  expect(m.spaBookings).toHaveBeenCalledWith(expect.objectContaining({where:{OR:[{id:"spa-booking",storeId:"spa-own"}]}}));
+it("keeps archived SPA evidence without reading retired or Steamfoot booking tables",async()=>{
+  const result = await resolveAuditPresentation([{id:"a",storeId:"spa-own",targetType:"SpaBooking",targetId:"spa-booking",action:"UPDATE"}]);
+  expect(result.get("a")?.target).toContain("舊紀錄未保存辨識內容");
+  expect(m.spaBookings).not.toHaveBeenCalled();
   expect(m.bookings).not.toHaveBeenCalled();
 });

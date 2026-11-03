@@ -1,0 +1,62 @@
+{
+  "base": "https://www.steamfoot.com",
+  "checkedAtUTC": "2026-10-25T12:19:50.917728+00:00",
+  "authenticated": false,
+  "writes": false,
+  "results": [
+    {
+      "path": "/",
+      "status": 200,
+      "location": null,
+      "contentType": "text/html; charset=utf-8",
+      "title": "蒸管家｜每一家店，都值得擁有一位數位管家",
+      "serverError": false,
+      "sessionNull": null
+    },
+    {
+      "path": "/hq/login",
+      "status": 200,
+      "location": null,
+      "contentType": "text/html; charset=utf-8",
+      "title": "蒸管家｜服務品牌成長系統",
+      "serverError": false,
+      "sessionNull": null
+    },
+    {
+      "path": "/hq/dashboard/beauty",
+      "status": 307,
+      "location": "/hq/login",
+      "contentType": "text/plain",
+      "title": null,
+      "serverError": false,
+      "sessionNull": null
+    },
+    {
+      "path": "/hq/dashboard/stores/new",
+      "status": 307,
+      "location": "/hq/login",
+      "contentType": "text/plain",
+      "title": null,
+      "serverError": false,
+      "sessionNull": null
+    },
+    {
+      "path": "/api/auth/session",
+      "status": 200,
+      "location": null,
+      "contentType": "application/json",
+      "title": null,
+      "serverError": false,
+      "sessionNull": true
+    },
+    {
+      "path": "/s/zhubei/book",
+      "status": 307,
+      "location": "/s/zhubei/",
+      "contentType": "text/plain",
+      "title": null,
+      "serverError": false,
+      "sessionNull": null
+    }
+  ]
+}

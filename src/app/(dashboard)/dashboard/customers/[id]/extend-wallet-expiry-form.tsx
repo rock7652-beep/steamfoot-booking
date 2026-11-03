@@ -61,6 +61,8 @@ export function ExtendWalletExpiryForm({ walletId, currentExpiry, expired, onSuc
   if (!open) {
     return (
       <button
+        type="button"
+        disabled={pending}
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1 rounded-md border border-earth-300 bg-earth-50 px-2.5 py-1 text-xs font-medium text-earth-700 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
       >

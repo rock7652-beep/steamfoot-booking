@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { getConfiguredStoreLine, readStoreLineConfigs, storeLineIdentityProvider, requiresCourseLiffEntry } from "@/lib/store-line-config";
 import { getLineAccessTokenForStore, getLineSecretForStore } from "@/lib/line-config";
 import { resolveStoreLiffContext } from "@/server/services/store-liff-context";
+import { storeLineAdditionsPreflight } from "../../scripts/store-line-additions-preflight";
 const config = { storeId: "course-a", slug: "course-a", providerId: "901", loginChannelId: "902", messagingProviderId: "901", messagingChannelId: "903", liffId: "902-test", basicId: "@isolated-a", destination: "U" + "a".repeat(32), accessTokenEnv: "ISOLATED_A_TOKEN", channelSecretEnv: "ISOLATED_A_SECRET" };
 afterEach(() => vi.unstubAllEnvs());
 it("keeps explicit LIFF selection even without channels and leaves other web stores alone", () => {
@@ -86,4 +87,63 @@ it("preserves the legacy central channel when no per-store configuration is inst
   vi.stubEnv("STORE_LINE_CONFIG_JSON", "");
   vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", "legacy-channel");
   expect(resolveStoreLiffContext("zhubei")).toMatchObject({ channelId: "legacy-channel", identityProvider: "line", config: null });
+});
+
+const addition = {
+  ...config, storeId: "store-soulife", slug: "soulife", providerId: "2005295754",
+  messagingProviderId: "2005295754", loginChannelId: "2010761154",
+  messagingChannelId: "2012197466", liffId: "2010761154-CmcQZ9Db",
+  basicId: "@046mqwnp", destination: "U" + "b".repeat(32),
+  accessTokenEnv: "LINE_SOULIFE_CHANNEL_ACCESS_TOKEN", channelSecretEnv: "LINE_SOULIFE_CHANNEL_SECRET",
+};
+it("adds an independent store without replacing or mutating the existing configuration", () => {
+  const existing = JSON.stringify([config]);
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", existing);
+  vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", JSON.stringify([addition]));
+  vi.stubEnv(addition.accessTokenEnv, "soulife-test-token");
+  vi.stubEnv(addition.channelSecretEnv, "soulife-test-secret");
+  expect(readStoreLineConfigs()).toEqual([config, addition]);
+  expect(process.env.STORE_LINE_CONFIG_JSON).toBe(existing);
+  expect(getLineAccessTokenForStore(addition.storeId)).toBe("soulife-test-token");
+  expect(getLineSecretForStore(addition.slug)).toBe("soulife-test-secret");
+  expect(resolveStoreLiffContext(addition.slug)).toMatchObject({ channelId: addition.loginChannelId, config: addition });
+});
+it("supports an additional store when the original source is absent", () => {
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", "");
+  vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", JSON.stringify([addition]));
+  expect(readStoreLineConfigs()).toEqual([addition]);
+});
+it.each([
+  { storeId: config.storeId }, { slug: config.slug }, { storeId: config.slug },
+  { destination: config.destination }, { messagingChannelId: config.messagingChannelId },
+  { liffId: config.liffId, loginChannelId: config.loginChannelId },
+])("rejects a conflicting addition instead of overriding the original %j", conflict => {
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([config]));
+  vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", JSON.stringify([{ ...addition, ...conflict }]));
+  expect(readStoreLineConfigs).toThrow();
+});
+it.each(["{bad", "null", "{}", JSON.stringify([{ ...addition, accessTokenEnv: "NEXT_PUBLIC_TOKEN" }])])(
+  "rejects malformed additional configuration without exposing its contents", raw => {
+    vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([config]));
+    vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", raw);
+    expect(readStoreLineConfigs).toThrow();
+  },
+);
+it("does not mask an invalid existing configuration with a valid addition", () => {
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", "{bad");
+  vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", JSON.stringify([addition]));
+  expect(readStoreLineConfigs).toThrow();
+});
+it.each(["", "999"])("blocks the release when an addition's central Provider is unconfirmed (%s)", provider => {
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([config]));
+  vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", JSON.stringify([{ ...addition, identityMode: "CENTRAL" }]));
+  vi.stubEnv("CENTRAL_LINE_PROVIDER_ID", provider);
+  expect(storeLineAdditionsPreflight).toThrow("中央 Provider");
+});
+it("passes the release check using the existing matching central Provider value", () => {
+  vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([config]));
+  vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", JSON.stringify([{ ...addition, identityMode: "CENTRAL" }]));
+  vi.stubEnv("CENTRAL_LINE_PROVIDER_ID", addition.providerId);
+  expect(storeLineAdditionsPreflight()).toEqual({ enabled: true });
+  expect(process.env.CENTRAL_LINE_PROVIDER_ID).toBe(addition.providerId);
 });

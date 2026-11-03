@@ -1,0 +1,103 @@
+// @vitest-environment jsdom
+vi.mock('@/server/actions/course-display-order',()=>({saveCourseDisplayOrder:vi.fn()}));
+vi.mock('@/server/actions/course-rental',()=>({saveCourseRental:vi.fn(),getCourseRental:vi.fn(),createRentalCustomer:vi.fn(),cancelCourseRental:vi.fn(),saveRentalPayment:vi.fn(),listRoomRentals:vi.fn()}));
+vi.mock('@/server/actions/beauty-technician-service',()=>({saveBeautyTechnicianService:vi.fn()}));
+import {act,createElement as h} from 'react';
+import {createRoot,type Root} from 'react-dom/client';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+vi.mock('@/server/actions/beauty-service-add-on-activation',()=>({saveBeautyServiceAddOnActivation:vi.fn()}));
+vi.mock("@/server/actions/beauty-collection-intent", () => ({ prepareBeautyCollectionPurchaseIntent: vi.fn(), readBeautyCollectionPurchaseIntent: vi.fn(), cancelBeautyCollectionPurchaseIntent: vi.fn(), acknowledgeBeautyCollectionPurchaseIntent: vi.fn() }));
+const m=vi.hoisted(()=>({refund:vi.fn(),status:vi.fn(),move:vi.fn(),collect:vi.fn(),collectionRead:vi.fn(),push:vi.fn(),refresh:vi.fn(),params:new URLSearchParams(),read:vi.fn(),scheduleProps:null as Record<string,unknown>|null,rosterProps:null as Record<string,unknown>|null}));
+vi.mock('next/dynamic',async()=>{const React=await import('react');return {default:(loader:()=>Promise<{default:React.ComponentType<Record<string,unknown>>}>)=>{const C=React.lazy(async()=>{const loaded=await loader();return {default:typeof loaded==='function'?loaded:loaded.default};});return (props:Record<string,unknown>)=>h(React.Suspense,{fallback:null},h(C,props));}};});
+vi.mock('@/app/(dashboard)/dashboard/courses/sports-move-confirm',()=>({SportsMoveConfirm:()=>null}));
+vi.mock('@/server/actions/beauty-native-roster',()=>({readBeautyRosterOperation:vi.fn(),updateBeautyRosterAttendance:m.status,cancelBeautyRosterAppointment:vi.fn()}));
+vi.mock('@/components/beauty/native-roster-source',()=>({BeautyNativeRoster:(props:{bookingId?:string;readOnly:boolean;data:{manage:{update:boolean;collect:boolean}};onStatus:(id:string,revision:number,target:string)=>void;onMoney:(kind:string,ids:string[])=>void})=>{m.rosterProps=props;return h('div',{'data-native-roster-port':true},props.readOnly?null:[(props as {expanded?:{content:import('react').ReactNode}}).expanded?.content,h('button',{key:'complete',onClick:()=>props.onStatus('a',7,'COMPLETED')},'原名單完成操作'),h('button',{key:'move',onClick:()=>props.onMoney('move',['a'])},'原名單改期操作'),h('button',{key:'refund',onClick:()=>props.onMoney('refund',['receipt'])},'原名單退款操作'),h('button',{key:'collect',onClick:()=>props.onMoney('collect',['a'])},'原名單收款操作')]);}}));
+vi.mock('@/server/actions/beauty-customer-attribution' ,()=>({bulkAssignBeautyCustomers:vi.fn(),saveBeautyCustomerAttribution:vi.fn(),searchBeautyReferrerCandidates:vi.fn()}));
+vi.mock('@/server/actions/beauty-service-price',()=>({saveBeautyServicePrice:vi.fn()}));
+vi.mock('@/server/actions/course-members',()=>({saveCourseCustomer:vi.fn()}));
+vi.mock('@/server/actions/sports-staging',()=>({saveSportsFee:vi.fn()}));
+vi.mock('@/server/actions/beauty-charge',()=>({saveBeautyCharge:vi.fn()}));
+vi.mock('@/server/actions/beauty-opening-check',()=>({readBeautyOpeningCheck:vi.fn()}));
+vi.mock('@/server/actions/beauty-native-plan',()=>({saveBeautyNativePlan:vi.fn()}));
+vi.mock('@/server/actions/beauty-native-service',()=>({saveBeautyNativeService:vi.fn()}));
+vi.mock('@/server/actions/beauty-display-order',()=>({saveBeautyDisplayOrder:vi.fn()}));
+vi.mock('next/navigation',()=>({useRouter:()=>({refresh:m.refresh,push:m.push}),useSearchParams:()=>m.params,usePathname:()=>'/dashboard/beauty'}));
+vi.mock('@/lib/beauty/calendar-read',()=>({readBeautyCalendar:vi.fn(),projectBeautyCalendar:vi.fn()}));
+vi.mock('@/app/(dashboard)/dashboard/courses/customer-list',()=>({CourseCustomerList:()=>null}));
+vi.mock('@/lib/beauty/collection-reader',()=>({readBeautyCollectionQuote:(ids:unknown)=>m.collectionRead(ids),readBeautyCollectionStatus:vi.fn()}));
+vi.mock('@/server/actions/beauty',()=>({changeBeautyStatus:m.status,linkBeautyCustomer:vi.fn(),confirmBeautyPurchase:vi.fn(),collectBeautyPayment:m.collect,readBeautyCollection:m.collectionRead,purchaseBeautyPlan:vi.fn(),refundBeautyPayment:m.refund,confirmBeautySettlement:vi.fn(),saveBeautyCustomer:vi.fn(),moveBeautyAppointment:m.move}));
+vi.mock('@/components/beauty/schedule-workspace',()=>({BeautyScheduleWorkspace:({onOpen}:{onOpen:(id:string)=>void})=>h('button',{onClick:()=>onOpen('a')},'開啟預約')}));
+vi.mock('@/components/beauty/customer-panel',()=>({BeautyCustomerPanel:()=>null}));
+vi.mock('@/components/beauty/native-customer-source',()=>({BeautyNativeCustomerWorkspace:({panelOnly}:{panelOnly?:boolean})=>h('section',{'data-customer-workspace':panelOnly?'overlay':'tab'})}));
+vi.mock('@/components/beauty/catalog-editor',()=>({BeautyCatalogEditor:()=>null}));
+vi.mock('@/components/beauty/native-schedule-source',()=>({BeautyNativeScheduleDialog:(props:Record<string,unknown>)=>{m.scheduleProps=props;return h("div",{"data-copy-draft":true});}}));
+vi.mock('@/components/customer-labels',()=>({CustomerLabels:()=>null}));
+import {BeautyDashboard} from '@/components/beauty/dashboard';
+import type {BeautyDashboardData} from '@/server/beauty/queries';
+const item={id:'a',groupId:'group',personName:'本人',personPhone:'0900000001',customerId:'customer',serviceId:'service',serviceName:'做臉',startsAt:'2026-10-22T01:00:00.000Z',endsAt:'2026-10-22T02:00:00.000Z',occupiedEndsAt:'2026-10-22T02:00:00.000Z',technicianId:'tech',locationId:'room',cardId:'card',price:1000,status:'RESERVED',revision:7,notes:'本次注意事項'};
+const data={date:'2026-10-22',month:'2026-10',calendar:'day',now:Date.parse('2026-10-22T00:00:00Z'),store:{id:'store',slug:'test'},items:[item,{...item,id:'b',personName:'同行者',serviceName:'按摩',endsAt:'2026-10-22T02:30:00.000Z'},{...item,id:'other',groupId:'other-group',personName:'另一組'}],cards:[{id:'card',remaining:5,held:3}],customers:[],services:[],plans:[],techs:[{id:'tech',name:'技師',active:true}],locations:[{id:'room',name:'位置',isActive:true}],payments:[],purchases:[],policy:{},access:{planAccess:true,customerAccess:true,financeAccess:true},manage:{update:true,collect:true,customer:false,card:true},calendarDays:{}} as unknown as BeautyDashboardData;
+function nativeRows(){return data.items.filter(b=>b.groupId==='group').map(b=>({...b,customerName:b.personName,customerPhone:b.personPhone,assignedCoachName:'',assignedCoachId:null,bookingKind:b.cardId?'CARD':'SINGLE',pointCost:b.cardId?1:0,cardRemaining:5,unit:'SESSION',trialPayments:[],absenceKind:null,sharedCard:true,operatorCustomerId:null,companionIndex:null,serviceNote:'',termCount:0,termLessons:[],termPrivateLeaves:[],termMakeups:[],absenceHistory:[],service:{revision:b.revision,startsAt:b.startsAt,endsAt:b.endsAt,occupiedEndsAt:b.occupiedEndsAt,serviceName:b.serviceName,technicianName:'技師',locationName:'位置',price:b.price,debit:false,available:2}}));}
+let root:Root,host:HTMLDivElement;
+beforeEach(()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement('div');document.body.append(host);root=createRoot(host);m.refund.mockReset().mockResolvedValue({success:true});m.status.mockReset().mockResolvedValue({success:false,error:'合成失敗'});m.move.mockReset().mockResolvedValue({success:true});m.collect.mockReset().mockResolvedValue({success:false,error:"超過應收"});m.push.mockReset();m.refresh.mockReset();m.read.mockImplementation(async()=>({success:true,data:{roster:nativeRows(),session:{startsAt:item.startsAt,pointCost:1,teacherAttendance:'SCHEDULED',teacherNote:'',teacherAttendanceReason:'',waitlistStopMinutes:0},trial:null,cards:[],waitlist:[],sharedCardState:'ENABLED',canPurchase:false}}));m.collectionRead.mockResolvedValue({success:true,data:[{id:'a',revision:7,personName:'本人',serviceName:'做臉',price:1000,discount:{kind:'AMOUNT',value:0},reduction:0,netPrice:1000,collected:0,due:1000}]});m.params=new URLSearchParams();window.history.replaceState(null,"","/dashboard/beauty");});
+afterEach(()=>{act(()=>root.unmount());host.remove();});
+function button(name:string){const b=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent===name);expect(b,name).toBeTruthy();return b!;}
+async function settleRoster(){await act(async()=>{await import('@/components/beauty/native-roster-source');await new Promise(resolve=>setTimeout(resolve,40));});}
+async function open(readOnly=false,manage=data.manage){await act(async()=>root.render(h(BeautyDashboard,{data:{...data,manage},tab:'班表',slug:'test',readOnly})));await act(async()=>button('開啟預約').click());await settleRoster();}
+it('uses a single customer workspace for a customer-tab deep link',async()=>{
+ m.params=new URLSearchParams('tab=顧客管理&customerId=customer');
+ await act(async()=>root.render(h(BeautyDashboard,{data,tab:'顧客管理',slug:'test',initialCustomerId:'customer'})));
+ await act(async()=>{await import('@/components/beauty/native-customer-source');await new Promise(resolve=>setTimeout(resolve,40));});
+ expect(document.querySelectorAll('[data-customer-workspace]')).toHaveLength(1);
+ expect(document.querySelector('[data-customer-workspace="tab"]')).toBeTruthy();
+});
+it('retains customer detail overlays for roster deep links',async()=>{
+ await act(async()=>root.render(h(BeautyDashboard,{data,tab:'班表',slug:'test',initialCustomerId:'customer'})));
+ await act(async()=>{await import('@/components/beauty/native-customer-source');await new Promise(resolve=>setTimeout(resolve,40));});
+ expect(document.querySelectorAll('[data-customer-workspace="overlay"]')).toHaveLength(1);
+});
+it('completes once directly from the native roster without a reason dialog',async()=>{
+ await open();expect(m.rosterProps).toMatchObject({bookingId:'a',readOnly:false});await act(async()=>button('原名單完成操作').click());expect(m.status).toHaveBeenCalledOnce();expect(m.status).toHaveBeenCalledWith(expect.objectContaining({attendance:expect.objectContaining({id:'a',revision:7,choice:'ATTENDED'})}));expect(m.refresh).not.toHaveBeenCalled();expect(document.body.textContent).not.toContain('確認服務狀態變更');
+});
+it('passes read-only restrictions to the original roster entry',async()=>{
+ await open(true);expect(m.rosterProps).toMatchObject({readOnly:true});expect(document.body.textContent).not.toContain('原名單完成操作');expect(m.status).not.toHaveBeenCalled();
+});
+it('follows a successful move to its new date and current booking rather than refreshing the empty old date',async()=>{
+ await open();await act(async()=>button('原名單改期操作').click());
+ const form=document.querySelector<HTMLFormElement>('[aria-labelledby="beauty-move-title"] form')!;for(const [key,value] of Object.entries({date:'2026-10-27',time:'13:00',note:'合成改期'}))(form.elements.namedItem(key) as HTMLInputElement).value=value;
+ await act(async()=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));expect(m.move).toHaveBeenCalledWith('manager',expect.objectContaining({id:'a',date:'2026-10-27',time:'13:00'}));expect(m.push.mock.calls[0][0]).toContain('date=2026-10-27');expect(m.push.mock.calls[0][0]).toContain('bookingId=a');expect(m.refresh).not.toHaveBeenCalled();
+});
+it('clears a closed deep link and can reopen the same booking from a notice',async()=>{
+ m.params=new URLSearchParams('bookingId=a');window.history.replaceState(null,'','/dashboard/beauty?bookingId=a');await act(async()=>root.render(h(BeautyDashboard,{data,tab:'班表',slug:'test',initialAppointmentId:'a'})));expect(document.body.textContent).toContain('預約詳情');await act(async()=>button('關閉').click());expect(window.location.search).not.toContain('bookingId');
+ m.params=new URLSearchParams();await act(async()=>root.render(h(BeautyDashboard,{data,tab:'班表',slug:'test',initialAppointmentId:'a'})));m.params=new URLSearchParams('bookingId=a');await act(async()=>root.render(h(BeautyDashboard,{data,tab:'班表',slug:'test',initialAppointmentId:'a'})));expect(document.body.textContent).toContain('預約詳情');
+});
+it('shows a rejected payment once inside the active form, preserving entered values',async()=>{
+ m.read.mockImplementation(async()=>({success:true,data:{roster:nativeRows().slice(0,1).map(r=>({...r,cardId:null,bookingKind:'SINGLE'})),session:{startsAt:item.startsAt,pointCost:1,teacherAttendance:'SCHEDULED',teacherNote:''},trial:null,cards:[],waitlist:[],canPurchase:false}}));await act(async()=>root.render(h(BeautyDashboard,{data:{...data,items:[{...data.items[0],cardId:null}]},tab:'班表',slug:'test'})));await act(async()=>button('開啟預約').click());await settleRoster();await act(async()=>button('原名單收款操作').click());await act(async()=>{await import('@/components/beauty/collection-panel');await new Promise(resolve=>setTimeout(resolve,40));});const form=document.querySelector<HTMLFormElement>('[role=dialog][aria-labelledby=beauty-collection-title] form')!;const retained=document.querySelector('[data-native-roster-port]')!;expect(retained.closest('[data-right-sheet]')?.getAttribute('aria-hidden')).toBe('false');expect(form.closest('[role=dialog]')).not.toBe(retained.closest('[role=dialog]'));(form.elements.namedItem('note') as HTMLInputElement).value='保留備註';await act(async()=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));expect(document.querySelectorAll('[role="alert"]')).toHaveLength(1);expect(document.querySelector('[role="alert"]')!.textContent).toBe('超過應收');expect((form.elements.namedItem('note') as HTMLInputElement).value).toBe('保留備註');
+});
+
+it('keeps refund amount, method and reason when collection uses its own panel',async()=>{
+ await open();await act(async()=>button('原名單退款操作').click());const form=document.querySelector<HTMLFormElement>('form:has(#beauty-money-title)')!;expect(form).toBeTruthy();for(const [key,value] of Object.entries({amount:'250',method:'OTHER',note:'合成退款'}))(form.elements.namedItem(key) as HTMLInputElement).value=value;await act(async()=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));expect(m.refund).toHaveBeenCalledWith(expect.objectContaining({paymentId:'receipt',amount:250,method:'OTHER',reason:'合成退款'}));
+});
+
+import {beautyDashboardScope} from '@/lib/beauty/dashboard-scope';
+it('retains an open collection and its note when an RSC read catches up to the client calendar date',async()=>{
+ const key=(date:string)=>beautyDashboardScope(data.storeId,'班表',{date,month:'2026-10',calendar:'day'});
+ await act(async()=>root.render(h(BeautyDashboard,{key:key('2026-10-26'),data,tab:'班表',slug:'test'})));await act(async()=>button('開啟預約').click());await settleRoster();await act(async()=>button('原名單收款操作').click());
+ await act(async()=>{await import('@/components/beauty/collection-panel');await new Promise(resolve=>setTimeout(resolve,40));});
+ const dialog=document.querySelector('[role=dialog][aria-labelledby=beauty-collection-title]');expect(dialog).not.toBeNull();const note=dialog!.querySelector<HTMLInputElement>('input[name=note]')!;note.value='QA 切換日期後仍保留';
+ // The date was changed with the independent calendar reader; a later Server Action returns fresh RSC props.
+ m.params=new URLSearchParams('tab=班表&date=2026-10-27');window.history.replaceState(null,'','/dashboard/beauty?'+m.params);
+ await act(async()=>root.render(h(BeautyDashboard,{key:key('2026-10-27'),data:{...data,date:'2026-10-27'},tab:'班表',slug:'test'})));
+ expect(document.querySelector('[role=dialog][aria-labelledby=beauty-collection-title]')).toBe(dialog);expect(document.querySelector<HTMLInputElement>('input[name=note]')?.value).toBe('QA 切換日期後仍保留');expect(m.collect).not.toHaveBeenCalled();
+});
+it('closes the old financial target on explicit booking navigation and ignores its late quote',async()=>{
+ let resolve!:(value:unknown)=>void;m.collectionRead.mockImplementation(()=>new Promise(r=>{resolve=r;}));await open();await act(async()=>button('原名單收款操作').click());await act(async()=>{await import('@/components/beauty/collection-panel');await new Promise(r=>setTimeout(r,40));});expect(document.querySelector('[aria-labelledby=beauty-collection-title]')).not.toBeNull();
+ m.params=new URLSearchParams('bookingId=b');await act(async()=>root.render(h(BeautyDashboard,{data,tab:'班表',slug:'test'})));expect(document.querySelector('[aria-labelledby=beauty-collection-title]')).toBeNull();
+ await act(async()=>resolve({success:true,data:[]}));expect(document.querySelector('[aria-labelledby=beauty-collection-title]')).toBeNull();expect(m.collect).not.toHaveBeenCalled();expect(m.rosterProps?.bookingId).toBe('b');
+});
+it('retains coordinate changes but still isolates stores, tabs and explicit customer/action navigation',()=>{
+ const base=beautyDashboardScope('a','班表',{date:'2026-10-26',bookingId:'a'});
+ expect(beautyDashboardScope('a','班表',{date:'2026-11-12',month:'2026-11',calendar:'month',bookingId:'b'})).toBe(base);
+ expect(beautyDashboardScope('b','班表',{})).not.toBe(base);expect(beautyDashboardScope('a','顧客管理',{})).not.toBe(base);expect(beautyDashboardScope('a','班表',{customerId:'customer'})).not.toBe(base);expect(beautyDashboardScope('a','班表',{action:'booking'})).not.toBe(base);
+});
+
+it('copies only into a new draft with the original service, customer, time and technician, never submitting on click',async()=>{const one={...data,items:[{...item,isTrial:false}],access:{...data.access,writeAccess:true}} as unknown as BeautyDashboardData;await act(async()=>root.render(h(BeautyDashboard,{data:one,tab:'班表',slug:'test',initialAppointmentId:'a'})));await settleRoster();const original=JSON.stringify(one.items);await act(async()=>button('⧉ 複製預約').click());await act(async()=>{await import('@/components/beauty/native-schedule-source');});expect(m.scheduleProps).toMatchObject({date:'2026-10-22',seed:{serviceId:'service',customerId:'customer',coachId:'tech',roomId:'room',time:'09:00',isTrial:false}});expect(JSON.stringify(one.items)).toBe(original);expect(m.status).not.toHaveBeenCalled();expect(m.move).not.toHaveBeenCalled();expect(m.collect).not.toHaveBeenCalled();});

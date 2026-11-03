@@ -7,7 +7,7 @@ function reader(weekly:unknown[]=[],exceptions:unknown[]=[]) {
 it("rejects a new rest interval overlapping an existing lesson and returns both times",async()=>{
  const tx=reader([{dayOfWeek:2,segments:[{openTime:"14:00",closeTime:"18:30"}]}]);
  await expect(assertExistingTeacherAvailability(tx,"store","teacher")).rejects.toMatchObject({conflicts:[{id:"lesson",startsAt:session.startsAt.toISOString(),endsAt:session.endsAt.toISOString()}]});
- for(const call of tx.$queryRaw.mock.calls)expect(call.slice(1)).toEqual(["store","teacher"]);
+ for(const call of tx.$queryRaw.mock.calls)expect((call.length===1?(call[0] as unknown as {values:unknown[]}).values:call.slice(1))).toEqual(["store","teacher"]);
 });
 it("accepts unchanged class bounds and inherits store hours",async()=>{
  await expect(assertExistingTeacherAvailability(reader(),"s","t")).resolves.toBeUndefined();

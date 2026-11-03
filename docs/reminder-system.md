@@ -7,6 +7,8 @@
 
 ## 當前設計
 
+2026-10-22 開發新增的 LINE 額度 Email 監控及發布前置條件，見 [LINE 額度與 Email 通知](line-quota-email-alerts.md)。沿用既有每日提醒與五分鐘重試工作，不新增排程；不改動預約提醒發送時機。
+
 **每天台灣時間 18:00（UTC 10:00），單次 cron 觸發提醒引擎**，掃描「明天 (TW)」的所有
 PENDING / CONFIRMED 預約（顧客已綁 LINE），對每筆發送一則 LINE 提醒。
 

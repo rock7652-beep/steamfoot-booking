@@ -1,3 +1,5 @@
+import { courseCardActiveExpiryWhere } from "@/lib/course-card-expiry";
+import { syntheticOpeningCard, syntheticOpeningRecord } from "./fixtures/music-opening";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ trials:vi.fn(),purchases:vi.fn(),customers: vi.fn(), cards: vi.fn(), attendance: vi.fn() }));
 vi.mock("server-only", () => ({}));
@@ -13,7 +15,7 @@ describe("course customer care", () => {
     const result = await getCourseCustomerCare("store-a", now);
     expect(result.low).toHaveLength(2);
     expect(result.low[0].cards).toEqual(expect.arrayContaining([expect.objectContaining({ id: "low", remaining: 5, held: 3, available: 2, low: true }), expect.objectContaining({ id: "other", unit: "堂", low: false })]));
-    expect(mocks.cards.mock.calls[0][0].where).toMatchObject({ storeId: "store-a", closedAt: null, expiresAt: { gt: now } });
+    expect(mocks.cards.mock.calls[0][0].where).toMatchObject({ storeId: "store-a", closedAt: null, ...courseCardActiveExpiryWhere(now) });
     expect(mocks.customers.mock.calls[0][0].where).toMatchObject({ storeId: "store-a", mergedIntoCustomerId: null });
   });
   it("does not enable missing thresholds or disabled plans", async () => {
@@ -30,3 +32,16 @@ describe("course customer care", () => {
 });
 
 it("shows paid but unconverted trial customers independently of attendance",async()=>{mocks.cards.mockResolvedValue([]);mocks.trials.mockResolvedValue([{id:"paid",createdAt:now,amount:499,booking:{customerId:"a",status:"RESERVED",session:{startsAt:now}}}]);expect((await getCourseCustomerCare("store-a",now)).trial.map(c=>c.id)).toEqual(["a"]);mocks.purchases.mockResolvedValue([{customerId:"a"}]);expect((await getCourseCustomerCare("store-a",now)).trial).toEqual([]);});
+
+it("includes verified unlimited balances without expiry reminders and excludes unknown null", async () => {
+  const record = syntheticOpeningRecord(); record.expiresAt = null;
+  record.expiryVerification = {kind:"NO_EXPIRY",evidenceKey:"synthetic-expiry"};
+  const opening = {...syntheticOpeningCard(record),expiresAt:null,musicValidityDays:null,bookings:[],plan:{lowBalanceEnabled:true,lowBalanceThreshold:2}};
+  mocks.customers.mockResolvedValue([{id:"synthetic-student",name:"Synthetic",followUps:[]}]);
+  mocks.cards.mockResolvedValue([opening]);
+  const result=await getCourseCustomerCare(opening.storeId,new Date("2026-10-08"));
+  expect(result.low[0].cards[0]).toMatchObject({available:2,expiresAt:null,expiring:false});
+  expect(result.expiring).toEqual([]);
+  mocks.cards.mockResolvedValue([{...opening,musicOpeningState:null}]);
+  expect((await getCourseCustomerCare(opening.storeId,new Date("2026-10-08"))).low).toEqual([]);
+});

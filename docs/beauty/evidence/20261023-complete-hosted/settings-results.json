@@ -1,0 +1,10 @@
+{
+  "results": [
+    {
+      "case": "共用預約期限保存重開後已還原原開放天數",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "stage": "booking-window"
+}

@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "command": "node scripts/qa/image-announcements-live.mjs build",
+  "environment": "production-mode Next build using disposable loopback database; no hosted deployment",
+  "compilation": "✓ Compiled successfully in 70s",
+  "reportRouteBuilt": true,
+  "csvRouteBuilt": true,
+  "validationLines": [
+    "Finished TypeScript in 112s ...",
+    "Generating static pages using 4 workers (0/230) ...",
+    "Generating static pages using 4 workers (57/230)",
+    "Generating static pages using 4 workers (114/230)",
+    "Generating static pages using 4 workers (172/230)",
+    "✓ Generating static pages using 4 workers (230/230) in 1891ms",
+    "Finalizing page optimization ..."
+  ],
+  "productionDataTouched": false
+}

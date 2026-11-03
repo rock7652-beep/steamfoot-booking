@@ -1,13 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only",()=>({}));
-const m=vi.hoisted(()=>({trials:vi.fn(),scope:vi.fn(),orders:vi.fn(),refunds:vi.fn(),store:vi.fn(),people:vi.fn(),staff:vi.fn()}));
+const m=vi.hoisted(()=>({raw:vi.fn(),trials:vi.fn(),scope:vi.fn(),orders:vi.fn(),refunds:vi.fn(),store:vi.fn(),people:vi.fn(),staff:vi.fn()}));
 vi.mock("@/lib/industry-module-server",()=>({requireCourseStore:m.scope}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:async (work: (tx: unknown)=>unknown)=>work({courseTrialPayment:{findMany:m.trials},coursePurchase:{findMany:m.orders},coursePurchaseRefund:{findMany:m.refunds}}),coursePurchase:{findMany:m.orders},coursePurchaseRefund:{findMany:m.refunds}}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:async (work: (tx: unknown)=>unknown)=>work({$queryRaw:m.raw,courseTrialPayment:{findMany:m.trials},coursePurchase:{findMany:m.orders},coursePurchaseRefund:{findMany:m.refunds}}),coursePurchase:{findMany:m.orders},coursePurchaseRefund:{findMany:m.refunds}}}));
 vi.mock("@/lib/db",()=>({prisma:{store:{findUniqueOrThrow:m.store},customer:{findMany:m.people},staff:{findMany:m.staff}}}));
 import { getCourseRevenueReport } from "@/server/queries/course-revenue-report";
 const purchase={id:"p1",customerId:"a",name:"十點",unit:"POINT",price:1000,confirmedAt:new Date("2026-09-16T16:30:00Z"),confirmedBy:"owner",revenueStaffId:null,note:"測試"};
 const filters={startDate:"2026-09-17",endDate:"2026-09-17",storeFilter:{storeId:"a"}};
-beforeEach(()=>{vi.resetAllMocks();m.trials.mockResolvedValue([]);m.scope.mockResolvedValue(undefined);m.orders.mockImplementation(async(args)=>args.select?[{id:"p1",customerId:"a"}]:[purchase]);m.refunds.mockResolvedValue([]);m.store.mockResolvedValue({name:"測試店"});m.people.mockResolvedValue([{id:"a",name:"購買者",phone:"0912345678"}]);m.staff.mockResolvedValue([{id:"staff",userId:"owner",displayName:"店長",user:{role:"OWNER"}}]);});
+beforeEach(()=>{vi.resetAllMocks();m.raw.mockResolvedValue([]);m.trials.mockResolvedValue([]);m.scope.mockResolvedValue(undefined);m.orders.mockImplementation(async(args)=>args.select?[{id:"p1",customerId:"a"}]:[purchase]);m.refunds.mockResolvedValue([]);m.store.mockResolvedValue({name:"測試店"});m.people.mockResolvedValue([{id:"a",name:"購買者",phone:"0912345678"}]);m.staff.mockResolvedValue([{id:"staff",userId:"owner",displayName:"店長",user:{role:"OWNER"}}]);});
 describe("course revenue adapter",()=>{
  it("uses Taipei posting dates and scopes every source to the selected store",async()=>{
   const result=await getCourseRevenueReport("a",filters);
@@ -51,4 +51,15 @@ it("attributes a mixed receipt to only the selected payment method",async()=>{
  m.orders.mockResolvedValue([]);m.trials.mockResolvedValue([{id:"mixed",amount:499,paymentMethod:"CASH",paymentSplits:[{paymentMethod:"CASH",amount:200},{paymentMethod:"TRANSFER",amount:299}],createdAt:new Date("2026-09-17T02:00Z"),actorUserId:"owner",note:"",booking:{customerId:"a",session:{nameSnapshot:"體驗"}}}]);
  const result=await getCourseRevenueReport("a",{...filters,paymentMethod:"TRANSFER"});
  expect(result.kpi.netRevenue).toBe(299);expect(result.data[0].netAmount).toBe(299);expect(result.paymentMethods).toEqual([{paymentMethod:"TRANSFER",amount:299}]);
+});
+
+afterEach(()=>vi.unstubAllEnvs());
+it("applies one cohort to receipts, refunds, trials and first-purchase lookup before aggregation",async()=>{
+ const env={VERCEL:"1",VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feat/music-opening-state-20261007",VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",DATABASE_URL:"postgresql://postgres:test@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",DIRECT_URL:"postgresql://postgres:test@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres",WORKERS_CI_BRANCH:"",CF_PAGES_BRANCH:""};
+ for(const [k,v]of Object.entries(env))vi.stubEnv(k,v);
+ await getCourseRevenueReport("store-lubymusic",{...filters,dataScope:"legacy"});
+ const ids=m.orders.mock.calls[0][0].where.id.in;
+ expect(ids).toHaveLength(5);expect(m.orders.mock.calls[1][0].where.id.in).toEqual(ids);
+ expect(m.refunds.mock.calls[0][0].where.purchase.id.in).toEqual(ids);
+ expect(m.trials.mock.calls[0][0].where.booking.OR[0].sessionId.in).toContain("cmv7c079s0000le06rczclz01");
 });

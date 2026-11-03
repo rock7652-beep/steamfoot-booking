@@ -40,7 +40,7 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
      const existing=await tx.messageLog.findUnique({where:{id}});
      if(existing?.status==="SENT") return "SKIPPED" as const;
      // Recheck cancellation after taking the store lock used by course mutations.
-     const active=await tx.$queryRaw<Array<{id:string}>>`SELECT b.id FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId" WHERE b.id=${booking.id} AND b."storeId"=${store.id} AND b.status::text='RESERVED' AND s."cancelledAt" IS NULL AND s."startsAt"=${booking.session.startsAt}`;
+     const active=await tx.$queryRaw<Array<{id:string}>>`SELECT b.id FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId" WHERE b.id=${booking.id} AND b."storeId"=${store.id} AND b.status::text='RESERVED' AND b."bookingKind"<>'OPENING_MAKEUP' AND b."musicOpeningMakeupEntitlementId" IS NULL AND s."cancelledAt" IS NULL AND s."startsAt"=${booking.session.startsAt}`;
      if(!active.length) return "SKIPPED" as const;
      await tx.messageLog.upsert({where:{id},create:{id,ruleId:rule.id,templateId:rule.templateId,customerId:customer.id,storeId:store.id,courseBookingId:booking.id,triggerAt,channel:"LINE",status:"PENDING",renderedBody:body},update:{status:"PENDING",errorMessage:null,renderedBody:body}});
      const skip=async(reason:string)=>{await tx.messageLog.update({where:{id},data:{status:"SKIPPED",errorMessage:reason}});return "SKIPPED" as const;};
@@ -53,7 +53,7 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
      if(route.status==="BLOCKED") return skip(`LINE 身分或通道未確認：${route.reason}`);
      if(acceptance && (route.channel!=="STORE" || createHash("sha256").update(route.recipientLineUserId).digest("hex")!==acceptance.recipientHash)) return skip("驗收收件人或通道不匹配");
      const messages=(acceptance?buildPackageBookingTestReminderLineMessages:buildPackageBookingReminderLineMessages)(messageInput,url.toString(),booking.id);
-     const deliver=()=>route.channel==="STORE"?pushMessage(store.id,route.recipientLineUserId,messages,courseReminderRetryKey(id)):pushSteamButlerMessage(route.recipientLineUserId,messages,courseReminderRetryKey(id));
+     const deliver=()=>route.channel==="STORE"?pushMessage(store.id, route.recipientLineUserId, messages, courseReminderRetryKey(id), triggerAt):pushSteamButlerMessage(route.recipientLineUserId, messages, courseReminderRetryKey(id), triggerAt);
      const sent=acceptance?await withAcceptanceRetryKey(courseReminderRetryKey(id),deliver):await deliver();
      await tx.messageLog.update({where:{id},data:{status:sent.success?"SENT":"FAILED",lineRoute:route.channel,sentAt:sent.success?now:null,errorMessage:sent.success?null:sent.error}});
      return sent.success?"SENT" as const:"FAILED" as const;

@@ -1,0 +1,19 @@
+Selected lines from the completed isolated Next.js production build.
+Existing Prisma dynamic-path asset trace warnings omitted; see build-summary.json.
+
+▲ Next.js 16.2.2 (Turbopack)
+✓ Compiled successfully in 57s
+  Finished TypeScript in 71s ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/230) ...
+  Generating static pages using 4 workers (57/230)
+  Generating static pages using 4 workers (114/230)
+  Generating static pages using 4 workers (172/230)
+✓ Generating static pages using 4 workers (230/230) in 840ms
+  Finalizing page optimization ...
+├ ƒ /api/image-announcements
+├ ƒ /api/image-announcements/[id]
+├ ƒ /dashboard/image-announcements
+ƒ Proxy (Middleware)
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

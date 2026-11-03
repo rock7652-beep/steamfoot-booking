@@ -1,0 +1,11 @@
+{
+  "batchId": "music-operational-retirement-20261023",
+  "storeId": "store-lubymusic",
+  "expectedCounts": {
+    "Customer": 16,
+    "CourseSession": 40,
+    "CourseBooking": 61,
+    "CoursePointCard": 26,
+    "CashbookEntry": 28
+  }
+}

@@ -1,0 +1,406 @@
+{
+  "testedAtUTC": "2026-10-21T14:10:23.030597+00:00",
+  "branch": "preview/beauty-ui-alignment-20261021",
+  "sourceCommit": "39ea1d1d054d665f8966a428dc9ef860245c2ba9",
+  "deploymentId": "dpl_BnZbXVs5SXnDS41URwaUJzafcCUb",
+  "deploymentState": "READY",
+  "target": "preview",
+  "origin": "https://steamfoot-booking-6gmzyfzuq-rock7652-2111s-projects.vercel.app",
+  "testProject": "ttworfzgwejdeolegkxl",
+  "testStore": "beauty-hosted-20261021",
+  "lineEnabled": false,
+  "schemaOrRoleChanges": false,
+  "unitTests": {
+    "files": 48,
+    "passed": 410,
+    "runs": [
+      {
+        "files": 47,
+        "passed": 407
+      },
+      {
+        "files": 1,
+        "passed": 3
+      }
+    ]
+  },
+  "typeCheck": "passed",
+  "lintChangedSource": "passed",
+  "localProductionBuild": {
+    "bundler": "Turbopack",
+    "staticPages": 233,
+    "passed": true,
+    "source": "c95c9e0e",
+    "laterPortalFix": "hosted build passed at 102518db and 39ea1d1d"
+  },
+  "webpackCompatibility": "Not passed: existing generated-prisma-runtime createRequire loader is incompatible. Deployment uses Turbopack; loader unchanged.",
+  "productionBeforeAndAfter": {
+    "deploymentId": "dpl_6Kcn8tzbMHG96oCwXZLHjKTy4xEH",
+    "commit": "abfe50b1092e9f78a1db76b575b255df5cf3524f"
+  },
+  "databaseReadback": {
+    "groupId": "cmvi5ygwo0000lh08z6hrytr3",
+    "primary": {
+      "id": "cmvi5ygwy0002lh088rb1wrsn",
+      "status": "COMPLETED",
+      "revision": 1,
+      "technicianId": "beauty-hosted-female",
+      "date": "2026-10-29"
+    },
+    "companion": {
+      "id": "cmvi5ygxk0005lh0803ed1h14",
+      "status": "CANCELLED",
+      "revision": 3,
+      "technicianId": "beauty-hosted-male",
+      "date": "2026-10-31"
+    },
+    "saleAmounts": [
+      1000,
+      1500
+    ],
+    "refundAmount": -1500,
+    "groupNet": 1000,
+    "feeForPrimary": 500,
+    "feePaidForPrimary": 500,
+    "newPurchaseLastFour": "4652",
+    "newPurchaseStatus": "CONFIRMED",
+    "newCardRemaining": 5
+  },
+  "physicalDeviceAcceptance": false,
+  "merchantSignoff": false,
+  "realLineVerified": false,
+  "phases": [
+    {
+      "results": [
+        {
+          "case": "店長真實登入",
+          "passed": true
+        },
+        {
+          "case": "店長 首頁",
+          "passed": true
+        },
+        {
+          "case": "店長 班表",
+          "passed": true
+        },
+        {
+          "case": "店長 顧客管理",
+          "passed": true
+        },
+        {
+          "case": "店長 顧客經營",
+          "passed": true
+        },
+        {
+          "case": "店長 營運",
+          "passed": true
+        },
+        {
+          "case": "店長 分析",
+          "passed": true
+        },
+        {
+          "case": "店長 位置管理",
+          "passed": true
+        },
+        {
+          "case": "店長 服務項目",
+          "passed": true
+        },
+        {
+          "case": "店長 收費方式",
+          "passed": true
+        },
+        {
+          "case": "店長 技師管理",
+          "passed": true
+        },
+        {
+          "case": "店長 設定",
+          "passed": true
+        },
+        {
+          "case": "班表日期與草稿",
+          "passed": true
+        },
+        {
+          "case": "iPad 1024 真實四頁",
+          "passed": true
+        },
+        {
+          "case": "iPad 768 真實四頁",
+          "passed": true
+        },
+        {
+          "case": "技師編輯分類",
+          "passed": true
+        },
+        {
+          "case": "共用設定面板",
+          "passed": true
+        },
+        {
+          "case": "顧客真實登入",
+          "passed": true
+        },
+        {
+          "case": "顧客多人草稿",
+          "passed": true
+        },
+        {
+          "case": "顧客方案站內核帳（未送出）",
+          "passed": true
+        },
+        {
+          "case": "技師週月與收入",
+          "passed": true
+        },
+        {
+          "case": "公開體驗 LINE 關閉（不送出）",
+          "passed": true
+        },
+        {
+          "case": "無未處理瀏覽器例外",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "stage": "公開體驗 LINE 關閉",
+      "passed": true,
+      "syntheticFixture": false,
+      "realBackendVerified": true,
+      "origin": "https://steamfoot-booking-huaor9mer-rock7652-2111s-projects.vercel.app",
+      "sourceCommit": "c95c9e0e",
+      "classification": "wide_read_completed"
+    },
+    {
+      "results": [
+        {
+          "case": "店長真實登入",
+          "passed": true
+        },
+        {
+          "case": "共用設定面板",
+          "passed": true
+        },
+        {
+          "case": "顧客真實登入",
+          "passed": true
+        },
+        {
+          "case": "顧客多人草稿",
+          "passed": true
+        },
+        {
+          "case": "顧客方案站內核帳（未送出）",
+          "passed": true
+        },
+        {
+          "case": "技師週月與收入",
+          "passed": true
+        },
+        {
+          "case": "公開體驗 LINE 關閉（不送出）",
+          "passed": true
+        },
+        {
+          "case": "無未處理瀏覽器例外",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "stage": "公開體驗 LINE 關閉",
+      "passed": true,
+      "syntheticFixture": false,
+      "realBackendVerified": true,
+      "origin": "https://steamfoot-booking-6gmzyfzuq-rock7652-2111s-projects.vercel.app",
+      "sourceCommit": "39ea1d1d",
+      "classification": "final_focused_read_completed"
+    },
+    {
+      "results": [
+        {
+          "case": "店長真實登入",
+          "passed": true
+        },
+        {
+          "case": "真實多人預約",
+          "passed": true
+        },
+        {
+          "case": "無未處理瀏覽器例外",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "stage": "真實多人預約",
+      "passed": true,
+      "syntheticFixture": false,
+      "realBackendVerified": true,
+      "origin": "https://steamfoot-booking-nmwvj7w3n-rock7652-2111s-projects.vercel.app",
+      "sourceCommit": "e0a19cb5",
+      "classification": "party_created"
+    },
+    {
+      "results": [
+        {
+          "case": "店長真實登入",
+          "passed": true
+        },
+        {
+          "case": "合併收款",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "stage": "同行單項改期",
+      "passed": false,
+      "syntheticFixture": false,
+      "realBackendVerified": true,
+      "origin": "https://steamfoot-booking-nmwvj7w3n-rock7652-2111s-projects.vercel.app",
+      "sourceCommit": "e0a19cb5",
+      "classification": "collection_passed_then_locator_issue"
+    },
+    {
+      "results": [
+        {
+          "case": "店長真實登入",
+          "passed": true
+        },
+        {
+          "case": "同行單項改期",
+          "passed": true
+        },
+        {
+          "case": "同行部分取消",
+          "passed": true
+        },
+        {
+          "case": "技師完成本人服務",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "stage": "核帳真實送出",
+      "passed": false,
+      "syntheticFixture": false,
+      "realBackendVerified": true,
+      "origin": "https://steamfoot-booking-ky1k1vef9-rock7652-2111s-projects.vercel.app",
+      "sourceCommit": "102518db",
+      "classification": "reschedule_cancel_complete_passed_then_missing_test_bank"
+    },
+    {
+      "results": [
+        {
+          "case": "店長真實登入",
+          "passed": true
+        },
+        {
+          "case": "共用銀行設定假資料",
+          "passed": true
+        },
+        {
+          "case": "核帳真實送出",
+          "passed": true
+        },
+        {
+          "case": "店長核帳發方案",
+          "passed": true
+        },
+        {
+          "case": "分析真實明細",
+          "passed": true
+        },
+        {
+          "case": "無未處理瀏覽器例外",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "stage": "分析真實明細",
+      "passed": true,
+      "syntheticFixture": false,
+      "realBackendVerified": true,
+      "origin": "https://steamfoot-booking-ky1k1vef9-rock7652-2111s-projects.vercel.app",
+      "sourceCommit": "102518db",
+      "classification": "test_bank_purchase_confirmed"
+    },
+    {
+      "results": [
+        {
+          "case": "店長真實登入",
+          "passed": true
+        },
+        {
+          "case": "取消分項退款",
+          "passed": true
+        },
+        {
+          "case": "月結確認與付款",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "stage": "技師月結收入實連",
+      "passed": false,
+      "syntheticFixture": false,
+      "realBackendVerified": true,
+      "origin": "https://steamfoot-booking-6gmzyfzuq-rock7652-2111s-projects.vercel.app",
+      "sourceCommit": "39ea1d1d",
+      "classification": "refund_and_fee_passed_then_date_locator_issue"
+    },
+    {
+      "results": [
+        {
+          "case": "店長真實登入",
+          "passed": true
+        },
+        {
+          "case": "技師月結收入實連",
+          "passed": true
+        },
+        {
+          "case": "無未處理瀏覽器例外",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "stage": "技師月結收入實連",
+      "passed": true,
+      "syntheticFixture": false,
+      "realBackendVerified": true,
+      "origin": "https://steamfoot-booking-6gmzyfzuq-rock7652-2111s-projects.vercel.app",
+      "sourceCommit": "39ea1d1d",
+      "classification": "income_locator_corrected_completed"
+    },
+    {
+      "results": [
+        {
+          "case": "店長真實登入",
+          "passed": true
+        },
+        {
+          "case": "顧客360最終分項狀態與無溢出",
+          "passed": true
+        },
+        {
+          "case": "技師360收入與無溢出",
+          "passed": true
+        },
+        {
+          "case": "無未處理瀏覽器例外",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "stage": "start",
+      "passed": true,
+      "syntheticFixture": false,
+      "realBackendVerified": true,
+      "origin": "https://steamfoot-booking-6gmzyfzuq-rock7652-2111s-projects.vercel.app",
+      "sourceCommit": "39ea1d1d",
+      "classification": "final_mobile_completed"
+    }
+  ]
+}

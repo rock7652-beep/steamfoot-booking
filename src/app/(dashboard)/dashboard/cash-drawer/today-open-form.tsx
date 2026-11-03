@@ -23,6 +23,8 @@
  */
 
 import { useActionState, useEffect } from "react";
+import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
+import { resolveDashboardHref } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionResult } from "@/types";
 
@@ -43,7 +45,12 @@ interface Props {
 
 export function TodayOpenForm({ action, returnPath, placeholderAmount }: Props) {
   const [state, formAction] = useActionState<OpenResult | null, FormData>(
-    action,
+    async (previous, data) => {
+      const result = await action(previous, data);
+      // Notify even when the returned RSC replaces the open/closed form.
+      if (result.success) publishMusicFinanceChange();
+      return result;
+    },
     null,
   );
 
@@ -51,7 +58,7 @@ export function TodayOpenForm({ action, returnPath, placeholderAmount }: Props) 
     if (state?.success) {
       // 等效 F5：full page navigation，重新跑 page server components，
       // 不依賴 server action response 內 inline 的 RSC payload。
-      window.location.assign(returnPath);
+      window.location.assign(resolveDashboardHref(returnPath, window.location.pathname));
     }
   }, [state, returnPath]);
 

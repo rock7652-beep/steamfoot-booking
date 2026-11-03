@@ -72,3 +72,34 @@ it("incomplete index still queries all authorized customers",async()=>{
  await type("遠端");await act(async()=>vi.advanceTimersByTime(250));
  expect(m.search).toHaveBeenCalledWith("遠端");expect(host.textContent).toContain("遠端學員");
 });
+it("compact schedule search picks an independent learner by phone or name and clears in place",async()=>{
+ const selected=vi.fn();
+ m.index.mockResolvedValue({success:true,scope:"user:store",complete:true,rows:[{id:"child-a",name:"林小一",phone:"0999001244",lineName:null},{id:"child-b",name:"林小二",phone:"0999001244",lineName:null}]});
+ await act(async()=>root.render(React.createElement(CourseCustomerPicker,{name:"scheduleStudent",compact:true,onChange:selected})));
+ await act(async()=>host.querySelector('input')!.focus());
+ expect(host.querySelector('[aria-label="搜尋學員姓名或電話"]')).not.toBeNull();
+ await type("0999001244");
+ expect(host.textContent).toContain("林小一");expect(host.textContent).toContain("林小二");
+ await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent?.includes('林小二'))!.click());
+ expect(selected).toHaveBeenLastCalledWith([expect.objectContaining({id:"child-b"})]);
+ expect((host.querySelector('input:not([type="hidden"])') as HTMLInputElement).value).toContain("林小二");
+ expect(host.textContent).not.toContain("林小一");
+ await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="清除學員搜尋"]')!.click());
+ expect(selected).toHaveBeenLastCalledWith([]);
+ expect((host.querySelector('input') as HTMLInputElement).value).toBe("");
+ await type("林小一");
+ expect(host.textContent).toContain("林小一");expect(host.textContent).not.toContain("林小二");
+});
+
+it('keeps floating calendar search results selectable outside a scrolling toolbar',async()=>{
+ const onChange=vi.fn();
+ await act(async()=>root.render(React.createElement('div',{style:{height:44,overflow:'auto'}},React.createElement(CourseCustomerPicker,{name:'learner',compact:true,floating:true,choices:[{id:'fixture',name:'合成學員',phone:'0900000000',lineName:null}],onChange}))));
+ const input=host.querySelector<HTMLInputElement>('input[aria-label]')!;
+ await act(async()=>input.focus());await type('合成');
+ const panel=document.querySelector<HTMLElement>('[aria-label="學員搜尋結果"]')!;
+ expect(panel).toBeTruthy();expect(host.contains(panel)).toBe(false);expect(panel.style.visibility).toBe('visible');
+ const option=panel.querySelector<HTMLButtonElement>('button')!;
+ await act(async()=>option.focus());expect(document.querySelector('[aria-label="學員搜尋結果"]')).toBeTruthy();
+ await act(async()=>option.click());expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({id:'fixture',name:'合成學員',phone:'0900000000'})]);
+ expect(document.querySelector('[aria-label="學員搜尋結果"]')).toBeNull();
+});

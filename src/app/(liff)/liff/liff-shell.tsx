@@ -1,8 +1,10 @@
 "use client";
+import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
+import { FrontendAccountMenu } from "@/components/frontend-account-menu";
 
 import { courseMemberReturnPath } from "@/lib/course-delivery-links";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
-import { SteamButlerLogo } from "@/components/steam-butler-logo";
+import { MemberPortalHeader } from "@/components/member-portal-header";
 
 /**
  * LiffShell — LIFF 入口頁 client component (PR-A + PR-C2 wiring)
@@ -26,49 +28,88 @@ import { SteamButlerLogo } from "@/components/steam-butler-logo";
  *   - 不寫 inline 中文（一律從 liffMessages 取）
  */
 
+/**
+ * LiffShell — LIFF 入口頁 client component (PR-A + PR-C2 wiring)
+ *
+ * State machine (plan §2.1)：
+ *   1. initializing            LIFF SDK 初始化中
+ *   2. not_in_line_app         liff.init() OK 但不在 LINE App 內
+ *   3. exchanging              正在呼 /api/liff/exchange
+ *   4. need_onboarding         exchange 回 need_onboarding → 顯示「開始使用」CTA
+ *   5. signed_in               exchange 回 session_created → 「歡迎回來」+ 3 顆 disabled CTA
+ *   6. expired                 ID_TOKEN_EXPIRED / INVALID / 無 idToken → 重新整理 CTA
+ *   7. service_unavailable     CONFIG / STORE_NOT_FOUND / NETWORK / SESSION_MINT_FAILED / INTERNAL / liff.init failed
+ *
+ * PR-C2 wiring (§11 決策)：
+ *   - 手動 CTA（§11.2）：need_onboarding 顯示「開始使用」按鈕，不自動 redirect
+ *   - 不自動 redirect：signed_in 也只顯示「歡迎回來」，不強跳預約
+ *
+ * 不做：
+ *   - 不呼叫 helper / 不呼叫 signIn（那是 onboarding-form 的事）
+ *   - 不接預約 / my-bookings / 剩餘堂數（PR-D；只放 disabled 按鈕）
+ *   - 不寫 inline 中文（一律從 liffMessages 取）
+ */
+/**
+ * LiffShell — LIFF 入口頁 client component (PR-A + PR-C2 wiring)
+ *
+ * State machine (plan §2.1)：
+ *   1. initializing            LIFF SDK 初始化中
+ *   2. not_in_line_app         liff.init() OK 但不在 LINE App 內
+ *   3. exchanging              正在呼 /api/liff/exchange
+ *   4. need_onboarding         exchange 回 need_onboarding → 顯示「開始使用」CTA
+ *   5. signed_in               exchange 回 session_created → 「歡迎回來」+ 3 顆 disabled CTA
+ *   6. expired                 ID_TOKEN_EXPIRED / INVALID / 無 idToken → 重新整理 CTA
+ *   7. service_unavailable     CONFIG / STORE_NOT_FOUND / NETWORK / SESSION_MINT_FAILED / INTERNAL / liff.init failed
+ *
+ * PR-C2 wiring (§11 決策)：
+ *   - 手動 CTA（§11.2）：need_onboarding 顯示「開始使用」按鈕，不自動 redirect
+ *   - 不自動 redirect：signed_in 也只顯示「歡迎回來」，不強跳預約
+ *
+ * 不做：
+ *   - 不呼叫 helper / 不呼叫 signIn（那是 onboarding-form 的事）
+ *   - 不接預約 / my-bookings / 剩餘堂數（PR-D；只放 disabled 按鈕）
+ *   - 不寫 inline 中文（一律從 liffMessages 取）
+ */
+/**
+ * LiffShell — LIFF 入口頁 client component (PR-A + PR-C2 wiring)
+ *
+ * State machine (plan §2.1)：
+ *   1. initializing            LIFF SDK 初始化中
+ *   2. not_in_line_app         liff.init() OK 但不在 LINE App 內
+ *   3. exchanging              正在呼 /api/liff/exchange
+ *   4. need_onboarding         exchange 回 need_onboarding → 顯示「開始使用」CTA
+ *   5. signed_in               exchange 回 session_created → 「歡迎回來」+ 3 顆 disabled CTA
+ *   6. expired                 ID_TOKEN_EXPIRED / INVALID / 無 idToken → 重新整理 CTA
+ *   7. service_unavailable     CONFIG / STORE_NOT_FOUND / NETWORK / SESSION_MINT_FAILED / INTERNAL / liff.init failed
+ *
+ * PR-C2 wiring (§11 決策)：
+ *   - 手動 CTA（§11.2）：need_onboarding 顯示「開始使用」按鈕，不自動 redirect
+ *   - 不自動 redirect：signed_in 也只顯示「歡迎回來」，不強跳預約
+ *
+ * 不做：
+ *   - 不呼叫 helper / 不呼叫 signIn（那是 onboarding-form 的事）
+ *   - 不接預約 / my-bookings / 剩餘堂數（PR-D；只放 disabled 按鈕）
+ *   - 不寫 inline 中文（一律從 liffMessages 取）
+ */
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  getIDToken,
-  initLiff,
-  isInLineClient,
-} from "@/lib/liff/client";
+import { getIDToken, initLiff, isInLineClient } from "@/lib/liff/client";
 import { liffMessages } from "@/lib/liff/messages";
-import {
-  fetchLiffWallets,
-  type LiffWalletRow,
-  type LiffMakeupCreditRow,
-} from "@/server/actions/liff-my-wallets";
-import {
-  fetchLiffBookings,
-  type LiffBookingRow,
-} from "@/server/actions/liff-my-bookings";
-import { fetchLiffHealthSummary } from "@/server/actions/liff-health";
-import {
-  fetchLiffMemberStoreContext,
-  type LiffMemberStoreOption,
-} from "@/server/actions/liff-member-stores";
+import type { LiffWalletRow, LiffMakeupCreditRow } from "@/server/actions/liff-my-wallets";
+import type { LiffBookingRow } from "@/server/actions/liff-my-bookings";
+import { fetchLiffHomeAccess, fetchLiffHomeSummary } from "@/server/actions/liff-member-home";
+import { measureLiffClientPhase } from "@/lib/liff/client-timing";
+import type { LiffMemberStoreOption } from "@/server/actions/liff-member-stores";
 import type { HealthSummary } from "@/lib/health-service";
 import { getMemberPlanSummary } from "@/lib/liff/member-plan-summary";
-import {
-  fetchLiffReferralShareContext,
-  type LiffReferralShareContext,
-} from "@/server/actions/liff-referral-share";
+import type { LiffReferralShareContext } from "@/server/actions/liff-referral-share";
 import { LiffBottomNav } from "./liff-bottom-nav";
 import { LiffStoreSwitcher } from "./liff-store-switcher";
 import { LiffStoreShareCard } from "./liff-store-share-card";
-import {
-  STEAMFOOT_INDUSTRY_MODULE,
-  type MemberHomeTerminology,
-} from "@/lib/industry-modules";
-import { fetchLiffStaffAccess } from "@/server/actions/liff-staff-access";
-import {
-  fetchSpaLiffBookings,
-  fetchSpaLiffEntitlements,
-} from "@/server/actions/spa-liff-member";
+import { STEAMFOOT_INDUSTRY_MODULE, type MemberHomeTerminology } from "@/lib/industry-modules";
+
 import type { IndustryModuleId } from "@/lib/industry-modules";
 import { STATUS_LABEL } from "@/lib/booking-constants";
-import { SpaIdentityModeSwitcher } from "@/components/spa-identity-mode-switcher";
 
 type State =
   | { kind: "initializing" }
@@ -90,6 +131,7 @@ interface LiffShellProps {
   terminology: MemberHomeTerminology;
   memberDataSource: IndustryModuleId;
   bookingHref?: string;
+  bookingIntent?: boolean;
 }
 
 /**
@@ -115,6 +157,7 @@ export function LiffShell({
   terminology,
   memberDataSource,
   bookingHref,
+  bookingIntent = false,
 }: LiffShellProps) {
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-G4：lazy fetch — signed_in 後 fire-and-forget，不擋 home 既有渲染
@@ -127,7 +170,12 @@ export function LiffShell({
     (async () => {
       // ── 1. Init LIFF ──
       try {
-        await initLiff(liffId);
+        const sdk = await measureLiffClientPhase("sdk_init", () => initLiff(liffId));
+        if (cancelled) return;
+        if (!isInLineClient() && bookingIntent && !sdk.isLoggedIn()) {
+          sdk.login({ redirectUri: window.location.href });
+          return;
+        }
       } catch (err) {
         if (cancelled) return;
         console.warn("[liff-shell] liff.init failed", err);
@@ -137,25 +185,14 @@ export function LiffShell({
       if (cancelled) return;
 
       // ── 2. 環境檢查 ──
-      if (!isInLineClient()) {
+      if (!isInLineClient() && !bookingIntent) {
         setState({ kind: "not_in_line_app" });
         return;
       }
 
       const loadMemberHome = async () => {
         try {
-          const [wallets, bookings, health, referralShare] = await Promise.all([
-            memberDataSource === "spa"
-              ? fetchSpaLiffEntitlements()
-              : fetchLiffWallets(),
-            memberDataSource === "spa"
-              ? fetchSpaLiffBookings()
-              : fetchLiffBookings(),
-            healthAssessmentEnabled
-              ? fetchLiffHealthSummary()
-              : Promise.resolve(null),
-            fetchLiffReferralShareContext(),
-          ]);
+          const { wallets, bookings, health, referralShare } = await measureLiffClientPhase("home_summary", () => fetchLiffHomeSummary(healthAssessmentEnabled));
           if (cancelled) return;
           setMemberSummary({
             walletsStatus: wallets?.status === "ok" ? "ok" : "error",
@@ -190,20 +227,17 @@ export function LiffShell({
       // ── 3. /api/liff/exchange ──
       setState({ kind: "exchanging" });
       try {
-        const body = await refreshLiffSession({ idToken, storeSlug });
+        const body = await measureLiffClientPhase("session_exchange", () => refreshLiffSession({ idToken, storeSlug }));
         if (cancelled) return;
 
         if (body.status === "session_created") {
           // Course uses the same authenticated mobile portal in LINE and browsers.
           // Branch before legacy summaries/work routing to avoid steamfoot/SPA data.
           if (memberDataSource === "course") {
-            window.location.replace(courseMemberReturnPath(storeSlug, window.location.search));
+            window.location.replace(courseMemberReturnPath(storeSlug, bookingIntent ? "?courseView=schedule" : window.location.search, true));
             return;
           }
-          const [memberContext, workAccess] = await Promise.all([
-            fetchLiffMemberStoreContext().catch(() => null),
-            fetchLiffStaffAccess().catch(() => ({ status: "no_access" as const })),
-          ]);
+          const { memberContext, workAccess } = await measureLiffClientPhase("home_access", () => fetchLiffHomeAccess());
           if (cancelled) return;
           if (memberContext?.status === "signed_in") {
             setMemberStores(memberContext.stores);
@@ -251,25 +285,15 @@ export function LiffShell({
     return () => {
       cancelled = true;
     };
-  }, [healthAssessmentEnabled, liffId, memberDataSource, storeSlug]);
+  }, [healthAssessmentEnabled, liffId, memberDataSource, storeSlug, bookingIntent]);
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-3 px-4 pb-4 pt-3">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          {state.kind === "signed_in" ? (
-            <LiffStoreSwitcher
-              currentStoreSlug={storeSlug}
-              currentStoreName={storeName}
-              stores={memberStores}
-            />
-          ) : (
-            <p className="text-sm font-semibold tracking-[0.12em] text-primary-700">{storeName}</p>
-          )}
-          <p className="mt-0.5 text-sm text-earth-500">{liffMessages.shell.memberHomeLabel}</p>
-        </div>
-        <SteamButlerLogo compact />
-      </header>
+    <div className="mx-auto flex max-w-md flex-col gap-3 px-4 pb-4 pt-2">
+      <MemberPortalHeader label="LINE 門市識別"
+        store={state.kind === "signed_in" ? <LiffStoreSwitcher currentStoreSlug={storeSlug} currentStoreName={storeName} stores={memberStores} /> : <p className="break-words text-lg font-semibold text-primary-900">{storeName}</p>}
+        caption={liffMessages.shell.memberHomeLabel}
+        account={<FrontendAccountMenu storeSlug={storeSlug} name={state.kind === "signed_in" ? state.displayName : null} readOnly={state.kind === "initializing" || state.kind === "exchanging"} />}
+      />
 
       {state.kind === "initializing" && (
         <Loading text={liffMessages.shell.initializing} />
@@ -323,6 +347,7 @@ export function LiffShell({
           storeName={storeName}
           memberDataSource={memberDataSource}
           displayName={state.displayName}
+          bookingIntent={bookingIntent}
         />
       )}
 
@@ -420,11 +445,13 @@ function WelcomeCta({
   storeName,
   memberDataSource,
   displayName,
+  bookingIntent = false,
 }: {
   storeSlug: string;
   storeName: string;
   memberDataSource: IndustryModuleId;
   displayName: string | null;
+  bookingIntent?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -440,7 +467,7 @@ function WelcomeCta({
         </p>
       </div>
       <Link
-        href={`/s/${storeSlug}/liff/onboarding`}
+        href={`/s/${storeSlug}/liff/onboarding${bookingIntent ? "?booking=1" : ""}`}
         className="inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.22)] transition hover:bg-primary-700 active:scale-[0.98]"
       >
         {liffMessages.shell.welcomeCta}
@@ -452,18 +479,7 @@ function WelcomeCta({
   );
 }
 
-export function WelcomeBack({
-  storeSlug,
-  displayName,
-  memberSummary,
-  healthAssessmentEnabled,
-  terminology,
-  memberDataSource = "steamfoot",
-  bookingHref,
-  memberLinks,
-  hasWorkAccess = false,
-  compactHome = false,
-}: {
+type WelcomeBackProps = {
   storeSlug: string;
   displayName: string | null;
   memberSummary: MemberHomeSummary | "error" | null;
@@ -479,7 +495,29 @@ export function WelcomeBack({
   };
   hasWorkAccess?: boolean;
   compactHome?: boolean;
-}) {
+  previewAnnouncements?: boolean;
+};
+
+export function WelcomeBack(props: WelcomeBackProps) {
+  // Public announcements do not depend on private membership summaries.
+  // Keep one stable mount while those summaries load or fail.
+  return <>
+    <StoreImageAnnouncements storeSlug={props.storeSlug} preview={props.previewAnnouncements ?? false} />
+    <MemberHomeContent {...props} />
+  </>;
+}
+
+function MemberHomeContent({
+  storeSlug,
+  displayName,
+  memberSummary,
+  healthAssessmentEnabled,
+  terminology,
+  memberDataSource = "steamfoot",
+  bookingHref,
+  memberLinks,
+  compactHome = false,
+}: WelcomeBackProps) {
   if (!memberSummary) {
     return (
       <div className="flex flex-col gap-3">
@@ -536,9 +574,7 @@ export function WelcomeBack({
 
   return (
     <div className="flex flex-col gap-3">
-      {hasWorkAccess && (
-        <SpaIdentityModeSwitcher storeSlug={storeSlug} activeMode="member" />
-      )}
+
       <p className="px-1 text-sm font-medium text-earth-600">
         {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
       </p>

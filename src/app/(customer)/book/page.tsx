@@ -1,3 +1,4 @@
+import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
 import { CoursePortal } from "./course-portal";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
@@ -13,15 +14,6 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { SPA_INDUSTRY_MODULE } from "@/lib/industry-modules";
-import {
-  fetchSpaLiffBookings,
-  fetchSpaLiffEntitlements,
-} from "@/server/actions/spa-liff-member";
-import {
-  WelcomeBack,
-  type MemberHomeSummary,
-} from "@/app/(liff)/liff/liff-shell";
 
 /** 計算距離提醒文案 */
 function getReminderText(bookingDate: Date, slotTime: string): string {
@@ -68,42 +60,8 @@ export default async function CustomerHomePage({ searchParams }: { searchParams:
     ? await getStoreIndustryModule(storeId)
     : "steamfoot";
 
+  if (industryModule === "beauty") redirect(`${prefix}/beauty`);
   if (industryModule === "course") return <CoursePortal {...await searchParams} />;
-
-  if (industryModule === "spa") {
-    const [entitlements, bookings] = await Promise.all([
-      fetchSpaLiffEntitlements(),
-      fetchSpaLiffBookings(),
-    ]);
-    const summary: MemberHomeSummary = {
-      walletsStatus: entitlements.status === "ok" ? "ok" : "error",
-      activeWallets: entitlements.status === "ok" ? entitlements.active : [],
-      makeupCredits:
-        entitlements.status === "ok" ? entitlements.makeupCredits : [],
-      upcomingBookings: bookings.status === "ok" ? bookings.upcoming : [],
-      nextBooking:
-        bookings.status === "ok" ? (bookings.upcoming[0] ?? null) : null,
-      healthSummary: null,
-      referralShare: null,
-    };
-
-    return (
-      <WelcomeBack
-        storeSlug={storeSlug}
-        displayName={user.name ?? null}
-        memberSummary={summary}
-        healthAssessmentEnabled={false}
-        terminology={SPA_INDUSTRY_MODULE.customer}
-        memberDataSource="spa"
-        bookingHref={`${prefix}/book/new`}
-        memberLinks={{
-          bookings: `${prefix}/liff/bookings`,
-          wallets: `${prefix}/liff/wallets`,
-          profile: `${prefix}/profile`,
-        }}
-      />
-    );
-  }
 
   if (!user.customerId) redirect("/");
   const healthAssessmentEnabled = storeId
@@ -187,6 +145,7 @@ export default async function CustomerHomePage({ searchParams }: { searchParams:
 
   return (
     <div className="space-y-2.5">
+      <StoreImageAnnouncements storeSlug={storeSlug} />
       {/* ═══ 1. Hero（預約 — 主 CTA）═══ */}
       <section className="rounded-[20px] bg-white p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <p className="text-lg font-bold leading-snug text-earth-900">

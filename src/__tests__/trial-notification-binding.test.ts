@@ -23,6 +23,15 @@ beforeEach(() => {
 });
 
 describe("public trial notification capability", () => {
+  it("pins a new verified member's notification capability to the Login owner", async () => {
+    const result = await prepareTrialNotificationSetup({ ...input, loginOwnerId: "owner" });
+    expect(result.status).toBe("pending");
+    expect(m.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ OR: [{ userId: null }, { userId: "owner" }],
+        identityLinks: { some: { userId: "owner", provider: "line" } } }),
+      data: expect.objectContaining({ lineBindingCode: expect.stringMatching(/^trial-login:[a-f0-9]{64}:[a-f0-9]{64}$/) }),
+    }));
+  });
   it("keeps linked customers free of additional steps", async () => {
     expect(await prepareTrialNotificationSetup({ ...input, linked: true })).toEqual({ status: "linked" });
     expect(m.info).not.toHaveBeenCalled();
@@ -58,6 +67,24 @@ describe("public trial notification capability", () => {
 });
 
 describe("store-signed webhook claim", () => {
+  it("connects the independent OA subject while preserving a verified Login owner", async () => {
+    const code = `trial-login:${createHash("sha256").update(token).digest("hex")}:${createHash("sha256").update("owner").digest("hex")}`;
+    m.find.mockReset().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "customer", userId: "owner", lineBindingCode: code,
+      identityLinks: [{ userId: "owner", user: { status: "ACTIVE" } }] }).mockResolvedValue(null);
+    expect(await claimTrialNotificationSetup("store", "U-new-OA-subject", token, now)).toBe("linked");
+    expect(m.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ userId: "owner", lineBindingCode: code, identityLinks: { some: { provider: "line", userId: "owner" } } }),
+      data: { lineUserId: "U-new-OA-subject", lineLinkStatus: "LINKED", lineLinkedAt: now, lineBindingCode: null, lineBindingCodeCreatedAt: null },
+    }));
+  });
+  it.each(["owner_changed", "inactive", "multiple_links"])("rejects a verified booking capability when %s", async problem => {
+    const code = `trial-login:${createHash("sha256").update(token).digest("hex")}:${createHash("sha256").update("owner").digest("hex")}`;
+    const links = [{ userId: "owner", user: { status: problem === "inactive" ? "INACTIVE" : "ACTIVE" } }];
+    if (problem === "multiple_links") links.push({ userId: "other", user: { status: "ACTIVE" } });
+    m.find.mockReset().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "customer", userId: problem === "owner_changed" ? "other" : "owner", lineBindingCode: code, identityLinks: links });
+    expect(await claimTrialNotificationSetup("store", "Unew", token, now)).toBe("invalid");
+    expect(m.update).not.toHaveBeenCalled();
+  });
   it("consumes once, scopes to store and TTL, never changes login identity", async () => {
     expect(await claimTrialNotificationSetup("store", "Unew", token, now)).toBe("linked");
     expect(m.find).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: expect.objectContaining({ storeId: "store", lineUserId: null, userId: null, mergedIntoCustomerId: null,

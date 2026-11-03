@@ -1,0 +1,148 @@
+{
+  "complete": true,
+  "scope": "isolated full local app: login, expiry, close, retained finance/history, retry; not hosted or physical Safari",
+  "results": [
+    {
+      "store": "sports",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "management-entry-visible",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "extend-same-panel",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 985
+    },
+    {
+      "store": "sports",
+      "step": "shorten-same-panel",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 979
+    },
+    {
+      "store": "sports",
+      "step": "close-once-preserve-original-finance-and-history",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "reload-does-not-repeat-close",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "management-entry-visible",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "extend-same-panel",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 765
+    },
+    {
+      "store": "music",
+      "step": "shorten-same-panel",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 2132
+    },
+    {
+      "store": "music",
+      "step": "lost-committed-response-original-command-retry",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "close-once-preserve-original-finance-and-history",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "reload-does-not-repeat-close",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "management-entry-visible",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "extend-same-panel",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 702
+    },
+    {
+      "store": "beauty",
+      "step": "shorten-same-panel",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 1278
+    },
+    {
+      "store": "beauty",
+      "step": "close-once-preserve-original-finance-and-history",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "reload-does-not-repeat-close",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "management-entry-visible",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "extend-same-panel",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 1108
+    },
+    {
+      "store": "steam",
+      "step": "shorten-same-panel",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 1124
+    },
+    {
+      "store": "steam",
+      "step": "close-once-preserve-original-finance-and-history",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "reload-does-not-repeat-close",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

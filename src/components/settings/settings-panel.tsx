@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { LoadingStatus } from "@/components/loading-status";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { SettingsPanelContext, type SettingsPanelState } from "@/components/admin/settings-panel-context";
+import { SettingsPanelContext, useSettingsPanelDismissal, useSettingsPanelReaderHost, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { ADMIN_SETTINGS_PANEL } from "@/lib/admin-ui";
 
 export function SettingsPanel({
@@ -21,6 +22,7 @@ export function SettingsPanel({
   const pathname = usePathname();
   const search = useSearchParams();
   const searchString = search.toString();
+  const { dismissed, dismiss } = useSettingsPanelDismissal(searchString);
   const [states, setStates] = useState<Record<string, SettingsPanelState>>({});
   const [destination, setDestination] = useState<string | null>(null);
   const [navigating, startNavigation] = useTransition();
@@ -47,13 +49,17 @@ export function SettingsPanel({
     return query ? `${pathname}?${query}` : pathname;
   }, [pathname, searchString]);
 
+  const { reader, registerReader } = useSettingsPanelReaderHost();
   const go = useCallback((href: string) => {
     setDestination(null);
-    startNavigation(() => router.replace(href, { scroll: false }));
-  }, [router]);
+    if (href === closeHref) { dismiss(href); return; }
+    const reading = reader.current?.(href);
+    if (reading) startNavigation(async () => { await reading; });
+    else startNavigation(() => router.replace(href, { scroll: false }));
+  }, [router, closeHref, dismiss, reader]);
 
   const request = useCallback((href: string) => {
-    if (dirty || pending) setDestination(href);
+    if (pending) setDestination(href);
     else go(href);
   }, [dirty, pending, go]);
 
@@ -78,8 +84,9 @@ export function SettingsPanel({
   }, [closeHref, pathname, request, searchString, sourceHref]);
 
   useEffect(() => {
+    if (dismissed) return;
     const unload = (event: BeforeUnloadEvent) => {
-      if (dirty || pending) {
+      if (pending) {
         event.preventDefault();
         event.returnValue = "";
       }
@@ -97,15 +104,15 @@ export function SettingsPanel({
       window.removeEventListener("beforeunload", unload);
       document.removeEventListener("keydown", escape);
     };
-  }, [dirty, pending, request, closeHref, destination]);
+  }, [dirty, pending, request, closeHref, destination, dismissed]);
 
-  const context = useMemo(() => ({ report, navigate }), [report, navigate]);
+  const context = useMemo(() => ({ report, navigate, registerReader: sourceHref === "/dashboard/reminders" ? registerReader : undefined }), [report, navigate, registerReader, sourceHref]);
 
   return (
     <div ref={root} data-settings-panel>
       <RightSheet
         presentation="centered"
-        open
+        open={!dismissed}
         compact
         fixedHeight
         width={width}
@@ -123,6 +130,8 @@ export function SettingsPanel({
             關閉視窗
           </button>
         </header>
+
+        {navigating && <div data-panel-navigation-status className="shrink-0 border-b border-primary-100 bg-primary-50 px-4"><LoadingStatus>正在切換，請稍候…</LoadingStatus></div>}
 
         {destination ? (
           <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 p-4">
@@ -163,12 +172,7 @@ export function SettingsPanel({
             navigate(sourceHref + "?" + params);
           }}
         >
-          {navigating ? (
-            <p role="status" className="pointer-events-none absolute right-4 top-3 z-10 rounded-full bg-white/95 px-3 py-1 text-xs text-earth-500 shadow-sm">
-              正在更新…
-            </p>
-          ) : null}
-          <SettingsPanelContext.Provider value={context}>{children}</SettingsPanelContext.Provider>
+          <SettingsPanelContext.Provider value={context}>{dismissed ? null : children}</SettingsPanelContext.Provider>
         </div>
       </RightSheet>
     </div>

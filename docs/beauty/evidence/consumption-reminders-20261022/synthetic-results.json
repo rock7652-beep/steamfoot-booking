@@ -1,0 +1,562 @@
+{
+  "synthetic": true,
+  "businessAcceptance": false,
+  "physicalDevice": false,
+  "results": [
+    {
+      "module": "beauty",
+      "view": "settings",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "analytics",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "care",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "consumption",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "reminders",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "settings",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "analytics",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "care",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "consumption",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "reminders",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "settings",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "analytics",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "care",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "consumption",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "reminders",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "settings",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "analytics",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "care",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "consumption",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "reminders",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "settings",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "analytics",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "care",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "consumption",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "view": "reminders",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "beauty",
+      "draftCategoryPreserved": true,
+      "draftResizePreserved": true
+    },
+    {
+      "module": "sports",
+      "view": "settings",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "analytics",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "care",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "consumption",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "reminders",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "settings",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "analytics",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "care",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "consumption",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "reminders",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "settings",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "analytics",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "care",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "consumption",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "reminders",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "settings",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "analytics",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "care",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "consumption",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "reminders",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "settings",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "analytics",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "care",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "consumption",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "view": "reminders",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "sports",
+      "draftCategoryPreserved": true,
+      "draftResizePreserved": true
+    },
+    {
+      "module": "music",
+      "view": "settings",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "analytics",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "care",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "consumption",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "reminders",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "settings",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "analytics",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "care",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "consumption",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "reminders",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "settings",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "analytics",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "care",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "consumption",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "reminders",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "settings",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "analytics",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "care",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "consumption",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "reminders",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "settings",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "analytics",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "care",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "consumption",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "view": "reminders",
+      "width": 560,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "module": "music",
+      "draftCategoryPreserved": true,
+      "draftResizePreserved": true
+    },
+    {
+      "module": "beauty",
+      "consumptionFilter": true,
+      "consumptionCustomerLink": true,
+      "reminderCustomerLink": true,
+      "phone390": true
+    },
+    {
+      "module": "music",
+      "consumptionFilter": true,
+      "consumptionCustomerLink": true,
+      "reminderCustomerLink": true,
+      "phone390": true
+    }
+  ],
+  "errors": []
+}

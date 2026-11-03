@@ -1,0 +1,89 @@
+{
+  "stage": "public trial",
+  "results": [
+    {
+      "case": "店長 首頁 載入與無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "店長 班表 載入與無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "店長 顧客管理 載入與無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "店長 顧客經營 載入與無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "店長 營運 載入與無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "店長 分析 載入與無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "店長 位置管理 載入與無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "店長 服務項目 載入與無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "店長 收費方式 載入與無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "店長 技師管理 載入與無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "店長 設定 載入與無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "iPad 1024 六頁無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "iPad 768 六頁無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "顧客 390 導覽與各頁無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "顧客 360 導覽與各頁無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "技師 390 導覽與各頁無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "技師 360 導覽與各頁無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "公開體驗 360 無全頁溢出",
+      "passed": true
+    },
+    {
+      "case": "三端無未處理瀏覽器例外",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "lineVerified": false,
+  "productionChanged": false,
+  "sourceCommit": "f8eb20910a95d461708d275bb4f12cb481c01df4",
+  "deploymentId": "dpl_5Ym14GWDR8YuR2pezaXx2FddXPKh",
+  "storeScope": "beauty-hosted-20261021",
+  "screenshots": 44
+}

@@ -1,4 +1,7 @@
 "use server";
+import { enqueuePlanActivation } from "@/server/services/plan-activation-enqueue";
+import { activationExpiry } from "@/lib/plan-activation-notification";
+import { kickPlanActivationNotifications } from "@/server/services/plan-activation-notification-kick";
 
 import { createFinancialTransaction } from "@/server/services/financial-transaction";
 
@@ -58,7 +61,7 @@ export async function purchasePlanForSingleBooking(
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
     const plan = await prisma.servicePlan.findFirst({
       where: { id: data.planId, storeId, isActive: true },
-      select: { id: true, price: true, sessionCount: true, validityDays: true },
+      select: { id: true, name: true, price: true, sessionCount: true, validityDays: true },
     });
     if (!plan) throw new AppError("NOT_FOUND", "方案不存在、已停用或不屬於本店");
     if (plan.sessionCount <= 1) throw new AppError("BUSINESS_RULE", "轉購請選擇多堂儲值方案");
@@ -100,8 +103,10 @@ export async function purchasePlanForSingleBooking(
       const transaction = await createFinancialTransaction(tx, {
         data: { ...snapshot, customerId: fresh.customerId, storeId, bookingId: booking.id, revenueStaffId, soldByStaffId: user.staffId ?? null, customerPlanWalletId: wallet?.id ?? null, transactionType: "PACKAGE_PURCHASE", paymentMethod: data.paymentMethod, paymentStatus: isPending ? "PENDING" : "SUCCESS", paidAt: isPending ? null : activationTime, conversionEffectsApplied: !isPending, conversionSnapshotCaptured: true, preConversionCustomerStage: !isPending ? customer.customerStage : null, preConversionSelfBookingEnabled: !isPending ? customer.selfBookingEnabled : null, preConversionConvertedAt: !isPending ? customer.convertedAt : null, conversionAppliedConvertedAt: !isPending ? (customer.convertedAt ?? activationTime) : null, status: "SUCCESS", amount: data.amount, planId: plan.id, planSessionCountSnapshot: plan.sessionCount, pendingWalletExpiryDateSnapshot: isPending ? expiryDate : null, discountReason: data.discountReason || null, note: data.note || null },
       });
+      if(wallet)await enqueuePlanActivation(tx,{storeId,customerId:fresh.customerId,module:"STEAMFOOT",sourceId:transaction.id,entitlementId:wallet.id,planName:plan.name,quantity:plan.sessionCount,unit:"堂",expiresDate:activationExpiry(wallet.expiryDate)});
       return { transactionId: transaction.id, walletId: wallet?.id ?? null };
     });
+    kickPlanActivationNotifications(storeId);
     revalidateBookings(booking.customerId);
     return { success: true, data: { ...result, pendingPayment: isPending } };
   } catch (e) {

@@ -27,6 +27,8 @@
 import { usePathname } from "next/navigation";
 import { AppLink as Link } from "./app-link";
 import type { ComponentProps, ReactNode } from "react";
+import { useContext } from "react";
+import { SettingsPanelContext } from "@/components/admin/settings-panel-context";
 
 function extractPrefix(pathname: string): string {
   const storeMatch = pathname.match(/^(\/s\/[^/]+\/admin)\/dashboard/);
@@ -53,9 +55,10 @@ type Props = Omit<ComponentProps<typeof Link>, "href"> & {
 
 export function DashboardLink({ href, children, ...rest }: Props) {
   const pathname = usePathname();
+  const independentPanel = !!useContext(SettingsPanelContext)?.registerReader;
   const resolved = resolveDashboardHref(href, pathname);
   return (
-    <Link href={resolved} {...rest}>
+    <Link href={resolved} {...rest} prefetch={independentPanel ? false : rest.prefetch}>
       {children}
     </Link>
   );

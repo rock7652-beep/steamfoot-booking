@@ -14,7 +14,7 @@ it.each(["basic_booking","customer_management","plan_management"] as const)("enf
 });
 function pages(dir:string):string[]{return readdirSync(dir,{withFileTypes:true}).flatMap(entry=>entry.isDirectory()?pages(join(dir,entry.name)):entry.name==="page.tsx"?[join(dir,entry.name)]:[]);}
 it("places independent guards on every core page including nested new/edit routes",()=>{
- for(const [dir,feature] of [["bookings","basic_booking"],["customers","customer_management"],["plans","plan_management"],["spa-schedule","basic_booking"]]) {
+ for(const [dir,feature] of [["bookings","basic_booking"],["customers","customer_management"],["plans","plan_management"]]) {
   for(const file of pages(`src/app/(dashboard)/dashboard/${dir}`))expect(readFileSync(file,"utf8"),file).toContain(`await requireDashboardCoreFeature("${feature}")`);
  }
 });

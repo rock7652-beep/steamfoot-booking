@@ -1,0 +1,33 @@
+{
+  "localSyntheticOnly": true,
+  "cpuSlowdown": 6,
+  "simulatedReadLatencyMs": 500,
+  "urls": [
+    "http://localhost:3123/s/beauty-shared-qa/admin/dashboard/beauty?tab=%E7%8F%AD%E8%A1%A8&date=2026-10-22&scheduleView=day",
+    "http://localhost:3123/s/beauty-shared-qa/admin/dashboard/beauty?tab=%E7%8F%AD%E8%A1%A8&date=2026-10-22&scheduleView=day",
+    "http://localhost:3123/s/beauty-shared-qa/admin/dashboard/beauty?tab=%E9%A1%A7%E5%AE%A2%E7%AE%A1%E7%90%86",
+    "http://localhost:3123/s/beauty-shared-qa/admin/dashboard/beauty?tab=%E9%A1%A7%E5%AE%A2%E7%AE%A1%E7%90%86",
+    "http://localhost:3123/s/beauty-shared-qa/admin/dashboard/beauty?tab=%E9%A1%A7%E5%AE%A2%E7%AE%A1%E7%90%86",
+    "http://localhost:3123/s/beauty-shared-qa/admin/dashboard/beauty?tab=%E7%8F%AD%E8%A1%A8",
+    "http://localhost:3123/s/beauty-shared-qa/admin/dashboard/beauty?tab=%E7%8F%AD%E8%A1%A8",
+    "http://localhost:3123/s/beauty-shared-qa/admin/dashboard/beauty?tab=%E7%8F%AD%E8%A1%A8"
+  ],
+  "frames": [
+    {
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty?tab=%E9%A1%A7%E5%AE%A2%E7%AE%A1%E7%90%86",
+      "key": "{\"day\":false,\"month\":false,\"homeSkeleton\":false,\"loading\":false}"
+    },
+    {
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty?tab=%E7%8F%AD%E8%A1%A8",
+      "key": "{\"day\":false,\"month\":false,\"homeSkeleton\":false,\"loading\":false}"
+    },
+    {
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty?tab=%E7%8F%AD%E8%A1%A8",
+      "key": "{\"day\":false,\"month\":false,\"homeSkeleton\":false,\"loading\":true}"
+    },
+    {
+      "url": "/s/beauty-shared-qa/admin/dashboard/beauty?tab=%E7%8F%AD%E8%A1%A8",
+      "key": "{\"day\":true,\"month\":false,\"homeSkeleton\":false,\"loading\":false}"
+    }
+  ]
+}

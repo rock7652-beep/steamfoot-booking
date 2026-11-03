@@ -64,6 +64,7 @@ const STATUS_BADGE: Record<string, { text: string; color: string }> = {
 
 interface PageProps {
   searchParams: Promise<{
+    dataScope?: string;
     dateFrom?: string;
     dateTo?: string;
     transactionType?: TransactionType;

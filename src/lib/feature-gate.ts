@@ -1,3 +1,4 @@
+import { resolveCourseSharedCardState } from "@/lib/course-shared-card-policy";
 /**
  * Feature Gate — Server-side 功能閘門
  *
@@ -5,19 +6,37 @@
  * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
  */
 
-import {cache} from "react";
-import {sportsNativePreview} from "@/lib/sports-native-preview";
+/**
+ * Feature Gate — Server-side 功能閘門
+ *
+ * 用於 server component / server action 中檢查當前 store 的功能是否開通。
+ * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
+ */
+/**
+ * Feature Gate — Server-side 功能閘門
+ *
+ * 用於 server component / server action 中檢查當前 store 的功能是否開通。
+ * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
+ */
+/**
+ * Feature Gate — Server-side 功能閘門
+ *
+ * 用於 server component / server action 中檢查當前 store 的功能是否開通。
+ * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
+ */
+import { cache } from "react";
+import { sportsNativePreview } from "@/lib/sports-native-preview";
 import { inventoryFeatureAllowed } from "@/lib/inventory-feature-access";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import { AppError } from "@/lib/errors";
-import { resolveEffectiveEntitlement, type FeaturePresentationState } from "@/lib/effective-entitlement";
-import { getPlanLimits, hasFeature, FEATURES } from "@/lib/feature-flags";
+import { resolveEffectiveEntitlement, type FeaturePresentationState, type FeatureEntitlementOverride } from "@/lib/effective-entitlement";
+import { hasFeature, FEATURES } from "@/lib/feature-flags";
+import { getEffectivePlanLimits } from "@/lib/effective-plan-limits";
 import { getCurrentStoreForPlan, getStoreForPlanByStoreId } from "@/lib/store-plan";
 import type { FeatureKey, PlanLimits } from "@/lib/feature-flags";
 import type { StorePlanFields } from "@/lib/store-plan";
-import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 
 const FEATURE_KEY_SET = new Set<string>(Object.values(FEATURES));
 
@@ -63,7 +82,7 @@ export async function getActiveStoreFeatureEntitlement(
 ): Promise<StoreFeatureEntitlementFields | null> {
   if (!isFeatureKey(feature)) return null;
 
-  const entitlement = sportsNativePreview(storeId)?(await previewEntitlements(storeId)).find(row=>row.featureKey===feature)??null:await getCachedStoreFeatureEntitlement(storeId, feature);
+  const entitlement = (await sportsNativePreview(storeId))?(await previewEntitlements(storeId)).find(row=>row.featureKey===feature)??null:await getCachedStoreFeatureEntitlement(storeId, feature);
   if (!entitlement) return null;
 
   if (entitlement.startsAt && entitlement.startsAt > now) return null;
@@ -77,6 +96,11 @@ export async function hasStoreFeature(
   feature: FeatureKey,
 ): Promise<boolean> {
   if (!isFeatureKey(feature)) return false;
+  if (feature === FEATURES.ADD_ONS || feature === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
+    if(feature===FEATURES.BEAUTY_SERVICE_ADD_ONS && (await prisma.store.findUnique({where:{id:storeId},select:{industryModule:true}}))?.industryModule!=="BEAUTY")return false;
+    const grant = await prisma.storeFeatureEntitlement.findUnique({where:{uq_store_feature_entitlement:{storeId,featureKey:feature}},select:{status:true,startsAt:true,expiresAt:true}});
+    return resolveEffectiveEntitlement(false, grant).enabled;
+  }
   if (feature === FEATURES.STORE_OPERATION_AUDIT) {
     const { isStoreOperationAuditEnabled } = await import("@/server/services/store-operation-audit-access");
     return isStoreOperationAuditEnabled(storeId);
@@ -94,7 +118,6 @@ export async function hasStoreFeature(
     const [store, grant] = await Promise.all([getStoreForPlanByStoreId(storeId), getActiveStoreFeatureEntitlement(storeId, feature)]);
     return inventoryFeatureAllowed(store.plan, grant);
   }
-  if (isSpaDemoStoreId(storeId)) return true;
 
   const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
   // Explicit three-state controls are honored in trials; legacy DISABLED trial rules remain unchanged.
@@ -135,7 +158,7 @@ export async function checkCurrentStoreFeature(feature: FeatureKey): Promise<Sto
 /** 取得當前 store 的有效用量限制 */
 export async function getCurrentStoreLimits(): Promise<PlanLimits> {
   const store = await getCurrentStoreForPlan();
-  return getPlanLimits(store);
+  return getEffectivePlanLimits(store);
 }
 
 /**
@@ -147,7 +170,7 @@ export async function getCurrentStoreLimits(): Promise<PlanLimits> {
  */
 export async function getStoreLimitsByStoreId(storeId: string): Promise<PlanLimits> {
   const store = await getStoreForPlanByStoreId(storeId);
-  return getPlanLimits(store);
+  return getEffectivePlanLimits(store);
 }
 
 export async function hasCurrentStoreFeature(feature: FeatureKey): Promise<boolean> {
@@ -158,6 +181,12 @@ export async function hasCurrentStoreFeature(feature: FeatureKey): Promise<boole
 /** Shares the same entitlement dates and effective authorization as server actions. */
 export async function getStoreFeaturePresentation(storeId: string, feature: FeatureKey): Promise<FeaturePresentationState> {
   if (!isFeatureKey(feature)) return "HIDDEN";
+  if (feature === FEATURES.ADD_ONS || feature === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
+    if(feature===FEATURES.BEAUTY_SERVICE_ADD_ONS && (await prisma.store.findUnique({where:{id:storeId},select:{industryModule:true}}))?.industryModule!=="BEAUTY")return "HIDDEN";
+    const grant = await prisma.storeFeatureEntitlement.findUnique({where:{uq_store_feature_entitlement:{storeId,featureKey:feature}},select:{status:true,startsAt:true,expiresAt:true}});
+    const resolution = resolveEffectiveEntitlement(false, grant);
+    return resolution.source === "HIDDEN" || !grant ? "HIDDEN" : resolution.enabled ? "ENABLED" : "LOCKED";
+  }
   if (feature === FEATURES.STORE_OPERATION_AUDIT) return await hasStoreFeature(storeId, feature) ? "ENABLED" : "HIDDEN";
   if (feature === FEATURES.SHARED_CARD) {
     const { getCourseSharedCardState } = await import("@/server/services/course-shared-card");
@@ -166,12 +195,64 @@ export async function getStoreFeaturePresentation(storeId: string, feature: Feat
   if(feature===FEATURES.WORK_ORDERS){
     const [store,grant]=await Promise.all([getStoreForPlanByStoreId(storeId),getActiveStoreFeatureEntitlement(storeId,feature)]);
     const resolution=resolveEffectiveEntitlement(hasFeature(store.plan,feature),grant);
-    if(resolution.source==="HIDDEN" || (!grant&&!resolution.enabled))return "HIDDEN";
-    return resolution.enabled?"ENABLED":"LOCKED";
+    return resolution.enabled ? "ENABLED" : "HIDDEN";
   }
   if (feature === FEATURES.INVENTORY) return await hasStoreFeature(storeId,feature) ? "ENABLED" : "HIDDEN";
-  if (isSpaDemoStoreId(storeId)) return "ENABLED";
+
   const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
   if (entitlement?.status === "HIDDEN") return "HIDDEN";
   return await hasStoreFeature(storeId, feature) ? "ENABLED" : "LOCKED";
 }
+
+/** Presentation only. Two fresh queries, shared only inside one React server request.
+ * Mutations continue to use their original feature gates and transaction checks.
+ */
+export const getStoreFeaturePresentations = cache(async (storeId: string): Promise<Record<FeatureKey, FeaturePresentationState>> => {
+  const [store, rows] = await Promise.all([
+    prisma.store.findUnique({ where: { id: storeId }, select: { plan: true, industryModule: true } }),
+    prisma.storeFeatureEntitlement.findMany({ where: { storeId }, select: { featureKey: true, status: true, startsAt: true, expiresAt: true } }),
+  ]);
+  const demo = false;
+  if (!store && !demo) throw new Error("Store not found");
+  const plan = demo ? "ALLIANCE" : store!.plan;
+  const now = new Date();
+  const grants = new Map<string, FeatureEntitlementOverride>(rows.map(row => [row.featureKey, row]));
+  const active = (grant: FeatureEntitlementOverride | undefined) => grant
+    && (!grant.startsAt || grant.startsAt <= now) && (!grant.expiresAt || grant.expiresAt >= now) ? grant : null;
+
+  return Object.fromEntries(Object.values(FEATURES).map(feature => {
+    const raw = grants.get(feature), grant = active(raw);
+    let state: FeaturePresentationState;
+    if (feature === FEATURES.ADD_ONS || feature === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
+      if(feature===FEATURES.BEAUTY_SERVICE_ADD_ONS && store?.industryModule!=="BEAUTY")return [feature,"HIDDEN"];
+      const resolution = resolveEffectiveEntitlement(false, raw ?? null, now);
+      state = resolution.source === "HIDDEN" || !raw ? "HIDDEN" : resolution.enabled ? "ENABLED" : "LOCKED";
+    } else if (feature === FEATURES.STORE_OPERATION_AUDIT) {
+      // Audit expiry is exclusive, matching the uncached authorization policy.
+      state = grant?.status === "ENABLED" && (!grant.expiresAt || grant.expiresAt > now) ? "ENABLED" : "HIDDEN";
+    } else if (feature === FEATURES.SHARED_CARD) {
+      state = resolveCourseSharedCardState({ industryModule: store?.industryModule ?? "STEAMFOOT", music: grants.get("business.music")?.status === "ENABLED", entitlement: raw ?? null }, now);
+    } else if (feature === FEATURES.WORK_ORDERS) {
+      state = resolveEffectiveEntitlement(hasFeature(plan, feature), grant, now).enabled ? "ENABLED" : "HIDDEN";
+    } else if (feature === FEATURES.INVENTORY) {
+      state = inventoryFeatureAllowed(plan, grant, now) ? "ENABLED" : "HIDDEN";
+    } else if (demo) {
+      state = "ENABLED";
+    } else if (grant?.status === "HIDDEN") {
+      state = "HIDDEN";
+    } else {
+      const enabled = grant?.status === "LOCKED" ? false
+        : grant?.status === "ENABLED" ? true
+        : plan === "EXPERIENCE" ? true
+        : feature === FEATURES.FRONTEND_PREVIEW ? false
+        : resolveEffectiveEntitlement(hasFeature(plan, feature), grant, now).enabled;
+      state = enabled ? "ENABLED" : "LOCKED";
+    }
+    return [feature, state];
+  })) as Record<FeatureKey, FeaturePresentationState>;
+});
+
+/** Deduplicate identical read-only feature checks within one server request.
+ * Preserve the existing gate/cache policy; mutations keep their original checks.
+ */
+export const isStoreFeatureEnabledForRead = cache(async (storeId: string, feature: FeatureKey): Promise<boolean> => hasStoreFeature(storeId, feature));

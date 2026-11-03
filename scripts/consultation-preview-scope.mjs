@@ -1,6 +1,14 @@
-import { assertSportsRedesignPreviewEnvironment, SPORTS_REDESIGN_PREVIEW_BRANCH } from "./sports-redesign-preview-scope.mjs";
+import {assertBeautySharedPagesLocalQaEnvironment,assertBeautySharedPagesBuildQaEnvironment} from "./beauty-shared-pages-local-qa-scope.mjs";
+import {MUSIC_RELEASE_BRANCH,assertMusicNativeReleaseEnvironment} from "./music-native-workflow-scope.mjs";
+import { assertImageAnnouncementsAcceptance } from "./image-announcements-acceptance-scope.mjs";
+import { assertBeautyLocalQaEnvironment } from "./beauty-local-qa-scope.mjs";
+import { assertBeautySandboxQaEnvironment } from "./beauty-sandbox-qa-scope.mjs";
+import { assertBeautyReleaseQaEnvironment } from "./beauty-release-qa-scope.mjs";
+import { assertBeautyProductionQaEnvironment } from "./beauty-production-qa-scope.mjs";
+import { assertSportsRedesignPreviewEnvironment, SILVERLILY_CALENDAR_PREVIEW_BRANCH, SPORTS_REDESIGN_PREVIEW_BRANCH, SPORTS_CARD_MODES_PREVIEW_BRANCH, SPORTS_OPENING_GUIDE_PREVIEW_BRANCH, SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH, SETTINGS_OUTCOMES_PREVIEW_BRANCH, YOUNGSKY_SETTINGS_PREVIEW_BRANCH } from "./sports-redesign-preview-scope.mjs";
 export const RESTORE_BOOKING_DISPLAY_PREVIEW_BRANCH = "fix/restore-booking-session-display-20261015";
 import { assertSportsLiveFlowQaEnvironment } from "./sports-live-flow-qa-scope.mjs";
+import { MUSIC_OPENING_BRANCH, assertMusicOpeningPreviewEnvironment } from "./music-opening-preview-scope.mjs";
 import { assertCourseSelfBookingPreviewEnvironment, COURSE_SELF_BOOKING_PREVIEW_BRANCH } from "./course-self-booking-preview-scope.mjs";
 import { assertStoreNoticeReviewBuild, STORE_NOTICE_REVIEW_BRANCH } from "./store-notices-preview-preflight.mjs";
 import { assertStoreMemberWorkorderReviewOnly, STORE_MEMBER_WORKORDER_REVIEW_BRANCH } from "./store-member-workorder-review-gate.mjs";
@@ -66,6 +74,22 @@ export function isIsolatedConsultationDatabaseUrl(value) {
   }
 }
 
+export const BEAUTY_HOSTED_PREVIEW_BRANCH = 'preview/beauty-hosted-20261021';
+/** User-authorized Beauty Preview: existing test database, no automatic DDL or LINE. */
+export function assertBeautyHostedPreviewEnvironment(env) {
+  if (env.VERCEL !== '1' || env.VERCEL_ENV !== 'preview' ||
+      env.BEAUTY_HOSTED_PREVIEW !== '1' ||
+      ![BEAUTY_HOSTED_PREVIEW_BRANCH,'preview/beauty-ui-alignment-20261021'].includes(env.VERCEL_GIT_COMMIT_REF ?? '') ||
+      env.VERCEL_GIT_REPO_OWNER !== 'rock7652-beep' || env.VERCEL_GIT_REPO_SLUG !== 'steamfoot-booking' ||
+      env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH ||
+      env.BEAUTY_SHARED_PAGES_BUILD_QA || env.BEAUTY_SHARED_PAGES_LOCAL_QA || env.BEAUTY_RELEASE_QA || env.BEAUTY_LOCAL_QA || env.BEAUTY_SANDBOX_QA || env.BEAUTY_PRODUCTION_QA ||
+      !['0','1'].includes(env.BEAUTY_MODULE_ENABLED) || env.BEAUTY_NOTIFICATIONS_ENABLED !== '0' ||
+      (env.BEAUTY_DATABASE_MODE && env.BEAUTY_DATABASE_MODE !== 'legacy') || env.BEAUTY_DATABASE_URL ||
+      !isIsolatedConsultationDatabaseUrl(env.DATABASE_URL) || !env.AUTH_SECRET ||
+      env.LINE_CHANNEL_ACCESS_TOKEN || env.WEB_LINE_LOGIN_CHANNEL_SECRET || env.PREVIEW_LINE_ACCEPTANCE_ENABLED === '1')
+    throw Error('Beauty hosted Preview requires its exact branch, isolated database, existing connection mode and disabled LINE.');
+}
+
 export const COURSE_BUSINESS_BOUNDARIES_BRANCH = "codex/course-business-boundaries-20261014";
 export const CONSULTATION_PREVIEW_BRANCH = "feat/hq-consultation-intake-20261008";
 export const HQ_INTAKE_LIST_PREVIEW_BRANCH = "feat/hq-intake-list-live-filter-20261008";
@@ -79,6 +103,7 @@ export const RETENTION_CLARITY_PREVIEW_BRANCH = "feat/customer-retention-clarity
 export const RETENTION_PREVIEW_BRANCH = "fix/monthly-retention-cohort-20261011";
 export const CANCEL_MISTAKEN_PLAN_PREVIEW_BRANCH = "fix/cancel-mistaken-plan-20261012";
 export const MEMBER_LOGIN_UNTIL_USED_PREVIEW_BRANCH = "fix/member-login-until-used-20261018";
+export const NEW_MEMBER_PURCHASE_LOGIN_PREVIEW_BRANCH = "fix/new-member-purchase-login-check-20261026";
 export const MEMBER_LOGIN_RECOVERY_PREVIEW_BRANCH = "fix/member-login-recovery-20261017";
 export const TRIAL_MEMBER_LOGIN_PREVIEW_BRANCH = "fix/trial-first-member-login-20261013";
 export const ALLIANCE_ANNUAL_PRICE_PREVIEW_BRANCH = "feat/alliance-annual-price-2980-20261013";
@@ -93,6 +118,7 @@ export const ROOM_PERFORMANCE_PREVIEW_BRANCH = "fix/course-room-save-performance
 export const MUSIC_TEACHER_SIMPLIFY_PREVIEW_BRANCH = "fix/music-teacher-editor-simplify-20261011";
 export const CUSTOMER_UNIFIED_DETAIL_PREVIEW_BRANCH = "feat/customer-unified-detail-20261012";
 export const CUSTOMER_NOTE_PREVIEW_BRANCH = "fix/customer-note-pending-preview-20261012";
+export { YOUNGSKY_SETTINGS_PREVIEW_BRANCH };
 export const COURSE_SETTINGS_THREE_STATE_PREVIEW_BRANCH = "fix/course-settings-three-state-20261012";
 export const SPA_CUSTOMER_HEADER_PREVIEW_BRANCH = "fix/spa-customer-drawer-header-offset-20261012";
 export const NOTE_REMINDER_PREVIEW_BRANCH = "fix/note-reminder-feedback-20261011";
@@ -133,7 +159,7 @@ export const TODO_DISMISS_PREVIEW_BRANCH = "fix/instant-todo-dismiss-20261010";
 export const STEAM_ROSTER_LEGACY_IPAD_PREVIEW_BRANCH = "fix/steam-roster-legacy-ipad-20261010";
 export const STEAM_ROSTER_DENSITY_PREVIEW_BRANCH = "fix/steam-roster-ipad-density-20261010";
 
-export const OPERATION_GUIDE_PREVIEW_BRANCH = "docs/operation-guide-audit-20261008";
+export const OPERATION_GUIDE_PREVIEW_BRANCH = "docs/operation-guide-audit-20261012";
 
 /** Read-only documentation candidate against the existing isolated test database. */
 export function assertOperationGuidePreviewEnvironment(env) {
@@ -203,7 +229,7 @@ export function assertSportsRosterPreviewEnvironment(env) {
  */
 export function assertModuleRosterPreviewEnvironment(env) {
   if (env.VERCEL !== "1" || env.VERCEL_ENV !== "preview" ||
-      ![MEMBER_LOGIN_UNTIL_USED_PREVIEW_BRANCH, MEMBER_LOGIN_RECOVERY_PREVIEW_BRANCH, RESTORE_BOOKING_DISPLAY_PREVIEW_BRANCH, COURSE_BUSINESS_BOUNDARIES_BRANCH, TRIAL_MEMBER_LOGIN_PREVIEW_BRANCH, ALLIANCE_ANNUAL_PRICE_PREVIEW_BRANCH, PRICING_PLAN_CLARITY_PREVIEW_BRANCH, UNLIMITED_GROWTH_PREVIEW_BRANCH, CUSTOMER_UNIFIED_DETAIL_PREVIEW_BRANCH, CANCEL_MISTAKEN_PLAN_PREVIEW_BRANCH, COURSE_SETTINGS_THREE_STATE_PREVIEW_BRANCH, COURSE_PLAN_TEACHING_PREVIEW_BRANCH, TEACHER_SESSION_PREVIEW_BRANCH, SPA_CUSTOMER_HEADER_PREVIEW_BRANCH, CUSTOMER_NOTE_PREVIEW_BRANCH, NOTE_REMINDER_PREVIEW_BRANCH, COURSE_PEOPLE_PREVIEW_BRANCH, BOOKING_PERSON_CARD_PREVIEW_BRANCH, COURSE_SIDEBAR_PREVIEW_BRANCH, BOOKING_CUSTOMER_PLANS_PREVIEW_BRANCH, TEACHER_OWN_INCOME_PREVIEW_BRANCH, RETENTION_CLARITY_PREVIEW_BRANCH, RETENTION_PREVIEW_BRANCH, MODULE_ROSTER_PREVIEW_BRANCH, UI_OPERATION_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH, MUSIC_TEACHER_EDITOR_PREVIEW_BRANCH, MUSIC_TEACHER_SIMPLIFY_PREVIEW_BRANCH, MUSIC_TEACHER_TERMS_PREVIEW_BRANCH, ROOM_PERFORMANCE_PREVIEW_BRANCH, SETTINGS_PERFORMANCE_PREVIEW_BRANCH, STEAM_ROSTER_DENSITY_PREVIEW_BRANCH, STEAM_ROSTER_LEGACY_IPAD_PREVIEW_BRANCH, HQ_AUDIT_REFRESH_PREVIEW_BRANCH, TODO_DISMISS_PREVIEW_BRANCH, TRIAL_PLAN_OPTIONS_PREVIEW_BRANCH, BOOKING_DETAIL_CLARITY_PREVIEW_BRANCH, COMPANION_INTAKE_PREVIEW_BRANCH, UNREGISTERED_PARTICIPANT_PREVIEW_BRANCH, WALK_IN_PARTICIPANT_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
+      ![NEW_MEMBER_PURCHASE_LOGIN_PREVIEW_BRANCH, SETTINGS_OUTCOMES_PREVIEW_BRANCH,YOUNGSKY_SETTINGS_PREVIEW_BRANCH, MEMBER_LOGIN_UNTIL_USED_PREVIEW_BRANCH, MEMBER_LOGIN_RECOVERY_PREVIEW_BRANCH, RESTORE_BOOKING_DISPLAY_PREVIEW_BRANCH, COURSE_BUSINESS_BOUNDARIES_BRANCH, TRIAL_MEMBER_LOGIN_PREVIEW_BRANCH, ALLIANCE_ANNUAL_PRICE_PREVIEW_BRANCH, PRICING_PLAN_CLARITY_PREVIEW_BRANCH, UNLIMITED_GROWTH_PREVIEW_BRANCH, CUSTOMER_UNIFIED_DETAIL_PREVIEW_BRANCH, CANCEL_MISTAKEN_PLAN_PREVIEW_BRANCH, COURSE_SETTINGS_THREE_STATE_PREVIEW_BRANCH, COURSE_PLAN_TEACHING_PREVIEW_BRANCH, TEACHER_SESSION_PREVIEW_BRANCH, SPA_CUSTOMER_HEADER_PREVIEW_BRANCH, CUSTOMER_NOTE_PREVIEW_BRANCH, NOTE_REMINDER_PREVIEW_BRANCH, COURSE_PEOPLE_PREVIEW_BRANCH, BOOKING_PERSON_CARD_PREVIEW_BRANCH, COURSE_SIDEBAR_PREVIEW_BRANCH, BOOKING_CUSTOMER_PLANS_PREVIEW_BRANCH, TEACHER_OWN_INCOME_PREVIEW_BRANCH, RETENTION_CLARITY_PREVIEW_BRANCH, RETENTION_PREVIEW_BRANCH, MODULE_ROSTER_PREVIEW_BRANCH, UI_OPERATION_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH, MUSIC_TEACHER_EDITOR_PREVIEW_BRANCH, MUSIC_TEACHER_SIMPLIFY_PREVIEW_BRANCH, MUSIC_TEACHER_TERMS_PREVIEW_BRANCH, ROOM_PERFORMANCE_PREVIEW_BRANCH, SETTINGS_PERFORMANCE_PREVIEW_BRANCH, STEAM_ROSTER_DENSITY_PREVIEW_BRANCH, STEAM_ROSTER_LEGACY_IPAD_PREVIEW_BRANCH, HQ_AUDIT_REFRESH_PREVIEW_BRANCH, TODO_DISMISS_PREVIEW_BRANCH, TRIAL_PLAN_OPTIONS_PREVIEW_BRANCH, BOOKING_DETAIL_CLARITY_PREVIEW_BRANCH, COMPANION_INTAKE_PREVIEW_BRANCH, UNREGISTERED_PARTICIPANT_PREVIEW_BRANCH, WALK_IN_PARTICIPANT_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "") ||
       env.VERCEL_GIT_REPO_OWNER !== "rock7652-beep" || env.VERCEL_GIT_REPO_SLUG !== "steamfoot-booking" ||
       Boolean(env.WORKERS_CI_BRANCH) || Boolean(env.CF_PAGES_BRANCH)) {
     throw new Error("Module roster requires its exact authorized Vercel Preview branch and repository.");
@@ -252,11 +278,38 @@ export function assertConsultationPreviewEnvironment(env) {
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"mocked-unit-test" | "production" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
+ * @returns {"beauty-hosted-preview" | "mocked-unit-test" | "production" | "music-opening-preview" | "beauty-release-qa" | "beauty-production-qa" | "local-beauty-qa" | "beauty-sandbox-qa" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
-  if (env.SPORTS_REDESIGN_PREVIEW || [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].includes(SPORTS_REDESIGN_PREVIEW_BRANCH)) {
+  if(env.BEAUTY_SHARED_PAGES_BUILD_QA==='1'){assertBeautySharedPagesBuildQaEnvironment(env);return 'local-beauty-qa';}
+  if(env.BEAUTY_SHARED_PAGES_LOCAL_QA==='1'){assertBeautySharedPagesLocalQaEnvironment(env);return 'local-beauty-qa';}
+  if (env.BEAUTY_HOSTED_PREVIEW === '1' || env.VERCEL_GIT_COMMIT_REF === BEAUTY_HOSTED_PREVIEW_BRANCH) {
+    assertBeautyHostedPreviewEnvironment(env);
+    return 'beauty-hosted-preview';
+  }
+  if (env.BEAUTY_RELEASE_QA === "1") {
+    assertBeautyReleaseQaEnvironment(env);
+    return "beauty-release-qa";
+  }
+  if (env.BEAUTY_PRODUCTION_QA === "1") {
+    assertBeautyProductionQaEnvironment(env);
+    return "beauty-production-qa";
+  }
+  if (env.BEAUTY_SANDBOX_QA === "1") {
+    assertBeautySandboxQaEnvironment(env);
+    return "beauty-sandbox-qa";
+  }
+  if (env.BEAUTY_LOCAL_QA === "1") {
+    assertBeautyLocalQaEnvironment(env);
+    return "local-beauty-qa";
+  }
+  if (env.IMAGE_ANNOUNCEMENTS_ACCEPTANCE === "1") {
+    assertImageAnnouncementsAcceptance(env);
+    return "local-image-announcements-qa";
+  }
+  if (env.SPORTS_REDESIGN_PREVIEW || [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].some(branch=>[SILVERLILY_CALENDAR_PREVIEW_BRANCH,SETTINGS_OUTCOMES_PREVIEW_BRANCH,YOUNGSKY_SETTINGS_PREVIEW_BRANCH,SPORTS_REDESIGN_PREVIEW_BRANCH,SPORTS_CARD_MODES_PREVIEW_BRANCH,SPORTS_OPENING_GUIDE_PREVIEW_BRANCH,SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH].includes(branch))) {
     assertSportsRedesignPreviewEnvironment(env);
+    if ([SETTINGS_OUTCOMES_PREVIEW_BRANCH,YOUNGSKY_SETTINGS_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF)) assertModuleRosterPreviewEnvironment(env);
     return "sports-redesign-preview";
   }
   if (env.SPORTS_LIVE_FLOW_QA === "1") {
@@ -284,7 +337,7 @@ export function assertReviewedReleaseEnvironment(env) {
     assertBookingParticipantsPreviewEnvironment(env);
     return "booking-participants-preview";
   }
-  if ([MEMBER_LOGIN_UNTIL_USED_PREVIEW_BRANCH, MEMBER_LOGIN_RECOVERY_PREVIEW_BRANCH, RESTORE_BOOKING_DISPLAY_PREVIEW_BRANCH, COURSE_BUSINESS_BOUNDARIES_BRANCH, TRIAL_MEMBER_LOGIN_PREVIEW_BRANCH, ALLIANCE_ANNUAL_PRICE_PREVIEW_BRANCH, PRICING_PLAN_CLARITY_PREVIEW_BRANCH, UNLIMITED_GROWTH_PREVIEW_BRANCH, CUSTOMER_UNIFIED_DETAIL_PREVIEW_BRANCH, CANCEL_MISTAKEN_PLAN_PREVIEW_BRANCH, COURSE_SETTINGS_THREE_STATE_PREVIEW_BRANCH, COURSE_PLAN_TEACHING_PREVIEW_BRANCH, TEACHER_SESSION_PREVIEW_BRANCH, SPA_CUSTOMER_HEADER_PREVIEW_BRANCH, CUSTOMER_NOTE_PREVIEW_BRANCH, NOTE_REMINDER_PREVIEW_BRANCH, COURSE_PEOPLE_PREVIEW_BRANCH, BOOKING_PERSON_CARD_PREVIEW_BRANCH, COURSE_SIDEBAR_PREVIEW_BRANCH, BOOKING_CUSTOMER_PLANS_PREVIEW_BRANCH, TEACHER_OWN_INCOME_PREVIEW_BRANCH, RETENTION_CLARITY_PREVIEW_BRANCH, RETENTION_PREVIEW_BRANCH, MODULE_ROSTER_PREVIEW_BRANCH, UI_OPERATION_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH, MUSIC_TEACHER_EDITOR_PREVIEW_BRANCH, MUSIC_TEACHER_SIMPLIFY_PREVIEW_BRANCH, MUSIC_TEACHER_TERMS_PREVIEW_BRANCH, ROOM_PERFORMANCE_PREVIEW_BRANCH, SETTINGS_PERFORMANCE_PREVIEW_BRANCH, STEAM_ROSTER_DENSITY_PREVIEW_BRANCH, STEAM_ROSTER_LEGACY_IPAD_PREVIEW_BRANCH, HQ_AUDIT_REFRESH_PREVIEW_BRANCH, TODO_DISMISS_PREVIEW_BRANCH, TRIAL_PLAN_OPTIONS_PREVIEW_BRANCH, BOOKING_DETAIL_CLARITY_PREVIEW_BRANCH, COMPANION_INTAKE_PREVIEW_BRANCH, UNREGISTERED_PARTICIPANT_PREVIEW_BRANCH, WALK_IN_PARTICIPANT_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
+  if ([NEW_MEMBER_PURCHASE_LOGIN_PREVIEW_BRANCH, SETTINGS_OUTCOMES_PREVIEW_BRANCH,YOUNGSKY_SETTINGS_PREVIEW_BRANCH, MEMBER_LOGIN_UNTIL_USED_PREVIEW_BRANCH, MEMBER_LOGIN_RECOVERY_PREVIEW_BRANCH, RESTORE_BOOKING_DISPLAY_PREVIEW_BRANCH, COURSE_BUSINESS_BOUNDARIES_BRANCH, TRIAL_MEMBER_LOGIN_PREVIEW_BRANCH, ALLIANCE_ANNUAL_PRICE_PREVIEW_BRANCH, PRICING_PLAN_CLARITY_PREVIEW_BRANCH, UNLIMITED_GROWTH_PREVIEW_BRANCH, CUSTOMER_UNIFIED_DETAIL_PREVIEW_BRANCH, CANCEL_MISTAKEN_PLAN_PREVIEW_BRANCH, COURSE_SETTINGS_THREE_STATE_PREVIEW_BRANCH, COURSE_PLAN_TEACHING_PREVIEW_BRANCH, TEACHER_SESSION_PREVIEW_BRANCH, SPA_CUSTOMER_HEADER_PREVIEW_BRANCH, CUSTOMER_NOTE_PREVIEW_BRANCH, NOTE_REMINDER_PREVIEW_BRANCH, COURSE_PEOPLE_PREVIEW_BRANCH, BOOKING_PERSON_CARD_PREVIEW_BRANCH, COURSE_SIDEBAR_PREVIEW_BRANCH, BOOKING_CUSTOMER_PLANS_PREVIEW_BRANCH, TEACHER_OWN_INCOME_PREVIEW_BRANCH, RETENTION_CLARITY_PREVIEW_BRANCH, RETENTION_PREVIEW_BRANCH, MODULE_ROSTER_PREVIEW_BRANCH, UI_OPERATION_PREVIEW_BRANCH, INLINE_BOOKING_NOTES_PREVIEW_BRANCH, CUSTOMER_COURSE_PORTAL_PREVIEW_BRANCH, MUSIC_SETUP_PREVIEW_BRANCH, MUSIC_TEACHER_EDITOR_PREVIEW_BRANCH, MUSIC_TEACHER_SIMPLIFY_PREVIEW_BRANCH, MUSIC_TEACHER_TERMS_PREVIEW_BRANCH, ROOM_PERFORMANCE_PREVIEW_BRANCH, SETTINGS_PERFORMANCE_PREVIEW_BRANCH, STEAM_ROSTER_DENSITY_PREVIEW_BRANCH, STEAM_ROSTER_LEGACY_IPAD_PREVIEW_BRANCH, HQ_AUDIT_REFRESH_PREVIEW_BRANCH, TODO_DISMISS_PREVIEW_BRANCH, TRIAL_PLAN_OPTIONS_PREVIEW_BRANCH, BOOKING_DETAIL_CLARITY_PREVIEW_BRANCH, COMPANION_INTAKE_PREVIEW_BRANCH, UNREGISTERED_PARTICIPANT_PREVIEW_BRANCH, WALK_IN_PARTICIPANT_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
     assertModuleRosterPreviewEnvironment(env);
     return "module-roster-preview";
   }
@@ -308,6 +361,14 @@ export function assertReviewedReleaseEnvironment(env) {
     assertStoreOperationAuditPreviewEnvironment(env);
     return "store-operation-audit-preview";
   }
+  if (env.VERCEL_GIT_COMMIT_REF === MUSIC_RELEASE_BRANCH) {
+    assertMusicNativeReleaseEnvironment(env);
+    return "music-opening-preview";
+  }
+  if (env.VERCEL_GIT_COMMIT_REF === MUSIC_OPENING_BRANCH) {
+    assertMusicOpeningPreviewEnvironment(env);
+    return "music-opening-preview";
+  }
   if (env.VERCEL_GIT_COMMIT_REF === COURSE_SELF_BOOKING_PREVIEW_BRANCH) {
     assertCourseSelfBookingPreviewEnvironment(env);
     return "course-self-booking-preview";
@@ -315,6 +376,12 @@ export function assertReviewedReleaseEnvironment(env) {
   if (env.VERCEL_GIT_COMMIT_REF === TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH) {
     assertSportsSharedCardPreviewEnvironment(env);
     return "sports-shared-card-preview";
+  }
+  if (["fix/customer-line-binding-management-20261029", "fix/plan-card-management-20261029", "perf/digital-manager-initial-count-20261031", "feat/plan-session-adjustment-20261030", "feat/store-manager-bell-20261030"].includes(env.VERCEL_GIT_COMMIT_REF ?? "")) {
+    // Same exact repository, isolated connection and notification gates. This
+    // customer-only review must never apply unrelated pending migrations.
+    assertSportsSharedCardPreviewEnvironment(env);
+    return "module-roster-preview";
   }
   assertSportsSharedCardPreviewEnvironment(env);
   return "sports-shared-card-preview";

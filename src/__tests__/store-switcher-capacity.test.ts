@@ -51,7 +51,7 @@ it("filters fifty stores by name and gives an explicit empty result",async()=>{
  await search("查無此店");expect(menu.textContent).toContain("找不到符合的店舖");expect(menu.querySelectorAll("button")).toHaveLength(1);
 });
 
-it("canceling an unsaved store change never changes the store cookie",async()=>{
+it("discards an unsaved draft without a confirmation before switching stores",async()=>{
  function Fixture(){useCourseDraftGuard(true);return createElement(StoreSwitcher,{stores:stores(2),activeStoreId:"store-1",inline:true});}
  const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);
  try {
@@ -60,8 +60,6 @@ it("canceling an unsaved store change never changes the store cookie",async()=>{
   const menu=document.querySelector('[aria-label="分店清單"]')!;
   const target=[...menu.querySelectorAll("button")].find(button=>button.textContent?.includes("測試店 02"))!;
   await act(async()=>target.click());
-  expect(m.switch).not.toHaveBeenCalled();expect(document.querySelector('[aria-label="分店清單"]')).not.toBeNull();
-  confirm.mockReturnValue(true);await act(async()=>target.click());
-  expect(m.switch).toHaveBeenCalledWith("store-2");
+  expect(m.switch).toHaveBeenCalledExactlyOnceWith("store-2");expect(confirm).not.toHaveBeenCalled();
  } finally {confirm.mockRestore();}
 });

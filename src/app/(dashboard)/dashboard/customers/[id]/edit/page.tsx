@@ -34,9 +34,7 @@ export default async function EditCustomerPage({ params }: PageProps) {
   const isSpa =
     !!activeStoreId && (await getStoreIndustryModule(activeStoreId)) === "spa";
   const storeContext = await getStoreContext();
-  const returnHref = isSpa
-    ? `/dashboard/customers?search=${encodeURIComponent(customer.name ?? "")}`
-    : `/dashboard/customers/${id}`;
+  const returnHref = `/dashboard/customers/${id}`;
   const returnUrl = storeContext
     ? `/s/${storeContext.storeSlug}/admin${returnHref}`
     : returnHref;
@@ -54,7 +52,7 @@ export default async function EditCustomerPage({ params }: PageProps) {
             href={returnHref}
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
-            {isSpa ? "← 返回顧客清單" : "← 返回詳情"}
+            {"← 返回詳情"}
           </Link>
         }
       />

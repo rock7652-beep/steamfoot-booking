@@ -1,0 +1,47 @@
+{
+  "synthetic": true,
+  "noBackend": true,
+  "errors": [],
+  "results": [
+    {
+      "width": 1366,
+      "height": 900,
+      "value": "EXPERIENCE",
+      "options": [
+        "30 天完整功能試用"
+      ],
+      "hasStartExplanation": true,
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "value": "EXPERIENCE",
+      "options": [
+        "30 天完整功能試用"
+      ],
+      "hasStartExplanation": true,
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "value": "EXPERIENCE",
+      "options": [
+        "30 天完整功能試用"
+      ],
+      "hasStartExplanation": true,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "value": "EXPERIENCE",
+      "options": [
+        "30 天完整功能試用"
+      ],
+      "hasStartExplanation": true,
+      "overflow": false
+    }
+  ]
+}

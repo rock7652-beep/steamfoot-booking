@@ -1,5 +1,9 @@
+import {courseCalendarRead} from './course-calendar-read-scope';
+import {memoizeCourseReadRequest} from "./course-read-request-memo";
+import {readSportsSessionRuleRow} from "./sports-session-rule-read";
+import { sportsTeachingTemplateId } from "./sports-teaching-rule";
 import "server-only";
-import {assertSportsProductionReady,sportsRulesAvailable} from "./sports-production-readiness";
+import {assertSportsProductionReady,assertSportsBookingReadReady,sportsRulesAvailable} from "./sports-production-readiness";
 import {
   requireSportsStaging,
   sportsStagingEnabled,
@@ -17,18 +21,14 @@ export async function readSportsSessionRule(
   storeId: string,
   sessionId: string,
 ) {
-  if (!(await sportsRulesAvailable(tx, storeId))) return null;
-  await assertSportsProductionReady(tx, storeId);
-  const rows = await tx.$queryRaw<
-    Array<{
-      frequency: string;
-      enrollment: string;
-      planId: string | null;
-      trialPrice: number;
-      payload: SportsScheduleRule;
-    }>
-  >`SELECT frequency,enrollment,"planId","trialPrice",payload FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId} AND "sessionId"=${sessionId}`;
-  return rows[0] ?? null;
+  return memoizeCourseReadRequest(tx,JSON.stringify(["sports-rule",storeId,sessionId]),async()=>{
+    const calendar=courseCalendarRead(tx,storeId,sessionId);
+    const available=()=>sportsRulesAvailable(tx,storeId);
+    if (!(await (calendar?calendar.once('sports-rules-available',available):available()))) return null;
+    const ready=()=>assertSportsBookingReadReady(tx,storeId);
+    await (calendar?calendar.once('sports-rules-booking-read-ready',ready):ready());
+    return readSportsSessionRuleRow(tx,storeId,sessionId);
+  });
 }
 export async function attachSportsSessionRules(
   tx: Prisma.TransactionClient,
@@ -36,8 +36,9 @@ export async function attachSportsSessionRules(
   requestKey: string,
   input: SportsScheduleRule,
   sessionIds?:string[],
+  trialLearnerCount=0,
 ) {
-  requireSportsStaging(actor.storeId);
+  (await requireSportsStaging(actor.storeId));
   await assertSportsProductionReady(tx, actor.storeId);
   const rule = sportsScheduleRule.parse(input);
   if(rule.waitlist?.limit){
@@ -67,7 +68,8 @@ export async function attachSportsSessionRules(
     )
   )
     throw new AppError("VALIDATION", "固定頻率與課次日期不符");
-  if (!sessionIds && rule.enrollment === "ASSIGNED" && !rule.students.length)
+  if (trialLearnerCount&&(!sessions.every(s=>s.isTrial)||rule.frequency!=="SINGLE"||trialLearnerCount>sessions[0].capacity))throw new AppError("VALIDATION","體驗學員只適用單次體驗排課且不可超過名額");
+  if (!sessionIds && rule.enrollment === "ASSIGNED" && !rule.students.length && !trialLearnerCount)
     throw new AppError("VALIDATION", "請至少指定一位學員");
   if (rule.enrollment === "OPEN" && rule.students.length)
     throw new AppError("VALIDATION", "開放選課不會自動加入指定學員");
@@ -83,19 +85,18 @@ export async function attachSportsSessionRules(
     : null;
   if (
     !sessions[0].isTrial &&
-    (!plan || !plan.templateIds.includes(sessions[0].templateId))
+    rule.planId !== null && (!plan || !plan.templateIds.includes(sessions[0].templateId))
   )
     throw new AppError("VALIDATION", "請選擇適用本課程的收費方式");
+  if(!sessions[0].isTrial && rule.planId===null){
+    const t=await tx.courseTemplate.findFirst({where:{id:sessions[0].templateId,storeId:actor.storeId},select:{musicSubjectId:true,isActive:true}});
+    if(!t?.isActive||!t.musicSubjectId||sportsTeachingTemplateId(actor.storeId,t.musicSubjectId)!==sessions[0].templateId)throw new AppError("VALIDATION","請選擇已設定規則的教學項目");
+  }
   if (sessions[0].isTrial && rule.frequency !== "SINGLE")
     throw new AppError("VALIDATION", "體驗僅建立單次課程");
-  const compensation=await tx.courseCompensation.findUnique({where:{storeId_templateId_staffId:{storeId:actor.storeId,templateId:sessions[0].templateId,staffId:""}}});
+  const { captureSportsCoachCompensation } = await import("./sports-coach-compensation");
   for (const session of sessions) {
-    if(compensation){
-      const {sportsCompensation}=await import("@/lib/sports-staging-types");
-      const fee=sportsCompensation.parse((compensation.rules as unknown[])[0]);
-      const captured={...fee,calculationVersion:3,source:"SPORTS_FEE",durationMinutes:Math.round((session.endsAt.getTime()-session.startsAt.getTime())/60000)};
-      await tx.courseCompensationSnapshot.upsert({where:{sessionId:session.id},create:{sessionId:session.id,storeId:actor.storeId,staffId:session.coachId,rule:captured,revision:compensation.revision,durationMinutes:captured.durationMinutes},update:{rule:captured,revision:compensation.revision,durationMinutes:captured.durationMinutes}});
-    }
+    await captureSportsCoachCompensation(tx, actor.storeId, session);
     await tx.$executeRaw`INSERT INTO "SportsStagingSessionRule" ("sessionId","storeId",frequency,enrollment,"planId","trialPrice",payload) VALUES (${session.id},${actor.storeId},${rule.frequency},${rule.enrollment},${rule.planId},${rule.trialPrice},${JSON.stringify(rule)}::jsonb)`;
   }
   if(rule.perpetual){
@@ -111,52 +112,14 @@ export async function attachSportsSessionRules(
     // This caller already holds the Store lock. Allocate once per learner,
     // reserve the full batch, then choose for the next learner (shared cards).
     for (const student of rule.students) {
-      let cardId = student.cardId;
-      if (!sessions[0].isTrial) {
-        if (!cardId) {
-          const cards = await tx.coursePointCard.findMany({
-            where: {
-              storeId: actor.storeId,
-              planId: rule.planId!,
-              closedAt: null,
-              expiresAt: { gte: sessions[sessions.length - 1].startsAt },
-              members: { some: { customerId: student.customerId } },
-              OR: [
-                { templateIds: { isEmpty: true } },
-                { templateIds: { has: sessions[0].templateId } },
-              ],
-            },
-            include: {
-              bookings: {
-                where: { status: "RESERVED" },
-                select: { pointCost: true },
-              },
-            },
-            orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
-          });
-          cardId =
-            cards.find(
-              (c) =>
-                c.remaining - c.bookings.reduce((n, b) => n + b.pointCost, 0) >=
-                (c.unit === "SESSION" ? 1 : sessions[0].pointCost) *
-                  sessions.length,
-            )?.id ?? null;
-        }
-        const card = cardId
-          ? await tx.coursePointCard.findFirst({
-              where: { id: cardId, storeId: actor.storeId },
-            })
-          : null;
-        if (!card || card.planId !== rule.planId)
-          throw new AppError("VALIDATION", "學員沒有額度與效期足夠的適用方案");
-      }
       for (const session of sessions)
         await reserveCourseInTransaction(
           tx,
           actor,
           {
             sessionId: session.id,
-            cardId: session.isTrial ? null : cardId,
+            cardId: null,
+            deferredPayment: !session.isTrial,
             customerId: student.customerId,
             trialPrice: session.isTrial ? rule.trialPrice : undefined,
             requestKey: `${requestKey}:${session.requestIndex}:${student.customerId}`,
@@ -173,7 +136,7 @@ export async function assertSportsRentalFree(
   roomId: string,
   ranges: Array<{ startsAt: Date; endsAt: Date }>,
 ) {
-  if (!sportsStagingEnabled(storeId)) return;
+  if (!(await sportsStagingEnabled(storeId))) return;
   for (const range of ranges)
     if (
       await tx.courseRental.findFirst({

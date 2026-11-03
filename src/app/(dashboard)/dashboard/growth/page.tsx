@@ -13,22 +13,14 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCustomerCareOverview } from "@/server/queries/customer-care";
 import { getMonthlyUnconvertedCustomers } from "@/server/queries/conversion-metrics";
 import { getBirthdayCustomersForMonth } from "@/server/queries/customer-birthday";
-import {
-  CUSTOMER_KPI_SEGMENTS,
-  getCustomerKpiSegmentCustomers,
-  isCustomerKpiSegment,
-} from "@/server/queries/customer-kpi-segments";
-import {
-  resolveStoreViewContextFromCookie,
-  storeIdForViewContext,
-  userForViewContext,
-} from "@/lib/store-view-context-server";
+import { CUSTOMER_KPI_SEGMENTS, getCustomerKpiSegmentCustomers, isCustomerKpiSegment } from "@/server/queries/customer-kpi-segments";
+import { resolveStoreViewContextFromCookie, storeIdForViewContext, userForViewContext } from "@/lib/store-view-context-server";
 import { CareSection, type CareItem } from "./_components/care-section";
 import { formatRelativeDaysTW } from "@/lib/customer-follow-up";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { courseCustomerStaffScope } from "@/server/queries/course-home";
 import { CourseCare } from "./_components/course-care";
-import { SpaCare } from "./_components/spa-care";
+
 import { CareWorkspaceServer } from "./_components/care-workspace-server";
 
 /**
@@ -101,7 +93,7 @@ function CustomerCareLockedState() {
 export default async function CustomerCarePage({
   searchParams = Promise.resolve({}),
 }: {
-  searchParams: Promise<{ segment?: string; month?: string; startDate?: string; endDate?: string; preset?: string }>;
+  searchParams: Promise<{ dataScope?:string; segment?: string; month?: string; startDate?: string; endDate?: string; preset?: string }>;
 } = { searchParams: Promise.resolve({}) }) {
   const params = await searchParams;
   const requestedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.month ?? "")
@@ -124,13 +116,13 @@ export default async function CustomerCarePage({
   const workspaceMonth = requestedMonth ?? toLocalMonthStr();
   const industryModule = viewedStoreId ? await getStoreIndustryModule(viewedStoreId) : "steamfoot";
   const [canFollowUp, canBook] = await Promise.all([checkPermission(user.role, user.staffId, "customer.update"), checkPermission(user.role, user.staffId, "booking.create")]);
-  if (viewedStoreId && industryModule === "spa") return <SpaCare storeId={viewedStoreId} month={workspaceMonth} readOnly={isViewMode} canFollowUp={canFollowUp} canBook={canBook} staffScope={courseCustomerStaffScope(queryUser, viewedStoreId)}/>;
+
   if (viewedStoreId && industryModule === "course") {
     const [canFollowUp, canBook] = await Promise.all([
       checkPermission(user.role, user.staffId, "customer.update"),
       checkPermission(user.role, user.staffId, "booking.create"),
     ]);
-    return <CourseCare storeId={viewedStoreId} month={workspaceMonth} readOnly={isViewMode} canFollowUp={canFollowUp} canBook={canBook} segment={params.segment} staffScope={courseCustomerStaffScope(queryUser, viewedStoreId)}/>;
+    return <CourseCare dataScope={params.dataScope} storeId={viewedStoreId} month={workspaceMonth} readOnly={isViewMode} canFollowUp={canFollowUp} canBook={canBook} segment={params.segment} staffScope={courseCustomerStaffScope(queryUser, viewedStoreId)}/>;
   }
   if (isCustomerKpiSegment(params.segment)) {
     const selectedSegment = params.segment;

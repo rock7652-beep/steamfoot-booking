@@ -1,0 +1,14 @@
+{
+  "results": [
+    "original unassigned view reads Beauty core",
+    "unassigned links never enter course core",
+    "original todos view reads Beauty core",
+    "todos links never enter course core",
+    "manager report loads",
+    "original manager perspective available",
+    "specific manager uses server-validated store identity",
+    "foreign manager is rejected",
+    "no browser errors"
+  ],
+  "errors": []
+}

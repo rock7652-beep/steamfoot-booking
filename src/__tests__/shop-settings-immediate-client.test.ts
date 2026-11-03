@@ -13,6 +13,18 @@ const trial={trialEnabled:true,trialDefaultPrice:499,trialAllowPriceEdit:true,tr
 let host:HTMLDivElement,root:Root;
 beforeEach(()=>{vi.clearAllMocks();vi.stubGlobal("fetch",m.fetch);host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
+it("read-only bank settings expose values but cannot submit a mutation",async()=>{
+ await act(async()=>root.render(createElement(PaymentSettingsForm,{storeId:"child",initial:{...payment,bankName:"子店銀行"},readOnly:true})));
+ expect(host.querySelector<HTMLInputElement>('input[aria-label="銀行名稱"]')!.closest("fieldset")!.disabled).toBe(true);
+ expect(host.querySelector('button[type="submit"]')).toBeNull();
+ await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+ expect(m.fetch).not.toHaveBeenCalled();
+});
+it.each([false,true])("payment preview uses the current module's reconciliation flow (beauty=%s)",async isBeauty=>{
+ await act(async()=>root.render(createElement(PaymentSettingsForm,{storeId:"store",initial:payment,isBeauty})));
+ if(isBeauty){expect(host.textContent).toContain("我的方案」填寫後四碼");expect(host.textContent).not.toContain("提供您的姓名與末 5 碼");}
+ else{expect(host.textContent).toContain("提供您的姓名與末 5 碼");expect(host.textContent).not.toContain("我的方案」填寫後四碼");}
+});
 it.each(["payment","trial"] as const)("%s keeps the same retry and confirms immediately without refresh",async kind=>{
  await act(async()=>root.render(kind==="payment"?createElement(PaymentSettingsForm,{storeId:"store",initial:payment}):createElement(TrialSettingsForm,{storeId:"store",initial:trial})));
  const input=kind==="payment"?host.querySelector<HTMLInputElement>('input[aria-label="銀行名稱"]')!:host.querySelector<HTMLInputElement>('input[type="number"]')!;

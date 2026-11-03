@@ -1,0 +1,130 @@
+{
+  "commit": "43f207f91e62d95af1fd6128f5ff82b7442e1e92",
+  "origin": "https://steamfoot-booking-55l2fryx7-rock7652-2111s-projects.vercel.app",
+  "results": [
+    {
+      "case": "current Preview manager 首頁 renders at desktop and both tablet sizes",
+      "passed": true
+    },
+    {
+      "case": "current Preview manager 班表 renders at desktop and both tablet sizes",
+      "passed": true
+    },
+    {
+      "case": "current Preview manager 顧客管理 renders at desktop and both tablet sizes",
+      "passed": true
+    },
+    {
+      "case": "current Preview manager 顧客經營 renders at desktop and both tablet sizes",
+      "passed": true
+    },
+    {
+      "case": "current Preview manager 營運 renders at desktop and both tablet sizes",
+      "passed": true
+    },
+    {
+      "case": "current Preview manager 分析 renders at desktop and both tablet sizes",
+      "passed": true
+    },
+    {
+      "case": "current Preview manager 位置管理 renders at desktop and both tablet sizes",
+      "passed": true
+    },
+    {
+      "case": "current Preview manager 服務項目 renders at desktop and both tablet sizes",
+      "passed": true
+    },
+    {
+      "case": "current Preview manager 收費方式 renders at desktop and both tablet sizes",
+      "passed": true
+    },
+    {
+      "case": "current Preview manager 技師管理 renders at desktop and both tablet sizes",
+      "passed": true
+    },
+    {
+      "case": "current Preview manager 設定 renders at desktop and both tablet sizes",
+      "passed": true
+    },
+    {
+      "case": "day/week/month use authorized no-store data and complete without page errors",
+      "passed": true
+    },
+    {
+      "case": "booking list opens a centered dialog and closes in place",
+      "passed": true
+    },
+    {
+      "case": "calendar rejects wrong store",
+      "passed": true
+    },
+    {
+      "case": "shared staff management renders",
+      "passed": true
+    },
+    {
+      "case": "current member 預約 layout and navigation",
+      "passed": true
+    },
+    {
+      "case": "current member 我的預約 layout and navigation",
+      "passed": true
+    },
+    {
+      "case": "current member 我的 layout and navigation",
+      "passed": true
+    },
+    {
+      "case": "current member 首頁 layout and navigation",
+      "passed": true
+    },
+    {
+      "case": "member cannot read manager calendar",
+      "passed": true
+    },
+    {
+      "case": "member/work repeated role switches complete without crashes",
+      "passed": true
+    },
+    {
+      "case": "technician pending/history switches settle repeatedly without read loop",
+      "passed": true
+    },
+    {
+      "case": "technician records have no full-page overflow at phone/tablet sizes",
+      "passed": true
+    }
+  ],
+  "timings": [
+    {
+      "label": "週表",
+      "readyMs": 1194,
+      "server": "calendar;dur=386.7"
+    },
+    {
+      "label": "月表",
+      "readyMs": 987,
+      "server": "calendar;dur=176.3"
+    },
+    {
+      "label": "日表",
+      "readyMs": 678,
+      "server": "calendar;dur=171.1"
+    },
+    {
+      "label": "work",
+      "readyMs": 808
+    },
+    {
+      "label": "work",
+      "readyMs": 810
+    },
+    {
+      "label": "work",
+      "readyMs": 1315
+    }
+  ],
+  "errors": [],
+  "readOnly": true,
+  "physicalDevice": false
+}

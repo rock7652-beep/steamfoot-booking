@@ -1,0 +1,161 @@
+{
+  "localSyntheticOnly": true,
+  "remoteBusinessWrites": false,
+  "fixtureDate": "2026-12-05",
+  "phases": [
+    {
+      "name": "initial-navigation",
+      "shellMs": null,
+      "readyMs": 687.637873
+    },
+    {
+      "name": "customer-open-1",
+      "shellMs": 474.38946699999906,
+      "readyMs": 603.2609379999994
+    },
+    {
+      "name": "customer-support-expand",
+      "shellMs": null,
+      "readyMs": 99.0533349999987
+    },
+    {
+      "name": "customer-return-1",
+      "shellMs": null,
+      "readyMs": 60.94525000000067
+    },
+    {
+      "name": "customer-open-2",
+      "shellMs": 147.963627000001,
+      "readyMs": 272.12679899999966
+    },
+    {
+      "name": "customer-return-2",
+      "shellMs": null,
+      "readyMs": 65.47142499999973
+    },
+    {
+      "name": "customer-open-3",
+      "shellMs": 127.83072299999913,
+      "readyMs": 251.89289199999985
+    },
+    {
+      "name": "customer-return-3",
+      "shellMs": null,
+      "readyMs": 60.66234000000077
+    },
+    {
+      "name": "purchase-open",
+      "shellMs": null,
+      "readyMs": 140.1242570000013
+    },
+    {
+      "name": "purchase-cash-check-1",
+      "shellMs": null,
+      "readyMs": 68.93731800000023
+    },
+    {
+      "name": "purchase-cash-check-2",
+      "shellMs": null,
+      "readyMs": 74.12941599999976
+    },
+    {
+      "name": "purchase-return",
+      "shellMs": null,
+      "readyMs": 67.91330600000038
+    }
+  ],
+  "requests": [
+    {
+      "phase": "initial-navigation",
+      "name": "roster-api",
+      "ttfbMs": 73,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=55.3, authorization;dur=30, permissions;dur=4.5, version;dur=4.8, bookings;dur=4.9, metadata;dur=3.7",
+      "totalMs": 74,
+      "unchanged": false,
+      "hasData": true,
+      "success": true
+    },
+    {
+      "phase": "initial-navigation",
+      "name": "loadBeautyStoreNotices",
+      "ttfbMs": 80,
+      "status": 200
+    },
+    {
+      "phase": "idle-7s",
+      "name": "roster-api",
+      "ttfbMs": 79,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=65.7, authorization;dur=56.7, permissions;dur=1.7, version;dur=5.5",
+      "totalMs": 80,
+      "unchanged": true,
+      "hasData": false,
+      "success": true
+    },
+    {
+      "phase": "idle-7s",
+      "name": "roster-api",
+      "ttfbMs": 33,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=17.7, authorization;dur=13.1, permissions;dur=1.5, version;dur=1.9",
+      "totalMs": 33,
+      "unchanged": true,
+      "hasData": false,
+      "success": true
+    },
+    {
+      "phase": "customer-open-1",
+      "name": "customer-api.cards",
+      "ttfbMs": 67,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=52.8, scope_authorization;dur=13.4, authorization;dur=14.7, customer_permission;dur=12.3, customer_scope;dur=1.3, cards;dur=1.5, holds_ledger;dur=1, data;dur=39.4",
+      "totalMs": 69
+    },
+    {
+      "phase": "customer-support-expand",
+      "name": "customer-api.support",
+      "ttfbMs": 56,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=41.2, scope_authorization;dur=12.5, authorization;dur=12.2, customer_scope;dur=1, membership;dur=14.2, advanced;dur=15.3",
+      "totalMs": 58
+    },
+    {
+      "phase": "customer-open-2",
+      "name": "customer-api.cards",
+      "ttfbMs": 72,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=53.2, scope_authorization;dur=12.8, authorization;dur=11.7, customer_permission;dur=12.6, customer_scope;dur=1.2, cards;dur=5.4, holds_ledger;dur=1, data;dur=40.4",
+      "totalMs": 73
+    },
+    {
+      "phase": "customer-open-3",
+      "name": "customer-api.cards",
+      "ttfbMs": 66,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=49.8, scope_authorization;dur=14.3, authorization;dur=12, customer_permission;dur=11.8, customer_scope;dur=1.7, cards;dur=1.6, holds_ledger;dur=1, data;dur=35.4",
+      "totalMs": 67
+    },
+    {
+      "phase": "purchase-cash-check-1",
+      "name": "customer-api.cash",
+      "ttfbMs": 55,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=40.2, scope_authorization;dur=12.3, data;dur=27.9",
+      "totalMs": 56
+    },
+    {
+      "phase": "purchase-cash-check-2",
+      "name": "customer-api.cash",
+      "ttfbMs": 50,
+      "status": 200,
+      "serverTimingHeader": "handler;dur=37, scope_authorization;dur=13.7, data;dur=23.3",
+      "totalMs": 52
+    }
+  ],
+  "errors": [],
+  "verification": {
+    "rows": 2,
+    "collected": 1000
+  }
+}

@@ -21,31 +21,23 @@ const person: StaffWorkspacePerson = {
 afterEach(() => { document.body.innerHTML = ""; vi.unstubAllGlobals(); });
 
 describe("staff workspace authoritative refresh", () => {
-  it("updates the open drawer and card after activation and deactivation without remounting", async () => {
-    const host = document.createElement("div");
-    document.body.append(host);
+  it("updates an open editor from authoritative activation and deactivation props without remounting", async () => {
+    const host = document.createElement("div"); document.body.append(host);
     const root = createRoot(host);
     const render = (status: string) => root.render(createElement(StaffWorkspace, {
       people: [{ ...person, status }], today: "2026-10-05", canManage: true,
       showSpaCompensation: false, createAction: vi.fn(),
     }));
     await act(async () => render("INACTIVE"));
-    const open = Array.from(host.querySelectorAll("button")).find(b => b.textContent?.includes("QA 門市"));
-    expect(open).toBeDefined();
-    await act(async () => open!.click());
-    expect(document.body.textContent).toContain("已停用");
-
-    await act(async () => render("ACTIVE"));
-    expect(document.body.textContent).toContain("人員基本資料");
-    expect(document.body.textContent).toContain("啟用中");
-    expect(document.body.textContent).not.toContain("已停用");
-    expect(Array.from(document.body.querySelectorAll("button")).some(b => b.textContent === "停用")).toBe(true);
-    expect(host.querySelector("article")?.textContent).toContain("啟用");
-
-    await act(async () => render("INACTIVE"));
-    expect(document.body.textContent).toContain("人員基本資料");
-    expect(document.body.textContent).toContain("已停用");
-    expect(Array.from(document.body.querySelectorAll("button")).some(b => b.textContent === "啟用")).toBe(true);
+    await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="QA 門市操作"]')!.click());
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent === "編輯")!.click());
+    expect(document.body.textContent).toContain("編輯人員");
+    for (const status of ["ACTIVE", "INACTIVE"]) {
+      await act(async () => render(status));
+      expect(document.body.textContent).toContain("編輯人員");
+      expect(host.querySelector("tbody")?.textContent).toContain(status === "ACTIVE" ? "啟用" : "停用");
+      expect(document.body.querySelector<HTMLInputElement>('input[name="displayName"]')?.value).toBe("QA 門市");
+    }
     await act(async () => root.unmount());
   });
   it("keeps the account list and editing free of SPA scheduling controls", async () => {
@@ -142,4 +134,35 @@ it("retains permission drafts across category changes and searches all categorie
   expect(document.body.textContent).toContain("查看顧客");
   expect(document.body.textContent).toContain("未儲存");
   await act(async () => root.unmount());
+});
+
+
+it("uses the course contact/identity list for Beauty and opens the existing guarded account editor",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+ await act(async()=>root.render(createElement(StaffWorkspace,{people:[{...person,status:'ACTIVE'}],today:'2026-10-22',canManage:true,showSpaCompensation:false,createAction:vi.fn(),beauty:true,accountListOnly:true})));
+ expect(host.textContent).toContain('聯絡方式');expect(host.textContent).toContain('身分');expect(host.textContent).toContain('qa@example.invalid');
+ const name=[...host.querySelectorAll('button')].find(b=>b.textContent==='QA 門市')!;expect(name).toBeTruthy();await act(async()=>name.click());expect(document.body.textContent).toContain('後台帳號／權限');
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+
+it("collapses Beauty inactive people with the course group control and preserves explicit search/status access",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ const active={...person,id:'active',displayName:'啟用店務',status:'ACTIVE'};
+ const render=(activeStatus='ACTIVE',onlyInactive=false)=>root.render(createElement(StaffWorkspace,{people:onlyInactive?[person]:[{...active,status:activeStatus},person],today:'2026-10-23',canManage:true,showSpaCompensation:false,createAction:vi.fn(),beauty:true,accountListOnly:true}));
+ const name=(value:string)=>[...host.querySelectorAll('button')].find(b=>b.textContent===value);
+ const toggle=()=>[...host.querySelectorAll('button')].find(b=>b.textContent?.includes('停用人員（'))!;
+ try {
+  await act(async()=>render());expect(name('啟用店務')).toBeTruthy();expect(name(person.displayName)).toBeUndefined();expect(toggle().getAttribute('aria-expanded')).toBe('false');
+  await act(async()=>toggle().click());expect(name(person.displayName)).toBeTruthy();
+  await act(async()=>toggle().click());expect(name(person.displayName)).toBeUndefined();
+  const search=host.querySelector<HTMLInputElement>('input[aria-label="搜尋人員"]')!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(search,'QA');search.dispatchEvent(new Event('input',{bubbles:true}));});expect(name(person.displayName)).toBeTruthy();expect((toggle() as HTMLButtonElement).disabled).toBe(true);
+  await act(async()=>name('清除篩選')!.click());expect(name(person.displayName)).toBeUndefined();
+  const status=host.querySelector<HTMLSelectElement>('select[aria-label="篩選人員狀態"]')!;
+  await act(async()=>{status.value='INACTIVE';status.dispatchEvent(new Event('change',{bubbles:true}));});expect(name(person.displayName)).toBeTruthy();expect(name('啟用店務')).toBeUndefined();
+  await act(async()=>name('清除篩選')!.click());await act(async()=>render('INACTIVE'));expect(name('啟用店務')).toBeUndefined();expect(toggle().textContent).toContain('2');
+  await act(async()=>render('ACTIVE',true));expect(toggle().textContent).toContain('1');expect(host.textContent).not.toContain('沒有符合條件');await act(async()=>toggle().click());expect(name(person.displayName)).toBeTruthy();
+ }finally {await act(async()=>root.unmount());host.remove();}
 });

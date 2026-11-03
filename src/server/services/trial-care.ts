@@ -3,7 +3,8 @@ import { publicPlanMessages } from "./trial-care-plans";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { spaPrisma } from "@/lib/spa-db";
+import { isLineDeliveryEventCurrent } from "@/lib/line-delivery-pause";
+
 import { dayRange, monthRange, parseTaiwanDateToDbDate, toLocalDateStr, toLocalMonthStr } from "@/lib/date-utils";
 import { pushMessage, probeStoreLineRecipient, type LineMessage } from "@/lib/line";
 import { hasStoreFeature } from "@/lib/feature-gate";
@@ -21,13 +22,7 @@ async function candidates(storeId: string, module: string, activatedAt: Date): P
     });
     return rows.map(b => ({ id: b.id, customerId: b.customerId, completedAt: b.trialCareCompletedAt! }));
   }
-  if (module === "SPA") {
-    const rows = await spaPrisma.spaBooking.findMany({
-      where: { storeId, isTrial: true, status: "COMPLETED", guestIndex: 1, completedAt: { gte: activatedAt }, bookingDate: { gte: parseTaiwanDateToDbDate(toLocalDateStr(activatedAt)) } },
-      select: { id: true, customerId: true, completedAt: true }, orderBy: [{ completedAt: "asc" }, { id: "asc" }],
-    });
-    return rows.map(b => ({ ...b, completedAt: b.completedAt! }));
-  }
+
   return []; // Unknown/unreleased modules fail closed.
 }
 async function eligibility(storeId: string, module: string, candidate: Candidate, now: Date) {
@@ -45,19 +40,7 @@ async function eligibility(storeId: string, module: string, candidate: Candidate
     if (slots.length && !slots.some(p => p.service === "FIRST_TRIAL" && p.status === "COMPLETED")) return null;
   }
   const today = parseTaiwanDateToDbDate(toLocalDateStr(now));
-  if (module === "SPA") {
-    const [booking, purchased, booked] = await Promise.all([
-      spaPrisma.spaBooking.findFirst({ where: { id: candidate.id, storeId, customerId: candidate.customerId, status: "COMPLETED", isTrial: true } }),
-      spaPrisma.spaCreditSale.count({ where: { storeId, customerId: candidate.customerId } }),
-      spaPrisma.spaBooking.count({ where: { storeId, customerId: candidate.customerId, status: { in: ["PENDING", "CONFIRMED"] }, bookingDate: { gte: today } } }),
-    ]);
-    // Imported entitlements / stored-value wallets may predate the sales ledger.
-    const [entitlements, wallets] = await Promise.all([
-      spaPrisma.spaEntitlement.count({ where: { storeId, customerId: candidate.customerId } }),
-      spaPrisma.spaStoredValueEntry.count({ where: { storeId, customerId: candidate.customerId, entryType: "CREDIT" } }),
-    ]);
-    return booking ? { customer, purchased: purchased + entitlements + wallets > 0, pendingPayment: false, booked: booked > 0 } : null;
-  }
+
   const [booking, purchased, wallets, booked, pendingPayment] = await Promise.all([
     prisma.booking.findFirst({ where: { id: candidate.id, storeId, customerId: candidate.customerId, bookingStatus: "COMPLETED", bookingType: "FIRST_TRIAL" }, select: { id: true } }),
     prisma.transaction.count({ where: { storeId, customerId: candidate.customerId, transactionType: "PACKAGE_PURCHASE", status: { in: ["SUCCESS", "REFUNDED"] }, paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } } }),
@@ -124,6 +107,7 @@ export async function runTrialCare(now = new Date()) {
           const day = dayRange(toLocalDateStr(now));
           const sentToday = await prisma.trialCareLog.count({ where: { storeId: key.storeId, customerId: key.customerId, status: { in: ["SENT", "SENDING"] }, createdAt: { gte: day.start, lte: day.end } } });
           let reason = trialCareSkipReason({ now, dueAt, updatedAt: setting.updatedAt, enabled: rule.enabled, stopped: !!preference.stoppedAt, stage, purchased: state.purchased, pendingPayment: state.pendingPayment, booked: state.booked, alreadySentToday: sentToday > 0 });
+          if (!isLineDeliveryEventCurrent(dueAt)) reason = "停發期間的舊通知不補發";
           const body = renderTrialCareBody(rule.body, state.customer.name, setting.store.name);
           let log;
           try {
@@ -154,7 +138,7 @@ export async function runTrialCare(now = new Date()) {
             if (!fresh || optedOut?.stoppedAt || (stage > 0 && (fresh.purchased || fresh.pendingPayment || fresh.booked)) || fresh.customer.lineUserId !== state.customer.lineUserId) {
               await prisma.trialCareLog.update({ where: { id: log.id }, data: { status: "SKIPPED", reason: "發送前顧客狀態已變更" } }); result.skipped++; continue;
             }
-            const delivery = await pushMessage(key.storeId, state.customer.lineUserId!, trialCareMessages(body, stage, preference.token), randomUUID());
+            const delivery = await pushMessage(key.storeId, state.customer.lineUserId!, trialCareMessages(body, stage, preference.token), randomUUID(), dueAt);
             await prisma.$transaction([
               prisma.trialCareLog.update({ where: { id: log.id }, data: { status: delivery.success ? "SENT" : "FAILED", sentAt: delivery.success ? now : null, reason: delivery.success ? null : "LINE 發送失敗；不自動重送，請檢查連線" } }),
               prisma.messageLog.create({ data: { storeId: key.storeId, customerId: key.customerId, channel: "LINE", lineRoute: "STORE", status: delivery.success ? "SENT" : "FAILED", renderedBody: `[${TRIAL_CARE_LABELS[stage]}]\n${body}`, sentAt: delivery.success ? now : null, errorMessage: delivery.success ? null : "體驗關懷發送失敗" } }),

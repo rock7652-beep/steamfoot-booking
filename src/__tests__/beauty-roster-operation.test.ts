@@ -1,0 +1,36 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({attendance:vi.fn(),cancel:vi.fn(),calendar:vi.fn(),manager:vi.fn(),rows:vi.fn()}));
+vi.mock('@/server/actions/beauty',()=>({changeBeautyAttendance:m.attendance,changeBeautyStatus:m.cancel}));
+vi.mock('@/server/beauty/queries',()=>({beautyCalendar:m.calendar}));
+vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:vi.fn(),audit:vi.fn()}));
+vi.mock('@/lib/session',()=>({getCurrentUser:async()=>null}));
+vi.mock('@/lib/permissions',()=>({checkPermission:async()=>false}));
+vi.mock('@/lib/feature-gate',()=>({hasStoreFeature:async()=>false}));
+vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:()=>({})}));
+vi.mock('@/lib/db',()=>({prisma:{}}));
+vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{beautyAppointment:{findMany:m.rows},beautyTechnician:{findMany:async()=>[]},$queryRaw:async()=>[]}}));
+import {updateBeautyRosterAttendance,cancelBeautyRosterAppointment} from '@/server/actions/beauty-native-roster';
+const base={sessionId:'day:2026-12-02',date:'2026-12-02'},attendance={id:'booking',revision:2,choice:'ATTENDED',requestKey:'00000000-0000-4000-8000-000000000001'};
+beforeEach(()=>{vi.clearAllMocks();m.attendance.mockResolvedValue({success:true,data:{id:'booking'}});m.cancel.mockResolvedValue({success:true,data:{id:'booking'}});m.calendar.mockResolvedValue({...base,items:[]});m.manager.mockResolvedValue({storeId:'test'});m.rows.mockResolvedValue([]);});
+it('returns the current roster and affected day, without reloading dashboard catalogs',async()=>{const result=await updateBeautyRosterAttendance({...base,attendance});expect(result).toMatchObject({success:true,refresh:{success:true,data:{roster:{roster:[]},calendar:{items:[]}}},timing:{writeMs:expect.any(Number),readMs:expect.any(Number)}});expect(m.attendance).toHaveBeenCalledWith(attendance);expect(m.calendar).toHaveBeenCalledExactlyOnceWith('2026-12-02','day');});
+it('does not read a roster after a rejected write',async()=>{m.attendance.mockResolvedValue({success:false,error:'無權限'});expect(await updateBeautyRosterAttendance({...base,attendance})).toEqual({success:false,error:'無權限'});expect(m.rows).not.toHaveBeenCalled();expect(m.calendar).not.toHaveBeenCalled();});
+it('keeps a committed operation distinct from a failed synchronization',async()=>{m.manager.mockRejectedValue(new Error('read offline'));const r=await updateBeautyRosterAttendance({...base,attendance});expect(r).toMatchObject({success:true,refresh:{success:false}});expect(m.attendance).toHaveBeenCalledOnce();});
+it('uses the existing cancel transaction and a server owned reason',async()=>{expect(await cancelBeautyRosterAppointment({...base,...attendance})).toMatchObject({success:true});expect(m.cancel).toHaveBeenCalledWith('manager',expect.objectContaining({id:'booking',revision:2,target:'CANCELLED',reason:'後台取消預約'}));});
+it('rejects malformed attendance before reaching the transaction',async()=>{expect(await updateBeautyRosterAttendance({...base,attendance:{...attendance,choice:'INVENTED'}})).toMatchObject({success:false});expect(m.attendance).not.toHaveBeenCalled();});
+
+// Exercise the actual read scope with consumers of the shared identity memo.
+it('deduplicates concurrent read identity after the write, without reusing write identity or the next request',async()=>{
+ const {memoizeReadRequest}=await import('@/server/services/read-request-memo');
+ const identity=vi.fn(async()=>({storeId:'test'}));
+ const readIdentity=()=>memoizeReadRequest('session.current-user',identity);
+ m.attendance.mockImplementation(async()=>{await readIdentity();await readIdentity();return {success:true};});
+ m.manager.mockImplementation(async()=>readIdentity());
+ m.calendar.mockImplementation(async()=>{await readIdentity();await readIdentity();return {items:[]};});
+ expect(await updateBeautyRosterAttendance({...base,attendance})).toMatchObject({success:true,refresh:{success:true}});
+ // Two ordinary write lookups, then one fresh shared read lookup.
+ expect(identity).toHaveBeenCalledTimes(3);
+ expect(m.manager).toHaveBeenCalledOnce();
+ expect(await updateBeautyRosterAttendance({...base,attendance})).toMatchObject({success:true,refresh:{success:true}});
+ expect(identity).toHaveBeenCalledTimes(6);
+ expect(m.manager).toHaveBeenCalledTimes(2);
+});

@@ -4,26 +4,15 @@ import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { hashSync } from "bcryptjs";
-import { ALL_PERMISSIONS, createDefaultPermissions, requirePermission } from "@/lib/permissions";
+import { ALL_PERMISSIONS, createDefaultPermissions, getDefaultPermissionsForRole, requirePermission } from "@/lib/permissions";
 import { requireAdminSession } from "@/lib/session";
 import { deriveBaseUrl } from "@/lib/base-url";
 import { deriveCourseBaseUrl } from "@/server/services/course-delivery-links";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/types";
-import type {
-  CreateStoreInput,
-  StoreDeliverySummary,
-  ChecklistItem,
-  AccountSummary,
-  StoreIndustryModule,
-} from "@/types/store-onboarding";
+import type { CreateStoreInput, StoreDeliverySummary, ChecklistItem, AccountSummary, StoreIndustryModule } from "@/types/store-onboarding";
 import type { StoreOperatingStatus, UserRole } from "@prisma/client";
-import {
-  getBusinessProfileFeatureKey,
-  getStoreBusinessLabel,
-  resolveCourseBusinessProfile,
-  type CourseBusinessProfile,
-} from "@/lib/store-business-profile";
+import { getBusinessProfileFeatureKey, getStoreBusinessLabel, resolveCourseBusinessProfile, type CourseBusinessProfile } from "@/lib/store-business-profile";
 
 const STORE_OPERATING_STATUSES: StoreOperatingStatus[] = [
   "TRIAL",
@@ -41,6 +30,8 @@ export async function createStoreAction(
 ): Promise<ActionResult<StoreDeliverySummary>> {
   await requireAdminSession();
   await requirePermission("staff.manage");
+
+  if (input.industryModule === "BEAUTY" && process.env.BEAUTY_MODULE_ENABLED !== "1") return {success:false,error:"美業模組尚未開放"};
 
   // ── 輸入驗證 ──
   const errors = validateCreateStoreInput(input);
@@ -83,6 +74,12 @@ export async function createStoreAction(
     const ownerRole: UserRole = "OWNER";
 
     const createRecords = async (db: Prisma.TransactionClient | typeof prisma): Promise<ActionResult<StoreDeliverySummary>> => {
+      // Beauty provisioning is atomic, including every initial account's permissions.
+      const initializePermissions = async (staffId:string, role:UserRole) => {
+        if(industryModule!=="BEAUTY")return createDefaultPermissions(staffId,role);
+        const defaults=getDefaultPermissionsForRole(role);
+        await db.staffPermission.createMany({data:ALL_PERMISSIONS.map(permission=>({staffId,permission,granted:defaults.includes(permission)})),skipDuplicates:true});
+      };
       // 1. Store + ShopConfig
       const store = await db.store.create({
         data: {
@@ -94,7 +91,7 @@ export async function createStoreAction(
           isDefault: false,
           isDemo: input.isDemo,
           industryModule,
-          plan: industryModule === "COURSE" ? "EXPERIENCE" : input.plan,
+          plan: industryModule === "COURSE" || industryModule === "BEAUTY" ? "EXPERIENCE" : input.plan,
           operatingStatus: "TRIAL",
           planStatus: "TRIAL", // ★ 一律 TRIAL（規格強制）
           shopConfig: {
@@ -118,9 +115,8 @@ export async function createStoreAction(
           moduleInstallation: {
             create: {
               module: industryModule,
-              // SPA 的專屬資料與排程尚未完成前，絕不可讓 HQ 誤啟用一間半成品店。
-              status: industryModule === "SPA" ? "PROVISIONING" : "ACTIVE",
-              provisionedAt: industryModule !== "SPA" ? new Date() : null,
+              status: "ACTIVE",
+              provisionedAt: new Date(),
             },
           },
         },
@@ -153,7 +149,7 @@ export async function createStoreAction(
           await db.staffPermission.createMany({ data: ALL_PERMISSIONS.map(permission => ({
             staffId: ownerUser.staff!.id, permission, granted: COURSE_PERMISSIONS.includes(permission),
           })), skipDuplicates: true });
-        } else await createDefaultPermissions(ownerUser.staff.id, ownerRole);
+        } else await initializePermissions(ownerUser.staff.id, ownerRole);
       }
 
       // 3. Initial STAFF：保留真實後台角色，不把店長升為老闆。
@@ -182,7 +178,7 @@ export async function createStoreAction(
           include: { staff: true },
         });
         if (staffUser.staff) {
-          await createDefaultPermissions(staffUser.staff.id, dbRole);
+          await initializePermissions(staffUser.staff.id, dbRole);
         }
         staffAccounts.push({
           name: staffInput.name,
@@ -191,7 +187,7 @@ export async function createStoreAction(
         });
       }
 
-      // 4. 蒸足預設時段（8 slots × 7 days）。SPA 必須只由自己的 provider
+      // 4. 蒸足預設時段（8 slots × 7 days）。課程由自己的排課流程
       // availability / treatment schema 佈建，不能寫入這組 legacy BookingSlot。
       if (industryModule === "STEAMFOOT") {
         const slotTimes = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
@@ -214,7 +210,7 @@ export async function createStoreAction(
       //   每天 10:00–21:00、slotInterval 60 分、每時段 6 名額。
       // 店長之後可於後台「營業時間設定」自行調整；@@unique(storeId,dayOfWeek)
       // 確保不重複（此處為全新店，createMany 安全）。
-      if (industryModule !== "SPA") {
+      {
         const businessHoursData = [];
         const musicHours = businessProfile === "MUSIC";
         for (let dow = 0; dow <= 6; dow++) {
@@ -224,7 +220,7 @@ export async function createStoreAction(
             isOpen: true,
             openTime: musicHours ? "09:00" : "10:00",
             closeTime: musicHours ? "22:00" : "21:00",
-            slotInterval: musicHours ? 30 : 60,
+            slotInterval: industryModule === "BEAUTY" ? 15 : musicHours ? 30 : 60,
             defaultCapacity: 6,
             segments: musicHours
               ? [{ openTime: "09:00", closeTime: "22:00", slotInterval: 30, defaultCapacity: 6 }]
@@ -272,7 +268,7 @@ export async function createStoreAction(
 
       return { success: true, data: summary };
     };
-    return industryModule === "COURSE"
+    return industryModule === "COURSE" || industryModule === "BEAUTY"
       ? await prisma.$transaction(createRecords, { timeout: 20000 })
       : await createRecords(prisma);
   } catch (e) {
@@ -288,7 +284,6 @@ export async function createStoreAction(
 
 export async function activateStoreAction(
   storeId: string,
-  entryAcceptanceConfirmed = false,
 ): Promise<ActionResult<{ planStatus: string }>> {
   await requireAdminSession();
   await requirePermission("staff.manage");
@@ -334,7 +329,7 @@ export async function activateStoreAction(
   if (store.currentSubscriptionId) return { success: false, error: "已有訂閱，請至訂閱管理轉正式或續約" };
   const { createTrialSubscription } = await import("@/server/actions/store-subscription");
   const { toLocalDateStr } = await import("@/lib/date-utils");
-  const result = await createTrialSubscription({ storeId, plan: "EXPERIENCE", startDate: toLocalDateStr(), trialDays: 30, entryAcceptanceConfirmed });
+  const result = await createTrialSubscription({ storeId, plan: "EXPERIENCE", startDate: toLocalDateStr(), trialDays: 30 });
   if (!result.success) return result;
   return { success: true, data: { planStatus: "TRIAL" } };
 }
@@ -572,7 +567,7 @@ function buildDeliveryChecklist(
         ? [getBusinessProfileFeatureKey(input.businessProfile)]
         : undefined,
     )}已完成佈建`,
-      status: industryModule !== "SPA" ? "pass" : "fail" },
+      status: "pass" },
     // ② 路由入口
     { key: "route_entry", label: "路由入口 /s/[slug]/ 已可存取", status: "pass" },
     // ③ OWNER / STAFF 登入
@@ -690,6 +685,8 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
         : "請由店長設定教練、教室及課程後完成首次排課",
       status: "skip",
     });
+  } else if(store.industryModule === "BEAUTY") {
+    items.push({key:"beauty-setup",label:"美業獨立服務預約；請設定位置、服務與技師後驗收三端入口，不建立預設方案",status:"skip"});
   } else {
     items.push({
       key: "booking-slots",
@@ -719,8 +716,8 @@ function validateCreateStoreInput(input: CreateStoreInput): string[] {
   if (!input.slug?.trim()) errors.push("slug 不可為空");
   if (!/^[a-z0-9-]+$/.test(input.slug)) errors.push("slug 只能包含小寫英數字和短橫線");
   if (input.slug.length < 2 || input.slug.length > 30) errors.push("slug 長度需 2-30 字元");
-  if (input.industryModule && input.industryModule !== "STEAMFOOT" && input.industryModule !== "COURSE") {
-    errors.push("僅支援時段（蒸足）、運動教室與音樂教室模組");
+  if (input.industryModule && input.industryModule !== "STEAMFOOT" && input.industryModule !== "COURSE" && input.industryModule !== "BEAUTY") {
+    errors.push("僅支援時段（蒸足）、運動、音樂與美業模組");
   }
 
   if (input.industryModule !== "COURSE" && input.businessProfile) {

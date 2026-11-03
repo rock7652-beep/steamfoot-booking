@@ -18,6 +18,7 @@ import { paymentMethodReportAmount } from "@/lib/payment-splits";
 // ============================================================
 
 export interface ReportFilters {
+  dataScope?: string | null;
   startDate: string; // YYYY-MM-DD
   endDate: string;   // YYYY-MM-DD
   storeId?: string | null;

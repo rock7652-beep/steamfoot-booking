@@ -1,0 +1,8 @@
+{
+  "payments": 5,
+  "cashbookEntries": 5,
+  "net": 0,
+  "lineEnabled": false,
+  "backendNoticesEnabled": true,
+  "passed": true
+}

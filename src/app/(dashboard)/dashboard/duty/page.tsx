@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/db";
+import { applySlotOverrides, resolveDayRule, buildBusinessHoursMap, buildSpecialDayMap } from "@/lib/business-hours-resolver";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/session";
@@ -99,6 +101,7 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId
     _nextAssignments,
     _prevSpecialDays,
     _nextSpecialDays,
+    slotOverrides,
   ] = await Promise.all([
     withTiming("getDutyByWeek", timer, () => getDutyByWeek(weekStart, activeStoreId)),
     getBusinessHoursWithTiming(storeId, timer),
@@ -111,8 +114,15 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId
     getDutyByDateRange(nextWeekStart, 6, {role: userRole, storeId}, activeStoreId).catch(() => []),
     getCachedSpecialDays(storeId, new Date(prevWeekStart + "T00:00:00Z").toISOString(), prevWeekEnd).catch(() => []),
     getCachedSpecialDays(storeId, new Date(nextWeekStart + "T00:00:00Z").toISOString(), nextWeekEnd).catch(() => []),
+    course ? Promise.resolve([]) : prisma.slotOverride.findMany({where:{storeId,date:{gte:weekStartDate,lte:new Date(weekEndISO)}}}),
   ]);
 
+  const hoursMap=buildBusinessHoursMap(businessHours),specialMap=buildSpecialDayMap(specialDays.map(s=>({...s,date:new Date(s.date+"T00:00:00Z")})));
+  const slotsByDate:Record<string,string[]>={};
+  if(!course)for(let i=0;i<7;i++){
+    const date=addDays(weekStart,i),rule=resolveDayRule({dateStr:date,dow:new Date(date+"T00:00:00Z").getUTCDay(),businessHoursMap:hoursMap,specialDayMap:specialMap});
+    slotsByDate[date]=applySlotOverrides(rule,slotOverrides.filter(o=>o.date.toISOString().slice(0,10)===date)).filter(s=>s.isEnabled).map(s=>s.startTime);
+  }
   const perfLog = timer.finish();
 
   return (
@@ -147,6 +157,7 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId
       </div>
       <DutyWeekView
         course={course}
+        slotsByDate={slotsByDate}
         weekStart={weekStart}
         assignments={assignments}
         businessHours={businessHours}

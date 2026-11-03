@@ -1,0 +1,76 @@
+{
+  "complete": true,
+  "scope": "real local login, actual Next routes, disposable PostgreSQL; no production data",
+  "realDatabase": true,
+  "physicalIPad": false,
+  "results": [
+    {
+      "store": "sports",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "sports",
+      "step": "screen-and-excel-amounts",
+      "pass": true,
+      "screenNet": 5100,
+      "transactionExportNet": 5100,
+      "manualIncomeIncludedInScreen": 0
+    },
+    {
+      "store": "music",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "music",
+      "step": "screen-and-excel-amounts",
+      "pass": true,
+      "screenNet": 5100,
+      "transactionExportNet": 5100,
+      "manualIncomeIncludedInScreen": 0
+    },
+    {
+      "store": "dance",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "dance",
+      "step": "screen-and-excel-amounts",
+      "pass": true,
+      "screenNet": 5100,
+      "transactionExportNet": 5100,
+      "manualIncomeIncludedInScreen": 0
+    },
+    {
+      "store": "beauty",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "beauty",
+      "step": "screen-and-excel-amounts",
+      "pass": true,
+      "screenNet": 3400,
+      "transactionExportNet": 3400,
+      "manualIncomeIncludedInScreen": 0
+    },
+    {
+      "store": "steam",
+      "step": "actual-login",
+      "pass": true
+    },
+    {
+      "store": "steam",
+      "step": "screen-and-excel-amounts",
+      "pass": true,
+      "screenNet": 1100,
+      "transactionExportNet": 1000,
+      "manualIncomeIncludedInScreen": 100
+    }
+  ],
+  "errors": [],
+  "externalRequestsBlocked": 0,
+  "integrationBase": "5025db445c353807e6493e21383eb900df975f8b"
+}

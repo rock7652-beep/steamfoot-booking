@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "case": "新 QA 人員全部權限逐碼收斂至五項讀取",
+      "passed": true
+    },
+    {
+      "case": "收斂後只讀帳號重新登入通過",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "stage": "restrict-new-qa",
+  "scope": "steamfoot-preview / beauty-hosted-20261021",
+  "finalDeploymentCommit": "eca98f9c350b3b5543f0e398ac9f96922f0f079d"
+}

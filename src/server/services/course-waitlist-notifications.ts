@@ -1,3 +1,4 @@
+import { courseDisplayName } from "@/lib/course-template-presentation";
 import "server-only";
 
 import { prisma } from "@/lib/db";
@@ -53,15 +54,15 @@ export async function notifyCourseWaitlistPromotions(
         text: [
           "候補已成功遞補",
           store?.name ?? "課程門市",
-          `${formatTWDateTime(session.startsAt)} ${session.nameSnapshot}`,
+          `${formatTWDateTime(session.startsAt)} ${courseDisplayName(session.nameSnapshot)}`,
           `上課者：${promoted.filter(row => row.sessionId === item.sessionId && row.customerId === item.customerId).map(row => row.customerName).join("、")}`,
           "名額已為您保留，請依原預約方式準時到店。",
         ].join("\n"),
       }];
       const retryKey = crypto.randomUUID();
       const result = route.channel === "STORE"
-        ? await pushMessage(storeId, route.recipientLineUserId, messages, retryKey)
-        : await pushSteamButlerMessage(route.recipientLineUserId, messages, retryKey);
+        ? await pushMessage(storeId, route.recipientLineUserId, messages, retryKey, new Date())
+        : await pushSteamButlerMessage(route.recipientLineUserId, messages, retryKey, new Date());
       if (!result.success) {
         console.error("[course-waitlist] promotion LINE failed", {
           storeId,

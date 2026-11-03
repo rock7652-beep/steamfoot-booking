@@ -1,0 +1,3318 @@
+{
+  "scope": "isolated hosted Preview, not production; handler and read spans are not end-to-end HTTP timings",
+  "deploymentId": "dpl_Aeu84Pf2tehBfWWYUW3p8PLaPNgs",
+  "commit": "b3bc95c0e5d658621407ac87ec8830fa0fd7456c",
+  "traces": [
+    {
+      "timestamp": "2026-10-21T04:22:50.255Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "be81af13-fb8a-48bc-a854-d188b5e31a25",
+      "ok": true,
+      "totalMs": 668.8,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 78.4,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 53,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 116.2,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 252.9,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 6.2,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 39,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 51.3,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:22:50.164Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "31c3787c-b19e-4ae3-860f-03ce46974f6a",
+      "ok": true,
+      "totalMs": 499.1,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 35.6,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 57.3,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 126.9,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 126.9,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 18.8,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 226.9,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:22:47.819Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "dd97cf16-f36f-40bb-a17d-3444bd8ad900",
+      "ok": true,
+      "totalMs": 892.5,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 127.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 52.2,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 110.9,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 251.4,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 14.3,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 35.9,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 50.9,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:22:47.546Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "f3fe0c9e-74eb-4d79-bbd2-2b0cd15a78ed",
+      "ok": true,
+      "totalMs": 490.4,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 34,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 56,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 103,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 119.3,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 19,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 228.9,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:21:31.610Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "1c838f3d-11d2-4e09-aa56-041d0363bef5",
+      "ok": true,
+      "totalMs": 667.1,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 72.7,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 50.6,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 113.7,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 247.5,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 14.6,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 34.7,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 49.2,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:21:31.504Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "5d024b0c-6cdd-41c2-ba84-c50adacca8eb",
+      "ok": true,
+      "totalMs": 487.5,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 33.4,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 55.8,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 123.1,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 123.1,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 17.7,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 222.8,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:20:31.690Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "b69b162e-6fd4-4078-9618-1efd0964b654",
+      "ok": true,
+      "totalMs": 690.8,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 75.7,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 50.5,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.6,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 117.9,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 247.9,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 18.2,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 56.6,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 48.5,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:20:31.575Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "e3517967-e16e-4f14-87a2-ba76ab9df6b8",
+      "ok": true,
+      "totalMs": 497.4,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 33.5,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 57.7,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 127.1,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 127.1,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 18.7,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 228.5,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:19:31.568Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "c781737b-eeed-46bd-a6c4-71b0418c6dec",
+      "ok": true,
+      "totalMs": 687.8,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 81.8,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 96.1,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 120.8,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 206.6,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 15.8,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 50,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 49.5,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:19:31.474Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "72077375-a15a-4f39-ab88-994f2abd1fdb",
+      "ok": true,
+      "totalMs": 510.7,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 18.1,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 57.3,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 124.6,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 124.6,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 21.4,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 261.7,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:18:31.719Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "149dead7-49a6-4952-8378-a143367f29cf",
+      "ok": true,
+      "totalMs": 674,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 68.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 47.1,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.2,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 107.7,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 269.5,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 8.9,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 58,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 46.6,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:18:31.631Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "48f75c88-53e5-4d0c-b6c9-b2a4602fa897",
+      "ok": true,
+      "totalMs": 516.9,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 30.1,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 52.5,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 118,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 118,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 21.9,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 267,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:18:20.107Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "644e1e42-e5e7-4056-a61a-ed582437cbf9",
+      "ok": true,
+      "totalMs": 696.3,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 77.2,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 52.8,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 115.4,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 282.2,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 14.3,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 35.5,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 49.5,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:18:20.029Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "68032c96-41e0-4cdb-8eca-9c9e2c74f7bf",
+      "ok": true,
+      "totalMs": 540,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 35.2,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 58,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 122.4,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 122.4,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 21.3,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 275,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:18:19.793Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "ed69e36c-a189-437b-b0d4-cd48305cb760",
+      "ok": true,
+      "totalMs": 779.5,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 87.9,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 101.2,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.7,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 115.1,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 253.3,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 55.1,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 42,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.2,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 50.8,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:18:19.666Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "f5075f71-199b-4287-aafa-38b6346cbbb4",
+      "ok": true,
+      "totalMs": 561.1,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 82,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 55.6,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 126,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 126.2,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 19.6,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 244.4,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:18:06.621Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "ee75fe69-9428-4048-b6a8-cea79899b9cc",
+      "ok": true,
+      "totalMs": 868.8,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 117.9,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 78.8,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.2,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 232.3,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 276.1,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 7.2,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 35.9,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 50.5,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:18:06.544Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "60778a96-1bfe-445d-a17a-a79d047d4aec",
+      "ok": true,
+      "totalMs": 675.5,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 46.6,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 70,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 242.4,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 242.4,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 22.3,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 267,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:18:06.163Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "ded09e1a-172c-4bfc-83d5-683a1310865f",
+      "ok": true,
+      "totalMs": 929.5,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 73.7,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 50.7,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.2,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 113.8,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 280.7,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 15.1,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 44.1,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 161.7,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:18:05.839Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "7327c083-cdff-408e-a69f-22547ef678a1",
+      "ok": true,
+      "totalMs": 530.1,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 32.8,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 55.2,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 126,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 126,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 21.6,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 263.6,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:17:31.590Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "6a6831f6-3b1c-4cb7-890b-608966b0d5d6",
+      "ok": true,
+      "totalMs": 686.4,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 71.2,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 49.3,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 110.2,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 272.5,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 8.7,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 55,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 47.5,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:17:31.493Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "b03bafeb-506f-4f8c-989d-5b05a65a5ba8",
+      "ok": true,
+      "totalMs": 518.1,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 32.5,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 54.8,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 118.6,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 118.6,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 22.1,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 264.6,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:16:31.659Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "46a8ccfe-926e-4e59-bf78-556356c738a1",
+      "ok": true,
+      "totalMs": 656.5,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 69.7,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 48.8,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.5,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 112.8,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.2,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 241.3,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 14.9,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 51.8,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 49,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:16:31.545Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "22d20493-2bea-4e76-9a2e-d2e0a52f08d8",
+      "ok": true,
+      "totalMs": 471.4,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 32,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 54.4,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 122.8,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 122.8,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 16.8,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 211.8,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:15:31.870Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "4ee42bf2-2b71-4cf9-8ca4-6ead7f1bdce9",
+      "ok": true,
+      "totalMs": 865.3,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 90,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 63.3,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 1,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 148.1,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 351.2,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 3.8,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 47.2,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 65.4,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:15:31.643Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "0232699f-5448-4ab1-961c-50c1a592c663",
+      "ok": true,
+      "totalMs": 547,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 45.9,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 69.2,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 139.9,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 162.4,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 17.3,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 219.8,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:15:29.274Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "ef011edc-1ec8-475f-85b8-4b934640f4b6",
+      "ok": true,
+      "totalMs": 888,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 102.7,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 86.6,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 151.7,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 335.6,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 10.6,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 46.3,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 64.4,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:15:29.049Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "b263163b-c228-4a72-bf7c-f8b27618c31d",
+      "ok": true,
+      "totalMs": 557.9,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 57,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 81.5,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 162.5,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 162.5,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 18,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 213.9,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:14:44.140Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "07c1ee15-4f60-4b87-b3b8-e5569da62031",
+      "ok": true,
+      "totalMs": 893.1,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 92.4,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 65.8,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 147,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 346.7,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 15.6,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 46.6,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 65.8,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:14:43.883Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "aea35f3e-fcc1-4e3f-9322-f73f3fd103ba",
+      "ok": true,
+      "totalMs": 542.9,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 44,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 72.2,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 161.4,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 161.4,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 16.7,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 218.7,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:13:56.667Z",
+      "route": "/s/sports-live-flow/admin/dashboard/settings-save/duty",
+      "kind": "SETTINGS_SAVE_ROUTE_PERF",
+      "traceId": "a81dc710-3075-4187-a678-6d528ddda705",
+      "outcome": "error",
+      "totalMs": 713.5,
+      "spans": []
+    },
+    {
+      "timestamp": "2026-10-21T04:13:44.133Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "40efe1ed-8d9c-4feb-afe7-785377827d7a",
+      "ok": true,
+      "totalMs": 863.1,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 93.5,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 65.5,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 144.2,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 338.3,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 19,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 46.7,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 64.6,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:13:43.897Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "fad349a4-a242-4e89-92a3-86b4646f0796",
+      "ok": true,
+      "totalMs": 532,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 43.6,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 72.2,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 157.8,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 157.8,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 17.1,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 214.9,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:12:44.436Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "9137c10d-5fab-46f8-adaa-5d92844f4560",
+      "ok": true,
+      "totalMs": 896,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 90.9,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 64.1,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 149.3,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 339.7,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 15.3,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 74,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 68.4,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:12:44.169Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "14d87dd4-49c8-4b91-ba6a-c902fdd5a6a4",
+      "ok": true,
+      "totalMs": 535.6,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 41.1,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 74.3,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 160.7,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 160.7,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 16.4,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 216.4,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:11:44.154Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "17bdfeb9-a935-4c5a-a97f-c93aed35ed5f",
+      "ok": true,
+      "totalMs": 876.2,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 96.9,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 67.9,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 149.5,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 343.1,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 4,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 47.3,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.2,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 68.1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:11:43.920Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "3e047d79-ea03-4cb7-bcb4-7877fd991796",
+      "ok": true,
+      "totalMs": 544.5,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0.2,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 44.6,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 75.7,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 161.8,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 161.8,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 17.2,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 216.8,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:11:41.754Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "78f5f315-bc0a-4e4d-aee3-b5674c5578b9",
+      "ok": true,
+      "totalMs": 842.7,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 105.9,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 65.9,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.6,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 149.4,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 303.6,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 10.6,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 50.1,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 66.1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:11:41.625Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "d235ca02-363f-48a0-acd2-fa53e80fa548",
+      "ok": true,
+      "totalMs": 606.3,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 42.6,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 74.5,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 160.8,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 160.8,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 21.9,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 263.7,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:10:46.993Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "86c02eb2-47bb-429c-a4fa-ce3bb972f25a",
+      "ok": true,
+      "totalMs": 1005.1,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 92.3,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 65.3,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.5,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 151.1,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 377.1,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 110.6,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 48.6,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 64.5,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:10:46.653Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "a09263c1-0228-4d36-9d96-fb41c88e4281",
+      "ok": true,
+      "totalMs": 571.5,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 42.8,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 74.1,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 165.8,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 165.8,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 21.8,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 243.4,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:10:28.686Z",
+      "route": "/s/sports-live-flow/admin/dashboard/settings-save/course/waitlist",
+      "kind": "SETTINGS_SAVE_ROUTE_PERF",
+      "traceId": "4ee271c9-a129-4911-b6ea-5ccd4b5a5370",
+      "outcome": "saved",
+      "totalMs": 214.7,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 111.2,
+          "ok": true
+        },
+        {
+          "name": "feature",
+          "durationMs": 22.6,
+          "ok": true
+        },
+        {
+          "name": "db_lock",
+          "durationMs": 5,
+          "ok": true
+        },
+        {
+          "name": "db_work",
+          "durationMs": 11.2,
+          "ok": true
+        },
+        {
+          "name": "db_audit",
+          "durationMs": 5.8,
+          "ok": true
+        },
+        {
+          "name": "transaction",
+          "durationMs": 80.7,
+          "ok": true
+        },
+        {
+          "name": "cache",
+          "durationMs": 0,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:10:14.241Z",
+      "route": "/s/sports-live-flow/admin/dashboard/settings-save/course/waitlist",
+      "kind": "SETTINGS_SAVE_ROUTE_PERF",
+      "traceId": "54ca621d-12c4-40bc-9403-23c7883e324a",
+      "outcome": "saved",
+      "totalMs": 236.2,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 114.8,
+          "ok": true
+        },
+        {
+          "name": "feature",
+          "durationMs": 24.1,
+          "ok": true
+        },
+        {
+          "name": "db_lock",
+          "durationMs": 4.8,
+          "ok": true
+        },
+        {
+          "name": "db_work",
+          "durationMs": 18.6,
+          "ok": true
+        },
+        {
+          "name": "db_audit",
+          "durationMs": 8.6,
+          "ok": true
+        },
+        {
+          "name": "transaction",
+          "durationMs": 96.9,
+          "ok": true
+        },
+        {
+          "name": "cache",
+          "durationMs": 0.1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:09:46.538Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "1fad845b-d667-4a4b-ad1e-b01cebf14c5b",
+      "ok": true,
+      "totalMs": 725,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 77.7,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 52.1,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 121.3,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.2,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 282.8,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 34.4,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 35.8,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 50.2,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:09:46.437Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "21255102-9a18-4141-8c26-f47c517d338b",
+      "ok": true,
+      "totalMs": 545.8,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 34.8,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 59.5,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 130.2,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 130.2,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 21.9,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 269.2,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:09:36.687Z",
+      "route": "/s/sports-live-flow/admin/dashboard/settings-save/shop",
+      "kind": "SETTINGS_SAVE_ROUTE_PERF",
+      "traceId": "fa98143b-8cd4-490c-8259-7f7c7954f010",
+      "outcome": "saved",
+      "totalMs": 355.2,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 104.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 52.6,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 10.6,
+          "ok": true
+        },
+        {
+          "name": "authorization",
+          "durationMs": 109.7,
+          "ok": true
+        },
+        {
+          "name": "db_lock",
+          "durationMs": 4.4,
+          "ok": true
+        },
+        {
+          "name": "transaction",
+          "durationMs": 77.9,
+          "ok": true
+        },
+        {
+          "name": "cache",
+          "durationMs": 0.1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:09:21.913Z",
+      "route": "/s/sports-live-flow/admin/dashboard/settings-save/shop",
+      "kind": "SETTINGS_SAVE_ROUTE_PERF",
+      "traceId": "13b3da0a-53c3-477a-941a-240411e925cf",
+      "outcome": "saved",
+      "totalMs": 365.3,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 107.6,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 50.7,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 10.9,
+          "ok": true
+        },
+        {
+          "name": "authorization",
+          "durationMs": 111,
+          "ok": true
+        },
+        {
+          "name": "db_lock",
+          "durationMs": 4.9,
+          "ok": true
+        },
+        {
+          "name": "transaction",
+          "durationMs": 84.2,
+          "ok": true
+        },
+        {
+          "name": "cache",
+          "durationMs": 0.3,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:08:46.855Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "14db4e4c-c0ce-4873-bc86-8edc398a737b",
+      "ok": true,
+      "totalMs": 721.7,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 75.7,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 51.5,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.4,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 115.4,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 288.4,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 17.3,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 35.9,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 49.5,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:08:46.756Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "04c56b34-9215-4ed4-bc3c-9dbb3891c606",
+      "ok": true,
+      "totalMs": 544.6,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 32.5,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 57.9,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 127.3,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 127.3,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 22.2,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 272.8,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:07:56.654Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "9a83656d-16c1-4e3f-b988-c23510141ab1",
+      "ok": true,
+      "totalMs": 679.2,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 75.5,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 51.6,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.4,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 113.3,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 275.2,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 9.5,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 35.7,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 48.8,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:07:56.579Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "ac18b220-f466-4edf-a49c-57829d63b9d8",
+      "ok": true,
+      "totalMs": 526.3,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 33.3,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 55.9,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 122.8,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 122.8,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 21.4,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 264.4,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:07:46.500Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "3ff9966b-e2fb-4089-90f9-7d53bbb29838",
+      "ok": true,
+      "totalMs": 723.4,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 79.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 1.3,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 51.5,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 120.5,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 277.2,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 12.8,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 53.3,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 53,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:07:46.395Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "ab581be9-4e30-4f03-bfd9-8a440176ff6e",
+      "ok": true,
+      "totalMs": 536.5,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 33.5,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 59.1,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 129,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 129,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 22.5,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 262.8,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:07:33.166Z",
+      "route": "/s/sports-live-flow/admin/dashboard/settings-save/course/section",
+      "kind": "SETTINGS_SAVE_ROUTE_PERF",
+      "traceId": "d46b9cd8-9fa4-436a-a95f-0a81333d8a1a",
+      "outcome": "saved",
+      "totalMs": 298.5,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 181.8,
+          "ok": true
+        },
+        {
+          "name": "subscription",
+          "durationMs": 23.2,
+          "ok": true
+        },
+        {
+          "name": "db_lock",
+          "durationMs": 5.2,
+          "ok": true
+        },
+        {
+          "name": "db_work",
+          "durationMs": 25.5,
+          "ok": true
+        },
+        {
+          "name": "transaction",
+          "durationMs": 92.7,
+          "ok": true
+        },
+        {
+          "name": "cache",
+          "durationMs": 0.1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:07:07.634Z",
+      "route": "/s/sports-live-flow/admin/dashboard/settings-save/course/section",
+      "kind": "SETTINGS_SAVE_ROUTE_PERF",
+      "traceId": "4ba89ff9-a9f9-4972-9f26-b36faf78b942",
+      "outcome": "saved",
+      "totalMs": 528.6,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 319.1,
+          "ok": true
+        },
+        {
+          "name": "subscription",
+          "durationMs": 23.4,
+          "ok": true
+        },
+        {
+          "name": "db_lock",
+          "durationMs": 6.1,
+          "ok": true
+        },
+        {
+          "name": "db_work",
+          "durationMs": 29.5,
+          "ok": true
+        },
+        {
+          "name": "transaction",
+          "durationMs": 184,
+          "ok": true
+        },
+        {
+          "name": "cache",
+          "durationMs": 0.8,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:06:46.550Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "fc15693c-c05f-4b59-b219-34ef608f0b34",
+      "ok": true,
+      "totalMs": 681.3,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 76.2,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 94.1,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.4,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 123.7,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.2,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 217.6,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 5,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 39.8,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.2,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 51.1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:06:46.471Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "1a42f8e0-55e6-47e1-9dbe-7116b984f8f9",
+      "ok": true,
+      "totalMs": 525.1,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 17.1,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 59.8,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 123.5,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 123.5,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 23.4,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 272.1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:06:44.143Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "layout",
+      "traceId": "9d992b16-276a-48eb-a75c-0b1a2121d31b",
+      "ok": true,
+      "totalMs": 880.4,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 162.4,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "read_audit",
+          "durationMs": 57.3,
+          "ok": true
+        },
+        {
+          "name": "read_permissions",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_scope",
+          "durationMs": 84.5,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.2,
+          "ok": true
+        },
+        {
+          "name": "read_trial",
+          "durationMs": 166.7,
+          "ok": true
+        },
+        {
+          "name": "read_plan",
+          "durationMs": 16.2,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 164.2,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 0.3,
+          "ok": true
+        },
+        {
+          "name": "read_labels",
+          "durationMs": 156.6,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-21T04:06:44.018Z",
+      "route": "/s/sports-live-flow/admin/dashboard/courses",
+      "kind": "SETTINGS_READ_PERF",
+      "operation": "hub",
+      "traceId": "383f9a62-9a1f-4108-9034-cc2737ecad2e",
+      "ok": true,
+      "totalMs": 592.7,
+      "spans": [
+        {
+          "name": "authorization",
+          "durationMs": 0.1,
+          "ok": true
+        },
+        {
+          "name": "store_scope",
+          "durationMs": 0,
+          "ok": true
+        },
+        {
+          "name": "module_check",
+          "durationMs": 36.6,
+          "ok": true
+        },
+        {
+          "name": "read_config",
+          "durationMs": 132.3,
+          "ok": true
+        },
+        {
+          "name": "read_usage",
+          "durationMs": 93.4,
+          "ok": true
+        },
+        {
+          "name": "read_features",
+          "durationMs": 93.5,
+          "ok": true
+        },
+        {
+          "name": "read_waitlist",
+          "durationMs": 23.2,
+          "ok": true
+        },
+        {
+          "name": "read_setup",
+          "durationMs": 279.3,
+          "ok": true
+        }
+      ]
+    }
+  ]
+}

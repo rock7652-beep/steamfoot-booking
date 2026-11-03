@@ -1,5 +1,9 @@
 "use client";
+import type {InitialStoreNoticeSummary} from "@/lib/store-notices";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
+import {SteamfootStoreNoticeBell} from "./admin/steamfoot-store-notice-bell";
 import {CourseStoreNoticeBell} from "./admin/course-store-notice-bell";
+import { ImageAnnouncementIcon, LocationIcon, PractitionerIcon, ServiceCatalogIcon } from "./admin/navigation-icons";
 
 import type { FeaturePresentationMap } from "@/components/feature-presentation";
 
@@ -10,10 +14,10 @@ import { OperationGuideShell, OperationGuideTrigger } from "./operation-guide-sh
 import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
-
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type MouseEvent as ReactMouseEvent } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+const BeautyStoreNoticeBell=dynamic(()=>import("./admin/beauty-store-notice-bell").then(m=>m.BeautyStoreNoticeBell),{ssr:false});
 import { usePathname, useSearchParams } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
 import { PlanBadge, LockedNavItem, TrialProgressBar } from "@/components/feature-gate";
@@ -34,6 +38,7 @@ import { createDevicePreviewUrl } from "@/lib/device-preview";
 // 修改密碼 modal 一年用不到一次，但每次切後台頁都被掛在 sidebar 樹裡 → 浪費 ~20KB JS。
 // 改 next/dynamic + 條件 mount，只有 user menu 點擊「修改密碼」才會 fetch chunk + render。
 // ssr:false 因為它純 client 互動 + useActionState。
+
 const ChangePasswordModal = dynamic(
   () => import("@/components/change-password-modal"),
   { ssr: false },
@@ -638,6 +643,8 @@ interface StoreViewOption {
 interface DashboardShellProps {
   /** Server-resolved store scope for shared course notifications, including store staff. */
   courseNoticeStoreId?: string | null;
+  noticeInitiallyEnabled?: boolean;
+  initialNoticeSummary?:InitialStoreNoticeSummary|null;
   cashDrawerStoreId?: string;
   musicEnabled?:boolean;
   sportsNative?:boolean;
@@ -676,10 +683,13 @@ interface DashboardShellProps {
   };
   /** Store-scoped industry UI. Formal stores always remain steamfoot. */
   industryModuleId?: IndustryModuleId;
+  steamfootAddOnsEnabled?: boolean;
 }
 
 export default function DashboardShell({
   courseNoticeStoreId,
+  noticeInitiallyEnabled=false,
+  initialNoticeSummary,
   cashDrawerStoreId,
   musicEnabled=false,
   sportsNative=false,
@@ -705,7 +715,9 @@ export default function DashboardShell({
   activeStoreId,
   viewMode,
   industryModuleId = "steamfoot",
+  steamfootAddOnsEnabled = false,
 }: DashboardShellProps) {
+  const personnelText = useCoursePersonnelText();
   const rawPathname = usePathname();
   const searchParams = useSearchParams();
   const routeQuery = searchParams.toString();
@@ -813,31 +825,55 @@ export default function DashboardShell({
   const navGroupsToRender: NavGroup[] = useMemo(() => {
     if (isHqPlatformView || (isAdmin && !isStoreAdminRoute && !isHqStoreView)) return NAV_GROUPS;
     const entry = (href: string) => STORE_ADMIN_NAV.find(item => item.href === href)!;
+    const operationsPermission = permissions.includes("transaction.read") ? "transaction.read" : permissions.includes("report.read") ? "report.read" : permissions.includes("cashbook.read") ? "cashbook.read" : permissions.includes("report.export") ? "report.export" : permissions.includes("customer.export") ? "customer.export" : "transaction.read";
+    const operationsItem:NavItem={...entry("/dashboard/revenue"),permission:operationsPermission,href:operationsPermission==="transaction.read"?"/dashboard/revenue":operationsPermission==="cashbook.read"?"/dashboard/revenue?area=cashbook":"/dashboard/revenue?area=exports",requiredFeature:operationsPermission==="transaction.read"?FEATURES.TRANSACTION_MANAGEMENT:undefined};
+    if (industryModuleId === "beauty") {
+      const icons = {
+        "首頁": entry("/dashboard").icon,
+        "班表": entry("/dashboard/bookings").icon,
+        "顧客管理": entry("/dashboard/customers").icon,
+        "顧客經營": entry("/dashboard/growth").icon,
+        "營運": entry("/dashboard/revenue").icon,
+        "分析": entry("/dashboard/reports").icon,
+        "位置管理": <LocationIcon />,
+        "服務項目": <ServiceCatalogIcon />,
+        "收費方式": entry("/dashboard/plans").icon,
+        "技師管理": <PractitionerIcon />,
+        "設定": entry("/dashboard/settings").icon,
+      };
+      const beautyItem = (label:keyof typeof icons, permission:NavItem["permission"], feature?:FeatureKey):NavItem => ({label,icon:icons[label],href:`/dashboard/beauty?tab=${encodeURIComponent(label)}`,permission,requiredFeature:feature});
+      return [
+        {id:"store-daily",label:"日常工作",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("首頁","booking.read"),beautyItem("班表","booking.read",FEATURES.BASIC_BOOKING),beautyItem("顧客管理","customer.read",FEATURES.CUSTOMER_MANAGEMENT),beautyItem("顧客經營","customer.read",FEATURES.CUSTOMER_CARE),operationsItem,beautyItem("分析","report.read",FEATURES.BASIC_REPORTS),entry("/dashboard/work-orders"),entry("/dashboard/inventory")]},
+        {id:"store-management",label:"店務管理",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("位置管理","business_hours.view"),beautyItem("服務項目","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("收費方式","plans.edit",FEATURES.PLAN_MANAGEMENT),...(steamfootAddOnsEnabled?[{href:"/dashboard/add-ons",label:"加購商品",permission:"add_ons.manage" as const,requiredFeature:FEATURES.ADD_ONS,icon:<ServiceCatalogIcon/>}]:[]),beautyItem("技師管理","staff.view",FEATURES.STAFF_MANAGEMENT),entry("/dashboard/staff"),{...entry("/dashboard/settings"),href:"/dashboard/image-announcements",label:"圖片公告",icon:<ImageAnnouncementIcon />,permission:"business_hours.view",requiredFeature:undefined},beautyItem("設定","business_hours.view")]},
+      ];
+    }
+
     const course = industryModuleId === "course";
-    const spa = industryModule === "spa";
+
     const growth = { ...entry("/dashboard/growth"), alternativeFeatures: [FEATURES.CUSTOMER_CARE, FEATURES.DIGITAL_BUTLER] };
     // When only the digital butler is enabled, its list remains directly reachable.
     const growthEntry = effectiveFeatures[FEATURES.CUSTOMER_CARE] === false && effectiveFeatures[FEATURES.DIGITAL_BUTLER] === true
       ? { ...growth, href: "/dashboard/digital-butler/leads" } : growth;
     const daily: NavItem[] = [
       { ...entry("/dashboard"), permission: course ? "booking.read" : undefined },
-      { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : spa ? "/dashboard/spa-schedule" : "/dashboard/bookings", label: course ? "課表排程" : "預約管理" },
-      { ...entry("/dashboard/customers"), href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
+      { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : "/dashboard/bookings", label: course ? (musicEnabled ? "課表" : "課表排程") : "預約管理" },
+      { ...entry("/dashboard/customers"), label: musicEnabled ? "學員管理" : "顧客管理", href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
       growthEntry,
       entry("/dashboard/work-orders"),
       entry("/dashboard/inventory"),
-      { ...entry("/dashboard/revenue"), requiredFeature: FEATURES.TRANSACTION_MANAGEMENT },
+      operationsItem,
       { ...entry("/dashboard/reports"), href: course ? "/dashboard/courses?view=analytics" : "/dashboard/reports" },
     ];
     const management: NavItem[] = [
       { ...hqItem("/dashboard/operation-audits"), label: "操作紀錄", permission: "store.audit.read", requiredFeature: FEATURES.STORE_OPERATION_AUDIT },
-      { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", label: sportsNative ? "收費方式" : course && musicEnabled ? "班型與學費" : "方案管理", requiredFeature: FEATURES.PLAN_MANAGEMENT },
+      { ...entry("/dashboard/plans"), href: course ? "/dashboard/courses?view=plans" : "/dashboard/plans", label: sportsNative ? "收費方式" : course && musicEnabled ? "收費方式" : "方案管理", requiredFeature: FEATURES.PLAN_MANAGEMENT },
       entry("/dashboard/staff"),
     ];
+    if (steamfootAddOnsEnabled) management.splice(2,0,{href:"/dashboard/add-ons",label:"附加項目",permission:"add_ons.manage",requiredFeature:FEATURES.ADD_ONS,icon:<ServiceCatalogIcon/>});
     if (course) management.push(
-      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: (musicEnabled || sportsNative) ? "教學項目" : "課程管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
-      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
-      { ...entry("/dashboard/staff"), href: "/dashboard/teachers", label: musicEnabled ? "教師管理" : "教練管理" },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=catalog", label: (musicEnabled || sportsNative) ? "教學項目" : "課程管理", icon: <ServiceCatalogIcon /> },
+      { ...entry("/dashboard/bookings"), href: "/dashboard/courses?view=rooms", label: "空間管理", icon: <LocationIcon /> },
+      { ...entry("/dashboard/staff"), href: "/dashboard/teachers", label: musicEnabled ? personnelText("教師管理") : personnelText("教練管理") },
     );
     if (course) {
       // Match the room → course → plan → teacher sequence in first-store setup.
@@ -851,20 +887,22 @@ export default function DashboardShell({
       ];
       management.sort((a, b) => setupOrder.indexOf(a.href) - setupOrder.indexOf(b.href));
     }
-    if (spa) management.push(
-      { ...entry("/dashboard/staff"), href: "/dashboard/spa-staff", label: "服務與排班", permission: "duty.manage", ownerOnly: true, requiredFeature: undefined },
-      { ...entry("/dashboard/bookings"), href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg> },
-    );
+    if (!(course && musicEnabled)) management.push({ ...entry("/dashboard/settings"), href: "/dashboard/image-announcements", label: "圖片公告", permission: "business_hours.view", requiredFeature: undefined });
     if (!course || canOpenCourseSettings) management.push({
       ...entry("/dashboard/settings"),
       href: course ? "/dashboard/courses?view=settings" : "/dashboard/settings",
       permission: course ? "booking.read" : undefined,
     });
+    if (course && musicEnabled) {
+      management.push({ ...entry("/dashboard/settings"), href:"/dashboard/image-announcements", label: "圖文公告", permission:"business_hours.view", requiredFeature:undefined });
+      const order = ["空間管理", "教學項目", "收費方式", personnelText("教師管理"), "人員管理", "圖文公告", "設定"];
+      management.sort((a,b) => (order.indexOf(a.label) < 0 ? 99 : order.indexOf(a.label)) - (order.indexOf(b.label) < 0 ? 99 : order.indexOf(b.label)));
+    }
     return [
-      { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: daily },
+      { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: musicEnabled ? daily.filter(item => !["/dashboard/work-orders", "/dashboard/inventory"].includes(item.href)) : daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
     ];
-  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, musicEnabled, sportsNative, effectiveFeatures, canOpenCourseSettings]);
+  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModuleId, musicEnabled, sportsNative, effectiveFeatures, canOpenCourseSettings, personnelText, permissions, steamfootAddOnsEnabled]);
 
   const featureAccess = (item: NavItem) => {
     const features = item.alternativeFeatures ?? (item.requiredFeature ? [item.requiredFeature] : []);
@@ -1149,7 +1187,7 @@ export default function DashboardShell({
 
   return (
     <OperationGuideShell enabled={guideEnabled} contextPath={`${pathname}${routeQuery ? `?${routeQuery}` : ""}`} access={{ hqScope: hqOperationGuide, music: industryModule === "course" && musicEnabled, module: industryModule, permissions, features: effectiveFeatures, sharedCardState: industryModule === "course" && !musicEnabled ? featureStates.shared_card ?? "HIDDEN" : undefined }}>
-    <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
+    <div data-spa-admin={undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
         className={`sidebar-transition ${(industryModule === "spa" || isAdmin) ? "hidden md:flex md:flex-col md:fixed md:inset-y-0 md:z-20" : "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-20"} border-r border-earth-200 bg-white ${
@@ -1160,7 +1198,7 @@ export default function DashboardShell({
           {!collapsed && (
             <div className="flex items-center gap-2 min-w-0">
               <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
-                {industryModule === "spa" ? <SteamButlerLogo className="w-28 lg:w-32" /> : <SteamButlerLogo compact />}
+                {<SteamButlerLogo compact />}
               </Link>
               {industryModule !== "spa" && <PlanBadge plan={pricingPlan} />}
             </div>
@@ -1193,7 +1231,7 @@ export default function DashboardShell({
         {renderNavGroups(collapsed)}
         {/* Sidebar version footer */}
         <div className="border-t border-earth-100 px-3 py-2 text-center">
-          {industryModule === "spa" && !collapsed && <div className="mb-2 flex justify-center"><PlanBadge plan={pricingPlan} /></div>}
+
           {collapsed ? (
             <span className="text-[9px] text-earth-300">v{APP_VERSION}</span>
           ) : (
@@ -1204,7 +1242,7 @@ export default function DashboardShell({
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div data-dashboard-navigation-overlay className={industryModule === "spa" ? "fixed inset-0 z-40 md:hidden" : "fixed inset-0 z-40 lg:hidden"}>
+        <div data-dashboard-navigation-overlay className={"fixed inset-0 z-40 lg:hidden"}>
           <div
             className="absolute inset-0 bg-earth-900/30 backdrop-blur-[2px]"
             onClick={() => setMobileOpen(false)}
@@ -1213,7 +1251,7 @@ export default function DashboardShell({
             <div className="flex h-14 items-center justify-between border-b border-earth-200 px-4">
               <div className="flex items-center gap-2 min-w-0">
                 <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
-                  {industryModule === "spa" ? <SteamButlerLogo className="w-32" /> : <SteamButlerLogo compact />}
+                  {<SteamButlerLogo compact />}
                 </Link>
                 {industryModule !== "spa" && <PlanBadge plan={pricingPlan} />}
               </div>
@@ -1240,7 +1278,7 @@ export default function DashboardShell({
               <StoreSwitcher stores={storeOptions} activeStoreId={activeStoreId ?? null} />
             )}
             {renderNavGroups(false)}
-            {industryModule === "spa" && <div className="flex justify-center border-t border-earth-100 px-3 py-3"><PlanBadge plan={pricingPlan} /></div>}
+
           </aside>
         </div>
       )}
@@ -1271,20 +1309,22 @@ export default function DashboardShell({
             <PreviewToolsMenu key={`${activeStoreId ?? storeName}:${industryModuleId}`} storeName={isHqPlatformView ? undefined : activeStoreName ?? undefined} items={previewItems.filter(item => !(isIframePreview && item.href === "/dashboard/device-preview")).map(item => ({ label: item.label, href: navHref(item.href), ...accessFor(item) })).filter(item => item.visible)} />
             </div>
             {industryModule === "course" && trialStatus?.isFree && <details className="relative max-w-full shrink-0">
-              <summary className="flex min-h-11 cursor-pointer items-center rounded-lg border border-gold-300 px-3 text-sm text-primary-800">體驗版 · {trialStatus.pendingActivation ? `待啟用・${trialStatus.trialDays} 天試用` : trialStatus.trialExpired ? "已到期" : `剩 ${trialStatus.daysRemaining} 天`}{trialStatus.trialExpired ? " · 到期提醒" : ""}</summary>
+              <summary className="flex min-h-11 cursor-pointer items-center rounded-lg border border-gold-300 px-3 text-sm text-primary-800">體驗版 · {trialStatus.pendingActivation ? (musicEnabled ? "待啟用" : `待啟用・${trialStatus.trialDays} 天試用`) : trialStatus.trialExpired ? "已到期" : `剩 ${trialStatus.daysRemaining} 天`}{trialStatus.trialExpired ? " · 到期提醒" : ""}</summary>
               <div className="absolute left-0 top-full z-40 mt-2 max-h-[70dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-earth-200 bg-white p-3 shadow-lg"><TrialProgressBar trial={trialStatus}/></div>
             </details>}
             <div className={industryModule === "course" && guideEnabled ? "hidden" : (industryModule === "spa" || isAdmin) ? "md:hidden min-w-0 max-w-full shrink-0 break-words" : guideEnabled ? "hidden" : "lg:hidden min-w-0 max-w-full shrink-0 break-words"}>
-              {industryModule === "spa" ? <Link href={`${dashboardPrefix}/dashboard`}><SteamButlerLogo compact /></Link> : <DashboardBreadcrumb mobile />}
+              {<DashboardBreadcrumb mobile />}
             </div>
-            <div className={industryModule === "spa" ? "hidden md:block" : "hidden lg:block"}>
+            <div className={"hidden lg:block"}>
               <DashboardBreadcrumb />
             </div>
           </div>
 
           {/* Right: store context + user menu */}
-          <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-3 shrink-0">
-            {!isHqPlatformView && industryModule==="course" && courseNoticeStoreId && permissions.includes("booking.read") && <CourseStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId}/> }
+          <div className="flex max-w-full flex-wrap items-center gap-2 self-start sm:self-auto sm:gap-3 shrink-0">
+            {!isHqPlatformView && industryModule==="course" && courseNoticeStoreId && permissions.includes("booking.read") && <CourseStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled} initialSummary={initialNoticeSummary}/> }
+            {!isHqPlatformView && industryModule==="steamfoot" && courseNoticeStoreId && permissions.includes("booking.read") && <SteamfootStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled} initialSummary={initialNoticeSummary}/> }
+            {!isHqPlatformView && industryModule==="beauty" && noticeInitiallyEnabled && courseNoticeStoreId && permissions.includes("booking.read") && <BeautyStoreNoticeBell key={courseNoticeStoreId} storeId={courseNoticeStoreId} initialEnabled={noticeInitiallyEnabled} initialSummary={initialNoticeSummary}/> }
             {/* Store context indicator */}
             {isAdmin ? (
               /* ADMIN: HQ label + store switcher */

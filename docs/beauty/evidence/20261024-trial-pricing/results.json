@@ -1,0 +1,12 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "pricing no page overflow 1440",
+    "pricing no page overflow 1024",
+    "pricing no page overflow 768",
+    "pricing no page overflow 390",
+    "actual save persists custom non-half trial price and duration",
+    "save and immediate reopen retain authoritative values",
+    "no browser errors"
+  ]
+}

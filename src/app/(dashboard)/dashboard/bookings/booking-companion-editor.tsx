@@ -9,8 +9,15 @@ import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 type Candidate = { id: string; name: string; phoneMasked: string };
 type Slot = NonNullable<BookingDrawerPayload["companions"]>["slots"][number];
 
-export function CompanionSlot({ bookingId, slot, canEdit, canCreate, blocked, onBusy, onUpdated, embedded = false, displayPosition = slot.position }: { displayPosition?: number; embedded?: boolean; bookingId: string; slot: Slot; canEdit: boolean; canCreate: boolean; blocked: boolean; onBusy?: (busy: boolean) => void; onUpdated?: () => void }) {
-  const reader = usePanelReader("booking-companion-phone", findBookingCompanionByPhone);
+export type CompanionIdentitySource={
+ scope:string;
+ find:(input:{bookingId:string;phone:string})=>Promise<{success:true;data:Candidate[]}|{success:false;error:string}>;
+ create:(input:{bookingId:string;position:number;revision:number;name:string;phone:string})=>Promise<{success:true;data:{customerId:string;name:string}}|{success:false;error:string}>;
+ attach:(input:{bookingId:string;position:number;revision:number;customerId:string})=>Promise<{success:true;data:unknown}|{success:false;error:string}>;
+};
+
+export function CompanionSlot({ source, bookingId, slot, canEdit, canCreate, blocked, onBusy, onUpdated, embedded = false, displayPosition = slot.position }: { source?:CompanionIdentitySource; displayPosition?: number; embedded?: boolean; bookingId: string; slot: Slot; canEdit: boolean; canCreate: boolean; blocked: boolean; onBusy?: (busy: boolean) => void; onUpdated?: () => void }) {
+  const reader = usePanelReader(source?.scope??"booking-companion-phone", source?.find??findBookingCompanionByPhone);
   const [phone, setPhone] = useRetainedState<string>(`companion-phone:${bookingId}:${slot.position}`, "",
     (value): value is string => typeof value === "string" && value.length <= 30);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -57,7 +64,7 @@ export function CompanionSlot({ bookingId, slot, canEdit, canCreate, blocked, on
         event.preventDefault();
         void run(async () => {
           if (!canCreate) { await lookup(); return; }
-          const result = await createBookingCompanion({ bookingId, position: slot.position, revision: slot.revision, name: newName, phone });
+          const result = await (source?.create??createBookingCompanion)({ bookingId, position: slot.position, revision: slot.revision, name: newName, phone });
           if (!mounted.current) return;
           if (result.success) { finish({ id: result.data.customerId, name: result.data.name, phoneMasked: "" }); return; }
           setMessage(result.error);
@@ -86,7 +93,7 @@ export function CompanionSlot({ bookingId, slot, canEdit, canCreate, blocked, on
         {candidates.map(candidate => <button key={candidate.id} type="button" disabled={working || blocked}
           className="flex min-h-11 w-full flex-wrap items-center justify-between gap-2 rounded-lg border border-primary-200 px-3 py-2 text-left text-base disabled:opacity-50"
           onClick={() => { void run(async () => {
-            const result = await attachBookingCompanion({ bookingId, position: slot.position, customerId: candidate.id, revision: slot.revision });
+            const result = await (source?.attach??attachBookingCompanion)({ bookingId, position: slot.position, customerId: candidate.id, revision: slot.revision });
             if (!mounted.current) return;
             if (!result.success) { setMessage(result.error); return; }
             finish(candidate);

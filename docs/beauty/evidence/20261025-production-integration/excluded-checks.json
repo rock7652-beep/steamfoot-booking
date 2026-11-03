@@ -1,0 +1,15 @@
+{
+  "not_executed_in_final_regression": [
+    "src/__tests__/beauty-care-worker.test.ts",
+    "src/__tests__/beauty-customer-merge-database.test.ts",
+    "src/__tests__/beauty-customer-profile-database.test.ts",
+    "src/__tests__/beauty-reminder-center.test.ts",
+    "src/__tests__/course-customer-page.pg.test.ts",
+    "src/__tests__/course-self-booking-migration.test.ts",
+    "src/__tests__/course-self-booking-preview.test.ts",
+    "src/__tests__/course-staff-availability-save-database.test.ts",
+    "src/__tests__/music-teacher-editor-preview-isolation.test.ts",
+    "src/__tests__/music-tuition-ledger.test.ts"
+  ],
+  "reason": "Database-backed tests and child-process preflight harnesses are outside this offline run. Two child-process harnesses initially encountered sandbox EPERM; database checks, migrations and live writes remain prohibited."
+}

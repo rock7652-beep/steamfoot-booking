@@ -1,15 +1,17 @@
+vi.mock("@/server/services/music-data-scope",()=>({musicDataSeparationEnabled:mocks.preview}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ manager: vi.fn(), customer: vi.fn(), orders: vi.fn() }));
+const mocks = vi.hoisted(() => ({ manager: vi.fn(), customer: vi.fn(), orders: vi.fn(), preview: vi.fn() }));
 vi.mock("@/server/services/course-access", () => ({ courseManagerRead: mocks.manager }));
 vi.mock("@/lib/db", () => ({ prisma: { customer: { findFirst: mocks.customer } } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { coursePurchase: { findMany: mocks.orders } } }));
+vi.mock("@/server/services/music-tuition",()=>({readMusicTuition:async()=>new Map(),readMusicReceipts:async()=>[]}));
 import { loadCourseCustomerPurchases } from "@/server/actions/course-customer-history";
 import { AppError } from "@/lib/errors";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.manager.mockResolvedValue({ storeId: "course-store" });
+  mocks.manager.mockResolvedValue({ storeId: "course-store",user:{id:"actor"} });
   mocks.customer.mockResolvedValue({ id: "customer" });
   mocks.orders.mockResolvedValue([]);
 });
@@ -50,4 +52,10 @@ it("loads ten rows at a time and signals more without dropping remaining history
 it("applies Taiwan date boundaries and keeps ten-row database pagination",async()=>{
  await loadCourseCustomerPurchases("customer",20,{from:"2026-09-21",to:"2026-09-21"});
  expect(mocks.orders).toHaveBeenCalledWith(expect.objectContaining({skip:20,take:11,where:expect.objectContaining({createdAt:{gte:new Date("2026-09-20T16:00:00.000Z"),lte:new Date("2026-09-21T15:59:59.999Z")}})}));
+});
+
+it("rejects the preview reader outside the approved environment before querying a customer",async()=>{
+ const {readCourseCustomerPurchases}=await import("@/server/queries/course-customer-purchases");
+ mocks.preview.mockReturnValue(false);expect(await readCourseCustomerPurchases("customer",0,{},true)).toMatchObject({success:false});
+ expect(mocks.customer).not.toHaveBeenCalled();expect(mocks.orders).not.toHaveBeenCalled();
 });

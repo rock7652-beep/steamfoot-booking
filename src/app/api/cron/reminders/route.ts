@@ -86,6 +86,14 @@ export async function GET(request: NextRequest) {
     results.planExpiryNotifications = { error: error instanceof Error ? error.message : "Unknown error" };
   }
 
+  // Inspect LINE quotas after sends; email failure summaries cover the previous full Taiwan day.
+  try {
+    const { runLineQuotaMonitor } = await import("@/server/services/line-quota-monitor");
+    results.lineQuotaMonitor = await runLineQuotaMonitor();
+  } catch {
+    results.lineQuotaMonitor = { error: "LINE 額度與 Email 通知檢查失敗" };
+  }
+
   // ── 2. Report snapshot pre-compute (all stores) ──
   try {
     const today = toLocalDateStr();

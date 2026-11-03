@@ -27,13 +27,11 @@ it("paginates without exceeding ten bubbles", async () => {
   expect(JSON.stringify(result)).toContain(`trial-care:plans:${token}:2`);
   expect(m.plans.mock.calls[0][0]).toMatchObject({ skip: 9, take: 10 });
 });
-it("uses SPA data only and excludes inactive treatments and unpublished packages", async () => {
-  m.store.mockResolvedValue({ name: "SPA店", industryModule: "SPA" });
-  m.treatments.mockResolvedValue([{ id: "t" }]); m.packages.mockResolvedValue([{ name: "按摩十堂", price: 8000, uses: 10, validityDays: 180 }]);
-  expect(JSON.stringify(await publicPlanMessages("S", token, 0))).toContain("按摩十堂");
-  expect(m.plans).not.toHaveBeenCalled();
-  expect(m.packages.mock.calls[0][0].where).toEqual({ storeId: "S", isActive: true, publicVisible: true, treatmentId: { in: ["t"] } });
-  expect(m.treatments.mock.calls[0][0].where).toEqual({ storeId: "S", isActive: true });
+it("does not offer archived SPA packages or read retired treatment tables", async () => {
+  m.store.mockResolvedValue({name:"SPA店",industryModule:"SPA"});
+  const result=JSON.stringify(await publicPlanMessages("S",token,0));
+  expect(result).not.toContain("購買此方案");
+  for(const query of [m.plans,m.packages,m.treatments,m.payment])expect(query).not.toHaveBeenCalled();
 });
 it("offers contact instead of inventing plans when empty", async () => {
   m.plans.mockResolvedValue([]);

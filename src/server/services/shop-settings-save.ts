@@ -1,4 +1,5 @@
 import "server-only";
+import { settingsStep, settingsSyncStep } from "./settings-timing";
 import { revalidatePath,revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
@@ -17,15 +18,15 @@ export async function saveShopSettings(input:unknown) {
   try {
     const request=shopSettingsSaveInput.parse(input);
     const permission=request.kind==="PAYMENT"?"plans.edit":"trial.manage";
-    const user=await requirePermission(permission);
-    const storeId=await resolveWriteStoreId(user);
+    const user=await settingsStep("authorization", () => requirePermission(permission));
+    const storeId=await settingsStep("store_scope", () => resolveWriteStoreId(user));
     if(storeId!==request.expectedStoreId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟設定。");
-    const course=await getStoreIndustryModule(storeId)==="course";
-    if(course && (await courseManager(permission)).storeId!==storeId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟設定。");
+    const course=await settingsStep("module_check", () => getStoreIndustryModule(storeId))==="course";
+    if(course && (await settingsStep("authorization", () => courseManager(permission))).storeId!==storeId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟設定。");
     const schema=request.kind==="PAYMENT"?paymentSettingsValues:trialSettingsValues;
     const values=schema.parse(request.values);
-    const data=await prisma.$transaction(async tx=>{
-      await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
+    const data=await settingsStep("transaction", () => prisma.$transaction(async tx=>{
+      await settingsStep("db_lock", () => tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`);
       const previous=await tx.shopConfig.findUnique({where:{storeId}});
       const current=request.kind==="PAYMENT" ? paymentSettingsValues.parse({bankName:previous?.bankName??null,bankCode:previous?.bankCode??null,bankAccountNumber:previous?.bankAccountNumber??null,lineOfficialId:previous?.lineOfficialId??null,lineOfficialUrl:previous?.lineOfficialUrl??null}) : trialSettingsValues.parse(previous?{trialEnabled:previous.trialEnabled,trialDefaultPrice:Number(previous.trialDefaultPrice),trialAllowPriceEdit:previous.trialAllowPriceEdit,trialMinPrice:Number(previous.trialMinPrice),trialMaxPrice:Number(previous.trialMaxPrice)}:TRIAL_DEFAULTS);
       if(JSON.stringify(current)!==request.expectedRevision && JSON.stringify(current)!==JSON.stringify(values))
@@ -41,14 +42,16 @@ export async function saveShopSettings(input:unknown) {
       const saved=await tx.shopConfig.findUnique({where:{storeId}});
       const confirmed=schema.parse(request.kind==="PAYMENT"?saved??values:saved?{...saved,trialDefaultPrice:Number(saved.trialDefaultPrice),trialMinPrice:Number(saved.trialMinPrice),trialMaxPrice:Number(saved.trialMaxPrice)}:values);
       return {values:confirmed,revision:JSON.stringify(confirmed)};
-    });
+    }));
     let syncWarning=false;
     try {
       // Route handlers expire the tag immediately; updateTag is Server Action only.
+      settingsSyncStep("cache", () => {
       revalidateTag(CACHE_TAGS.shopConfig,{expire:0});
       revalidatePath("/dashboard");revalidatePath("/dashboard/settings");revalidatePath("/dashboard/settings/plan");
       revalidatePath(request.kind==="PAYMENT"?"/dashboard/settings/payment":"/dashboard/settings/trial");
       if(course){revalidatePath("/dashboard/courses");revalidatePath("/book");}
+      });
     } catch {syncWarning=true;}
     return {success:true as const,storeId,data,syncWarning};
   } catch(error){return {...handleActionError(error),uncertain:settingsSaveUncertain(error)};}

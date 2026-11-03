@@ -1,0 +1,56 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "real original reconciliation completes a new run",
+    "reconciliation actually checks all five Beauty sources",
+    "original reconciliation exposes the old synthetic seed missing its opening grant; no records repaired",
+    "actual debit, holds, receipt cash and resources reconcile",
+    "1366 original reconciliation no overflow",
+    "1024 original reconciliation no overflow",
+    "768 original reconciliation no overflow",
+    "no browser errors"
+  ],
+  "errors": [],
+  "checks": [
+    {
+      "code": "beauty_balance",
+      "status": "mismatch",
+      "sources": {
+        "不一致筆數": 1,
+        "已檢查筆數": 6
+      }
+    },
+    {
+      "code": "beauty_holds",
+      "status": "pass",
+      "sources": {
+        "不一致筆數": 0,
+        "已檢查筆數": 6
+      }
+    },
+    {
+      "code": "beauty_debit",
+      "status": "pass",
+      "sources": {
+        "不一致筆數": 0,
+        "已檢查筆數": 5
+      }
+    },
+    {
+      "code": "beauty_cash",
+      "status": "pass",
+      "sources": {
+        "不一致筆數": 0,
+        "已檢查筆數": 10
+      }
+    },
+    {
+      "code": "beauty_resources",
+      "status": "pass",
+      "sources": {
+        "不一致筆數": 0,
+        "已檢查筆數": 4
+      }
+    }
+  ]
+}

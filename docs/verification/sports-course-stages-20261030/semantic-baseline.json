@@ -1,0 +1,195 @@
+{
+  "origin": "https://steamfoot-booking-6yf4dv4ww-rock7652-2111s-projects.vercel.app",
+  "variant": "baseline",
+  "data": "isolated sports QA fixtures",
+  "measurements": [
+    {
+      "sample": 0,
+      "warmup": true,
+      "elapsedMs": 6986,
+      "browserTiming": {
+        "requestToFirstByteMs": 650,
+        "responseTransferWindowMs": 1328,
+        "navigationToResponseEndMs": 1988,
+        "navigationToDomContentLoadedMs": 1992,
+        "navigationToLoadMs": 6844,
+        "transferBytes": 27683,
+        "resourceCount": 40
+      },
+      "server": {
+        "totalMs": 1271.7,
+        "phases": [
+          {
+            "name": "access",
+            "startMs": 0,
+            "durationMs": 350
+          },
+          {
+            "name": "profile",
+            "startMs": 350,
+            "durationMs": 33.4
+          },
+          {
+            "name": "ensure_month",
+            "startMs": 383.3,
+            "durationMs": 302.5
+          },
+          {
+            "name": "pre_calendar",
+            "startMs": 685.8,
+            "durationMs": 150.9
+          },
+          {
+            "name": "calendar_batch",
+            "startMs": 836.8,
+            "durationMs": 194.4
+          },
+          {
+            "name": "post_calendar",
+            "startMs": 1031.1,
+            "durationMs": 100.6
+          },
+          {
+            "name": "presentation",
+            "startMs": 1131.7,
+            "durationMs": 139.7
+          }
+        ],
+        "reads": [
+          {
+            "name": "ensure_month",
+            "startMs": 386.2,
+            "durationMs": 299.6,
+            "ok": true
+          },
+          {
+            "name": "rentals",
+            "startMs": 685.9,
+            "durationMs": 15.5,
+            "ok": true
+          },
+          {
+            "name": "rental_customers",
+            "startMs": 701.6,
+            "durationMs": 117.1,
+            "ok": true
+          },
+          {
+            "name": "cancelled_bookings",
+            "startMs": 818.6,
+            "durationMs": 18.1,
+            "ok": true
+          },
+          {
+            "name": "business_hours",
+            "startMs": 837.3,
+            "durationMs": 126.1,
+            "ok": true
+          },
+          {
+            "name": "rooms",
+            "startMs": 836.8,
+            "durationMs": 137,
+            "ok": true
+          },
+          {
+            "name": "coaches",
+            "startMs": 837.3,
+            "durationMs": 145,
+            "ok": true
+          },
+          {
+            "name": "special_days",
+            "startMs": 837.4,
+            "durationMs": 160.1,
+            "ok": true
+          },
+          {
+            "name": "templates",
+            "startMs": 837,
+            "durationMs": 161.3,
+            "ok": true
+          },
+          {
+            "name": "availability",
+            "startMs": 837.5,
+            "durationMs": 176.7,
+            "ok": true
+          },
+          {
+            "name": "sessions",
+            "startMs": 837.1,
+            "durationMs": 188.4,
+            "ok": true
+          },
+          {
+            "name": "availability_exceptions",
+            "startMs": 837.5,
+            "durationMs": 193.6,
+            "ok": true
+          },
+          {
+            "name": "roster_customers",
+            "startMs": 1031.1,
+            "durationMs": 18.2,
+            "ok": true
+          },
+          {
+            "name": "waitlist_feature",
+            "startMs": 1050,
+            "durationMs": 0.2,
+            "ok": true
+          },
+          {
+            "name": "waitlist_setting",
+            "startMs": 1050.3,
+            "durationMs": 48.6,
+            "ok": true
+          },
+          {
+            "name": "display_orders",
+            "startMs": 1098.9,
+            "durationMs": 15.6,
+            "ok": true
+          },
+          {
+            "name": "sports_rules",
+            "startMs": 1114.7,
+            "durationMs": 17,
+            "ok": true
+          },
+          {
+            "name": "labels",
+            "startMs": 1131.8,
+            "durationMs": 0.1,
+            "ok": true
+          },
+          {
+            "name": "labels",
+            "startMs": 1131.9,
+            "durationMs": 108.4,
+            "ok": true
+          },
+          {
+            "name": "plans",
+            "startMs": 1240.2,
+            "durationMs": 15.1,
+            "ok": true
+          },
+          {
+            "name": "scheduling_modes",
+            "startMs": 1255.4,
+            "durationMs": 16.1,
+            "ok": true
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [],
+  "calendar": {
+    "visibleCardCount": 36,
+    "digest": "ec296daef272f0a1635b44cf1e4ee30cb1bd5e1b1c5dbda9ac758c9d945f9840"
+  },
+  "success": true
+}

@@ -1,4 +1,5 @@
 "use client";
+import { canCloseConfirmedSettingsSave } from "@/lib/settings-save-outcome";
 import styles from "@/components/settings/settings-form-layout.module.css";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
@@ -10,8 +11,9 @@ import { toast } from "sonner";
 import { addTaiwanDuration, formatDateZh } from "@/lib/date-utils";
 
 interface Props {
+  savePath?:string;
+  dayOptions?:number[];
   course?: boolean;
-  spa?: boolean;
   storeId?: string;
   initialOpensAt?: string | null;
   direct?: boolean;
@@ -24,13 +26,12 @@ interface Props {
 
 export function BookableUntilForm({
   initialDate,
-  initialDays,
+  initialDays,savePath,dayOptions=[7,14,21,30,60,90],
   storeId,
   initialOpensAt = null,
   today,
   canManage,
   course = false,
-  spa = false,
   direct = false,
 }: Props) {
   const radioGroup = useId();
@@ -44,7 +45,7 @@ export function BookableUntilForm({
   const [expanded, setExpanded] = useState(false);
   const [legacyPending, startTransition] = useTransition();
   const pathname=usePathname();
-  const request=useSettingsSave(`${pathname.split("/dashboard")[0]}/dashboard/settings-save/${course?"course/":spa?"spa/":""}booking-window`,storeId??"",savedBookingWindow);
+  const request=useSettingsSave(savePath??`${(pathname??"/dashboard").split("/dashboard")[0]}/dashboard/settings-save/${course?"course/":""}booking-window`,storeId??"",savedBookingWindow);
   const pending=legacyPending||request.pending;
   const locked=pending||request.uncertain;
   const [savedOpensAt,setSavedOpensAt]=useState(initialOpensAt);
@@ -91,8 +92,10 @@ export function BookableUntilForm({
         const revision=bookingWindowRevision(saved);setAwaitingSource(revision===sourceRevision?null:revision);
         setSavedDate(saved.date);setSavedDays(saved.days);setSavedOpensAt(saved.opensAt);
         setSavedMode(saved.date?"fixed":"rolling");setMode(saved.date?"fixed":"rolling");setFixedDate(saved.date??"");setDays(saved.days);
-        toast.success(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");
-        setExpanded(false);
+        if (canCloseConfirmedSettingsSave(result, setError)) {
+          toast.success("已儲存");
+          setExpanded(false);
+        }
         return;
       }
       } catch { toast.error("連線失敗，輸入內容已保留，請重試"); }
@@ -166,7 +169,7 @@ export function BookableUntilForm({
               onChange={(event) => setDays(Number(event.target.value))}
               className="mt-1.5 min-h-9 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1 text-sm text-earth-800 disabled:opacity-60"
             >
-              {[7, 14, 21, 30, 60, 90].map((value) => (
+              {Array.from(new Set([...dayOptions,savedDays])).sort((a,b)=>a-b).map((value) => (
                 <option key={value} value={value}>
                   {value} 天
                 </option>
@@ -197,4 +200,3 @@ export function BookableUntilForm({
     </section>
   );
 }
-

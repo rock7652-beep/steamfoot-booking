@@ -1,7 +1,8 @@
+import {managerNotificationOptions} from "./manager-notification-preferences";
 import { managerNotificationPresentation } from "./manager-notification-card";
 
 /** Fictional samples only; never queries customers or sends notifications. */
-export function managerNotificationPreviewSamples(course = false) {
+export function managerNotificationPreviewSamples(course = false, beauty = false) {
   const link = (label: string) => `${label}：https://example.com/s/demo/admin/dashboard`;
   const sample = (key: string, label: string, body: string) => ({ key, label, ...managerNotificationPresentation(body) });
   return [
@@ -20,5 +21,12 @@ export function managerNotificationPreviewSamples(course = false) {
       : `💰 等待確認入帳\n姓名：示範顧客\n方案：示範方案\n金額：NT$2,400\n後四碼：1234\n${link("前往後台確認")}`),
     sample("incomplete", course ? "出席待處理" : "服務未完成", `${course ? "🔔 課程出席尚未處理" : "🔔 服務尚未完成"}\n顧客：示範顧客\n預約日期：示範日期\n預約時間：14:00\n狀態：${course ? "課程結束一小時後仍待處理出席，包含已報到者" : "服務時段結束後仍未完成"}\n${link("前往後台處理")}`),
     sample("digest", "每日待辦摘要", `☀️ 今日待辦\n💰 待確認付款：2 筆\n🔔 ${course ? "昨日待處理出席：3 人次" : "昨日未完成服務：3 筆"}\n🙋 尚未接手客服：1 位\n共 6 件待處理\n${link("前往接手客服")}`),
-  ];
+  ].filter(item => !beauty || managerNotificationOptions(false,true).some(option=>option.key===item.key)).map(item=>{
+    if(!beauty)return item;
+    if(item.key==="sameDay"||item.key==="trial")return sample(item.key,item.key==="trial"?"新體驗預約":"當日新預約",`${item.key==="trial"?"新體驗預約":"今日新增預約"}\n示範門市\n預約人：示範顧客\n人數：2 位\n本人｜示範按摩｜示範日期 14:00–15:30\n同行者｜示範做臉｜示範日期 14:00–15:00\n${link("查看預約")}`);
+    if(item.key==="payment")return sample("payment","待確認付款",`美業方案待確認付款\n示範門市\n顧客：示範顧客\n方案：示範次數方案\n應付金額：NT$2400\n後四碼：1234\n${link("查看待核帳訂單")}`);
+    if(item.key==="incomplete")return sample("incomplete","服務未完成",`服務尚未完成\n示範門市\n示範顧客｜示範按摩\n示範日期 14:00–15:30\n服務結束一小時後仍未完成，請核對。\n${link("前往後台處理")}`);
+    if(item.key==="digest")return sample("digest","每日待辦摘要",`今日待辦\n示範門市\n待確認付款：2 筆\n昨日未完成服務：3 筆\n${link("前往後台")}`);
+    return item;
+  });
 }

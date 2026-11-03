@@ -1,0 +1,164 @@
+[
+  {
+    "kind": "self",
+    "scenario": "success",
+    "width": 1920,
+    "height": 1080,
+    "elapsedMs": 605,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "window",
+    "scenario": "success",
+    "width": 1920,
+    "height": 1080,
+    "elapsedMs": 576,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "steam-plan",
+    "scenario": "success",
+    "width": 1920,
+    "height": 1080,
+    "elapsedMs": 737,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "subject",
+    "scenario": "success",
+    "width": 1920,
+    "height": 1080,
+    "elapsedMs": 739,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "course-plan",
+    "scenario": "success",
+    "width": 1920,
+    "height": 1080,
+    "elapsedMs": 559,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "staff",
+    "scenario": "success",
+    "width": 1920,
+    "height": 1080,
+    "elapsedMs": 476,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "self",
+    "scenario": "success",
+    "width": 1024,
+    "height": 768,
+    "elapsedMs": 426,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "window",
+    "scenario": "success",
+    "width": 1024,
+    "height": 768,
+    "elapsedMs": 466,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "steam-plan",
+    "scenario": "success",
+    "width": 1024,
+    "height": 768,
+    "elapsedMs": 481,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "subject",
+    "scenario": "success",
+    "width": 1024,
+    "height": 768,
+    "elapsedMs": 473,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "course-plan",
+    "scenario": "success",
+    "width": 1024,
+    "height": 768,
+    "elapsedMs": 494,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "staff",
+    "scenario": "success",
+    "width": 1024,
+    "height": 768,
+    "elapsedMs": 518,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "self",
+    "scenario": "success",
+    "width": 768,
+    "height": 1024,
+    "elapsedMs": 374,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "window",
+    "scenario": "success",
+    "width": 768,
+    "height": 1024,
+    "elapsedMs": 551,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "steam-plan",
+    "scenario": "success",
+    "width": 768,
+    "height": 1024,
+    "elapsedMs": 598,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "subject",
+    "scenario": "success",
+    "width": 768,
+    "height": 1024,
+    "elapsedMs": 574,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "course-plan",
+    "scenario": "success",
+    "width": 768,
+    "height": 1024,
+    "elapsedMs": 359,
+    "calls": 1,
+    "passed": true
+  },
+  {
+    "kind": "staff",
+    "scenario": "success",
+    "width": 768,
+    "height": 1024,
+    "elapsedMs": 454,
+    "calls": 1,
+    "passed": true
+  }
+]

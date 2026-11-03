@@ -1,0 +1,55 @@
+{
+  "backupEvidence": {
+    "source": "user screenshot",
+    "projectName": "steamfoot-preview",
+    "latestPhysicalBackupUTC": "2026-10-24T17:06:17Z",
+    "latestPhysicalBackupTaipei": "2026-10-25 01:06:17",
+    "restoreControlVisible": true,
+    "restoreExecuted": false,
+    "restoreDrill": false,
+    "storageObjectsIncluded": false
+  },
+  "migration": {
+    "project": "ttworfzgwejdeolegkxl",
+    "name": "beauty_charge_additive_20261025",
+    "success": true,
+    "newColumns": 6,
+    "allNullable": true,
+    "allDefaultsNull": true
+  },
+  "store": "beauty-hosted-20261021",
+  "rows": [
+    {
+      "table_name": "BeautyService",
+      "row_count": 4,
+      "content_digest": "2ee4ec795874c6e8678bbc77ea049e79"
+    },
+    {
+      "table_name": "BeautyPlan",
+      "row_count": 7,
+      "content_digest": "eeee36862fc1a4b4a9aa6c38d735275d"
+    },
+    {
+      "table_name": "BeautyCard",
+      "row_count": 5,
+      "content_digest": "8ecc816f6994ed289025a24a768609a9"
+    },
+    {
+      "table_name": "BeautyAppointment",
+      "row_count": 35,
+      "content_digest": "9bb285fa476343b547bf99b0a5ad5b7c"
+    },
+    {
+      "table_name": "BeautyLedger",
+      "row_count": 39,
+      "content_digest": "89b09c02d061a918e76379ead7075062"
+    },
+    {
+      "table_name": "BeautyPayment",
+      "row_count": 25,
+      "content_digest": "5ddd9c210a5655e059dbd138d8f20e45"
+    }
+  ],
+  "existingRowDigestsUnchanged": true,
+  "productionChanged": false
+}

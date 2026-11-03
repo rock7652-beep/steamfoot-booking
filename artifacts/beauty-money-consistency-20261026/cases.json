@@ -1,0 +1,54 @@
+{
+  "synthetic": true,
+  "cases": [
+    {
+      "received": 1000,
+      "fixedFee": 300,
+      "refunded": 0,
+      "store": 300,
+      "manager": 700
+    },
+    {
+      "received": 900,
+      "fixedFee": 300,
+      "refunded": 300,
+      "store": 200,
+      "manager": 400
+    },
+    {
+      "received": 750,
+      "fixedFee": 150,
+      "refunded": 375,
+      "store": 75,
+      "manager": 300
+    },
+    {
+      "received": 200,
+      "fixedFee": 300,
+      "refunded": 0,
+      "store": 200,
+      "manager": 0
+    },
+    {
+      "received": 1000,
+      "fixedFee": 0,
+      "refunded": 250,
+      "store": 0,
+      "manager": 750
+    },
+    {
+      "received": 900,
+      "fixedFee": 300,
+      "refunded": 900,
+      "store": 0,
+      "manager": 0
+    },
+    {
+      "received": 0,
+      "fixedFee": 300,
+      "refunded": 0,
+      "store": 0,
+      "manager": 0
+    }
+  ]
+}

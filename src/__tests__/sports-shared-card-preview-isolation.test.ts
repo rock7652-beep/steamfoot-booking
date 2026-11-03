@@ -1,3 +1,4 @@
+// Synthetic URL-only fixtures. No password, network connection or live credentials.
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -9,9 +10,9 @@ import {
   isSportsSharedCardProductionRelease,
 } from "../../scripts/sports-shared-card-preview-scope.mjs";
 
-const direct = "postgresql://postgres:fixture@db.ttworfzgwejdeolegkxl.supabase.co/postgres";
-const pooled = "postgresql://postgres.ttworfzgwejdeolegkxl:fixture@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
-const production = "postgresql://postgres:fixture@db.qijlnhtpbintanzpxkvf.supabase.co/postgres";
+const direct = "postgresql://postgres@db.ttworfzgwejdeolegkxl.supabase.co/postgres";
+const pooled = "postgresql://postgres.ttworfzgwejdeolegkxl@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
+const production = "postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres";
 const valid = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: SPORTS_SHARED_CARD_PREVIEW_BRANCH, VERCEL_GIT_REPO_OWNER: "rock7652-beep", VERCEL_GIT_REPO_SLUG: "steamfoot-booking", DATABASE_URL: pooled, DIRECT_URL: direct };
 const invalidConnections = [
   undefined, "", "invalid", production,
@@ -20,7 +21,7 @@ const invalidConnections = [
   direct.replace(".supabase.co", ".supabase.co.attacker.invalid"),
   pooled.replace("aws-0-ap-northeast-1.pooler.supabase.com", "unverified.invalid"),
   direct.replace("/postgres", "/other"),
-  direct.replace("postgres:fixture", "other:fixture"),
+  direct.replace("postgres@", "other@"),
   direct.replace(".co/postgres", ".co:6543/postgres"),
   pooled.replace(":6543/", ":5433/"),
   ...[
@@ -55,8 +56,14 @@ function run(overrides: Record<string, string | undefined>) {
 }
 
 describe("sports shared-card Preview preflight", () => {
-  it("permits the sports refresh review only with isolated Preview connections", () => {
-    const branch = "codex/sports-background-refresh";
+  it("authorizes closed-day slot review only with the same isolated connections", () => {
+    const branch="feat/closed-day-slot-additions-20261101";
+    expect(run({VERCEL_GIT_COMMIT_REF:branch}).status).toBe(0);
+    for(const overrides of [{DATABASE_URL:production},{DIRECT_URL:production},{VERCEL_ENV:"production"},{WORKERS_CI_BRANCH:branch}]) {
+      expect(run({VERCEL_GIT_COMMIT_REF:branch,...overrides}).status).not.toBe(0);
+    }
+  });
+  it.each(["codex/sports-background-refresh", "codex/soulife-line-additional-config", "codex/beauty-public-booking-ux", "feat/store-manager-bell-20261030"])("permits %s only with isolated Preview connections", branch => {
     expect(run({ VERCEL_GIT_COMMIT_REF: branch }).status).toBe(0);
     for (const overrides of [{DATABASE_URL:production}, {DIRECT_URL:production}, {VERCEL_ENV:"production"}, {WORKERS_CI_BRANCH:branch}]) {
       expect(run({VERCEL_GIT_COMMIT_REF:branch,...overrides}).status).not.toBe(0);
@@ -122,12 +129,17 @@ describe("sports shared-card Preview preflight", () => {
 
   it("keeps the build chain intact and places preflight before all migration bodies", () => {
     const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
-    expect(scripts.build).toBe("node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build");
+    expect(scripts.build).toBe("node scripts/music-release-preflight.mjs && node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/digital-manager-build-readiness.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build");
     const source = readFileSync("scripts/ci-migrate.mjs", "utf8");
     const preflight = source.indexOf("assertReviewedReleaseEnvironment(process.env)");
     expect(preflight).toBeGreaterThan(-1);
     expect(preflight).toBeLessThan(source.indexOf("execFileSync(\"npx\""));
-    expect(preflight).toBeLessThan(source.indexOf("new PrismaClient("));
+    // The preceding loopback-only rehearsal has its own fail-closed scope guard.
+    const localGuard=source.indexOf("assertDigitalManagerLocalEnvironment(process.env)");
+    expect(localGuard).toBeGreaterThan(-1);
+    expect(localGuard).toBeLessThan(source.indexOf("new PrismaClient("));
+    expect(localGuard).toBeLessThan(source.indexOf("execFileSync('npx'"));
+    expect(preflight).toBeLessThan(source.indexOf("new PrismaClient(",preflight));
     expect(readFileSync("next.config.ts", "utf8")).toContain("assertReviewedReleaseEnvironment(process.env)");
   });
 });

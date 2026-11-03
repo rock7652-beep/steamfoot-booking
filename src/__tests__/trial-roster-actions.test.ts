@@ -53,6 +53,11 @@ it("locks both actions while the same booking is being saved",async()=>{
  await act(async()=>root.render(React.createElement(DayDetailPanel,{date:"2026-10-19",slots:[],actingIds:new Set(["trial"]),bookings:[{...booking("trial"),bookingType:"FIRST_TRIAL"}],onNoShowTrial:noShow,onCancelTrial:cancel,onBookingClick:vi.fn()})));
  expect(container.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]')?.disabled).toBe(true);expect(noShow).not.toHaveBeenCalled();expect(cancel).not.toHaveBeenCalled();
 });
+it("offers plan purchase from an active package booking", async () => {
+  await act(async()=>root.render(React.createElement(DayDetailPanel,{date:"2026-10-19",slots:[],canEditBookingNote:true,bookings:[booking("package")],onBookingClick:vi.fn()})));
+  await openMenu();
+  expect([...document.querySelectorAll("button")].some(b=>b.textContent==="購買方案")).toBe(true);
+});
 it("keeps participant-level checkout and package bookings on their existing workflow",async()=>{
  await act(async()=>root.render(React.createElement(DayDetailPanel,{date:"2026-10-19",slots:[],bookings:[booking("package"),{...booking("group"),bookingType:"FIRST_TRIAL",participantSummary:"逐人處理"}],onNoShowTrial:vi.fn(),onCancelTrial:vi.fn(),onBookingClick:vi.fn()})));
  await openMenu();

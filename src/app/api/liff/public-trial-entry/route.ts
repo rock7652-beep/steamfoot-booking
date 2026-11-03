@@ -4,15 +4,17 @@ import {
   LiffIdTokenError,
   verifyLiffIdToken,
 } from "@/lib/liff/verify-id-token";
-import { resolvePublicTrialLiffConfig } from "@/lib/liff/public-trial-config";
+import { resolveBookingLineEntry } from "@/server/services/booking-line-entry";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { createTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
+import { requireSportsPublicTrialStore } from "@/server/services/sports-public-trial-store";
 
 export const dynamic = "force-dynamic";
 
 const BodySchema = z.object({
-  idToken: z.string().min(1),
-  storeSlug: z.enum(["zhubei", "hsinchu", "taichung"]),
+  idToken: z.string().min(1).max(8192),
+  storeSlug: z.string().regex(/^[a-z0-9-]{1,100}$/),
 });
 
 type ResponseBody =
@@ -31,20 +33,20 @@ type ResponseBody =
     };
 
 function json(body: ResponseBody, status: number): Response {
-  return Response.json(body, { status });
+  return Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
 }
 
 /**
  * Turns one verified LIFF visit into the same opaque, one-time entry used by
  * the store webhook. No Customer or login Account is written here. The LINE
- * Login subject must first be recognized by this store's Messaging API, so a
- * provider-scoped login id can never be persisted as a notification target.
+ * Login proof and notification reachability are independent. A different OA
+ * Provider must never discard a valid Login proof or become a notification id.
  */
 export async function POST(request: Request): Promise<Response> {
   const parsed = BodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return json({ status: "error", code: "INVALID_BODY" }, 400);
 
-  const config = resolvePublicTrialLiffConfig(parsed.data.storeSlug);
+  const config = resolveBookingLineEntry(parsed.data.storeSlug);
   if (!config) return json({ status: "error", code: "STORE_NOT_FOUND" }, 404);
 
   let verified;
@@ -68,16 +70,23 @@ export async function POST(request: Request): Promise<Response> {
 
   const store = await resolveStoreBySlug(parsed.data.storeSlug);
   if (!store) return json({ status: "error", code: "STORE_NOT_FOUND" }, 404);
+  if (config.configured) {
+    const industry = await getStoreIndustryModule(store.id);
+    if (config.storeId !== store.id || (industry !== "beauty" && industry !== "course"))
+      return json({ status: "error", code: "STORE_NOT_FOUND" }, 404);
+    if (industry === "course") {
+      try { await requireSportsPublicTrialStore(parsed.data.storeSlug); }
+      catch { return json({ status: "error", code: "STORE_NOT_FOUND" }, 404); }
+    }
+  }
 
   const recipientProbe = await probeStoreLineRecipient(store.id, verified.lineUserId);
-  if (recipientProbe.status === "INCOMPATIBLE") {
-    return json({ status: "error", code: "IDENTITY_SCOPE_MISMATCH" }, 409);
-  }
-  if (recipientProbe.status === "UNAVAILABLE") {
-    return json(
-      { status: "error", code: "IDENTITY_VERIFICATION_UNAVAILABLE" },
-      503,
-    );
+  // Configured beauty stores retain their existing notification-backed entry.
+  // The versioned Login proof is currently supported only by Steamfoot.
+  if (config.configured && recipientProbe.status !== "COMPATIBLE") {
+    return recipientProbe.status === "INCOMPATIBLE"
+      ? json({ status: "error", code: "IDENTITY_SCOPE_MISMATCH" }, 409)
+      : json({ status: "error", code: "IDENTITY_VERIFICATION_UNAVAILABLE" }, 503);
   }
 
   try {
@@ -85,6 +94,10 @@ export async function POST(request: Request): Promise<Response> {
       storeId: store.id,
       channel: "LINE",
       chatIdentity: verified.lineUserId,
+      ...(!config.configured ? {
+        verifiedLogin: { channelId: verified.channelId, lineUserId: verified.lineUserId },
+        notificationVerified: recipientProbe.status === "COMPATIBLE",
+      } : {}),
     });
     const entry = new URL(link.url).searchParams.get("entry");
     if (!entry) throw new Error("TRIAL_BOOKING_ENTRY_MISSING");

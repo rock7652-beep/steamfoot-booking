@@ -1,0 +1,354 @@
+{
+  "localSyntheticOnly": true,
+  "remoteBusinessWrites": false,
+  "fixtureDate": "2026-12-04",
+  "phases": [
+    {
+      "name": "initial-navigation",
+      "shellMs": null,
+      "readyMs": 740.8877309999999
+    },
+    {
+      "name": "customer-open-1",
+      "shellMs": 969.414248000001,
+      "readyMs": 1030.5350560000006
+    },
+    {
+      "name": "customer-return-1",
+      "shellMs": null,
+      "readyMs": 121.8597009999994
+    },
+    {
+      "name": "customer-open-2",
+      "shellMs": 131.53735099999903,
+      "readyMs": 363.26440899999943
+    },
+    {
+      "name": "customer-return-2",
+      "shellMs": null,
+      "readyMs": 134.88062400000126
+    },
+    {
+      "name": "customer-open-3",
+      "shellMs": 84.03236899999865,
+      "readyMs": 316.78381199999967
+    },
+    {
+      "name": "customer-return-3",
+      "shellMs": null,
+      "readyMs": 121.82704899999953
+    },
+    {
+      "name": "move-form-open-1",
+      "shellMs": null,
+      "readyMs": 112.66397300000062
+    },
+    {
+      "name": "move-form-return-1",
+      "shellMs": null,
+      "readyMs": 123.99614999999903
+    },
+    {
+      "name": "move-form-open-2",
+      "shellMs": null,
+      "readyMs": 132.4844150000008
+    },
+    {
+      "name": "move-form-return-2",
+      "shellMs": null,
+      "readyMs": 144.35429499999918
+    },
+    {
+      "name": "move-form-open-3",
+      "shellMs": null,
+      "readyMs": 130.6742800000011
+    },
+    {
+      "name": "move-form-return-3",
+      "shellMs": null,
+      "readyMs": 133.6751320000003
+    },
+    {
+      "name": "purchase-open",
+      "shellMs": null,
+      "readyMs": 100.24003099999936
+    },
+    {
+      "name": "purchase-cash-check-1",
+      "shellMs": null,
+      "readyMs": 56.643426000000545
+    },
+    {
+      "name": "purchase-cash-check-2",
+      "shellMs": null,
+      "readyMs": 110.21889399999964
+    },
+    {
+      "name": "purchase-return",
+      "shellMs": null,
+      "readyMs": 154.11578100000042
+    },
+    {
+      "name": "collection-open-1",
+      "shellMs": 353.61016799999925,
+      "readyMs": 454.7641139999996
+    },
+    {
+      "name": "collection-return-1",
+      "shellMs": null,
+      "readyMs": 68.61658199999874
+    },
+    {
+      "name": "collection-open-2",
+      "shellMs": 47.810811999999714,
+      "readyMs": 138.45161999999982
+    },
+    {
+      "name": "collection-return-2",
+      "shellMs": null,
+      "readyMs": 53.042281
+    },
+    {
+      "name": "collection-open-3",
+      "shellMs": 51.140283999999156,
+      "readyMs": 137.66858800000045
+    },
+    {
+      "name": "collection-return-3",
+      "shellMs": null,
+      "readyMs": 65.00354799999877
+    },
+    {
+      "name": "collection-open-controlled-600ms-store-lock",
+      "shellMs": 52.911613999998735,
+      "readyMs": 848.1408489999994
+    },
+    {
+      "name": "collection-return-after-lock",
+      "shellMs": null,
+      "readyMs": 52.971895000000586
+    },
+    {
+      "name": "save-attendance",
+      "shellMs": null,
+      "readyMs": 232.21572399999968
+    },
+    {
+      "name": "collection-before-save",
+      "shellMs": 60.0986269999994,
+      "readyMs": 152.0634229999996
+    },
+    {
+      "name": "save-collection-and-sync",
+      "shellMs": 137.365851999999,
+      "readyMs": 227.46740299999874
+    }
+  ],
+  "requests": [
+    {
+      "phase": "initial-navigation",
+      "name": "readBeautyNativeRoster",
+      "ttfbMs": 83,
+      "status": 200,
+      "totalMs": 84
+    },
+    {
+      "phase": "initial-navigation",
+      "name": "loadBeautyStoreNotices",
+      "ttfbMs": 102,
+      "status": 200
+    },
+    {
+      "phase": "idle-7s",
+      "name": "readBeautyNativeRoster",
+      "ttfbMs": 46,
+      "status": 200,
+      "totalMs": 47
+    },
+    {
+      "phase": "idle-7s",
+      "name": "readBeautyNativeRoster",
+      "ttfbMs": 45,
+      "status": 200,
+      "totalMs": 47
+    },
+    {
+      "phase": "customer-open-1",
+      "name": "loadMemberConnectionAction",
+      "ttfbMs": 34,
+      "status": 200,
+      "totalMs": 35
+    },
+    {
+      "phase": "customer-open-1",
+      "name": "getCustomerPanelAdvanced",
+      "ttfbMs": 54,
+      "status": 200
+    },
+    {
+      "phase": "customer-open-1",
+      "name": "browseBeautyNativeCards",
+      "ttfbMs": 96,
+      "status": 200,
+      "totalMs": 97
+    },
+    {
+      "phase": "customer-return-1",
+      "name": "readBeautyNativeRoster",
+      "ttfbMs": 52,
+      "status": 200,
+      "totalMs": 54
+    },
+    {
+      "phase": "customer-open-2",
+      "name": "loadMemberConnectionAction",
+      "ttfbMs": 32,
+      "status": 200
+    },
+    {
+      "phase": "customer-open-2",
+      "name": "getCustomerPanelAdvanced",
+      "ttfbMs": 40,
+      "status": 200
+    },
+    {
+      "phase": "customer-open-2",
+      "name": "browseBeautyNativeCards",
+      "ttfbMs": 80,
+      "status": 200,
+      "totalMs": 81
+    },
+    {
+      "phase": "customer-return-2",
+      "name": "readBeautyNativeRoster",
+      "ttfbMs": 48,
+      "status": 200,
+      "totalMs": 49
+    },
+    {
+      "phase": "customer-open-3",
+      "name": "loadMemberConnectionAction",
+      "ttfbMs": 33,
+      "status": 200,
+      "totalMs": 36
+    },
+    {
+      "phase": "customer-open-3",
+      "name": "getCustomerPanelAdvanced",
+      "ttfbMs": 47,
+      "status": 200
+    },
+    {
+      "phase": "customer-open-3",
+      "name": "browseBeautyNativeCards",
+      "ttfbMs": 77,
+      "status": 200,
+      "totalMs": 79
+    },
+    {
+      "phase": "customer-return-3",
+      "name": "readBeautyNativeRoster",
+      "ttfbMs": 42,
+      "status": 200,
+      "totalMs": 43
+    },
+    {
+      "phase": "move-form-return-1",
+      "name": "readBeautyNativeRoster",
+      "ttfbMs": 49,
+      "status": 200
+    },
+    {
+      "phase": "move-form-return-2",
+      "name": "readBeautyNativeRoster",
+      "ttfbMs": 52,
+      "status": 200,
+      "totalMs": 54
+    },
+    {
+      "phase": "move-form-return-3",
+      "name": "readBeautyNativeRoster",
+      "ttfbMs": 51,
+      "status": 200,
+      "totalMs": 52
+    },
+    {
+      "phase": "purchase-cash-check-1",
+      "name": "beautyNativeCheckoutCashStatus",
+      "ttfbMs": 41,
+      "status": 200,
+      "totalMs": 43
+    },
+    {
+      "phase": "purchase-cash-check-2",
+      "name": "beautyNativeCheckoutCashStatus",
+      "ttfbMs": 80,
+      "status": 200,
+      "totalMs": 81
+    },
+    {
+      "phase": "purchase-return",
+      "name": "readBeautyNativeRoster",
+      "ttfbMs": 69,
+      "status": 200
+    },
+    {
+      "phase": "collection-open-1",
+      "name": "readBeautyCollection",
+      "ttfbMs": 60,
+      "status": 200
+    },
+    {
+      "phase": "collection-open-2",
+      "name": "readBeautyCollection",
+      "ttfbMs": 49,
+      "status": 200,
+      "totalMs": 50
+    },
+    {
+      "phase": "collection-open-3",
+      "name": "readBeautyCollection",
+      "ttfbMs": 46,
+      "status": 200,
+      "totalMs": 47
+    },
+    {
+      "phase": "collection-open-controlled-600ms-store-lock",
+      "name": "readBeautyCollection",
+      "ttfbMs": 567,
+      "status": 200,
+      "totalMs": 568
+    },
+    {
+      "phase": "save-attendance",
+      "name": "updateBeautyRosterAttendance",
+      "ttfbMs": 91,
+      "status": 200
+    },
+    {
+      "phase": "collection-before-save",
+      "name": "readBeautyCollection",
+      "ttfbMs": 50,
+      "status": 200,
+      "totalMs": 51
+    },
+    {
+      "phase": "save-collection-and-sync",
+      "name": "collectBeautyPayment",
+      "ttfbMs": 61,
+      "status": 200
+    },
+    {
+      "phase": "save-collection-and-sync",
+      "name": "readBeautyRosterOperation",
+      "ttfbMs": 77,
+      "status": 200,
+      "totalMs": 80
+    }
+  ],
+  "errors": [],
+  "verification": {
+    "rows": 2,
+    "collected": 1000
+  }
+}

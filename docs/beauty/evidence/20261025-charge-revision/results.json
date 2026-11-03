@@ -1,0 +1,32 @@
+{
+  "synthetic": true,
+  "backend": false,
+  "reads": 1,
+  "errors": [],
+  "results": [
+    {
+      "width": 1366,
+      "height": 900,
+      "overflow": false,
+      "checkVisible": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false,
+      "checkVisible": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "checkVisible": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "checkVisible": true
+    }
+  ]
+}

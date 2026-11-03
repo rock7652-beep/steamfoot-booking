@@ -69,3 +69,27 @@ it("keeps a confirmed section successful when route invalidation fails",async()=
  const values={section:"booking",bookingLeadMinutes:30,cancellationLeadMinutes:60};m.read.mockResolvedValue(values);m.routeRevalidate.mockImplementation(()=>{throw new Error("cache failed");});
  expect(await saveCourseSettingsSection({...values,receipt:{expectedStoreId:"store",requestKey:"123e4567-e89b-42d3-a456-426614174000",expectedRevision:courseSettingsSectionRevision(values)}})).toMatchObject({success:true,syncWarning:true});
 });
+
+describe("per-store personnel presentation",()=>{
+ const values={section:"personnel" as const,personnelLabel:"老師" as const};
+ const receipt={expectedStoreId:"store",requestKey:"123e4567-e89b-42d3-a456-426614174000",expectedRevision:courseSettingsSectionRevision({section:"personnel",personnelLabel:null})};
+ it("updates only the selected store's presentation column",async()=>{
+  m.read.mockResolvedValueOnce({section:"personnel",personnelLabel:null}).mockResolvedValueOnce(values);
+  expect(await saveCourseSettingsSection({...values,receipt})).toMatchObject({success:true,storeId:"store",data:{values}});
+  expect(m.manager).toHaveBeenCalledWith("business_hours.manage");
+  expect(m.execute).toHaveBeenCalledOnce();
+  const [sql,...parameters]=m.execute.mock.calls[0];
+  expect(sql.join("")).toContain('"coursePersonnelLabel"');
+  expect(sql.join("")).not.toMatch(/"Staff"|"CourseBooking"|"bankName"/);
+  expect(parameters).toContain("store");expect(parameters).toContain("老師");
+ });
+ it("rejects a switched store before writing",async()=>{
+  expect(await saveCourseSettingsSection({...values,receipt:{...receipt,expectedStoreId:"another"}})).toMatchObject({success:false});expect(m.execute).not.toHaveBeenCalled();
+ });
+ it("rejects stale settings and permission denial",async()=>{
+  m.read.mockResolvedValue({section:"personnel",personnelLabel:"教練"});
+  expect(await saveCourseSettingsSection({...values,receipt})).toMatchObject({success:false});expect(m.execute).not.toHaveBeenCalled();
+  m.manager.mockRejectedValueOnce(new AppError("FORBIDDEN","無權限"));
+  expect(await saveCourseSettingsSection(values)).toMatchObject({success:false});expect(m.execute).not.toHaveBeenCalled();
+ });
+});

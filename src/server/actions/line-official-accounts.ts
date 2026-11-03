@@ -1,6 +1,7 @@
 "use server";
 
 import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
+import { OperationTiming } from "@/lib/operation-timing";
 import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireStoreFeature } from "@/lib/feature-gate";
@@ -69,13 +70,20 @@ async function collectStatuses(repair: boolean): Promise<LineOfficialAccountStat
   const configuredBySlug = new Map(configured.map(entry => [entry.slug, entry]));
   const storeSlugs = [...new Set<string>([...STORE_SLUGS, ...configured.map(entry => entry.slug)])];
   const stores = await prisma.store.findMany({
-    where: { slug: { in: storeSlugs } },
+    where: { OR: [
+      { slug: { in: storeSlugs } },
+      { industryModule: "COURSE", isDemo: false, archivedAt: null },
+      { industryModule: "BEAUTY", isDemo: false, archivedAt: null },
+    ] },
     select: { id: true, slug: true, name: true, lineDestination: true },
   });
   const bySlug = new Map(stores.map((store) => [store.slug, store]));
+  // Formal music/fitness stores must remain visible even before their own
+  // channel is registered; absence must never look like a completed rollout.
+  const allSlugs = [...new Set([...storeSlugs, ...stores.map(store => store.slug).sort()])];
 
   return Promise.all(
-    storeSlugs.map(async (storeSlug) => {
+    allSlugs.map(async (storeSlug) => {
       const store = bySlug.get(storeSlug);
       const legacyNames: Record<string, string> = { zhubei: "竹北", hsinchu: "新竹", taichung: "台中" };
       const storeName = store?.name ?? legacyNames[storeSlug] ?? storeSlug;
@@ -126,8 +134,11 @@ export async function checkAllLineOfficialAccounts(): Promise<ActionResult<LineO
 }
 
 export async function getCurrentLineOfficialAccountStatus(): Promise<LineOfficialAccountStatus> {
-  const store = await requireCurrentStoreLineAccess();
-  return inspectStore(store, false);
+  const timing = new OperationTiming("reminders.line-health");
+  try {
+    const store = await timing.measure("authorization", requireCurrentStoreLineAccess);
+    return await timing.measure("line-api", () => inspectStore(store, false));
+  } finally { timing.finish(); }
 }
 
 export async function checkCurrentLineOfficialAccount(): Promise<ActionResult<LineOfficialAccountStatus>> {

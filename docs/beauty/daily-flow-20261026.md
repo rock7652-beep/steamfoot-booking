@@ -1,0 +1,19 @@
+# 美業日常流程改善 — 2026-10-26
+
+## 原因與變更
+
+- 預約時段：管理者只選一個時間，原本仍逐一驗算全日時段。改為先驗算指定時間；有衝突才搜尋三個最近可用時間。保留多人、技師、位置、整理時間、額度、權限與最終交易檢查；顧客前台完整時段清單保留。
+- 時間選擇：美業營業時間與技師服務時間共用選單，保留既有非半點時間，提供自訂 HH:MM；其他模組維持原生時間輸入。
+- 顧客同步：清單與班表使用當下有權限讀取的姓名／手機；查詢限本店與當下顧客。編輯期間合併更新事件，關閉後重新讀取相關清單，保留搜尋、篩選與捲動；歷史預約快照不改寫。
+- 計時：瀏覽器 performance entries `beauty.booking.availability` / `beauty.booking.submit`；伺服器 trace `booking.availability` / `booking.submit` 含授權、輸入、資料、分配及交易分段。
+
+## 驗證
+
+- 134 個測試檔、1,060 項相關測試通過；TypeScript 通過；ESLint 0 errors，ScheduleManager 兩個既有 dependency warnings；差異檢查通過。
+- 原版相同程式與相同七時段 fixture：成功時 allocation 原為 7 次，現為 1 次；衝突找到三個替代時段由 7 次降為 4 次。這是分配驗算次數，不是遠端延遲秒數或 SQL 數量。
+- 實際共用營業／技師元件，在 1366×900、1024×768、768×1024、390×844 共八組本機 Chromium 畫面，選取與原儲存契約通過、無頁面水平溢出。使用假資料及攔截儲存；不是正式庫交易或實機 Safari 驗收。
+- 舊版也失敗而未改動的三檔未納入上述相關測試：beauty-course-catalog-ui（next/server 載入）、beauty-course-plan-ui（過時的完整 HTML 相等）、service-hours-save-database（舊 SPA 預期）。保留原斷言。另一共用元件測試僅補齊 useSearchParams mock，原四項斷言均通過。
+
+## 發布範圍
+
+無 schema／migration、正式測試交易、權限、LINE 或環境變數變更。發布前整合最新主線，保留音樂／運動改動。正式部署與唯讀檢查結果待記錄。

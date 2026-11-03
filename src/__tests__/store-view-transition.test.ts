@@ -4,7 +4,7 @@ import { act, createElement, useEffect, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ action: vi.fn(), error: vi.fn(), refresh: vi.fn(), rethrow: vi.fn() }));
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/s/store-a/admin/dashboard/customers",
   useRouter: () => ({ refresh: m.refresh }), unstable_rethrow: m.rethrow,
 }));
@@ -145,11 +145,12 @@ it("isolates pending keys from old panel capture/bubble listeners, then restores
   expect(host.querySelector("[data-old-panel-open]")?.getAttribute("data-old-panel-open")).toBe("false");
 });
 
-it("skips the current store and leaves a declined unsaved-draft switch untouched", async () => {
+it("skips the current store and allows discarding an unsaved draft without a prompt", async () => {
   await render("store-a", true); await choose("我的店"); expect(m.action).not.toHaveBeenCalled();
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
   try {
-    await choose("分店 B"); expect(confirm).toHaveBeenCalledOnce(); expect(m.action).not.toHaveBeenCalled();
+    m.action.mockResolvedValue({ success: false, error: "拒絕" });
+    await choose("分店 B"); expect(confirm).not.toHaveBeenCalled(); expect(m.action).toHaveBeenCalledOnce();
     expect(content().hidden).toBe(false); expect(host.querySelector("dialog")).toBeNull();
   } finally { confirm.mockRestore(); }
 });

@@ -14,8 +14,8 @@ vi.mock("sonner", () => ({ toast: { success: mocks.success, error: mocks.error, 
 
 const rows = [{ id: "a", name: "方案甲", active: true }, { id: "b", name: "方案乙", active: true }, { id: "c", name: "方案丙", active: false }];
 let host: HTMLDivElement, root: Root;
-function Fixture({ enabled = true }: { enabled?: boolean }) {
-  const order = useCourseDisplayOrder("plan", rows, { ids: ["a", "b", "c"], revision: 7 }, enabled, row => row.active);
+function Fixture({ enabled = true, writer }: { enabled?: boolean;writer?:import("@/lib/course-display-order").CourseOrderWriter }) {
+  const order = useCourseDisplayOrder("plan", rows, { ids: ["a", "b", "c"], revision: 7 }, enabled, row => row.active,writer);
   return createElement("ul", { "aria-label": "方案排序" }, ...order.rows.map(row => createElement("li", {
     key: row.id, ...order.rowProps(row.id),
   }, order.handle(row.id, row.name), row.name)));
@@ -121,4 +121,11 @@ describe("course display order immediate feedback", () => {
     await render(true, "store-b"); await act(async () => restore());
     expect(mocks.save).toHaveBeenCalledTimes(1); expect(ids()).toEqual(["a", "b", "c"]);
   });
+});
+
+it("uses an injected Beauty writer including undo, without calling the Course action",async()=>{
+ const writer=vi.fn().mockResolvedValueOnce({success:true,revision:8}).mockResolvedValueOnce({success:true,revision:9});
+ await act(async()=>root.render(createElement(Fixture,{writer})));await key("b","ArrowUp");
+ expect(writer).toHaveBeenCalledWith({kind:"plan",ids:["b","a","c"],revision:7});expect(mocks.save).not.toHaveBeenCalled();
+ await act(async()=>undo()());expect(writer).toHaveBeenLastCalledWith({kind:"plan",ids:["a","b","c"],revision:8});expect(mocks.save).not.toHaveBeenCalled();
 });

@@ -1,3 +1,4 @@
+import { isLineQuotaExceeded } from "./line-quota-policy";
 /**
  * Converts persisted reminder delivery details into staff-facing language.
  *
@@ -23,6 +24,7 @@ export function formatReminderSendResult(
   if (status === "SENT") return "已發送";
 
   const rawDetail = errorMessage?.trim() ?? "";
+  if (isLineQuotaExceeded(rawDetail)) return "LINE 當月訊息額度已用完，請確認方案或加購額度";
   const detail = rawDetail.startsWith(LINE_RECIPIENT_UNAVAILABLE_PREFIX)
     ? rawDetail.slice(LINE_RECIPIENT_UNAVAILABLE_PREFIX.length).trim()
     : rawDetail;

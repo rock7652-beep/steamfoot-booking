@@ -1,0 +1,32 @@
+{
+  "synthetic": true,
+  "actualLINE": false,
+  "actualDatabase": false,
+  "errors": [],
+  "sizes": [
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "lineButtonHeight": 44
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "lineButtonHeight": 44
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false,
+      "lineButtonHeight": 44
+    },
+    {
+      "width": 1366,
+      "height": 900,
+      "overflow": false,
+      "lineButtonHeight": 44
+    }
+  ]
+}

@@ -18,7 +18,7 @@ async function click(text:string){await act(async()=>Array.from(host.querySelect
 async function input(el:HTMLInputElement,value:string){await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(el,value);el.dispatchEvent(new Event("input",{bubbles:true}));});}
 async function submit(){await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));}
 it("adds a customer inside the rental form and preserves the time and quote after a failed save",async()=>{
- await mount();await input(host.querySelector<HTMLInputElement>('input[name="date"]')!,"2026-10-03");await click("＋新顧客");
+ await mount();await input(host.querySelector<HTMLInputElement>('input[name="date"]')!,"2026-10-03");await click("＋建立新顧客");
  await input(host.querySelector<HTMLInputElement>('input[name="newName"]')!,"新學員");await input(host.querySelector<HTMLInputElement>('input[name="newPhone"]')!,"0911111111");
  m.create.mockResolvedValue({success:true,customer:{id:"new",name:"新學員",phone:"0911111111",existing:false}});await click("建立並帶入");await submit();
  expect(m.save.mock.calls[0][0]).toMatchObject({customerId:"new",date:"2026-10-03",time:"10:00",amount:600});expect(host.textContent).toContain("輸入已保留");expect(host.querySelector<HTMLInputElement>('input[name="date"]')!.value).toBe("2026-10-03");
@@ -73,4 +73,48 @@ it("keeps rental times and payment states readable and opens the selected record
  expect(rows[1].textContent).toContain("已取消已收 $600");expect(rows[2].textContent).toContain("未收");
  await click("小安");expect(m.get).toHaveBeenCalledWith("r");expect(host.querySelector('a[href="tel:0900000000"]')).toBeTruthy();
  expect(host.textContent).toContain("已收 $600");await click("← 租借紀錄");expect(host.querySelector('table[aria-label="租借紀錄"]')).toBeTruthy();
+});
+
+it("retains rental creation inside room history only when explicitly authorized",async()=>{
+ m.list.mockResolvedValue({rows:[],hasMore:false});await act(async()=>root.render(React.createElement(RentalHistory,{module:'beauty',roomId:'room',rooms,permissions})));expect(host.textContent).not.toContain('新增租借');
+ await act(async()=>root.render(React.createElement(RentalHistory,{module:'beauty',roomId:'room',rooms,permissions:{...permissions,create:true}})));await click('新增租借');expect(host.querySelector('form')).toBeTruthy();expect(host.querySelector<HTMLInputElement>('input[name="date"]')!.value).toMatch(/^20\d{2}-\d{2}-\d{2}$/);await submit();expect(m.save.mock.calls[0][0]).toMatchObject({roomId:'room'});expect(m.save.mock.calls[0][1]).toBe('beauty');
+});
+
+it.each(['beauty','course'] as const)('%s returns without a discard popup or submitting rental changes',async module=>{
+ const confirm=vi.spyOn(window,'confirm').mockReturnValue(false);
+ try{
+  await act(async()=>root.render(React.createElement(RentalPanel,{module,id:'r',rooms,permissions,seed:{date:'2026-10-02',time:'10:00'}})));
+  await click('編輯租借');await input(host.querySelector<HTMLInputElement>('input[name="time"]')!,'10:30');await click('返回');
+  expect(host.querySelector('form')).toBeNull();expect(confirm).not.toHaveBeenCalled();
+  expect(m.save).not.toHaveBeenCalled();expect(m.payment).not.toHaveBeenCalled();
+ }finally{confirm.mockRestore();}
+});
+it("keeps rental durations in half-hour units when seeded from a 50-minute course",async()=>{
+ const props={rooms,permissions,seed:{date:"2026-10-02",time:"10:00",durationMinutes:50}};
+ await act(async()=>root.render(React.createElement(RentalPanel,{...props,active:false})));
+ await act(async()=>root.render(React.createElement(RentalPanel,{...props,active:true})));
+ const duration=Array.from(host.querySelectorAll<HTMLInputElement>('input[type="number"]')).find(input=>input.min==="30"&&input.step==="30")!;
+ expect(duration.value).toBe("60");expect(duration.validity.valid).toBe(true);
+ await submit();expect(m.save.mock.calls[0][0]).toMatchObject({durationMinutes:60,amount:600});
+});
+
+it('shows a free rental without an unpaid label or collection action',async()=>{
+ m.get.mockResolvedValue({...record,amount:0,payment:null});await mount('r');
+ expect(host.textContent).toContain('免費租借・免收款');expect(host.textContent).not.toContain('未收');
+ expect(host.querySelector('[aria-label="收取租借費用"]')).toBeNull();
+ expect(host.textContent).toContain('編輯租借');expect(m.payment).not.toHaveBeenCalled();
+});
+
+it('opens a prepared detail immediately, retains editing values and does not repeat the read',async()=>{
+ m.get.mockReturnValue(new Promise(()=>{}));
+ await act(async()=>root.render(React.createElement(RentalPanel,{id:'r',initialDetail:record,rooms,permissions,seed:{}})));
+ expect(host.textContent).toContain('小安');expect(host.textContent).not.toContain('讀取租借');expect(m.get).not.toHaveBeenCalled();
+ await click('編輯租借');expect(host.querySelector<HTMLInputElement>('input[name=date]')!.value).toBe('2026-10-02');
+ expect(host.querySelector<HTMLInputElement>('input[name=time]')!.value).toBe('10:00');
+ await submit();expect(m.save).toHaveBeenCalledWith(expect.objectContaining({id:'r',revision:1,amount:600,date:'2026-10-02',time:'10:00'}),'course');
+});
+it('does not show a prepared detail for a different rental',async()=>{
+ m.get.mockReturnValue(new Promise(()=>{}));
+ await act(async()=>root.render(React.createElement(RentalPanel,{id:'other',initialDetail:record,rooms,permissions,seed:{}})));
+ expect(host.textContent).toContain('讀取租借');expect(host.textContent).not.toContain('小安');expect(m.get).toHaveBeenCalledWith('other');
 });

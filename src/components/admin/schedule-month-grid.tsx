@@ -1,0 +1,3 @@
+import type {ReactNode} from 'react';
+/** Shared sports month grid. Each module supplies its own daily rows. */
+export function ScheduleMonthGrid({offset,pending,children}:{offset:number;pending?:boolean;children:ReactNode}) {return <div className="max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-earth-200 bg-white" aria-busy={pending}><div className="grid min-w-[700px] grid-cols-7">{['日','一','二','三','四','五','六'].map(day=><div key={day} className="py-2 text-center text-sm text-earth-600">{day}</div>)}{Array.from({length:offset},(_,i)=><div key={'blank-'+i}/>)}{children}</div></div>;}

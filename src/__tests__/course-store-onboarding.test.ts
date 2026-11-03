@@ -95,7 +95,7 @@ it("preserves the existing Steamfoot onboarding path", async () => {
   expect(m.hours.mock.calls[0][0].data).toHaveLength(7);
 });
 it("rejects retired SPA before any database access", async () => {
-  expect(await createStoreAction({ ...input, industryModule: "SPA" })).toEqual({ success: false, error: "僅支援時段（蒸足）、運動教室與音樂教室模組" });
+  expect(await createStoreAction({ ...input, industryModule: "SPA" })).toEqual({ success: false, error: "僅支援時段（蒸足）、運動、音樂與美業模組" });
   expect(m.storeFind).not.toHaveBeenCalled();
   expect(m.storeCreate).not.toHaveBeenCalled();
   expect(m.transaction).not.toHaveBeenCalled();

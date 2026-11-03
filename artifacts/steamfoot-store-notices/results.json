@@ -1,0 +1,68 @@
+[
+  {
+    "width": 1366,
+    "height": 900,
+    "overflow": false,
+    "mark": true,
+    "undo": true,
+    "failureRestored": true,
+    "targetCallback": true,
+    "draftPreserved": true,
+    "settingToggle": true
+  },
+  {
+    "width": 1920,
+    "height": 1080,
+    "overflow": false,
+    "mark": true,
+    "undo": true,
+    "failureRestored": true,
+    "targetCallback": true,
+    "draftPreserved": true,
+    "settingToggle": true
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "overflow": false,
+    "mark": true,
+    "undo": true,
+    "failureRestored": true,
+    "targetCallback": true,
+    "draftPreserved": true,
+    "settingToggle": true
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "overflow": false,
+    "mark": true,
+    "undo": true,
+    "failureRestored": true,
+    "targetCallback": true,
+    "draftPreserved": true,
+    "settingToggle": true
+  },
+  {
+    "width": 560,
+    "height": 800,
+    "overflow": false,
+    "mark": true,
+    "undo": true,
+    "failureRestored": true,
+    "targetCallback": true,
+    "draftPreserved": true,
+    "settingToggle": true
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "overflow": false,
+    "mark": true,
+    "undo": true,
+    "failureRestored": true,
+    "targetCallback": true,
+    "draftPreserved": true,
+    "settingToggle": true
+  }
+]

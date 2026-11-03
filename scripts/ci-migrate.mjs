@@ -1,3 +1,53 @@
+// Exact, loopback-only rehearsal of this dispatcher. It cannot use deployed metadata.
+if (process.env.DIGITAL_MANAGER_MIGRATION_QA === '1') {
+  const {assertDigitalManagerLocalEnvironment,runDigitalManagerLocalRehearsal}=await import('./digital-manager-migration-review.mjs');
+  assertDigitalManagerLocalEnvironment(process.env);
+  const {PrismaClient}=await import('@prisma/client');
+  const {execFileSync}=await import('node:child_process');
+  const qaClient=new PrismaClient({datasources:{db:{url:process.env.DIRECT_URL}}});
+  try {
+    const result=await runDigitalManagerLocalRehearsal(qaClient,args=>{
+      try{execFileSync('npx',['prisma',...args],{stdio:['ignore','pipe','pipe'],env:process.env});return {exitCode:0};}
+      catch(error){return {exitCode:error.status??1};}
+    },process.env);
+    console.info(`digital-manager-local: ${result}`);
+  } finally {await qaClient.$disconnect();}
+  process.exit(0);
+}
+
+// A not-yet-provisioned, dedicated test branch must fail closed until its
+// source-controlled project ref is reviewed and pinned. Never run migrations.
+import {assertBeautyPurchaseIsolatedPreview,BEAUTY_PURCHASE_QA_BRANCH} from './beauty-purchase-isolated-preview-scope.mjs';
+if (process.env.BEAUTY_ISOLATED_PURCHASE_QA === '1' || [process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes(BEAUTY_PURCHASE_QA_BRANCH)) {
+  await assertBeautyPurchaseIsolatedPreview(process.env);
+  console.info('[beauty-purchase-isolated-preview] isolated_database=true migrations_skipped=true notifications_blocked=true');
+  process.exit(0);
+}
+
+// Explicitly authorized test deployment; schema installation remains separate.
+import { assertBeautyHostedPreviewEnvironment, BEAUTY_HOSTED_PREVIEW_BRANCH } from './consultation-preview-scope.mjs';
+if (process.env.BEAUTY_HOSTED_PREVIEW === '1' || [process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes(BEAUTY_HOSTED_PREVIEW_BRANCH)) {
+  assertBeautyHostedPreviewEnvironment(process.env);
+  console.info('[beauty-hosted-preview] isolated_database=true migrations_skipped=true notifications_blocked=true');
+  process.exit(0);
+}
+
+// Historical implementation branch stays review-only; deploy only the clean Preview branch.
+if ([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("feat/beauty-module-20261020")) throw new Error("Beauty review cannot deploy or execute migrations.");
+
+// Release candidates are read-only isolated previews; never apply pending migrations.
+if ([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("release/music-production-20261023")) {
+ const {runMusicNativeSchemaPreflight}=await import("./music-release-preflight.mjs");
+ await runMusicNativeSchemaPreflight(process.env);
+ console.info("[music-release-preview] isolated_database=true migrations_skipped=true");
+ process.exit(0);
+}
+
+// Isolated feature review: hosted builds must stop before migrations or deployment.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/image-announcements")) {
+  throw new Error("Image announcements review cannot deploy or execute migrations; use the isolated local Preview.");
+}
+
 // Review-only branch: reject hosted builds before database work.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/sports-series-capacity-isolation-20261019")) {
   throw new Error("Sports series isolation review cannot deploy or execute migrations.");
@@ -92,6 +142,14 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === "beauty-release-qa") {
+  console.info("[beauty-release-qa] isolated_database=true migrations_skipped=true notifications_blocked=true");
+  process.exit(0);
+}
+if (releaseMode === "beauty-production-qa") {
+  console.info("[beauty-production-qa] local_production_runtime=true isolated_database=true migrations_skipped=true module_closed=true notifications_blocked=true");
+  process.exit(0);
+}
 if (releaseMode === "sports-redesign-preview") {
   console.info("[sports-redesign-preview] isolated_database=true migrations_skipped=true notifications_blocked=true");
   process.exit(0);
@@ -132,6 +190,12 @@ if (releaseMode === "hq-intake-list-preview") {
   console.info("[hq-intake-list-preview] isolated_database=true notifications_blocked=true public_intake_disabled=true migrations_skipped=true");
   process.exit(0);
 }
+if (releaseMode === "music-opening-preview") {
+  // Opening schema is separately approved and checked by the read-only preflight.
+  // Never apply unrelated pending migrations in this isolated Preview.
+  console.info("[music-opening-preview-preflight] isolated_database=true notifications_blocked=true migrations_skipped=true");
+  process.exit(0);
+}
 if (releaseMode === "course-self-booking-preview") {
   const { verifyCourseSelfBookingPreviewReadiness } = await import("./course-self-booking-preview-scope.mjs");
   await verifyCourseSelfBookingPreviewReadiness(process.env);
@@ -164,6 +228,8 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
+import { IMAGE_ANNOUNCEMENTS_MIGRATION, IMAGE_ANNOUNCEMENTS_MIGRATION_FILE, IMAGE_ANNOUNCEMENTS_CHECKSUM, runImageAnnouncementsMigration } from "./image-announcements-production-migration.mjs";
+import { DIGITAL_MANAGER_REVIEW_TARGET, DIGITAL_MANAGER_REVIEW_FILE, DIGITAL_MANAGER_REVIEW_CHECKSUM, runDigitalManagerProductionCandidate } from "./digital-manager-migration-review.mjs";
 import { requiresCoursePreviewCheck, isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 import { buildAuditPreviewMigrationSql } from "./audit-preview-migrations.mjs";
 
@@ -321,11 +387,12 @@ export const SPA_MEMBER_STAFF_RELEASE_TARGET =
   "spa_member_staff_release_20260914";
 export const PRODUCTION_MIGRATION_TARGET_ENV = "PRODUCTION_MIGRATION_TARGET";
 export const APPROVED_PRODUCTION_MIGRATION_TARGETS = [
+  IMAGE_ANNOUNCEMENTS_MIGRATION,
   PAYMENT_SPLIT_MIGRATION,
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
   PAYMENT_SPLIT_RLS_MIGRATION,
   TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION,
-  SPA_MEMBER_STAFF_RELEASE_TARGET,
+  DIGITAL_MANAGER_REVIEW_TARGET,
 ];
 export const MESSENGER_CHECKSUM =
   "6edbd88d9fd2ab9e368b963d21f7d90ef2ed1f8e8c467a29c20f9a3c8d8e1488";
@@ -357,11 +424,6 @@ const RECURRING_CONFIRMATION_MIGRATION_FILE =
   `prisma/migrations/${RECURRING_CONFIRMATION_MIGRATION}/migration.sql`;
 const STAFF_MEMBER_LINK_MIGRATION_FILE =
   `prisma/migrations/${STAFF_MEMBER_LINK_MIGRATION}/migration.sql`;
-const SPA_PRODUCTION_READINESS_SCRIPT =
-  "scripts/spa-production-migration-readiness.mjs";
-const SPA_HISTORY_RECONCILIATION_CONFIRMATION =
-  "RECONCILE_SUPERSEDED_SPA_HISTORY";
-const SPA_MEMBER_STAFF_RELEASE_LOCK = 2026091309n;
 const recurringConfirmationColumns = [
   "confirmationNotificationClaimedAt",
   "confirmationNotificationError",
@@ -519,20 +581,18 @@ function assertApprovedMigrationTarget(value) {
     abort("migration_target_rejected");
   }
   const targetFiles = {
+    [IMAGE_ANNOUNCEMENTS_MIGRATION]: [IMAGE_ANNOUNCEMENTS_MIGRATION_FILE, IMAGE_ANNOUNCEMENTS_CHECKSUM],
     [PAYMENT_SPLIT_MIGRATION]: [PAYMENT_SPLIT_MIGRATION_FILE, PAYMENT_SPLIT_CHECKSUM],
     [HUMAN_SUPPORT_SUMMARY_MIGRATION]: [HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE, HUMAN_SUPPORT_SUMMARY_CHECKSUM],
     [PAYMENT_SPLIT_RLS_MIGRATION]: [PAYMENT_SPLIT_RLS_MIGRATION_FILE, PAYMENT_SPLIT_RLS_CHECKSUM],
     [TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION]: [TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION_FILE, TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM],
-    [SPA_MEMBER_STAFF_RELEASE_TARGET]: null,
+    [DIGITAL_MANAGER_REVIEW_TARGET]: [DIGITAL_MANAGER_REVIEW_FILE, DIGITAL_MANAGER_REVIEW_CHECKSUM],
   };
   const target = targetFiles[value];
   if (target && migrationChecksum(target[0]) !== target[1]) {
     abort("migration_target_checksum_mismatch");
   }
-  if (value === SPA_MEMBER_STAFF_RELEASE_TARGET && (
-    migrationChecksum(RECURRING_CONFIRMATION_MIGRATION_FILE) !== RECURRING_CONFIRMATION_CHECKSUM ||
-    migrationChecksum(STAFF_MEMBER_LINK_MIGRATION_FILE) !== STAFF_MEMBER_LINK_CHECKSUM
-  )) abort("migration_target_checksum_mismatch");
+
 }
 
 function runPrisma(args) {
@@ -554,39 +614,6 @@ function runPrisma(args) {
       output: `${error.stdout ?? ""}${error.stderr ?? ""}`,
     };
   }
-}
-
-function runSpaProductionReadiness(args, failureCode) {
-  try {
-    execFileSync(process.execPath, [SPA_PRODUCTION_READINESS_SCRIPT, ...args], {
-      stdio: "inherit",
-      env: {
-        ...process.env,
-        PGOPTIONS: "-c lock_timeout=5s -c statement_timeout=120s",
-      },
-    });
-  } catch {
-    abort(failureCode);
-  }
-}
-
-function prepareSpaProductionHistory() {
-  log("spa_history_inspection_started");
-  runSpaProductionReadiness(
-    ["--inspect"],
-    "spa_history_inspection_failed",
-  );
-  log("spa_history_inspection_verified");
-
-  log("spa_history_reconciliation_started");
-  runSpaProductionReadiness(
-    [
-      "--reconcile-superseded",
-      `--confirm=${SPA_HISTORY_RECONCILIATION_CONFIRMATION}`,
-    ],
-    "spa_history_reconciliation_failed",
-  );
-  log("spa_history_reconciliation_verified");
 }
 
 export function migrationChecksum(path) {
@@ -989,75 +1016,6 @@ function isAppliedNamedMigration(row, checksum) {
   return row?.checksum === checksum && row.finishedAt !== null && row.rolledBackAt === null;
 }
 
-async function withProductionMigrationLock(prisma, action) {
-  return prisma.$transaction(async (tx) => {
-    const rows = await tx.$queryRaw`SELECT pg_try_advisory_xact_lock(${SPA_MEMBER_STAFF_RELEASE_LOCK}) AS "locked"`;
-    if (rows[0]?.locked !== true) abort("production_migration_lock_unavailable");
-    return action();
-  }, { maxWait: 5_000, timeout: 180_000 });
-}
-
-async function runSpaMemberStaffRelease(prisma) {
-  const initialStatus = runPrisma(["migrate", "status"]);
-  const [recurringBefore, staffBefore, recurringLedgerBefore, staffLedgerBefore] = await Promise.all([
-    readRecurringConfirmationSnapshot(prisma),
-    readStaffMemberLinkSnapshot(prisma),
-    readNamedMigrationLedger(prisma, RECURRING_CONFIRMATION_MIGRATION),
-    readNamedMigrationLedger(prisma, STAFF_MEMBER_LINK_MIGRATION),
-  ]);
-
-  if (isStatusUpToDate(initialStatus)) {
-    if (!hasExpectedRecurringConfirmationColumns(recurringBefore) ||
-        !hasExpectedStaffMemberLinkSchema(staffBefore) ||
-        !isAppliedNamedMigration(recurringLedgerBefore, RECURRING_CONFIRMATION_CHECKSUM) ||
-        !isAppliedNamedMigration(staffLedgerBefore, STAFF_MEMBER_LINK_CHECKSUM)) {
-      abort("spa_member_staff_applied_state_rejected");
-    }
-    log("spa_member_staff_already_applied_verified");
-    return;
-  }
-
-  if (initialStatus.exitCode !== 1 || !hasAllowedSpaMemberStaffReleasePending(initialStatus.output)) {
-    abort("spa_member_staff_pending_allowlist_rejected");
-  }
-
-  const recurringAlreadyApplied = isAppliedNamedMigration(
-    recurringLedgerBefore,
-    RECURRING_CONFIRMATION_CHECKSUM,
-  );
-  const recurringStateValid = recurringAlreadyApplied
-    ? hasExpectedRecurringConfirmationColumns(recurringBefore)
-    : hasNoRecurringConfirmationColumns(recurringBefore) && recurringLedgerBefore === null;
-  if (!recurringStateValid || !hasNoStaffMemberLinkObjects(staffBefore) || staffLedgerBefore !== null) {
-    abort("spa_member_staff_preflight_rejected");
-  }
-
-  log("spa_member_staff_preflight_verified");
-  log("spa_member_staff_deploy_started");
-  await withProductionMigrationLock(prisma, () => {
-    if (runPrisma(["migrate", "deploy"]).exitCode !== 0) {
-      abort("spa_member_staff_deploy_failed");
-    }
-  });
-  log("spa_member_staff_deploy_succeeded");
-
-  const finalStatus = runPrisma(["migrate", "status"]);
-  if (!isStatusUpToDate(finalStatus)) abort("spa_member_staff_final_status_rejected");
-  const [recurringAfter, staffAfter, recurringLedgerAfter, staffLedgerAfter] = await Promise.all([
-    readRecurringConfirmationSnapshot(prisma),
-    readStaffMemberLinkSnapshot(prisma),
-    readNamedMigrationLedger(prisma, RECURRING_CONFIRMATION_MIGRATION),
-    readNamedMigrationLedger(prisma, STAFF_MEMBER_LINK_MIGRATION),
-  ]);
-  if (!hasExpectedRecurringConfirmationColumns(recurringAfter) ||
-      !hasExpectedStaffMemberLinkSchema(staffAfter) || staffAfter.rowCount !== 0 ||
-      !isAppliedNamedMigration(recurringLedgerAfter, RECURRING_CONFIRMATION_CHECKSUM) ||
-      !isAppliedNamedMigration(staffLedgerAfter, STAFF_MEMBER_LINK_CHECKSUM)) {
-    abort("spa_member_staff_final_schema_rejected");
-  }
-  log("spa_member_staff_final_schema_verified");
-}
-
 export function isAppliedTransactionConversionSnapshotMigration(row) {
   return row?.checksum === TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM &&
     row.finishedAt !== null && row.rolledBackAt === null;
@@ -1218,14 +1176,29 @@ async function main() {
     abort("migration_checksum_mismatch");
   }
 
-  if (target === SPA_MEMBER_STAFF_RELEASE_TARGET) {
-    prepareSpaProductionHistory();
-  }
 
   const prisma = new PrismaClient({
     datasources: { db: { url: process.env.DIRECT_URL } },
   });
   try {
+    if (target === DIGITAL_MANAGER_REVIEW_TARGET) {
+      try {
+        await runDigitalManagerProductionCandidate(prisma, runPrisma, process.env, log);
+      } catch (error) {
+        if (error instanceof Error && /^digital_manager_[a-z_]+$/.test(error.message)) abort(error.message);
+        throw error;
+      }
+      return;
+    }
+    if (target === IMAGE_ANNOUNCEMENTS_MIGRATION) {
+      try {
+        await runImageAnnouncementsMigration(prisma, runPrisma, log);
+      } catch (error) {
+        if (error instanceof Error && /^image_announcements_[a-z_]+$/.test(error.message)) abort(error.message);
+        throw error;
+      }
+      return;
+    }
     if (target === HUMAN_SUPPORT_SUMMARY_MIGRATION) {
       await runHumanSupportSummaryMigration(prisma);
       return;
@@ -1236,10 +1209,6 @@ async function main() {
     }
     if (target === TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION) {
       await runTransactionConversionSnapshotMigration(prisma);
-      return;
-    }
-    if (target === SPA_MEMBER_STAFF_RELEASE_TARGET) {
-      await runSpaMemberStaffRelease(prisma);
       return;
     }
     const ledger = await readMessengerLedger(prisma);

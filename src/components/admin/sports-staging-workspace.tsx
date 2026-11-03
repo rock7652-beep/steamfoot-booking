@@ -1,4 +1,5 @@
 "use client";
+import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import {
   useState,
   useId,
@@ -17,7 +18,11 @@ import {
   saveSportsSubject,
   saveSportsFee,
   sportsStagingCommand,
+  prepareSportsStagingPurchaseIntent,
 } from "@/server/actions/sports-staging";
+import { acknowledgeCoursePurchaseIntent, cancelCoursePurchaseIntent, getCoursePurchaseIntent, getPendingCoursePurchaseIntent } from "@/server/actions/course-purchase-intent";
+import { CoursePurchaseIntentProvider, CoursePurchaseRecoveryNotice, useCoursePurchaseRecovery, type CheckoutInput } from "@/app/(dashboard)/dashboard/courses/purchase-recovery";
+import type { PurchaseIntentTransport } from "@/lib/purchase-intent-coordinator";
 import type { SportsSnapshot, SportsLesson } from "@/lib/sports-staging-types";
 type Subject = { id: string; name: string; category: string; active: boolean };
 type Fee = {
@@ -35,6 +40,22 @@ type Lesson = SportsLesson;
 const kinds = ["每週固定", "隔週固定", "單次", "體驗", "空間出租"];
 const fixedKind = (kind: string) => kind === "每週固定" || kind === "隔週固定";
 const money = (n: number) => "NT$ " + n.toLocaleString("zh-TW");
+const stagingRecoveryTransport: PurchaseIntentTransport<CheckoutInput> = {
+  prepare: async (input, requestKey) => {
+    const result = await prepareSportsStagingPurchaseIntent({ ...input, requestKey });
+    return result.success && !result.data ? { success: false, error: "購買狀態尚未確認" } : result;
+  },
+  get: (customerId, requestKey) => getCoursePurchaseIntent({ customerId, requestKey }),
+  getPending: customerId => getPendingCoursePurchaseIntent({ customerId }),
+  cancel: async (customerId, requestKey) => {
+    const result = await cancelCoursePurchaseIntent({ customerId, requestKey });
+    return result.success && !result.data ? { success: false, error: "購買狀態尚未確認" } : result;
+  },
+  acknowledge: async (customerId, requestKey) => {
+    const result = await acknowledgeCoursePurchaseIntent({ customerId, requestKey });
+    return result.success && !result.data ? { success: false, error: "購買狀態尚未確認" } : result;
+  },
+};
 function Field({ label, children }: { label: string; children: ReactNode }) {
   const id = useId();
   return (
@@ -45,6 +66,15 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 export function SportsStagingWorkspace({
+  initial, production = false, storeName = "運動流程測試店", purchaseRecoveryEnabled = false,
+}: {
+  initial: SportsSnapshot; production?: boolean; storeName?: string; purchaseRecoveryEnabled?: boolean;
+}) {
+  return <CoursePurchaseIntentProvider enabled={purchaseRecoveryEnabled} storeId={initial.storeId} transport={stagingRecoveryTransport}>
+    <SportsStagingWorkspaceContent initial={initial} production={production} storeName={storeName} />
+  </CoursePurchaseIntentProvider>;
+}
+function SportsStagingWorkspaceContent({
   initial,
   production = false,
   storeName = "運動流程測試店",
@@ -53,6 +83,7 @@ export function SportsStagingWorkspace({
   production?: boolean;
   storeName?: string;
 }) {
+  const personnelText = useCoursePersonnelText();
   const [live, setLive] = useState(initial),
     [pending, setPending] = useState(false);
   const readGeneration = useRef(0);
@@ -91,6 +122,8 @@ export function SportsStagingWorkspace({
     [filter, setFilter] = useState("全部"),
     [notice, setNotice] = useState(""),
     [detail, setDetail] = useState<Lesson | null>(null);
+  const [purchaseCustomerId, setPurchaseCustomerId] = useState(initial.customers[0]?.id ?? "");
+  const purchaseRecovery = useCoursePurchaseRecovery(purchaseCustomerId || undefined, panel === "購買收費方案");
   const [draft, setDraft] = useState({
     subject: initial.subjects[0]?.id ?? "",
     fee:
@@ -102,6 +135,7 @@ export function SportsStagingWorkspace({
     duration: 60,
     count: 4,
     coach: initial.coaches[0]?.name ?? "",
+    coachId: initial.coaches[0]?.id ?? "",
     room: initial.rooms[0]?.name ?? "",
     capacity: 8,
     price: 499,
@@ -147,6 +181,7 @@ export function SportsStagingWorkspace({
     setError("");
     setDetail(null);
     setPanel(which);
+    if (which === "購買收費方案") setPurchaseCustomerId(live.customers[0]?.id ?? "");
   };
   const patch = (value: Partial<typeof draft>) => {
     setDraft((d) => ({ ...d, ...value }));
@@ -168,7 +203,7 @@ export function SportsStagingWorkspace({
     return r.data;
   }
   async function run(
-    work: () => Promise<{ success: boolean; error?: string }>,
+    work: () => Promise<{ success: boolean; error?: string; discarded?: boolean }>,
     message: string,
     keep = false,
   ) {
@@ -179,6 +214,7 @@ export function SportsStagingWorkspace({
     setError("");
     try {
       const r = await work();
+      if (r.discarded) return;
       if (!r.success) throw new Error(r.error ?? "操作失敗");
       setDirty(false);
       setNotice(message);
@@ -378,7 +414,7 @@ export function SportsStagingWorkspace({
               <input
                 aria-label="搜尋"
                 placeholder={
-                  tab === "課表" ? "搜尋運動、老師或空間" : "搜尋名稱"
+                  tab === "課表" ? personnelText("搜尋運動、老師或空間") : "搜尋名稱"
                 }
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -516,9 +552,7 @@ export function SportsStagingWorkspace({
                             </button>
                             <button
                               onClick={() => {
-                                setEditing(f.id);
-                                setPanel("購買收費方案");
-                                requestKey.current = crypto.randomUUID();
+                                open("購買收費方案", f.id);
                               }}
                             >
                               購買
@@ -650,6 +684,8 @@ export function SportsStagingWorkspace({
           </header>
           <div className="panel-body">
             {panel === "購買收費方案" && (
+              <>
+              <CoursePurchaseRecoveryNotice recovery={purchaseRecovery} disabled={pending} onCommitted={() => { requestKey.current = crypto.randomUUID(); setNotice("購買已完成，方案正在更新"); void reload().catch(() => setError("購買已完成，畫面同步失敗，請重新讀取。")); }} />
               <form
                 id="edit-form"
                 className="form"
@@ -660,16 +696,14 @@ export function SportsStagingWorkspace({
                   if (plan)
                     void run(
                       () =>
-                        sportsStagingCommand({
-                          operation: "purchase",
-                          payload: {
+                        purchaseRecovery.submit({
                             planId: plan.id,
-                            customerId: f.get("customerId"),
+                            customerId: String(f.get("customerId") ?? ""),
                             expectedPrice: plan.price,
                             requestKey: requestKey.current,
-                          },
-                        }),
+                        }, payload => sportsStagingCommand({ operation: "purchase", payload })),
                       "方案購買已完成，卡片與帳本已建立",
+                      purchaseRecovery.enabled,
                     );
                 }}
               >
@@ -678,7 +712,7 @@ export function SportsStagingWorkspace({
                   信用卡
                 </p>
                 <Field label="購買學員">
-                  <select name="customerId">
+                  <select name="customerId" value={purchaseCustomerId} disabled={pending || purchaseRecovery.busy} onChange={event => setPurchaseCustomerId(event.target.value)}>
                     {live.customers.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -687,6 +721,7 @@ export function SportsStagingWorkspace({
                   </select>
                 </Field>
               </form>
+              </>
             )}
             {panel === "教學項目" && (
               <form
@@ -800,7 +835,7 @@ export function SportsStagingWorkspace({
                   堂；點數依適用課程扣抵。已售方案與歷史課次保留原資料。
                 </p>
                 <fieldset className="full learner">
-                  <legend>本課程可授課教練（由有權限者設定）</legend>
+                  <legend>{personnelText("本課程可授課教練（由有權限者設定）")}</legend>
                   {live.coaches.map((c) => (
                     <label key={c.id} className="check">
                       <input
@@ -946,13 +981,13 @@ export function SportsStagingWorkspace({
                   </Field>
                 )}
                 {!rental && (
-                  <Field label="授課教練">
+                  <Field label={personnelText("授課教練")}>
                     <select
-                      value={draft.coach}
-                      onChange={(e) => patch({ coach: e.target.value })}
+                      value={draft.coachId}
+                      onChange={(e) => patch({ coachId: e.target.value, coach: live.coaches.find(c => c.id === e.target.value)?.name ?? "" })}
                     >
                       {live.coaches.map((c) => (
-                        <option key={c.id}>{c.name}</option>
+                        <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
                   </Field>
@@ -1349,7 +1384,7 @@ export function SportsStagingWorkspace({
             </span>
             {(!detail || panel === "調整本堂") && (
               <button
-                disabled={pending}
+                disabled={pending || (panel === "購買收費方案" && purchaseRecovery.blocked)}
                 type="submit"
                 form="edit-form"
                 className="primary"

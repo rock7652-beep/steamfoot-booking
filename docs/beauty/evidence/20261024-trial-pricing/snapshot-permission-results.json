@@ -1,0 +1,13 @@
+{
+  "localSyntheticOnly": true,
+  "results": [
+    "catalog price and duration changes preserve existing booking snapshots",
+    "rescheduling preserves original trial duration and buffer after catalog edits",
+    "limited QA user really authenticated",
+    "limited role has no service pricing entry",
+    "forged low-privilege price write rejected",
+    "cross-store receipt scope rejected",
+    "stale service revision rejected",
+    "rejected actions change no service values"
+  ]
+}

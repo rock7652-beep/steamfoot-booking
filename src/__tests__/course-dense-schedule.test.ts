@@ -57,7 +57,7 @@ it("course operations use the shared centered dialog", () => {
 });
 
 it("schedule layout keeps controls compact and sends month clicks into the day workspace", () => {
-  expect(workspace).toContain("安排與查看店內課程");
+  expect(workspace).toContain('aria-label="課表視角"');
   expect(workspace).toContain('id="course-schedule-date"');
   expect(workspace).toContain('htmlFor="course-coach-filter"');
   expect(workspace).toContain('open("day")');

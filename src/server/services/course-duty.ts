@@ -1,3 +1,6 @@
+import { courseDisplayName } from "@/lib/course-template-presentation";
+import { Prisma as RetirementPrisma } from "@prisma/client";
+import { musicRetirementSql } from "@/server/services/music-retirement-sql";
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { AppError } from "@/lib/errors";
@@ -13,10 +16,10 @@ export async function assertCourseDutyCoverage(tx: Reader, storeId: string, sess
   const config = await tx.$queryRaw<{dutySchedulingEnabled:boolean}[]>`
     SELECT "dutySchedulingEnabled" FROM "ShopConfig" WHERE "storeId"=${storeId}`;
   if (!config[0]?.dutySchedulingEnabled) return;
-  const classes = sessions ?? await tx.$queryRaw<Session[]>`
+  const classes = sessions ?? await tx.$queryRaw<Session[]>(RetirementPrisma.sql`
     SELECT "startsAt", "endsAt", "coachId", "nameSnapshot" FROM "CourseSession"
-    WHERE "storeId"=${storeId} AND "cancelledAt" IS NULL AND "endsAt">NOW()
-    ORDER BY "startsAt"`;
+    WHERE "storeId"=${storeId} ${musicRetirementSql(storeId,"CourseSession")} AND "cancelledAt" IS NULL AND "endsAt">NOW()
+    ORDER BY "startsAt"`);
   if (!classes.length) return;
   const [hours, specials, assignments] = await Promise.all([
     tx.$queryRaw<Hour[]>`SELECT * FROM "BusinessHours" WHERE "storeId"=${storeId}`,
@@ -32,6 +35,6 @@ export async function assertCourseDutyCoverage(tx: Reader, storeId: string, sess
       assignments.filter(a=>a.staffId===session.coachId && a.date.toISOString().slice(0,10)===date).map(a=>a.slotTime),
     );
   });
-  if (conflicts.length) throw new AppError("VALIDATION", `授課人員值班未涵蓋完整課程時段：${conflicts.map(s=>`${formatTWDateTime(s.startsAt)}–${formatTWDateTime(s.endsAt).slice(11)} ${s.nameSnapshot??"課程"}`).join("；")}。本批尚未儲存，請先調整值班或排課。`);
+  if (conflicts.length) throw new AppError("VALIDATION", `授課人員值班未涵蓋完整課程時段：${conflicts.map(s=>`${formatTWDateTime(s.startsAt)}–${formatTWDateTime(s.endsAt).slice(11)} ${courseDisplayName(s.nameSnapshot??"課程")}`).join("；")}。本批尚未儲存，請先調整值班或排課。`);
 }
 

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { PLAN_ACTIVATION_TEMPLATE } from "@/lib/plan-activation-notification";
 import type { CronRunStatus } from "@prisma/client";
 import { requireStaffSession } from "@/lib/session";
 import { addTaiwanDuration, dayRange, toLocalDateStr } from "@/lib/date-utils";
@@ -157,7 +158,7 @@ export async function listMessageTemplates(storeId: string) {
   return prisma.messageTemplate.findMany({
     where: {
       storeId: authorizedStoreId,
-      name: { notIn: [PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME, TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME, PACKAGE_REMINDER_ENABLED_TEMPLATE_NAME, TRIAL_REMINDER_ENABLED_TEMPLATE_NAME] },
+      name: { notIn: [PLAN_ACTIVATION_TEMPLATE, PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME, TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME, PACKAGE_REMINDER_ENABLED_TEMPLATE_NAME, TRIAL_REMINDER_ENABLED_TEMPLATE_NAME] },
     },
     include: { _count: { select: { logs: true, rules: true } } },
     orderBy: { createdAt: "desc" },

@@ -1,0 +1,25 @@
+{
+  "commit": "c3bc86f34d13227a538226a4cdda0055adccaff3",
+  "origin": "https://steamfoot-booking-c7ev9vz3h-rock7652-2111s-projects.vercel.app",
+  "results": [
+    {
+      "case": "final artifact version renders real shared reminder center with restored care switch and LINE-off",
+      "passed": true
+    },
+    {
+      "case": "final artifact version reads restored real plan thresholds/expiry settings",
+      "passed": true
+    },
+    {
+      "case": "final artifact version reminder panel has no viewport overflow",
+      "passed": true
+    },
+    {
+      "case": "final artifact version authenticates member and reads restored preference state",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "readOnly": true,
+  "physicalDevice": false
+}

@@ -1,0 +1,59 @@
+
+ RUN  v4.1.4 /workspace/steamfoot-beauty-ui
+
+ ❯ src/__tests__/beauty-read-review-collection.test.ts (2 tests | 1 failed | 1 skipped) 101ms
+   × does not submit the previous appointment when the selected target has changed 100ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/beauty-read-review-collection.test.ts > does not submit the previous appointment when the selected target has changed
+AssertionError: must wait for the selected target quote before accepting submission: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      Object {
+        "amounts": Array [
+          1000,
+        ],
+        "ids": Array [
+          "a",
+        ],
+        "method": "CASH",
+        "note": "",
+        "quotes": Array [
+          Object {
+            "collected": 0,
+            "discount": Object {
+              "kind": "AMOUNT",
+              "value": 0,
+            },
+            "id": "a",
+            "price": 1000,
+            "revision": 1,
+          },
+        ],
+        "requestKey": "c4f9318d-9d6b-495d-bf3a-bd73355463d2",
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ src/__tests__/beauty-read-review-collection.test.ts:29:94
+     27|  // This action is a Vitest mock only: no server, database, HTTP or mo…
+     28|  await act(async()=>host.querySelector('form')!.dispatchEvent(new Even…
+     29|  expect(m.collect,'must wait for the selected target quote before acce…
+       |                                                                                              ^
+     30| });
+     31|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 skipped (2)
+   Start at  12:56:25
+   Duration  701ms (transform 91ms, setup 0ms, import 156ms, tests 101ms, environment 306ms)

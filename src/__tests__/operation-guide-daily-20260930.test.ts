@@ -38,9 +38,9 @@ describe("September 30 guide review", () => {
     expect(availableGuides({ ...course, permissions: ["wallet.create", "transaction.create"] }).some(item => item.id === "C154")).toBe(false);
     expect(availableGuides({ ...course, permissions: ["staff.manage"] }).some(item => item.id === "C156")).toBe(false);
     expect(availableGuides({ ...course, permissions: ["teacher.compensation.manage"] }).some(item => item.id === "C157")).toBe(false);
-    expect(availableGuides({ module: "spa", permissions: [], features: {} }).map(item => item.id)).toContain("G04");
+    expect(availableGuides({ module: "spa", permissions: [], features: {} }).map(item => item.id)).not.toContain("G04");
     expect(availableGuides({ module: "spa", permissions: [], features: {} }).some(item => item.id === "I11")).toBe(false);
-    expect(availableGuides({ module: "spa", permissions: ["audit.read"], features: {} }).some(item => item.id === "I11")).toBe(true);
+    expect(availableGuides({ module: "spa", permissions: ["audit.read"], features: {} }).some(item => item.id === "I11")).toBe(false);
   });
 
   it("updates old guidance and traces all affected articles to real source files", () => {

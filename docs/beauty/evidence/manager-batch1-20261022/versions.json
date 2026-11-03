@@ -1,0 +1,42 @@
+{
+  "branch": "preview/beauty-ui-alignment-20261021",
+  "baseline": "62bff067f7862401547cce1eca8ccf5c2da0b78d",
+  "application": "57e4a92e3a1896ad82499cad914fd6917727c0a0",
+  "deployment": "dpl_7nQ2D27Myagq55oqoe2Tfo3QryxU",
+  "target": "preview",
+  "storeSlug": "beauty-hosted-20261021",
+  "lineEnabled": false,
+  "productionOperated": false,
+  "schemaChanges": false,
+  "phases": [
+    {
+      "application": "7c3f774cf8fd5c4a562f6d9df30557393db8cd12",
+      "cases": "initial 6 cases, create plan, edit pricing, location-seeded booking and cancellation"
+    },
+    {
+      "application": "57e4a92e3a1896ad82499cad914fd6917727c0a0",
+      "cases": "remaining 6 cases, persisted cancellation, custom technician hours, immediate plan reopen, final responsive dialogs and role checks"
+    }
+  ],
+  "checks": {
+    "beautyAndReadCache": {
+      "files": 39,
+      "tests": 307,
+      "passed": true
+    },
+    "guideSuite": {
+      "files": 28,
+      "tests": 175,
+      "passed": true,
+      "sandboxMockSubprocessRerun": {
+        "files": 2,
+        "tests": 44
+      }
+    },
+    "typescript": true,
+    "eslint": true,
+    "diffCheck": true,
+    "physicalSafariAcceptance": false,
+    "lineAcceptance": false
+  }
+}

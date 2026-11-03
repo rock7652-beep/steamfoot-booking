@@ -1,17 +1,18 @@
 "use client";
+import {DashboardLink} from "@/components/dashboard-link";
+
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { SteamBookingDrawer } from "../../bookings/steam-booking-drawer";
-import { SpaBookingFields } from "../../bookings/new/spa-booking-fields";
-import { BookingCreateForm, BookingCreateSubmit } from "../../bookings/new/booking-create-form";
+
 import { loadCustomerCareBooking } from "@/server/actions/customer-care-booking";
 import { createCourseBooking } from "@/server/actions/course-members";
-import { createSpaQuickBooking } from "@/server/actions/spa-quick-booking";
+
 import { formatTWTime, toLocalDateStr } from "@/lib/date-utils";
 import type { CareItem } from "./care-section";
-const button = "min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-earth-700 disabled:opacity-50";
+const button = "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-earth-200 px-3 text-sm text-earth-700 disabled:opacity-50";
 type Options = Extract<Awaited<ReturnType<typeof loadCustomerCareBooking>>, { success: true }>["data"];
 export function CareBookingButton({ item }: { item: CareItem }) {
   const router = useRouter();
@@ -27,7 +28,7 @@ export function CareBookingButton({ item }: { item: CareItem }) {
   const [spaPending, setSpaPending] = useState(false);
   const version = useRef(0), lock = useRef(false), dirty = useRef(false), requestKey = useRef("");
   useEffect(() => () => { version.current++; }, []);
-  function close() { if (pending || lock.current) return; if (dirty.current && !window.confirm("尚有未儲存的預約資料，要捨棄嗎？")) return; version.current++; setOpen(false); }
+  function close() {  version.current++; setOpen(false); }
   async function show() {
     const current = ++version.current; setOpen(true); setLoading(true); setError(""); setOptions(null); dirty.current = false; requestKey.current = crypto.randomUUID();
     try { const res = await reader.read(item.customerId); if (current !== version.current) return; if (!res.success) setError(res.error); else setOptions(res.data); }
@@ -35,6 +36,7 @@ export function CareBookingButton({ item }: { item: CareItem }) {
     finally { if (current === version.current) setLoading(false); }
   }
   function done() { reader.invalidate(item.customerId); dirty.current = false; setOpen(false); router.refresh(); }
+  if(item.module === 'beauty')return <DashboardLink className={button} href={`/dashboard/beauty?tab=${encodeURIComponent('班表')}&action=booking&customerId=${encodeURIComponent(item.customerId)}`}>預約</DashboardLink>;
   if (!item.module || item.module === "steamfoot") return <SteamBookingDrawer date={toLocalDateStr()} triggerLabel="預約" triggerClassName={button} defaultCustomerId={item.customerId} defaultCustomerLabel={item.name} onCreated={() => router.refresh()}/>;
   const course = options?.module === "course" ? options : null;
   return <>
@@ -48,11 +50,7 @@ export function CareBookingButton({ item }: { item: CareItem }) {
           <label className="block text-sm">使用方案<select required className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 px-3" value={cardId} disabled={pending} onChange={e => setCardId(e.target.value)}><option value="">選擇方案</option>{course.cards.filter(c => course.sessions.find(s => s.id === sessionId)?.cardIds.includes(c.id)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
           <button className={`${button} bg-primary-600 !text-white`} disabled={pending} type="submit">{pending ? "建立中…" : "建立預約"}</button>
         </form> : <p className="text-sm text-earth-600">未來 60 天內沒有適用此顧客有效方案的課程。請先確認方案及排課。</p>)}
-        {options?.module === "spa" && <BookingCreateForm preserveOnFailure action={async form => {
-          if (lock.current) return { error: "建立中…" }; lock.current = true; setSpaPending(true);
-          try { const res = await createSpaQuickBooking({ customerId: item.customerId, bookingDate: String(form.get("bookingDate") ?? ""), serviceStaffId: String(form.get("serviceStaffId") ?? ""), slotTime: String(form.get("slotTime") ?? ""), treatmentIds: form.getAll("treatmentIds").map(String), notes: String(form.get("notes") ?? ""), requestKey: requestKey.current }); if (!res.success) return { error: res.error }; done(); }
-          finally { lock.current = false; setSpaPending(false); }
-        }}><input type="hidden" name="customerId" value={item.customerId}/><SpaBookingFields days={options.days} defaultDate={options.days[0] ?? toLocalDateStr()} treatments={options.treatments}/><BookingCreateSubmit/></BookingCreateForm>}
+
       </div>
     </ModalPanel>
   </>;

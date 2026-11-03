@@ -1,8 +1,8 @@
 import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
-import {getStoreIndustryModule} from "@/lib/industry-module-server";
-import {SpaCustomers} from "./_components/spa-customers";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+
 import { listCustomersForUser } from "@/server/queries/customer";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCachedPlans } from "@/lib/query-cache";
@@ -10,20 +10,11 @@ import { selectOrdinaryServicePlans } from "@/lib/ordinary-service-plans";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
-import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
-import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
+
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import {
-  DATA_EXPORT_LOCKED_MESSAGE,
-  DATA_EXPORT_SELECT_STORE_MESSAGE,
-  hasDataExportFeature,
-} from "@/lib/data-export-gate";
-import {
-  resolveStoreViewContextFromCookie,
-  storeIdForViewContext,
-  userForViewContext,
-} from "@/lib/store-view-context-server";
+import { DATA_EXPORT_LOCKED_MESSAGE, DATA_EXPORT_SELECT_STORE_MESSAGE, hasDataExportFeature } from "@/lib/data-export-gate";
+import { resolveStoreViewContextFromCookie, storeIdForViewContext, userForViewContext } from "@/lib/store-view-context-server";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
@@ -35,12 +26,7 @@ import { CustomersListWithDrawer } from "./_components/customers-list-with-drawe
 import { PageSizeSelector } from "./_components/page-size-selector";
 import { DEFAULT_PAGE_SIZE, normalizePageSize } from "./page-size";
 import type { CustomerRow } from "./_components/customers-table";
-import type {
-  CustomerListStatus,
-  CustomerListVisit,
-  CustomerListReferral,
-  CustomerListSort,
-} from "@/server/queries/customer";
+import type { CustomerListStatus, CustomerListVisit, CustomerListReferral, CustomerListSort } from "@/server/queries/customer";
 
 /**
  * 顧客管理 — Operation Page（Phase 2 桌機版重構 PR1）
@@ -87,20 +73,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const customersStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const customersUser = userForViewContext(user, storeViewContext);
   const industryModule = customersStoreId ? await getStoreIndustryModule(customersStoreId) : null;
-  if(customersStoreId && industryModule === "spa") {
-    const canWrite = !isViewMode && !await isStoreSubscriptionWriteBlocked(customersStoreId);
-    const canSell=canWrite && await checkPermission(user.role,user.staffId,"wallet.create") && await checkPermission(user.role,user.staffId,"transaction.create");
-    const canRefund=canWrite && await checkPermission(user.role,user.staffId,"transaction.refund");
-    const [canEdit,canCreate,canBook,canReadBookings,canReadWallet,canReadTransactions,canManageStaff]=await Promise.all([
-      checkPermission(user.role,user.staffId,"customer.update"),checkPermission(user.role,user.staffId,"customer.create"),
-      checkPermission(user.role,user.staffId,"booking.create"),checkPermission(user.role,user.staffId,"booking.read"),
-      checkPermission(user.role,user.staffId,"wallet.read"),checkPermission(user.role,user.staffId,"transaction.read"),
-      checkPermission(user.role,user.staffId,"duty.manage"),
-    ]);
-    return <SpaCustomers labelId={params.label} storeId={customersStoreId} search={params.search??""} canSell={canSell} canRefund={canRefund}
-      canEdit={canWrite&&canEdit} canCreate={canWrite&&canCreate} canBook={canWrite&&canBook&&canReadBookings}
-      canReadBookings={canReadBookings} canReadAccounts={canReadWallet&&canReadTransactions} canManageStaff={canWrite&&getEffectiveActorRole(user)==="OWNER"&&canManageStaff}/>;
-  }
+
   const logCtx = {
     page: "customers" as const,
     activeStoreId: customersStoreId,

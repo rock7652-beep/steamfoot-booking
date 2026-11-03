@@ -40,3 +40,5 @@ it("persists only a complete same-store same-category label permutation",async()
 });
 
 it("uses validated explicit roster scope instead of a stale active store",async()=>{m.validateStore.mockResolvedValue("other");await loadCustomerLabels([],"other");expect(m.validateStore).toHaveBeenCalledWith(expect.anything(),"other","read");expect(m.categories).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:"other"}}));expect(m.readStore).not.toHaveBeenCalled();});
+
+it("defaults a missing store setting to enabled while preserving an explicit opt-out",async()=>{m.setting.mockResolvedValue(null);expect((await loadCustomerLabels(["visible"])).enabled).toBe(true);m.setting.mockResolvedValue({enabled:false});expect((await loadCustomerLabels(["visible"])).enabled).toBe(false);});
