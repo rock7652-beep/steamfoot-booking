@@ -76,3 +76,13 @@ Cloudflare 失敗需取得該 build 的日誌或由具權限者確認本次分�
 已透過 Supabase 連線唯讀確認既有 `steamfoot-preview` 專案健康、三個指定驗收店存在，以及永久系列／美業預約等必要資料表存在。未執行 migration、未改 schema。此查核不等同登入流程或所有 schema 欄位均通過驗收。
 
 最新 Preview 的建置、登入及業務驗收結果須在推送後按實際 deployment SHA 補記；舊 head 的 CI 不當作新版結果。
+
+## 首輪 hosted 登入驗收
+
+`130fd77b` 的 Vercel Preview `dpl_D429fkc8jen1pG4h56b9i9ws1GQw` 已 READY，遠端 CI 與 PostgreSQL 驗收均通過；Cloudflare Workers 另失敗，仍未豁免。臨時分享存取經使用者明確授權後取得，連結與 cookie 不放入版本庫。
+
+使用者同意沿用舊隔離驗收帳號、暫設密碼並必要時恢復啟用。沿用三個 `qa1469-20261030-*-owner`／對應 Staff，原本均為 SUSPENDED／INACTIVE／無密碼；不新增帳號，不修改既有角色或現用店長。驗收後須恢復原狀並清除暫存登入資料。
+
+三模組正常登入皆已核對 storeId 與 OWNER 角色。運動與美業實際表單證據在 `hosted-130fd77b/`：運動 11/23 起固定課指出 11/30 14:00–15:15 的後續租借衝突；查回本輪專用教室 session／series 均為零。美業 11/23 14:30 預約正確顯示床位 14:00–15:15 占用及整理／租借緩衝，送出維持停用。此輪未提交付款或出席。
+
+音樂已登入，但頁面讀取既有歷史匯入 pilot 方案時觸發舊分支 guard，出現 digest `2136953447`。修正採最小拒絕：本修正分支的 `isMusicPilotCard` 直接回傳 false，不讀取 pilot 驗收資料、不開放歷史匯入方案操作，讓唯讀卡片／課表摘要不因該 capability 拋例外；其他分支既有 guard 保留。新增測試確認讀取不觸碰 pilot SQL、請假補課寫入仍被拒絕。相關 10 項測試、ESLint 及完整 TypeScript 通過；新版仍需重新登入確認。
