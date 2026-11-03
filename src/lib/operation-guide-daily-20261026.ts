@@ -28,7 +28,7 @@ export const dailyOperationGuides20261026: OperationGuide[] = [
   "需 wallet.adjust、顧客查看及本店方案／顧客功能，且只能處理本人有權管理的原持有人。",
   "新期限不得早於建立日、不得超過未來十年；早於既有預約結束時會阻擋。仍有預約占用時不能註銷。",
   "處理中或結果待確認會鎖住其他操作；門市、餘額或期限被更新時須重開核對，不覆蓋新資料。",
-"方案註銷使用精簡確認，核對原方案、剩餘堂數及金額；待核帳購買的金額不代表已收款。交易註銷與方案註銷依原流程分開，不能把確認視窗當銀行退款成功。"
+"營收交易的註銷使用精簡確認，核對原方案、剩餘堂數及金額；待核帳購買的金額不代表已收款。交易註銷與方案註銷依原流程分開，不能把確認視窗當銀行退款成功。"
 ],
     modules: ["beauty"], permission: "wallet.adjust", additionalPermissions: ["customer.read"], feature: null, kind: "howto", verification: "source-reviewed",
     sources: ["src/components/beauty/card-management.tsx", "src/server/actions/beauty-card-management.ts", "src/server/beauty/card-management.ts"],
