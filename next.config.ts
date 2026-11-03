@@ -57,11 +57,14 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
 const HEALTH_TRACKER_URL = "https://www.healthflow-ai.com/liff";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["pdfkit"],
   ...(process.env.BEAUTY_SHARED_PAGES_BUILD_QA==='1'?{distDir:'.next-beauty-shared-pages-build-qa',typescript:{tsconfigPath:'tsconfig.beauty-shared-pages-build-qa.json'},experimental:{cpus:2}}:{}),
   ...(process.env.BEAUTY_SHARED_PAGES_LOCAL_QA==='1'?{distDir:'.next-beauty-shared-pages-qa',typescript:{tsconfigPath:'tsconfig.beauty-shared-pages-qa.json'}}:{}),
   // Review documents and QA artifacts are not runtime dependencies.
   outputFileTracingExcludes: {"/*": ["./docs/**", "./artifacts/**", "./scripts/qa/**"]},
   outputFileTracingIncludes: {
+    "/api/course-agreements/records/*/pdf": ["./assets/course-agreements/**"],
+    "/course-agreements/receipt/*/pdf": ["./assets/course-agreements/**"],
     "/*": ["./generated/course-client/**", "./generated/beauty-client/**", "./scripts/certs/supabase-root-2021.crt"],
   },
   ...(process.env.BEAUTY_RELEASE_QA === '1' ? {
