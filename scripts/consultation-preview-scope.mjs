@@ -1,4 +1,5 @@
 import {assertCompactOperationsPreview} from "./compact-operations-preview-scope.mjs";
+import {assertCourseAgreementsPreviewEnvironment} from './course-agreements-preview-scope.mjs';
 import {assertBeautySharedPagesLocalQaEnvironment,assertBeautySharedPagesBuildQaEnvironment} from "./beauty-shared-pages-local-qa-scope.mjs";
 import {MUSIC_RELEASE_BRANCH,assertMusicNativeReleaseEnvironment} from "./music-native-workflow-scope.mjs";
 import { assertImageAnnouncementsAcceptance } from "./image-announcements-acceptance-scope.mjs";
@@ -283,6 +284,7 @@ export function assertConsultationPreviewEnvironment(env) {
  * @returns {"compact-operations-preview" | "beauty-hosted-preview" | "mocked-unit-test" | "production" | "music-opening-preview" | "beauty-release-qa" | "beauty-production-qa" | "local-beauty-qa" | "beauty-sandbox-qa" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
+  if (assertCourseAgreementsPreviewEnvironment(env)) return 'course-agreements-preview';
   if(assertCompactOperationsPreview(env))return "compact-operations-preview";
   if(env.BEAUTY_SHARED_PAGES_BUILD_QA==='1'){assertBeautySharedPagesBuildQaEnvironment(env);return 'local-beauty-qa';}
   if(env.BEAUTY_SHARED_PAGES_LOCAL_QA==='1'){assertBeautySharedPagesLocalQaEnvironment(env);return 'local-beauty-qa';}

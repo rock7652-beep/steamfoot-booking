@@ -142,6 +142,10 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if (releaseMode === 'course-agreements-preview') {
+  console.info('[course-agreements-preview] isolated_database=true migrations_skipped=true notifications_blocked=true');
+  process.exit(0);
+}
 if(releaseMode==="compact-operations-preview"){console.info("[compact-operations-preview] isolated_database=true restricted_role=true migrations_skipped=true notifications_blocked=true");process.exit(0);}
 if (releaseMode === "beauty-release-qa") {
   console.info("[beauty-release-qa] isolated_database=true migrations_skipped=true notifications_blocked=true");
