@@ -153,7 +153,7 @@ describe("trial reminder convergence contract", () => {
     const engine = source("src/server/reminder-engine.ts");
     expect(engine).toContain('const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL"');
     expect(engine).toContain("createTrialBookingActionToken(booking)");
-    expect(engine).toContain("isLineTrialBooking ? TRIAL_TEMPLATE : templateBody");
+    expect(engine).toContain('isLineTrialBooking ? TRIAL_TEMPLATE.replace("體驗預約", serviceName) : templateBody');
   });
 
   it("scopes calendar and slots to the same chat entry as submission", () => {

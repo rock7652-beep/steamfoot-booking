@@ -1,5 +1,7 @@
 "use server";
 
+import { loadSelectedBookingServices, selectedBookingServiceName } from "@/server/services/booking-service-selection";
+
 import { revalidatePath } from "next/cache";
 import { randomInt } from "node:crypto";
 import { z } from "zod";
@@ -1208,6 +1210,11 @@ export async function sendBookingLineTestReminder(
       throw new AppError("BUSINESS_RULE", `LINE 收件人無法使用（${route.reason}）`);
     }
 
+    const selectedServices = await loadSelectedBookingServices(booking);
+    const serviceName = selectedBookingServiceName(selectedServices, booking.bookingType);
+    const hasTrialService = selectedServices.length
+      ? selectedServices.some(person => person.status !== "CANCELLED" && person.service === "FIRST_TRIAL")
+      : booking.bookingType === "FIRST_TRIAL";
     const [
       rule,
       shopConfig,
@@ -1225,7 +1232,7 @@ export async function sendBookingLineTestReminder(
       booking.bookingType === "FIRST_TRIAL" || !booking.store?.slug
         ? Promise.resolve(null)
         : resolveStorePresentation(booking.store.slug),
-      booking.bookingType === "FIRST_TRIAL"
+      hasTrialService
         ? Promise.resolve(null)
         : prisma.messageTemplate.findUnique({
             where: {
@@ -1234,7 +1241,7 @@ export async function sendBookingLineTestReminder(
             },
             select: { body: true },
           }),
-      booking.bookingType === "FIRST_TRIAL"
+      hasTrialService
         ? prisma.messageTemplate.findUnique({
             where: {
               id: trialLineCardReminderSettingId(storeId),
@@ -1257,7 +1264,7 @@ export async function sendBookingLineTestReminder(
     const templateBody = isLineTrialBooking
       ? `{{customerName}} 您好！
 
-這是您明天 ({{bookingDate}}) {{bookingTime}} 的體驗預約提醒，請記得準時到店。
+這是您明天 ({{bookingDate}}) {{bookingTime}} 的${serviceName}提醒，請記得準時到店。
 
 請使用下方按鈕確認會到、取消或改期。
 
@@ -1296,10 +1303,11 @@ ${renderedReminder}`;
       bookingDate: booking.bookingDate.toISOString().slice(0, 10),
       bookingTime: booking.slotTime,
       shopName: customerFacingShopName,
-      serviceName: "首次體驗",
+      serviceName,
       reminderText:
-        trialCardReminderSetting?.body?.trim() ||
-        DEFAULT_TRIAL_LINE_CARD_REMINDER,
+        hasTrialService
+          ? trialCardReminderSetting?.body?.trim() || DEFAULT_TRIAL_LINE_CARD_REMINDER
+          : cardReminderSetting?.body?.trim() || DEFAULT_PACKAGE_LINE_CARD_REMINDER,
       mapUrl: trialMapConfig?.mapUrl?.trim() || undefined,
     };
     const flexMessages = isLineTrialBooking
@@ -1309,7 +1317,7 @@ ${renderedReminder}`;
         bookingDate: booking.bookingDate.toISOString().slice(0, 10),
         bookingTime: booking.slotTime,
         shopName: customerFacingShopName,
-        serviceName: booking.bookingType === "PACKAGE_SESSION" ? "方案預約" : "單次預約",
+        serviceName,
         serviceDuration: "45 分鐘",
         address: storePresentation?.address,
         mapUrl: storePresentation?.mapUrl,

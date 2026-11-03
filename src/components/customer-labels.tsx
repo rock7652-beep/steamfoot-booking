@@ -2,7 +2,7 @@
 
 import { FeatureEntry, useFeaturePresentation } from "@/components/feature-presentation";
 import { FEATURES } from "@/lib/feature-flags";
-import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
+import { useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import { setCustomerLabel } from "@/server/actions/customer-labels";
 import { EMPTY_LABELS, labelColor, nextCustomerLabelRevision, newerLabelSnapshot, receiveCustomerLabelSnapshot, type LabelMetadata, type LabelSnapshot } from "@/lib/customer-labels";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -12,8 +12,9 @@ import { courseSettingsPanelHref } from "@/lib/course-settings-panels";
 import { LabelManager } from "@/app/(dashboard)/dashboard/settings/customer-labels/label-manager";
 import { DashboardLink } from "@/components/dashboard-link";
 import {readCustomerLabels} from "@/lib/customer-label-reader";
-type ContextValue = {snapshot: LabelSnapshot; register:(id:string)=>()=>void; refresh:()=>Promise<void>; seed:(snapshot:LabelSnapshot)=>void; update:(id:string,labels:string[])=>void; pendingIds: Set<string>; lock:(id:string)=>boolean; unlock:(id:string)=>void};
-const Context = createContext<ContextValue|null>(null);
+import {CustomerLabelsContext as Context} from "./customer-label-context";
+export {useSeedCustomerLabels} from "./customer-label-context";
+
 const LABEL_CACHE_MS = 60_000;
 export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children:ReactNode;initial?:LabelSnapshot}) {
   const [snapshot,setSnapshot]=useState(initial);
@@ -114,7 +115,6 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
   return <Context.Provider value={{snapshot,register,refresh,seed,update,pendingIds,lock,unlock}}>{children}</Context.Provider>;
 }
 /** Supply row labels with the server-rendered list, then retain them across shared views. */
-export function useSeedCustomerLabels() { return useContext(Context)?.seed; }
 export function CustomerLabelsSeed({initial:serverInitial,children}:{initial:LabelSnapshot;children:ReactNode}) {
   const initial=receiveCustomerLabelSnapshot(serverInitial);
   const ctx=useContext(Context);

@@ -8,6 +8,7 @@ import { courseRoomInput } from "@/lib/course-room-input";
 import {shareCalendarRosterMetadata} from '@/server/services/course-calendar-transfer';
 import {preparedRoster} from './fixtures/prepared-roster';
 vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: vi.fn() }));
+vi.mock("@/lib/sports-calendar-client",async original=>({...await original<Record<string,unknown>>(),syncSportsCalendar:vi.fn(()=>new Promise(()=>{}))}));
 vi.mock("@/app/(dashboard)/dashboard/courses/sports-attendance-panel", () => ({ SportsAttendancePanel: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/sports-cancel-course", () => ({ SportsCancelCourse: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/sports-move-confirm", () => ({ SportsMoveConfirm: () => null }));
@@ -99,8 +100,8 @@ it("native sports schedule dialog receives the current store scheduling modes", 
 });
 
 it("shows confirmed scheduled sessions before the slow calendar read completes",async()=>{
- const {syncSportsPermanentCalendar}=await import("@/server/actions/sports-series");
- vi.mocked(syncSportsPermanentCalendar).mockImplementation(()=>new Promise(()=>{}));
+ const {syncSportsCalendar}=await import("@/lib/sports-calendar-client");
+ vi.mocked(syncSportsCalendar).mockImplementation(()=>new Promise(()=>{}));
  m.search="view=schedule&action=schedule";m.schedule.mockClear();
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  const session={id:"confirmed-session",templateId:"template",nameSnapshot:"已確認舞蹈課",startsAt:"2026-10-10T04:00:00.000Z",endsAt:"2026-10-10T05:00:00.000Z",coachId:"",roomId:"",capacity:8,pointCost:1,bookings:[],sportsPalette:true};

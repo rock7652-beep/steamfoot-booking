@@ -1,4 +1,6 @@
 "use client";
+import {useSeedCustomerLabels} from "@/components/customer-label-context";
+import {receiveCustomerLabelSnapshot} from "@/lib/customer-labels";
 import type {CalendarRosterSnapshots} from "./roster-source";
 import {useTeacherNoteSnapshot} from "./use-teacher-note-snapshot";
 import {sportsSchedulePreview} from "@/lib/sports-schedule-preview";
@@ -17,11 +19,10 @@ import {useSportsCalendarState,useSportsCalendarDate,useSportsCalendarScroll,cal
 import {CalendarMonthBoundary,calendarMonthReady} from "@/components/admin/calendar-month-boundary";
 import {applySportsMovePatches} from "@/lib/sports-move-patch";
 import {sportsScheduleKinds,sportsCalendarPresentation,sportsCalendarMatches} from "@/lib/sports-calendar-presentation";
-import {syncSportsPermanentCalendar} from "@/server/actions/sports-series";
 import {readSportsSessionDetail} from "@/lib/sports-session-detail-client";
 import {readCourseSessionDetailClient} from "@/lib/course-session-detail-client";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
-import {readSportsCalendar} from "@/lib/sports-calendar-client";
+import {readSportsCalendar,readMusicCalendar,syncSportsCalendar} from "@/lib/sports-calendar-client";
 import {CALENDAR_SYNC_INTERVAL,startSportsBackgroundSync} from "@/lib/sports-background-sync";
 import {SportsAttendancePanel} from "./sports-attendance-panel";
 import {checkSportsCourseMove} from "@/server/actions/course";
@@ -170,7 +171,7 @@ export type Session = {
   rescheduleKind?: string | null;
   rescheduledAt?: string | null;
 };
-export type CourseCalendarSnapshot={rosterSnapshots?:CalendarRosterSnapshots;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:Props["cancelledBookings"];staffAvailabilityExceptions:Props["staffAvailabilityExceptions"]};
+export type CourseCalendarSnapshot={storeId?:string;labelSnapshot?:import("@/lib/customer-labels").LabelSnapshot;rosterSnapshots?:CalendarRosterSnapshots;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:Props["cancelledBookings"];staffAvailabilityExceptions:Props["staffAvailabilityExceptions"]};
 export type CourseCatalogSource={rentalModule?:"course"|"beauty";order?:import("@/lib/course-display-order").CourseOrderWriter;status:CatalogStatusDriver;save:(kind:"room"|"template",input:Record<string,unknown>)=>Promise<{success:true;data:Room|Template}|{success:false;error:string}>};
 export type CourseCalendarSource={
  readBlocked?:boolean;
@@ -357,11 +358,13 @@ export function CourseWorkspace({
   }
   const [sportsCreatedCustomers,setSportsCreatedCustomers]=useState<Record<string,SportsSnapshot["customers"][number]>>({});
   useEffect(()=>{setSportsCreatedCustomers({});},[storeId]);
+  const musicCalendar=businessProfile==="MUSIC"&&!calendarSource&&view==="schedule";
+  const seedCustomerLabels=useSeedCustomerLabels();
   const explicitDate=params.get("date"),explicitMode=params.get("scheduleView");
   const [nativeDate,setNativeDate]=useSportsCalendarDate(sportsNative,loadedDate,explicitDate,pathname,!calendarSource);
   const [nativeCalendarWarning,setNativeCalendarWarning]=useState(initialSportsCalendarWarning);
   const [nativeCalendar,setNativeCalendar]=useState<{rosterSnapshots?:CalendarRosterSnapshots;schedulingModes?:CourseSchedulingModes;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
-  const sportsCalendarReader=usePanelReader(calendarSource?"service-native-calendar":"sports-calendar",calendarSource?.read??readSportsCalendar,storeId??"",0);
+  const sportsCalendarReader=usePanelReader(calendarSource?"service-native-calendar":"sports-calendar",calendarSource?.read??(musicCalendar?readMusicCalendar:readSportsCalendar),`${storeId}:${businessProfile}:${params.get("dataScope")??""}`,0);
   const calendarRequest=useRef(0);
   const calendarReadsInFlight=useRef(0);
   const calendarTargetMonth=useRef(loadedDate.slice(0,7));
@@ -389,26 +392,24 @@ export function CourseWorkspace({
     calendarReadsInFlight.current++;
     if(!background){setCalendarReading(true);setError("");}
     try{
-      let warning:string|undefined;
       const ensured=ensure&&sportsNative&&canCreate&&!calendarSource;
-      if(ensured){const sync=await syncSportsPermanentCalendar(date);if(!sync.success)throw new Error(sync.error);warning="warning" in sync?sync.warning??undefined:undefined;}
       if(!background)sportsCalendarReader.clear();
-      const result=await sportsCalendarReader.read(date);
+      const result=ensured?await syncSportsCalendar(date):await sportsCalendarReader.read(date);
       if(request!==calendarRequest.current)return null;
-      if(result.success){if('onAccepted' in result&&typeof result.onAccepted==='function')result.onAccepted();if(ensured)setNativeCalendarWarning(warning);setNativeCalendar(result.data);setLastUpdated(new Date());return true;}
+      if(result.success){if(result.data.storeId!==undefined&&result.data.storeId!==storeId)throw new Error("店家已切換，請重新開啟課表");if('onAccepted' in result&&typeof result.onAccepted==='function')result.onAccepted();if(ensured)setNativeCalendarWarning('warning' in result?result.warning??undefined:undefined);if(result.data.labelSnapshot)seedCustomerLabels?.(receiveCustomerLabelSnapshot(result.data.labelSnapshot));setNativeCalendar(result.data);setLastUpdated(new Date());return true;}
       setError(result.error);return false;
     }catch{if(request===calendarRequest.current)setError("課表讀取失敗，請重試");return false;}
     finally{calendarReadsInFlight.current--;if(request===calendarRequest.current)setCalendarReading(false);}
-  },[sportsNative,canCreate,sportsCalendarReader,calendarSource]);
+  },[sportsNative,canCreate,sportsCalendarReader,calendarSource,seedCustomerLabels,storeId]);
   const [calendarNavigating,startCalendarNavigation]=useTransition();
   const requestedDate = sportsNative?nativeDate:params.get("date");
   const committedDate=requestedDate&&parseTaipeiDateTime(requestedDate,"00:00")?requestedDate:loadedDate;
   const [selectedDate,selectCalendarDate]=useOptimistic(committedDate,(_previous:string,next:string)=>next);
   const calendarDataReady=calendarMonthReady(sportsNative||businessProfile==="MUSIC",selectedDate,nativeCalendar?.month??loadedDate.slice(0,7));
-  useEffect(()=>{if(sportsNative&&!calendarDataReady&&calendarTargetMonth.current!==nativeDate.slice(0,7)){
-    if(!calendarSource)setNativeDate(nativeDate);
-    void refreshNativeCalendar(nativeDate,true);
-  }},[sportsNative,calendarDataReady,nativeDate,calendarSource,setNativeDate,refreshNativeCalendar]);
+  useEffect(()=>{if((sportsNative||musicCalendar)&&!calendarDataReady&&calendarTargetMonth.current!==committedDate.slice(0,7)){
+    if(sportsNative&&!calendarSource)setNativeDate(nativeDate);
+    void refreshNativeCalendar(committedDate,true);
+  }},[sportsNative,musicCalendar,calendarDataReady,committedDate,nativeDate,calendarSource,setNativeDate,refreshNativeCalendar]);
   useSportsCalendarScroll(sportsNative&&view==="schedule","window",undefined,calendarDataReady&&!calendarReading);
   const [transitionPending, startTransition] = useTransition();
   const refreshWorkspace=useCallback(()=>{if(sportsNative)return refreshNativeCalendar(nativeDateRef.current);startCalendarNavigation(()=>router.refresh());},[sportsNative,refreshNativeCalendar,router,startCalendarNavigation]);
@@ -512,7 +513,7 @@ export function CourseWorkspace({
       );
     }
     const refresh = () => {
-      if (document.visibilityState !== "visible" || Date.now() - backgroundRefreshRequestedAt.current < 15_000) return;
+      if (calendarReadsInFlight.current > 0 || document.visibilityState !== "visible" || Date.now() - backgroundRefreshRequestedAt.current < 15_000) return;
       backgroundRefreshRequestedAt.current = Date.now();
       startCalendarNavigation(() => {
         refreshWorkspace();
@@ -709,9 +710,21 @@ export function CourseWorkspace({
     byDate.set(day, [...(byDate.get(day) ?? []), session]);
   }
   for (const list of byDate.values()) list.sort((a,b)=>a.startsAt.localeCompare(b.startsAt)||a.id.localeCompare(b.id));
+  useEffect(()=>{
+    if(!musicCalendar)return;
+    ++calendarRequest.current;calendarTargetMonth.current=loadedDate.slice(0,7);setNativeCalendar(null);setCalendarReading(false);
+  },[musicCalendar,sourceSessions,loadedDate]);
   function go(date: string) {
     if(date!==selectedDate)cancelPendingTeacherNote();
     calendarSource?.onDateChange?.(date);
+    if(musicCalendar){
+      const next=new URLSearchParams(window.location.search);next.set("date",date);
+      window.history.replaceState(null,"",`${pathname}?${next}`);
+      const month=date.slice(0,7);
+      if(month!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date);
+      else if(calendarTargetMonth.current!==month){++calendarRequest.current;calendarTargetMonth.current=month;setCalendarReading(false);}
+      return;
+    }
     if(sportsNative){setNativeDate(date);nativeDateRef.current=date;const month=date.slice(0,7);if(month!==(nativeCalendar?.month??loadedDate.slice(0,7)))void refreshNativeCalendar(date,true);else if(calendarTargetMonth.current!==month){++calendarRequest.current;calendarTargetMonth.current=month;setCalendarReading(false);}return;}
     const next = new URLSearchParams(window.location.search);
     const unchanged=next.get("date")===date&&window.location.pathname===pathname;
@@ -1187,7 +1200,7 @@ export function CourseWorkspace({
                 <button className="ml-auto text-xs" type="button" onClick={()=>calendarSource?.move?calendarSource.move.onCancel():setMoveClipboard(null)}>取消</button>
               </div>
             )}
-          <CalendarMonthBoundary ready={calendarDataReady} date={selectedDate} loading={calendarReading||calendarNavigating} error={sportsNative?error:""} onRetry={()=>{if(sportsNative)void refreshNativeCalendar(selectedDate,true);else go(selectedDate);}}>
+          <CalendarMonthBoundary ready={calendarDataReady} date={selectedDate} loading={calendarReading||calendarNavigating} error={sportsNative||musicCalendar?error:""} onRetry={()=>{if(sportsNative||musicCalendar)void refreshNativeCalendar(selectedDate,true);else go(selectedDate);}}>
           {scheduleMode === "month" ? (
             <>
               {businessProfile === "MUSIC" ? (

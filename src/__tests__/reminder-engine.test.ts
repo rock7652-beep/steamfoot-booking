@@ -116,6 +116,7 @@ vi.mock("@prisma/client", () => ({
 
 // ── Mock prisma client ──
 const mockPrisma = {
+  $queryRaw: vi.fn(async () => [] as Array<{ service: string; status: string }>),
   messageTemplate: {
     findUnique: vi.fn(async (args: { where: { id: string; storeId?: string } }) => {
       if (args.where.id.startsWith("booking-reminder-enabled:")) {
@@ -453,6 +454,8 @@ function makeRule(opts: { id?: string; storeId?: string; name?: string } = {}): 
 }
 
 beforeEach(() => {
+  vi.stubEnv("BOOKING_PARTICIPANTS_ENABLED", "false");
+  mockPrisma.$queryRaw.mockResolvedValue([]);
   process.env.TRIAL_BOOKING_ACTION_SECRET = "test-only-trial-booking-secret";
   bookings = [];
   rules = [];
@@ -491,6 +494,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.useRealTimers();
 });
 
@@ -741,6 +745,22 @@ describe("runReminders (daily next-day batch)", () => {
       "reschedule",
       "cancel",
     ]);
+  });
+
+  it("原始體驗已選方案時，正式提醒與紀錄都顯示方案，仍保留原預約的安全連結", async () => {
+    vi.stubEnv("BOOKING_PARTICIPANTS_ENABLED", "true");
+    mockPrisma.$queryRaw.mockResolvedValue([{ service: "PACKAGE_SESSION", status: "PENDING" }]);
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    bookings.push(makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z"), bookingType: "FIRST_TRIAL" }));
+    rules.push(makeRule());
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, failed: 0 });
+    const message = JSON.stringify(pushMessageMock.mock.calls[0]?.[2]);
+    expect(message).toContain("方案預約");
+    expect(message).not.toContain("首次體驗");
+    expect(message).toContain("/trial-booking/manage?token=");
+    expect(messageLogs[0].renderedBody).toContain("方案預約");
+    expect(messageLogs[0].renderedBody).not.toContain("體驗預約");
   });
 
   it("Flex 被 LINE 明確拒絕時只降級一次文字提醒，且只寫一筆成功紀錄", async () => {

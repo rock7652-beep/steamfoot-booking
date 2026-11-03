@@ -1,3 +1,4 @@
+import {readMusicCalendarRecurrence} from "@/server/services/music-calendar-recurrence";
 import {preloadCourseCalendarRosters} from "@/server/services/course-calendar-rosters";
 import {createCoursePageTiming,coursePageTimingVisible} from "@/server/services/course-page-timing";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
@@ -329,21 +330,14 @@ export default async function CoursesPage({
       },
     ),
   );
-  const [waitlistStoreSetting,displayOrders,sportsFixedRows,recurringKeys]=await Promise.all([
+  const [waitlistStoreSetting,displayOrders,sportsFixedRows,recurrence]=await Promise.all([
     (async()=>{
       const available=await timing.read("waitlist_feature",()=>hasStoreFeature(storeId,FEATURES.COURSE_WAITLIST));
       return available?timing.read("waitlist_setting",()=>coursePrisma.courseWaitlistSetting.findUnique({where:{storeId},select:{enabled:true,defaultLimit:true,autoPromoteStopMinutes:true}})):null;
     })(),
     timing.read("display_orders",()=>readCourseOrders(storeId)),
     sportsNative?timing.read("sports_rules",()=>coursePrisma.$queryRaw<Array<{sessionId:string;frequency:string;enrollment?:string}>>`SELECT "sessionId",frequency,enrollment FROM "SportsStagingSessionRule" WHERE "storeId"=${storeId}`):[],
-    (async()=>businessProfile === "MUSIC" && sessions.length
-    ? new Set((await coursePrisma.courseSession.groupBy({
-        by: ["requestKey"],
-        where: { storeId, cancelledAt: null, requestKey: { in: [...new Set(sessions.map((session) => session.requestKey))] } },
-        _count: { id: true },
-        having: { id: { _count: { gt: 1 } } },
-      })).map((row) => row.requestKey))
-    : new Set<string>())(),
+    businessProfile === "MUSIC" ? readMusicCalendarRecurrence(storeId,sessions.map(session=>session.requestKey)) : {fixed:new Set<string>(),biweekly:new Set<string>()},
   ]);
   const waitlistEnabled=waitlistStoreSetting?.enabled??false;
   const waitlistDefaultLimit=waitlistStoreSetting?.defaultLimit??5;
@@ -358,25 +352,7 @@ export default async function CoursesPage({
     const writable=user.role==="ADMIN"||user.storeId===storeId;
     return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog storeId={storeId} key={storeId} displayOrder={displayOrders.subject} subjects={subjects.map(s=>{const t=templates.find(t=>t.musicSubjectId===s.id);return {...s,classType:t?.classType??"PRIVATE",musicTeacherShare:Number(t?.musicTeacherShare??0.6),musicScheduleMode:t?.musicScheduleMode??"FIXED",durationMinutes:t?.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES,capacity:t?.capacity??1,visibility:t?.visibility??"PUBLIC",precautions:t?.precautions??"",updatedAt:s.updatedAt.toISOString()};})} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
-  const biweeklyKeys = new Set<string>();
-  if (recurringKeys.size) {
-    const recurringDates = await coursePrisma.courseSession.findMany({
-      where: { storeId, cancelledAt: null, requestKey: { in: [...recurringKeys] } },
-      select: { requestKey: true, startsAt: true },
-      orderBy: { startsAt: "asc" },
-    });
-    const datesByKey = new Map<string, number[]>();
-    for (const row of recurringDates) {
-      const dates = datesByKey.get(row.requestKey) ?? [];
-      dates.push(row.startsAt.getTime());
-      datesByKey.set(row.requestKey, dates);
-    }
-    for (const [key, dates] of datesByKey) {
-      if (dates.length >= 2 && dates.every((date, index) =>
-        index === 0 || Math.round((date - dates[index - 1]) / 86400000) === 14,
-      )) biweeklyKeys.add(key);
-    }
-  }
+  const recurringKeys=recurrence.fixed,biweeklyKeys=recurrence.biweekly;
   const writable =
     canCreate && writableStore;
   timing.mark("post_calendar");
