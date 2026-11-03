@@ -29,3 +29,14 @@ it('evaluates a denied independent grant even after identity has been authentica
  await withCalendarMonthRead(async()=>{await permissionRequestSession(auth);await expect(withCalendarRosterRead(async()=>{await permissionRequestSession(auth);throw new Error('grant denied');})).rejects.toThrow('grant denied');});
  expect(auth).toHaveBeenCalledOnce();
 });
+
+import {withCalendarComparison} from '@/server/services/calendar-month-read-scope';
+it('uses original fresh scopes in QA baseline comparison and never reuses sync/write state',async()=>{
+ const auth=vi.fn(async()=>({id:'a'})),metadata=vi.fn(async()=>1);
+ const read=async()=>{await permissionRequestSession(auth);await memoizeReadRequest('m',metadata);};
+ await withCalendarComparison('baseline',()=>withCalendarMonthRead(async()=>{await read();await withCalendarRosterRead(read);}));
+ expect(auth).toHaveBeenCalledTimes(2);expect(metadata).toHaveBeenCalledTimes(2);
+ auth.mockClear();metadata.mockClear();
+ await withCalendarComparison('optimized',async()=>{await read();await withCalendarMonthRead(async()=>{await read();await withCalendarRosterRead(read);});});
+ expect(auth).toHaveBeenCalledTimes(2);expect(metadata).toHaveBeenCalledTimes(2);
+});

@@ -1,10 +1,12 @@
+import {calendarPerformanceVariant} from "@/lib/calendar-performance-preview";
+import {withCalendarComparison} from "@/server/services/calendar-month-read-scope";
 import {syncSportsPermanentCalendar} from "@/server/actions/sports-series";
 import {loadSportsCalendar} from "@/server/actions/sports-calendar";
 
 const headers={"Cache-Control":"private, no-store"};
 /** Synchronize before reading the complete month, within one browser round trip.
  * The write and read retain their independent current permissions and store checks. */
-export async function POST(request:Request) {
+async function handlePost(request:Request) {
   if(request.headers.get("origin")!==new URL(request.url).origin)return Response.json({success:false,error:"來源不正確"},{status:403,headers});
   try {
     const body=await request.text();
@@ -22,4 +24,11 @@ export async function POST(request:Request) {
     console.info("[COURSE_CALENDAR_SYNC_READ_PERF]",JSON.stringify({syncMs,readMs,totalMs,success:result.success}));
     return Response.json(result.success?{...result,warning:'warning' in sync?sync.warning:null}:result,{headers:{...headers,"Server-Timing":`sync;dur=${syncMs}, read;dur=${readMs}, calendar;dur=${totalMs}`}});
   } catch {return Response.json({success:false,error:"課表同步失敗，請重試"},{status:400,headers});}
+}
+
+export async function POST(request:Request){
+ const variant=calendarPerformanceVariant(request.headers);
+ const response=await withCalendarComparison(variant,()=>handlePost(request));
+ if(variant)response.headers.set("X-Calendar-QA-Variant",variant);
+ return response;
 }
