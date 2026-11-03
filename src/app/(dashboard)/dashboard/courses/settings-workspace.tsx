@@ -47,6 +47,7 @@ export type CourseSettingsWorkspaceProps = {
   storeId: string; name: string; planLabel: string; address: string; mapUrl: string; lineOfficialUrl: string;
   bankName: string; bankCode: string; bankAccountNumber: string; bookingLeadMinutes: number; cancellationLeadMinutes: number;
   canAddOns?:boolean;
+  canAgreements?: boolean;
   canEdit: boolean; canPayment: boolean; canStaff: boolean; canPlans: boolean;
   canTrial?: boolean; canHours?: boolean; canDutyRead?: boolean; canDutyManage?: boolean; canReminders?: boolean; canCare?: boolean;
   // Destination permissions only; HQ feature presentation comes from the shared provider.
@@ -213,6 +214,7 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
   >
       <section hidden={active !== "store"} aria-label="店家資料">
         <Row title="店家資料" summary={props.name + (props.address ? "・地址已設定" : "・地址未設定") + `・Google Maps：${storeMapHref ? "已設定" : "未設定"}`} controls={storeMapHref ? <a href={storeMapHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 min-w-24 items-center justify-center whitespace-nowrap rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200">開啟地圖</a> : undefined} expanded={expandedRow === "store"} onEdit={props.canEdit ? () => openRow("store") : undefined}>{!props.canEdit && <InfoList density="compact" items={[{ label: "店家名稱", value: props.name }, { label: "電話", value: props.shopPhone || "尚未填寫" }, { label: "地址", value: props.address || "尚未填寫" }, { label: "地圖", value: props.mapUrl ? "已設定" : "尚未設定" }, { label: "官方 LINE ID", value: props.lineOfficialId || "尚未填寫" }, { label: "官方 LINE", value: props.lineOfficialUrl ? "已設定" : "尚未設定" }]} />} {props.canEdit && editor({ section: "store", name: props.name, shopPhone: props.shopPhone ?? "", lineOfficialId: props.lineOfficialId ?? "", address: props.address, mapUrl: props.mapUrl, lineOfficialUrl: props.lineOfficialUrl }, true)}</Row>
+        {props.canAgreements && <Row title="課程共同約定" summary="設定店家規則・預覽與啟用約定書" href="/dashboard/courses/agreements" action="管理" />}
         {!props.source&&!props.moduleContent&&<Row title="授課人員稱呼" summary={personnel.label??(props.music?personnelText("教師（模組預設）"):personnelText("教練（模組預設）"))} expanded={expandedRow==="personnel"} onEdit={props.canEdit?()=>openRow("personnel"):undefined}>{editor({section:"personnel",personnelLabel:personnel.label},props.canEdit)}</Row>}
       </section>
       <section hidden={active !== "booking"} aria-label="營業與預約"><SectionGuard section="booking" context={context}>{props.moduleContent ? props.moduleContent.sections.booking : <>

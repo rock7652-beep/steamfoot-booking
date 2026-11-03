@@ -1,0 +1,45 @@
+import {afterEach, beforeEach, expect, it, vi} from 'vitest';
+import {emptyCourseAgreement, buildCourseAgreement, courseAgreementLeaveText, type CourseAgreementDraft, type CourseAgreementClause} from '@/lib/course-agreement';
+const m = vi.hoisted(() => ({ access: vi.fn(), lock: vi.fn(), transaction: vi.fn(), find: vi.fn(), upsert: vi.fn(), update: vi.fn(), aggregate: vi.fn(), create: vi.fn() }));
+vi.mock('@/lib/course-db', () => ({ coursePrisma: { $transaction: m.transaction } }));
+vi.mock('@/lib/db', () => ({ prisma: {} }));
+vi.mock('@/server/services/course-agreement-access', () => ({ requireCourseAgreementAccess: m.access }));
+vi.mock('@/server/services/course-store-lock', () => ({ lockCourseStore: m.lock }));
+import {courseAgreementSigningToken} from '@/server/services/course-agreement-signing-token';
+import {saveCourseAgreementDraft, publishCourseAgreement} from '@/server/services/course-agreement-settings';
+const draft = () => ({...emptyCourseAgreement('測試店','03-0000000','測試路'), entity:'測試音樂補習班', responsible:'測試負責人',city:'新竹縣', business:'cram' as const, makeup:'提前協調補課', privacyNotice:'合成資料告知，不供正式使用'});
+type StoredVersion = { id: string; storeId: string; version: number; settingsSnapshot: CourseAgreementDraft; document: CourseAgreementClause[]; createdById: string; signingTokenHash: string; documentHash: string };
+type StoredSetting = { storeId: string; revision: number; draft: CourseAgreementDraft; activeVersion: StoredVersion | null };
+let current: StoredSetting | null;
+let versions: StoredVersion[];
+beforeEach(() => {
+ vi.resetAllMocks(); vi.stubEnv('COURSE_AGREEMENTS_ENABLED','1');vi.stubEnv('COURSE_AGREEMENT_LINK_SECRET','synthetic-test-secret-at-least-32-bytes'); current=null; versions=[];
+ m.access.mockResolvedValue({storeId:'a',user:{id:'staff'}});
+ m.transaction.mockImplementation(async run => run({courseAgreementSetting:{findUnique:m.find,upsert:m.upsert,update:m.update},courseAgreementVersion:{aggregate:m.aggregate,create:m.create}}));
+ m.find.mockImplementation(async()=>current);
+ m.upsert.mockImplementation(async({create,update}:{create:Omit<StoredSetting,"activeVersion">;update:{draft:CourseAgreementDraft}})=>{current=current?{...current,draft:update.draft,revision:current.revision+1}:{...create,activeVersion:null};return current;});
+ m.update.mockImplementation(async({data}:{data:{activeVersionId:string}})=>{if(!current)throw Error("missing setting");current={...current,revision:current.revision+1,activeVersion:versions.find(v=>v.id===data.activeVersionId)??null};return current;});
+ m.aggregate.mockImplementation(async()=>({_max:{version:versions.length||null}}));
+ m.create.mockImplementation(async({data}:{data:StoredVersion})=>{const version=structuredClone(data);versions.push(version);return version;});
+});
+afterEach(()=>vi.unstubAllEnvs());
+it('is closed by default before authorization or data access',async()=>{vi.stubEnv('COURSE_AGREEMENTS_ENABLED','');await expect(saveCourseAgreementDraft({})).rejects.toThrow('尚未開放');expect(m.access).not.toHaveBeenCalled();expect(m.transaction).not.toHaveBeenCalled();});
+it('locks the resolved store and saves a server-rendered preview',async()=>{const result=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});expect(m.access).toHaveBeenCalledWith('manage','a');expect(m.lock).toHaveBeenCalledWith(expect.anything(),'a');expect(result.revision).toBe(1);expect(result.document).toEqual(buildCourseAgreement(result.draft));expect(result.documentHash).toMatch(/^[a-f0-9]{64}$/);});
+it('keeps identical save retries idempotent',async()=>{const input={storeId:'a',revision:0,draft:draft()};const a=await saveCourseAgreementDraft(input);const b=await saveCourseAgreementDraft(input);expect(b).toEqual(a);expect(m.upsert).toHaveBeenCalledTimes(1);});
+it('rejects stale edits rather than replacing the new draft',async()=>{await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});await expect(saveCourseAgreementDraft({storeId:'a',revision:0,draft:{...draft(),makeup:'stale'}})).rejects.toThrow('其他操作');expect(current?.draft.makeup).toBe('提前協調補課');});
+it('publishes exactly the previewed content and records the author',async()=>{const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});const result=await publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true});expect(result.active?.version).toBe(1);expect(versions[0]).toMatchObject({storeId:'a',createdById:'staff',document:p.document,settingsSnapshot:p.draft});expect(versions[0].signingTokenHash).toMatch(/^[a-f0-9]{64}$/);});
+it('returns the same version on a repeated activation request',async()=>{const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});const input={storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true};const a=await publishCourseAgreement(input);const b=await publishCourseAgreement(input);expect(b.active?.id).toBe(a.active?.id);expect(m.create).toHaveBeenCalledTimes(1);});
+it('rejects a changed draft after preview',async()=>{const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});await saveCourseAgreementDraft({storeId:'a',revision:p.revision,draft:{...draft(),makeup:'改版'}});await expect(publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true})).rejects.toThrow('草稿已變更');expect(m.create).not.toHaveBeenCalled();});
+it('requires explicit acknowledgement and completed provider data',async()=>{const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:{...draft(),responsible:''}});await expect(publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:false})).rejects.toThrow();await expect(publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true})).rejects.toThrow('負責人');expect(m.create).not.toHaveBeenCalled();});
+it('keeps the old snapshot when a new version is published',async()=>{const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});const a=await publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true});const first=structuredClone(versions[0]);const p2=await saveCourseAgreementDraft({storeId:'a',revision:a.revision,draft:{...draft(),leave:{mode:'deadline',days:1,time:'21:00'}}});const b=await publishCourseAgreement({storeId:'a',revision:p2.revision,documentHash:p2.documentHash,acknowledged:true});expect(b.active?.version).toBe(2);expect(versions[0]).toEqual(first);});
+it('does not write when authorization fails',async()=>{m.access.mockRejectedValue(new Error('wrong store'));await expect(saveCourseAgreementDraft({storeId:'b',revision:0,draft:draft()})).rejects.toThrow('wrong store');expect(m.transaction).not.toHaveBeenCalled();});
+it('supports all three leave modes without false elapsed-review statements',()=>{
+ expect(courseAgreementLeaveText({mode:'hours',hours:24})).toContain('24 小時');
+ expect(courseAgreementLeaveText({mode:'deadline',days:1,time:'21:00'})).toContain('上課前一日 21:00');
+ expect(courseAgreementLeaveText({mode:'deadline',days:0,time:'21:00'})).toContain('課程開始前');
+ expect(courseAgreementLeaveText({mode:'custom',rule:'自訂規則'})).toBe('自訂規則');
+ expect(JSON.stringify(buildCourseAgreement(draft()))).not.toContain('審閱滿五天');
+});
+
+it('requires a durable dedicated signing key before publishing',async()=>{const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});vi.stubEnv('COURSE_AGREEMENT_LINK_SECRET','');await expect(publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true})).rejects.toThrow('金鑰尚未設定');expect(m.create).not.toHaveBeenCalled();});
+it('reconstructs signing tokens only for the same store and version',()=>{const token=courseAgreementSigningToken('a','v1');expect(courseAgreementSigningToken('a','v1')).toBe(token);expect(courseAgreementSigningToken('b','v1')).not.toBe(token);expect(courseAgreementSigningToken('a','v2')).not.toBe(token);});

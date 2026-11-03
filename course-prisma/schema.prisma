@@ -688,3 +688,69 @@ model CourseStoreNotice {
   @@index([storeId, handledAt, startsAt])
   @@index([storeId, publishedAt(sort: Desc), id(sort: Desc)])
 }
+
+// Electronic course agreements. Store/Customer identity FKs are owned by SQL.
+model CourseAgreementSetting {
+  storeId         String @id
+  revision        Int @default(0)
+  draft           Json?
+  activeVersionId String?
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+  activeVersion   CourseAgreementVersion? @relation("ActiveCourseAgreement", fields: [activeVersionId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+  versions        CourseAgreementVersion[] @relation("CourseAgreementVersions")
+}
+
+model CourseAgreementVersion {
+  id               String @id @default(cuid())
+  storeId          String
+  version          Int
+  settingsSnapshot Json
+  document         Json
+  documentHash     String
+  signingTokenHash String @unique
+  createdById      String
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  setting          CourseAgreementSetting @relation("CourseAgreementVersions", fields: [storeId], references: [storeId], onDelete: Restrict, onUpdate: Restrict)
+  activeFor        CourseAgreementSetting[] @relation("ActiveCourseAgreement")
+  reviews          CourseAgreementReview[]
+  signatures       CourseAgreementSignature[]
+  @@unique([id, storeId])
+  @@unique([storeId, version])
+  @@index([storeId, createdAt])
+}
+
+model CourseAgreementReview {
+  id          String @id @default(cuid())
+  storeId     String
+  versionId   String
+  tokenHash   String @unique
+  deliveredAt DateTime @default(now()) @db.Timestamptz(3)
+  expiresAt   DateTime @db.Timestamptz(3)
+  consumedAt  DateTime? @db.Timestamptz(3)
+  version     CourseAgreementVersion @relation(fields: [versionId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+  signatures  CourseAgreementSignature[]
+  @@unique([id, storeId, versionId])
+  @@index([storeId, expiresAt])
+}
+
+model CourseAgreementSignature {
+  id                   String @id @default(cuid())
+  storeId              String
+  versionId            String
+  reviewId             String @unique
+  customerId           String?
+  signerSnapshot       Json
+  signatureObjectKey   String
+  signatureHash        String
+  receiptTokenHash     String @unique
+  requestKey           String
+  reviewAcknowledgedAt DateTime @db.Timestamptz(3)
+  electronicConsentAt  DateTime @db.Timestamptz(3)
+  signedAt             DateTime @default(now()) @db.Timestamptz(3)
+  version              CourseAgreementVersion @relation(fields: [versionId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+  review               CourseAgreementReview @relation(fields: [reviewId, storeId, versionId], references: [id, storeId, versionId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([id, storeId])
+  @@unique([storeId, requestKey])
+  @@index([storeId, signedAt])
+  @@index([customerId, storeId])
+}
