@@ -1,4 +1,5 @@
 import {describe,it,expect} from 'vitest';
+import {beautyJourneySegment} from '@/lib/beauty/journey-label';
 import {expandServiceJourney} from '@/lib/beauty/expand-service-journey';
 import {allocateParty,type Service,type Technician} from '@/lib/beauty/allocation';
 import {journeyIssue} from '@/lib/beauty/service-journey';
@@ -53,4 +54,12 @@ describe('mixed service/add-on payments',()=>{
   expect(paymentInput.safeParse(input).success).toBe(true);expect(paymentInput.safeParse({...input,amounts:[501]}).success).toBe(false);
   expect(paymentInput.safeParse({...input,splits:[{method:'CASH',amount:200},{method:'CASH',amount:300}]}).success).toBe(false);
  });
+});
+
+it('labels only non-overlapping sequential services as a journey and preserves companion actions',()=>{
+ const a={id:'a',groupId:'g',customerId:'c',startsAt:'2099-10-20T01:00:00Z',endsAt:'2099-10-20T02:00:00Z'};
+ const b={...a,id:'b',startsAt:'2099-10-20T02:15:00Z',endsAt:'2099-10-20T03:00:00Z'};
+ expect(beautyJourneySegment([a,b],b)).toEqual({index:2,total:2});
+ expect(beautyJourneySegment([a,{...a,id:'companion'}],a)).toBeNull();
+ expect(beautyJourneySegment([a,{...b,startsAt:'2099-10-20T01:30:00Z'}],a)).toBeNull();
 });
