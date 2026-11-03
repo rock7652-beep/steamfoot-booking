@@ -6,10 +6,10 @@ vi.mock('@/lib/db', () => ({ prisma: {} }));
 vi.mock('@/server/services/course-agreement-access', () => ({ requireCourseAgreementAccess: m.access }));
 vi.mock('@/server/services/course-store-lock', () => ({ lockCourseStore: m.lock }));
 import {courseAgreementSigningToken} from '@/server/services/course-agreement-signing-token';
-import {saveCourseAgreementDraft, publishCourseAgreement} from '@/server/services/course-agreement-settings';
+import {saveCourseAgreementDraft, publishCourseAgreement, pauseCourseAgreement} from '@/server/services/course-agreement-settings';
 const draft = () => ({...emptyCourseAgreement('測試店','03-0000000','測試路'), entity:'測試音樂補習班', responsible:'測試負責人',city:'新竹縣', business:'cram' as const, makeup:'提前協調補課', privacyNotice:'合成資料告知，不供正式使用'});
 type StoredVersion = { id: string; storeId: string; version: number; settingsSnapshot: CourseAgreementDraft; document: CourseAgreementClause[]; createdById: string; signingTokenHash: string; documentHash: string };
-type StoredSetting = { storeId: string; revision: number; draft: CourseAgreementDraft; activeVersion: StoredVersion | null };
+type StoredSetting = { storeId: string; revision: number; draft: CourseAgreementDraft; activeVersion: StoredVersion | null; activeVersionId?: string | null };
 let current: StoredSetting | null;
 let versions: StoredVersion[];
 beforeEach(() => {
@@ -18,7 +18,7 @@ beforeEach(() => {
  m.transaction.mockImplementation(async run => run({courseAgreementSetting:{findUnique:m.find,upsert:m.upsert,update:m.update},courseAgreementVersion:{aggregate:m.aggregate,create:m.create}}));
  m.find.mockImplementation(async()=>current);
  m.upsert.mockImplementation(async({create,update}:{create:Omit<StoredSetting,"activeVersion">;update:{draft:CourseAgreementDraft}})=>{current=current?{...current,draft:update.draft,revision:current.revision+1}:{...create,activeVersion:null};return current;});
- m.update.mockImplementation(async({data}:{data:{activeVersionId:string}})=>{if(!current)throw Error("missing setting");current={...current,revision:current.revision+1,activeVersion:versions.find(v=>v.id===data.activeVersionId)??null};return current;});
+ m.update.mockImplementation(async({data}:{data:{activeVersionId:string|null}})=>{if(!current)throw Error("missing setting");current={...current,revision:current.revision+1,activeVersionId:data.activeVersionId,activeVersion:versions.find(v=>v.id===data.activeVersionId)??null};return current;});
  m.aggregate.mockImplementation(async()=>({_max:{version:versions.length||null}}));
  m.create.mockImplementation(async({data}:{data:StoredVersion})=>{const version=structuredClone(data);versions.push(version);return version;});
 });
@@ -43,3 +43,6 @@ it('supports all three leave modes without false elapsed-review statements',()=>
 
 it('requires a durable dedicated signing key before publishing',async()=>{const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});vi.stubEnv('COURSE_AGREEMENT_LINK_SECRET','');await expect(publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true})).rejects.toThrow('金鑰尚未設定');expect(m.create).not.toHaveBeenCalled();});
 it('reconstructs signing tokens only for the same store and version',()=>{const token=courseAgreementSigningToken('a','v1');expect(courseAgreementSigningToken('a','v1')).toBe(token);expect(courseAgreementSigningToken('b','v1')).not.toBe(token);expect(courseAgreementSigningToken('a','v2')).not.toBe(token);});
+
+it('can pause and keep historical published versions intact',async()=>{const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});const active=await publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true});const history=structuredClone(versions);const result=await pauseCourseAgreement({storeId:'a',revision:active.revision,activeVersionId:active.active!.id});expect(result.active).toBeNull();expect(versions).toEqual(history);expect((await pauseCourseAgreement({storeId:'a',revision:active.revision,activeVersionId:active.active!.id})).active).toBeNull();});
+it('does not pause a newer version from a stale screen',async()=>{const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});const active=await publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true});await expect(pauseCourseAgreement({storeId:'a',revision:0,activeVersionId:active.active!.id})).rejects.toThrow('約定書已更新');expect(current?.activeVersionId).toBe(active.active!.id);});

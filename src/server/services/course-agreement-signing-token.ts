@@ -14,3 +14,9 @@ export function courseAgreementSigningToken(storeId: string, versionId: string) 
     .update(JSON.stringify(['course-agreements/sign/v1', storeId, versionId]))
     .digest('base64url');
 }
+
+export function courseAgreementReceiptToken(storeId: string, signatureId: string) {
+  // A separate domain prevents a signing link from serving as a receipt credential.
+  return createHmac('sha256', courseAgreementSigningToken(storeId, signatureId))
+    .update('course-agreements/receipt/v1').digest('base64url');
+}

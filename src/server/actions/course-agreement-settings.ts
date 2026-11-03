@@ -2,7 +2,7 @@
 import { ZodError } from 'zod';
 import { AppError } from '@/lib/app-error';
 import type { CourseAgreementPreview, CourseAgreementResult, CourseAgreementState } from '@/lib/course-agreement';
-import { saveCourseAgreementDraft, publishCourseAgreement } from '@/server/services/course-agreement-settings';
+import { saveCourseAgreementDraft, publishCourseAgreement, pauseCourseAgreement } from '@/server/services/course-agreement-settings';
 
 function message(error: unknown) {
   if (error instanceof ZodError) return error.issues[0]?.message ?? '請確認填寫內容';
@@ -18,5 +18,10 @@ export async function saveCourseAgreementDraftAction(input: unknown): Promise<Co
 }
 export async function publishCourseAgreementAction(input: unknown): Promise<CourseAgreementResult<CourseAgreementState>> {
   try { return { success: true, data: await publishCourseAgreement(input) }; }
+  catch (error) { return { success: false, error: message(error) }; }
+}
+
+export async function pauseCourseAgreementAction(input: unknown): Promise<CourseAgreementResult<CourseAgreementState>> {
+  try { return { success: true, data: await pauseCourseAgreement(input) }; }
   catch (error) { return { success: false, error: message(error) }; }
 }

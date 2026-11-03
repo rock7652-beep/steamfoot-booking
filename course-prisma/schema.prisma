@@ -731,6 +731,7 @@ model CourseAgreementReview {
   signatures  CourseAgreementSignature[]
   @@unique([id, storeId, versionId])
   @@index([storeId, expiresAt])
+  @@index([storeId, deliveredAt])
 }
 
 model CourseAgreementSignature {
@@ -744,6 +745,8 @@ model CourseAgreementSignature {
   signatureHash        String
   receiptTokenHash     String @unique
   requestKey           String
+  requestHash          String?
+  asset                CourseAgreementSignatureAsset?
   reviewAcknowledgedAt DateTime @db.Timestamptz(3)
   electronicConsentAt  DateTime @db.Timestamptz(3)
   signedAt             DateTime @default(now()) @db.Timestamptz(3)
@@ -751,6 +754,18 @@ model CourseAgreementSignature {
   review               CourseAgreementReview @relation(fields: [reviewId, storeId, versionId], references: [id, storeId, versionId], onDelete: Restrict, onUpdate: Restrict)
   @@unique([id, storeId])
   @@unique([storeId, requestKey])
+  @@unique([id, storeId, signatureObjectKey])
   @@index([storeId, signedAt])
   @@index([customerId, storeId])
+}
+
+// Small, server-rendered PNG evidence stays private and atomic with its signature.
+model CourseAgreementSignatureAsset {
+  objectKey   String @id
+  signatureId String @unique
+  storeId     String
+  content     Bytes
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  signature   CourseAgreementSignature @relation(fields: [signatureId, storeId, objectKey], references: [id, storeId, signatureObjectKey], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([signatureId, storeId, objectKey])
 }

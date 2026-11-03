@@ -7,6 +7,8 @@ import type { CourseAgreementDraft, CourseAgreementPreview, CourseAgreementResul
 export type AgreementWorkspaceProps = {
   initial: CourseAgreementState;
   save: (input: { storeId: string; revision: number; draft: CourseAgreementDraft }) => Promise<CourseAgreementResult<CourseAgreementPreview>>;
+  pause?: (input: { storeId: string; revision: number; activeVersionId: string }) => Promise<CourseAgreementResult<CourseAgreementState>>;
+  share?: (storeId: string) => Promise<CourseAgreementResult<{ url: string; qrDataUrl: string }>>;
   publish: (input: { storeId: string; revision: number; documentHash: string; acknowledged: true }) => Promise<CourseAgreementResult<CourseAgreementState>>;
 };
 const button = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-200 px-4 text-sm font-medium disabled:cursor-wait disabled:opacity-50';
@@ -20,7 +22,7 @@ const groups = [{ id: 'store', label: '店家資料' }, { id: 'rules', label: '�
 
 // The page keys this workspace by authenticated store; a late response from an
 // unmounted store cannot populate the next store's draft.
-export function CourseAgreementWorkspace({ initial, save, publish }: AgreementWorkspaceProps) {
+export function CourseAgreementWorkspace({ initial, save, publish, pause, share }: AgreementWorkspaceProps) {
   const [confirmed, setConfirmed] = useState(initial);
   const [draft, setDraft] = useState(initial.draft);
   const [stage, setStage] = useState<'summary' | 'edit' | 'preview'>('summary');
@@ -31,6 +33,8 @@ export function CourseAgreementWorkspace({ initial, save, publish }: AgreementWo
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
+  const [confirmPause, setConfirmPause] = useState(false);
+  const [sharing, setSharing] = useState<{ url: string; qrDataUrl: string } | null>(null);
   useEffect(() => {
     if (!pending) return;
     const unload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
@@ -68,8 +72,25 @@ export function CourseAgreementWorkspace({ initial, save, publish }: AgreementWo
       const result = await publish({ storeId: confirmed.storeId, revision: preview.revision, documentHash: preview.documentHash, acknowledged: true });
       if (!result.success) { setError(result.error); return; }
       setConfirmed(result.data); setDraft(result.data.draft); setStage('summary');
-      setPreview(null); setNotice(`已啟用 v${result.data.active?.version}.0`);
+      setPreview(null); setSharing(null); setNotice(`已啟用 v${result.data.active?.version}.0`);
     } catch { setError('尚未確認啟用結果，請保留畫面並重試相同操作。'); }
+    finally { busy.current = false; setPending(false); }
+  }
+  async function showSharing() {
+    if (busy.current || !share) return;
+    busy.current = true; setPending(true); setError('');
+    try { const result = await share(confirmed.storeId); if (result.success) setSharing(result.data); else setError(result.error); }
+    catch { setError('暫時無法取得簽署連結，請再試一次'); }
+    finally { busy.current = false; setPending(false); }
+  }
+  async function pauseSigning() {
+    if (busy.current || !pause || !confirmed.active) return;
+    busy.current = true; setPending(true); setError('');
+    try {
+      const result = await pause({ storeId: confirmed.storeId, revision: confirmed.revision, activeVersionId: confirmed.active.id });
+      if (!result.success) { setError(result.error); return; }
+      setConfirmed(result.data); setSharing(null); setConfirmPause(false); setNotice('已暫停新簽署；既有簽署文件仍保留');
+    } catch { setError('尚未確認暫停結果，請以相同操作重試'); }
     finally { busy.current = false; setPending(false); }
   }
   return <div className="min-w-0 space-y-4" aria-busy={pending}>
@@ -85,8 +106,19 @@ export function CourseAgreementWorkspace({ initial, save, publish }: AgreementWo
       {notice && <p role="status" className="my-3 text-sm text-primary-700">{notice}</p>}
       {stage === 'summary' && <>
         <SettingsListRow title="共同約定" summary={confirmed.active ? `v${confirmed.active.version}.0 · 修改草稿不影響已簽文件` : '設定一次，續購沿用；重要條款變更另行確認'} controls={<button type="button" className={button} onClick={() => { setStage('edit'); setGroup('store'); setNotice(''); }}>{confirmed.active ? '修改草稿' : '開始設定'}</button>} expanded={false} />
-        <p className="py-4 text-sm text-earth-600">每期費用、堂數與上課期間，沿用課程購買紀錄。簽署連結與學員簽名流程將於後續整合。</p>
+        <p className="py-4 text-sm text-earth-600">每期費用、堂數與上課期間，沿用課程購買紀錄。共同約定為選用功能，不啟用也能正常排課、購課與上課。</p>
       </>}
+      {stage === 'summary' && confirmed.active && <div className="space-y-4 py-4">
+        <div className="flex flex-wrap gap-3">{share && <button type="button" disabled={pending} className={primary} onClick={() => void showSharing()}>讓學員簽署</button>}{pause && <button type="button" disabled={pending} className={button} onClick={() => setConfirmPause(true)}>暫停新簽署</button>}</div>
+        {confirmPause && <div className="space-y-3 rounded-lg border border-earth-200 p-4"><p className="text-sm leading-6">暫停後，學員連結將不再接受新簽署。已簽文件仍保留，排課與購課不受影響。</p><div className="flex flex-wrap gap-3"><button type="button" disabled={pending} className={button} onClick={() => setConfirmPause(false)}>取消</button><button type="button" disabled={pending} className={primary} onClick={() => void pauseSigning()}>確認暫停</button></div></div>}
+        {sharing && <section className="space-y-3 rounded-lg border border-earth-200 p-4" aria-label="學員簽署連結"><h2 className="text-lg font-semibold">學員簽署連結</h2>
+          {/* QR is generated locally, never sent to an external image service. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={sharing.qrDataUrl} width={320} height={320} alt="學員簽署 QR Code" className="mx-auto h-auto max-w-full" />
+          <a className="block break-all text-base text-primary-800 underline" href={sharing.url} target="_blank" rel="noopener noreferrer">開啟學員簽署頁</a>
+          <p className="break-all text-sm text-earth-600">{sharing.url}</p><a className={button} href={sharing.qrDataUrl} download="course-agreement-qr.png">下載 QR Code</a>
+        </section>}
+      </div>}
       {stage === 'edit' && <form className="space-y-5 py-5" onSubmit={event => { event.preventDefault(); if (group === 'store') setGroup('rules'); else if (group === 'rules') setGroup('privacy'); else void savePreview(); }}>
         <fieldset disabled={pending} className="min-w-0 space-y-4">
           <legend className="mb-4 text-lg font-semibold text-primary-900">{groups.find(item => item.id === group)?.label}</legend>

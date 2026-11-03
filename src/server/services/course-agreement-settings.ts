@@ -90,3 +90,20 @@ export async function publishCourseAgreement(raw: unknown): Promise<CourseAgreem
     return { storeId: actor.storeId, revision: next.revision, draft, active };
   });
 }
+
+/** Optional feature: pausing new signatures never changes bookings or purchases. */
+export async function pauseCourseAgreement(raw: unknown): Promise<CourseAgreementState> {
+  assertCourseAgreementsEnabled();
+  const input = scopeSchema.extend({ activeVersionId: z.string().min(1) }).strict().parse(raw);
+  const actor = await requireCourseAgreementAccess('manage', input.storeId);
+  return coursePrisma.$transaction(async tx => {
+    await lockCourseStore(tx, actor.storeId);
+    const current = await tx.courseAgreementSetting.findUnique({ where: { storeId: actor.storeId }, include: includeActive });
+    if (!current?.draft) throw new AppError('VALIDATION', '尚無已保存的約定書');
+    const draft = courseAgreementDraftSchema.parse(current.draft);
+    if (!current.activeVersionId) return { storeId: actor.storeId, revision: current.revision, draft, active: null };
+    if (current.revision !== input.revision || current.activeVersionId !== input.activeVersionId) throw new AppError('CONFLICT', '約定書已更新，請重新載入後核對');
+    const next = await tx.courseAgreementSetting.update({ where: { storeId: actor.storeId }, data: { activeVersionId: null, revision: { increment: 1 } } });
+    return { storeId: actor.storeId, revision: next.revision, draft, active: null };
+  });
+}

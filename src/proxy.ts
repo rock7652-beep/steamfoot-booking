@@ -1,3 +1,4 @@
+import { courseAgreementPublicBoundary } from '@/lib/course-agreement-public-boundary';
 import {digitalManagerCronPreviewPathAllowed} from "../scripts/digital-manager-cron-preview-scope.mjs";
 import {calendarProxyReadOperation,traceCalendarProxyRead} from "@/lib/calendar-proxy-read-timing";
 import {measureMusicRead} from "@/lib/music-read-timing";
@@ -675,6 +676,9 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
 }
 function dispatchProxy(...args: Parameters<typeof authenticatedProxy>) {
   const [req] = args;
+  // Public capability services resolve their store without a session fallback.
+  const agreementResponse = courseAgreementPublicBoundary(req, process.env.COURSE_AGREEMENTS_ENABLED === '1' && process.env.COURSE_AGREEMENTS_PUBLIC_ENABLED === '1', isGuideUiPreview());
+  if (agreementResponse) return agreementResponse;
   if ((req.nextUrl.pathname.startsWith("/api/cron/") || req.nextUrl.pathname === "/api/health/reminders-cron") && !digitalManagerCronPreviewPathAllowed(req.nextUrl.pathname)) return NextResponse.json({error:"Unauthorized"},{status:401});
   if (req.nextUrl.pathname === "/beauty-public-preview" || req.nextUrl.pathname.startsWith("/beauty-public-preview/")) {
     const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" };
