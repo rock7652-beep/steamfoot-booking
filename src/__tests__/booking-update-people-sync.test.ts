@@ -13,7 +13,7 @@
  * helper 行為由 wallet-session-service.test.ts 完整覆蓋，這裡只驗 caller 邏輯。
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // Authentication is stubbed for this business unit test; audit DB writes remain real mocks.
 vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => null) }));
@@ -32,6 +32,7 @@ const mockCustomerPlanWalletFindMany = vi.fn();
 const mockTxBookingUpdate = vi.fn();
 const mockTxWalletSessionCount = vi.fn();
 const mockTransaction = vi.fn();
+const mockSelectedServiceRead = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -103,7 +104,8 @@ vi.mock("@/lib/business-hours-resolver", () => ({
     }),
 }));
 
-vi.mock("@/lib/date-utils", () => ({
+vi.mock("@/lib/date-utils", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/date-utils")>(),
   toLocalDateStr: () => "2026-05-25",
   getNowTaipeiHHmm: () => "09:00",
   dayRange: (date: string) => ({
@@ -216,6 +218,7 @@ beforeEach(() => {
   // $transaction default：執行 callback，並提供 tx 物件
   mockTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
+      $queryRaw: mockSelectedServiceRead,
       auditLog: { create: vi.fn(async () => ({ id: "audit-test" })) },
       booking: {
         findUnique: mockBookingFindUnique,
@@ -539,5 +542,32 @@ describe("updateBooking — people change wallet sync (PR-H3)", () => {
       }),
       _sum: { people: true },
     });
+  });
+});
+
+afterEach(() => vi.unstubAllEnvs());
+
+describe("後台改期保留每位實際方案", () => {
+  const selected = {
+    service: "PACKAGE_SESSION", status: "PENDING", arrivedAt: null, collectionTransactionId: null,
+    walletSessionId: "participant-session", sessionStatus: "RESERVED", walletStatus: "ACTIVE",
+    startDate: new Date("2026-12-01T00:00:00Z"), expiryDate: new Date("2026-12-31T00:00:00Z"),
+  };
+  it.each([true, false])("原始體驗改期，方案涵蓋日期=%s", async (valid) => {
+    vi.stubEnv("BOOKING_PARTICIPANTS_ENABLED", "true");
+    mockBookingFindUnique.mockResolvedValue(makeBooking({ bookingType: "FIRST_TRIAL", customerPlanWalletId: null }));
+    mockSelectedServiceRead.mockImplementation(async (query: TemplateStringsArray) => query.join("").includes("SELECT p.service")
+      ? [{ ...selected, expiryDate: new Date(valid ? "2026-12-31T00:00:00Z" : "2026-12-15T00:00:00Z") }]
+      : []);
+    const { updateBooking } = await import("@/server/actions/booking");
+    const result = await updateBooking(BOOKING_ID, { bookingDate: "2026-12-16", slotTime: "18:30" });
+    expect(result.success).toBe(valid);
+    if (valid) {
+      expect(mockTxBookingUpdate).toHaveBeenCalledWith({ where: { id: BOOKING_ID }, data: { bookingDate: new Date("2026-12-16T00:00:00Z"), slotTime: "18:30" } });
+      expect(mockAllocateSessionsFefo).not.toHaveBeenCalled();
+      expect(mockPartialReleaseSessions).not.toHaveBeenCalled();
+    } else {
+      expect(mockTxBookingUpdate).not.toHaveBeenCalled();
+    }
   });
 });

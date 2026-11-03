@@ -1,4 +1,6 @@
 "use server";
+
+import { loadSelectedBookingServices, selectedServicesCoverDate } from "@/server/services/booking-service-selection";
 import {addonsPrisma} from '@/lib/addons-db';
 import {persistCustomerBookingGoods} from "@/server/services/customer-booking-goods";
 
@@ -969,6 +971,14 @@ export async function updateBooking(
               slotTime: targetSlot,
             },
           ]);
+
+          if (process.env.BOOKING_PARTICIPANTS_ENABLED === "true") {
+            await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${bookingId} AND "storeId" = ${booking.storeId} FOR UPDATE`;
+            const services = await loadSelectedBookingServices(booking, tx);
+            if (!selectedServicesCoverDate(services, targetDateStr)) {
+              throw new AppError("BUSINESS_RULE", "方案在新日期無法使用，或已有到店／收款紀錄，請先核對每位顧客的服務");
+            }
+          }
 
           // 防止同一 Booking 的另一個並發改期已先完成；所有正常改期入口
           // 都會鎖原時段，因此這裡讀到的應仍與 preflight 一致。
