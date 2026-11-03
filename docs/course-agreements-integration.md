@@ -9,13 +9,17 @@
 
 以 main `d3125942` 整合 #1502 head `e0efbae6` 與共同約定分支 `865efa39`，保留雙方 commit ancestry。唯一衝突在 `vercel.json` 的自動預覽停用清單，已保留雙方項目。#1502 的原分支未被修改；87/90 兩秒內的既有接受結果不改寫為 90/90。其 Preview connection limit=2 未複製至正式環境。
 
-整合相關 19 檔 194 項測試、變更檔案 ESLint 通過；新增預覽邊界 14 項測試通過。`08ad5f3e` 的遠端 Typecheck、Targeted tests、Changed-file ESLint、music-makeup-postgres、sports-shared-card-postgres 已通過；最終 head 必須再核對 CI。完整業務驗收仍未完成，不以合成 UI 測試取代。
+`942dbf42` 的整合相關 20 檔 209 項測試通過，包含預覽邊界與 Supabase 顯式函式權限回歸。變更檔案 ESLint 通過。本機全站 `tsc --noEmit --incremental false` 以 8GB heap 通過；預設 4GB heap 曾不足。`08ad5f3e` 的遠端 Typecheck、Targeted tests、Changed-file ESLint、music-makeup-postgres、sports-shared-card-postgres 已通過；最終 head 必須再核對 CI。完整業務驗收仍未完成，不以合成 UI 測試取代。
 
 隔離測試 DB `ttworfzgwejdeolegkxl` 已執行本次兩份新增 migration；僅新增共同約定表，不執行其他 pending migration。每份 SQL 的 SHA-256 與實際執行結果於同一批次登記 Prisma ledger；MCP 同時留下單筆 Supabase rehearsal migration 紀錄，沒有新增另一套應用程式遷移工具。五張表的 RLS 均開啟，anon/authenticated 均無直接權限。正式 DB `qijlnhtpbintanzpxkvf` 尚未執行這兩份 migration。
+
+後續 readback 發現平台 default privileges 對 trigger function 有顯式角色 grant，已新增並在隔離 DB 執行 `20261103170000_course_agreement_function_privileges`，保留前兩份已執行 SQL 的原始 checksum。已確認 anon/authenticated 的 function EXECUTE 均為 false，三個 immutable trigger 保持啟用。此函式本身不是 SECURITY DEFINER；沒有開放任何瀏覽器資料政策。安全 advisor 的新增五筆 INFO 為預期的 RLS/no-policy deny 設計，原有兩個 search_path 與 btree_gist 警告未在本任務修改。
 
 整合預覽限定精確 Vercel Preview 分支／repo、既有隔離 DB 與專屬連結金鑰，跳過自動 DDL，保留 runtime outbound suppression。空值 LINE override 未阻止部署繼承，因此改用明確無效的停用值；實際憑證仍被 gate 拒絕。測試分支可用金鑰不可複製至正式環境。
 
 自動審核拒絕建立可轉傳的預覽存取連結，理由為可能暴露私人測試資料。尚未取得該存取授權，沒有改用其他分享 API 或移除 Deployment Protection。現有工具未提供已登入的瀏覽器或可用的開發 OIDC；完整 hosted 登入／簽署／下載驗證因此未完成。
+
+具體待驗版本為 `942dbf42`，部署 `dpl_HJwovtjdSTd3iwKQH9eSSie9ukz7`。已通過隔離環境 preflight 並進入 Next production build；是否 READY 須另讀最新狀態。一次直接 HTTP 檢查確認 `/login` 轉往 Vercel SSO，不是應用程式登入問題。未輸出或轉存正式 DB 密碼；開發連線未通過隔離 DB 判斷，因此沒有使用。測試 fixture 為本任務新建之 demo store `qa_agreements_1502_20261103` 與 owner `qa_agreements_1502_owner`，不是原 #1502 的停用 QA 帳號。
 
 ## 已實作
 
