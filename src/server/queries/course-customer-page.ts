@@ -1,3 +1,4 @@
+import { normalizeCourseCustomerFilters } from "@/lib/course-customer-filters";
 import { musicRetirementSql } from "@/server/services/music-retirement-sql";
 import { musicDataScope, LEGACY_MUSIC_CUSTOMER_IDS } from "@/server/services/music-data-scope";
 import { courseCardActiveExpirySql, readCourseNoExpiryProofs } from "./course-card-expiry-sql";
@@ -20,6 +21,7 @@ export async function getCourseCustomerPage(
   storeId: string, role: string, staffId: string | null, params: URLSearchParams,
   canReadCards: boolean, now = new Date(), music = false,
 ): Promise<CourseCustomerPage> {
+  params = normalizeCourseCustomerFilters(params);
   const cohort=musicDataScope(storeId,params.get("dataScope")??undefined);
   const cohortSql=cohort?Prisma.sql`AND (c.id = ANY(${LEGACY_MUSIC_CUSTOMER_IDS}::text[])) = ${cohort==="legacy"}`:Prisma.empty;
   const visibility = getManagerCustomerWhere(role, staffId, storeId);
@@ -34,7 +36,7 @@ export async function getCourseCustomerPage(
   const status = params.get("status") ?? "";
   const visit = params.get("visit") ?? "";
   const referral = params.get("referral") ?? "";
-  const assigned = music ? "" : params.get("staff") ?? "";
+  const assigned = params.get("staff") ?? "";
   const sort = params.get("sort") ?? "recent";
   const order = sort === "points" && canReadCards ? (music ? Prisma.sql`sessions DESC` : Prisma.sql`points DESC`)
     : sort === "created" ? Prisma.sql`"createdAt" DESC`

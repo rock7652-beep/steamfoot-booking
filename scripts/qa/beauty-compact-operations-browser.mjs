@@ -101,9 +101,9 @@ try{
  await page.waitForFunction(()=>new URLSearchParams(location.search).get('status')==='linked');
  results.push({case:'beauty LINE filter navigation',passed:true});
  await choose('course-customers');
- assert(await page.getByLabel('上課狀態',{exact:true}).count()===1,'Course visit filter removed');
- assert(await page.getByLabel('推薦紀錄',{exact:true}).count()===1,'Course referral filter removed');
- results.push({case:'course filters preserved',passed:true});
+ assert(await page.getByLabel('上課狀態',{exact:true}).count()===0,'Removed course visit filter remains');
+ assert(await page.getByLabel('推薦紀錄',{exact:true}).count()===0,'Removed course referral filter remains');
+ results.push({case:'course filters unified',passed:true});
  await choose('slots');await page.getByRole('button',{name:'管理時段',exact:true}).click();
  const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:/09:00 開放/}).waitFor();
  assert(await dialog.getByRole('spinbutton').count()===0,'Beauty capacity control leaked');
