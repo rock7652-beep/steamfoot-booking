@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {assertCompactOperationsPreview,isCompactOperationsConnection,COMPACT_OPERATIONS_BRANCH,MUSIC_FITNESS_COMPACT_BRANCH,COMPACT_OPERATIONS_PROJECT} from '../../scripts/compact-operations-preview-scope.mjs';
+import {assertCompactOperationsPreview,isCompactOperationsConnection,COMPACT_OPERATIONS_BRANCH,MUSIC_FITNESS_COMPACT_BRANCH,UNIFIED_CUSTOMER_FILTERS_BRANCH,COMPACT_OPERATIONS_PROJECT} from '../../scripts/compact-operations-preview-scope.mjs';
 const url='postgresql://steamfoot_compact_qa_20261103.ttworfzgwejdeolegkxl:synthetic-password@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require';
 const env={VERCEL:'1',VERCEL_ENV:'preview',VERCEL_PROJECT_ID:COMPACT_OPERATIONS_PROJECT,VERCEL_GIT_COMMIT_REF:COMPACT_OPERATIONS_BRANCH,VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',COMPACT_OPERATIONS_PREVIEW:'1',BEAUTY_DATABASE_MODE:'legacy',BEAUTY_MODULE_ENABLED:'1',BEAUTY_NOTIFICATIONS_ENABLED:'0',AUTH_SECRET:'synthetic-only',DATABASE_URL:url,DIRECT_URL:url};
 it('permits only this dedicated preview',()=>expect(assertCompactOperationsPreview(env)).toBe(true));
@@ -10,3 +10,5 @@ it.each([url.replace('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf'),url.replace(
 it('accepts the second documented pooler for the same isolated role and project',()=>expect(isCompactOperationsConnection(url.replace('aws-0-','aws-1-'))).toBe(true));
 
 it('permits the Music/Fitness UI follow-up only in the same restricted preview',()=>expect(assertCompactOperationsPreview({...env,VERCEL_GIT_COMMIT_REF:MUSIC_FITNESS_COMPACT_BRANCH})).toBe(true));
+
+it('permits unified customer filters only in the same restricted preview',()=>expect(assertCompactOperationsPreview({...env,VERCEL_GIT_COMMIT_REF:UNIFIED_CUSTOMER_FILTERS_BRANCH})).toBe(true));

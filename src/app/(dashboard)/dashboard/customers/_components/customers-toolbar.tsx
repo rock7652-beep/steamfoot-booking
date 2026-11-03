@@ -1,4 +1,5 @@
 "use client";
+import { normalizeCourseCustomerFilters } from "@/lib/course-customer-filters";
 import { CustomerLabelFilter } from "@/components/customer-labels";
 
 import { CustomerInstantSearch } from "@/components/customer-instant-search";
@@ -74,13 +75,13 @@ export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, cou
   const serverCurrent = useMemo(
     () => ({
       search: searchParams.get("search") ?? "",
-      status: beautyMode&&!["linked","unlinked"].includes(searchParams.get("status")??"")?"":searchParams.get("status") ?? "",
-      visit: beautyMode?"":searchParams.get("visit") ?? "",
-      referral: beautyMode?"":searchParams.get("referral") ?? "",
+      status: (beautyMode||courseMode)&&!["linked","unlinked"].includes(searchParams.get("status")??"")?"":searchParams.get("status") ?? "",
+      visit: (beautyMode||courseMode)?"":searchParams.get("visit") ?? "",
+      referral: (beautyMode||courseMode)?"":searchParams.get("referral") ?? "",
       staff: searchParams.get("staff") ?? "",
       sort: searchParams.get("sort") ?? "recent",
     }),
-    [searchParams, beautyMode]
+    [searchParams, beautyMode, courseMode]
   );
 
   const [filterDraft,setFilterDraft]=useState<typeof serverCurrent|null>(null);
@@ -103,7 +104,7 @@ export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, cou
   // latest input while the previous server-rendered list is still pending.
   useEffect(() => {
     if (composing || isPending || instantQuery === current.search) return;
-    const params = new URLSearchParams(latestParams.current.toString());
+    const params = courseMode ? normalizeCourseCustomerFilters(latestParams.current) : new URLSearchParams(latestParams.current.toString());
     if (instantQuery) params.set("search", instantQuery);
     else params.delete("search");
     params.delete("page");
@@ -134,7 +135,7 @@ export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, cou
   const courseLabel = (label: string) => label.replaceAll("來店", "上課").replace("點數多寡", musicMode ? "可用堂數" : "可用點數");
 
   const pushParams = (mutate: (p: URLSearchParams) => void) => {
-    const params = new URLSearchParams(latestParams.current.toString());
+    const params = courseMode ? normalizeCourseCustomerFilters(latestParams.current) : new URLSearchParams(latestParams.current.toString());
     if (instantStoreId || courseMode) {
       if (instantQuery) params.set("search", instantQuery);
       else params.delete("search");
@@ -211,19 +212,13 @@ export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, cou
             onChange={event=>setDraft({source:current.search,value:event.target.value})} className={`${field} w-full flex-1`}/>
           {(hasActiveFilters||current.sort!=="recent")&&<Link href={basePath} onClick={clearSearchDraft} aria-label="清除篩選" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center text-sm text-earth-600">清除</Link>}
         </form>
-        <div className="w-24 min-w-0 empty:hidden [&_select]:w-full [&_select]:min-w-0"><CustomerLabelFilter/></div>
-        <select aria-label="顧客狀態" value={current.status} onChange={event=>setParam("status",event.target.value)} className={`${field} w-32`}>
-          {STATUS_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
+        <div className="w-40 min-w-0 empty:hidden [&_select]:w-full [&_select]:min-w-0"><CustomerLabelFilter/></div>
+        <select aria-label="LINE 綁定" value={current.status} onChange={event=>setParam("status",event.target.value)} className={`${field} w-36`}>
+          <option value="">LINE：全部</option><option value="linked">LINE：已綁定</option><option value="unlinked">LINE：未綁定</option>
         </select>
-        <select aria-label="上課狀態" value={current.visit} onChange={event=>setParam("visit",event.target.value)} className={`${field} w-32`}>
-          {VISIT_OPTIONS.map(option=><option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
-        </select>
-        <select aria-label="推薦紀錄" value={current.referral} onChange={event=>setParam("referral",event.target.value)} className={`${field} w-28`}>
-          {REFERRAL_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-        {staffOptions.length>0&&<select aria-label="所屬店長" value={current.staff} onChange={event=>setParam("staff",event.target.value)} className={`${field} w-36`}>
+        <select aria-label="所屬店長" value={current.staff} onChange={event=>setParam("staff",event.target.value)} className={`${field} w-36`}>
           <option value="">全部所屬店長</option>{staffOptions.map(staff=><option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
-        </select>}
+        </select>
         <select aria-label="排序方式" value={current.sort} onChange={event=>setParam("sort",event.target.value==="recent"?"":event.target.value)} className={`${field} w-36`}>
           {SORT_OPTIONS.map(option=><option key={option.value} value={option.value}>排序：{courseLabel(option.label)}</option>)}
         </select>

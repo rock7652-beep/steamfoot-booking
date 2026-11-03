@@ -76,8 +76,9 @@ try{
     await page.screenshot({path:path.join(output,view+'-menu-'+size.width+'.png'),fullPage:true});await page.keyboard.press('Escape');
     assert(await page.getByRole('button',{name:'新增預約',exact:true}).getAttribute('aria-expanded')==='false','Escape did not close menu');
    }else{
-    const fields=view==='beauty-customers'?['搜尋姓名、電話或 LINE 名稱','依顧客標籤篩選','LINE 綁定','所屬店長','排序方式']:['搜尋姓名、電話或 LINE 名稱','依顧客標籤篩選','顧客狀態','上課狀態','推薦紀錄',...(view.startsWith('music')?[]:['所屬店長']),'排序方式'];
+    const fields=['搜尋姓名、電話或 LINE 名稱','依顧客標籤篩選','LINE 綁定','所屬店長','排序方式'];
     if(size.width>=1366){const boxes=await Promise.all(fields.map(name=>page.getByLabel(name,{exact:true}).boundingBox()));assert(boxes.every(box=>box&&Math.abs(box.y-boxes[0].y)<2),'Toolbar wraps at '+view+' '+size.width);}
+    assert(await page.getByLabel('上課狀態',{exact:true}).count()===0&&await page.getByLabel('推薦紀錄',{exact:true}).count()===0&&await page.getByLabel('顧客狀態',{exact:true}).count()===0,'Legacy fields remain');
     assert(await page.getByRole('button',{name:/^篩選/}).count()===0,'Course filters still collapsed');
     await page.screenshot({path:path.join(output,view+'-'+size.width+'.png'),fullPage:true});
    }
@@ -86,8 +87,8 @@ try{
   }
  }
  await page.setViewportSize({width:1366,height:900});await choose('fitness-customers');
- await page.getByLabel('上課狀態',{exact:true}).selectOption('month');await page.getByLabel('推薦紀錄',{exact:true}).selectOption('has');await page.getByLabel('所屬店長',{exact:true}).selectOption('owner');await page.getByLabel('排序方式',{exact:true}).selectOption('points');
- const q=new URL(page.url()).searchParams;assert(q.get('visit')==='month'&&q.get('referral')==='has'&&q.get('staff')==='owner'&&q.get('sort')==='points','Combined filters lost query conditions');
+ await page.getByLabel('LINE 綁定',{exact:true}).selectOption('linked');await page.getByLabel('所屬店長',{exact:true}).selectOption('owner');await page.getByLabel('排序方式',{exact:true}).selectOption('points');
+ const q=new URL(page.url()).searchParams;assert(q.get('status')==='linked'&&!q.has('visit')&&!q.has('referral')&&q.get('staff')==='owner'&&q.get('sort')==='points','Combined filters lost query conditions');
  assert(await page.getByRole('link',{name:'清除篩選',exact:true}).count()===1,'Clear entry absent');
  const input=await page.getByLabel('搜尋姓名、電話或 LINE 名稱',{exact:true}).boundingBox();const sort=await page.getByLabel('排序方式',{exact:true}).boundingBox();assert(Math.abs(input.y-sort.y)<2,'Active filter clear causes wrapping');
  results.push({case:'Combined filters preserve values with inline clear',passed:true});
@@ -96,7 +97,7 @@ try{
  await page.waitForTimeout(350);assert(await page.getByLabel('搜尋姓名、電話或 LINE 名稱',{exact:true}).inputValue()==='','Cleared search rebounded');
  results.push({case:'Clear resets search draft and conditions without restoring stale query',passed:true});
 
- await choose('music-customers');await page.getByLabel('排序方式',{exact:true}).selectOption('points');assert(await page.getByRole('option',{name:'排序：可用堂數',exact:true}).count()===1,'Music session terminology changed');
+ await choose('music-customers');await page.getByLabel('所屬店長',{exact:true}).selectOption('owner');assert(new URL(page.url()).searchParams.get('staff')==='owner','Music staff filter ignored');await page.getByLabel('排序方式',{exact:true}).selectOption('points');assert(await page.getByRole('option',{name:'排序：可用堂數',exact:true}).count()===1,'Music session terminology changed');
  results.push({case:'Music session terminology preserved',passed:true});
  assert(errors.length===0,errors.join('\n'));writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,errors},null,2));console.log(JSON.stringify({output,cases:results.length,errors}));
 }finally{await browser.close();}
