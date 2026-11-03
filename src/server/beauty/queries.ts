@@ -59,6 +59,7 @@ async function privateBeautyCatalog(store:{id:string;name:string;slug:string},wo
         imageId: true,
         duration: true,
         trialDuration:true,
+        buffer:true,
         price: true,
         trialPrice: true,
         revision: true,

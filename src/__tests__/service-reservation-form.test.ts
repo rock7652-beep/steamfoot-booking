@@ -163,3 +163,14 @@ it('passes committed cards to the calendar immediately without waiting for anoth
  await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  expect(created).toHaveBeenCalledWith('2026-10-28',sessions);expect(submit).toHaveBeenCalledOnce();
 });
+it('keeps a two-plan customer as one recipient, shows a sequential itinerary and submits both resource assignments',async()=>{
+ const data={...source(),itemEntitlements:true};data.cards=[{...card,id:'plan-A',serviceIds:['s1']},{...card,id:'plan-B',serviceIds:['s2']}];
+ read.mockImplementation(async intent=>({success:true,data:{slots:['14:00'],arrangement:intent.people.flatMap((p:{additionalServices?:unknown[]})=>Array.from({length:1+(p.additionalServices?.length??0)},(_,i)=>({technicianId:`t${i+1}`,locationId:'r1',technicianName:i?'技師乙':'技師甲',locationName:'床位甲'})))}}));
+ await mount({customerId:'customer'},data,'regular');
+ const add=[...host.querySelectorAll<HTMLLabelElement>('label')].find(l=>l.textContent?.includes('按摩')&&l.querySelector('input[type="checkbox"]'))!;
+ await act(async()=>add.querySelector<HTMLInputElement>('input')!.click());await tick();
+ expect(read.mock.calls.at(-1)![0].people).toHaveLength(1);expect(read.mock.calls.at(-1)![0].people[0]).toMatchObject({cardId:'plan-A',additionalServices:[{serviceId:'s2',cardId:'plan-B'}]});
+ expect(host.textContent).toContain('15:15–16:45');expect(host.textContent).toContain('2 項服務');expect(host.textContent).toContain('應收 NT$ 0');
+ await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(submit.mock.calls[0][0].expectedArrangement).toHaveLength(2);expect(submit).toHaveBeenCalledOnce();
+});

@@ -85,3 +85,30 @@ it('returns committed manager calendar cards with actual allocation and no finan
  expect(result).toMatchObject({ids:['new'],sessions:[{id:'new',nameSnapshot:'按摩',coachId:'a',roomId:'r',service:{personName:'顧客',status:'RESERVED',buffer:15}}]});
  expect(result.sessions?.[0]).not.toHaveProperty('rate');expect(f.tx.beautyAppointment.create).toHaveBeenCalledOnce();
 });
+it('reserves a two-plan journey as sequential appointments in one group and revalidates the later card before writing',async()=>{
+ const f=fixture();vi.stubEnv('BEAUTY_CHARGE_RULES_ENABLED','0');
+ const services=[{...svc,buffer:15},{...svc,id:'second',name:'第二服務',duration:40,buffer:5}];
+ vi.mocked(f.tx.beautyService.findMany).mockResolvedValue(services as never);
+ vi.mocked(f.tx.beautyTechnician.findMany).mockResolvedValue([{...tech('a'),serviceIds:['s','second'],rates:{s:{mode:'FIXED',value:300},second:{mode:'FIXED',value:100}}}] as never);
+ vi.mocked(f.tx.beautyCard.findFirst).mockImplementation((input=>Promise.resolve({...f.card,id:input?.where?.id,serviceIds:input?.where?.id==='card-A'?['s']:['second']})) as typeof f.tx.beautyCard.findFirst);
+ Object.assign(f.tx,{beautyLedger:{create:vi.fn()}});
+ let created=0;vi.mocked(f.tx.beautyAppointment.create).mockImplementation((({data})=>Promise.resolve({id:`created-${++created}`,...data})) as typeof f.tx.beautyAppointment.create);
+ const d={...request,requestKey:crypto.randomUUID(),policyRevision:0,isTrial:false,contactName:'顧客',phone:'0900000000',people:[{...person,cardId:'card-A',additionalServices:[{serviceId:'second',serviceRevision:0,cardId:'card-B',specifiedTechnicianId:null}]}]} as BookingPartyInput;
+ const result=await reserveParty(f.tx,actor,d);expect(result.ids).toEqual(['created-1','created-2']);
+ const rows=vi.mocked(f.tx.beautyAppointment.create).mock.calls.map(([input])=>input.data);
+ expect(rows.map(r=>r.cardId)).toEqual(['card-A','card-B']);expect(rows.map(r=>r.customerId)).toEqual(['customer','customer']);expect(rows.map(r=>r.groupId)).toEqual(['g','g']);
+ expect(rows[0].startsAt).toEqual(new Date(date+'T10:00:00+08:00'));expect(rows[1].startsAt).toEqual(new Date(date+'T11:15:00+08:00'));expect(rows[1].duration).toBe(40);expect(f.tx.beautyLedger.create).toHaveBeenCalledTimes(2);expect(f.tx.beautyCard).not.toHaveProperty('update');
+ vi.mocked(f.tx.beautyAppointment.create).mockClear();vi.mocked(f.tx.beautyGroup.create).mockClear();
+ vi.mocked(f.tx.beautyCard.findFirst).mockImplementation((input=>Promise.resolve({...f.card,id:input?.where?.id,serviceIds:['s','second'],expiresAt:new Date(date+'T10:30:00+08:00')})) as typeof f.tx.beautyCard.findFirst);
+ await expect(reserveParty(f.tx,actor,{...d,requestKey:crypto.randomUUID()})).rejects.toThrow('不適用');expect(f.tx.beautyAppointment.create).not.toHaveBeenCalled();expect(f.tx.beautyGroup.create).not.toHaveBeenCalled();
+});
+it('shares journey card availability only within one slot scan and reloads it for a new scan',async()=>{
+ const f=fixture();vi.stubEnv('BEAUTY_CHARGE_RULES_ENABLED','0');
+ vi.mocked(f.tx.beautyService.findMany).mockResolvedValue([svc,{...svc,id:'second',duration:40}] as never);
+ vi.mocked(f.tx.beautyTechnician.findMany).mockResolvedValue([{...tech('a'),serviceIds:['s','second'],rates:{s:{mode:'FIXED',value:300},second:{mode:'FIXED',value:100}}}] as never);
+ vi.mocked(f.tx.beautyCard.findFirst).mockImplementation((input=>Promise.resolve({...f.card,id:input?.where?.id,serviceIds:['s','second']})) as typeof f.tx.beautyCard.findFirst);
+ const intent={...request,people:[{...person,cardId:'A',additionalServices:[{serviceId:'second',serviceRevision:0,cardId:'B',specifiedTechnicianId:null}]}]};
+ const loaded=await loadAvailability(f.tx,actor,date);await findAllocation(f.tx,actor,intent,[],undefined,loaded);await findAllocation(f.tx,actor,{...intent,time:'10:30'},[],undefined,loaded);
+ expect(f.tx.beautyCard.findFirst).toHaveBeenCalledTimes(2);expect(f.tx.beautyAppointment.count).toHaveBeenCalledTimes(2);
+ await findAllocation(f.tx,actor,intent);expect(f.tx.beautyCard.findFirst).toHaveBeenCalledTimes(4);expect(f.tx.beautyAppointment.count).toHaveBeenCalledTimes(4);
+});

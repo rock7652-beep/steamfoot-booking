@@ -1,0 +1,170 @@
+[
+  {
+    "kind": "member",
+    "width": 390,
+    "height": 844,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "desk",
+    "width": 390,
+    "height": 844,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "payment",
+    "width": 390,
+    "height": 844,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "member",
+    "width": 360,
+    "height": 800,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "desk",
+    "width": 360,
+    "height": 800,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "payment",
+    "width": 360,
+    "height": 800,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "member",
+    "width": 1366,
+    "height": 900,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "desk",
+    "width": 1366,
+    "height": 900,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "payment",
+    "width": 1366,
+    "height": 900,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "member",
+    "width": 1920,
+    "height": 1080,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "desk",
+    "width": 1920,
+    "height": 1080,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "payment",
+    "width": 1920,
+    "height": 1080,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "member",
+    "width": 1024,
+    "height": 768,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "desk",
+    "width": 1024,
+    "height": 768,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "payment",
+    "width": 1024,
+    "height": 768,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "member",
+    "width": 768,
+    "height": 1024,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "desk",
+    "width": 768,
+    "height": 1024,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "payment",
+    "width": 768,
+    "height": 1024,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "calendar",
+    "width": 1366,
+    "height": 900,
+    "people": 1,
+    "services": 2,
+    "overflow": false
+  },
+  {
+    "kind": "calendar",
+    "width": 1024,
+    "height": 768,
+    "people": 1,
+    "services": 2,
+    "overflow": false
+  },
+  {
+    "kind": "calendar",
+    "width": 768,
+    "height": 1024,
+    "people": 1,
+    "services": 2,
+    "overflow": false
+  }
+]

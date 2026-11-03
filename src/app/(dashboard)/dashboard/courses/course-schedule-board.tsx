@@ -913,7 +913,7 @@ export function CourseScheduleBoard({
   const dayLanes = scheduleLanes(filtered, resourceView === "room" ? "roomId" : "coachId");
 
   const visibleDaySessions = scheduleOnDate(sessions, selectedDate).filter(session => !session.previewFaded);
-  const booked = scheduleTotals(visibleDaySessions).people;
+  const booked = serviceMode ? serviceScheduleTotals(visibleDaySessions).people : scheduleTotals(visibleDaySessions).people;
   const trials = visibleDaySessions.reduce(
     (sum, session) => sum + (session.displayBookings ?? scheduleRosterBookings(session.bookings)).filter((booking) => booking.bookingKind === "TRIAL").length,
     0,

@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {assertCompactOperationsPreview,isCompactOperationsConnection,COMPACT_OPERATIONS_BRANCH,MUSIC_FITNESS_COMPACT_BRANCH,UNIFIED_CUSTOMER_FILTERS_BRANCH,BOOKING_CALENDAR_PREVIEW_BRANCH,calendarPerformanceSportsPreview,COMPACT_OPERATIONS_PROJECT} from '../../scripts/compact-operations-preview-scope.mjs';
+import {assertCompactOperationsPreview,isCompactOperationsConnection,COMPACT_OPERATIONS_BRANCH,MUSIC_FITNESS_COMPACT_BRANCH,UNIFIED_CUSTOMER_FILTERS_BRANCH,BOOKING_CALENDAR_PREVIEW_BRANCH,BEAUTY_SERVICE_JOURNEY_BRANCH,calendarPerformanceSportsPreview,COMPACT_OPERATIONS_PROJECT} from '../../scripts/compact-operations-preview-scope.mjs';
 const url='postgresql://steamfoot_compact_qa_20261103.ttworfzgwejdeolegkxl:synthetic-password@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require';
 const env={VERCEL:'1',VERCEL_ENV:'preview',VERCEL_PROJECT_ID:COMPACT_OPERATIONS_PROJECT,VERCEL_GIT_COMMIT_REF:COMPACT_OPERATIONS_BRANCH,VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',COMPACT_OPERATIONS_PREVIEW:'1',BEAUTY_DATABASE_MODE:'legacy',BEAUTY_MODULE_ENABLED:'1',BEAUTY_NOTIFICATIONS_ENABLED:'0',AUTH_SECRET:'synthetic-only',DATABASE_URL:url,DIRECT_URL:url};
 it('permits only this dedicated preview',()=>expect(assertCompactOperationsPreview(env)).toBe(true));
@@ -21,4 +21,10 @@ it('enables native sports only for the approved synthetic store and candidate',(
  expect(()=>calendarPerformanceSportsPreview('sports-live-flow-store',{...candidate,VERCEL_ENV:'production'})).toThrow();
  expect(()=>calendarPerformanceSportsPreview('sports-live-flow-store',{...candidate,VERCEL_PROJECT_ID:'production-project'})).toThrow();
  expect(()=>calendarPerformanceSportsPreview('sports-live-flow-store',{...candidate,DATABASE_URL:url.replace('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf')})).toThrow();
+});
+
+it('permits the service journey candidate only under the same QA project, database role and disabled delivery checks',()=>{
+ const candidate={...env,VERCEL_GIT_COMMIT_REF:BEAUTY_SERVICE_JOURNEY_BRANCH};
+ expect(assertCompactOperationsPreview(candidate)).toBe(true);
+ for(const patch of [{VERCEL_ENV:'production'},{VERCEL_PROJECT_ID:'production-project'},{BEAUTY_NOTIFICATIONS_ENABLED:'1'},{DATABASE_URL:url.replace('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf')},{DIRECT_URL:url.replace('steamfoot_compact_qa_20261103','postgres')},{LINE_CHANNEL_ACCESS_TOKEN:'synthetic-token'}])expect(()=>assertCompactOperationsPreview({...candidate,...patch})).toThrow();
 });

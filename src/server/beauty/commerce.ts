@@ -1,3 +1,4 @@
+import {distributeBeautyPayments} from '@/lib/beauty/payment-splits';
 import {addOnSnapshots,addOnTotals} from "@/lib/beauty/add-ons";
 import {baseServiceCollected} from "@/lib/beauty/add-on-finance";
 import {readBeautyServiceCost} from './charge-finance';
@@ -59,6 +60,7 @@ export async function collect(
   options:{canDiscount:boolean}={canDiscount:false},
 ) {
   return command(tx, a, d.requestKey, d, async () => {
+    const payments=distributeBeautyPayments(d.amounts,d.method,d.splits);
     for (const [i, id] of d.ids.entries()) {
       const b = await tx.beautyAppointment.findFirst({
         where: { id, storeId: a.storeId },
@@ -83,13 +85,14 @@ export async function collect(
       const discountChanged=!!offer&&(offer.kind!==current.discount.kind||offer.value!==current.discount.value);
       if(d.amounts[i]===0&&!discountChanged)continue;
       if(discountChanged)await audit(tx,a,"SERVICE_DISCOUNT",JSON.stringify({...offer,price:current.price,before:current.discount,netPrice:quote.paid,revision:b.revision+1}),b.id);
+      for(const payment of payments[i]){
       const p = await tx.beautyPayment.create({
         data: {
           storeId: a.storeId,
           appointmentId: id,
           kind: "SALE",
-          amount: d.amounts[i],
-          method: d.method,
+          amount: payment.amount,
+          method: payment.method,
           note: d.note,
           actorUserId: a.userId!,
         },
@@ -104,12 +107,14 @@ export async function collect(
       await cash(
         tx,
         a,
-        d.method,
+        payment.method,
         p.amount,
         p.id,
         `服務收款：${b.serviceName} / ${d.note}`,
         true,
       );
+      existing.push(p);
+      }
       if (b.status === "COMPLETED" && !b.cardId) {
         if (
           (
@@ -130,7 +135,7 @@ export async function collect(
             fee: serviceFee(
               b.rate,
               b.price,
-              baseServiceCollected(b.price,existing.reduce((s, p) => s + p.amount, 0) + p.amount,b.addOnItems),
+              baseServiceCollected(b.price,existing.reduce((s, p) => s + p.amount, 0),b.addOnItems),
               1,
               b.baseServiceDuration??b.duration,
             ),

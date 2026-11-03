@@ -1632,7 +1632,7 @@ export function CourseWorkspace({
               panel === "schedule" && (arrangement === "rental" || businessProfile === "MUSIC") || roomRentalHistory
                 ? "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-3"
                 : view === "schedule"
-                ? "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 [&_label]:min-w-0 [&_input]:min-w-0 [&_input]:max-w-full [&_input]:appearance-none"
+                ? "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 [&_label]:min-w-0 [&_input]:min-w-0 [&_input]:max-w-full [&_input:not([type=checkbox]):not([type=radio])]:appearance-none"
                 : "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 [&_label]:space-y-1 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input:not([type=checkbox]):not([type=radio])]:min-h-11 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-11 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-3"
             }`}
           >

@@ -32,6 +32,7 @@ export type BeautyBookingCatalog = {
     addOnGroups?: unknown;
     imageId?:string|null;
     duration: number;
+    buffer?:number;
     trialDuration?:number|null;
     price: number;
     trialPrice: number | null;

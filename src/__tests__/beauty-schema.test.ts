@@ -139,3 +139,11 @@ it("adds opt-in expiry settings without changing existing cards or enabling plan
  await db.exec(`UPDATE "BeautyPlan" SET "expiryReminder"='{"enabled":true,"days":[7]}' WHERE id='expiry-upgrade-plan'`);await db.exec(upgrade);
  expect((await db.query<{expiryReminder:unknown}>(`SELECT "expiryReminder" FROM "BeautyPlan" WHERE id='expiry-upgrade-plan'`)).rows[0].expiryReminder).toEqual({enabled:true,days:[7]});
 });
+it('accepts sequential services for the same customer and rolls back all segments if the later resource conflicts',async()=>{
+ await db.exec(`INSERT INTO "Customer" VALUES ('journey-customer','s'); INSERT INTO "BeautyTechnician" (id,"storeId",name,gender,"serviceIds",weekly) VALUES ('journey-tech','s','第二技師','FEMALE',ARRAY['svc'],'[]')`);
+ const segment=(id:string,start:string,tech='t')=>db.query(`INSERT INTO "BeautyAppointment" (id,"storeId","groupId","customerId","personName","personPhone","serviceId","serviceName","technicianId","locationId",preference,"startsAt","endsAt","occupiedEndsAt",duration,buffer,price,"isTrial",rate,"cancelDeduct","noShowDeduct") VALUES ($1,'s','g','journey-customer','合成','0912345678','svc','服務',$3,'r','ANY',$2::timestamptz,$2::timestamptz+interval '60 min',$2::timestamptz+interval '75 min',60,15,1000,false,'{"mode":"FIXED","value":100}',false,false)`,[id,start,tech]);
+ await db.exec('BEGIN');await segment('journey-A','2099-12-01T02:00Z');await segment('journey-B','2099-12-01T03:15Z','journey-tech');await db.exec('COMMIT');
+ expect((await db.query(`SELECT id FROM "BeautyAppointment" WHERE id IN ('journey-A','journey-B')`)).rows).toHaveLength(2);
+ await db.exec('BEGIN');await segment('journey-overlap-A','2099-12-02T02:00Z');await expect(segment('journey-overlap-B','2099-12-02T03:00Z','journey-tech')).rejects.toThrow();await db.exec('ROLLBACK');
+ expect((await db.query(`SELECT id FROM "BeautyAppointment" WHERE id LIKE 'journey-overlap-%'`)).rows).toHaveLength(0);
+});
