@@ -77,7 +77,18 @@ export function validateCourseAgreementForPublish(draft: CourseAgreementDraft) {
 export function buildCourseAgreement(d: CourseAgreementDraft): CourseAgreementClause[] {
   if (d.profile === 'BEAUTY') return buildBeautyAgreement(d);
   if (d.profile === 'FITNESS') return buildFitnessCourseAgreement(d);
-  const clause = (title: string, body: string) => ({ title, body });
+  const musicEmphasis: Record<string, string[]> = {
+    '雙方與適用範圍': ['重要條款變更另行確認', '不取代每期依法應提供的課程及交易資訊'],
+    '上課與課程安排': [`單堂課程時間為 ${d.duration} 分鐘`, '由本店統一協調'],
+    '請假與補課': [courseAgreementLeaveText(d.leave).slice(0, 160), `補課方式：${d.makeup || '【待填】'}`.slice(0, 160), ...(d.groupRule ? [`團體課補充規則：${d.groupRule}`.slice(0, 160)] : [])],
+    '老師請假與臨時停課': ['如涉及代課老師，應事先說明', '因本店或老師因素未提供的課程，不視為學員已使用'],
+    '暫停課程': [d.pauseRule ? d.pauseRule.slice(0, 160) : '不影響依法得行使之退費權利'],
+    '退費方式': ['本店所在地直轄市、縣（市）政府之補習班管理自治法規', '地方另有更有利於消費者之規定者，從其規定', '於辦理解約手續後一個月內完成'],
+    '影像與隱私': ['應另行取得獨立授權', '不同意不影響上課權益'],
+    '版本、通知與副本': ['修改草稿不影響已簽署紀錄', '新版本須重新提供審閱及必要確認', '任何約定不得排除學員依法享有之權利'],
+  };
+  const clause = (title: string, body: string): CourseAgreementClause => ({ title, body,
+    ...(musicEmphasis[title] ? { emphasis: musicEmphasis[title] } : {}) });
   return [
     clause('雙方與適用範圍', `本約定由學員與「${d.entity || '【待填營業登記名稱】'}」（品牌：${d.brand || '【待填店名】'}；負責人：${d.responsible || '【待填】'}）訂立，適用於學員在本店上課課程期間，包含個別課與團體課。首次簽署後，後續續購原則上沿用本版本；重要條款變更另行確認。此文件為共同服務約定，不取代每期依法應提供的課程及交易資訊。每期購買、費用、堂數、期間與開課日，另依雙方確認並可保存的課程紀錄辦理。服務地址：${d.city} ${d.address}；聯絡方式：${d.contact}。`),
     clause('上課與課程安排', `單堂課程時間為 ${d.duration} 分鐘；上課時段與地點由雙方確認。需要調課時，請透過 ${d.leaveChannel} 聯絡本店，由本店統一協調。${d.lateRule || '遲到或其他特殊情況，請盡早聯絡本店協調處理。'}`),

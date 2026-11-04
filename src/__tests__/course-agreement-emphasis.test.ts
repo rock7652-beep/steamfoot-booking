@@ -10,3 +10,18 @@ it('does not retroactively emphasize legacy snapshots or interpret markup',()=>{
  const body='**重要** <u>退費</u> 原有內容';
  expect(courseAgreementTextRuns({title:'舊條款',body})).toEqual([{text:body,emphasized:false}]);
 });
+
+it('music highlights the actual leave rule and rights without changing clause text',async()=>{
+ const {emptyCourseAgreement,buildCourseAgreement,courseAgreementLeaveText}=await import('@/lib/course-agreement');
+ for(const leave of [{mode:'hours',hours:24},{mode:'deadline',days:1,time:'21:00'},{mode:'custom',rule:'請於前一營業日中午前聯絡本店。'}] as const){
+  const draft={...emptyCourseAgreement(),leave,makeup:'每期可補課兩次',groupRule:'團體課請由本店安排',pauseRule:'暫停後由雙方確認後續安排。'};
+  const clauses=buildCourseAgreement(draft),leaveClause=clauses.find(c=>c.title==='請假與補課')!;
+  expect(leaveClause.emphasis).toContain(courseAgreementLeaveText(leave));
+  expect(leaveClause.emphasis).toContain('補課方式：每期可補課兩次');
+  for(const clause of clauses){
+   expect(courseAgreementTextRuns(clause).map(r=>r.text).join('')).toBe(clause.body);
+   for(const phrase of clause.emphasis??[]){expect(phrase.length).toBeLessThanOrEqual(160);expect(clause.body).toContain(phrase);}
+  }
+  for(const title of ['退費方式','老師請假與臨時停課','影像與隱私','版本、通知與副本'])expect(clauses.find(c=>c.title===title)?.emphasis?.length).toBeGreaterThan(0);
+ }
+});

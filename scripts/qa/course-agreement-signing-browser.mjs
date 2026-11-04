@@ -34,6 +34,9 @@ const errors=[],results=[];try{
  await page.route('**/*',route=>route.request().url().startsWith('https://synthetic.invalid/')?route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="zh-Hant"><meta name="viewport" content="width=device-width,initial-scale=1"><body><div id="root"></div></body></html>'}):route.abort());
  const open=async query=>{await page.goto('https://synthetic.invalid/'+query);await page.addStyleTag({path:out+'/fixture.css'});await page.addScriptTag({path:out+'/fixture.js'});};
  await open('');await page.getByRole('button',{name:'取得約定書並開始填寫'}).click();
+ if(await page.locator('article strong').count()<5)throw Error('Missing important term emphasis');
+ const emphasisStyle=await page.locator('article strong').first().evaluate(el=>({weight:getComputedStyle(el).fontWeight,decoration:getComputedStyle(el).textDecorationLine}));
+ if(Number(emphasisStyle.weight)<600||!emphasisStyle.decoration.includes('underline'))throw Error('Important terms are not bold and underlined');
  await page.getByLabel(beauty?'顧客姓名':'學員姓名',{exact:true}).fill('合成未成年學員');await page.getByLabel('聯絡電話',{exact:true}).fill('0911000001');
  await page.getByRole('combobox').selectOption('minor');await page.getByLabel('法定代理人姓名',{exact:true}).fill('合成家長');await page.getByLabel(beauty?'與顧客的關係':'與學員的關係',{exact:true}).fill('母親');await page.getByLabel('法定代理人電話',{exact:true}).fill('0911000002');
  await page.getByRole('checkbox').nth(0).check();await page.getByRole('checkbox').last().check();
