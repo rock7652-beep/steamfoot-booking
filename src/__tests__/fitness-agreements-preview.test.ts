@@ -26,3 +26,10 @@ it('combined release preview requires all three modules and keeps production/not
  for(const key of ['COURSE_AGREEMENTS_ENABLED','COURSE_AGREEMENTS_PUBLIC_ENABLED','COURSE_AGREEMENTS_FITNESS_ENABLED','BEAUTY_AGREEMENTS_PUBLIC_ENABLED'])expect(()=>assertCourseAgreementsPreviewEnvironment({...combined,[key]:'0'})).toThrow('combined_configuration');
  for(const override of [{VERCEL_ENV:'production'},{BEAUTY_NOTIFICATIONS_ENABLED:'1'},{BEAUTY_DATABASE_MODE:'dedicated'},{DATABASE_URL:env.DATABASE_URL.replaceAll('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf')}])expect(()=>assertCourseAgreementsPreviewEnvironment({...combined,...override})).toThrow('rejected');
 });
+
+it('privacy follow-up stays behind the same three-module isolated preview gate',()=>{
+ const privacy={...env,VERCEL_GIT_COMMIT_REF:'fix/agreement-privacy-default',COURSE_AGREEMENTS_ENABLED:'1',COURSE_AGREEMENTS_PUBLIC_ENABLED:'1',COURSE_AGREEMENTS_FITNESS_ENABLED:'1',BEAUTY_MODULE_ENABLED:'1',BEAUTY_AGREEMENTS_ENABLED:'1',BEAUTY_AGREEMENTS_PUBLIC_ENABLED:'1',BEAUTY_DATABASE_MODE:'legacy',BEAUTY_NOTIFICATIONS_ENABLED:'0'};
+ expect(assertCourseAgreementsPreviewEnvironment(privacy)).toBe(true);
+ expect(()=>assertCourseAgreementsPreviewEnvironment({...privacy,BEAUTY_NOTIFICATIONS_ENABLED:'1'})).toThrow('beauty_configuration');
+ expect(()=>assertCourseAgreementsPreviewEnvironment({...privacy,VERCEL_ENV:'production'})).toThrow('rejected');
+});

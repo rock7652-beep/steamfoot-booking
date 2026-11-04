@@ -1,12 +1,12 @@
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
 import {emptyCourseAgreement, emptyFitnessCourseAgreement, emptyBeautyAgreement, buildCourseAgreement, courseAgreementLeaveText, type CourseAgreementDraft, type CourseAgreementClause} from '@/lib/course-agreement';
-const m = vi.hoisted(() => ({ raw: vi.fn(), access: vi.fn(), lock: vi.fn(), transaction: vi.fn(), find: vi.fn(), upsert: vi.fn(), update: vi.fn(), aggregate: vi.fn(), create: vi.fn() }));
-vi.mock('@/lib/course-db', () => ({ coursePrisma: { $transaction: m.transaction } }));
-vi.mock('@/lib/db', () => ({ prisma: {} }));
+const m = vi.hoisted(() => ({ raw: vi.fn(), access: vi.fn(), lock: vi.fn(), transaction: vi.fn(), find: vi.fn(), upsert: vi.fn(), update: vi.fn(), aggregate: vi.fn(), create: vi.fn(), store: vi.fn(), config: vi.fn(), rule: vi.fn() }));
+vi.mock('@/lib/course-db', () => ({ coursePrisma: { $transaction: m.transaction, courseAgreementSetting: { findUnique: m.find }, courseBookingRule: { findUnique: m.rule } } }));
+vi.mock('@/lib/db', () => ({ prisma: { store: { findUnique: m.store }, shopConfig: { findUnique: m.config } } }));
 vi.mock('@/server/services/course-agreement-access', () => ({ requireCourseAgreementAccess: m.access }));
 vi.mock('@/server/services/course-store-lock', () => ({ lockCourseStore: m.lock }));
 import {courseAgreementSigningToken} from '@/server/services/course-agreement-signing-token';
-import {saveCourseAgreementDraft, publishCourseAgreement, pauseCourseAgreement} from '@/server/services/course-agreement-settings';
+import {saveCourseAgreementDraft, publishCourseAgreement, pauseCourseAgreement, readCourseAgreementSettings} from '@/server/services/course-agreement-settings';
 const draft = () => ({...emptyCourseAgreement('測試店','03-0000000','測試路'), entity:'測試音樂補習班', responsible:'測試負責人',city:'新竹縣', business:'cram' as const, makeup:'提前協調補課', privacyNotice:'合成資料告知，不供正式使用'});
 type StoredVersion = { id: string; storeId: string; version: number; settingsSnapshot: CourseAgreementDraft; document: CourseAgreementClause[]; createdById: string; signingTokenHash: string; documentHash: string };
 type StoredSetting = { storeId: string; revision: number; draft: CourseAgreementDraft; activeVersion: StoredVersion | null; activeVersionId?: string | null };
@@ -17,6 +17,7 @@ beforeEach(() => {
  m.access.mockResolvedValue({storeId:'a',user:{id:'staff'}});m.raw.mockResolvedValue([{id:'a'}]);
  m.transaction.mockImplementation(async run => run({$queryRaw:m.raw,courseAgreementSetting:{findUnique:m.find,upsert:m.upsert,update:m.update},courseAgreementVersion:{aggregate:m.aggregate,create:m.create}}));
  m.find.mockImplementation(async()=>current);
+ m.store.mockResolvedValue({name:'已設定店名'});m.config.mockResolvedValue({shopPhone:'03-0000000',address:'合成路'});m.rule.mockResolvedValue({cancellationLeadMinutes:1440});
  m.upsert.mockImplementation(async({create,update}:{create:Omit<StoredSetting,"activeVersion">;update:{draft:CourseAgreementDraft}})=>{current=current?{...current,draft:update.draft,revision:current.revision+1}:{...create,activeVersion:null};return current;});
  m.update.mockImplementation(async({data}:{data:{activeVersionId:string|null}})=>{if(!current)throw Error("missing setting");current={...current,revision:current.revision+1,activeVersionId:data.activeVersionId,activeVersion:versions.find(v=>v.id===data.activeVersionId)??null};return current;});
  m.aggregate.mockImplementation(async()=>({_max:{version:versions.length||null}}));
@@ -66,4 +67,22 @@ it('beauty saves/publishes only through the explicit beauty scope and store lock
  expect(m.access).toHaveBeenCalledWith('manage','a','BEAUTY');expect(m.raw).toHaveBeenCalled();expect(m.lock).not.toHaveBeenCalled();
  const published=await publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true},'BEAUTY');expect(published.active?.version).toBe(1);expect(versions[0].document.map(c=>c.title)).toEqual(['服務共同約定','服務風險與注意事項告知']);
  m.raw.mockResolvedValue([]);await expect(pauseCourseAgreement({storeId:'a',revision:published.revision,activeVersionId:published.active!.id},'BEAUTY')).rejects.toThrow('模組已變更');
+});
+
+it('generates blank privacy notices on save and persists the exact generated notice in publication',async()=>{
+ const d={...draft(),privacyNotice:''};
+ const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:d});
+ expect(p.draft.privacyNoticeMode).toBe('platform');expect(p.draft.privacyNotice).toContain('日本東京');expect(p.draft.privacyNotice).toContain(d.entity);
+ const same=await saveCourseAgreementDraft({storeId:'a',revision:p.revision,draft:{...p.draft,privacyNotice:'偽造平台告知'}});
+ expect(same.draft.privacyNotice).toBe(p.draft.privacyNotice);expect(same.revision).toBe(p.revision);
+ await publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true});
+ expect(versions[0].settingsSnapshot).toMatchObject({privacyNotice:p.draft.privacyNotice});expect(versions[0].document).toEqual(p.document);
+});
+
+it('provides a generated notice on first read without persisting a draft or changing legacy custom content',async()=>{
+ const fresh=await readCourseAgreementSettings('a');
+ expect(fresh.draft.privacyNoticeMode).toBe('platform');expect(fresh.draft.privacyNotice).toContain('已設定店名');expect(fresh.draft.privacyNotice).toContain('03-0000000');
+ expect(m.upsert).not.toHaveBeenCalled();expect(m.transaction).not.toHaveBeenCalled();
+ await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});m.upsert.mockClear();
+ const saved=await readCourseAgreementSettings('a');expect(saved.draft.privacyNotice).toBe(draft().privacyNotice);expect(saved.draft.privacyNoticeMode).toBeUndefined();expect(m.upsert).not.toHaveBeenCalled();
 });
