@@ -73,6 +73,19 @@ export function validateCourseAgreementForPublish(draft: CourseAgreementDraft) {
   if (draft.leave.mode === 'custom' && !draft.leave.rule) throw new Error(draft.profile === 'BEAUTY' ? '請填寫自訂取消改期期限' : '請填寫自訂請假期限');
 }
 
+// Long merchant paragraphs stay readable: emphasize their label, not an
+// arbitrary truncated paragraph. The full wording remains in the document.
+function labeledAgreementEmphasis(label: string, value: string) {
+  const phrase = `${label}：${value || '【待填】'}`;
+  return phrase.length <= 80 && !phrase.includes('\n') ? phrase : label;
+}
+
+function deadlineAgreementEmphasis(value: string): string[] {
+  if (value.length <= 80 && !value.includes('\n')) return [value];
+  const sentence = value.match(/^[^。；\n]*[。；]/)?.[0];
+  return sentence && sentence.length <= 80 ? [sentence] : [];
+}
+
 // Shared by preview and publication. Store the rendered clauses, not just inputs.
 export function buildCourseAgreement(d: CourseAgreementDraft): CourseAgreementClause[] {
   if (d.profile === 'BEAUTY') return buildBeautyAgreement(d);
@@ -80,9 +93,9 @@ export function buildCourseAgreement(d: CourseAgreementDraft): CourseAgreementCl
   const musicEmphasis: Record<string, string[]> = {
     '雙方與適用範圍': ['重要條款變更另行確認', '不取代每期依法應提供的課程及交易資訊'],
     '上課與課程安排': [`單堂課程時間為 ${d.duration} 分鐘`, '由本店統一協調'],
-    '請假與補課': [courseAgreementLeaveText(d.leave).slice(0, 160), `補課方式：${d.makeup || '【待填】'}`.slice(0, 160), ...(d.groupRule ? [`團體課補充規則：${d.groupRule}`.slice(0, 160)] : [])],
+    '請假與補課': [...deadlineAgreementEmphasis(courseAgreementLeaveText(d.leave)), labeledAgreementEmphasis('補課方式', d.makeup), ...(d.groupRule ? [labeledAgreementEmphasis('團體課補充規則', d.groupRule)] : [])],
     '老師請假與臨時停課': ['如涉及代課老師，應事先說明', '因本店或老師因素未提供的課程，不視為學員已使用'],
-    '暫停課程': [d.pauseRule ? d.pauseRule.slice(0, 160) : '不影響依法得行使之退費權利'],
+    '暫停課程': d.pauseRule ? (d.pauseRule.length <= 80 && !d.pauseRule.includes('\n') ? [d.pauseRule] : []) : ['不影響依法得行使之退費權利'],
     '退費方式': ['本店所在地直轄市、縣（市）政府之補習班管理自治法規', '地方另有更有利於消費者之規定者，從其規定', '於辦理解約手續後一個月內完成'],
     '影像與隱私': ['應另行取得獨立授權', '不同意不影響上課權益'],
     '版本、通知與副本': ['修改草稿不影響已簽署紀錄', '新版本須重新提供審閱及必要確認', '任何約定不得排除學員依法享有之權利'],
@@ -136,9 +149,9 @@ function buildFitnessCourseAgreement(d: CourseAgreementDraft): CourseAgreementCl
     `個人資料告知：${d.privacyNotice || '【待填】'}`,
     '本店提供本文件供學員審閱及提問。簽署後保存本次版本、兩項確認紀錄、時間及一份手寫簽名，提供同一份 PDF 副本。草稿修改不影響已簽文件；爭議由本店受理協調。',
   ].join('\n\n'), emphasis: [
-    '重要條款變更另行確認。', courseAgreementLeaveText(d.leave).slice(0, 160),
-    `補課方式：${d.makeup || '【待填】'}`.slice(0, 160), '不影響依法得行使的退費權利。',
-    `退費及解約：${f?.refundRule || '【待填】'}`.slice(0, 160), '任何約定不得減損學員依法享有的權利。',
+    '重要條款變更另行確認。', ...deadlineAgreementEmphasis(courseAgreementLeaveText(d.leave)),
+    labeledAgreementEmphasis('補課方式', d.makeup), '不影響依法得行使的退費權利。', '不視為學員已使用', '公開宣傳須另行取得獨立授權', '不同意不影響上課權益', '草稿修改不影響已簽文件',
+    labeledAgreementEmphasis('退費及解約', f?.refundRule || ''), '任何約定不得減損學員依法享有的權利。',
   ] }, { title: '運動健康與風險告知', body: [
     `運動強度與參與方式：${f?.intensity || '【待填】'}。`,
     '運動可能造成肌肉痠痛、拉傷、扭傷、跌倒、碰撞或其他身體不適；風險會隨活動、強度、器材與個人狀況而不同。',
@@ -150,7 +163,7 @@ function buildFitnessCourseAgreement(d: CourseAgreementDraft): CourseAgreementCl
     '本店及指導員仍應履行依法應負的安全、說明及注意義務。本告知不是概括免責聲明，不免除本店或指導員依法應負的責任；也不是醫療診斷、健康檢查或適合運動的認定。',
   ].join('\n\n'), emphasis: [
     '肌肉痠痛、拉傷、扭傷、跌倒、碰撞或其他身體不適',
-    `本課程特有風險：${f?.specificRisks || '【待填】'}`.slice(0, 160),
+    labeledAgreementEmphasis('本課程特有風險', f?.specificRisks || ''),
     '應立即停止並通知指導員。', '狀況改變時應再次告知。',
     '立即停止活動並聯繫 119', '不免除本店或指導員依法應負的責任',
   ] }];
@@ -181,7 +194,7 @@ function buildBeautyAgreement(d: CourseAgreementDraft): CourseAgreementClause[] 
     '影像與宣傳：拍攝前應取得同意；照片或影片若需公開或行銷使用，應另行取得獨立授權。本約定不包含公開行銷影像授權，拒絕不影響服務權益。',
     `個人資料告知：${d.privacyNotice || '【待填】'}`,
     '顧客可保留足夠時間審閱及向店家提問；簽署後提供同一份 PDF 副本，保存本次版本、分項確認與一份手寫簽名。草稿修改不會改寫已簽署文件。',
-  ].join('\n\n'), emphasis: ['重要條款或風險變更應另行告知確認', '不代表顧客已同意所有未說明的項目、產品或操作', courseAgreementLeaveText(d.leave).replaceAll('課程開始', '預約服務開始').replaceAll('上課', '預約服務').slice(0,160), `取消或改期處理：${d.makeup || '【待填】'}`.slice(0,160), `取消中止及退費：${b?.refundRule || '【待填】'}`.slice(0,160), '任何約定不得減損顧客依法享有的權利'] },
+  ].join('\n\n'), emphasis: ['未提供的服務不視為顧客已使用', '應另行取得獨立授權', '拒絕不影響服務權益', '草稿修改不會改寫已簽署文件', '重要條款或風險變更應另行告知確認', '不代表顧客已同意所有未說明的項目、產品或操作', ...deadlineAgreementEmphasis(courseAgreementLeaveText(d.leave).replaceAll('課程開始', '預約服務開始').replaceAll('上課', '預約服務')), labeledAgreementEmphasis('取消或改期處理', d.makeup), labeledAgreementEmphasis('取消中止及退費', b?.refundRule || ''), '任何約定不得減損顧客依法享有的權利'] },
   { title: '服務風險與注意事項告知', body: [
     `產品與操作方式：${b?.productsAndMethods || '【待填】'}。每次服務前，本店應說明當次項目、使用產品及操作方式；更換項目或產品時應再次確認。`,
     '皮膚接觸、產品或操作可能造成短暫泛紅、刺激、敏感、疼痛或其他不適；實際反應因產品、操作與個人狀況而異。事前測試或過往未出現不適，不代表本次一定不會有反應。',
@@ -192,5 +205,5 @@ function buildBeautyAgreement(d: CourseAgreementDraft): CourseAgreementClause[] 
     `不適反應與緊急處理：${b?.emergencyProcedure || '【待填】'}。遇呼吸困難、意識異常或其他緊急情況應立即聯繫 119。`,
     ...(d.beautyServices?.selected ?? []).map(type => `【${beautyServiceTemplates[type].label}】\n${d.beautyServices?.content[type] || '【待填】'}`),
     '本告知不是概括免責聲明，不免除本店或服務人員依法應負的安全、說明、注意及其他責任。簽署不代表放棄申訴、求償或其他依法享有的權利，也不代表店家保證特定美容效果。',
-  ].join('\n\n'), emphasis: [...(d.beautyServices?.selected ?? []).map(type => `【${beautyServiceTemplates[type].label}】`), '泛紅、刺激、敏感、疼痛或其他不適', `本店服務特有風險：${b?.specificRisks || '【待填】'}`.slice(0,160), '更換項目或產品時應再次確認', '請立即告知並停止操作', `服務後照護：${b?.aftercare || '【待填】'}`.slice(0,160), '緊急情況應立即聯繫 119', '不免除本店或服務人員依法應負的安全、說明、注意及其他責任', '不代表放棄申訴、求償或其他依法享有的權利'] }];
+  ].join('\n\n'), emphasis: [...(d.beautyServices?.selected ?? []).map(type => `【${beautyServiceTemplates[type].label}】`), '泛紅、刺激、敏感、疼痛或其他不適', labeledAgreementEmphasis('本店服務特有風險', b?.specificRisks || ''), '更換項目或產品時應再次確認', '請立即告知並停止操作', labeledAgreementEmphasis('服務後照護', b?.aftercare || ''), '緊急情況應立即聯繫 119', '不免除本店或服務人員依法應負的安全、說明、注意及其他責任', '不代表放棄申訴、求償或其他依法享有的權利'] }];
 }

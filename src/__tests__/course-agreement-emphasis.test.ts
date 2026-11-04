@@ -25,3 +25,13 @@ it('music highlights the actual leave rule and rights without changing clause te
   for(const title of ['退費方式','老師請假與臨時停課','影像與隱私','版本、通知與副本'])expect(clauses.find(c=>c.title===title)?.emphasis?.length).toBeGreaterThan(0);
  }
 });
+
+it('keeps long merchant paragraphs intact while emphasizing only short labels across modules',async()=>{
+ const {emptyCourseAgreement,emptyFitnessCourseAgreement,emptyBeautyAgreement,buildCourseAgreement}=await import('@/lib/course-agreement');
+ const long='這是店家依實際服務填寫的完整規則。'.repeat(30);
+ const drafts=[{...emptyCourseAgreement(),makeup:long,groupRule:long,pauseRule:long},
+ {...emptyFitnessCourseAgreement(),makeup:long,fitness:{activityDescription:'一般活動',intensity:'一般',specificRisks:long,participationLimits:'依說明',emergencyProcedure:'停止並求助',refundRule:long}},
+ {...emptyBeautyAgreement(),makeup:long,beauty:{serviceScope:'一般',productsAndMethods:'另行確認',specificRisks:long,precautions:'另行說明',aftercare:long,emergencyProcedure:'停止並求助',refundRule:long}}];
+ for(const draft of drafts){const clauses=buildCourseAgreement(draft);expect(clauses.some(c=>c.body.includes(long))).toBe(true);
+ for(const clause of clauses){expect(clause.emphasis?.length??0).toBeLessThanOrEqual(20);for(const phrase of clause.emphasis??[]){expect(phrase.length).toBeLessThanOrEqual(80);expect(phrase).not.toContain('\n');expect(clause.body).toContain(phrase);}expect(courseAgreementTextRuns(clause).map(r=>r.text).join('')).toBe(clause.body);}}
+});

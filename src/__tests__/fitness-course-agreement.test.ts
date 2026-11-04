@@ -12,9 +12,10 @@ function fitnessDraft() {
  draft.fitness={activityDescription:'伸展與肌力',intensity:'循序漸進，依能力調整',specificRisks:'彈力帶回彈、失去平衡',participationLimits:'遵守器材負載限制',emergencyProcedure:'通知現場指導員並啟動救護',refundRule:'依本店適用法令辦理解約退費'};
  return draft;
 }
-it('keeps the legacy music builder byte-for-byte unchanged',()=>{
+it('keeps legacy music wording unchanged when new documents add emphasis',()=>{
  const draft=emptyCourseAgreement('音樂店');
- expect(buildCourseAgreement(draft)).toEqual(legacyDocument);
+ expect(buildCourseAgreement(draft).map(({title,body})=>({title,body}))).toEqual(legacyDocument);
+ expect(legacyDocument.every(clause=>!('emphasis' in clause))).toBe(true);
 });
 it('renders two blocks with instructor wording and no universal cram-school refund',()=>{
  const draft=courseAgreementDraftSchema.parse(fitnessDraft());
