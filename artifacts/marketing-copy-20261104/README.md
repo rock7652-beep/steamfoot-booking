@@ -2,7 +2,7 @@
 
 基準：6da6eb2a。需求來源：本次對話最後確認的模組範圍、方案勾選及年繳規則。
 範圍：官網首頁產業卡片、功能介紹、美業介紹、方案比較、加購說明，以及共用方案文字。
-僅本機修改，未 push、建 PR、部署、變更訂閱或正式資料。沒有恢復任何通知。Cloudflare 不涉及本次本機文案及靜態驗收。
+初次本機驗收時尚未 push、建 PR 或部署；後續審查與獨立靜態部署紀錄見文末。未變更訂閱或正式資料。沒有恢復任何通知。Cloudflare 不涉及本次本機文案及靜態驗收。
 
 ## 已完成
 
@@ -39,3 +39,18 @@ python -m http.server 4173 --bind 127.0.0.1 --directory artifacts/marketing-copy
 操作情境採 08 的窄版可讀性；本次沒有會員搜尋、登入切換、資料寫入、交易或業務面板，因此 01–07、09–10 的動態業務案例不適用。
 
 下一步：使用者確認文案及預覽後，再另行安排發布。
+
+
+## 線上靜態預覽與 CI 更新
+
+- 審查 PR：https://github.com/rock7652-beep/steamfoot-booking/pull/1514（未合併）。
+- 文案來源 commit：1d65756ff4f325bca8186fbe2cc5b4c35b15c6ed。
+- 獨立預覽專案：steamfoot-marketing-review-20261104，prj_m8eZZ06IFS6kicRuoK2RDQPtjCj4。
+- 部署：dpl_FS6UC7usKQw5uvSx67JuQMgEYMmV，狀態 READY。
+- 網址：https://steamfoot-marketing-review-20261104-gxjpwcyqk.vercel.app/ 。保留 Vercel Authentication，臨時分享連結不寫入版本庫。
+- Vercel 的部署 target 為此獨立靜態專案的 production，不是 steamfoot-booking 正式站；沒有連接 Git、自訂官網域名、資料庫、API、排程、訂閱或通知。
+- 僅上傳既有 HTML、CSS 及四張引用的公開圖片；未上傳 package.json、應用程式碼或任何環境檔，install/build commands 為空。
+- 已以帳號授權的 Vercel 讀取工具確認四個頁面 HTTP 200，含 noindex/nofollow；首頁排序與皇冠、美業適用範圍、新功能錨點與 NT$6,000 年費均已核對。
+- 靜態預覽仍不包含 React hydration；僅用於文案及版面審查。完整應用的分支驗證沒有更改，原 app 預覽失敗狀態仍保留，不代表正式 Next build 通過。
+- GitHub 初次 CI：全專案 Typecheck 及修改檔 ESLint 通過；targeted 與 full baseline 都只失敗同一項 public-guides sitemap 頁數預期（新增美業後 34→35）。本次同步預期頁數，並將 beauty 加入公開模組 URL 驗證。
+- 初次 full baseline：16,049 passed、1 failed、261 skipped；不能宣稱全量通過。修正後本機 6 個相關測試檔共 121 項通過、測試檔 ESLint 通過；更新版遠端 CI 待確認。
