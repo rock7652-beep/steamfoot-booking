@@ -457,7 +457,7 @@ function SportsStagingWorkspaceContent({
             </div>
             {tab === "教學項目" && (
               <div className="table-scroll">
-                <table>
+                <table data-striped-list>
                   <thead>
                     <tr>
                       {["運動名稱", "分類", "收費方式", "狀態", "操作"].map(
@@ -509,7 +509,7 @@ function SportsStagingWorkspaceContent({
             )}
             {tab === "收費方式" && (
               <div className="table-scroll">
-                <table>
+                <table data-striped-list>
                   <thead>
                     <tr>
                       {[

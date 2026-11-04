@@ -1082,12 +1082,12 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                   {!memberRecords.length && identifyingPurchase && identifyingPurchase.status !== "CONFIRMED" && <p>{identifyingPurchase.status === "REFUNDED" ? "已退款登記" : identifyingPurchase.status === "VOIDED" ? "已作廢" : "待核帳"}</p>}
                   {!hasPeriodHistory && !lessons.length && <p className="cp-history-empty">尚無上課紀錄</p>}
                   {!!recent.length && <section className="cp-plan-history" aria-label={`${c.name}使用紀錄`}>
-                    <table className="cp-history-list">
+                    <table data-striped-list className="cp-history-list">
                       <caption>上課紀錄</caption>
                       <colgroup><col className="cp-history-date-column" /><col /><col className="cp-history-usage-column" /></colgroup>
                       <thead><tr><th scope="col">日期時間</th><th scope="col">課程</th><th scope="col">使用{unit(c.unit) === "堂" ? "堂數" : "點數"}</th></tr></thead>
                     {months.map(month => <tbody key={month}>
-                      <tr className="cp-history-month"><th colSpan={3} scope="rowgroup">{month.slice(0,4)} 年 {Number(month.slice(5))} 月</th></tr>
+                      <tr data-list-divider className="cp-history-month"><th colSpan={3} scope="rowgroup">{month.slice(0,4)} 年 {Number(month.slice(5))} 月</th></tr>
                         {recent.filter(lesson => courseDate(lesson.startsAt).startsWith(month)).map(lesson => {
                           const date = courseDate(lesson.startsAt);
                           const weekday = new Intl.DateTimeFormat("zh-TW", { timeZone: "Asia/Taipei", weekday: "short" }).format(new Date(lesson.startsAt)).replace("週", "");

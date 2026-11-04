@@ -61,7 +61,7 @@ export function WalletSessionDetail({ sessions, adminVoid }: Props) {
 
   return (
     <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
-      <table className="w-full text-xs sm:text-sm">
+      <table data-striped-list className="w-full text-xs sm:text-sm">
         <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
           <tr>
             <th className="px-2 py-2 text-left">堂次</th>
@@ -80,7 +80,7 @@ export function WalletSessionDetail({ sessions, adminVoid }: Props) {
         </thead>
         <tbody className="divide-y divide-earth-100">
           {sessions.map((s) => (
-            <tr key={s.id} className="hover:bg-earth-50/60">
+            <tr key={s.id} className="">
               <td className="px-2 py-2 text-earth-700">第 {s.sessionNo} 堂</td>
               <td className="px-2 py-2">
                 <span

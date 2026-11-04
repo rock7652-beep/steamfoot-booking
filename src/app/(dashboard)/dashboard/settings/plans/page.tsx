@@ -446,7 +446,7 @@ export default async function PlansCenterPage() {
         </header>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-[13px]">
+          <table data-striped-list className="w-full min-w-[760px] text-[13px]">
             <thead>
               <tr className="border-y border-earth-100 text-[11px] text-earth-400">
                 <th className="px-5 py-2 text-left font-medium">功能</th>

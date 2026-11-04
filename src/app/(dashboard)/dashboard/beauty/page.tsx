@@ -153,6 +153,7 @@ async function BeautyPageContent({
         homeContent={tab==='首頁'?<BeautyHome data={data} readOnly={!!view?.isViewMode || isReadOnlyStoreTarget(u,a.storeId)}/>:undefined}
         key={beautyDashboardScope(a.storeId,tab,q)}
         data={data}
+        openingStore={tab==='設定'?{name:store.name,address:sharedSettings?.address??'',shopPhone:sharedSettings?.shopPhone??''}:undefined}
         tab={tab}
         initialAppointmentId={q.bookingId}
         initialCustomerId={q.customerId}

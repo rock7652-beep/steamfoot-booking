@@ -257,6 +257,10 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 
 # 12. 密度與字級
 
+2026-11-04 全站條列清單統一：資料列依目前可見順序交替白底 `#ffffff`／極淺暖灰 `#f5f3ee`；滑鼠移入稍深 `#ece8df`。保留現有字級、列高、間距、觸控區與操作，整列（含固定操作欄）使用同底色。選取、停用、警示等語意底色優先，hover 不覆蓋；隱藏列、分組標題不計入交錯順序。具表格或條列形式的顧客、人員、營運、月結、明細、設定與提醒共用此規則；課表、行事曆、導覽、卡片、比較矩陣與列印文件保留原有用途。
+
+共用實作為 `globals.css` 的低優先級 component layer：表格以 `data-striped-list` 明確接入，非表格資料列使用 `admin-striped-row`。禁止用無範圍的 `tr:nth-child` 或全域 `li` 規則，以免污染課表與選單。
+
 密度來源：減少卡片、減少說明、減少 padding、收合低頻資訊、固定欄位、主表只看狀態。
 
 不得靠 10–11px 小字取得密度。一般控制與設定內容建議維持約 14px 可讀性。
@@ -491,6 +495,8 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 本文件是產品規範，實作應盡量對應到共用元件，而不是只靠視覺模仿。
 
 目前主要對應方向：
+
+- 獎勵與調整 → `service-fee-calculator/monthly-adjustments.tsx` 與 `components/operations/monthly-adjustment-context.tsx`。四模組共用緊湊工具列與明細；交易成功回傳當月明細／revision，立即同步明細及加減項摘要，再刷新完整報表。晚到舊版本不覆寫新結果；新 fingerprint 未同步前不提供舊版本月結確認。欄位必填符號用半形 `*`，保留 14px 字級及 44px 操作，窄表局部橫向捲動。
 
 - Settings Center → `src/components/settings/`
 - Settings Workspace / Nav / List Row → 共用 settings primitives

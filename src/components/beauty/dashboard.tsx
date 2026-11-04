@@ -45,7 +45,7 @@ export function BeautyDashboard({
   readOnly = false,
   planPurchaseRecoveryEnabled = false,
   collectionRecoveryEnabled = false,
-  cashbookShortcut,homeContent,settingsContent,analyticsContent,careContent,operationsContent,initialCustomerId,initialAppointmentId,initialBooking=false,
+  cashbookShortcut,homeContent,settingsContent,analyticsContent,careContent,operationsContent,initialCustomerId,initialAppointmentId,initialBooking=false,openingStore,
 }: {
   data: BeautyDashboardData;
   tab: BeautyTab;
@@ -53,6 +53,7 @@ export function BeautyDashboard({
   readOnly?: boolean;
   planPurchaseRecoveryEnabled?: boolean;
   collectionRecoveryEnabled?: boolean;
+  openingStore?:{name:string;address:string;shopPhone:string};
   cashbookShortcut?:ReactNode;homeContent?:ReactNode;settingsContent?:ReactNode;analyticsContent?:ReactNode;careContent?:ReactNode;operationsContent?:ReactNode;initialCustomerId?:string;initialAppointmentId?:string;initialBooking?:boolean;
 }) {
   useEffect(()=>{if(tab==='班表')void loadRentalPanel().catch(()=>undefined);},[tab]);
@@ -218,7 +219,7 @@ export function BeautyDashboard({
       )}
       {calendarSync?.base===incoming&&<div role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"><span>{calendarSync.pending?'已儲存，正在更新班表…':calendarSync.error}</span>{!calendarSync.pending&&<button type="button" className={button} onClick={()=>void syncCalendar(calendarSync.date)}>重新讀取班表</button>}</div>}
       {!['首頁','班表','顧客管理','顧客經營','營運','分析','位置管理','服務項目','收費方式','技師管理','設定'].includes(tab)&&<RosterToolbar label={tab+'搜尋與篩選'}><input className={field+' max-w-72'} aria-label="搜尋" placeholder="搜尋姓名、手機或服務" value={search} onChange={e=>setSearch(e.target.value)}/><button className={button} disabled={pending} onClick={()=>router.refresh()}>更新</button></RosterToolbar>}
-      {(process.env.NEXT_PUBLIC_BEAUTY_SETUP_REVIEW==='1'||(data.chargeRulesActive&&data.access.planAccess&&data.access.staffAccess)||data.chargeCatalog?.enabled)&&tab==='設定'&&data.manage.settings&&!readOnly&&<div className="flex justify-end"><BeautyOpeningGuide key={data.storeId} data={data}/></div>}{tab==='首頁'&&homeContent}
+      {(process.env.NEXT_PUBLIC_BEAUTY_SETUP_REVIEW==='1'||(data.chargeRulesActive&&data.access.planAccess&&data.access.staffAccess)||data.chargeCatalog?.enabled)&&tab==='設定'&&data.manage.settings&&!readOnly&&<BeautyOpeningGuide key={data.storeId} data={data} store={openingStore}/>}{tab==='首頁'&&homeContent}
 
       {tab==='班表'&&<BeautyScheduleWorkspace suspended={!!(listOpen||selectedId||detailId||moneyPanel||statusDraft||booking||rental)||!!(calendarSync?.base===incoming&&calendarSync.pending)} cashbookShortcut={cashbookShortcut} move={cut?{clipboard:cut.clipboard,onPaste:setPaste,onCancel:()=>{setCut(null);setPaste(null);}}:undefined} data={data} slug={slug} onLoaded={value=>setCalendarState({base:incoming,value})} onOpen={id=>id.startsWith("rental:")?(data.access.customerAccess?setRental({id:id.slice(7),initialDetail:data.rentalDetails?.[id.slice(7)]}):setError("沒有檢視租借顧客資料的權限")):setSelectedId(id)} onRoster={()=>setListOpen(true)} onDateChange={date=>{++calendarGeneration.current;setCalendarSync(null);if(date.slice(0,7)===data.date.slice(0,7))setCalendarState(old=>{const current=old?.base===incoming?old.value:incoming;return current.date===date?old:{base:incoming,value:{date,calendar:current.calendar,items:current.items,calendarDays:current.calendarDays,rentals:current.rentals,rentalDetails:current.rentalDetails,rosterSnapshots:current.rosterSnapshots}};});const q=new URLSearchParams(window.location.search);q.set('date',date);window.history.replaceState(null,'','?'+q);}} readOnly={readOnly}/>}
       {(listOpen||selectedId)&&<RightSheet open={(!moneyPanel||moneyPanel.kind==='collect')&&!statusDraft&&!detailId} presentation="centered" className="fitness-management-editor" fitContent width={1200} labelledById="beauty-roster-title" closeOnEscape={!pending&&!rosterBusy&&!pendingId&&!collectionBusy} onClose={()=>closeRoster()}>

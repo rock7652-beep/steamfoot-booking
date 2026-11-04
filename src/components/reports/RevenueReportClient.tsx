@@ -569,7 +569,7 @@ export function RevenueReportClient({
           )}
           {mode === "store" && storeSummary.length > 0 && (
             <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-              <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
+              <table data-striped-list className="min-w-full text-sm [&_td]:whitespace-nowrap">
                 <thead className="bg-earth-50">
                   <tr>
                     {(courseMode ? ["分店名稱", "收款登錄", "退款／沖銷", "淨收入", "收款紀錄數", "付款顧客數", "平均客單價"] : steamfootMode?["分店名稱","收款入帳","退款／沖回","淨收款","收入筆數","客戶數","平均客單價","體驗","方案","單次","補差額","零售收入","其他收入"]:["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"]).map((h) => (
@@ -579,7 +579,7 @@ export function RevenueReportClient({
                 </thead>
                 <tbody className="divide-y divide-earth-100">
                   {storeSummary.map((s) => (
-                    <tr key={s.storeId} className="hover:bg-earth-50">
+                    <tr key={s.storeId} className="">
                       <td className="px-3 py-2 font-medium">{s.storeName}</td>
                       <td className="px-3 py-2 text-right">{fmtMoney(s.totalRevenue)}</td>
                       <td className="px-3 py-2 text-right text-red-600">{fmtMoney(s.refundAmount)}</td>
@@ -616,7 +616,7 @@ export function RevenueReportClient({
           )}
           {mode === "coach" && coachSummary.length > 0 && (
             <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-              <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
+              <table data-striped-list className="min-w-full text-sm [&_td]:whitespace-nowrap">
                 <thead className="bg-earth-50">
                   <tr>
                     {[serviceMode?"所屬店長":personnelText("教練姓名"), serviceMode?"角色":personnelText("教練角色"), "分店", "歸屬總收入", "退款", "淨收入", "筆數", "客戶數", "平均單筆", "新客收入", "舊客收入", "體驗", "正式方案", "票券", "商品"].map((h) => (
@@ -626,7 +626,7 @@ export function RevenueReportClient({
                 </thead>
                 <tbody className="divide-y divide-earth-100">
                   {coachSummary.map((c) => (
-                    <tr key={c.coachId} className="hover:bg-earth-50">
+                    <tr key={c.coachId} className="">
                       <td className="px-3 py-2 font-medium">{c.coachName}</td>
                       <td className="px-3 py-2">{fmtRole(c.coachRole)}</td>
                       <td className="px-3 py-2">{c.storeName}</td>
@@ -660,7 +660,7 @@ export function RevenueReportClient({
           {details.length > 0 && (
             <>
               <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-                <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
+                <table data-striped-list className="min-w-full text-sm [&_td]:whitespace-nowrap">
                   <thead className="bg-earth-50">
                     <tr>
                       {(mode === "store"
@@ -673,7 +673,7 @@ export function RevenueReportClient({
                   </thead>
                   <tbody className="divide-y divide-earth-100">
                     {details.map((d) => (
-                      <tr key={d.id} className="hover:bg-earth-50">
+                      <tr key={d.id} className="">
                         {mode === "store" ? (
                           <>
                             <td className="px-3 py-2 whitespace-nowrap">{fmtDate(d.transactionDate)}</td>

@@ -13,6 +13,9 @@ export const adjustmentInput = z.object({
   reason: z.string().trim().min(1, "請填寫調整事由").max(500),
 });
 export type MonthlyAdjustment = Omit<z.infer<typeof adjustmentInput>, "expectedStoreId">;
+export type MonthlyAdjustmentSnapshot = {
+  storeId:string; month:string; rows:MonthlyAdjustment[]; locked:boolean; revision:number;
+};
 export function adjustmentTotals(rows: Pick<MonthlyAdjustment,"direction"|"amount">[]) {
   const addition = rows.filter(r => r.direction === "ADD").reduce((sum,r) => sum + r.amount, 0);
   const deduction = rows.filter(r => r.direction === "SUBTRACT").reduce((sum,r) => sum + r.amount, 0);

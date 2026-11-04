@@ -74,7 +74,7 @@ export default async function TrialSourceBookingsPage({ searchParams }: Props) {
         <section className="mt-4 rounded-xl border border-earth-200 bg-white p-3">
           <p className="mb-3 text-xs text-earth-500">本期共 {total} 組；按預約建立日期篩選。點一筆預約可開啟原本的預約明細。</p>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table data-striped-list className="w-full min-w-[640px] text-left text-sm">
               <thead className="border-b border-earth-100 text-xs text-earth-500"><tr>
                 <th className="py-2 pr-3">建立時間</th><th className="px-3 py-2">體驗日期</th>
                 <th className="px-3 py-2">顧客</th><th className="px-3 py-2">狀態</th>

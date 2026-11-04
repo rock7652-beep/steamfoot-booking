@@ -513,7 +513,7 @@ export function CourseMemberWorkspace({
         onAssign={canAssign&&purchasablePlans.length>0 ? id => { if (!open("assign")) return; setPerson(people.find(p => p.id === id) ?? null); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
       planArea === "catalog" ? <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
-        <table className={`${music ? "min-w-[740px]" : "min-w-[1000px] table-fixed"} w-full text-left text-sm`}>
+        <table data-striped-list className={`${music ? "min-w-[740px]" : "min-w-[1000px] table-fixed"} w-full text-left text-sm`}>
           <thead className={` bg-earth-50`}>
             <tr>
               {(music ? ["科目類別", "收費名稱", "課堂數", "收費金額", "狀態", "操作"] : ["方案／適用課程", "額度", "售價", "有效天數", "購買方式", "操作"]).map((h) => (
@@ -524,10 +524,10 @@ export function CourseMemberWorkspace({
             </tr>
           </thead>
           <tbody className={` divide-y divide-earth-100`}>
-            {!filteredPlans.length && <tr><td colSpan={6} className="p-6 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
+            {!filteredPlans.length && <tr data-list-divider><td colSpan={6} className="p-6 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
             {visiblePlans.map((p,index) => (
                   <Fragment key={p.id}>
-                  {!p.isActive&&(index===0||visiblePlans[index-1]?.isActive)&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={6} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
+                  {!p.isActive&&(index===0||visiblePlans[index-1]?.isActive)&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={6} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
                   <tr
                     {...order.rowProps(p.id)}
                     className={` ${p.isActive ? "" : "bg-earth-50/80 text-earth-400"}`}
@@ -546,7 +546,7 @@ export function CourseMemberWorkspace({
                   </tr>
                   </Fragment>
                 ))}
-            {!inactiveExpanded&&inactiveFilteredPlans.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={6} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>展開</span></button></td></tr>}
+            {!inactiveExpanded&&inactiveFilteredPlans.length>0&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={6} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>展開</span></button></td></tr>}
           </tbody>
         </table>
       </div> : canReadCards ? <CourseCardBrowser compact={music} dataScope={dataScope} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null

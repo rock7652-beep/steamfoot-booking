@@ -287,7 +287,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
       {/* 交易列表 */}
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <table data-striped-list className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-earth-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-earth-600">日期</th>
@@ -303,7 +303,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
           </thead>
           <tbody className="divide-y divide-earth-100">
             {transactions.length === 0 && (
-              <tr>
+              <tr data-list-divider>
                 <td colSpan={9} className="px-4 py-0">
                   <EmptyState
                     icon="search"
@@ -324,7 +324,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
               return (
                 <tr
                   key={t.id}
-                  className={`hover:bg-earth-50 ${isVoided ? "bg-earth-50/60 text-earth-400" : ""}`}
+                  className={` ${isVoided ? "bg-earth-50/60 text-earth-400" : ""}`}
                 >
                   <td className={`px-4 py-3 ${isVoided ? "text-earth-400" : "text-earth-600"}`}>
                     {new Date(t.createdAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })}

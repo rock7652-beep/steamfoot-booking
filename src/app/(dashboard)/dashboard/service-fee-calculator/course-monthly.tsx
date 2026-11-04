@@ -1,4 +1,5 @@
 import { MonthlyAdjustments } from "./monthly-adjustments";
+import {MonthlyAdjustmentProvider} from "@/components/operations/monthly-adjustment-context";
 import {OperationsLocalHeading} from "@/components/operations/workspace-frame";
 import {MonthlyStoreProvider} from "@/components/operations/monthly-store-context";
 import {getCoursePersonnelText} from "@/server/services/course-personnel-label";
@@ -51,7 +52,7 @@ export async function CourseMonthly({storeId,month,readOnly=false,teacherId,sala
  const adjustmentRows=report.adjustments.filter(r=>scope===null||scope.includes(r.staffId));
  const adjustmentPeople=report.adjustmentPeople.filter(p=>scope===null||scope.includes(p.id));
  const issues=report.lines.filter(l=>l.issue||l.amount===null).length;
- return <MonthlyStoreProvider key={storeId} storeId={storeId} name={store?.name??storeId}><PageShell className="flex w-full min-w-0 flex-col gap-2 py-2">
+ return <MonthlyStoreProvider key={storeId} storeId={storeId} name={store?.name??storeId}><MonthlyAdjustmentProvider key={`${storeId}:${month}:${user.id}:${user.role}:${scope?.join(",")??"all"}`} enabled={!legacyView} initial={{storeId,month,rows:adjustmentRows,...report.adjustmentMonth}} people={adjustmentPeople.map(p=>({id:p.id,name:p.displayName}))}><PageShell className="flex w-full min-w-0 flex-col gap-2 py-2">
  {user.role==="ADMIN"&&<p className="text-sm text-earth-600">目前操作門市：{store?.name??storeId}。月結確認與付款登錄會留下紀錄。</p>}
  <OperationsLocalHeading title={music ? personnelText("教師薪資與月結") : "每月收入結算"} subtitle={store?.name??"本店"} actions={<div className="flex flex-wrap items-center justify-end gap-2">{music && <Link href="/dashboard/teachers" className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm">{personnelText("返回教師管理")}</Link>}<IncomeMonthFilter month={month}/></div>}/>
  {scope!==null&&<p className="text-sm text-earth-500">{personnelText("僅顯示授權教師；全店月結確認由全店授權人員處理。")}</p>}
@@ -66,5 +67,5 @@ export async function CourseMonthly({storeId,month,readOnly=false,teacherId,sala
  {!legacyView&&!!last&&<details className="group/history rounded-lg border border-earth-200 bg-white px-4"><summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm"><span>{music ? "全店結算紀錄" : "結算紀錄"}（{report.revisions.length}）</span><span aria-hidden="true" className="group-open/history:hidden">＋</span><span aria-hidden="true" className="hidden group-open/history:inline">－</span></summary><RosterTable label="月結確認紀錄" columns={["版本", "確認日期", "調整原因", "人員／金額"]}>{report.revisions.map(r=><tr key={r.id}><td>第 {r.revision} 版</td><td>{formatTWDateTime(r.createdAt)}</td><td>{r.reason}</td><td><details><summary className="min-h-11 cursor-pointer py-2">查看明細（原確認範圍）</summary>{summarizeSettlement(r.snapshot).map(p=><p key={p.id}>{p.name} · {p.issues>0?"待核對":money(p.profit+p.fee+p.adjustment)}</p>)}</details></td></tr>)}</RosterTable></details>}
  {report.lines.some(l=>l.payments.length>0)&&<details className="group/history rounded-lg border border-earth-200 bg-white px-4"><summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm"><span>{music ? "全店歷史付款紀錄" : "歷史付款紀錄"}</span><span aria-hidden="true" className="group-open/history:hidden">＋</span><span aria-hidden="true" className="hidden group-open/history:inline">－</span></summary><RosterTable label="發薪付款紀錄" columns={["付款日期", "人員／項目", "金額", "狀態", "明細／操作"]}>{report.lines.flatMap(line=>line.payments.map(p=><tr key={line.kind+p.id}><td>{formatTWDateTime(new Date(p.date))}</td><td><p className="font-medium">{line.name}</p><p>{line.label}</p></td><td className="text-right tabular-nums">{money(p.amount)}</td><td>{p.voided?"已更正":"已登記"}</td><td><details><summary className="min-h-11 cursor-pointer py-2">明細</summary><p>{p.note || "無備註"}</p>{p.reason&&<p>更正原因：{p.reason}</p>}</details>{!readOnly&&canPay&&!p.voided&&(line.kind==="PROFIT"?<CourseProfitCorrect paymentId={p.id}/>:<CourseFeeCorrectionButton paymentId={p.id}/>)}</td></tr>))}</RosterTable></details>}
  </div>
- </PageShell></MonthlyStoreProvider>;
+ </PageShell></MonthlyAdjustmentProvider></MonthlyStoreProvider>;
 }

@@ -7,7 +7,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
  *
  * 規格（對齊 design/04-phase2-plan.md §2.4）：
  *   row height: 44px (h-11)
- *   hover: bg-primary-50/40
+ *   rows: shared white / warm-grey stripes, explicit state colours take priority
  *   header: bg-primary-50, 14px primary-900
  *   cell: 14px earth-800（主欄） / 14px earth-500（次欄）
  *   行可點 → `rowHref(row)` 回 string；會整 row 當 <a>
@@ -102,7 +102,7 @@ export function DataTable<Row>({
 
   return (
     <div className={`overflow-x-auto rounded-xl border border-earth-200 bg-white ${className ?? ""}`}>
-      <table data-admin-table className="min-w-[720px] w-full text-left text-sm">
+      <table data-striped-list data-admin-table className="min-w-[720px] w-full text-left text-sm">
         <thead className="bg-primary-50 text-sm font-semibold text-primary-900">
           <tr>
             {columns.map((c) => (
@@ -130,7 +130,7 @@ export function DataTable<Row>({
                 return (
                   <td
                     key={c.key}
-                    className={`px-3 align-middle ${c.sticky === "right" ? "sticky right-0 z-10 bg-white" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
+                    className={`px-3 align-middle ${c.sticky === "right" ? "sticky right-0 z-10 bg-inherit" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
                   >
                     {c.accessor(row, i)}
                   </td>
@@ -141,7 +141,7 @@ export function DataTable<Row>({
                 return (
                   <tr {...rowAttributes?.(row)}
                     key={rowKey(row)}
-                    className={`h-11 cursor-pointer transition hover:bg-primary-50/40 ${rowClass}`}
+                    className={`h-11 cursor-pointer transition ${rowClass}`}
                   >
                     {columns.map((c, colIdx) => {
                       const priorityClass =
@@ -151,7 +151,7 @@ export function DataTable<Row>({
                       return (
                         <td
                           key={c.key}
-                          className={`px-3 align-middle ${c.sticky === "right" ? "sticky right-0 z-10 bg-white" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
+                          className={`px-3 align-middle ${c.sticky === "right" ? "sticky right-0 z-10 bg-inherit" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
                         >
                           {colIdx === firstLinkColIdx ? (
                             <Link
@@ -184,9 +184,9 @@ export function DataTable<Row>({
               }
 
               return (
-                <tr
+                <tr {...rowAttributes?.(row)}
                   key={rowKey(row)}
-                  className={`h-11 transition hover:bg-primary-50/40 ${rowClass}`}
+                  className={`h-11 transition ${rowClass}`}
                 >
                   {content}
                 </tr>

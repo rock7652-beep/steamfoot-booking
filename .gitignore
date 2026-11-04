@@ -75,3 +75,6 @@ tsconfig.beauty-release-qa.json
 .next-beauty-shared-pages-qa/
 
 /.next-beauty-shared-pages-build-qa/
+
+# Local monthly-adjustment acceptance evidence is preserved outside hosted runtime builds.
+/artifacts/monthly-adjustments/feedback-density/

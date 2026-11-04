@@ -26,7 +26,7 @@ export default async function SourcePilotPage(){
     <p className="text-sm text-gray-600">請假扣堂另給補課，曠課扣堂；補課沿用原期限。團班首次上課起算 70 天；個別課四期共用 2027/2/25。來源歷史不重複扣堂，也不加入今日收款。</p>
     {await checkPermission(user.role,user.staffId,"teacher.settlement.read")&&<DashboardLink href="/dashboard/courses/source-pilot/salary" className="inline-flex min-h-11 items-center underline text-sm">老師鐘點／薪資測試</DashboardLink>}
     <PilotCommit imported={data.imported}/>
-    <div className="max-w-full overflow-x-auto rounded border"><table className="w-full min-w-[850px] text-left text-sm"><thead className="bg-gray-50"><tr>{["學生","普通剩餘／體驗","已排普通課","補課","應收／實收","期限","操作"].map(t=><th key={t} className="p-3 font-medium">{t}</th>)}</tr></thead><tbody>
+    <div className="max-w-full overflow-x-auto rounded border"><table data-striped-list className="w-full min-w-[850px] text-left text-sm"><thead className="bg-gray-50"><tr>{["學生","普通剩餘／體驗","已排普通課","補課","應收／實收","期限","操作"].map(t=><th key={t} className="p-3 font-medium">{t}</th>)}</tr></thead><tbody>
       {data.payload.students.map(s=>{
         const history=data.payload.histories.find(h=>h.studentId===s.id)!.fees as FeeHistory;
         const periods=history.groups.flatMap(g=>g.periods);const amount=periods.reduce((n,p)=>n+Number(p.fee[3].replaceAll(",","")),0);const paid=periods.reduce((n,p)=>n+Number(p.fee[5].replaceAll(",","")),0);
