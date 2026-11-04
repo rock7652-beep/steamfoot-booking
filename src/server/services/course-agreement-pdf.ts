@@ -1,4 +1,5 @@
 import 'server-only';
+import { courseAgreementTitle } from '@/lib/course-agreement';
 import PDFDocument from 'pdfkit';
 import { join } from 'node:path';
 import { formatTWDateTime } from '@/lib/date-utils';
@@ -7,7 +8,7 @@ import type { CourseAgreementReceipt } from '@/lib/course-agreement-signing';
 export async function createCourseAgreementPdf(value: CourseAgreementReceipt): Promise<Buffer> {
   const font = join(process.cwd(), 'assets/course-agreements/NotoSansCJKtc-Regular.otf');
   const doc = new PDFDocument({ size: 'A4', margin: 48, bufferPages: true, font,
-    info: { Title: `${value.brand}｜課程服務約定書`, Author: value.brand, Subject: `已簽署版本 v${value.version}.0` } });
+    info: { Title: `${value.brand}｜${courseAgreementTitle(value.profile)}`, Author: value.brand, Subject: `已簽署版本 v${value.version}.0` } });
   const chunks: Buffer[] = [];
   const completed = new Promise<Buffer>((resolve, reject) => {
     doc.on('data', chunk => chunks.push(Buffer.from(chunk)));
@@ -17,7 +18,7 @@ export async function createCourseAgreementPdf(value: CourseAgreementReceipt): P
   try {
     const width = doc.page.width - 96;
     const ensure = (height: number) => { if (doc.y + height > doc.page.height - 48) doc.addPage(); };
-    doc.fontSize(19).fillColor('#234139').text(`${value.brand}｜課程服務約定書`);
+    doc.fontSize(19).fillColor('#234139').text(`${value.brand}｜${courseAgreementTitle(value.profile)}`);
     doc.moveDown(.5).fontSize(10).fillColor('#52635c').text(`已簽署文件 · v${value.version}.0`);
     for (const clause of value.document) {
       doc.fontSize(12);
@@ -33,6 +34,11 @@ export async function createCourseAgreementPdf(value: CourseAgreementReceipt): P
       `提供記錄：${formatTWDateTime(new Date(value.deliveredAt))}（台灣時間）`,
       `簽署時間：${formatTWDateTime(new Date(value.signedAt))}（台灣時間）`,
       `文件識別碼：${value.id}`,
+      ...(value.fitnessAcknowledgement ? [
+        `課程共同約定：已確認（${formatTWDateTime(new Date(value.fitnessAcknowledgement.courseAcknowledgedAt))}，台灣時間）`,
+        `運動健康與風險告知：已確認（${formatTWDateTime(new Date(value.fitnessAcknowledgement.riskAcknowledgedAt))}，台灣時間）`,
+        '同一份手寫簽名適用於以上兩部分；時間為系統收到確認的時間。',
+      ] : []),
       '簽署者已確認閱讀約定書與個資告知，並同意使用電子文件與手寫電子簽名。',
     ];
     doc.fontSize(10);

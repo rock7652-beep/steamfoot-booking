@@ -4,7 +4,7 @@ import type { Prisma } from '../../../generated/course-client';
 import { coursePrisma } from '@/lib/course-db';
 import { AppError } from '@/lib/app-error';
 import { dayRange } from '@/lib/date-utils';
-import { courseAgreementSignerSchema } from '@/lib/course-agreement-signing';
+import { parseCourseAgreementSignerSnapshot } from '@/lib/course-agreement-signing';
 import { courseAgreementRecordsFilterSchema } from '@/lib/course-agreement-records';
 import type { CourseAgreementRecords } from '@/lib/course-agreement-records';
 import { requireCourseAgreementAccess } from './course-agreement-access';
@@ -30,7 +30,7 @@ export async function listCourseAgreementRecords(raw: unknown): Promise<CourseAg
     const rows = await tx.courseAgreementSignature.findMany({ where, orderBy: [{ signedAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * pageSize, take: pageSize,
       select: { id: true, signerSnapshot: true, signedAt: true, version: { select: { version: true } } } });
     return { storeId: actor.storeId, total, page, pages, pageSize, filters: { ...input, page, storeId: actor.storeId }, rows: rows.map(row => {
-      const signer = courseAgreementSignerSchema.parse(row.signerSnapshot);
+      const signer = parseCourseAgreementSignerSnapshot(row.signerSnapshot).signer;
       return { id: row.id, name: signer.name, phone: signer.phone, minor: signer.minor, service: '課程', version: row.version.version, signedAt: row.signedAt.toISOString() };
     }) };
   }, { isolationLevel: 'RepeatableRead' });

@@ -2,12 +2,12 @@ import { createHash } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
-import { emptyCourseAgreement, buildCourseAgreement } from '@/lib/course-agreement';
+import { emptyCourseAgreement, emptyFitnessCourseAgreement, buildCourseAgreement } from '@/lib/course-agreement';
 import { courseAgreementSignSchema } from '@/lib/course-agreement-signing';
 import { isCourseAgreementPublicPath } from '@/lib/course-agreement-public-path';
-const m=vi.hoisted(()=>({tx:vi.fn(),version:vi.fn(),setting:vi.fn(),receipt:vi.fn(),music:vi.fn(),store:vi.fn(),lock:vi.fn(),count:vi.fn()}));
+const m=vi.hoisted(()=>({tx:vi.fn(),version:vi.fn(),setting:vi.fn(),receipt:vi.fn(),music:vi.fn(),fitness:vi.fn(),store:vi.fn(),lock:vi.fn(),count:vi.fn()}));
 vi.mock('@/lib/course-db',()=>({coursePrisma:{$transaction:m.tx,courseAgreementVersion:{findUnique:m.version},courseAgreementSetting:{findUnique:m.setting},courseAgreementSignature:{findUnique:m.receipt}}}));
-vi.mock('@/lib/db',()=>({prisma:{store:{findUnique:m.store}}}));
+vi.mock('@/lib/db',()=>({prisma:{store:{findUnique:m.store},storeFeatureEntitlement:{findFirst:m.fitness}}}));
 vi.mock('@/server/services/course-business-profile',()=>({isMusicCourseStoreFromEntitlements:m.music}));
 vi.mock('@/server/services/course-store-lock',()=>({lockCourseStore:m.lock}));
 import { beginPublicCourseAgreement, readPublicCourseAgreement, signPublicCourseAgreement, readCourseAgreementReceipt } from '@/server/services/course-agreement-public';
@@ -88,3 +88,31 @@ it('a private receipt is still readable after pausing new signatures',async()=>{
 it('caps review issuance consistently for a busy store',async()=>{m.count.mockResolvedValue(100);await expect(beginPublicCourseAgreement(token,undefined,true)).rejects.toThrow('開啟人數較多');expect((await db.query('SELECT * FROM "CourseAgreementReview"')).rows).toHaveLength(1);});
 it('can start a new learner review without changing the previous evidence',async()=>{await signPublicCourseAgreement(token,reviewToken,input());const next=await beginPublicCourseAgreement(token,reviewToken,true);expect(next.reviewToken).not.toBe(reviewToken);expect((await db.query('SELECT * FROM "CourseAgreementSignature"')).rows).toHaveLength(1);expect((await db.query('SELECT * FROM "CourseAgreementReview"')).rows).toHaveLength(2);});
 it('cannot retrieve a receipt with a different bearer token',async()=>{m.receipt.mockResolvedValue(null);await expect(readCourseAgreementReceipt('c'.repeat(43))).rejects.toThrow('已失效');expect(m.receipt).toHaveBeenCalledWith(expect.objectContaining({where:{receiptTokenHash:hash('c'.repeat(43))}}));});
+
+function fitnessVersion() {
+ const settingsSnapshot = {...emptyFitnessCourseAgreement('合成運動店'),business:'fitness' as const};
+ const document = buildCourseAgreement(settingsSnapshot);
+ m.music.mockResolvedValue(false);m.fitness.mockResolvedValue({storeId:'a'});vi.stubEnv('COURSE_AGREEMENTS_FITNESS_ENABLED','1');
+ const next = {...version, settingsSnapshot, document, documentHash:hash(JSON.stringify(document))};
+ m.version.mockResolvedValue(next);return next;
+}
+it('rejects fitness signing without independent risk confirmation before any transaction',async()=>{
+ const next=fitnessVersion();
+ await expect(signPublicCourseAgreement(token,reviewToken,{...input(),documentHash:next.documentHash})).rejects.toThrow('分別確認');
+ expect(m.tx).not.toHaveBeenCalled();
+});
+it('stores both fitness confirmations with server time and preserves one-signature retry',async()=>{
+ const next=fitnessVersion(),payload={...input(),documentHash:next.documentHash,riskAcknowledged:true};
+ const result=await signPublicCourseAgreement(token,reviewToken,payload);
+ expect(await signPublicCourseAgreement(token,reviewToken,payload)).toEqual(result);
+ const rows=(await db.query<Record<string,unknown>>('SELECT * FROM "CourseAgreementSignature"')).rows;
+ expect(rows).toHaveLength(1);
+ const snapshot=rows[0].signerSnapshot as {fitnessAcknowledgement:Record<string,unknown>};
+ expect(snapshot.fitnessAcknowledgement).toMatchObject({course:true,risk:true,documentHash:next.documentHash});
+ expect(snapshot.fitnessAcknowledgement.courseAcknowledgedAt).toBe(new Date(rows[0].signedAt as string).toISOString());
+ expect(snapshot.fitnessAcknowledgement.riskAcknowledgedAt).toBe(snapshot.fitnessAcknowledgement.courseAcknowledgedAt);
+});
+it('refuses cross-module signing of a historical music version at a fitness store',async()=>{
+ m.music.mockResolvedValue(false);m.fitness.mockResolvedValue({storeId:'a'});vi.stubEnv('COURSE_AGREEMENTS_FITNESS_ENABLED','1');
+ await expect(readPublicCourseAgreement(token)).rejects.toThrow('失效');expect(m.tx).not.toHaveBeenCalled();
+});

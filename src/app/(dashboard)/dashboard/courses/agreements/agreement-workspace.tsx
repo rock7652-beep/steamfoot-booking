@@ -2,6 +2,7 @@
 import { cloneElement, useEffect, useId, useRef, useState, type ReactElement } from 'react';
 import { DashboardLink } from '@/components/dashboard-link';
 import { SettingsListRow, SettingsWorkspaceFrame, SettingsWorkspaceNav } from '@/components/settings/settings-workspace';
+import { courseAgreementTitle, fitnessAgreementFields } from '@/lib/course-agreement';
 import type { CourseAgreementDraft, CourseAgreementPreview, CourseAgreementResult, CourseAgreementState } from '@/lib/course-agreement';
 
 export type AgreementWorkspaceProps = {
@@ -19,13 +20,15 @@ function Field({ label, children }: { label: string; children: ReactElement<{ id
   const id = useId();
   return <div className="min-w-0 text-sm font-medium text-earth-700"><label htmlFor={id}>{label}</label>{cloneElement(children, { id })}</div>;
 }
-const groups = [{ id: 'store', label: '店家資料' }, { id: 'rules', label: '課程規則' }, { id: 'privacy', label: '個資告知' }];
+const commonGroups = [{ id: 'store', label: '店家資料' }, { id: 'rules', label: '課程規則' }, { id: 'privacy', label: '個資告知' }];
 
 // The page keys this workspace by authenticated store; a late response from an
 // unmounted store cannot populate the next store's draft.
 export function CourseAgreementWorkspace({ initial, save, publish, pause, share, recordsHref }: AgreementWorkspaceProps) {
   const [confirmed, setConfirmed] = useState(initial);
   const [draft, setDraft] = useState(initial.draft);
+  const fitness = draft.profile === 'FITNESS';
+  const groups = fitness ? [...commonGroups.slice(0, 2), { id: 'risk', label: '運動與風險' }, commonGroups[2]] : commonGroups;
   const [stage, setStage] = useState<'summary' | 'edit' | 'preview'>('summary');
   const [group, setGroup] = useState('store');
   const [preview, setPreview] = useState<CourseAgreementPreview | null>(null);
@@ -96,7 +99,7 @@ export function CourseAgreementWorkspace({ initial, save, publish, pause, share,
   }
   return <div className="min-w-0 space-y-4" aria-busy={pending}>
     <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-      <div><h1 className="admin-page-title">課程共同約定</h1><p className="mt-1 text-sm text-earth-600">把上課方式說清楚，讓學員、店家與老師有共同依據。</p></div>
+      <div><h1 className="admin-page-title">課程共同約定</h1><p className="mt-1 text-sm text-earth-600">把上課方式說清楚，讓學員、店家與{fitness ? '指導員' : '老師'}有共同依據。</p></div>
       {recordsHref && <DashboardLink className={button} href={recordsHref}>簽署紀錄</DashboardLink>}<DashboardLink className={button} aria-disabled={pending} href="/dashboard/courses?view=settings&section=store">返回課程設定</DashboardLink>
     </div>
     <SettingsWorkspaceFrame
@@ -120,12 +123,12 @@ export function CourseAgreementWorkspace({ initial, save, publish, pause, share,
           <p className="break-all text-sm text-earth-600">{sharing.url}</p><a className={button} href={sharing.qrDataUrl} download="course-agreement-qr.png">下載 QR Code</a>
         </section>}
       </div>}
-      {stage === 'edit' && <form className="space-y-5 py-5" onSubmit={event => { event.preventDefault(); if (group === 'store') setGroup('rules'); else if (group === 'rules') setGroup('privacy'); else void savePreview(); }}>
+      {stage === 'edit' && <form className="space-y-5 py-5" onSubmit={event => { event.preventDefault(); const next = groups[groups.findIndex(item => item.id === group) + 1]; if (next) setGroup(next.id); else void savePreview(); }}>
         <fieldset disabled={pending} className="min-w-0 space-y-4">
           <legend className="mb-4 text-lg font-semibold text-primary-900">{groups.find(item => item.id === group)?.label}</legend>
           {group === 'store' && <>
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">{line('brand', '品牌／店名')}{line('entity', '營業登記名稱')}{line('responsible', '負責人')}{line('city', '所在縣市')}{line('contact', '聯絡方式')}{line('address', '地址')}</div>
-            <Field label="範本適用類型"><select value={draft.business} className={inputClass} onChange={event => set('business', event.target.value as CourseAgreementDraft['business'])}><option value="pending">尚未確認（可存草稿）</option><option value="cram">已確認適用短期補習班規範</option></select></Field>
+            <Field label="範本適用類型"><select value={draft.business} className={inputClass} onChange={event => set('business', event.target.value as CourseAgreementDraft['business'])}><option value="pending">尚未確認（可存草稿）</option>{fitness ? <option value="fitness">已確認適用本店運動課程服務</option> : <option value="cram">已確認適用短期補習班規範</option>}</select></Field>
           </>}
           {group === 'rules' && <>
             <div className="grid min-w-0 gap-4 lg:grid-cols-2"><Field label="單堂時間（分鐘）"><input className={inputClass} type="number" min={1} max={480} value={draft.duration} onChange={event => set('duration', Number(event.target.value))} /></Field>{line('leaveChannel', '請假聯絡管道')}</div>
@@ -136,17 +139,18 @@ export function CourseAgreementWorkspace({ initial, save, publish, pause, share,
             <p className="text-sm text-earth-600">這裡設定約定內容；不會變更預約系統的取消截止，請確認與實際執行方式一致。</p>
             {paragraph('makeup', '補課方式')}
             <details><summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">其他課程規則（選填）</summary><div className="space-y-4 pt-3">{paragraph('groupRule', '團體課補充規則')}{paragraph('lateRule', '遲到處理')}{paragraph('pauseRule', '暫停課程')}{paragraph('equipment', '設備使用')}{paragraph('extra', '其他約定')}</div></details>
-            <p className="text-sm text-earth-600">退費條文沿用本店所在地適用的補習班法規，完整文字可於下一步預覽。</p>
+            <p className="text-sm text-earth-600">{fitness ? '請於「運動與風險」填寫適用本店服務的退費及解約規則。' : '退費條文沿用本店所在地適用的補習班法規，完整文字可於下一步預覽。'}</p>
           </>}
+          {group === 'risk' && <><p className="text-sm text-earth-600">請依實際課程填寫。學員不需在此提供完整病史；兩個區塊分別確認後，只需簽名一次。</p>{Object.entries(fitnessAgreementFields).map(([key, label]) => { const field = key as keyof typeof fitnessAgreementFields; return <Field key={key} label={label}><textarea className={inputClass} rows={3} maxLength={4000} value={draft.fitness?.[field] ?? ''} onChange={event => set('fitness', { activityDescription: '', intensity: '', specificRisks: '', participationLimits: '', emergencyProcedure: '', refundRule: '', ...draft.fitness, [field]: event.target.value })} /></Field>; })}</>}
           {group === 'privacy' && <>{paragraph('privacyNotice', '個人資料告知', 10)}<p className="text-sm text-earth-600">請載明蒐集者、目的、資料類別、利用期間／地區／對象／方式、當事人權利與聯絡方式，以及不提供資料的影響。儲存地區與保存期限須依實際服務填寫。</p></>}
         </fieldset>
         <div className="flex flex-wrap justify-between gap-3 border-t border-earth-200 pt-4">
-          <button type="button" className={button} disabled={pending} onClick={() => { if (group === 'store') { setDraft(confirmed.draft); setStage('summary'); setError(''); } else setGroup(group === 'privacy' ? 'rules' : 'store'); }}>{group === 'store' ? '取消修改' : '上一步'}</button>
-          <div className="flex flex-wrap gap-3"><button type="button" className={button} disabled={pending} onClick={() => void savePreview()}>儲存並預覽</button><button className={primary} disabled={pending} type="submit">{pending ? '儲存中…' : group === 'store' ? '下一步：課程規則' : group === 'rules' ? '下一步：個資告知' : '下一步：預覽約定書'}</button></div>
+          <button type="button" className={button} disabled={pending} onClick={() => { if (group === 'store') { setDraft(confirmed.draft); setStage('summary'); setError(''); } else setGroup(groups[Math.max(0, groups.findIndex(item => item.id === group) - 1)].id); }}>{group === 'store' ? '取消修改' : '上一步'}</button>
+          <div className="flex flex-wrap gap-3"><button type="button" className={button} disabled={pending} onClick={() => void savePreview()}>儲存並預覽</button><button className={primary} disabled={pending} type="submit">{pending ? '儲存中…' : groups[groups.findIndex(item => item.id === group) + 1] ? `下一步：${groups[groups.findIndex(item => item.id === group) + 1].label}` : '下一步：預覽約定書'}</button></div>
         </div>
       </form>}
       {stage === 'preview' && preview && <div className="space-y-5 py-5">
-        <article className="min-w-0 space-y-5 break-words"><h2 className="text-xl font-semibold text-primary-900">{preview.draft.brand || '店家'}｜課程服務約定書</h2><p className="text-sm text-earth-600">草稿 · 尚未啟用</p>{preview.document.map((clause, index) => <section key={clause.title}><h3 className="mb-2 text-base font-semibold text-primary-900">{index + 1}．{clause.title}</h3><p className="whitespace-pre-wrap text-base leading-7 text-earth-700">{clause.body}</p></section>)}</article>
+        <article className="min-w-0 space-y-5 break-words"><h2 className="text-xl font-semibold text-primary-900">{preview.draft.brand || '店家'}｜{courseAgreementTitle(preview.draft.profile)}</h2><p className="text-sm text-earth-600">草稿 · 尚未啟用</p>{preview.document.map((clause, index) => <section key={clause.title}><h3 className="mb-2 text-base font-semibold text-primary-900">{index + 1}．{clause.title}</h3><p className="whitespace-pre-wrap text-base leading-7 text-earth-700">{clause.body}</p></section>)}</article>
         <label className="flex items-start gap-3 border-t border-earth-200 pt-5 text-sm leading-6"><input className="mt-1 size-5 shrink-0" type="checkbox" checked={acknowledged} disabled={pending} onChange={event => setAcknowledged(event.target.checked)} />我已確認店家資料、範本適用性、個資告知及實際執行規則一致。啟用後新簽署使用此版本，舊簽署文件仍保留。</label>
         <div className="flex flex-wrap justify-between gap-3"><button className={button} disabled={pending} type="button" onClick={() => { setStage('edit'); setAcknowledged(false); setError(''); }}>返回修改</button><button className={primary} disabled={pending || !acknowledged} type="button" onClick={() => void activate()}>{pending ? '啟用中…' : '確認啟用'}</button></div>
       </div>}

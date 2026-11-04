@@ -1,5 +1,5 @@
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
-import {emptyCourseAgreement, buildCourseAgreement, courseAgreementLeaveText, type CourseAgreementDraft, type CourseAgreementClause} from '@/lib/course-agreement';
+import {emptyCourseAgreement, emptyFitnessCourseAgreement, buildCourseAgreement, courseAgreementLeaveText, type CourseAgreementDraft, type CourseAgreementClause} from '@/lib/course-agreement';
 const m = vi.hoisted(() => ({ access: vi.fn(), lock: vi.fn(), transaction: vi.fn(), find: vi.fn(), upsert: vi.fn(), update: vi.fn(), aggregate: vi.fn(), create: vi.fn() }));
 vi.mock('@/lib/course-db', () => ({ coursePrisma: { $transaction: m.transaction } }));
 vi.mock('@/lib/db', () => ({ prisma: {} }));
@@ -46,3 +46,15 @@ it('reconstructs signing tokens only for the same store and version',()=>{const 
 
 it('can pause and keep historical published versions intact',async()=>{const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});const active=await publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true});const history=structuredClone(versions);const result=await pauseCourseAgreement({storeId:'a',revision:active.revision,activeVersionId:active.active!.id});expect(result.active).toBeNull();expect(versions).toEqual(history);expect((await pauseCourseAgreement({storeId:'a',revision:active.revision,activeVersionId:active.active!.id})).active).toBeNull();});
 it('does not pause a newer version from a stale screen',async()=>{const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()});const active=await publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true});await expect(pauseCourseAgreement({storeId:'a',revision:0,activeVersionId:active.active!.id})).rejects.toThrow('約定書已更新');expect(current?.activeVersionId).toBe(active.active!.id);});
+
+it('prevents fitness stores from saving or publishing the music template',async()=>{
+ m.access.mockResolvedValue({storeId:'a',user:{id:'staff'},agreementProfile:'FITNESS'});
+ await expect(saveCourseAgreementDraft({storeId:'a',revision:0,draft:draft()})).rejects.toThrow('模組不符');
+ expect(m.upsert).not.toHaveBeenCalled();
+});
+it('requires service-specific risk fields before fitness activation',async()=>{
+ m.access.mockResolvedValue({storeId:'a',user:{id:'staff'},agreementProfile:'FITNESS'});
+ const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:{...draft(),...emptyFitnessCourseAgreement('測試店','030000000','測試路'),entity:'測試商行',responsible:'測試負責人',city:'新竹縣',makeup:'協調補課',privacyNotice:'測試告知',business:'fitness'}});
+ await expect(publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true})).rejects.toThrow('課程內容');
+ expect(m.create).not.toHaveBeenCalled();
+});

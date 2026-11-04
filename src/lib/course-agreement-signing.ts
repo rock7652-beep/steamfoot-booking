@@ -16,17 +16,31 @@ export type CourseAgreementSigner = z.infer<typeof courseAgreementSignerSchema>;
 export const courseAgreementSignSchema = z.object({
   requestKey: z.string().uuid(), documentHash: z.string().regex(/^[a-f0-9]{64}$/),
   signer: courseAgreementSignerSchema, strokes: signatureStrokesSchema,
-  readAcknowledged: z.literal(true), electronicConsent: z.literal(true),
+  readAcknowledged: z.literal(true), electronicConsent: z.literal(true), riskAcknowledged: z.literal(true).optional(),
 }).strict();
 export type CourseAgreementSignInput = z.infer<typeof courseAgreementSignSchema>;
-export type CourseAgreementPublicDocument = { brand: string; version: number; documentHash: string; document: CourseAgreementClause[] };
+export type CourseAgreementPublicDocument = { profile?: 'MUSIC' | 'FITNESS'; brand: string; version: number; documentHash: string; document: CourseAgreementClause[] };
 export type CourseAgreementReviewView = CourseAgreementPublicDocument & { deliveredAt: string; expiresAt: string };
 export type CourseAgreementCompletion = { receiptPath: string };
 export type CourseAgreementReceipt = CourseAgreementPublicDocument & {
-  id: string; signer: CourseAgreementSigner; deliveredAt: string; signedAt: string; signatureDataUrl: string;
+  id: string; fitnessAcknowledgement?: FitnessAgreementAcknowledgement; signer: CourseAgreementSigner; deliveredAt: string; signedAt: string; signatureDataUrl: string;
 };
 export function signatureSvg(strokes: SignatureStrokes) {
   // Only validated numeric coordinates are interpolated. Never accept uploaded SVG.
   const paths = signatureStrokesSchema.parse(strokes).map(stroke => `<polyline points="${stroke.map(p => `${(p.x * 1000).toFixed(2)},${(p.y * 300).toFixed(2)}`).join(' ')}"/>`).join('');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="300" viewBox="0 0 1000 300"><rect width="1000" height="300" fill="white"/><g fill="none" stroke="#234139" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
+}
+
+export const fitnessAgreementAcknowledgementSchema = z.object({
+  course: z.literal(true), risk: z.literal(true),
+  courseAcknowledgedAt: z.string().datetime(), riskAcknowledgedAt: z.string().datetime(),
+  documentHash: z.string().regex(/^[a-f0-9]{64}$/),
+}).strict();
+export type FitnessAgreementAcknowledgement = z.infer<typeof fitnessAgreementAcknowledgementSchema>;
+/** Identity stays at the top level for scoped name/phone searches; unknown fields still fail. */
+export function parseCourseAgreementSignerSnapshot(raw: unknown) {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return { signer: courseAgreementSignerSchema.parse(raw) };
+  const { fitnessAcknowledgement, ...identity } = raw as Record<string, unknown>;
+  return { signer: courseAgreementSignerSchema.parse(identity),
+    ...(fitnessAcknowledgement === undefined ? {} : { fitnessAcknowledgement: fitnessAgreementAcknowledgementSchema.parse(fitnessAcknowledgement) }) };
 }
