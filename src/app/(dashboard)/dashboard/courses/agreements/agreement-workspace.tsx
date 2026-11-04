@@ -3,6 +3,7 @@ import { cloneElement, useEffect, useId, useRef, useState, type ReactElement } f
 import { DashboardLink } from '@/components/dashboard-link';
 import { SettingsListRow, SettingsWorkspaceFrame, SettingsWorkspaceNav } from '@/components/settings/settings-workspace';
 import { beautyServiceTypes, beautyServiceTemplates, toggleBeautyService } from '@/lib/beauty-agreement-templates';
+import { withAgreementPrivacy } from '@/lib/course-agreement-privacy';
 import { CourseAgreementBody } from '@/components/course-agreements/body';
 import { courseAgreementTitle, fitnessAgreementFields, beautyAgreementFields } from '@/lib/course-agreement';
 import type { CourseAgreementDraft, CourseAgreementPreview, CourseAgreementResult, CourseAgreementState } from '@/lib/course-agreement';
@@ -27,8 +28,8 @@ const commonGroups = [{ id: 'store', label: '店家資料' }, { id: 'rules', lab
 // The page keys this workspace by authenticated store; a late response from an
 // unmounted store cannot populate the next store's draft.
 export function CourseAgreementWorkspace({ initial, save, publish, pause, share, recordsHref }: AgreementWorkspaceProps) {
-  const [confirmed, setConfirmed] = useState(initial);
-  const [draft, setDraft] = useState(initial.draft);
+  const [confirmed, setConfirmed] = useState(() => ({ ...initial, draft: withAgreementPrivacy(initial.draft) }));
+  const [draft, setDraft] = useState(() => withAgreementPrivacy(initial.draft));
   const fitness = draft.profile === 'FITNESS', beauty = draft.profile === 'BEAUTY';
   const person = beauty ? '顧客' : '學員', noun = beauty ? '服務' : '課程';
   const settingsHref = beauty ? '/dashboard/beauty?tab=設定&section=store' : '/dashboard/courses?view=settings&section=store';
@@ -55,7 +56,7 @@ export function CourseAgreementWorkspace({ initial, save, publish, pause, share,
     return () => { window.removeEventListener('beforeunload', unload); document.removeEventListener('click', intercept, true); };
   }, [pending]);
   function set<K extends keyof CourseAgreementDraft>(field: K, value: CourseAgreementDraft[K]) {
-    setDraft(current => ({ ...current, [field]: value })); setError(''); setNotice('');
+    setDraft(current => withAgreementPrivacy({ ...current, [field]: value, ...(field === 'privacyNotice' ? { privacyNoticeMode: 'custom' as const } : {}) })); setError(''); setNotice('');
   }
   function line(field: 'brand' | 'entity' | 'responsible' | 'city' | 'address' | 'contact' | 'leaveChannel', label: string) {
     return <Field label={label}><input className={inputClass} value={draft[field]} maxLength={200} onChange={event => set(field, event.target.value)} /></Field>;
@@ -104,8 +105,8 @@ export function CourseAgreementWorkspace({ initial, save, publish, pause, share,
   }
   return <div className="min-w-0 space-y-4" aria-busy={pending}>
     <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-      <div><h1 className="admin-page-title">{noun}共同約定</h1><p className="mt-1 text-sm text-earth-600">{beauty ? '把服務方式與注意事項說清楚，讓顧客、店家與服務人員有共同依據。' : <>把上課方式說清楚，讓學員、店家與{fitness ? '指導員' : '老師'}有共同依據。</>}</p></div>
-      {recordsHref && <DashboardLink className={button} href={recordsHref}>簽署紀錄</DashboardLink>}<DashboardLink className={button} aria-disabled={pending} href={settingsHref}>返回{noun}設定</DashboardLink>
+      <div className="min-w-0 flex-1"><h1 className="admin-page-title">{noun}共同約定</h1><p className="mt-1 text-sm text-earth-600">{beauty ? '把服務方式與注意事項說清楚，讓顧客、店家與服務人員有共同依據。' : <>把上課方式說清楚，讓學員、店家與{fitness ? '指導員' : '老師'}有共同依據。</>}</p></div>
+      <div role="group" aria-label="約定書操作" className="ml-auto flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:w-auto">{recordsHref && <DashboardLink className={button} href={recordsHref}>簽署紀錄</DashboardLink>}<DashboardLink className={button} aria-disabled={pending} href={settingsHref}>返回{noun}設定</DashboardLink></div>
     </div>
     <SettingsWorkspaceFrame
       nav={<><div className="md:hidden text-sm text-earth-600">{stage === 'edit' ? groups.find(item => item.id === group)?.label : stage === 'preview' ? '預覽約定書' : '共同約定'}</div><SettingsWorkspaceNav activeId={stage === 'edit' ? group : stage} items={stage === 'edit' ? groups : [{ id: stage, label: stage === 'preview' ? '預覽約定書' : '共同約定' }]} onSelect={id => { if (!pending && stage === 'edit') setGroup(id); }} /></>}
@@ -147,7 +148,16 @@ export function CourseAgreementWorkspace({ initial, save, publish, pause, share,
             <p className="text-sm text-earth-600">{beauty ? '請在「服務風險與照護」填寫適用本店服務的退費及解約規則。' : fitness ? '請於「運動與風險」填寫適用本店服務的退費及解約規則。' : '退費條文沿用本店所在地適用的補習班法規，完整文字可於下一步預覽。'}</p>
           </>}
           {group === 'risk' && <>{beauty ? <><p className="text-sm text-earth-600">請依本店實際服務填寫；每次更換項目或產品，仍須說明並確認。不在此蒐集完整病史，公開行銷影像須另外授權。</p><fieldset className="min-w-0 space-y-3 rounded-lg border border-earth-200 p-4"><legend className="px-1 text-sm font-medium">服務類型（可複選）</legend><p className="text-sm text-earth-600">勾選後帶入可修改範例，請依實際產品及操作確認。取消勾選會保留文字，但不列入本次約定書。</p><div className="flex flex-wrap gap-3">{beautyServiceTypes.map(type => <label key={type} className="inline-flex min-h-11 items-center gap-2"><input type="checkbox" checked={draft.beautyServices?.selected.includes(type) ?? false} onChange={event => set('beautyServices', toggleBeautyService(draft.beautyServices, type, event.target.checked))}/>{beautyServiceTemplates[type].label}</label>)}</div>{beautyServiceTypes.filter(type => draft.beautyServices?.selected.includes(type)).map(type => <Field key={type} label={`${beautyServiceTemplates[type].label}風險與照護說明`}><textarea className={inputClass} rows={8} maxLength={4000} value={draft.beautyServices?.content[type] ?? ''} onChange={event => set('beautyServices', { selected: draft.beautyServices?.selected ?? [], content: { ...draft.beautyServices?.content, [type]: event.target.value } })}/></Field>)}</fieldset>{Object.entries(beautyAgreementFields).map(([key,label])=>{const field=key as keyof typeof beautyAgreementFields;return <Field key={key} label={label}><textarea className={inputClass} rows={3} maxLength={4000} value={draft.beauty?.[field]??''} onChange={event=>set('beauty',{serviceScope:'',productsAndMethods:'',specificRisks:'',precautions:'',aftercare:'',emergencyProcedure:'',refundRule:'',...draft.beauty,[field]:event.target.value})}/></Field>;})}</> : <><p className="text-sm text-earth-600">請依實際課程填寫。學員不需在此提供完整病史；兩個區塊分別確認後，只需簽名一次。</p>{Object.entries(fitnessAgreementFields).map(([key, label]) => { const field = key as keyof typeof fitnessAgreementFields; return <Field key={key} label={label}><textarea className={inputClass} rows={3} maxLength={4000} value={draft.fitness?.[field] ?? ''} onChange={event => set('fitness', { activityDescription: '', intensity: '', specificRisks: '', participationLimits: '', emergencyProcedure: '', refundRule: '', ...draft.fitness, [field]: event.target.value })} /></Field>; })}</>}</>}
-          {group === 'privacy' && <>{paragraph('privacyNotice', '個人資料告知', 10)}<p className="text-sm text-earth-600">請載明蒐集者、目的、資料類別、利用期間／地區／對象／方式、當事人權利與聯絡方式，以及不提供資料的影響。儲存地區與保存期限須依實際服務填寫。</p></>}
+          {group === 'privacy' && <>{draft.privacyNoticeMode === 'platform' ? <>
+            <p className="text-sm text-earth-600">已自動帶入店家資料與平台說明，請預覽確認即可。修改店家名稱、負責人或聯絡方式時，內容會一併更新。</p>
+            <section aria-label="系統產生的個人資料告知" className="max-h-[32rem] overflow-y-auto whitespace-pre-wrap rounded-lg border border-earth-200 bg-earth-50 p-4 text-base leading-7">{draft.privacyNotice}</section>
+            <details><summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">有額外用途？補充說明（選填）</summary><Field label="店家補充說明（選填）"><textarea className={inputClass} maxLength={2000} rows={3} value={draft.privacySupplement ?? ''} onChange={event => set('privacySupplement', event.target.value)} /></Field></details>
+          </> : <>
+            <p className="text-sm text-earth-600">已保留先前填寫的告知內容。可繼續使用，或改用系統自動帶入的版本；已簽文件不會變更。</p>
+            {paragraph('privacyNotice', '個人資料告知', 10)}
+            <button className={button} type="button" onClick={() => set('privacyNoticeMode', 'platform')}>改用系統告知</button>
+          </>}</>}
+
         </fieldset>
         <div className="flex flex-wrap justify-between gap-3 border-t border-earth-200 pt-4">
           <button type="button" className={button} disabled={pending} onClick={() => { if (group === 'store') { setDraft(confirmed.draft); setStage('summary'); setError(''); } else setGroup(groups[Math.max(0, groups.findIndex(item => item.id === group) - 1)].id); }}>{group === 'store' ? '取消修改' : '上一步'}</button>

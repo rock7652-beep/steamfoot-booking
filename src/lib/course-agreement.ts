@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { withAgreementPrivacy } from './course-agreement-privacy';
 import { beautyServiceTypes, beautyServiceTemplates } from './beauty-agreement-templates';
 
 const short = z.string().trim().max(200, '欄位最多 200 字');
@@ -19,6 +20,8 @@ export const courseAgreementDraftSchema = z.object({
   ]),
   leaveChannel: short, makeup: text, groupRule: text, lateRule: text,
   pauseRule: text, equipment: text, extra: text, privacyNotice: text,
+  privacyNoticeMode: z.enum(['platform', 'custom']).optional(),
+  privacySupplement: z.string().trim().max(2000, '補充說明最多 2000 字').optional(),
 }).strict();
 export type CourseAgreementDraft = z.infer<typeof courseAgreementDraftSchema>;
 export type CourseAgreementClause = { title: string; body: string; emphasis?: string[] };
@@ -88,6 +91,7 @@ function deadlineAgreementEmphasis(value: string): string[] {
 
 // Shared by preview and publication. Store the rendered clauses, not just inputs.
 export function buildCourseAgreement(d: CourseAgreementDraft): CourseAgreementClause[] {
+  if (d.privacyNoticeMode === 'platform') d = withAgreementPrivacy(d);
   if (d.profile === 'BEAUTY') return buildBeautyAgreement(d);
   if (d.profile === 'FITNESS') return buildFitnessCourseAgreement(d);
   const musicEmphasis: Record<string, string[]> = {
