@@ -1,4 +1,5 @@
 import 'server-only';
+import { withAgreementPrivacy } from '@/lib/course-agreement-privacy';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Prisma } from '../../../generated/course-client';
@@ -30,7 +31,7 @@ export async function readCourseAgreementSettings(expectedStoreId?: string, modu
     prisma.shopConfig.findUnique({ where: { storeId: actor.storeId }, select: { shopPhone: true, address: true } }),
     module === 'BEAUTY' ? import('@/lib/beauty-db').then(({beautyPrisma})=>beautyPrisma.beautySetting.findUnique({where:{storeId:actor.storeId},select:{cancelLeadMinutes:true}})).then(rule=>({cancellationLeadMinutes:rule?.cancelLeadMinutes??240})) : coursePrisma.courseBookingRule.findUnique({ where: { storeId: actor.storeId }, select: { cancellationLeadMinutes: true } }),
   ]);
-  const draft = setting?.draft ? courseAgreementDraftSchema.parse(setting.draft) : (actor.agreementProfile === 'BEAUTY' ? emptyBeautyAgreement : actor.agreementProfile === 'FITNESS' ? emptyFitnessCourseAgreement : emptyCourseAgreement)(store?.name, config?.shopPhone ?? '', config?.address ?? '', bookingRule?.cancellationLeadMinutes ?? 0);
+  const draft = withAgreementPrivacy(setting?.draft ? courseAgreementDraftSchema.parse(setting.draft) : (actor.agreementProfile === 'BEAUTY' ? emptyBeautyAgreement : actor.agreementProfile === 'FITNESS' ? emptyFitnessCourseAgreement : emptyCourseAgreement)(store?.name, config?.shopPhone ?? '', config?.address ?? '', bookingRule?.cancellationLeadMinutes ?? 0));
   assertProfile(draft, actor.agreementProfile);
   return { storeId: actor.storeId, revision: setting?.revision ?? 0, draft,
     active: setting?.activeVersion ?? null };
@@ -47,7 +48,8 @@ function preview(storeId: string, revision: number, draft: CourseAgreementDraft,
 
 export async function saveCourseAgreementDraft(raw: unknown, module: 'COURSE' | 'BEAUTY' = 'COURSE'): Promise<CourseAgreementPreview> {
   assertCourseAgreementsEnabled(module);
-  const input = saveSchema.parse(raw);
+  const parsed = saveSchema.parse(raw);
+  const input = { ...parsed, draft: withAgreementPrivacy(parsed.draft) };
   const actor = await (module === 'BEAUTY' ? requireCourseAgreementAccess('manage', input.storeId, module) : requireCourseAgreementAccess('manage', input.storeId));
   assertProfile(input.draft, actor.agreementProfile);
   return coursePrisma.$transaction(async tx => {
@@ -73,7 +75,7 @@ export async function publishCourseAgreement(raw: unknown, module: 'COURSE' | 'B
     await lockAgreementStore(tx, actor.storeId, actor.agreementProfile);
     const current = await tx.courseAgreementSetting.findUnique({ where: { storeId: actor.storeId }, include: includeActive });
     if (!current?.draft) throw new AppError('VALIDATION', '請先保存並預覽約定書');
-    const draft = courseAgreementDraftSchema.parse(current.draft);
+    const draft = withAgreementPrivacy(courseAgreementDraftSchema.parse(current.draft));
     assertProfile(draft, actor.agreementProfile);
     validateCourseAgreementForPublish(draft);
     const document = buildCourseAgreement(draft);
