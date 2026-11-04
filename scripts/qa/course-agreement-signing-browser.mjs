@@ -35,7 +35,7 @@ const errors=[],results=[];try{
  const open=async query=>{await page.goto('https://synthetic.invalid/'+query);await page.addStyleTag({path:out+'/fixture.css'});await page.addScriptTag({path:out+'/fixture.js'});};
  await open('');await page.getByRole('button',{name:'取得約定書並開始填寫'}).click();
  await page.getByLabel(beauty?'顧客姓名':'學員姓名',{exact:true}).fill('合成未成年學員');await page.getByLabel('聯絡電話',{exact:true}).fill('0911000001');
- await page.getByRole('combobox').selectOption('minor');await page.getByLabel('法定代理人姓名',{exact:true}).fill('合成家長');await page.getByLabel('與學員的關係',{exact:true}).fill('母親');await page.getByLabel('法定代理人電話',{exact:true}).fill('0911000002');
+ await page.getByRole('combobox').selectOption('minor');await page.getByLabel('法定代理人姓名',{exact:true}).fill('合成家長');await page.getByLabel(beauty?'與顧客的關係':'與學員的關係',{exact:true}).fill('母親');await page.getByLabel('法定代理人電話',{exact:true}).fill('0911000002');
  await page.getByRole('checkbox').nth(0).check();await page.getByRole('checkbox').last().check();
  if(fitness||beauty){if(!await page.getByRole('button',{name:'預覽簽署資料'}).isDisabled())throw Error('Missing separate risk gate');await page.getByRole('checkbox').nth(1).check();}
  const pad=page.getByRole('application',{name:'手寫簽名區'});await pad.scrollIntoViewIfNeeded();
