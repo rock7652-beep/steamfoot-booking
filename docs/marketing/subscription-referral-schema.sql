@@ -17,6 +17,7 @@ CREATE TABLE public."StoreSubscriptionReferral" (
   code text NOT NULL,
   "boundAt" timestamptz NOT NULL,
   "createdBy" text NOT NULL,
+  "sourceLeadId" text UNIQUE REFERENCES public."ConsultationLead"(id) ON DELETE RESTRICT,
   "identityReview" text NOT NULL DEFAULT 'UNVERIFIED' CHECK ("identityReview" IN ('UNVERIFIED','DISTINCT','SAME_OPERATOR')),
   "identityReviewedBy" text,
   "identityReviewedAt" timestamptz,

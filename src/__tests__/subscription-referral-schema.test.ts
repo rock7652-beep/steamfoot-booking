@@ -7,7 +7,7 @@ describe("subscription referral review schema", () => {
   it("enforces attribution, receipt and reward uniqueness, date math and private access", async () => {
     const db = new PGlite();
     try {
-      await db.exec(`CREATE TABLE "Store" (id text PRIMARY KEY); CREATE TABLE "StoreSubscription" (id text PRIMARY KEY); CREATE ROLE anon; CREATE ROLE authenticated; INSERT INTO "Store" VALUES ('a'),('b'),('c'); INSERT INTO "StoreSubscription" VALUES ('sub-a'),('sub-b');`);
+      await db.exec(`CREATE TABLE "Store" (id text PRIMARY KEY); CREATE TABLE "StoreSubscription" (id text PRIMARY KEY); CREATE TABLE "ConsultationLead" (id text PRIMARY KEY); CREATE ROLE anon; CREATE ROLE authenticated; INSERT INTO "Store" VALUES ('a'),('b'),('c'); INSERT INTO "StoreSubscription" VALUES ('sub-a'),('sub-b');`);
       await db.exec(readFileSync("docs/marketing/subscription-referral-schema.sql", "utf8"));
       await db.exec(`INSERT INTO "StoreSubscriptionReferralCode" ("storeId",code,"createdBy") VALUES ('a','SB-ABCDEFGH','hq');
         INSERT INTO "StoreSubscriptionReferral" (id,"referrerStoreId","referredStoreId",code,"boundAt","createdBy") VALUES ('relation','a','b','SB-ABCDEFGH','2026-10-01','hq');
