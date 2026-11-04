@@ -83,12 +83,12 @@ export default async function TrialSourceBookingsPage({ searchParams }: Props) {
               <tbody>
                 {bookings.map((booking) => (
                   <tr key={booking.id} className="border-b border-earth-50">
-                    <td className="py-2 pr-3">{formatTWTime(booking.createdAt)}</td>
-                    <td className="px-3 py-2">{booking.bookingDate.toISOString().slice(0, 10)}</td>
-                    <td className="px-3 py-2">{booking.customer.name}</td>
-                    <td className="px-3 py-2">{STATUS_LABEL[booking.bookingStatus] ?? booking.bookingStatus}</td>
-                    <td className="px-3 py-2 text-right">{booking.people}／{booking.bookingStatus === "COMPLETED" ? booking.attendedPeople ?? booking.people : 0}</td>
-                    <td className="pl-3 py-2 text-right"><DashboardLink href={`/dashboard/bookings?bookingId=${booking.id}`} className="text-primary-700">查看預約 →</DashboardLink></td>
+                    <td className="py-1 pr-3">{formatTWTime(booking.createdAt)}</td>
+                    <td className="px-3 py-1">{booking.bookingDate.toISOString().slice(0, 10)}</td>
+                    <td className="px-3 py-1">{booking.customer.name}</td>
+                    <td className="px-3 py-1">{STATUS_LABEL[booking.bookingStatus] ?? booking.bookingStatus}</td>
+                    <td className="px-3 py-1 text-right">{booking.people}／{booking.bookingStatus === "COMPLETED" ? booking.attendedPeople ?? booking.people : 0}</td>
+                    <td className="pl-3 py-1 text-right"><DashboardLink href={`/dashboard/bookings?bookingId=${booking.id}`} className="text-primary-700">查看預約 →</DashboardLink></td>
                   </tr>
                 ))}
               </tbody>

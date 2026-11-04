@@ -255,7 +255,7 @@ async function readDashboardLayout({
     <OperationScope key={operationScope} scope={operationScope}>
     <FeaturePresentationProvider states={featureStates}>
     <OperationAuditAccessProvider allowed={canViewAudit} hq={auditScope?.hq ?? false}>
-    <CoursePersonnelLabelProvider key={effectiveStoreId??"hq"} storeId={effectiveStoreId??""} label={industryModule==="course" && effectiveStoreId ? await readCoursePersonnelLabel(effectiveStoreId) : null}>
+    <CoursePersonnelLabelProvider key={effectiveStoreId??"hq"} storeId={effectiveStoreId??""} label={industryModule==="course" && effectiveStoreId ? await readCoursePersonnelLabel(effectiveStoreId) : industryModule==="beauty"&&effectiveStoreId ? ((await readCoursePersonnelLabel(effectiveStoreId))==="老師"?"老師":null) : null}>
     <DashboardShell
       steamfootAddOnsEnabled={(industryModule==='steamfoot'&&process.env.STEAMFOOT_ADD_ONS_ENABLED==='1'&&process.env.BOOKING_PARTICIPANTS_ENABLED==='true')||(industryModule==='course'&&process.env.COURSE_ADD_ONS_ENABLED==='1')||(industryModule==='beauty'&&process.env.BEAUTY_MODULE_ENABLED==='1')}
       canViewAudit={canViewAudit}

@@ -102,10 +102,10 @@ export function RentalHistory({module="course",roomId,rooms,permissions,customer
    {rows.length===0?<p>尚無租借紀錄</p>:<div className="overflow-x-auto rounded-xl border border-earth-200">
      <table data-striped-list className="w-full text-left text-sm" aria-label="租借紀錄"><thead className="bg-primary-50 text-primary-900"><tr>{["日期","時段","顧客","收款"].map(title=><th key={title} className="whitespace-nowrap px-3 py-2 font-medium">{title}</th>)}</tr></thead>
        <tbody className="divide-y divide-earth-100">{rows.map(r=><tr key={r.id}>
-         <td className="whitespace-nowrap px-3 py-2 tabular-nums">{toLocalDateStr(new Date(r.startsAt))}</td>
-         <td className="whitespace-nowrap px-3 py-2 tabular-nums">{formatTWDateTime(new Date(r.startsAt)).slice(11)}–{formatTWDateTime(new Date(r.endsAt)).slice(11)}</td>
+         <td className="whitespace-nowrap px-3 py-1 tabular-nums">{toLocalDateStr(new Date(r.startsAt))}</td>
+         <td className="whitespace-nowrap px-3 py-1 tabular-nums">{formatTWDateTime(new Date(r.startsAt)).slice(11)}–{formatTWDateTime(new Date(r.endsAt)).slice(11)}</td>
          <td className="px-3"><button type="button" className="min-h-11 text-left text-primary-700 hover:underline" onClick={()=>setSelected(r.id)} aria-label={`查看 ${r.name} 的租借`}>{r.name}</button></td>
-         <td className="whitespace-nowrap px-3 py-2 tabular-nums">{r.cancelled&&<span className="mr-2 text-earth-500">已取消</span>}{r.paid===null?"未收":`已收 $${r.paid.toLocaleString()}`}</td>
+         <td className="whitespace-nowrap px-3 py-1 tabular-nums">{r.cancelled&&<span className="mr-2 text-earth-500">已取消</span>}{r.paid===null?"未收":`已收 $${r.paid.toLocaleString()}`}</td>
        </tr>)}</tbody>
      </table>
    </div>}

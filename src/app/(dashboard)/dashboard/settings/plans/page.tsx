@@ -467,14 +467,14 @@ export default async function PlansCenterPage() {
                       : ""
                   }
                 >
-                  <td className="px-5 py-2 text-earth-600">{row.label}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-5 py-1 text-earth-600">{row.label}</td>
+                  <td className="px-3 py-1">
                     <ComparisonText value={row.basic} />
                   </td>
-                  <td className="bg-primary-50/40 px-3 py-2">
+                  <td className="bg-primary-50/40 px-3 py-1">
                     <ComparisonText value={row.professional} />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-1">
                     <ComparisonText value={row.scale} />
                   </td>
                 </tr>

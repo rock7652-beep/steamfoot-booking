@@ -279,16 +279,16 @@ export default async function PlanSettingsPage() {
                   <tr data-list-divider className="bg-earth-50/50">
                     <td
                       colSpan={5}
-                      className="px-5 py-2 text-xs font-semibold text-earth-500 uppercase tracking-wide"
+                      className="px-5 py-1 text-xs font-semibold text-earth-500 uppercase tracking-wide"
                     >
                       {group.group}
                     </td>
                   </tr>
                   {group.features.map((f) => (
                     <tr key={f.key} className="border-b border-earth-50">
-                      <td className="px-5 py-2 text-earth-700">{f.label}</td>
+                      <td className="px-5 py-1 text-earth-700">{f.label}</td>
                       {plans.map((plan) => (
-                        <td key={plan} className="px-4 py-2 text-center">
+                        <td key={plan} className="px-4 py-1 text-center">
                           {hasFeature(plan, f.key) ? (
                             <svg
                               className="mx-auto h-4 w-4 text-green-500"

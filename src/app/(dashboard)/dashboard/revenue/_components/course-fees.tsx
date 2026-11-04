@@ -37,9 +37,9 @@ export async function CourseFees({dataScope,storeId,range,readOnly}: {dataScope?
     <div className="overflow-x-auto"><table data-striped-list className="w-full text-left text-sm"><thead><tr>{[music ? personnelText("課次／教師") : personnelText("課次／教練"),"授課費","付款狀態","處理"].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>
       {summarized.map(({row,fee,ended})=>{
         const status=row.paidAt?`已付 NT$ ${(row.amount??0).toLocaleString()} · ${fee===null?"待核對":`未付 NT$ ${Math.max(0,fee-(row.amount??0)).toLocaleString()}`}`:row.cancelledAt?"已取消":fee===null?"舊課次費率待核對":fee===0?"不另領授課費":!ended?"尚未結束":!Number.isSafeInteger(fee)?"小數金額待核對":"待付（請核對授課）";
-        return <tr className="border-t align-top" key={row.id}><td className="p-2">{formatTWTime(row.startsAt)}<br/>{row.name} · {row.staffName}</td><td className="p-2">{fee===null?"—":`NT$ ${fee.toLocaleString()}`}</td><td className="p-2">{status}{row.paidAt&&<details><summary>付款備註</summary>{row.method==="CASH"?"現金":"非現金"} · {row.note}</details>}</td><td className="p-2">{canPay&&row.paymentId?<CourseFeeCorrectionButton storeId={storeId} paymentId={row.paymentId}/>:null}{canPay&&!row.cancelledAt&&ended&&fee!==null&&fee>(row.amount??0)&&Number.isSafeInteger(fee)?<CourseFeePaymentButton storeId={storeId} sessionId={row.id} amount={fee} paid={row.amount??0}/>:null}</td></tr>;
+        return <tr className="border-t align-top" key={row.id}><td className="px-2 py-1">{formatTWTime(row.startsAt)}<br/>{row.name} · {row.staffName}</td><td className="px-2 py-1">{fee===null?"—":`NT$ ${fee.toLocaleString()}`}</td><td className="px-2 py-1">{status}{row.paidAt&&<details><summary>付款備註</summary>{row.method==="CASH"?"現金":"非現金"} · {row.note}</details>}</td><td className="px-2 py-1">{canPay&&row.paymentId?<CourseFeeCorrectionButton storeId={storeId} paymentId={row.paymentId}/>:null}{canPay&&!row.cancelledAt&&ended&&fee!==null&&fee>(row.amount??0)&&Number.isSafeInteger(fee)?<CourseFeePaymentButton storeId={storeId} sessionId={row.id} amount={fee} paid={row.amount??0}/>:null}</td></tr>;
       })}
-      {!rows.length&&<tr data-list-divider><td colSpan={4} className="p-3">此期間沒有課次。</td></tr>}
+      {!rows.length&&<tr data-list-divider><td colSpan={4} className="px-3 py-1">此期間沒有課次。</td></tr>}
     </tbody></table></div>
   </details>;
 }

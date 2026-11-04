@@ -196,57 +196,57 @@ export default async function StoreSubscriptionsListPage({
                 key={store.id}
                 className="border-b border-earth-50 last:border-0 align-top"
               >
-                <td className="px-4 py-3">
+                <td className="px-4 py-1">
                   <div className="font-medium text-earth-900">{store.name}</div>
                   <div className="text-[11px] text-earth-400">{store.slug}</div>
                 </td>
-                <td className="px-3 py-3 text-earth-700">
+                <td className="px-3 py-1 text-earth-700">
                   {PLAN_LABELS[store.plan] ?? store.plan}
                 </td>
                 {sub ? (
                   <>
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-1">
                       <span
                         className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${stateBadgeCls(lc.state)}`}
                       >
                         {effectiveStateLabel(lc.state)}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-earth-700">
+                    <td className="px-3 py-1 text-earth-700">
                       {BILLING_STATUS_LABELS[sub.billingStatus] ??
                         sub.billingStatus}
                     </td>
-                    <td className="px-3 py-3 text-earth-700">
+                    <td className="px-3 py-1 text-earth-700">
                       {sub.paymentMethod
                         ? PAYMENT_METHOD_LABELS[sub.paymentMethod] ??
                           sub.paymentMethod
                         : "—"}
                     </td>
-                    <td className="px-3 py-3 text-earth-700">
+                    <td className="px-3 py-1 text-earth-700">
                       {sub.billingCycle
                         ? CYCLE_LABELS[sub.billingCycle] ?? sub.billingCycle
                         : "—"}
                     </td>
-                    <td className="px-3 py-3 tabular-nums text-earth-700">
+                    <td className="px-3 py-1 tabular-nums text-earth-700">
                       {fmtDate(sub.startedAt)}
                     </td>
-                    <td className="px-3 py-3 tabular-nums text-earth-700">
+                    <td className="px-3 py-1 tabular-nums text-earth-700">
                       {fmtDate(sub.expiresAt)}
                     </td>
                     <td
-                      className={`px-3 py-3 tabular-nums ${lc.isSuspended ? "text-red-600" : lc.isExpired ? "text-orange-600" : "text-earth-700"}`}
+                      className={`px-3 py-1 tabular-nums ${lc.isSuspended ? "text-red-600" : lc.isExpired ? "text-orange-600" : "text-earth-700"}`}
                     >
                       {remainingText(lc)}
                     </td>
-                    <td className="px-3 py-3 text-right tabular-nums text-earth-700">
+                    <td className="px-3 py-1 text-right tabular-nums text-earth-700">
                       {sub.priceAmount != null
                         ? `NT$${sub.priceAmount.toLocaleString()}`
                         : "—"}
                     </td>
-                    <td className="max-w-[160px] truncate px-3 py-3 text-earth-500">
+                    <td className="max-w-[160px] truncate px-3 py-1 text-earth-500">
                       {sub.note ?? "—"}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-1 text-right">
                       <Link
                         href={`/hq/dashboard/stores/subscriptions/${store.id}`}
                         className="rounded-lg border border-earth-200 px-2.5 py-1 text-[12px] font-medium text-earth-700 hover:bg-earth-50"
@@ -258,12 +258,12 @@ export default async function StoreSubscriptionsListPage({
                 ) : (
                   <>
                     <td
-                      className="px-3 py-3 text-[12px] text-earth-400"
+                      className="px-3 py-1 text-[12px] text-earth-400"
                       colSpan={9}
                     >
                       尚未建立訂閱
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-1">
                       <div className="flex justify-end gap-1.5">
                         <Link
                           href={`/hq/dashboard/stores/subscriptions/${store.id}/trial`}

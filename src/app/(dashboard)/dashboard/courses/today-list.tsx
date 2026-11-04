@@ -52,11 +52,11 @@ export function CourseTodayList({
           <tbody className="divide-y">
             {sessions.map((s) => (
               <tr key={s.id}>
-                <td className="whitespace-nowrap px-4 py-3">
+                <td className="whitespace-nowrap px-4 py-1">
                   {formatTWDateTime(new Date(s.startsAt)).slice(11)}–
                   {formatTWDateTime(new Date(s.endsAt)).slice(11)}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-1">
                   <button
                     className="min-h-11 text-primary-700 underline"
                     onClick={() => setSelected(s.id)}
@@ -64,12 +64,12 @@ export function CourseTodayList({
                     {s.nameSnapshot}
                   </button>
                 </td>
-                <td className="px-4 py-3">{s.coach}</td>
-                <td className="px-4 py-3">{s.room}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-1">{s.coach}</td>
+                <td className="px-4 py-1">{s.room}</td>
+                <td className="px-4 py-1">
                   {s.booked}／{s.capacity}
                 </td>
-                <td className="px-4 py-2"><button className="min-h-11 rounded-lg border border-primary-200 px-3 text-primary-800" onClick={() => setSelected(s.id)}>名單{ s.unmarked > 0 ? ` · ${s.unmarked} 位待出席` : "／查看"}</button></td>
+                <td className="px-4 py-1"><button className="min-h-11 rounded-lg border border-primary-200 px-3 text-primary-800" onClick={() => setSelected(s.id)}>名單{ s.unmarked > 0 ? ` · ${s.unmarked} 位待出席` : "／查看"}</button></td>
               </tr>
             ))}
           </tbody>

@@ -1,4 +1,5 @@
 "use client";
+import {useBeautyPersonnelText} from "@/components/course-personnel-label";
 import {BeautyTechnicianRoster,type TechnicianReceipt} from './technician-roster';
 import dynamic from "next/dynamic";
 const BeautySharedGoodsPanel=dynamic(()=>import("./shared-goods-panel").then(m=>m.BeautySharedGoodsPanel));
@@ -16,6 +17,8 @@ import {beautyRosterPaymentSummary,beautyRosterCanUsePlan} from '@/lib/beauty/ro
 import {formatTWDateTime,toLocalDateStr} from '@/lib/date-utils';
 import type {BeautyDashboardData} from '@/server/beauty/queries';
 export function BeautyNativeRoster({allowPreparedSnapshot=true,onSnapshotInvalidated,onCommitted,data,bookingId,readOnly,busy=false,onBusyChange,onAttendance,onStatus,onMoney,onCustomer,pendingId,snapshot,expanded,onCut,onCopy,suspended=false,collectionRecoveryEnabled=false}:{allowPreparedSnapshot?:boolean;onSnapshotInvalidated?:()=>void;onCommitted?:()=>void;data:BeautyDashboardData;bookingId?:string|null;readOnly:boolean;busy?:boolean;onBusyChange:(value:boolean)=>void;onAttendance:(id:string,revision:number,choice:BeautyAttendanceChoice)=>void;onStatus:(id:string,revision:number,target:'COMPLETED'|'CANCELLED'|'NO_SHOW'|'RESERVED')=>void;onMoney:(kind:'collect'|'card'|'move'|'link',ids:string[],initialCharges?:import('@/server/beauty/service-charges').ServiceCharge[])=>void;onCustomer:(id:string)=>void;suspended?:boolean;collectionRecoveryEnabled?:boolean;onCopy?:(id:string)=>void;onCut?:(id:string)=>void;pendingId?:string|null;snapshot?:{sessionId:string;data:CourseRosterData};expanded?:{ids:string[];content:ReactNode}}){
+ const beautyText=useBeautyPersonnelText();
+
  const selectedGroupId=data.items.find(row=>row.id===bookingId)?.groupId;
  const compactSingle=!!bookingId&&data.items.filter(row=>selectedGroupId?row.groupId===selectedGroupId:row.id===bookingId).length===1;
  const [editAddOns,setEditAddOns]=useState<string|null>(null);
@@ -41,7 +44,7 @@ export function BeautyNativeRoster({allowPreparedSnapshot=true,onSnapshotInvalid
   if(!compactSingle&&onCopy&&data.access.writeAccess&&row.customerId)actions.push({label:"複製預約",onSelect:()=>onCopy(row.id)});
   if(data.manage.update){if(row.status!=='CANCELLED'){
    if(row.status==='RESERVED'&&data.addOnsEnabled)actions.push({label:'修改加做服務',onSelect:()=>setEditAddOns(row.id)});
-   if(row.status==='RESERVED')actions.push({label:'換技師／位置',onSelect:()=>onMoney('move',[row.id])});
+   if(row.status==='RESERVED')actions.push({label:beautyText('換技師／位置'),onSelect:()=>onMoney('move',[row.id])});
   }
    if(row.status!=='CANCELLED')actions.push({label:'取消預約',danger:true,onSelect:()=>onStatus(row.id,b.revision,'CANCELLED')});
    else actions.push({label:'恢復預約',onSelect:()=>onStatus(row.id,b.revision,'RESERVED')});
@@ -54,7 +57,7 @@ export function BeautyNativeRoster({allowPreparedSnapshot=true,onSnapshotInvalid
   const unavailable=b.technicianState&&b.technicianState.status!=='SCHEDULED';
   const usePlan=beautyRosterCanUsePlan(row);
   return {context:!compactSingle&&!readOnly&&!busy&&!technicianBusy&&row.status==='RESERVED'&&onCut?<button type="button" className="min-h-11 min-w-11 rounded text-primary-800 hover:bg-primary-50" aria-label={`${row.customerName} 剪下改期`} onClick={()=>onCut(row.id)}>✂</button>:undefined,pending:pendingId===row.id,expanded:expanded?.ids[0]===row.id?expanded.content:undefined,owner:b.locationName,status:row.status==='ATTENDED'?'已完成':row.status==='CANCELLED'?'已取消':row.status==='NO_SHOW'?(b.debit&&row.bookingKind==='CARD'?'未出席扣次':'未出席不扣次'):'已預約',mark:row.status==='ATTENDED'?'attended':row.status==='CANCELLED'?'cancelled':row.status==='NO_SHOW'?(b.debit&&row.bookingKind==='CARD'?'deducted':'leave'):'pending',statusTitle:'變更出席狀態',statusDisabled:readOnly||technicianBusy||!!unavailable||!data.manage.update||row.status==='CANCELLED',onStatus:()=>{if(unavailable||technicianBusy)return;if(row.status==='RESERVED'&&row.bookingKind!=='CARD'&&row.bookingKind!=='TRIAL'&&(!row.sportsBalance||row.sportsBalance.available<1)&&(!b.payment||b.payment.due>0)){if(data.manage.card&&row.customerId)onMoney('card',[row.customerId]);else if(data.manage.collect)onMoney('collect',[row.id],b.collectionQuote?[b.collectionQuote]:undefined);return;}onAttendance(row.id,b.revision,'ATTENDED');},feedback:compactSingle?undefined:<div>{addOnSnapshots.parse(b.addOnItems??[]).map(o=><p key={o.id}>＋{o.name} · {o.price?`$${o.price}`:"免費"} · {o.duration?`${o.duration} 分鐘`:"不增加時間"}</p>)}<p className="text-xs text-earth-600">{b.serviceName} · {formatTWDateTime(new Date(b.startsAt))}–{formatTWDateTime(new Date(b.endsAt)).split(' ').at(-1)}</p></div>,badge:null,cost:usePlan?'完成時扣1次':row.bookingKind==='CARD'&&!(addOnSnapshots.parse(b.addOnItems??[]).length>0&&b.payment&&b.payment.netPrice>0)?(row.cardId?(row.status==='RESERVED'||b.debit?'1次':'0次'):'—'):<span className="inline-flex flex-col items-center gap-1"><span className="whitespace-nowrap">{beautyRosterPaymentSummary(b)}</span>{!readOnly&&data.manage.collect&&(row.status!=='CANCELLED'||collectionRecoveryEnabled)&&(!b.payment||b.payment.due>0||collectionRecoveryEnabled)&&<button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50" disabled={busy||technicianBusy} onClick={()=>onMoney('collect',[row.id],b.collectionQuote?[b.collectionQuote]:undefined)}>{row.status!=='CANCELLED'&&b.payment&&b.payment.due>0?'收款':'核對收款'}</button>}</span>,balance:row.sportsBalance?`${row.sportsBalance.available} 次`:b.available??'—',balanceWarning:(row.sportsBalance?.available??b.available)===0};
- }}),[data,goods,read,sync,technicianReceipts,technicianBusy,onSnapshotInvalidated,onCommitted,suspended,collectionRecoveryEnabled,readOnly,busy,onStatus,onAttendance,onMoney,onCustomer,pendingId,snapshot,expanded,onCut,onCopy,compactSingle]);
+ }}),[data,goods,read,sync,technicianReceipts,technicianBusy,onSnapshotInvalidated,onCommitted,suspended,collectionRecoveryEnabled,readOnly,busy,onStatus,onAttendance,onMoney,onCustomer,pendingId,snapshot,expanded,onCut,onCopy,compactSingle,beautyText]);
  const selectedGroup=bookingId?data.items.find(b=>b.id===bookingId)?.groupId:undefined;
  const previewBookings=data.items.filter(b=>bookingId?(selectedGroup?b.groupId===selectedGroup:b.id===bookingId):toLocalDateStr(new Date(b.startsAt))===data.date).map(b=>({id:b.id,customerName:b.personName,status:b.status}));
  const preparedId=bookingId?`booking:${bookingId}`:`day:${data.date}`;

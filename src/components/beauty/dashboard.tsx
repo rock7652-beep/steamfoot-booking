@@ -1,4 +1,5 @@
 "use client";
+import {useBeautyPersonnelText} from "@/components/course-personnel-label";
 import {BeautyMoveDialog} from "./move-dialog";
 import {SportsMoveConfirm} from '@/app/(dashboard)/dashboard/courses/sports-move-confirm';
 import type {CourseMoveClipboard} from '@/app/(dashboard)/dashboard/courses/course-schedule-board';
@@ -90,6 +91,7 @@ export function BeautyDashboard({
   const closeRental=()=>{if(rentalGuard.pending)return;setRental(null);};
   const [listOpen,setListOpen]=useState(false);
   const params=useSearchParams();
+ const beautyText=useBeautyPersonnelText();
   const router = useRouter(),
     [pending, start] = useTransition(),
     [error, setError] = useState(""),
@@ -294,7 +296,7 @@ export function BeautyDashboard({
                 {
                   refund: "登錄退款（不自動退刷）",
                   card: "購買方案",
-                  move: "改期／換技師位置",
+                  move: beautyText("改期／換技師位置"),
                 }[moneyPanel.kind]
               }
             </h2>

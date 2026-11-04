@@ -104,8 +104,13 @@ describe("actual HQ shell rendering", () => {
       expect(html).not.toContain("收款與營收");
       expect(html).not.toContain("進銷存");
     } else {
-      expect(html.indexOf("顧客經營")).toBeLessThan(html.indexOf("進銷存"));
-      expect(html.indexOf("進銷存")).toBeLessThan(html.indexOf("營運</span>"));
+      expect(html.indexOf("顧客經營")).toBeLessThan(html.indexOf("營運</span>"));
+      if (module === "course") {
+        expect(html.indexOf("營運</span>")).toBeLessThan(html.indexOf("分析</span>"));
+        expect(html.indexOf("分析</span>")).toBeLessThan(html.indexOf("進銷存"));
+      } else {
+        expect(html.indexOf("進銷存")).toBeLessThan(html.indexOf("營運</span>"));
+      }
     }
     expect(html.indexOf(music ? "收費方式" : "方案管理")).toBeLessThan(html.indexOf("人員管理"));
     expect(html).not.toContain("數位管家名單</span>");

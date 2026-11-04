@@ -1466,7 +1466,7 @@ export function CourseWorkspace({
                     "durationMinutes" in item ? (item as Template) : null;
                   return (
                     <Fragment key={item.id}>
-                    {isInactiveItem(item)&&(index===0||!isInactiveItem(visibleItems[index-1]))&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?6:catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelectedIds([]);setShowInactive(v=>!v);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
+                    {isInactiveItem(item)&&(index===0||!isInactiveItem(visibleItems[index-1]))&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?6:catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-1"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelectedIds([]);setShowInactive(v=>!v);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
                     <tr
                       data-new-room={item.id === newRoomId ? "true" : undefined}
                       {...order.rowProps(item.id)}
@@ -1477,39 +1477,39 @@ export function CourseWorkspace({
                       )}
                     >
                       <td
-                        className="max-w-60 px-3 py-2 text-left font-medium text-primary-900"
+                        className="max-w-60 px-3 py-1 text-left font-medium text-primary-900"
                       >
                         {canEdit&&(view==="rooms"||!!catalogSource?.order)&&order.handle(item.id,item.name)}{canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" disabled={busyIds.includes(item.id)} checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}<button type="button" disabled={pending} className="min-h-11 text-left hover:underline disabled:opacity-50" onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing(template?{kind:"template",value:template}:{kind:"room",value:item});open(businessProfile!=="MUSIC" && canEdit?"edit":"inspect");}}>{item.name}</button>{item.id === newRoomId && <span className="ml-2 text-sm font-normal text-primary-700">剛新增</span>}
                         {!item.isActive && <span className="ml-2 text-xs text-earth-500">停用</span>}{template?.visibility === "HIDDEN" && <span className="ml-2 text-xs text-earth-500">隱藏</span>}{template && businessProfile==="MUSIC" && (!item.name.includes(template.classType==="PRIVATE"?"個別":template.classType==="SELF_ORGANIZED"?"自組":"團體")) && <span className="ml-2 whitespace-nowrap font-normal text-xs text-earth-500">{template.musicTrialMode?"體驗":template.classType==="PRIVATE"?"個別課":template.classType==="SELF_ORGANIZED"?"自組課":template.classType==="GROUP"?"團體課":"課型待補"}</span>}
 
                       </td>
-                      {template && !catalogSource && businessProfile!=="MUSIC" && <td className="whitespace-nowrap px-3 py-2">{template.classType==="PRIVATE"?"個別課":template.classType==="SELF_ORGANIZED"?"自組課":template.classType==="GROUP"?"團體課":"未設定"}</td>}
-                      {(businessProfile==="MUSIC" || catalogSource || view==="rooms")&&<td className="whitespace-nowrap px-3 py-2">{item.category || (businessProfile==="MUSIC" ? "未分類" : "—")}</td>}
+                      {template && !catalogSource && businessProfile!=="MUSIC" && <td className="whitespace-nowrap px-3 py-1">{template.classType==="PRIVATE"?"個別課":template.classType==="SELF_ORGANIZED"?"自組課":template.classType==="GROUP"?"團體課":"未設定"}</td>}
+                      {(businessProfile==="MUSIC" || catalogSource || view==="rooms")&&<td className="whitespace-nowrap px-3 py-1">{item.category || (businessProfile==="MUSIC" ? "未分類" : "—")}</td>}
                       {template ? (
                         <>
-                          <td className="whitespace-nowrap px-3 py-2 tabular-nums">
+                          <td className="whitespace-nowrap px-3 py-1 tabular-nums">
                             {template.durationMinutes} 分
                           </td>
-                          {catalogSource?<td className="whitespace-nowrap px-3 py-2 tabular-nums">{template.bufferMinutes??0} 分</td>:<>                          <td className="whitespace-nowrap px-3 py-2 tabular-nums">
+                          {catalogSource?<td className="whitespace-nowrap px-3 py-1 tabular-nums">{template.bufferMinutes??0} 分</td>:<>                          <td className="whitespace-nowrap px-3 py-1 tabular-nums">
                             {businessProfile === "MUSIC" ? template.musicTrialMode ? `體驗 1 堂 · ${template.musicTrialMode === "FREE" ? "免費" : `NT$ ${template.musicPricePerLesson ?? "待設定"}`}` : `${template.musicTermLessons ?? "待設定"} 堂／期 · NT$ ${template.musicPricePerLesson ?? "待設定"}／堂` : `${template.pointCost} 點／1 堂`}
                           </td>
-                          <td className="px-3 py-2 tabular-nums">
+                          <td className="px-3 py-1 tabular-nums">
                             {template.capacity}
                           </td></>}
                         </>
                       ) : (!catalogSource||!!catalogSource.rentalModule) && (<>
-                        {businessProfile!=="MUSIC"&&catalogSource?.rentalModule!=="beauty"&&<td className="whitespace-nowrap px-3 py-2 tabular-nums">{item.capacity ?? "—"}</td>}
-                        <td className="whitespace-nowrap px-3 py-2">{item.rentalEnabled ? "開放" : "未開放"}</td>
-                        <td className="whitespace-nowrap px-3 py-2 tabular-nums">{item.rentalHourlyRate == null ? "—" : item.rentalHourlyRate === 0 ? (item.rentalEnabled ? "免費" : "—") : `$${item.rentalHourlyRate.toLocaleString("zh-TW")}／時`}</td>
+                        {businessProfile!=="MUSIC"&&catalogSource?.rentalModule!=="beauty"&&<td className="whitespace-nowrap px-3 py-1 tabular-nums">{item.capacity ?? "—"}</td>}
+                        <td className="whitespace-nowrap px-3 py-1">{item.rentalEnabled ? "開放" : "未開放"}</td>
+                        <td className="whitespace-nowrap px-3 py-1 tabular-nums">{item.rentalHourlyRate == null ? "—" : item.rentalHourlyRate === 0 ? (item.rentalEnabled ? "免費" : "—") : `$${item.rentalHourlyRate.toLocaleString("zh-TW")}／時`}</td>
                       </>)}
-                      {(businessProfile === "MUSIC" || (catalogSource&&(!catalogSource.rentalModule||!!template))) && (<td className="whitespace-nowrap px-3 py-2">
+                      {(businessProfile === "MUSIC" || (catalogSource&&(!catalogSource.rentalModule||!!template))) && (<td className="whitespace-nowrap px-3 py-1">
                         <span
                           className={`rounded-md px-2 py-1 text-xs ${item.isActive ? "bg-primary-50 text-primary-700" : "bg-earth-100 text-earth-500"}`}
                         >
                           {template ? ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[template.visibility ?? "PUBLIC"]) : item.isActive ? "啟用":"停用"}
                         </span>
                       </td>)}
-                      <td className={`whitespace-nowrap px-3 py-2 align-middle ${view==="rooms"?"sticky right-0 z-10 min-w-[128px] bg-inherit text-center":businessProfile!=="MUSIC"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
+                      <td className={`whitespace-nowrap px-3 py-1 align-middle ${view==="rooms"?"sticky right-0 z-10 min-w-[128px] bg-inherit text-center":businessProfile!=="MUSIC"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
                         {sportsNative || businessProfile === "MUSIC" || beautyRoomActions ? <>
                         <div className="flex items-center justify-center gap-1">
                           {view==="rooms"&&!beautyRoomActions&&canEdit&&<button type="button" className={`${button} min-h-11`} aria-label={`編輯${item.name}`} disabled={pending} onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing({kind:"room",value:item});open("edit");}}>編輯</button>}
@@ -1549,7 +1549,7 @@ export function CourseWorkspace({
                     </Fragment>
                   );
                 })}
-                {!inactiveExpanded&&inactiveFilteredItems.length>0&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?6:catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelectedIds([]);setShowInactive(true);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>展開</span></button></td></tr>}
+                {!inactiveExpanded&&inactiveFilteredItems.length>0&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?6:catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-1"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelectedIds([]);setShowInactive(true);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>展開</span></button></td></tr>}
               </tbody>
             </table>
             {!filteredItems.length && (
