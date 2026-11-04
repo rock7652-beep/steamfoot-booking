@@ -1,4 +1,5 @@
 "use client";
+import {publishStoreProfileSaved} from "@/lib/store-profile-sync";
 import styles from "@/components/settings/settings-form-layout.module.css";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -56,6 +57,7 @@ export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved,
       if(!result.success){setMessage(result.error);return;}
       const confirmed=Object.fromEntries(Object.entries(result.data.values).filter(([key])=>key!=="section").map(([key,value])=>[key,String(value??"")]));
       setDraft(confirmed);setSaved(confirmed);revision.current=result.data.revision;
+      if(result.data.values.section==="store")publishStoreProfileSaved(storeId,result.data.values);
       if(result.data.values.section==="personnel") window.dispatchEvent(new CustomEvent("course-personnel-label-saved", {detail:{storeId,label:result.data.values.personnelLabel}}));
       setMessage(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");onSaved(result.data.values,result.syncWarning);
     }).finally(()=>{saving.current=false;});

@@ -412,6 +412,7 @@ export async function beautyDashboard(
   const currentCustomerLabels=new Map(customers.map(c=>[c.id,c]));
   return {
     rosterSnapshots,
+    ...({openingHoursConfigured:calendarHours.length>0} as {openingHoursConfigured?:boolean}),
     planSaleCosts,
     chargeRulesActive:beautyChargeRulesEnabled(a.storeId),
     chargeCatalog,
