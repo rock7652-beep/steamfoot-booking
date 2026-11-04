@@ -40,7 +40,7 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
   let body: React.ReactNode;
   {
     const canPaymentRequest = checkPermission(user.role, user.staffId, "plans.edit");
-    const [[store, rule, canEdit, config, canPayment, canStaff, canPlans], [digitalButler, referralShare, lineReminder, customerCare, waitlistFeature, musicGrant], usage] = await Promise.all([
+    const [[store, rule, canEdit, config, canPayment, canStaff, canPlans], [digitalButler, referralShare, lineReminder, customerCare, waitlistFeature, musicGrant, fitnessGrant], usage] = await Promise.all([
     settingsStep("read_config", () => Promise.all([
       prisma.store.findUnique({
         where: { id: storeId },
@@ -60,6 +60,7 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
       hasStoreFeature(storeId, FEATURES.CUSTOMER_CARE),
       hasStoreFeature(storeId, FEATURES.COURSE_WAITLIST),
       prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}}),
+      process.env.COURSE_AGREEMENTS_FITNESS_ENABLED === "1" ? prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.fitness",status:"ENABLED"},select:{id:true}}) : null,
     ])),
     canPaymentRequest.then(allowed => allowed ? settingsStep("read_usage", () => getStoreUsage(storeId)) : null),
     ]);
@@ -79,8 +80,8 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
     body = (<>
       {!readOnly&&["OWNER","ADMIN"].includes(user.role)&&<CourseSetupGuide storeId={storeId} key={`setup:${storeId}`} manual {...await settingsStep("read_setup", () => getCourseSetup(storeId,user.id))} localSections/>}
       <CourseSettingsWorkspace canAddOns={canAddOns}
-        canAgreementRecords={process.env.COURSE_AGREEMENTS_ENABLED === "1" && music && await checkPermission(user.role,user.staffId,"customer.read") && await checkPermission(user.role,user.staffId,"business_hours.view")}
-        canAgreements={process.env.COURSE_AGREEMENTS_ENABLED === "1" && music && canEdit && !readOnly}
+        canAgreementRecords={process.env.COURSE_AGREEMENTS_ENABLED === "1" && (music || !!fitnessGrant) && await checkPermission(user.role,user.staffId,"customer.read") && await checkPermission(user.role,user.staffId,"business_hours.view")}
+        canAgreements={process.env.COURSE_AGREEMENTS_ENABLED === "1" && (music || !!fitnessGrant) && canEdit && !readOnly}
         publicTrialHref={store?.slug ? resolveBookingLineEntry(store.slug)?.url??null : null}
         native={(await sportsNativePreview(storeId))} music={music}
         panelContent={featurePanelAllowed ? <CourseSettingsPanelContent panel={panel} query={panelQuery} /> : null}

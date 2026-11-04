@@ -5,33 +5,39 @@ import type { Prisma } from '../../../generated/course-client';
 import { coursePrisma } from '@/lib/course-db';
 import { prisma } from '@/lib/db';
 import { AppError } from '@/lib/app-error';
-import { buildCourseAgreement, courseAgreementDraftSchema, emptyCourseAgreement, validateCourseAgreementForPublish } from '@/lib/course-agreement';
+import { buildCourseAgreement, courseAgreementDraftSchema, emptyCourseAgreement, emptyFitnessCourseAgreement, emptyBeautyAgreement, validateCourseAgreementForPublish } from '@/lib/course-agreement';
 import type { CourseAgreementDraft, CourseAgreementPreview, CourseAgreementState } from '@/lib/course-agreement';
 import { requireCourseAgreementAccess } from './course-agreement-access';
-import { lockCourseStore } from './course-store-lock';
+import { lockAgreementStore } from './agreement-store-lock';
 import { courseAgreementSigningToken } from './course-agreement-signing-token';
 
 const scopeSchema = z.object({ storeId: z.string().min(1).max(200), revision: z.number().int().nonnegative() });
 const saveSchema = scopeSchema.extend({ draft: courseAgreementDraftSchema }).strict();
 const publishSchema = scopeSchema.extend({ documentHash: z.string().regex(/^[a-f0-9]{64}$/), acknowledged: z.literal(true) }).strict();
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-export function assertCourseAgreementsEnabled() {
+export function assertCourseAgreementsEnabled(module: 'COURSE' | 'BEAUTY' = 'COURSE') {
+  if (module === 'BEAUTY') { if (process.env.BEAUTY_AGREEMENTS_ENABLED !== '1') throw new AppError('FORBIDDEN','美業服務約定尚未開放'); return; }
   if (process.env.COURSE_AGREEMENTS_ENABLED !== '1') throw new AppError('FORBIDDEN', '課程約定書尚未開放');
 }
 const includeActive = { activeVersion: { select: { id: true, version: true, documentHash: true } } } as const;
 
-export async function readCourseAgreementSettings(expectedStoreId?: string): Promise<CourseAgreementState> {
-  assertCourseAgreementsEnabled();
-  const actor = await requireCourseAgreementAccess('manage', expectedStoreId);
+export async function readCourseAgreementSettings(expectedStoreId?: string, module: 'COURSE' | 'BEAUTY' = 'COURSE'): Promise<CourseAgreementState> {
+  assertCourseAgreementsEnabled(module);
+  const actor = await (module === 'BEAUTY' ? requireCourseAgreementAccess('manage', expectedStoreId, module) : requireCourseAgreementAccess('manage', expectedStoreId));
   const [setting, store, config, bookingRule] = await Promise.all([
     coursePrisma.courseAgreementSetting.findUnique({ where: { storeId: actor.storeId }, include: includeActive }),
     prisma.store.findUnique({ where: { id: actor.storeId }, select: { name: true } }),
     prisma.shopConfig.findUnique({ where: { storeId: actor.storeId }, select: { shopPhone: true, address: true } }),
-    coursePrisma.courseBookingRule.findUnique({ where: { storeId: actor.storeId }, select: { cancellationLeadMinutes: true } }),
+    module === 'BEAUTY' ? import('@/lib/beauty-db').then(({beautyPrisma})=>beautyPrisma.beautySetting.findUnique({where:{storeId:actor.storeId},select:{cancelLeadMinutes:true}})).then(rule=>({cancellationLeadMinutes:rule?.cancelLeadMinutes??240})) : coursePrisma.courseBookingRule.findUnique({ where: { storeId: actor.storeId }, select: { cancellationLeadMinutes: true } }),
   ]);
-  return { storeId: actor.storeId, revision: setting?.revision ?? 0,
-    draft: setting?.draft ? courseAgreementDraftSchema.parse(setting.draft) : emptyCourseAgreement(store?.name, config?.shopPhone ?? '', config?.address ?? '', bookingRule?.cancellationLeadMinutes ?? 0),
+  const draft = setting?.draft ? courseAgreementDraftSchema.parse(setting.draft) : (actor.agreementProfile === 'BEAUTY' ? emptyBeautyAgreement : actor.agreementProfile === 'FITNESS' ? emptyFitnessCourseAgreement : emptyCourseAgreement)(store?.name, config?.shopPhone ?? '', config?.address ?? '', bookingRule?.cancellationLeadMinutes ?? 0);
+  assertProfile(draft, actor.agreementProfile);
+  return { storeId: actor.storeId, revision: setting?.revision ?? 0, draft,
     active: setting?.activeVersion ?? null };
+}
+
+function assertProfile(draft: CourseAgreementDraft, profile?: 'MUSIC' | 'FITNESS' | 'BEAUTY') {
+  if ((draft.profile ?? 'MUSIC') !== (profile ?? 'MUSIC')) throw new AppError('CONFLICT', '約定書範本與本店模組不符，請重新開啟設定');
 }
 
 function preview(storeId: string, revision: number, draft: CourseAgreementDraft, active: CourseAgreementState['active']): CourseAgreementPreview {
@@ -39,12 +45,13 @@ function preview(storeId: string, revision: number, draft: CourseAgreementDraft,
   return { storeId, revision, draft, active, document, documentHash: hash(document) };
 }
 
-export async function saveCourseAgreementDraft(raw: unknown): Promise<CourseAgreementPreview> {
-  assertCourseAgreementsEnabled();
+export async function saveCourseAgreementDraft(raw: unknown, module: 'COURSE' | 'BEAUTY' = 'COURSE'): Promise<CourseAgreementPreview> {
+  assertCourseAgreementsEnabled(module);
   const input = saveSchema.parse(raw);
-  const actor = await requireCourseAgreementAccess('manage', input.storeId);
+  const actor = await (module === 'BEAUTY' ? requireCourseAgreementAccess('manage', input.storeId, module) : requireCourseAgreementAccess('manage', input.storeId));
+  assertProfile(input.draft, actor.agreementProfile);
   return coursePrisma.$transaction(async tx => {
-    await lockCourseStore(tx, actor.storeId);
+    await lockAgreementStore(tx, actor.storeId, actor.agreementProfile);
     const current = await tx.courseAgreementSetting.findUnique({ where: { storeId: actor.storeId }, include: includeActive });
     // Identical retries are safe, including a lost response after a successful save.
     if (current?.draft && hash(courseAgreementDraftSchema.parse(current.draft)) === hash(input.draft)) {
@@ -58,15 +65,16 @@ export async function saveCourseAgreementDraft(raw: unknown): Promise<CourseAgre
   });
 }
 
-export async function publishCourseAgreement(raw: unknown): Promise<CourseAgreementState> {
-  assertCourseAgreementsEnabled();
+export async function publishCourseAgreement(raw: unknown, module: 'COURSE' | 'BEAUTY' = 'COURSE'): Promise<CourseAgreementState> {
+  assertCourseAgreementsEnabled(module);
   const input = publishSchema.parse(raw);
-  const actor = await requireCourseAgreementAccess('manage', input.storeId);
+  const actor = await (module === 'BEAUTY' ? requireCourseAgreementAccess('manage', input.storeId, module) : requireCourseAgreementAccess('manage', input.storeId));
   return coursePrisma.$transaction(async tx => {
-    await lockCourseStore(tx, actor.storeId);
+    await lockAgreementStore(tx, actor.storeId, actor.agreementProfile);
     const current = await tx.courseAgreementSetting.findUnique({ where: { storeId: actor.storeId }, include: includeActive });
     if (!current?.draft) throw new AppError('VALIDATION', '請先保存並預覽約定書');
     const draft = courseAgreementDraftSchema.parse(current.draft);
+    assertProfile(draft, actor.agreementProfile);
     validateCourseAgreementForPublish(draft);
     const document = buildCourseAgreement(draft);
     if (hash(document) !== input.documentHash) throw new AppError('CONFLICT', '草稿已變更，請重新預覽後啟用');
@@ -92,12 +100,12 @@ export async function publishCourseAgreement(raw: unknown): Promise<CourseAgreem
 }
 
 /** Optional feature: pausing new signatures never changes bookings or purchases. */
-export async function pauseCourseAgreement(raw: unknown): Promise<CourseAgreementState> {
-  assertCourseAgreementsEnabled();
+export async function pauseCourseAgreement(raw: unknown, module: 'COURSE' | 'BEAUTY' = 'COURSE'): Promise<CourseAgreementState> {
+  assertCourseAgreementsEnabled(module);
   const input = scopeSchema.extend({ activeVersionId: z.string().min(1) }).strict().parse(raw);
-  const actor = await requireCourseAgreementAccess('manage', input.storeId);
+  const actor = await (module === 'BEAUTY' ? requireCourseAgreementAccess('manage', input.storeId, module) : requireCourseAgreementAccess('manage', input.storeId));
   return coursePrisma.$transaction(async tx => {
-    await lockCourseStore(tx, actor.storeId);
+    await lockAgreementStore(tx, actor.storeId, actor.agreementProfile);
     const current = await tx.courseAgreementSetting.findUnique({ where: { storeId: actor.storeId }, include: includeActive });
     if (!current?.draft) throw new AppError('VALIDATION', '尚無已保存的約定書');
     const draft = courseAgreementDraftSchema.parse(current.draft);
