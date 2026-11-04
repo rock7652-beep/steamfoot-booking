@@ -101,14 +101,14 @@ export function DataTable<Row>({
   }
 
   return (
-    <div className={`overflow-x-auto rounded-xl border border-earth-200 bg-white ${className ?? ""}`}>
+    <div className={`isolate overflow-x-auto rounded-xl border border-earth-200 bg-white ${className ?? ""}`}>
       <table data-striped-list data-admin-table className="min-w-[720px] w-full text-left text-sm">
         <thead className="bg-primary-50 text-sm font-semibold text-primary-900">
           <tr>
             {columns.map((c) => (
               <th
                 key={c.key}
-                className={`px-3 align-middle py-2 ${c.width ?? ""} ${c.sticky === "right" ? "sticky right-0 z-10 bg-primary-50" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""}`}
+                className={`px-3 align-middle py-2 ${c.width ?? ""} ${c.sticky === "right" ? "sticky right-0 z-40 bg-primary-50" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""}`}
               >
                 {c.header}
               </th>
@@ -130,7 +130,7 @@ export function DataTable<Row>({
                 return (
                   <td
                     key={c.key}
-                    className={`px-3 align-middle ${c.sticky === "right" ? "sticky right-0 z-10 bg-inherit" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
+                    className={`px-3 align-middle ${c.sticky === "right" ? "sticky right-0 z-30 bg-inherit" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
                   >
                     {c.accessor(row, i)}
                   </td>
@@ -151,7 +151,7 @@ export function DataTable<Row>({
                       return (
                         <td
                           key={c.key}
-                          className={`px-3 align-middle ${c.sticky === "right" ? "sticky right-0 z-10 bg-inherit" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
+                          className={`px-3 align-middle ${c.sticky === "right" ? "sticky right-0 z-30 bg-inherit" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
                         >
                           {colIdx === firstLinkColIdx ? (
                             <Link
