@@ -22,9 +22,32 @@ jobs:
     timeout-minutes: 5
     environment: Production – steamfoot-booking
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+      - name: Retrieve only diagnostic files from the exact approved commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/tarball/$GITHUB_SHA" > "$RUNNER_TEMP/referral-source.tar.gz"
+          python3 - <<'PY'
+          import os, tarfile
+          from pathlib import Path
+          required = {'package.json', 'package-lock.json',
+            'scripts/subscription-referral-runtime-preflight.mjs',
+            'scripts/qa/subscription-referral-runtime-preflight.test.mjs'}
+          with tarfile.open(Path(os.environ['RUNNER_TEMP']) / 'referral-source.tar.gz') as archive:
+            for member in archive.getmembers():
+              relative = member.name.partition('/')[2]
+              if relative not in required:
+                continue
+              if not member.isfile() or member.size > 10_000_000:
+                raise RuntimeError('Unexpected diagnostic source member')
+              destination = Path(relative)
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              destination.write_bytes(archive.extractfile(member).read())
+              required.remove(relative)
+          if required:
+            raise RuntimeError('Missing diagnostic source files')
+          PY
+          rm "$RUNNER_TEMP/referral-source.tar.gz"
       - uses: actions/setup-node@v4
         with:
           node-version: 24
