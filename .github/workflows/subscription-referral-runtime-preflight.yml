@@ -32,7 +32,8 @@ jobs:
           from pathlib import Path
           required = {'package.json', 'package-lock.json',
             'scripts/subscription-referral-runtime-preflight.mjs',
-            'scripts/qa/subscription-referral-runtime-preflight.test.mjs'}
+            'scripts/qa/subscription-referral-runtime-preflight.test.mjs',
+            'scripts/beauty-production-ca.mjs', 'scripts/certs/supabase-root-2021.crt'}
           with tarfile.open(Path(os.environ['RUNNER_TEMP']) / 'referral-source.tar.gz') as archive:
             for member in archive.getmembers():
               relative = member.name.partition('/')[2]
@@ -58,6 +59,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/referral-preflight"
           cp package.json package-lock.json "$RUNNER_TEMP/referral-preflight/"
           cp scripts/subscription-referral-runtime-preflight.mjs "$RUNNER_TEMP/referral-preflight/"
+          cp scripts/beauty-production-ca.mjs "$RUNNER_TEMP/referral-preflight/"
+          mkdir -p "$RUNNER_TEMP/referral-preflight/scripts/certs"
+          cp scripts/certs/supabase-root-2021.crt "$RUNNER_TEMP/referral-preflight/scripts/certs/"
           cd "$RUNNER_TEMP/referral-preflight"
           npm ci --ignore-scripts --omit=dev --no-audit --no-fund
       - name: Read catalog through existing protected connection
