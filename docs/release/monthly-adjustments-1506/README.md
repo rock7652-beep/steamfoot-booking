@@ -25,7 +25,7 @@
 3. 將整合 head 推送原 #1506 分支，重用其已審核的隔離 Preview 設定；只建立一次自動預覽。舊 `a6330408` 預覽不含月結，不能當作整合證據。
 4. 核對同一 head 的遠端 CI、READY Preview；Workers 自動檢查若失敗，判斷與正式 Vercel 路由的實際關係，不關閉或竄改該檢查。
 5. 正式庫唯讀 preflight：兩張新表與同名 ledger 均不存在、無失敗 migration、Staff／BeautyTechnician 複合唯一索引已存在。記錄舊 production deployment 供程式回退。
-6. 執行兩份精確 SQL 與 ledger，核對結果後將 #1506 標示 ready 並合併 main，等待自動正式部署。
+6. 執行兩份精確 SQL 與 ledger，核對結果後將 #1506 標示 ready 並合併 main。main 自動部署既有設定為關閉，沿用原專案手動建立 main／production 部署。
 7. 查驗 main／production 的實際 SHA、READY、正式域名及唯讀 smoke。正式帳務不寫測試資料，LINE 真機／實際私人帳號未驗項目如實保留。
 
 ## 回退
@@ -41,3 +41,16 @@
 ## 費用與整合
 
 此次使用者已授權同批正式發布。更新 #1506 會觸發 CI 與必要 Preview；合併後觸發正式建置。舊預覽不含新碼，不能重用為本版。建置可能產生費用，目前無法估算；不另手動重建同一版，不修改預算或停用正式站。
+
+## 正式執行紀錄（2026-11-04）
+
+- #1506 已於 05:46:12 UTC 合併；正式程式來源 `ae300c5090e4ae52a90c9960f072cdd105adc2b1`，整合 head `c31da278c2d041d129228adf5bb99fd74dd43e9e`。
+- 整合 head 的遠端 CI 全量 Vitest、targeted tests、Typecheck、changed-file ESLint，以及 sports／work-orders PostgreSQL audit 均成功。Workers check 失敗，保留原結果；本次正式 HTTP 路由由 Vercel 提供，未變更 Cloudflare 設定。
+- 正式主庫兩份 migration 已在同一交易完成，Prisma ledger 精確 checksum、finished=true、steps=1；兩張表 RLS=true，筆數各 0，PUBLIC／anon／authenticated grants=0。正式 Beauty 角色必要 SELECT／月份 INSERT 授權已查核。
+- 管理 SQL 連線不允許 SET ROLE 至 Beauty 專用角色，此途徑的實際角色登入未驗；沒有增加角色會員或放寬權限。獨立 PGlite 角色隔離測試已通過，正式既有 build 仍執行原受限角色登入 gates。
+- 第一個正式建置 `dpl_25rTBRVJNphHoJggfhckobm1MmGx` 以 SHA 當 ref，觸發既有 main-only scope gate 而失敗，未切換正式域名。修正部署參數為 ref=main 並固定相同 SHA 後建立 `dpl_71Fh1kF3xS6rE6rttx3VZ2j3j6eZ`；未修改程式或 gate，未重跑 migration。
+
+- 最終正式部署 `dpl_71Fh1kF3xS6rE6rttx3VZ2j3j6eZ` 已 READY，main／來源 SHA 為 `ae300c5090e4ae52a90c9960f072cdd105adc2b1`。完整 Next 建置成功；已執行 production promote，API 確認 `www.steamfoot.com` 及 `steamfoot.com` 均指向此部署，根網域仍 308 導向 www。
+- 切換後匿名唯讀 smoke：官網、`/hq/login`、`/api/auth/session` 均 200，session=null；月結路徑 `/dashboard/service-fee-calculator` 未登入正常導向 `/hq/login`。僅 GET，未新增正式帳務／顧客／付款／通知。
+- 四模組真實登入及加減項、月結鎖定／重開操作以隔離本地 PostgreSQL 驗收為依據；正式登入後操作、LINE 真機未另行提交測試資料驗證，不將匿名 smoke 當成完整正式業務回寫證據。
+- 本次收尾文件及 smoke 證據只作本地提交，不再推送觸發 Preview；實際正式程式版本維持上述合併 SHA。
