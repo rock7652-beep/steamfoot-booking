@@ -1,7 +1,7 @@
-# 課程約定書：隔離整合
+# 課程共同約定與 1502 整合
 
 原實作分支：`codex/course-agreements-core`；基底：`3a00ca95`。原作者為本任務。
-目前整合分支：`codex/agreements-1502-integration`；已 push 並建立草稿 PR [#1504](https://github.com/rock7652-beep/steamfoot-booking/pull/1504)。未合併正式站，正式資料庫與功能開關未變動。
+整合分支：`codex/agreements-1502-integration`；PR [#1504](https://github.com/rock7652-beep/steamfoot-booking/pull/1504)。以下為 2026-11-04 合併前驗收與發布方案；實際 main 合併提交、正式部署 ID 與功能旗標，以 PR 最新發布紀錄為準。
 
 ## 最新合併安排（使用者 2026-11-03 指示）
 
@@ -9,7 +9,7 @@
 
 以 main `d3125942` 整合 #1502 head `e0efbae6` 與共同約定分支 `865efa39`，保留雙方 commit ancestry。唯一衝突在 `vercel.json` 的自動預覽停用清單，已保留雙方項目。#1502 的原分支未被修改；87/90 兩秒內的既有接受結果不改寫為 90/90。其 Preview connection limit=2 未複製至正式環境。
 
-`942dbf42` 的整合相關 20 檔 209 項測試通過，包含預覽邊界與 Supabase 顯式函式權限回歸。變更檔案 ESLint 通過。本機全站 `tsc --noEmit --incremental false` 以 8GB heap 通過；預設 4GB heap 曾不足。`08ad5f3e` 的遠端 Typecheck、Targeted tests、Changed-file ESLint、music-makeup-postgres、sports-shared-card-postgres 已通過；最終 head 必須再核對 CI。完整業務驗收仍未完成，不以合成 UI 測試取代。
+最終應用程式版本 `7926ec40` 的遠端 Typecheck、Targeted tests、Changed-file ESLint、Full Vitest baseline、music-makeup-postgres、sports-shared-card-postgres 與 Vercel 建置均通過。原全站測試曾抓到新標題未用 `admin-page-title`，已修正，不是略過失敗。另增加發布包的完整回滾、重放／部分狀態拒絕測試；最後 PR head 仍須核對 CI。本機全站 TypeScript 以 8GB heap 通過；預設 4GB heap 曾不足。
 
 隔離測試 DB `ttworfzgwejdeolegkxl` 已執行本次兩份新增 migration；僅新增共同約定表，不執行其他 pending migration。每份 SQL 的 SHA-256 與實際執行結果於同一批次登記 Prisma ledger；MCP 同時留下單筆 Supabase rehearsal migration 紀錄，沒有新增另一套應用程式遷移工具。五張表的 RLS 均開啟，anon/authenticated 均無直接權限。正式 DB `qijlnhtpbintanzpxkvf` 尚未執行這兩份 migration。
 
@@ -17,9 +17,15 @@
 
 整合預覽限定精確 Vercel Preview 分支／repo、既有隔離 DB 與專屬連結金鑰，跳過自動 DDL，保留 runtime outbound suppression。空值 LINE override 未阻止部署繼承，因此改用明確無效的停用值；實際憑證仍被 gate 拒絕。測試分支可用金鑰不可複製至正式環境。
 
-自動審核拒絕建立可轉傳的預覽存取連結，理由為可能暴露私人測試資料。尚未取得該存取授權，沒有改用其他分享 API 或移除 Deployment Protection。現有工具未提供已登入的瀏覽器或可用的開發 OIDC；完整 hosted 登入／簽署／下載驗證因此未完成。
+首次臨時存取連結被自動審核拒絕後，使用者於 2026-11-04 明確同意建立 23 小時有效、僅供驗證的存取連結。取得同意後才建立；前一版連結已撤銷，本版於驗收後撤銷，不公開張貼，也不移除 Deployment Protection。
 
-具體待驗版本為 `942dbf42`，部署 `dpl_HJwovtjdSTd3iwKQH9eSSie9ukz7`。已通過隔離環境 preflight 並進入 Next production build；是否 READY 須另讀最新狀態。一次直接 HTTP 檢查確認 `/login` 轉往 Vercel SSO，不是應用程式登入問題。未輸出或轉存正式 DB 密碼；開發連線未通過隔離 DB 判斷，因此沒有使用。測試 fixture 為本任務新建之 demo store `qa_agreements_1502_20261103` 與 owner `qa_agreements_1502_owner`，不是原 #1502 的停用 QA 帳號。
+實際驗收部署為 `dpl_2siHbgN3s7UD7h11G8p16FpUw6qf`（`7926ec40`，READY）。測試 fixture 為本任務新建之 demo store `qa_agreements_1502_20261103` 與 owner `qa_agreements_1502_owner`，不是原 #1502 的停用 QA 帳號。使用真實登入、隔離 PostgreSQL、Server Actions 與 PDF routes；學員 context 僅帶 Vercel 存取 cookie，沒有店長登入。未輸出或轉存正式 DB 密碼。
+
+真實流程已通過：設定固定前一日 21:00 → 伺服器儲存預覽 → 啟用版本 → QR 同環境 → 未成年／代理人簽署 → 學員下載 PDF → 代理人姓名搜尋 → 店長下載／查看 → 暫停 → 原副本仍可下載。兩端 PDF 的文字完全一致，中文、簽名、版本及台灣時間完整；另驗錯誤店家 scope 拒絕與匿名店長 PDF HTTP 401。暫停頁為 Next streamed not-found HTTP 200，但不顯示簽署表單，不能僅用 HTTP 200 判斷可簽署。
+
+瀏覽器模擬 1366×900、1024×768、768×1024、390×844，預覽、紀錄及詳情無全頁水平溢位；並非實體 iPad／手機。證據位於 `reports/course-agreements-hosted`；彙整見 `docs/verification/course-agreements-1502-20261104.json`。可重跑的 hosted 腳本在 `scripts/qa/course-agreement-hosted-login.cjs` 與 `scripts/qa/course-agreement-hosted-browser.cjs`；需要私有臨時存取／測試帳號檔，且固定隔離部署與門市，禁止用於正式店家。
+
+測試另抓到部署金鑰名稱誤用複數，已改用服務實際讀取的 `COURSE_AGREEMENT_LINK_SECRET`；新增 build configuration gate，在進行任何 migration 前拒絕缺漏／過短／拼錯金鑰。正式金鑰須重新產生，不沿用測試值。
 
 ## 已實作
 
@@ -161,16 +167,14 @@
 - `node --conditions=react-server --import tsx scripts/qa/course-agreement-pdf-artifact.ts` 與 `node scripts/qa/course-agreement-records-browser.mjs`：合成 PDF 與查詢／下載 UI 驗證通過。
 - Prisma generate 僅產生本 worktree 的忽略檔案；資料表與跨店外鍵由 PGlite 測試實際執行。
 
-## 下一階段
+## 發布與回退
 
-以獨立 staging 環境完成簽署 → 後台查詢 → PDF 下載的整段登入與資料驗收，再核對備份還原與正式發布條件；逐份查詢／下載已完成，不代表已具備完整營運備份與批次匯出。
+發布只執行 `scripts/course-agreements-migration-bundle.mjs` 列出的三份 SQL，逐份校驗原始 SHA-256。單一 PostgreSQL DO statement 內新增五表、函式／權限及 Prisma ledger，遇既有／部分狀態即拒絕，lock timeout 3 秒；不執行其他 pending migration，不更新既有店家、會員、預約、付款或通知。合併前需再次讀取正式 DB 目標、相依索引、零既有約定物件與 ledger；完成後回讀 RLS、授權、immutable trigger、checksum 與既有資料筆數。
 
-正式開放前另需：
+正式全域旗標與獨立金鑰備妥後，main 重新以正式環境建置，不直接提升連接測試 DB 的 Preview。各店沒有設定列或啟用版本，保持選用；不替真實店家建立草稿、發布或簽署。保留 #1502 正式預設 connection limit=1，不複製其實驗用值 2。官方網域已核對為本 Vercel project 的 `www.steamfoot.com`，apex 308 導向 www；不變更 Cloudflare 整合，亦不將其既有非正式路由 build failure 視為本次正式流量驗收。
 
-1. 在獨立 staging PostgreSQL 驗證 migration、RLS、交易併發與完整登入流程。
-2. 審閱提供時間、確認時間與簽署時間須保存實際值，不宣稱單純勾選已滿五天或放棄法定權利。
-3. Customer 只能經可信識別明確連結，不以姓名／電話自動認領。
-4. 確認保存期限、依法刪除／封存與備份還原機制。immutable trigger 僅為一般操作保護，須另設受控清理程序。
-5. 完成真實後台桌機／iPad 驗收、地方適用條文與個資告知確認，再提供發布方案供核准。
+DDL 失敗由交易整批回滾；發布後若回退，切回已固定的上一正式應用部署並保留新增結構與已簽證據，不以舊 DB 快照覆蓋新付款／預約。發版前以 PGlite 實際測過末段故意失敗，DDL 與 Prisma ledger 完整回滾、原會員資料保留。
 
-本 migration 尚未在正式資料庫執行。禁止直接把原型 SQLite／JSON 雲端快照搬入正式資料庫。
+另以隔離環境第一份真實合成簽署匯出作邏輯備份，還原至新的本機 PGlite，再核對五表筆數、條款／填表快照、PNG 雜湊及 immutable 保護，結果見 `logical-restore.json`。這不是正式雲端實體備份或 PITR 還原測試；本任務未新增全量營運備份、批次匯出、自動到期刪除或法律審查服務。保存期限與依法刪除／封存仍依店家告知及受控維運程序處理，不藉一般操作刪改簽署證據。
+
+正式部署證據及開關狀態寫入 PR 發布紀錄。禁止將原型 SQLite／JSON 雲端快照或測試簽署搬入正式資料庫。
