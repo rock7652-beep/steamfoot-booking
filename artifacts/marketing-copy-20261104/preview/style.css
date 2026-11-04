@@ -2811,6 +2811,9 @@
   .border-\[\#153B31\]\/20 {
     border-color: color-mix(in oklab, #153B31 20%, transparent);
   }
+  .border-\[\#153B31\]\/35 {
+    border-color: color-mix(in oklab, #153B31 35%, transparent);
+  }
   .border-\[\#315e49\] {
     border-color: #315e49;
   }
@@ -4975,6 +4978,9 @@
   }
   .opacity-60 {
     opacity: 60%;
+  }
+  .opacity-65 {
+    opacity: 65%;
   }
   .opacity-70 {
     opacity: 70%;
@@ -8532,6 +8538,11 @@
   .lg\:gap-8 {
     @media (width >= 64rem) {
       gap: calc(var(--spacing) * 8);
+    }
+  }
+  .lg\:gap-10 {
+    @media (width >= 64rem) {
+      gap: calc(var(--spacing) * 10);
     }
   }
   .lg\:self-center {
