@@ -1,0 +1,7 @@
+import {expect,it} from 'vitest';
+import {calendarPerformanceVariant} from '@/lib/calendar-performance-preview';
+import {CALENDAR_PHASE_PREVIEW_BRANCH} from '../../scripts/sports-shared-card-preview-scope.mjs';
+const env={SPORTS_REDESIGN_STAGING:'1',SPORTS_REDESIGN_PREVIEW:'1',VERCEL:'1',VERCEL_ENV:'preview',VERCEL_PROJECT_ID:'prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR',VERCEL_GIT_COMMIT_REF:CALENDAR_PHASE_PREVIEW_BRANCH,VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:'postgresql://postgres.ttworfzgwejdeolegkxl@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres',DIRECT_URL:'postgresql://postgres@db.ttworfzgwejdeolegkxl.supabase.co/postgres'};
+const headers=new Headers({'x-course-calendar-variant':'baseline'});
+it('permits only two explicit QA comparison variants',()=>{expect(calendarPerformanceVariant(headers,env)).toBe('baseline');expect(calendarPerformanceVariant(new Headers({'x-course-calendar-variant':'optimized'}),env)).toBe('optimized');expect(calendarPerformanceVariant(new Headers({'x-course-calendar-variant':'other'}),env)).toBeUndefined();});
+it.each([{VERCEL_ENV:'production'},{VERCEL_PROJECT_ID:'other'},{VERCEL_GIT_COMMIT_REF:'main'},{DATABASE_URL:env.DATABASE_URL.replace('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf')},{SPORTS_REDESIGN_PREVIEW:''},{WORKERS_CI_BRANCH:CALENDAR_PHASE_PREVIEW_BRANCH}])('ignores client variants outside the exact isolated environment: %j',patch=>expect(calendarPerformanceVariant(headers,{...env,...patch})).toBeUndefined());

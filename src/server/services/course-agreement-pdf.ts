@@ -1,0 +1,61 @@
+import 'server-only';
+import PDFDocument from 'pdfkit';
+import { join } from 'node:path';
+import { formatTWDateTime } from '@/lib/date-utils';
+import type { CourseAgreementReceipt } from '@/lib/course-agreement-signing';
+/** Private in-memory rendering: no remote fonts, browser service or temporary personal files. */
+export async function createCourseAgreementPdf(value: CourseAgreementReceipt): Promise<Buffer> {
+  const font = join(process.cwd(), 'assets/course-agreements/NotoSansCJKtc-Regular.otf');
+  const doc = new PDFDocument({ size: 'A4', margin: 48, bufferPages: true, font,
+    info: { Title: `${value.brand}｜課程服務約定書`, Author: value.brand, Subject: `已簽署版本 v${value.version}.0` } });
+  const chunks: Buffer[] = [];
+  const completed = new Promise<Buffer>((resolve, reject) => {
+    doc.on('data', chunk => chunks.push(Buffer.from(chunk)));
+    doc.on('error', reject);
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+  });
+  try {
+    const width = doc.page.width - 96;
+    const ensure = (height: number) => { if (doc.y + height > doc.page.height - 48) doc.addPage(); };
+    doc.fontSize(19).fillColor('#234139').text(`${value.brand}｜課程服務約定書`);
+    doc.moveDown(.5).fontSize(10).fillColor('#52635c').text(`已簽署文件 · v${value.version}.0`);
+    for (const clause of value.document) {
+      doc.fontSize(12);
+      ensure(doc.heightOfString(clause.title, { width }) + 50);
+      doc.moveDown(.7).fillColor('#234139').text(clause.title, { width });
+      doc.moveDown(.3).fontSize(10).fillColor('#26352e').text(clause.body, { width, lineGap: 4 });
+    }
+    const signer = value.signer;
+    const evidence = [
+      `學員：${signer.name}　聯絡電話：${signer.phone}`,
+      `身分：${signer.minor ? '未成年學員，由法定代理人簽署' : '成年學員'}`,
+      ...(signer.minor ? [`法定代理人：${signer.guardian.name}　關係：${signer.guardian.relation}`, `法定代理人電話：${signer.guardian.phone}`] : []),
+      `提供記錄：${formatTWDateTime(new Date(value.deliveredAt))}（台灣時間）`,
+      `簽署時間：${formatTWDateTime(new Date(value.signedAt))}（台灣時間）`,
+      `文件識別碼：${value.id}`,
+      '簽署者已確認閱讀約定書與個資告知，並同意使用電子文件與手寫電子簽名。',
+    ];
+    doc.fontSize(10);
+    ensure(evidence.reduce((height, text) => height + doc.heightOfString(text, { width, lineGap: 3 }) + 3, 0) + 175);
+    doc.moveDown().fontSize(12).fillColor('#234139').text('簽署紀錄');
+    doc.moveDown(.3).fontSize(10).fillColor('#26352e');
+    for (const text of evidence) { doc.text(text, { width, lineGap: 3 }); doc.moveDown(.2); }
+    doc.text(signer.minor ? '法定代理人簽名：' : '學員簽名：');
+    doc.image(Buffer.from(value.signatureDataUrl.split(',')[1], 'base64'), doc.x, doc.y, { fit: [240, 72] });
+    doc.y += 80;
+    doc.fontSize(8).text(`內容 SHA-256：${value.documentHash}`, { width });
+    const pages = doc.bufferedPageRange();
+    for (let page = pages.start; page < pages.start + pages.count; page++) {
+      doc.switchToPage(page);
+      const margin = doc.page.margins.bottom;
+      doc.page.margins.bottom = 0;
+      doc.fontSize(8).fillColor('#64746c').text(`第 ${page + 1} 頁／共 ${pages.count} 頁`, 48, doc.page.height - 30, { width, align: 'center', lineBreak: false });
+      doc.page.margins.bottom = margin;
+    }
+    doc.end();
+  } catch (error) {
+    // The writable document may not have finished. Do not leave its promise pending.
+    doc.destroy(error instanceof Error ? error : new Error('PDF render failed'));
+  }
+  return completed;
+}

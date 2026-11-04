@@ -7,6 +7,8 @@ export function calendarProxyReadOperation(method:string,url:Pick<URL,"pathname"
   const path=url.pathname;
   if(method==="GET"&&path==="/api/beauty/roster")return "beauty-roster";
   const dashboard=/^(?:\/s\/[^/]+\/admin|\/hq)?\/dashboard\/(.+)$/.exec(path)?.[1];
+  if(method==="POST"&&dashboard==="courses/calendar-sync")return "sports-month-sync";
+  if(method==="POST"&&dashboard==="courses/calendar-read")return "course-month-read";
   if(method==="POST"&&dashboard==="courses/session-detail")return "sports-roster";
   if(method==="GET"&&dashboard==="courses/schedule-options")return "sports-options";
   if(method==="GET"&&dashboard==="music-read"&&["session-detail","roster-quick"].includes(url.searchParams.get("operation")??""))return "music-roster";

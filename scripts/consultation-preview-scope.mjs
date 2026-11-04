@@ -1,4 +1,5 @@
 import {assertCompactOperationsPreview} from "./compact-operations-preview-scope.mjs";
+import {assertCourseAgreementsPreviewEnvironment} from './course-agreements-preview-scope.mjs';
 import {assertBeautySharedPagesLocalQaEnvironment,assertBeautySharedPagesBuildQaEnvironment} from "./beauty-shared-pages-local-qa-scope.mjs";
 import {MUSIC_RELEASE_BRANCH,assertMusicNativeReleaseEnvironment} from "./music-native-workflow-scope.mjs";
 import { assertImageAnnouncementsAcceptance } from "./image-announcements-acceptance-scope.mjs";
@@ -15,7 +16,7 @@ import { assertStoreNoticeReviewBuild, STORE_NOTICE_REVIEW_BRANCH } from "./stor
 import { assertStoreMemberWorkorderReviewOnly, STORE_MEMBER_WORKORDER_REVIEW_BRANCH } from "./store-member-workorder-review-gate.mjs";
 import {
   assertSportsSharedCardPreviewEnvironment,
-  SCHEDULE_CONFLICT_PREVIEW_BRANCH,
+  SCHEDULE_CONFLICT_PREVIEW_BRANCH, CALENDAR_PHASE_PREVIEW_BRANCH,
   isSportsSharedCardProductionRelease,
   TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH,
 } from "./sports-shared-card-preview-scope.mjs";
@@ -283,6 +284,7 @@ export function assertConsultationPreviewEnvironment(env) {
  * @returns {"compact-operations-preview" | "beauty-hosted-preview" | "mocked-unit-test" | "production" | "music-opening-preview" | "beauty-release-qa" | "beauty-production-qa" | "local-beauty-qa" | "beauty-sandbox-qa" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
+  if (assertCourseAgreementsPreviewEnvironment(env)) return 'course-agreements-preview';
   if(assertCompactOperationsPreview(env))return "compact-operations-preview";
   if(env.BEAUTY_SHARED_PAGES_BUILD_QA==='1'){assertBeautySharedPagesBuildQaEnvironment(env);return 'local-beauty-qa';}
   if(env.BEAUTY_SHARED_PAGES_LOCAL_QA==='1'){assertBeautySharedPagesLocalQaEnvironment(env);return 'local-beauty-qa';}
@@ -310,7 +312,7 @@ export function assertReviewedReleaseEnvironment(env) {
     assertImageAnnouncementsAcceptance(env);
     return "local-image-announcements-qa";
   }
-  if (env.VERCEL_GIT_COMMIT_REF === SCHEDULE_CONFLICT_PREVIEW_BRANCH || env.SPORTS_REDESIGN_PREVIEW || [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].some(branch=>[SILVERLILY_CALENDAR_PREVIEW_BRANCH,SETTINGS_OUTCOMES_PREVIEW_BRANCH,YOUNGSKY_SETTINGS_PREVIEW_BRANCH,SPORTS_REDESIGN_PREVIEW_BRANCH,SPORTS_CARD_MODES_PREVIEW_BRANCH,SPORTS_OPENING_GUIDE_PREVIEW_BRANCH,SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH].includes(branch))) {
+  if ([SCHEDULE_CONFLICT_PREVIEW_BRANCH,CALENDAR_PHASE_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF) || env.SPORTS_REDESIGN_PREVIEW || [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].some(branch=>[SILVERLILY_CALENDAR_PREVIEW_BRANCH,SETTINGS_OUTCOMES_PREVIEW_BRANCH,YOUNGSKY_SETTINGS_PREVIEW_BRANCH,SPORTS_REDESIGN_PREVIEW_BRANCH,SPORTS_CARD_MODES_PREVIEW_BRANCH,SPORTS_OPENING_GUIDE_PREVIEW_BRANCH,SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH].includes(branch))) {
     assertSportsRedesignPreviewEnvironment(env);
     if ([SETTINGS_OUTCOMES_PREVIEW_BRANCH,YOUNGSKY_SETTINGS_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF)) assertModuleRosterPreviewEnvironment(env);
     return "sports-redesign-preview";

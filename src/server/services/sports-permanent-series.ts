@@ -1,3 +1,4 @@
+import {calendarPhase,calendarSyncPhase,calendarCount} from "./course-calendar-timing";
 import { findSportsCard } from "./sports-card-selection";
 import {sportsProductionEnabled} from "../../../scripts/sports-production-scope.mjs";
 import {verifySportsPermanentReadiness} from "../../../scripts/sports-permanent-readiness.mjs";
@@ -16,9 +17,9 @@ type Tx=Prisma.TransactionClient;
 export const sportsLearners=z.array(z.object({customerId:z.string(),cardId:z.string().nullable().optional(),stopDate:z.string().optional()}));
 export type SportsSeries=FixedCourseSeries&{id:string;storeId:string;templateId:string;nameSnapshot:string;capacity:number;pointCost:number;createdById:string;enrollmentMode:string;learnerSnapshot:unknown;generatedThrough:Date};
 export async function readSportsSeries(tx:Pick<Tx,"$queryRaw"|"$queryRawUnsafe">,storeId:string){
- if(!(await sportsNativePreview(storeId)))return [];
- if(sportsProductionEnabled(storeId))await verifySportsPermanentReadiness(sql=>tx.$queryRawUnsafe<Array<Record<string,unknown>>>(sql));
- return tx.$queryRaw<SportsSeries[]>`SELECT * FROM ${sportsSeriesTable(storeId)} WHERE "storeId"=${storeId} AND id LIKE 'sports-series:%'`;
+ if(!(await calendarPhase("series_scope",()=>sportsNativePreview(storeId))))return [];
+ if(sportsProductionEnabled(storeId))await calendarPhase("series_readiness",()=>verifySportsPermanentReadiness(sql=>tx.$queryRawUnsafe<Array<Record<string,unknown>>>(sql)));
+ return calendarPhase("series_rows",()=>tx.$queryRaw<SportsSeries[]>`SELECT * FROM ${sportsSeriesTable(storeId)} WHERE "storeId"=${storeId} AND id LIKE 'sports-series:%'`);
 }
 export async function assertSportsSeriesFree(tx:Tx,storeId:string,ranges:Array<{startsAt:Date;endsAt:Date}>,resources:{roomId:string;coachId:string},requestKey?:string,frequency?:string,excludedOwnDates?:string[]){
  if(!(await sportsNativePreview(storeId)))return;
@@ -129,15 +130,16 @@ export async function bindSportsAttendanceCard(tx:Tx,actor:CourseActor,bookingId
 
 /** Batch only the existence check. Cancelled/moved rows still occupy their original index. */
 export async function sportsMonthHasMissingOccurrences(tx:Pick<Tx,"courseSession">,storeId:string,rules:FixedCourseSeries[],first:string,last:string){
- const expected=rules.map(series=>{
+ const expected=calendarSyncPhase("missing_plan",()=>rules.map(series=>{
   const indexes:number[]=[];
   for(let date=first;date<=last;date=addTaiwanDuration(date,1,"DAY"))if(fixedSeriesOccurrenceOnDate(series,date))indexes.push(Math.round((Date.parse(date+"T12:00:00Z")-Date.parse(toLocalDateStr(series.startsAt)+"T12:00:00Z"))/86400000)/(series.frequency==="BIWEEKLY"?14:7));
   return {requestKey:series.requestKey,indexes};
- }).filter(row=>row.indexes.length);
+ }).filter(row=>row.indexes.length));
  // Bound SQL parameters for large stores without reverting to one round-trip per series.
  for(let offset=0;offset<expected.length;offset+=250){
   const batch=expected.slice(offset,offset+250);
-  const rows=await tx.courseSession.findMany({where:{storeId,OR:batch.map(row=>({requestKey:row.requestKey,requestIndex:{in:row.indexes}}))},select:{requestKey:true,requestIndex:true}});
+  calendarCount("missing_batches",Math.floor(offset/250)+1);
+  const rows=await calendarPhase("missing_batch",()=>tx.courseSession.findMany({where:{storeId,OR:batch.map(row=>({requestKey:row.requestKey,requestIndex:{in:row.indexes}}))},select:{requestKey:true,requestIndex:true}}));
   const counts=new Map<string,Map<number,number>>();
   for(const row of rows){const indexes=counts.get(row.requestKey)??new Map<number,number>();indexes.set(row.requestIndex,(indexes.get(row.requestIndex)??0)+1);counts.set(row.requestKey,indexes);}
   if(batch.some(row=>row.indexes.reduce((n,index)=>n+(counts.get(row.requestKey)?.get(index)??0),0)!==row.indexes.length))return true;
@@ -147,18 +149,20 @@ export async function sportsMonthHasMissingOccurrences(tx:Pick<Tx,"courseSession
 
 /** Existing/cancelled/moved occurrences count as generated; never resurrect an exception. */
 export async function ensureSportsMonth(actor:CourseActor,first:string,last:string){
- if(!(await sportsNativePreview(actor.storeId)))return;
+ if(!(await calendarPhase("sports_scope",()=>sportsNativePreview(actor.storeId))))return;
  const {isStoreSubscriptionWriteBlocked}=await import("@/lib/subscription-guard");
- if(await isStoreSubscriptionWriteBlocked(actor.storeId))return;
+ if(await calendarPhase("subscription",()=>isStoreSubscriptionWriteBlocked(actor.storeId)))return;
  const {coursePrisma}=await import("@/lib/course-db");
  // Reconcile previously recorded no-shows in this visible range, without
  // touching debit entries, makeup credit, or any other tenant.
- const releasedCandidates=await coursePrisma.courseSession.findMany({where:{storeId:actor.storeId,cancelledAt:null,releasedAt:null,startsAt:{gte:parseTaipeiDateTime(first,"00:00")!,lt:parseTaipeiDateTime(addTaiwanDuration(last,1,"DAY"),"00:00")!},bookings:{some:{status:"NO_SHOW"},none:{status:{notIn:["CANCELLED","NO_SHOW"]}}}},select:{id:true}});
- if(releasedCandidates.length){const {courseTransaction}=await import("./course-access");const {syncCourseRelease}=await import("./course-booking");await courseTransaction(actor.storeId,async tx=>{for(const s of releasedCandidates)await syncCourseRelease(tx,actor.storeId,s.id);});}
- const rules=await readSportsSeries(coursePrisma,actor.storeId);
- const missing=await sportsMonthHasMissingOccurrences(coursePrisma,actor.storeId,rules,first,last);
+ const releasedCandidates=await calendarPhase("release_candidates",()=>coursePrisma.courseSession.findMany({where:{storeId:actor.storeId,cancelledAt:null,releasedAt:null,startsAt:{gte:parseTaipeiDateTime(first,"00:00")!,lt:parseTaipeiDateTime(addTaiwanDuration(last,1,"DAY"),"00:00")!},bookings:{some:{status:"NO_SHOW"},none:{status:{notIn:["CANCELLED","NO_SHOW"]}}}},select:{id:true}}));
+ calendarCount("release_candidates",releasedCandidates.length);
+ if(releasedCandidates.length){const {courseTransaction}=await import("./course-access");const {syncCourseRelease}=await import("./course-booking");await calendarPhase("release_transaction",()=>courseTransaction(actor.storeId,async tx=>{for(const s of releasedCandidates)await syncCourseRelease(tx,actor.storeId,s.id);}));}
+ const rules=await calendarPhase("series",()=>readSportsSeries(coursePrisma,actor.storeId));
+ calendarCount("series",rules.length);
+ const missing=await calendarPhase("missing_occurrences",()=>sportsMonthHasMissingOccurrences(coursePrisma,actor.storeId,rules,first,last));
  if(missing){
   const {courseTransaction}=await import("./course-access");
-  return courseTransaction(actor.storeId,tx=>materializeSportsMonth(tx,actor,first,last));
+  return calendarPhase("materialize",()=>courseTransaction(actor.storeId,tx=>materializeSportsMonth(tx,actor,first,last)));
  }
 }

@@ -1,6 +1,5 @@
 import 'server-only';
-import {withReadRequestMemo} from './read-request-memo';
-import {withPermissionRequestSession} from '@/lib/permission-request-session';
+import {withCalendarRosterRead} from './calendar-month-read-scope';
 import {courseManager} from './course-access';
 import {readAuthorizedCourseSessionDetail} from '@/server/queries/authorized-course-session-detail';
 import {withCourseCalendarRead,courseCalendarRead} from './course-calendar-read-scope';
@@ -13,7 +12,7 @@ import {shareCalendarRosterMetadata} from './course-calendar-transfer';
 /** A calendar-owned snapshot, freshly authorized on every page/month read.
  * Mutations continue through the original authoritative actions. */
 export function preloadCourseCalendarRosters(storeId:string,sessionIds:readonly string[]|Promise<readonly string[]>):Promise<CalendarRosterSnapshots>{
- return withReadRequestMemo(()=>withPermissionRequestSession(async()=>{
+ return withCalendarRosterRead(async()=>{
   const authorizationStart=performance.now();
   // Page metadata and fresh authorization can finish independently. No roster
   // reads begin until both complete, and every existing permission check stays.
@@ -35,5 +34,5 @@ export function preloadCourseCalendarRosters(storeId:string,sessionIds:readonly 
    }
   });
   return shareCalendarRosterMetadata({storeId,details});
- }));
+ });
 }

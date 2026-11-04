@@ -148,3 +148,17 @@ describe('booking transaction connection boundary',()=>{
   expect(m.legacyTransaction).not.toHaveBeenCalled();expect(m.kick).not.toHaveBeenCalled();
  });
 });
+
+it("passes optional diagnostic callbacks through existing manager checks without caching grants",async()=>{
+ const names:string[]=[];
+ const timing={measure:async<T>(name:string,work:()=>Promise<T>)=>{names.push(name);return work();}};
+ await expect(courseManager("booking.create",timing)).resolves.toMatchObject({storeId:"s"});
+ expect(names).toEqual(expect.arrayContaining(["permission","store.resolve","store.module","store.membership"]));
+ expect(m.permission).toHaveBeenCalledOnce();expect(m.module).toHaveBeenCalledOnce();expect(m.staff).toHaveBeenCalledOnce();
+});
+it("diagnostic manager reads preserve denial before resolving a writable store",async()=>{
+ const error=new Error("denied");m.permission.mockRejectedValueOnce(error);
+ const timing={measure:async<T>(_name:string,work:()=>Promise<T>)=>work()};
+ await expect(courseManager("booking.create",timing)).rejects.toBe(error);
+ expect(m.writeStore).not.toHaveBeenCalled();expect(m.module).not.toHaveBeenCalled();
+});

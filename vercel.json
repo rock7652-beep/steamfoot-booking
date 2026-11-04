@@ -59,6 +59,7 @@
   "git": {
     "deploymentEnabled": {
       "feat/beauty-service-journey-20261103": false,
+      "chore/calendar-phase-timing-20261103": false,
       "fix/steam-plan-reschedule-20261103": false,
       "feat/beauty-operations-compact-20261103": false,
       "feat/music-fitness-compact-20261103": false,
@@ -184,7 +185,8 @@
       "fix/beauty-schema-compat-20261102": false,
       "fix/beauty-rental-charge-flow-20261102": false,
       "fix/liff-makeup-plan-choice-20261102": false,
-      "fix/beauty-public-three-steps-20261102": false
+      "fix/beauty-public-three-steps-20261102": false,
+      "codex/agreements-1502-integration": false
     }
   }
 }

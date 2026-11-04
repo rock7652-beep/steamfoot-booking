@@ -1,0 +1,16 @@
+import {createHash} from 'node:crypto';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+import {AppError} from '@/lib/app-error';
+const m=vi.hoisted(()=>({enabled:vi.fn(),access:vi.fn(),setting:vi.fn(),base:vi.fn()}));
+vi.mock('@/server/services/course-agreement-public',()=>({assertPublicCourseAgreementsEnabled:m.enabled}));
+vi.mock('@/server/services/course-agreement-access',()=>({requireCourseAgreementAccess:m.access}));
+vi.mock('@/lib/course-db',()=>({coursePrisma:{courseAgreementSetting:{findUnique:m.setting}}}));
+vi.mock('@/lib/base-url',()=>({deriveBaseUrl:m.base}));
+import {shareCourseAgreementAction} from '@/server/actions/course-agreement-sharing';
+import {courseAgreementSigningToken} from '@/server/services/course-agreement-signing-token';
+beforeEach(()=>{vi.resetAllMocks();vi.stubEnv('COURSE_AGREEMENT_LINK_SECRET','synthetic-key-with-at-least-32-bytes');m.access.mockResolvedValue({storeId:'a'});m.base.mockReturnValue('https://isolated.invalid');m.setting.mockResolvedValue({activeVersion:{id:'v',signingTokenHash:createHash('sha256').update(courseAgreementSigningToken('a','v')).digest('hex')}});});
+afterEach(()=>vi.unstubAllEnvs());
+it('checks manager and store before generating a canonical local QR image',async()=>{const result=await shareCourseAgreementAction('a');expect(m.access).toHaveBeenCalledWith('manage','a');expect(result.success).toBe(true);if(result.success){expect(result.data.url).toBe('https://isolated.invalid/course-agreements/'+courseAgreementSigningToken('a','v'));expect(result.data.qrDataUrl).toMatch(/^data:image\/png;base64,/);}});
+it('does not issue sharing links for disabled or paused agreements',async()=>{m.enabled.mockImplementation(()=>{throw new AppError('FORBIDDEN','未開放');});expect(await shareCourseAgreementAction('a')).toMatchObject({success:false});expect(m.access).not.toHaveBeenCalled();m.enabled.mockReset();m.setting.mockResolvedValue({activeVersion:null});expect(await shareCourseAgreementAction('a')).toMatchObject({success:false,error:'目前未啟用課程共同約定'});});
+it('does not return a usable token after key changes or cross-store denial',async()=>{m.setting.mockResolvedValue({activeVersion:{id:'v',signingTokenHash:'a'.repeat(64)}});expect(await shareCourseAgreementAction('a')).toMatchObject({success:false});m.access.mockRejectedValue(new AppError('FORBIDDEN','沒有權限'));expect(await shareCourseAgreementAction('b')).toMatchObject({success:false,error:'沒有權限'});});
+it('refuses an unsafe canonical origin',async()=>{m.base.mockReturnValue('https://user:password@isolated.invalid');expect(await shareCourseAgreementAction('a')).toMatchObject({success:false});});
