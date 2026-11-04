@@ -2,6 +2,28 @@ import {afterEach,expect,it,vi} from 'vitest';
 import type {Prisma} from '../../generated/course-client';
 import {isMusicPilotCard,issueMusicPilotLeaveMakeup} from '@/server/services/music-pilot-policy';
 afterEach(()=>vi.unstubAllEnvs());
+function recordPreview(){
+ vi.stubEnv('VERCEL','1');vi.stubEnv('VERCEL_ENV','preview');vi.stubEnv('VERCEL_GIT_COMMIT_REF','feat/record-list-density');
+ vi.stubEnv('VERCEL_GIT_REPO_OWNER','rock7652-beep');vi.stubEnv('VERCEL_GIT_REPO_SLUG','steamfoot-booking');
+ vi.stubEnv('DATABASE_URL','postgresql://postgres:test@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres');
+ vi.stubEnv('DIRECT_URL','postgresql://postgres:test@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres');
+ vi.stubEnv('WORKERS_CI_BRANCH','');vi.stubEnv('CF_PAGES_BRANCH','');
+}
+it('record-list preview reads historical cards without querying pilot receipts or issuing makeup',async()=>{
+ recordPreview();
+ const read=vi.fn(),write=vi.fn();
+ const card={id:'pilot',requestKey:'yjy-pilot-card:fixture',expiresAt:new Date('2099-01-01')};
+ const tx={$queryRaw:read,$executeRaw:write,coursePointCard:{findFirst:vi.fn().mockResolvedValue(card),create:write,update:write}} as unknown as Prisma.TransactionClient;
+ await expect(isMusicPilotCard(tx,'store-lubymusic',card)).resolves.toBe(false);
+ await expect(issueMusicPilotLeaveMakeup(tx,{storeId:'store-lubymusic',userId:'qa',name:'QA'},
+  {id:'booking',cardId:card.id,customerId:'customer',session:{templateId:'template'}})).rejects.toThrow('未通過來源核對');
+ expect(read).not.toHaveBeenCalled();expect(write).not.toHaveBeenCalled();
+});
+it.each([['VERCEL_ENV','production'],['DATABASE_URL','postgresql://postgres:test@db.other.supabase.co/postgres'],['VERCEL_GIT_REPO_OWNER','other']])('record-list preview rejects invalid %s before pilot queries',async(key,value)=>{
+ recordPreview();vi.stubEnv(key,value);const read=vi.fn();
+ await expect(isMusicPilotCard({$queryRaw:read} as unknown as Prisma.TransactionClient,'store-lubymusic',{id:'pilot',requestKey:'yjy-pilot-card:fixture'})).rejects.toThrow();
+ expect(read).not.toHaveBeenCalled();
+});
 it('native scheduling review can render historical card summaries without authorizing pilot operations',async()=>{
  vi.stubEnv('VERCEL','1');vi.stubEnv('VERCEL_ENV','preview');vi.stubEnv('VERCEL_GIT_COMMIT_REF','fix/schedule-conflicts-20261103');
  const read=vi.fn(),write=vi.fn();

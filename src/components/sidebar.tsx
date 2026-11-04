@@ -860,10 +860,10 @@ export default function DashboardShell({
       { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : "/dashboard/bookings", label: course ? (musicEnabled ? "課表" : "課表排程") : "預約管理" },
       { ...entry("/dashboard/customers"), label: musicEnabled ? "學員管理" : "顧客管理", href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
       growthEntry,
-      entry("/dashboard/work-orders"),
-      entry("/dashboard/inventory"),
+      ...(!course ? [entry("/dashboard/work-orders"), entry("/dashboard/inventory")] : []),
       operationsItem,
       { ...entry("/dashboard/reports"), href: course ? "/dashboard/courses?view=analytics" : "/dashboard/reports" },
+      ...(course ? [entry("/dashboard/work-orders"), entry("/dashboard/inventory")] : []),
     ];
     const management: NavItem[] = [
       { ...hqItem("/dashboard/operation-audits"), label: "操作紀錄", permission: "store.audit.read", requiredFeature: FEATURES.STORE_OPERATION_AUDIT },

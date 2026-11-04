@@ -40,3 +40,11 @@
 顧客截圖另發現標籤及固定指派欄重疊。已用真實 CustomerLabels＋直接指派重現：原版在 1024px、未捲動時點擊中心被標籤蓋住。固定操作欄提升至表內 z30、表頭 z40，外框 isolate 防止影響頁面外的浮層；五種寬度 × 三個捲動位置共 15 次實際命中／指派回呼通過。新 fixture 也補上音樂收在選單的指派方式，不再只驗沒有直接指派的簡化表格。
 
 四模組實際共用元件矩陣：4 模組 × 桌機／iPad 橫直／600px／390px，共 20 案通過，含單一彙總、日期順序、模組收入分欄、零收入人員、上方新增入口、視窗／觸控及無整頁水平溢出。相關 7 檔 51 項測試通過（含蒸足原 counted／租金規則與課程分類／返回入口）；最終版本另依最後 commit、CI 與 Preview 記錄，限制仍為合成資料及瀏覽器模擬。
+
+## 課表與預覽設定回饋（2026-11-04）
+
+實際音樂課表錯誤 `2168097698` 的同請求紀錄顯示：`roster-pilot-evidence` 讀到歷史 `yjy-pilot-card:` 後觸發另一條 music-opening 專屬分支護欄。只對本次精確 `feat/record-list-density` 分支，在核對既有隔離資料庫、Preview 與 repository metadata 後回傳非 pilot；不開放歷史匯入／補課操作，也不擴充 music-opening allowlist。新增測試驗讀取不查匯入回執、補課仍拒絕，正式環境／其他庫／偽造 repo 均拒絕。其他分支保留原護欄。
+
+運動日常選單依顧客經營 → 營運 → 分析 → 工單／進銷存排列；可見性仍由原權限／功能決定。音樂既有隱藏工單及進銷存不變。實際 shell 的靜態輸出經 Chromium 在 1366×900、1024×768 檢查兩模組共四案，順序正確且無整頁水平溢出；這是靜態版型證據，不是登入後操作或實體 iPad。相關四檔 67 項測試通過。
+
+美業未開放提示另確認為分支設定遺漏；只在此分支 Preview 新增 BEAUTY_MODULE_ENABLED=1、BEAUTY_DATABASE_MODE=legacy、BEAUTY_NOTIFICATIONS_ENABLED=0，正式設定不動，沒有業務資料寫入或 migration。設定修正部署 dpl_ym4YVXmJ126C96vRcyYXwXq6a4YJ（47c507e5）已 READY；美業獨立測試店入口回應 200 且沒有 closed notice，使用者回覆可開啟。後續程式修正需以新部署驗證，不能沿用這個舊 SHA 宣稱已修課表。
