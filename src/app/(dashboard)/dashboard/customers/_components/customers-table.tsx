@@ -288,7 +288,7 @@ export function CustomersTable({
     },
     {
       key: "notes", header: "標籤／備註", noLink: true, width: "min-w-[14rem]",
-      accessor: c => <div className="space-y-0.5 py-1.5"><CustomerLabels customerId={c.id} readOnly={readOnly || isInactiveRow(c)} hideEmpty maxVisible={5} variant="dots"/>{renderNote ? renderNote(c) : <p title={c.serviceNote ?? undefined} className="line-clamp-1 text-xs leading-5 text-earth-600">{c.serviceNote || "—"}</p>}</div>,
+      accessor: c => <div className="space-y-0.5 py-1"><CustomerLabels customerId={c.id} readOnly={readOnly || isInactiveRow(c)} hideEmpty maxVisible={5} variant="dots"/>{renderNote ? renderNote(c) : c.serviceNote?.trim() ? <p title={c.serviceNote ?? undefined} className="line-clamp-1 text-xs leading-5 text-earth-600">{c.serviceNote}</p> : null}</div>,
     },
     {
       key: "actions",

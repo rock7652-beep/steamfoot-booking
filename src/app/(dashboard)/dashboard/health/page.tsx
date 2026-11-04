@@ -190,9 +190,9 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
           <tbody className="divide-y divide-earth-100">
             {result.records.map((record) => (
               <tr key={record.id} className="text-earth-800">
-                <td className="whitespace-nowrap px-4 py-3">{record.measuredAt.toISOString().slice(0, 10)}</td>
-                <td className="px-4 py-3 font-medium"><Link href={`/dashboard/customers/${record.customer.id}/health`} className="hover:text-primary-700">{record.customer.name}</Link></td>
-                <td className="whitespace-nowrap px-4 py-3">{record.customer.phone ?? "—"}</td>
+                <td className="whitespace-nowrap px-4 py-1">{record.measuredAt.toISOString().slice(0, 10)}</td>
+                <td className="px-4 py-1 font-medium"><Link href={`/dashboard/customers/${record.customer.id}/health`} className="hover:text-primary-700">{record.customer.name}</Link></td>
+                <td className="whitespace-nowrap px-4 py-1">{record.customer.phone ?? "—"}</td>
                 <Metric value={record.weight} unit="kg" /><Metric value={record.bmi} /><Metric value={record.bodyFat} unit="%" />
                 <Metric value={record.muscleMass} unit="kg" /><Metric value={record.boneMass} unit="kg" /><Metric value={record.visceralFat} />
                 <Metric value={record.bmr} unit="kcal" /><Metric value={record.bodyWater} unit="%" /><Metric value={record.metabolicAge} unit="歲" />

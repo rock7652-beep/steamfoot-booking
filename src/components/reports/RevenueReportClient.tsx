@@ -580,17 +580,17 @@ export function RevenueReportClient({
                 <tbody className="divide-y divide-earth-100">
                   {storeSummary.map((s) => (
                     <tr key={s.storeId} className="">
-                      <td className="px-3 py-2 font-medium">{s.storeName}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.totalRevenue)}</td>
-                      <td className="px-3 py-2 text-right text-red-600">{fmtMoney(s.refundAmount)}</td>
-                      <td className="px-3 py-2 text-right font-medium text-green-700">{fmtMoney(s.netRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{s.txCount}</td>
-                      <td className="px-3 py-2 text-right">{s.customerCount}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.avgPerCustomer)}</td>
-                      {!courseMode && <><td className="px-3 py-2 text-right">{fmtMoney(s.trialRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.packageRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.singleRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(steamfootMode?s.supplementRevenue??0:s.otherRevenue)}</td>{steamfootMode&&<><td className="px-3 py-2 text-right">{fmtMoney(s.retailRevenue??0)}</td><td className="px-3 py-2 text-right">{fmtMoney(s.otherIncomeRevenue??0)}</td></>}</>}
+                      <td className="px-3 py-1 font-medium">{s.storeName}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(s.totalRevenue)}</td>
+                      <td className="px-3 py-1 text-right text-red-600">{fmtMoney(s.refundAmount)}</td>
+                      <td className="px-3 py-1 text-right font-medium text-green-700">{fmtMoney(s.netRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{s.txCount}</td>
+                      <td className="px-3 py-1 text-right">{s.customerCount}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(s.avgPerCustomer)}</td>
+                      {!courseMode && <><td className="px-3 py-1 text-right">{fmtMoney(s.trialRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(s.packageRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(s.singleRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(steamfootMode?s.supplementRevenue??0:s.otherRevenue)}</td>{steamfootMode&&<><td className="px-3 py-1 text-right">{fmtMoney(s.retailRevenue??0)}</td><td className="px-3 py-1 text-right">{fmtMoney(s.otherIncomeRevenue??0)}</td></>}</>}
                     </tr>
                   ))}
                 </tbody>
@@ -627,21 +627,21 @@ export function RevenueReportClient({
                 <tbody className="divide-y divide-earth-100">
                   {coachSummary.map((c) => (
                     <tr key={c.coachId} className="">
-                      <td className="px-3 py-2 font-medium">{c.coachName}</td>
-                      <td className="px-3 py-2">{fmtRole(c.coachRole)}</td>
-                      <td className="px-3 py-2">{c.storeName}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.totalRevenue)}</td>
-                      <td className="px-3 py-2 text-right text-red-600">{fmtMoney(c.refundAmount)}</td>
-                      <td className="px-3 py-2 text-right font-medium text-green-700">{fmtMoney(c.netRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{c.txCount}</td>
-                      <td className="px-3 py-2 text-right">{c.customerCount}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.avgPerTx)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.newCustomerRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.existingCustomerRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.trialRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.packageRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.singleRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.otherRevenue)}</td>
+                      <td className="px-3 py-1 font-medium">{c.coachName}</td>
+                      <td className="px-3 py-1">{fmtRole(c.coachRole)}</td>
+                      <td className="px-3 py-1">{c.storeName}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.totalRevenue)}</td>
+                      <td className="px-3 py-1 text-right text-red-600">{fmtMoney(c.refundAmount)}</td>
+                      <td className="px-3 py-1 text-right font-medium text-green-700">{fmtMoney(c.netRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{c.txCount}</td>
+                      <td className="px-3 py-1 text-right">{c.customerCount}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.avgPerTx)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.newCustomerRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.existingCustomerRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.trialRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.packageRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.singleRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.otherRevenue)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -676,51 +676,51 @@ export function RevenueReportClient({
                       <tr key={d.id} className="">
                         {mode === "store" ? (
                           <>
-                            <td className="px-3 py-2 whitespace-nowrap">{fmtDate(d.transactionDate)}</td>
-                            {!courseMode && <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{d.transactionNo ?? "-"}</td>}
-                            <td className="px-3 py-2">{d.storeName}</td>
-                            <td className="px-3 py-2">{d.customerName}</td>
-                            <td className="px-3 py-2 text-xs">{d.customerPhone}</td>
-                            <td className="px-3 py-2">{d.planName ?? "-"}</td>
-                            <td className="px-3 py-2">{fmtPlanType(d.planType)}</td>
-                            {!courseMode && <><td className="px-3 py-2 text-right">{fmtMoney(d.grossAmount)}</td>
-                            <td className="px-3 py-2 text-right">{fmtMoney(d.discountAmount)}</td></>}
-                            <td className="px-3 py-2 text-right font-medium">{fmtMoney(d.netAmount)}</td>
-                            <td className="px-3 py-2">{fmtPayment(d.paymentMethod)}</td>
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-1 whitespace-nowrap">{fmtDate(d.transactionDate)}</td>
+                            {!courseMode && <td className="px-3 py-1 whitespace-nowrap text-xs text-earth-500">{d.transactionNo ?? "-"}</td>}
+                            <td className="px-3 py-1">{d.storeName}</td>
+                            <td className="px-3 py-1">{d.customerName}</td>
+                            <td className="px-3 py-1 text-xs">{d.customerPhone}</td>
+                            <td className="px-3 py-1">{d.planName ?? "-"}</td>
+                            <td className="px-3 py-1">{fmtPlanType(d.planType)}</td>
+                            {!courseMode && <><td className="px-3 py-1 text-right">{fmtMoney(d.grossAmount)}</td>
+                            <td className="px-3 py-1 text-right">{fmtMoney(d.discountAmount)}</td></>}
+                            <td className="px-3 py-1 text-right font-medium">{fmtMoney(d.netAmount)}</td>
+                            <td className="px-3 py-1">{fmtPayment(d.paymentMethod)}</td>
+                            <td className="px-3 py-1">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                                 d.status === "SUCCESS" ? "bg-green-100 text-green-700" :
                                 d.status === "REFUNDED" ? "bg-red-100 text-red-700" :
                                 "bg-earth-100 text-earth-600"
                               }`}>{fmtStatus(d.status)}</span>
                             </td>
-                            <td className="px-3 py-2 text-xs text-earth-500 max-w-[120px] truncate">{d.note ?? "-"}</td>
-                            <td className="px-3 py-2 text-xs">{d.createdByName ?? "-"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{courseMode ? toLocalDateStr(new Date(d.createdAt)) : fmtDate(d.createdAt)}</td>
+                            <td className="px-3 py-1 text-xs text-earth-500 max-w-[120px] truncate">{d.note ?? "-"}</td>
+                            <td className="px-3 py-1 text-xs">{d.createdByName ?? "-"}</td>
+                            <td className="px-3 py-1 whitespace-nowrap text-xs text-earth-500">{courseMode ? toLocalDateStr(new Date(d.createdAt)) : fmtDate(d.createdAt)}</td>
                           </>
                         ) : (
                           <>
-                            <td className="px-3 py-2 whitespace-nowrap">{fmtDate(d.transactionDate)}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{d.transactionNo ?? "-"}</td>
-                            <td className="px-3 py-2">{d.storeName}</td>
-                            <td className="px-3 py-2">{d.coachName ?? "-"}</td>
-                            <td className="px-3 py-2">{fmtRole(d.coachRole)}</td>
-                            <td className="px-3 py-2">{d.customerName}</td>
-                            <td className="px-3 py-2 text-xs">{d.customerPhone}</td>
-                            <td className="px-3 py-2">{d.planName ?? "-"}</td>
-                            <td className="px-3 py-2">{fmtPlanType(d.planType)}</td>
-                            <td className="px-3 py-2 text-right font-medium">{fmtMoney(d.netAmount)}</td>
-                            <td className="px-3 py-2">{fmtPayment(d.paymentMethod)}</td>
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-1 whitespace-nowrap">{fmtDate(d.transactionDate)}</td>
+                            <td className="px-3 py-1 whitespace-nowrap text-xs text-earth-500">{d.transactionNo ?? "-"}</td>
+                            <td className="px-3 py-1">{d.storeName}</td>
+                            <td className="px-3 py-1">{d.coachName ?? "-"}</td>
+                            <td className="px-3 py-1">{fmtRole(d.coachRole)}</td>
+                            <td className="px-3 py-1">{d.customerName}</td>
+                            <td className="px-3 py-1 text-xs">{d.customerPhone}</td>
+                            <td className="px-3 py-1">{d.planName ?? "-"}</td>
+                            <td className="px-3 py-1">{fmtPlanType(d.planType)}</td>
+                            <td className="px-3 py-1 text-right font-medium">{fmtMoney(d.netAmount)}</td>
+                            <td className="px-3 py-1">{fmtPayment(d.paymentMethod)}</td>
+                            <td className="px-3 py-1">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                                 d.status === "SUCCESS" ? "bg-green-100 text-green-700" :
                                 d.status === "REFUNDED" ? "bg-red-100 text-red-700" :
                                 "bg-earth-100 text-earth-600"
                               }`}>{fmtStatus(d.status)}</span>
                             </td>
-                            <td className="px-3 py-2 text-center">{d.isFirstPurchase ? "✓" : ""}</td>
-                            <td className="px-3 py-2 text-xs text-earth-500 max-w-[120px] truncate">{d.note ?? "-"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{fmtDate(d.createdAt)}</td>
+                            <td className="px-3 py-1 text-center">{d.isFirstPurchase ? "✓" : ""}</td>
+                            <td className="px-3 py-1 text-xs text-earth-500 max-w-[120px] truncate">{d.note ?? "-"}</td>
+                            <td className="px-3 py-1 whitespace-nowrap text-xs text-earth-500">{fmtDate(d.createdAt)}</td>
                           </>
                         )}
                       </tr>

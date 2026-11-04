@@ -94,33 +94,33 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
               const operatingColor = retired ? "bg-gray-100 text-gray-500" : OPERATING_STATUS_COLORS[store.operatingStatus] ?? "bg-gray-100 text-gray-600";
               return (
                 <tr key={store.id} className="">
-                  <td className="px-4 py-3 font-medium text-earth-900">{store.name}{store.archivedAt && <span className="ml-2 text-sm text-earth-500">已封存</span>}</td>
-                  <td className="px-4 py-3 text-earth-500 font-mono text-xs">{store.slug}</td>
-                  <td className="px-4 py-3 text-earth-600">{store.plan}</td>
-                  <td className="px-4 py-3 text-earth-600">
+                  <td className="px-4 py-1 font-medium text-earth-900">{store.name}{store.archivedAt && <span className="ml-2 text-sm text-earth-500">已封存</span>}</td>
+                  <td className="px-4 py-1 text-earth-500 font-mono text-xs">{store.slug}</td>
+                  <td className="px-4 py-1 text-earth-600">{store.plan}</td>
+                  <td className="px-4 py-1 text-earth-600">
                     {getStoreBusinessLabel(store.industryModule, store.businessProfile === "MUSIC" ? ["business.music"] : [])}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-1">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}>
                       {trial?.label ?? status.label}
                     </span>
                     {trial?.expiresOn && <span className="ml-2 whitespace-nowrap text-sm text-earth-500">至 {trial.expiresOn}</span>}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-1">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${operatingColor}`}>
                       {retired ? "模組已停用" : STORE_OPERATING_STATUS_LABELS[store.operatingStatus] ?? store.operatingStatus}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-1">
                     {store.isDemo ? (
                       <span className="text-xs text-amber-600">示範店</span>
                     ) : (
                       <span className="text-xs text-green-600">一般店</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right text-earth-600">{store.staffCount}</td>
-                  <td className="px-4 py-3 text-right text-earth-600">{store.customerCount}</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-1 text-right text-earth-600">{store.staffCount}</td>
+                  <td className="px-4 py-1 text-right text-earth-600">{store.customerCount}</td>
+                  <td className="px-4 py-1 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <StoreArchiveButton storeId={store.id} name={store.name} archived={Boolean(store.archivedAt)} />
                       {store.industryModule === "SPA" ? <span className="text-sm text-earth-500">模組已停用</span> : <Link

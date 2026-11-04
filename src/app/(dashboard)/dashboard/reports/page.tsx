@@ -393,13 +393,13 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                   {trialSourceMetrics.map((row) => (
                     <tr key={row.source} className="border-b border-earth-50 last:border-0">
                       <th scope="row" className="py-2 pr-3 font-medium text-earth-800"><DashboardLink href={`/dashboard/bookings/source?source=${row.source}&startDate=${startDate}&endDate=${endDate}`} className="text-primary-700 hover:underline">{row.label} →</DashboardLink></th>
-                      <td className="px-3 py-2 text-right tabular-nums">{row.bookings}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{row.sourceShare.toFixed(1)}%</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{row.bookedPeople}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{row.attendees}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{row.attendanceRate.toFixed(1)}%</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{row.assignedCustomers}</td>
-                      <td className="pl-3 py-2 text-right tabular-nums">{row.planRate.toFixed(1)}%</td>
+                      <td className="px-3 py-1 text-right tabular-nums">{row.bookings}</td>
+                      <td className="px-3 py-1 text-right tabular-nums">{row.sourceShare.toFixed(1)}%</td>
+                      <td className="px-3 py-1 text-right tabular-nums">{row.bookedPeople}</td>
+                      <td className="px-3 py-1 text-right tabular-nums">{row.attendees}</td>
+                      <td className="px-3 py-1 text-right tabular-nums">{row.attendanceRate.toFixed(1)}%</td>
+                      <td className="px-3 py-1 text-right tabular-nums">{row.assignedCustomers}</td>
+                      <td className="pl-3 py-1 text-right tabular-nums">{row.planRate.toFixed(1)}%</td>
                     </tr>
                   ))}
                 </tbody>

@@ -1,4 +1,5 @@
 "use client";
+import {MonthlyDetailList} from "@/components/operations/monthly-detail-list";
 import {useMonthlyStore,MonthlyStoreLabel} from "@/components/operations/monthly-store-context";
 import {useAdjustmentReportLines,useMonthlyAdjustmentState} from "@/components/operations/monthly-adjustment-context";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
@@ -36,7 +37,7 @@ export function CourseMonthlyPeople({entries,children,actions,category="ALL",mus
  </div></section>;
 }
 
-export function CourseMonthlyReport({lines:originalLines,status,confirm,actions,canPay=false,music=false,initialTeacherId="",canReadBookings=false,detailsOnly=false,showPaymentStatus=false,feeLabel="授課費"}:{showPaymentStatus?:boolean;detailsOnly?:boolean;feeLabel?:string;canReadBookings?:boolean;lines:SettlementLine[];canPay?:boolean;status?:ReactNode;confirm?:ReactNode;actions?:ReactNode;music?:boolean;initialTeacherId?:string}){
+export function CourseMonthlyReport({lines:originalLines,status,confirm,actions,canPay=false,music=false,initialTeacherId="",canReadBookings=false,detailsOnly=false,adjustmentTools,canEditAdjustments=false,showPaymentStatus=false,feeLabel="授課費"}:{adjustmentTools?:ReactNode;canEditAdjustments?:boolean;showPaymentStatus?:boolean;detailsOnly?:boolean;feeLabel?:string;canReadBookings?:boolean;lines:SettlementLine[];canPay?:boolean;status?:ReactNode;confirm?:ReactNode;actions?:ReactNode;music?:boolean;initialTeacherId?:string}){
  const lines=useAdjustmentReportLines(originalLines);
  const syncing=useMonthlyAdjustmentState()?.syncing??false;
   const personnelText = useCoursePersonnelText();
@@ -59,12 +60,12 @@ export function CourseMonthlyReport({lines:originalLines,status,confirm,actions,
  {([{value:"ALL",label:"全部"},{value:"PROFIT",label:"店長利潤"},{value:"FEE",label:(music ? personnelText("教師授課費") : personnelText("教練授課費"))}] as const).map(item=><button key={item.value} type="button" aria-pressed={category===item.value} className={`${button} ${category===item.value?"bg-primary-700 text-white":"bg-white"}`} onClick={()=>setCategory(item.value)}>{item.label}</button>)}
  </div>}</div>
  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
- {syncing?<span role="status" className="text-sm text-earth-600">正在同步月結…</span>:status}<div className="min-w-0 flex-1"><KpiStrip items={[{label:category==="PROFIT"?"利潤合計":category==="FEE"?`${feeLabel}合計`:"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/></div>{!teacherId && !syncing && confirm}
+ {syncing?<span role="status" className="text-sm text-earth-600">正在同步月結…</span>:status}<div className="min-w-0 flex-1"><KpiStrip items={detailsOnly?[{label:feeLabel,value:issues?"待核對":money(total-addition+deduction)},{label:"增項",value:`+${money(addition)}`},{label:"減項",value:`−${money(deduction)}`},{label:"總計",value:issues?"待核對":money(total),tone:"primary"}]:[{label:category==="PROFIT"?"利潤合計":category==="FEE"?`${feeLabel}合計`:"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/></div><div className="flex flex-wrap gap-2">{adjustmentTools}{!teacherId && !syncing && confirm}</div>
  </div>
- {category!=="PROFIT"&&<p className="flex flex-wrap gap-4 text-sm"><span>原應付金額 {money(total-addition+deduction)}</span><span>加項合計 +{money(addition)}</span><span>減項合計 −{money(deduction)}</span></p>}
+ {category!=="PROFIT"&&!detailsOnly&&<p className="flex flex-wrap gap-4 text-sm"><span>原應付金額 {money(total-addition+deduction)}</span><span>加項合計 +{money(addition)}</span><span>減項合計 −{money(deduction)}</span></p>}
  {showPaymentStatus&&<p className="flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-label="付款登錄狀態"><span>已登錄付款 {money(paid)}</span><span>未付 {issues?"待核對":money(unpaid)}</span>{overpaid>0&&<span className="text-amber-800">溢付 {money(overpaid)}</span>}</p>}
  {people.some(p=>p.profit+p.fee+p.adjustment<0)&&<p role="alert" className="text-sm text-amber-800">部分人員的減項超過應付金額，請核對；差額不會自動帶入下個月。</p>}
- <CourseMonthlyPeople feeLabel={detailsOnly?feeLabel:undefined} music={music} category={category} entries={people.map(person=>({id:person.id,name:person.name,pending:person.issues>0||person.lines.some(l=>l.amount===null),priority:person.lines.some(l=>l.issue||l.amount===null)?0:1}))} actions={teacherId || syncing ? undefined : actions}>
+ {detailsOnly?<MonthlyDetailList canEditAdjustments={canEditAdjustments} lines={filtered} feeLabel={feeLabel} actions={teacherId||syncing?undefined:actions}/>:<CourseMonthlyPeople feeLabel={detailsOnly?feeLabel:undefined} music={music} category={category} entries={people.map(person=>({id:person.id,name:person.name,pending:person.issues>0||person.lines.some(l=>l.amount===null),priority:person.lines.some(l=>l.issue||l.amount===null)?0:1}))} actions={teacherId || syncing ? undefined : actions}>
  {!people.length&&<p className="p-4 text-sm text-earth-500">本月沒有此類收入紀錄。</p>}
  {people.map(person=><details open={params.get("settlementPerson")===person.id||undefined} key={person.id} className="group/person border-b border-earth-100 last:border-0"><summary className={`grid min-h-11 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3 py-2 ${category==="ALL"?"md:grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"md:grid-cols-[minmax(8rem,1fr)_1fr_5rem]"}`}>
  <strong className="truncate" title={person.name}>{person.name}</strong>
@@ -87,7 +88,7 @@ export function CourseMonthlyReport({lines:originalLines,status,confirm,actions,
  </tr>)}</RosterTable>
 
 </>} </details>)}
- </CourseMonthlyPeople>
+ </CourseMonthlyPeople>}
  </>;
 }
 

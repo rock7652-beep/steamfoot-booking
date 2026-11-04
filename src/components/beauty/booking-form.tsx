@@ -1,4 +1,5 @@
 "use client";
+import {useBeautyPersonnelText} from "@/components/course-personnel-label";
 import {BeautyAddOnChoices} from "./add-on-fields";
 import {addOnGroups} from "@/lib/beauty/add-ons";
 import {serviceDuration} from "@/lib/beauty/service-duration";
@@ -76,6 +77,8 @@ function BeautyDetailedBookingForm({
   initialDate?:string;initialTime?:string;initialTechnicianId?:string;initialLocationId?:string;onStateChange?:(state:{dirty:boolean;pending:boolean})=>void;
   onBooked?: () => void;
 }) {
+ const beautyText=useBeautyPersonnelText();
+
   const [trial, setTrial] = useState(mode === "public"),
     [date, setDate] = useState(initialDate ?? toLocalDateStr()),
     [time, setTime] = useState(""),
@@ -370,9 +373,7 @@ function BeautyDetailedBookingForm({
                 </select>
               </label>
               <BeautyAddOnChoices groups={catalog.services.find(s=>s.id===p.serviceId)?.addOnGroups} selected={p.addOnIds} onChange={addOnIds=>change(i,{addOnIds})}/>
-              {mode !== "manager" && <>              <label>
-                技師性別（必選）
-                <select
+              {mode !== "manager" && <>              <label>{beautyText("技師性別（必選）")}<select
                   required
                   className={control}
                   value={p.preference}
@@ -386,14 +387,14 @@ function BeautyDetailedBookingForm({
                   <option value="" disabled>
                     請選擇
                   </option>
-                  <option value="FEMALE">女性技師</option>
-                  <option value="MALE">男性技師</option>
+                  <option value="FEMALE">{beautyText("女性技師")}</option>
+                  <option value="MALE">{beautyText("男性技師")}</option>
                   <option value="ANY">男女皆可</option>
                 </select>
               </label>
 </>}
-              <details className="self-end" open={p.specifiedTechnicianId?true:undefined}><summary className="flex min-h-11 cursor-pointer items-center text-sm text-primary-800">技師：{catalog.techs.find(t=>t.id===p.specifiedTechnicianId)?.name ?? '不指定'} · 修改</summary>              <label>
-                <span className="sr-only">指定技師（選填）</span>
+              <details className="self-end" open={p.specifiedTechnicianId?true:undefined}><summary className="flex min-h-11 cursor-pointer items-center text-sm text-primary-800">{beautyText("技師：")}{catalog.techs.find(t=>t.id===p.specifiedTechnicianId)?.name ?? '不指定'} · 修改</summary>              <label>
+                <span className="sr-only">{beautyText("指定技師（選填）")}</span>
                 <select
                   className={control}
                   value={p.specifiedTechnicianId ?? ""}
@@ -401,7 +402,7 @@ function BeautyDetailedBookingForm({
                     change(i, { specifiedTechnicianId: e.target.value || null })
                   }
                 >
-                  <option value="">不指定技師</option>
+                  <option value="">{beautyText("不指定技師")}</option>
                   {catalog.techs
                     .filter(
                       (t) =>

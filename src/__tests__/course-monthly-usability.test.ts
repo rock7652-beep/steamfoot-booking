@@ -93,5 +93,5 @@ it("shows adjustments in unified details and nets them into total, without prese
 it("beauty details retain signed adjustment reasons and do not show deductions as an individual overpayment",async()=>{
  const base={date:"2026-11-04T00:00:00+08:00",staffId:"tech",name:"林技師",paid:0,issue:null,payments:[]};
  await act(async()=>root.render(createElement(CourseMonthlyReport,{detailsOnly:true,feeLabel:"技師拆帳",showPaymentStatus:true,lines:[{...base,kind:"FEE",id:"service",label:"服務",amount:30000},{...base,kind:"ADJUSTMENT",id:"sub",label:"出勤時數調整",amount:-800}]})));
- expect(host.textContent).toContain("NT$ 29,200");expect(host.textContent).toContain("調整減項");expect(host.textContent).toContain("出勤時數調整");expect(host.textContent).not.toContain("溢付");
+ expect(host.textContent).toContain("NT$ 29,200");expect(host.querySelector('[aria-label="月結逐筆明細"] tr[data-monthly-line="ADJUSTMENT:sub"]')?.textContent).toContain("−NT$ 800");expect(host.textContent).toContain("出勤時數調整");expect(host.textContent).not.toContain("溢付");
 });

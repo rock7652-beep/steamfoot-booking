@@ -1,4 +1,5 @@
 "use client";
+import {useBeautyPersonnelText} from "@/components/course-personnel-label";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import {serviceCalendarPresentation} from "@/lib/service-calendar-presentation";
@@ -548,6 +549,8 @@ export function CourseScheduleBoard({
   readOnly = false,
   replica = false,
 }: Props) {
+ const beautyText=useBeautyPersonnelText();
+
   const personnelText = useCoursePersonnelText();
   function releasedSeed(date:string,time:string,resourceId:string,view:ResourceView) {
     if(!sportsNative)return {};
@@ -706,14 +709,14 @@ export function CourseScheduleBoard({
         <Toolbar className={styles.calendarToolbar}>
           <div className={styles.calendarToolbarControls}>
           {searchControl}
-          <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>{serviceMode?"位置視角":"教室視角"}</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{serviceMode ? "技師視角" : businessProfile === "MUSIC" ? personnelText("教師視角") : personnelText("教練視角")}</button></div>
-          <label htmlFor="course-week-room" className={businessProfile === "MUSIC" ? "sr-only" : "font-medium"}>{resourceView === "room" ? (serviceMode?"位置":"教室") : serviceMode ? "技師" : businessProfile === "MUSIC" ? personnelText("教師") : personnelText(courseDisplayText("教練", businessProfile))}</label>
-          {(weekOverview || weekResources.length > 1) ? <select id="course-week-room" aria-label={serviceMode?(resourceView==='room'?'選擇週表位置':'選擇週表技師'):resourceView === "room" ? "選擇週表教室" : personnelText("選擇週表老師")} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
-            {weekOverview&&<option value="__all__">{resourceView==="room"?serviceMode?"全部位置":"全部教室":serviceMode?"全部技師":businessProfile==="MUSIC"?personnelText("全部老師"):personnelText("全部教練")}</option>}
+          <div className="inline-flex gap-1" aria-label="週表資源視角"><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "room" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("room")}>{serviceMode?"位置視角":"教室視角"}</button><button type="button" className={`min-h-11 rounded px-2 ${resourceView === "coach" ? "bg-primary-50 text-primary-900" : "text-earth-600"}`} onClick={()=>setResourceView("coach")}>{serviceMode ? beautyText("技師視角") : businessProfile === "MUSIC" ? personnelText("教師視角") : personnelText("教練視角")}</button></div>
+          <label htmlFor="course-week-room" className={businessProfile === "MUSIC" ? "sr-only" : "font-medium"}>{resourceView === "room" ? (serviceMode?"位置":"教室") : serviceMode ? beautyText("技師") : businessProfile === "MUSIC" ? personnelText("教師") : personnelText(courseDisplayText("教練", businessProfile))}</label>
+          {(weekOverview || weekResources.length > 1) ? <select id="course-week-room" aria-label={serviceMode?(resourceView==='room'?'選擇週表位置':beautyText('選擇週表技師')):resourceView === "room" ? "選擇週表教室" : personnelText("選擇週表老師")} value={roomId ?? ""} onChange={(event) => {setWeekRoomId(event.target.value);onResourceChange?.(resourceView,event.target.value);}} className="min-h-9 rounded-lg border border-earth-200 bg-white px-2 text-sm">
+            {weekOverview&&<option value="__all__">{resourceView==="room"?serviceMode?"全部位置":"全部教室":serviceMode?beautyText("全部技師"):businessProfile==="MUSIC"?personnelText("全部老師"):personnelText("全部教練")}</option>}
             {weekResources.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select> : <span className="font-medium text-primary-900">{weekResource?.name ?? "—"}</span>}
           <span className="text-sm font-medium">{serviceMode?`本週 ${serviceScheduleTotals(weekSessions).groups} 筆預約・${serviceScheduleTotals(weekSessions).people} 人次`:businessProfile === "MUSIC" ? <>{weekTotals.classes} 堂・{weekTotals.people} 人次{weekTotals.rentals > 0 && `・租借 ${weekTotals.rentals}`}</> : weekOverview ? <>本週 {weekTotals.classes} 堂・{weekTotals.people} 人次{weekTotals.rentals>0&&`・租借 ${weekTotals.rentals}`}</> : <>本週 {weekTotals.classes} 堂｜{(assignedFiltered || sessions.some(s=>s.displayBookings)) ? "所屬" : "名單"} {weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</>}</span>
-          {weekOverview&&!allWeekResources&&weekSessions.length===0&&sessions.some(session=>dates.includes(sessionDate(session)))&&<button type="button" className="min-h-11 rounded-lg border border-earth-200 bg-white px-3 text-primary-900" onClick={()=>{setWeekRoomId("__all__");onResourceChange?.(resourceView,"__all__");}}>此{resourceView==="room"?serviceMode?"位置":"教室":serviceMode?"技師":businessProfile==="MUSIC"?personnelText("老師"):personnelText("教練")}本週無{serviceMode?"預約":"課"}，查看全部{serviceMode?"預約":"課程"}</button>}
+          {weekOverview&&!allWeekResources&&weekSessions.length===0&&sessions.some(session=>dates.includes(sessionDate(session)))&&<button type="button" className="min-h-11 rounded-lg border border-earth-200 bg-white px-3 text-primary-900" onClick={()=>{setWeekRoomId("__all__");onResourceChange?.(resourceView,"__all__");}}>此{resourceView==="room"?serviceMode?"位置":"教室":serviceMode?beautyText("技師"):businessProfile==="MUSIC"?personnelText("老師"):personnelText("教練")}本週無{serviceMode?"預約":"課"}，查看全部{serviceMode?"預約":"課程"}</button>}
           {(serviceMode||weekOverview)&&toolbarContent}
           </div>
           {legend && <div className={styles.calendarLegend}>{legend}</div>}
@@ -754,7 +757,7 @@ export function CourseScheduleBoard({
                     const teacherOpen = allWeekResources || resourceView === "room" || periodContains(coachSegments,time,slotDuration);
                     const resourceEnabled = allWeekResources ? weekResources.some(resource=>resource.enabled) && !moveClipboard : weekResource?.enabled;
                     const available = resourceEnabled && periodContains(periods,time,slotDuration) && teacherOpen && !conflict && day?.status !== "closed" && day?.status !== "training";
-                    const reason = conflict ? (serviceMode?"已有預約":"已有課程") : !resourceEnabled ? allWeekResources&&moveClipboard?`請先選擇${resourceView==="room"?serviceMode?"位置":"教室":serviceMode?"技師":businessProfile==="MUSIC"?personnelText("老師"):personnelText("教練")}再貼上`:"資源未啟用" : !teacherOpen ? (serviceMode?"技師未開放":personnelText("老師未開放")) : "店家未開放";
+                    const reason = conflict ? (serviceMode?"已有預約":"已有課程") : !resourceEnabled ? allWeekResources&&moveClipboard?`請先選擇${resourceView==="room"?serviceMode?"位置":"教室":serviceMode?beautyText("技師"):businessProfile==="MUSIC"?personnelText("老師"):personnelText("教練")}再貼上`:"資源未啟用" : !teacherOpen ? (serviceMode?beautyText("技師未開放"):personnelText("老師未開放")) : "店家未開放";
                     return <button key={minute} type="button" disabled={!available || pending || readOnly || !canCreate} aria-label={`${date} ${time} ${available ? moveClipboard?"貼上":serviceMode?"新增預約":"排課" : reason}`} title={available ? `${date} ${time} · ${moveClipboard?"貼上課程":serviceMode?"新增預約":`排課 ${defaultDuration} 分鐘`}` : reason} onClick={() => allWeekResources?onOpenEmpty({date,time,durationMinutes:defaultDuration,...(sportsNative?{single:true}:{})}):moveClipboard&&onPasteMove?onPasteMove({date,time,roomId:resourceView==="room"?roomId!:moveClipboard.roomId,coachId:resourceView==="coach"?roomId!:moveClipboard.coachId}):onOpenEmpty({date,time,...(resourceView === "room" ? {roomId} : {coachId:roomId}),durationMinutes:defaultDuration,...(sportsNative?{single:true}:{}),...releasedSeed(date,time,roomId!,resourceView)})} className={`group relative ${fitWeek||businessProfile === "MUSIC" ? "min-h-0" : "min-h-11"} ${sportsNative?"touch-manipulation hover:z-20 focus-visible:z-20":""} border-b border-earth-200 text-left last:border-b-0 ${available ? "bg-white hover:bg-primary-50 focus:bg-primary-50" : "bg-earth-100/60"}`}><span className="absolute left-1 top-1 text-xs text-primary-800 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">{moveClipboard?"貼上":"＋"} {time}</span></button>;
                   })}</div>
                   {shadows.map((session) => {
@@ -795,7 +798,7 @@ export function CourseScheduleBoard({
                 <span className="flex flex-wrap items-center justify-between gap-2"><strong className="tabular-nums">{hhmm(session.startsAt)}–{hhmm(session.endsAt)}</strong><span className="inline-flex items-center gap-1 text-earth-600"><i aria-hidden="true" className={`h-2 w-2 rounded-full ${palette.dot}`}/>{palette.label}</span></span>
                 <strong className="mt-1 block break-words">{itemName(session)}</strong>
                 <span className="block break-words text-earth-700">{session.service||session.nameSnapshot!==copy.primary?session.nameSnapshot:session.bookings.map(booking=>booking.customerName).filter(Boolean).join("、")}</span>
-                <span className="mt-1 block break-words text-earth-600">{rental?copy.room:`${serviceMode?'技師':personnelText(businessProfile==='MUSIC'?'老師':'教練')}：${copy.coach}・${serviceMode?'位置':'教室'}：${copy.room}`}</span>
+                <span className="mt-1 block break-words text-earth-600">{rental?copy.room:`${serviceMode?beautyText('技師'):personnelText(businessProfile==='MUSIC'?'老師':'教練')}：${copy.coach}・${serviceMode?'位置':'教室'}：${copy.room}`}</span>
                 {session.service&&<span className="mt-1 block text-earth-600">{({RESERVED:'已預約',COMPLETED:'已完成',NO_SHOW:'未到',CANCELLED:'已取消'} as Record<string,string>)[session.service.status]}{session.service.paymentStatus&&`・${session.service.paymentStatus}`}{session.service.buffer>0&&`・整理至 ${hhmm(session.service.occupiedEndsAt)}`}</span>}
                 {!session.service&&!rental&&<span className="mt-1 block text-earth-600">{session.rescheduledAt?'已異動・':''}{session.teacherAttendance==='LEAVE'?'老師請假':session.teacherAttendance==='NO_SHOW'?'老師曠課':`點名 ${courseAttendanceState(session.displayBookings??session.bookings,0,session.teacherAttendance).processed}/${courseAttendanceState(session.displayBookings??session.bookings,0,session.teacherAttendance).total}`}</span>}
                 <span className="mt-2 block font-medium text-primary-800">查看詳細資料 ›</span>
@@ -951,7 +954,7 @@ export function CourseScheduleBoard({
             className={`${styles.touchControl} ${musicDense ? "min-h-8 px-3 text-xs" : "min-h-11 px-2 text-sm"} rounded-md ${resourceView === "coach" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
             onClick={() => setResourceView("coach")}
           >
-            {serviceMode ? "技師視角" : businessProfile === "MUSIC" ? personnelText("教師視角") : personnelText("教練視角")}
+            {serviceMode ? beautyText("技師視角") : businessProfile === "MUSIC" ? personnelText("教師視角") : personnelText("教練視角")}
           </button>
         </div>
   );

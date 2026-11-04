@@ -1,6 +1,6 @@
 "use client";
 import type {InitialStoreNoticeSummary} from "@/lib/store-notices";
-import {useCoursePersonnelText} from "@/components/course-personnel-label";
+import {useBeautyPersonnelText,useCoursePersonnelText} from "@/components/course-personnel-label";
 import {SteamfootStoreNoticeBell} from "./admin/steamfoot-store-notice-bell";
 import {CourseStoreNoticeBell} from "./admin/course-store-notice-bell";
 import { ImageAnnouncementIcon, LocationIcon, PractitionerIcon, ServiceCatalogIcon } from "./admin/navigation-icons";
@@ -718,6 +718,7 @@ export default function DashboardShell({
   steamfootAddOnsEnabled = false,
 }: DashboardShellProps) {
   const personnelText = useCoursePersonnelText();
+  const beautyText=useBeautyPersonnelText();
   const rawPathname = usePathname();
   const searchParams = useSearchParams();
   const routeQuery = searchParams.toString();
@@ -841,7 +842,7 @@ export default function DashboardShell({
         "技師管理": <PractitionerIcon />,
         "設定": entry("/dashboard/settings").icon,
       };
-      const beautyItem = (label:keyof typeof icons, permission:NavItem["permission"], feature?:FeatureKey):NavItem => ({label,icon:icons[label],href:`/dashboard/beauty?tab=${encodeURIComponent(label)}`,permission,requiredFeature:feature});
+      const beautyItem = (label:keyof typeof icons, permission:NavItem["permission"], feature?:FeatureKey):NavItem => ({label:beautyText(label),icon:icons[label],href:`/dashboard/beauty?tab=${encodeURIComponent(label)}`,permission,requiredFeature:feature});
       return [
         {id:"store-daily",label:"日常工作",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("首頁","booking.read"),beautyItem("班表","booking.read",FEATURES.BASIC_BOOKING),beautyItem("顧客管理","customer.read",FEATURES.CUSTOMER_MANAGEMENT),beautyItem("顧客經營","customer.read",FEATURES.CUSTOMER_CARE),operationsItem,beautyItem("分析","report.read",FEATURES.BASIC_REPORTS),entry("/dashboard/work-orders"),entry("/dashboard/inventory")]},
         {id:"store-management",label:"店務管理",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("位置管理","business_hours.view"),beautyItem("服務項目","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("收費方式","plans.edit",FEATURES.PLAN_MANAGEMENT),...(steamfootAddOnsEnabled?[{href:"/dashboard/add-ons",label:"加購商品",permission:"add_ons.manage" as const,requiredFeature:FEATURES.ADD_ONS,icon:<ServiceCatalogIcon/>}]:[]),beautyItem("技師管理","staff.view",FEATURES.STAFF_MANAGEMENT),entry("/dashboard/staff"),{...entry("/dashboard/settings"),href:"/dashboard/image-announcements",label:"圖片公告",icon:<ImageAnnouncementIcon />,permission:"business_hours.view",requiredFeature:undefined},beautyItem("設定","business_hours.view")]},
@@ -902,7 +903,7 @@ export default function DashboardShell({
       { id: "store-daily", label: "日常工作", defaultOpen: true, alwaysOpen: true, icon: <></>, items: musicEnabled ? daily.filter(item => !["/dashboard/work-orders", "/dashboard/inventory"].includes(item.href)) : daily },
       { id: "store-management", label: "店務管理", defaultOpen: true, alwaysOpen: true, icon: <></>, items: management },
     ];
-  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModuleId, musicEnabled, sportsNative, effectiveFeatures, canOpenCourseSettings, personnelText, permissions, steamfootAddOnsEnabled]);
+  }, [isHqPlatformView, isHqStoreView, isStoreAdminRoute, isAdmin, industryModuleId, musicEnabled, sportsNative, effectiveFeatures, canOpenCourseSettings, personnelText, beautyText, permissions, steamfootAddOnsEnabled]);
 
   const featureAccess = (item: NavItem) => {
     const features = item.alternativeFeatures ?? (item.requiredFeature ? [item.requiredFeature] : []);

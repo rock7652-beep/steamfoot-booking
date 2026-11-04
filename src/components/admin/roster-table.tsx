@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 /** Shared fixed-column lists scroll locally in narrow panels without shrinking text. */
 export function RosterTable({ label, columns, children, widths, dense = false, minWidth = 640 }: { label: string; columns: string[]; children: ReactNode; widths?: string[]; dense?: boolean; minWidth?: number }) {
   return <div role="region" aria-label={label} tabIndex={0} className="max-w-full overflow-x-auto rounded-lg border border-earth-200 focus-visible:outline-2 focus-visible:outline-primary-600">
-    <table data-striped-list style={{minWidth}} className={`w-full table-fixed ${widths ? "" : "has-[form]:table-auto"} [&_form]:min-w-64 text-left text-sm [&_td]:break-words [&_td]:px-3 ${dense ? "[&_td]:py-1 [&_td]:align-middle" : "[&_td]:py-2 [&_td]:align-top"}`}>
+    <table data-striped-list style={{minWidth}} className={`w-full table-fixed ${widths ? "" : "has-[form]:table-auto"} [&_form]:min-w-64 text-left text-sm [&_td]:break-words [&_td]:px-3 ${dense ? "[&_td]:py-1 [&_td]:align-middle" : "[&_td]:py-1 [&_td]:align-top"}`}>
       <caption className="sr-only">{label}</caption>
       {widths && <colgroup>{columns.map((column, index) => <col key={column} style={{ width: widths[index] }} />)}</colgroup>}
       <thead className="bg-earth-50 text-earth-600"><tr>{columns.map(column=><th key={column} scope="col" className="px-3 py-2 font-medium">{column}</th>)}</tr></thead>
