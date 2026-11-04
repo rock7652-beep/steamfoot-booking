@@ -36,6 +36,16 @@ it("validates actual dates, positive integers, required reason and direction",()
  expect(adjustmentInput.safeParse(input).success).toBe(true);
  for(const change of [{date:"2026-02-30"},{amount:0},{amount:-500},{amount:1.5},{reason:" "},{direction:"OTHER"}])expect(adjustmentInput.safeParse({...input,...change}).success).toBe(false);
 });
+it("returns the committed rows and month revision, including replay and moving out of the viewed month",async()=>{
+ const created=await saveMonthlyAdjustment({...input,reason:"  教學獎勵  ",viewMonth:input.month});
+ expect(created).toMatchObject({success:true,data:{storeId:"A",month:input.month,locked:false,revision:1,rows:[{id:input.id,reason:"教學獎勵",revision:1}]}});
+ expect(await saveMonthlyAdjustment({...input,viewMonth:input.month})).toEqual(created);
+ const moved=await saveMonthlyAdjustment({...input,revision:1,month:"2026-12",viewMonth:input.month});
+ expect(moved).toMatchObject({success:true,data:{month:input.month,revision:2,rows:[]}});
+ const deleted=await deleteMonthlyAdjustment({id:input.id,expectedStoreId:"A",revision:2});
+ expect(deleted).toMatchObject({success:true,data:{month:"2026-12",revision:2,rows:[]}});
+ expect(await deleteMonthlyAdjustment({id:input.id,expectedStoreId:"A",revision:2})).toEqual(deleted);
+});
 it("creates once on replay, edits once, moves month and soft-deletes with full audit",async()=>{
  expect((await saveMonthlyAdjustment(input)).success).toBe(true);
  expect((await saveMonthlyAdjustment(input)).success).toBe(true);

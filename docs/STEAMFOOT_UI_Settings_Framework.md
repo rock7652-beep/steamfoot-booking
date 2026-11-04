@@ -492,6 +492,8 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 
 目前主要對應方向：
 
+- 獎勵與調整 → `service-fee-calculator/monthly-adjustments.tsx` 與 `components/operations/monthly-adjustment-context.tsx`。四模組共用緊湊工具列與明細；交易成功回傳當月明細／revision，立即同步明細及加減項摘要，再刷新完整報表。晚到舊版本不覆寫新結果；新 fingerprint 未同步前不提供舊版本月結確認。欄位必填符號用半形 `*`，保留 14px 字級及 44px 操作，窄表局部橫向捲動。
+
 - Settings Center → `src/components/settings/`
 - Settings Workspace / Nav / List Row → 共用 settings primitives
 - Settings Panel → 共用 panel 容器，逐步取代只屬於單一模組的 panel wrapper

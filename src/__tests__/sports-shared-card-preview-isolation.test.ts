@@ -56,6 +56,11 @@ function run(overrides: Record<string, string | undefined>) {
 }
 
 describe("sports shared-card Preview preflight", () => {
+  it("monthly adjustment review uses only the existing isolated Preview and never runs migrations",()=>{
+    const branch="fix/monthly-adjustment-feedback-density";
+    expect(run({VERCEL_GIT_COMMIT_REF:branch})).toMatchObject({status:0});
+    for(const overrides of [{DATABASE_URL:production},{DIRECT_URL:production},{VERCEL_ENV:"production"},{VERCEL_GIT_REPO_SLUG:"other"},{VERCEL_GIT_COMMIT_REF:branch+"-other"}])expect(run({VERCEL_GIT_COMMIT_REF:branch,...overrides}).status).not.toBe(0);
+  });
   it("allows the authorized LIFF health preview only with the existing isolation gates", () => {
     const health = { ...valid, VERCEL_GIT_COMMIT_REF: "fix/liff-health-change-range-20261104" };
     expect(() => assertSportsSharedCardPreviewEnvironment(health)).not.toThrow();

@@ -10,7 +10,7 @@ const env=JSON.parse(readFileSync('/tmp/monthly-live-env.json','utf8'));assertBe
 const {password,accounts}=JSON.parse(readFileSync('/tmp/monthly-live-login.json','utf8'));
 const db=new Client({connectionString:env.DATABASE_URL});await db.connect();
 const browser=await chromium.launch({headless:true,executablePath:'/usr/bin/chromium',args:['--no-sandbox']});
-const output='artifacts/monthly-adjustments/live';mkdirSync(output,{recursive:true});
+const output=process.argv.find(arg=>arg.startsWith('--output='))?.slice(9)??'artifacts/monthly-adjustments/live';mkdirSync(output,{recursive:true});
 const sourceSha=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
 const previous=process.argv.includes('--resume')?JSON.parse(readFileSync(`${output}/results.json`,'utf8')):null;
 if(previous&&previous.sourceSha!==sourceSha)throw Error('Cannot reuse results from another product version');
@@ -39,14 +39,14 @@ try{
   async function add(direction,amount,reason){
    await section.getByRole('button',{name:'＋新增調整'}).click();
    assert.deepEqual(await form().locator('input,select,textarea').evaluateAll(nodes=>nodes.map(n=>n.type).slice(0,2)),['date','month']);
-   await form().getByLabel('日期＊').fill('2026-11-02');await form().getByLabel('歸屬月份＊').fill('2026-11');
-   await form().getByLabel('人員＊').selectOption(account.personId);await form().getByLabel('加項／減項＊').selectOption(direction);await form().getByLabel('金額＊').fill(String(amount));await form().getByLabel('調整事由＊').fill(reason);
-   await save();await until(async()=>(await rows(account)).some(r=>r.reason===reason));
+   await form().getByLabel('日期 *').fill('2026-11-02');await form().getByLabel('歸屬月份 *').fill('2026-11');
+   await form().getByLabel('人員 *').selectOption(account.personId);await form().getByLabel('加項／減項 *').selectOption(direction);await form().getByLabel('金額 *').fill(String(amount));await form().getByLabel('調整事由 *').fill(reason);
+   await save();await section.getByText(reason,{exact:true}).waitFor();await until(async()=>(await rows(account)).some(r=>r.reason===reason));
   }
   const addition=`live-${account.kind}-獎勵`,deduction=`live-${account.kind}-出勤調整`,temporary=`live-${account.kind}-刪除驗收`;
   await add('ADD',2000,addition);assert.ok(lastSave?.action);const originalSave={...lastSave};
   const replay=await page.request.post(monthlyUrl,{headers:{'next-action':originalSave.action,'content-type':originalSave.type,origin:'http://localhost:3123'},data:originalSave.body});assert.equal(replay.status(),200);assert.equal((await rows(account)).filter(r=>r.reason===addition).length,1);
-  async function edit(reason,amount){const row=section.getByRole('row').filter({has:page.getByText(reason,{exact:true})});await row.getByRole('button',{name:'編輯',exact:true}).click();await form().getByLabel('金額＊').fill(String(amount));await save();await until(async()=>(await rows(account)).find(r=>r.reason===reason)?.amount===amount);}
+  async function edit(reason,amount){const row=section.getByRole('row').filter({has:page.getByText(reason,{exact:true})});await row.getByRole('button',{name:'編輯',exact:true}).click();await form().getByLabel('金額 *').fill(String(amount));await save();await row.getByText(`+$${amount.toLocaleString()}`,{exact:true}).or(row.getByText(`−$${amount.toLocaleString()}`,{exact:true})).waitFor();await until(async()=>(await rows(account)).find(r=>r.reason===reason)?.amount===amount);}
   await edit(addition,2500);await add('SUBTRACT',800,deduction);await add('ADD',500,temporary);
   const temporaryRow=section.getByRole('row').filter({has:page.getByText(temporary,{exact:true})});await temporaryRow.getByRole('button',{name:'刪除',exact:true}).click();await page.getByRole('button',{name:'確認刪除',exact:true}).click();await until(async()=>(await rows(account)).length===2);
   await edit(addition,2000);

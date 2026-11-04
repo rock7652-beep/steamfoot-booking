@@ -1,3 +1,5 @@
+import {MonthlyAdjustmentProvider} from "@/components/operations/monthly-adjustment-context";
+import {SteamfootAdjustmentSummary} from "./steamfoot-adjustment-summary";
 import { MonthlyAdjustments } from "./monthly-adjustments";
 import {OperationsLocalHeading} from "@/components/operations/workspace-frame";
 import { PageShell } from "@/components/desktop";
@@ -13,7 +15,7 @@ export async function SteamfootMonthly({ storeId, month, readOnly }: { storeId: 
   if (!user || (user.role !== "OWNER" && user.role !== "ADMIN")) return <p>僅店長可查看月結。</p>;
   const report = await readSteamfootMonthly(storeId, month);
   const canManage = !readOnly && await checkPermission(user.role, user.staffId, "staff.manage");
-  return <PageShell className="w-full min-w-0 space-y-3 py-3">
+  return <MonthlyAdjustmentProvider key={`${storeId}:${month}:${user.id}:${user.role}:${user.staffId??""}`} initial={{storeId,month,rows:report.adjustments,...report.adjustmentMonth}} people={report.people}><PageShell className="w-full min-w-0 space-y-3 py-3">
     <OperationsLocalHeading title="月結管理" actions={<IncomeMonthFilter month={month}/>} />
     <section className="overflow-hidden rounded-lg border border-earth-200 bg-white">
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)] gap-2 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)_5rem]"><span>人員</span><span>本月服務收入</span><span>空間租金約定</span><span className="hidden sm:block">明細</span></div>
@@ -32,13 +34,12 @@ export async function SteamfootMonthly({ storeId, month, readOnly }: { storeId: 
         </div>
       </details>)}
     </section>
-    <section className="space-y-2"><h2 className="text-sm font-medium">本月收入與調整</h2><div className="overflow-x-auto rounded-lg border bg-white"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-earth-50"><tr>{["人員","原收入金額","加項合計","減項合計","調整後合計"].map(h=><th key={h} className="p-3">{h}</th>)}</tr></thead><tbody>{report.people.map(p=><tr key={p.id} className="border-t"><td className="p-3">{p.name}</td><td className="p-3">{money(p.summary?.countedAmount??0)}</td><td className="p-3">+{money(p.adjustments.addition)}</td><td className="p-3">−{money(p.adjustments.deduction)}</td><td className="p-3 font-medium">{p.summary?.needsReviewCount?"待核對":money((p.summary?.countedAmount??0)+p.adjustments.net)}</td></tr>)}</tbody></table></div><p className="text-sm text-earth-500">租金依原約定分列，不自動從收入扣除。負數差額不自動帶入下個月。</p></section>
-    {report.people.some(p=>(p.summary?.countedAmount??0)+p.adjustments.net<0)&&<p role="alert" className="text-sm text-amber-800">部分人員的減項超過原收入，請核對；差額不會自動帶入下個月。</p>}
+    <SteamfootAdjustmentSummary people={report.people.map(p=>({id:p.id,name:p.name,amount:p.summary?.countedAmount??0,needsReview:!!p.summary?.needsReviewCount}))}/>
     <MonthlyAdjustments key={`${storeId}:${month}`} storeId={storeId} month={month} rows={report.adjustments} people={report.people} canEdit={canManage} locked={report.adjustmentMonth.locked} revision={report.adjustmentMonth.revision}/>
     <p className="text-xs text-earth-500">租金依完整租期顯示，與服務收入分列；實際收付款由店家處理。</p>
     {!!report.unassigned.length && <details className="rounded-lg border bg-white p-3"><summary className="cursor-pointer text-sm">歸店家／未指定人員（{report.unassigned.length} 堂）</summary><ServiceDetails details={report.unassigned}/></details>}
     <Link href={`/dashboard/service-fee-calculator?month=${month}&view=legacy`} className="inline-flex min-h-11 items-center text-xs text-earth-500 underline">舊版店舖月結與紀錄</Link>
-  </PageShell>;
+  </PageShell></MonthlyAdjustmentProvider>;
 }
 function ServiceDetails({ details }: { details: SettlementDetailRow[] }) {
   return <div><h3 className="mb-2 text-sm font-medium">服務收入明細</h3>{!details.length ? <p className="text-sm text-earth-500">本月無已完成服務。</p> : <div className="overflow-x-auto"><table className="w-full min-w-[34rem] text-left text-sm"><thead><tr className="border-b text-xs text-earth-500"><th className="p-2">日期／時間</th><th className="p-2">顧客</th><th className="p-2">服務人員</th><th className="p-2">方案／類型</th><th className="p-2 text-right">金額</th></tr></thead><tbody>{details.map(d => <tr key={d.bookingId} className="border-b border-earth-100"><td className="p-2 whitespace-nowrap">{d.bookingDate.toISOString().slice(0,10)} {d.slotTime}</td><td className="p-2">{d.customerName}</td><td className="p-2">{d.serviceStaffName}</td><td className="p-2">{d.planName && <span className="block">{d.planName}</span>}{d.isMakeup ? "補課" : d.bookingType === "FIRST_TRIAL" ? "體驗" : d.bookingType === "SINGLE" ? "單次" : "方案"}{d.purchasedPrice !== undefined && !!d.totalSessions && <small className="block text-earth-500">{money(d.purchasedPrice)} ÷ {d.totalSessions} 堂</small>}</td><td className="p-2 text-right tabular-nums">{d.needsReview ? "待核對" : money(d.amount ?? 0)}{!d.counted && !d.needsReview && <small className="block text-earth-500">未計入人員收入</small>}</td></tr>)}</tbody></table></div>}</div>;
