@@ -19,7 +19,7 @@ import { notificationId,recipientHash,noticeRetryState,monthlyNotificationBody,t
 async function context(storeId:string,month:string,revision:number) {
  const report=await coursePrisma.$transaction(tx=>readCourseMonthlySettlement(tx,storeId,month),{isolationLevel:'RepeatableRead',timeout:20000});
  const last=report.revisions[0];
- const reason=!report.settings.personalIncomeEnabled?'請先於月結設定開放人員查看本人收入。':!last?'請先確認本月金額。':last.revision!==revision||last.fingerprint!==report.fingerprint?'月結已有異動，請重新確認金額後再通知。':null;
+ const reason=report.adjustmentMonth?.locked===false?'月結已重新開啟，請完成確認後再通知。':!report.settings.personalIncomeEnabled?'請先於月結設定開放人員查看本人收入。':!last?'請先確認本月金額。':last.revision!==revision||last.fingerprint!==report.fingerprint?'月結已有異動，請重新確認金額後再通知。':null;
  return {report,last,reason,staffIds:[...new Set((last?.snapshot??[]).map(l=>l.staffId).filter((id):id is string=>!!id))]};
 }
 async function recipient(storeId:string,staffId:string,preview:boolean) {

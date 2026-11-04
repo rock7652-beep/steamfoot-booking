@@ -1,3 +1,4 @@
+import { readMonthlyAdjustments, readAdjustmentMonth } from "./staff-monthly-adjustment";
 import { Prisma as RetirementPrisma } from "@prisma/client";
 import { musicRetirementSql } from "@/server/services/music-retirement-sql";
 import "server-only";
@@ -17,14 +18,16 @@ export type SettlementRevision={id:string;revision:number;fingerprint:string;sna
 export async function readCourseMonthlySettlement(tx:Prisma.TransactionClient,storeId:string,month:string) {
   settlementMonth.parse(month);
   const {start,end}=monthRange(month);
-  const [settings,orders,sessions,payments,feePayments,staff,revisions]=await Promise.all([
+  const [settings,orders,sessions,payments,feePayments,staff,revisions,adjustments,adjustmentMonth]=await Promise.all([
     readSettlementSettings(tx,storeId),
     tx.coursePurchase.findMany({where:{storeId,confirmedAt:{gte:start,lte:end},status:{in:["CONFIRMED","REFUNDED","VOIDED"]}},include:{refunds:true},orderBy:{id:"asc"}}),
     tx.$queryRaw<Array<{id:string;staffId:string;name:string;startsAt:Date;endsAt:Date;cancelledAt:Date|null;rule:unknown}&CapturedTeacherFee>>(RetirementPrisma.sql`SELECT s.id,COALESCE(c."staffId",s."coachId") AS "staffId",s."nameSnapshot" AS name,s."startsAt",s."endsAt",s."cancelledAt",s."teacherAttendance",c.rule,c.revision,c."musicPricePerLesson",c."musicTeacherFeeBase",c."musicTrialMode" FROM "CourseSession" s LEFT JOIN "CourseCompensationSnapshot" c ON c."sessionId"=s.id AND c."storeId"=s."storeId" WHERE s."storeId"=${storeId} ${musicRetirementSql(storeId,"CourseSession","s.id")} AND s."startsAt">=${start} AND s."startsAt"<=${end} ORDER BY s.id`),
     tx.$queryRaw<Array<{id:string;purchaseId:string;amount:number;createdAt:Date;note:string;voidedAt:Date|null;voidReason:string|null}>>`SELECT p.* FROM "CourseProfitPayment" p JOIN "CoursePurchase" o ON o.id=p."purchaseId" AND o."storeId"=p."storeId" WHERE p."storeId"=${storeId} AND o."confirmedAt">=${start} AND o."confirmedAt"<=${end} ORDER BY p."createdAt",p.id`,
     tx.$queryRaw<Array<{id:string;sessionId:string;amount:number;createdAt:Date;note:string;voidedAt:Date|null;voidReason:string|null}>>`SELECT p.* FROM "CourseFeePayment" p JOIN "CourseSession" s ON s.id=p."sessionId" AND s."storeId"=p."storeId" WHERE p."storeId"=${storeId} AND s."startsAt">=${start} AND s."startsAt"<=${end} ORDER BY p."createdAt",p.id`,
-    tx.$queryRaw<Array<{id:string;displayName:string}>>`SELECT id,"displayName" FROM "Staff" WHERE "storeId"=${storeId}`,
+    tx.$queryRaw<Array<{id:string;displayName:string;status:string}>>`SELECT id,"displayName",status FROM "Staff" WHERE "storeId"=${storeId}`,
     tx.$queryRaw<SettlementRevision[]>`SELECT id,revision,fingerprint,snapshot,reason,"createdAt" FROM "CourseMonthlySettlement" WHERE "storeId"=${storeId} AND month=${month} ORDER BY revision DESC`,
+    readMonthlyAdjustments(storeId,month,tx),
+    readAdjustmentMonth(storeId,month,tx),
   ]);
   const seats=await readTeacherFeeSeats(tx,storeId,sessions.map(s=>s.id));
   const names=new Map(staff.map(s=>[s.id,s.displayName]));
@@ -50,9 +53,10 @@ export async function readCourseMonthlySettlement(tx:Prisma.TransactionClient,st
     const issue=fee===null?calculated.issue:!Number.isSafeInteger(fee)?"小數授課費需核對":null;
     lines.push({kind:"FEE",id:session.id,staffId:session.staffId,name:names.get(session.staffId)??"歷史授課人員",label:session.name,date:session.startsAt.toISOString(),endsAt:session.endsAt.toISOString(),feeDetails:calculated.details.map(({name,base,amount,reason})=>({name,base,amount,reason})),amount:fee,paid:history.filter(p=>!p.voidedAt).reduce((n,p)=>n+p.amount,0),issue,payments:history.map(p=>paymentView({...p,purchaseId:""}))});
   }
+  for(const row of adjustments)lines.push({kind:"ADJUSTMENT",id:row.id,staffId:row.staffId,name:names.get(row.staffId)??"歷史人員",label:row.reason,date:`${row.date}T00:00:00+08:00`,amount:row.direction==="ADD"?row.amount:-row.amount,paid:0,issue:null,payments:[]});
   // Payments remain live. Confirmation freezes obligations, not payment status.
   const separated=separateMusicPayroll(storeId,lines);
   const obligations=separated.lines.map(({kind,id,staffId,name,label,date,endsAt,feeDetails,amount,issue})=>({kind,id,staffId,name,label,date,endsAt,feeDetails,amount,issue}));
   const fingerprint=createHash("sha256").update(JSON.stringify(obligations)).digest("hex");
-  return {settings,...separated,fingerprint,revisions};
+  return {settings,...separated,fingerprint,revisions,adjustmentMonth,adjustments,adjustmentPeople:staff};
 }

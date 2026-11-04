@@ -1,4 +1,5 @@
 "use server";
+import { setAdjustmentMonthLock } from "@/server/services/staff-monthly-adjustment";
 import {beautyReadTransaction} from '@/server/beauty/read-transaction';
 import {beautyChargeRulesEnabled,readCatalogCharge} from '@/server/beauty/charge-runtime';
 import {beautyPlanPurchaseIntentsEnabled} from '@/server/beauty/plan-checkout-input';
@@ -489,13 +490,16 @@ export async function confirmBeautySettlement(input: unknown) {
         requestKey: z.string().uuid(),
         month: z.string(),
         fingerprint: z.string(),
+        expectedLockRevision: z.number().int().nonnegative().optional(),
       })
       .parse(input);
     return beautyTransaction(a, (tx) =>
       command(tx, a, d.requestKey, d, async () => {
         const report = await settlement(tx, a.storeId, d.month);
+        if(d.expectedLockRevision!==undefined&&report.adjustmentMonth.revision!==d.expectedLockRevision)throw new AppError("CONFLICT","月結已變更，請重新核對");
         if (report.fingerprint !== d.fingerprint)
           throw new AppError("CONFLICT", "月結已變更，請重新核對");
+        await setAdjustmentMonthLock(tx,a.storeId,d.month,true);
         await tx.beautySettlement.create({
           data: {
             storeId: a.storeId,

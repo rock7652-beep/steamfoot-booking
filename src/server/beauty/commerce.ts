@@ -1,3 +1,4 @@
+import { readMonthlyAdjustments, readAdjustmentMonth } from "@/server/services/staff-monthly-adjustment";
 import {distributeBeautyPayments} from '@/lib/beauty/payment-splits';
 import {addOnSnapshots,addOnTotals} from "@/lib/beauty/add-ons";
 import {baseServiceCollected} from "@/lib/beauty/add-on-finance";
@@ -321,7 +322,9 @@ export async function settlement(tx: Tx, storeId: string, month: string) {
     },
     orderBy: { id: "asc" },
   });
-  const lines = rows.map((r) => ({
+  const adjustments=await readMonthlyAdjustments(storeId,month,tx);
+  const adjustmentMonth=await readAdjustmentMonth(storeId,month,tx,"beauty");
+  const lines: Array<{id:string;technicianId:string;personName:string;serviceName:string;date:string;fee:number;paid:number;revision:number;kind?:"ADJUSTMENT"}> = rows.map((r) => ({
     id: r.id,
     technicianId: r.technicianId,
     personName: r.personName,
@@ -333,8 +336,9 @@ export async function settlement(tx: Tx, storeId: string, month: string) {
       .reduce((n, p) => n + p.amount, 0),
     revision: r.revision,
   }));
+  for(const r of adjustments)lines.push({id:r.id,technicianId:r.staffId,personName:"",serviceName:r.reason,date:`${r.date}T00:00:00+08:00`,fee:r.direction==="ADD"?r.amount:-r.amount,paid:0,revision:r.revision,kind:"ADJUSTMENT"});
   return {
-    lines,
+    lines,adjustments,adjustmentMonth,
     fingerprint: createHash("sha256")
       .update(JSON.stringify(lines))
       .digest("hex"),

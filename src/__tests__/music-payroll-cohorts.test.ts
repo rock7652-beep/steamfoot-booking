@@ -29,6 +29,22 @@ it("monthly fingerprint and confirmed snapshot use operational rows; legacy-only
  const report=await readCourseMonthlySettlement(tx,"store-lubymusic","2026-01");expect(report.lines.map(l=>l.id)).toEqual(["source-real"]);expect(report.legacyTestLines).toHaveLength(2);
  ids=["source-real"];expect((await readCourseMonthlySettlement(tx,"store-lubymusic","2026-01")).fingerprint).toBe(report.fingerprint);
  await confirmCourseMonth(tx,{storeId:"store-lubymusic",userId:"owner"},{month:"2026-01",fingerprint:report.fingerprint,revision:0,reason:"測試確認"});
- const saved=execute.mock.calls[0].find((value:unknown)=>typeof value==="string"&&value.startsWith("[{"));expect(JSON.parse(saved).map((l:SettlementLine)=>l.id)).toEqual(["source-real"]);
- ids=[legacy[0]];const empty=await readCourseMonthlySettlement(tx,"store-lubymusic","2026-01");await expect(confirmCourseMonth(tx,{storeId:"store-lubymusic",userId:"owner"},{month:"2026-01",fingerprint:empty.fingerprint,revision:0,reason:"測試確認"})).rejects.toThrow("沒有結算項目");expect(execute).toHaveBeenCalledTimes(1);
+ const saved=execute.mock.calls.flat().find((value:unknown)=>typeof value==="string"&&value.startsWith("[{"));expect(JSON.parse(saved).map((l:SettlementLine)=>l.id)).toEqual(["source-real"]);
+ ids=[legacy[0]];const empty=await readCourseMonthlySettlement(tx,"store-lubymusic","2026-01");await expect(confirmCourseMonth(tx,{storeId:"store-lubymusic",userId:"owner"},{month:"2026-01",fingerprint:empty.fingerprint,revision:0,reason:"測試確認"})).rejects.toThrow("沒有結算項目");expect(execute).toHaveBeenCalledTimes(2);
+});
+it("includes adjustment obligations in fingerprint and frozen monthly snapshot",async()=>{
+ let amount=2000;
+ const execute=vi.fn();
+ const tx={$executeRaw:execute,coursePurchase:{findMany:vi.fn().mockResolvedValue([])},$queryRaw:vi.fn(async(strings:TemplateStringsArray & {sql?:string})=>{
+ const sql=strings.sql??strings.join("");
+ if(sql.includes('FROM "StaffMonthlyAdjustment"'))return [{id:"adjustment",staffId:"teacher",month:"2026-11",date:"2026-11-04",direction:"ADD",amount,reason:"教學獎勵",revision:1}];
+ if(sql.includes('FROM "Staff"'))return [{id:"teacher",displayName:"王老師",status:"ACTIVE"}];
+ return [];
+ })} as unknown as Prisma.TransactionClient;
+ const report=await readCourseMonthlySettlement(tx,"store","2026-11");
+ expect(report.lines).toHaveLength(1);expect(report.lines[0]).toMatchObject({kind:"ADJUSTMENT",amount:2000,label:"教學獎勵",name:"王老師"});
+ amount=2500;const changed=await readCourseMonthlySettlement(tx,"store","2026-11");expect(changed.fingerprint).not.toBe(report.fingerprint);
+ await expect(confirmCourseMonth(tx,{storeId:"store",userId:"owner"},{month:"2026-11",fingerprint:report.fingerprint,revision:0,reason:"確認"})).rejects.toThrow("明細已變更");
+ await confirmCourseMonth(tx,{storeId:"store",userId:"owner"},{month:"2026-11",fingerprint:changed.fingerprint,revision:0,reason:"確認"});
+ const snapshot=execute.mock.calls.flat().find(v=>typeof v==="string"&&v.startsWith("[{"));expect(JSON.parse(snapshot)).toMatchObject([{kind:"ADJUSTMENT",amount:2500}]);
 });

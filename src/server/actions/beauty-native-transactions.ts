@@ -33,7 +33,7 @@ export async function confirmBeautyNativeTransaction(input:unknown){
 }
 
 export async function confirmBeautyNativeSettlement(input:unknown){
- try{const d=z.object({month:z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/),fingerprint:z.string().length(64),expectedStoreId:key,requestKey:z.string().uuid()}).parse(input),a=await beautyManager('teacher.settlement.confirm',true);if(a.storeId!==d.expectedStoreId)throw new AppError('CONFLICT','目前門市已切換，請重新開啟月結');return confirmBeautySettlement(d);}catch(error){const result=handleActionError(error);return {success:false as const,error:result.success?'月結尚未確認':result.error,uncertain:settingsSaveUncertain(error)};}
+ try{const d=z.object({month:z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/),fingerprint:z.string().length(64),expectedLockRevision:z.number().int().nonnegative().optional(),expectedStoreId:key,requestKey:z.string().uuid()}).parse(input),a=await beautyManager('teacher.settlement.confirm',true);if(a.storeId!==d.expectedStoreId)throw new AppError('CONFLICT','目前門市已切換，請重新開啟月結');return confirmBeautySettlement(d);}catch(error){const result=handleActionError(error);return {success:false as const,error:result.success?'月結尚未確認':result.error,uncertain:settingsSaveUncertain(error)};}
 }
 
 const correction=z.object({purchaseId:key,expectedStoreId:key,requestKey:z.string().uuid(),expectedRevision:z.number().int().nonnegative(),reason:z.string().trim().min(1).max(500)});
