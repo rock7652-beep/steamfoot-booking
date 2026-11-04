@@ -8,17 +8,19 @@ import { prisma } from '@/lib/db';
 import { AppError } from '@/lib/app-error';
 import { courseAgreementSignSchema, signatureSvg } from '@/lib/course-agreement-signing';
 import type { CourseAgreementCompletion, CourseAgreementPublicDocument, CourseAgreementReceipt, CourseAgreementReviewView } from '@/lib/course-agreement-signing';
-import { readCourseAgreementProfile } from './course-agreement-profile';
+import { readBeautyAgreementProfile, readCourseAgreementProfile } from './course-agreement-profile';
 import { courseAgreementDraftSchema } from '@/lib/course-agreement';
-import { lockCourseStore } from './course-store-lock';
+import { lockAgreementStore } from './agreement-store-lock';
 import { courseAgreementReceiptToken } from './course-agreement-signing-token';
 import { agreementEvidenceInclude, verifiedAgreementDocument as publicDocument, verifiedAgreementReceipt } from './course-agreement-evidence';
 
 export const agreementTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const digest = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex');
 const invalid = () => new AppError('NOT_FOUND', '此約定書連結已失效，請向店家取得最新連結');
-export function assertPublicCourseAgreementsEnabled() {
-  if (process.env.COURSE_AGREEMENTS_ENABLED !== '1' || process.env.COURSE_AGREEMENTS_PUBLIC_ENABLED !== '1') throw invalid();
+export function assertPublicCourseAgreementsEnabled(profile?: string) {
+  const course = process.env.COURSE_AGREEMENTS_ENABLED === '1' && process.env.COURSE_AGREEMENTS_PUBLIC_ENABLED === '1';
+  const beauty = process.env.BEAUTY_MODULE_ENABLED === '1' && process.env.BEAUTY_AGREEMENTS_ENABLED === '1' && process.env.BEAUTY_AGREEMENTS_PUBLIC_ENABLED === '1';
+  if (profile === 'BEAUTY' ? !beauty : profile ? !course : !course && !beauty) throw invalid();
 }
 async function versionForToken(token: string) {
   assertPublicCourseAgreementsEnabled();
@@ -26,9 +28,11 @@ async function versionForToken(token: string) {
   const version = await coursePrisma.courseAgreementVersion.findUnique({ where: { signingTokenHash: digest(token) } });
   if (!version) throw invalid();
   const store = await prisma.store.findUnique({ where: { id: version.storeId }, select: { industryModule: true, operatingStatus: true } });
-  const profile = await readCourseAgreementProfile(version.storeId);
+  const storedProfile = courseAgreementDraftSchema.parse(version.settingsSnapshot).profile ?? 'MUSIC';
+  assertPublicCourseAgreementsEnabled(storedProfile);
+  const profile = storedProfile === 'BEAUTY' ? await readBeautyAgreementProfile(version.storeId) : await readCourseAgreementProfile(version.storeId);
   if (!profile || (courseAgreementDraftSchema.parse(version.settingsSnapshot).profile ?? 'MUSIC') !== profile) throw invalid();
-  if (!store || store.industryModule !== 'COURSE' || !['ACTIVE', 'TRIAL'].includes(store.operatingStatus)) throw invalid();
+  if (!store || store.industryModule !== (storedProfile === 'BEAUTY' ? 'BEAUTY' : 'COURSE') || !['ACTIVE', 'TRIAL'].includes(store.operatingStatus)) throw invalid();
   return version;
 }
 export async function readPublicCourseAgreement(token: string): Promise<CourseAgreementPublicDocument> {
@@ -50,7 +54,7 @@ export async function beginPublicCourseAgreement(token: string, existingReviewTo
 }> {
   const version = await versionForToken(token), now = new Date();
   return coursePrisma.$transaction(async tx => {
-    await lockCourseStore(tx, version.storeId);
+    await lockAgreementStore(tx, version.storeId, courseAgreementDraftSchema.parse(version.settingsSnapshot).profile);
     const setting = await tx.courseAgreementSetting.findUnique({ where: { storeId: version.storeId }, select: { activeVersionId: true } });
     if (setting?.activeVersionId !== version.id) throw invalid();
     if (!fresh && existingReviewToken && agreementTokenSchema.safeParse(existingReviewToken).success) {
@@ -76,11 +80,12 @@ export async function signPublicCourseAgreement(token: string, reviewToken: stri
   const input = courseAgreementSignSchema.parse(raw);
   if (!agreementTokenSchema.safeParse(reviewToken).success) throw new AppError('UNAUTHORIZED', '請先取得並閱讀約定書');
   const version = await versionForToken(token);
-  const fitness = courseAgreementDraftSchema.parse(version.settingsSnapshot).profile === 'FITNESS';
-  if (fitness && input.riskAcknowledged !== true) throw new AppError('VALIDATION', '請分別確認課程共同約定及運動健康與風險告知');
+  const profile = courseAgreementDraftSchema.parse(version.settingsSnapshot).profile;
+  const beauty = profile === 'BEAUTY', fitness = profile === 'FITNESS';
+  if ((fitness || beauty) && input.riskAcknowledged !== true) throw new AppError('VALIDATION', beauty ? '請分別確認服務共同約定及服務風險告知' : '請分別確認課程共同約定及運動健康與風險告知');
   const requestHash = digest(JSON.stringify(input));
   return coursePrisma.$transaction(async tx => {
-    await lockCourseStore(tx, version.storeId);
+    await lockAgreementStore(tx, version.storeId, courseAgreementDraftSchema.parse(version.settingsSnapshot).profile);
     const review = await tx.courseAgreementReview.findUnique({ where: { tokenHash: digest(reviewToken) }, include: reviewInclude });
     if (!review || review.storeId !== version.storeId || review.versionId !== version.id) throw new AppError('UNAUTHORIZED', '請重新取得約定書後簽署');
     const previous = review.signatures[0];
@@ -101,7 +106,7 @@ export async function signPublicCourseAgreement(token: string, reviewToken: stri
     const signature = await tx.courseAgreementSignature.create({ data: {
       id: signatureId, storeId: version.storeId, versionId: version.id, reviewId: review.id,
       // Self-entered name/phone are not proof of ownership of an existing Customer.
-      customerId: null, signerSnapshot: (fitness ? { ...input.signer, fitnessAcknowledgement: { course: true, risk: true, courseAcknowledgedAt: now.toISOString(), riskAcknowledgedAt: now.toISOString(), documentHash: version.documentHash } } : input.signer) as Prisma.InputJsonValue,
+      customerId: null, signerSnapshot: (fitness || beauty ? { ...input.signer, [beauty ? 'beautyAcknowledgement' : 'fitnessAcknowledgement']: { course: true, risk: true, courseAcknowledgedAt: now.toISOString(), riskAcknowledgedAt: now.toISOString(), documentHash: version.documentHash } } : input.signer) as Prisma.InputJsonValue,
       signatureObjectKey: objectKey, signatureHash: digest(png),
       receiptTokenHash: digest(receiptToken), requestKey: input.requestKey, requestHash,
       reviewAcknowledgedAt: now, electronicConsentAt: now, signedAt: now,
@@ -119,5 +124,7 @@ export async function readCourseAgreementReceipt(token: string): Promise<CourseA
   if (!agreementTokenSchema.safeParse(token).success) throw invalid();
   const record = await coursePrisma.courseAgreementSignature.findUnique({ where: { receiptTokenHash: digest(token) }, include: agreementEvidenceInclude });
   if (!record) throw invalid();
-  return verifiedAgreementReceipt(record);
+  const receipt = verifiedAgreementReceipt(record);
+  assertPublicCourseAgreementsEnabled(receipt.profile ?? 'MUSIC');
+  return receipt;
 }

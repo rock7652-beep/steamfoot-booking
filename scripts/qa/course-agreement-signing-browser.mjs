@@ -1,3 +1,4 @@
+const beauty = process.env.BEAUTY_AGREEMENTS_QA === '1';
 // Actual components, synthetic responses, every outgoing request intercepted.
 import {build} from 'esbuild';
 import {createRequire} from 'node:module';
@@ -7,16 +8,17 @@ import postcss from 'postcss';
 import tailwind from '@tailwindcss/postcss';
 const require=createRequire(import.meta.url),{chromium}=require('playwright');
 const fitness=process.env.FITNESS_AGREEMENTS_QA==='1';
-const root=process.cwd(),out=fitness?'/workspace/reports/fitness-agreement-signing':'/workspace/reports/course-agreement-signing';mkdirSync(out,{recursive:true});
+const root=process.cwd(),out=beauty?'/workspace/reports/beauty-agreement-signing':fitness?'/workspace/reports/fitness-agreement-signing':'/workspace/reports/course-agreement-signing';mkdirSync(out,{recursive:true});
 await build({stdin:{resolveDir:root,loader:'tsx',contents:`
 import React,{useState}from'react';import{createRoot}from'react-dom/client';
 import{PublicCourseAgreementSigning}from'./src/components/course-agreements/public-signing';
 import{CourseAgreementReceiptView}from'./src/components/course-agreements/receipt';
 import{CourseAgreementWorkspace}from'./src/app/(dashboard)/dashboard/courses/agreements/agreement-workspace';
-import{emptyCourseAgreement,emptyFitnessCourseAgreement,buildCourseAgreement}from'./src/lib/course-agreement';
+import{emptyCourseAgreement,emptyFitnessCourseAgreement,emptyBeautyAgreement,buildCourseAgreement}from'./src/lib/course-agreement';
 const draft={...emptyCourseAgreement('合成音樂教室','03-0000000','合成路 1 號'),entity:'合成音樂補習班',responsible:'合成負責人',city:'新竹縣',business:'cram',makeup:'雙方協調補課',privacyNotice:'此為隔離操作預覽，所有姓名及電話均為合成資料。'};
 if(${fitness})Object.assign(draft,{...emptyFitnessCourseAgreement('合成運動館','030000000','合成路'),entity:'合成商行',responsible:'合成負責人',city:'新竹縣',business:'fitness',makeup:'協調補課',privacyNotice:'純合成資料告知',fitness:{activityDescription:'肌力與伸展',intensity:'依能力調整',specificRisks:'彈力帶回彈與失去平衡',participationLimits:'遵守器材負載限制',emergencyProcedure:'停止運動並通報指導員',refundRule:'依適用法令辦理解約退費'}});
-const initial={...(draft.profile==='FITNESS'?{profile:'FITNESS'}:{}),brand:draft.brand,version:1,documentHash:'a'.repeat(64),document:buildCourseAgreement(draft)};
+if(${beauty})Object.assign(draft,{...emptyBeautyAgreement('合成美業工作室','030000000','合成路'),entity:'合成商行',responsible:'合成負責人',city:'新竹縣',business:'beauty',makeup:'依雙方確認辦理取消與改期',privacyNotice:'純合成資料告知',beauty:{serviceScope:'一般非醫療美容與保養',productsAndMethods:'服務前說明當次產品與方式',specificRisks:'泛紅、敏感、刺激或其他不適',precautions:'請私下說明必要過敏或皮膚資訊',aftercare:'不適持續請聯絡本店並尋求醫療專業協助',emergencyProcedure:'立即停止操作並協助就醫',refundRule:'依適用法令辦理'}});
+const initial={...(draft.profile?{profile:draft.profile}:{}),brand:draft.brand,version:1,documentHash:'a'.repeat(64),document:buildCourseAgreement(draft)};
 const pixel='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jhXcAAAAASUVORK5CYII=';
 window.qaSigns=[];window.qaPauses=[];window.qaBegins=[];
 function App(){const[receipt,setReceipt]=useState(null);const manager=new URLSearchParams(location.search).has('manager');
@@ -32,10 +34,10 @@ const errors=[],results=[];try{
  await page.route('**/*',route=>route.request().url().startsWith('https://synthetic.invalid/')?route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="zh-Hant"><meta name="viewport" content="width=device-width,initial-scale=1"><body><div id="root"></div></body></html>'}):route.abort());
  const open=async query=>{await page.goto('https://synthetic.invalid/'+query);await page.addStyleTag({path:out+'/fixture.css'});await page.addScriptTag({path:out+'/fixture.js'});};
  await open('');await page.getByRole('button',{name:'取得約定書並開始填寫'}).click();
- await page.getByLabel('學員姓名',{exact:true}).fill('合成未成年學員');await page.getByLabel('聯絡電話',{exact:true}).fill('0911000001');
+ await page.getByLabel(beauty?'顧客姓名':'學員姓名',{exact:true}).fill('合成未成年學員');await page.getByLabel('聯絡電話',{exact:true}).fill('0911000001');
  await page.getByRole('combobox').selectOption('minor');await page.getByLabel('法定代理人姓名',{exact:true}).fill('合成家長');await page.getByLabel('與學員的關係',{exact:true}).fill('母親');await page.getByLabel('法定代理人電話',{exact:true}).fill('0911000002');
  await page.getByRole('checkbox').nth(0).check();await page.getByRole('checkbox').last().check();
- if(fitness){if(!await page.getByRole('button',{name:'預覽簽署資料'}).isDisabled())throw Error('Missing separate risk gate');await page.getByRole('checkbox').nth(1).check();}
+ if(fitness||beauty){if(!await page.getByRole('button',{name:'預覽簽署資料'}).isDisabled())throw Error('Missing separate risk gate');await page.getByRole('checkbox').nth(1).check();}
  const pad=page.getByRole('application',{name:'手寫簽名區'});await pad.scrollIntoViewIfNeeded();
  const rect=await pad.boundingBox();const cdp=await page.context().newCDPSession(page);
  const touch=(x,y)=>({x:rect.x+x*rect.width,y:rect.y+y*rect.height});
@@ -51,14 +53,14 @@ const errors=[],results=[];try{
  if(!await page.getByRole('button',{name:'返回修改',exact:true}).isDisabled())throw Error('Unknown outcome allowed changed payload');
  await page.getByRole('button',{name:'確認簽署',exact:true}).click();await page.getByRole('heading',{name:'已完成簽署'}).waitFor();
  const signs=await page.evaluate(()=>window.qaSigns);if(signs.length!==2||JSON.stringify(signs[0])!==JSON.stringify(signs[1]))throw Error('Retry changed request');if(!signs[0].signer.minor||signs[0].signer.guardian.name!=='合成家長')throw Error('Guardian not submitted');
- if(fitness&&signs[0].riskAcknowledged!==true)throw Error('Missing risk confirmation payload');
- await page.getByRole('button',{name:'換下一位學員'}).click();
- if(fitness&&await page.getByRole('checkbox').nth(1).isChecked())throw Error('Shared device retained risk check');if(await page.getByLabel('學員姓名',{exact:true}).inputValue()!=='')throw Error('Shared device retained prior learner');
+ if((fitness||beauty)&&signs[0].riskAcknowledged!==true)throw Error('Missing risk confirmation payload');
+ await page.getByRole('button',{name:beauty?'換下一位顧客':'換下一位學員'}).click();
+ if((fitness||beauty)&&await page.getByRole('checkbox').nth(1).isChecked())throw Error('Shared device retained risk check');if(await page.getByLabel(beauty?'顧客姓名':'學員姓名',{exact:true}).inputValue()!=='')throw Error('Shared device retained prior learner');
  await page.evaluate(()=>window.qaShowReceipt());await page.getByRole('button',{name:'列印／另存 PDF'}).waitFor();await page.emulateMedia({media:'print'});await page.pdf({path:out+'/synthetic-signed-receipt.pdf',format:'A4',printBackground:true});await page.emulateMedia({media:'screen'});
- await open('?manager=1');await page.getByText('共同約定為選用功能', {exact:false}).waitFor();await page.getByRole('button',{name:'讓學員簽署'}).click();await page.getByRole('img',{name:'學員簽署 QR Code'}).waitFor();
+ await open('?manager=1');await page.getByText('共同約定為選用功能', {exact:false}).waitFor();await page.getByRole('button',{name:beauty?'讓顧客簽署':'讓學員簽署'}).click();await page.getByRole('img',{name:beauty?'顧客簽署 QR Code':'學員簽署 QR Code'}).waitFor();
  await page.getByRole('button',{name:'暫停新簽署',exact:true}).click();await page.getByRole('button',{name:'確認暫停',exact:true}).click();await page.getByRole('alert').filter({hasText:'模擬暫停失敗'}).waitFor();
- if(!await page.getByRole('button',{name:'讓學員簽署'}).isVisible())throw Error('Failed pause changed active state');
- await page.getByRole('button',{name:'確認暫停',exact:true}).click();await page.getByRole('status').filter({hasText:'已暫停新簽署'}).waitFor();if(await page.getByRole('button',{name:'讓學員簽署'}).count())throw Error('Paused sharing still visible');
+ if(!await page.getByRole('button',{name:beauty?'讓顧客簽署':'讓學員簽署'}).isVisible())throw Error('Failed pause changed active state');
+ await page.getByRole('button',{name:'確認暫停',exact:true}).click();await page.getByRole('status').filter({hasText:'已暫停新簽署'}).waitFor();if(await page.getByRole('button',{name:beauty?'讓顧客簽署':'讓學員簽署'}).count())throw Error('Paused sharing still visible');
  for(const[width,height]of[[1366,900],[1024,768],[768,1024]]){await page.setViewportSize({width,height});if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Manager overflow');await page.screenshot({path:out+'/paused-'+width+'.png',fullPage:true});}
  if(errors.length)throw Error(errors.join('\n'));writeFileSync(out+'/results.json',JSON.stringify({synthetic:true,realBackend:false,results,stableRetry:true,guardian:true,nextLearnerCleared:true,optionalAndPaused:true,printPdf:true,errors},null,2));console.log(JSON.stringify({results,errors}));
 }catch(error){console.error(errors);const page=browser.contexts()[0]?.pages()[0];if(page){console.error(await page.locator('body').innerText());await page.screenshot({path:out+'/failure.png',fullPage:true});}throw error;}finally{await browser.close();}

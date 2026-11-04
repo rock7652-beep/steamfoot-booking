@@ -13,7 +13,18 @@ export type CourseAgreementOperation = 'read' | 'manage' | 'export';
 export async function requireCourseAgreementAccess(
   operation: CourseAgreementOperation,
   expectedStoreId?: string,
+  module: 'COURSE' | 'BEAUTY' = 'COURSE',
 ) {
+  if (module === 'BEAUTY') {
+    if (process.env.BEAUTY_AGREEMENTS_ENABLED !== '1') throw new AppError('FORBIDDEN', '美業服務約定尚未開放');
+    const { beautyManager } = await import('@/server/beauty/access');
+    const actor = await beautyManager(operation === 'manage' ? 'business_hours.manage' : 'customer.read', operation === 'manage');
+    if (expectedStoreId !== undefined && expectedStoreId !== actor.storeId) throw new AppError('CONFLICT', '門市已切換，請重新開啟服務約定');
+    if (operation !== 'manage') await requirePermission('business_hours.view');
+    if (operation === 'export') await requirePermission('customer.export');
+    if (!actor.userId) throw new AppError('UNAUTHORIZED','請重新登入');
+    return { storeId: actor.storeId, user: { id: actor.userId }, agreementProfile: 'BEAUTY' as const };
+  }
   const actor = operation === 'manage'
     ? await courseManager('business_hours.manage')
     : await courseManagerRead('customer.read');

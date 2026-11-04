@@ -12,7 +12,7 @@ export function verifiedAgreementDocument(version: { settingsSnapshot: unknown; 
   const hash = createHash('sha256').update(JSON.stringify(document)).digest('hex');
   if (hash !== version.documentHash) throw new AppError('CONFLICT', '約定書內容驗證失敗，請聯絡店家');
   const draft = courseAgreementDraftSchema.parse(version.settingsSnapshot);
-  return { ...(draft.profile === 'FITNESS' ? { profile: 'FITNESS' as const } : {}), brand: draft.brand, version: version.version, documentHash: version.documentHash, document };
+  return { ...(draft.profile === 'FITNESS' || draft.profile === 'BEAUTY' ? { profile: draft.profile } : {}), brand: draft.brand, version: version.version, documentHash: version.documentHash, document };
 }
 export const agreementEvidenceInclude = { version: true, review: true, asset: true } as const;
 type Evidence = Prisma.CourseAgreementSignatureGetPayload<{ include: typeof agreementEvidenceInclude }>;
@@ -25,8 +25,9 @@ export function verifiedAgreementReceipt(record: Evidence): CourseAgreementRecei
   if (createHash('sha256').update(png).digest('hex') !== record.signatureHash) throw new AppError('CONFLICT', '簽署副本驗證失敗，請聯絡店家');
   const document = verifiedAgreementDocument(record.version);
   const snapshot = parseCourseAgreementSignerSnapshot(record.signerSnapshot);
-  const ack = snapshot.fitnessAcknowledgement;
-  if (document.profile === 'FITNESS' ? !ack || ack.documentHash !== record.version.documentHash || ack.courseAcknowledgedAt !== record.reviewAcknowledgedAt.toISOString() || ack.riskAcknowledgedAt !== record.signedAt.toISOString() : !!ack) {
+  const ack = document.profile === 'BEAUTY' ? snapshot.beautyAcknowledgement : snapshot.fitnessAcknowledgement;
+  if ((document.profile === 'BEAUTY' && snapshot.fitnessAcknowledgement) || (document.profile !== 'BEAUTY' && snapshot.beautyAcknowledgement)) throw new AppError('CONFLICT','分項確認類型不符');
+  if (document.profile === 'FITNESS' || document.profile === 'BEAUTY' ? !ack || ack.documentHash !== record.version.documentHash || ack.courseAcknowledgedAt !== record.reviewAcknowledgedAt.toISOString() || ack.riskAcknowledgedAt !== record.signedAt.toISOString() : !!ack) {
     throw new AppError('CONFLICT', '分項確認紀錄驗證失敗，請聯絡店家');
   }
   return { ...document, ...snapshot, id: record.id,

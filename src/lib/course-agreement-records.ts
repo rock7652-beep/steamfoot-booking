@@ -10,17 +10,17 @@ export const courseAgreementRecordsFilterSchema = z.object({
 export type CourseAgreementRecordsFilter = z.infer<typeof courseAgreementRecordsFilterSchema>;
 export type CourseAgreementRecordRow = { id: string; name: string; phone: string; minor: boolean; service: string; version: number; signedAt: string };
 export type CourseAgreementRecords = { storeId: string; rows: CourseAgreementRecordRow[]; total: number; page: number; pages: number; pageSize: number; filters: CourseAgreementRecordsFilter };
-export function courseAgreementRecordsHref(filters: CourseAgreementRecordsFilter, page = filters.page) {
+export function courseAgreementRecordsHref(filters: CourseAgreementRecordsFilter, page = filters.page, module: 'COURSE' | 'BEAUTY' = 'COURSE') {
   const query = new URLSearchParams();
   if (filters.storeId) query.set('storeId', filters.storeId);
   for (const key of ['q', 'from', 'to'] as const) if (filters[key]) query.set(key, filters[key]);
   if (page !== 1) query.set('page', String(page));
-  return '/dashboard/courses/agreements/records' + (query.size ? '?' + query.toString() : '');
+  return (module === 'BEAUTY' ? '/dashboard/beauty/agreements/records' : '/dashboard/courses/agreements/records') + (query.size ? '?' + query.toString() : '');
 }
-export function courseAgreementRecordHref(id: string, filters: CourseAgreementRecordsFilter) {
-  const query = courseAgreementRecordsHref(filters).split('?')[1];
-  return '/dashboard/courses/agreements/records/' + encodeURIComponent(id) + (query ? '?' + query : '');
+export function courseAgreementRecordHref(id: string, filters: CourseAgreementRecordsFilter, module: 'COURSE' | 'BEAUTY' = 'COURSE') {
+  const query = courseAgreementRecordsHref(filters,filters.page,module).split('?')[1];
+  return (module === 'BEAUTY' ? '/dashboard/beauty/agreements/records/' : '/dashboard/courses/agreements/records/') + encodeURIComponent(id) + (query ? '?' + query : '');
 }
-export function courseAgreementRecordPdfHref(id: string, storeId: string) {
-  return `/api/course-agreements/records/${encodeURIComponent(id)}/pdf?storeId=${encodeURIComponent(storeId)}`;
+export function courseAgreementRecordPdfHref(id: string, storeId: string, module: 'COURSE' | 'BEAUTY' = 'COURSE') {
+  return `${module === 'BEAUTY' ? '/api/beauty/agreements' : '/api/course-agreements'}/records/${encodeURIComponent(id)}/pdf?storeId=${encodeURIComponent(storeId)}`;
 }

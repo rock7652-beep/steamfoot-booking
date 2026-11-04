@@ -49,17 +49,18 @@ export async function createCourseAgreementPdf(value: CourseAgreementReceipt): P
         doc.lineWidth(1);
       }
     }
-    const signer = value.signer;
+    const signer = value.signer, beauty = value.profile === 'BEAUTY', person = beauty ? '顧客' : '學員';
+    const acknowledgement = beauty ? value.beautyAcknowledgement : value.fitnessAcknowledgement;
     const evidence = [
-      `學員：${signer.name}　聯絡電話：${signer.phone}`,
-      `身分：${signer.minor ? '未成年學員，由法定代理人簽署' : '成年學員'}`,
+      `${person}：${signer.name}　聯絡電話：${signer.phone}`,
+      `身分：${signer.minor ? `未成年${person}，由法定代理人簽署` : `成年${person}`}`,
       ...(signer.minor ? [`法定代理人：${signer.guardian.name}　關係：${signer.guardian.relation}`, `法定代理人電話：${signer.guardian.phone}`] : []),
       `提供記錄：${formatTWDateTime(new Date(value.deliveredAt))}（台灣時間）`,
       `簽署時間：${formatTWDateTime(new Date(value.signedAt))}（台灣時間）`,
       `文件識別碼：${value.id}`,
-      ...(value.fitnessAcknowledgement ? [
-        `課程共同約定：已確認（${formatTWDateTime(new Date(value.fitnessAcknowledgement.courseAcknowledgedAt))}，台灣時間）`,
-        `運動健康與風險告知：已確認（${formatTWDateTime(new Date(value.fitnessAcknowledgement.riskAcknowledgedAt))}，台灣時間）`,
+      ...(acknowledgement ? [
+        `${beauty ? '服務共同約定' : '課程共同約定'}：已確認（${formatTWDateTime(new Date(acknowledgement.courseAcknowledgedAt))}，台灣時間）`,
+        `${beauty ? '服務風險與注意事項告知' : '運動健康與風險告知'}：已確認（${formatTWDateTime(new Date(acknowledgement.riskAcknowledgedAt))}，台灣時間）`,
         '同一份手寫簽名適用於以上兩部分；時間為系統收到確認的時間。',
       ] : []),
       '簽署者已確認閱讀約定書與個資告知，並同意使用電子文件與手寫電子簽名。',
@@ -69,7 +70,7 @@ export async function createCourseAgreementPdf(value: CourseAgreementReceipt): P
     doc.moveDown().fontSize(12).fillColor('#234139').text('簽署紀錄');
     doc.moveDown(.3).fontSize(10).fillColor('#26352e');
     for (const text of evidence) { doc.text(text, { width, lineGap: 3 }); doc.moveDown(.2); }
-    doc.text(signer.minor ? '法定代理人簽名：' : '學員簽名：');
+    doc.text(signer.minor ? '法定代理人簽名：' : `${person}簽名：`);
     doc.image(Buffer.from(value.signatureDataUrl.split(',')[1], 'base64'), doc.x, doc.y, { fit: [240, 72] });
     doc.y += 80;
     doc.fontSize(8).text(`內容 SHA-256：${value.documentHash}`, { width });

@@ -19,11 +19,11 @@ export const courseAgreementSignSchema = z.object({
   readAcknowledged: z.literal(true), electronicConsent: z.literal(true), riskAcknowledged: z.literal(true).optional(),
 }).strict();
 export type CourseAgreementSignInput = z.infer<typeof courseAgreementSignSchema>;
-export type CourseAgreementPublicDocument = { profile?: 'MUSIC' | 'FITNESS'; brand: string; version: number; documentHash: string; document: CourseAgreementClause[] };
+export type CourseAgreementPublicDocument = { profile?: 'MUSIC' | 'FITNESS' | 'BEAUTY'; brand: string; version: number; documentHash: string; document: CourseAgreementClause[] };
 export type CourseAgreementReviewView = CourseAgreementPublicDocument & { deliveredAt: string; expiresAt: string };
 export type CourseAgreementCompletion = { receiptPath: string };
 export type CourseAgreementReceipt = CourseAgreementPublicDocument & {
-  id: string; fitnessAcknowledgement?: FitnessAgreementAcknowledgement; signer: CourseAgreementSigner; deliveredAt: string; signedAt: string; signatureDataUrl: string;
+  id: string; fitnessAcknowledgement?: FitnessAgreementAcknowledgement; beautyAcknowledgement?: FitnessAgreementAcknowledgement; signer: CourseAgreementSigner; deliveredAt: string; signedAt: string; signatureDataUrl: string;
 };
 export function signatureSvg(strokes: SignatureStrokes) {
   // Only validated numeric coordinates are interpolated. Never accept uploaded SVG.
@@ -40,7 +40,9 @@ export type FitnessAgreementAcknowledgement = z.infer<typeof fitnessAgreementAck
 /** Identity stays at the top level for scoped name/phone searches; unknown fields still fail. */
 export function parseCourseAgreementSignerSnapshot(raw: unknown) {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return { signer: courseAgreementSignerSchema.parse(raw) };
-  const { fitnessAcknowledgement, ...identity } = raw as Record<string, unknown>;
+  const { fitnessAcknowledgement, beautyAcknowledgement, ...identity } = raw as Record<string, unknown>;
+  if (fitnessAcknowledgement !== undefined && beautyAcknowledgement !== undefined) throw new Error('簽署類型不符');
   return { signer: courseAgreementSignerSchema.parse(identity),
-    ...(fitnessAcknowledgement === undefined ? {} : { fitnessAcknowledgement: fitnessAgreementAcknowledgementSchema.parse(fitnessAcknowledgement) }) };
+    ...(fitnessAcknowledgement === undefined ? {} : { fitnessAcknowledgement: fitnessAgreementAcknowledgementSchema.parse(fitnessAcknowledgement) }),
+    ...(beautyAcknowledgement === undefined ? {} : { beautyAcknowledgement: fitnessAgreementAcknowledgementSchema.parse(beautyAcknowledgement) }) };
 }

@@ -677,7 +677,7 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
 function dispatchProxy(...args: Parameters<typeof authenticatedProxy>) {
   const [req] = args;
   // Public capability services resolve their store without a session fallback.
-  const agreementResponse = courseAgreementPublicBoundary(req, process.env.COURSE_AGREEMENTS_ENABLED === '1' && process.env.COURSE_AGREEMENTS_PUBLIC_ENABLED === '1', isGuideUiPreview());
+  const agreementResponse = courseAgreementPublicBoundary(req, ((process.env.COURSE_AGREEMENTS_ENABLED === '1' && process.env.COURSE_AGREEMENTS_PUBLIC_ENABLED === '1') || (process.env.BEAUTY_MODULE_ENABLED === '1' && process.env.BEAUTY_AGREEMENTS_ENABLED === '1' && process.env.BEAUTY_AGREEMENTS_PUBLIC_ENABLED === '1')), isGuideUiPreview());
   if (agreementResponse) return agreementResponse;
   if ((req.nextUrl.pathname.startsWith("/api/cron/") || req.nextUrl.pathname === "/api/health/reminders-cron") && !digitalManagerCronPreviewPathAllowed(req.nextUrl.pathname)) return NextResponse.json({error:"Unauthorized"},{status:401});
   if (req.nextUrl.pathname === "/beauty-public-preview" || req.nextUrl.pathname.startsWith("/beauty-public-preview/")) {

@@ -1,6 +1,6 @@
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
-import {emptyCourseAgreement, emptyFitnessCourseAgreement, buildCourseAgreement, courseAgreementLeaveText, type CourseAgreementDraft, type CourseAgreementClause} from '@/lib/course-agreement';
-const m = vi.hoisted(() => ({ access: vi.fn(), lock: vi.fn(), transaction: vi.fn(), find: vi.fn(), upsert: vi.fn(), update: vi.fn(), aggregate: vi.fn(), create: vi.fn() }));
+import {emptyCourseAgreement, emptyFitnessCourseAgreement, emptyBeautyAgreement, buildCourseAgreement, courseAgreementLeaveText, type CourseAgreementDraft, type CourseAgreementClause} from '@/lib/course-agreement';
+const m = vi.hoisted(() => ({ raw: vi.fn(), access: vi.fn(), lock: vi.fn(), transaction: vi.fn(), find: vi.fn(), upsert: vi.fn(), update: vi.fn(), aggregate: vi.fn(), create: vi.fn() }));
 vi.mock('@/lib/course-db', () => ({ coursePrisma: { $transaction: m.transaction } }));
 vi.mock('@/lib/db', () => ({ prisma: {} }));
 vi.mock('@/server/services/course-agreement-access', () => ({ requireCourseAgreementAccess: m.access }));
@@ -14,8 +14,8 @@ let current: StoredSetting | null;
 let versions: StoredVersion[];
 beforeEach(() => {
  vi.resetAllMocks(); vi.stubEnv('COURSE_AGREEMENTS_ENABLED','1');vi.stubEnv('COURSE_AGREEMENT_LINK_SECRET','synthetic-test-secret-at-least-32-bytes'); current=null; versions=[];
- m.access.mockResolvedValue({storeId:'a',user:{id:'staff'}});
- m.transaction.mockImplementation(async run => run({courseAgreementSetting:{findUnique:m.find,upsert:m.upsert,update:m.update},courseAgreementVersion:{aggregate:m.aggregate,create:m.create}}));
+ m.access.mockResolvedValue({storeId:'a',user:{id:'staff'}});m.raw.mockResolvedValue([{id:'a'}]);
+ m.transaction.mockImplementation(async run => run({$queryRaw:m.raw,courseAgreementSetting:{findUnique:m.find,upsert:m.upsert,update:m.update},courseAgreementVersion:{aggregate:m.aggregate,create:m.create}}));
  m.find.mockImplementation(async()=>current);
  m.upsert.mockImplementation(async({create,update}:{create:Omit<StoredSetting,"activeVersion">;update:{draft:CourseAgreementDraft}})=>{current=current?{...current,draft:update.draft,revision:current.revision+1}:{...create,activeVersion:null};return current;});
  m.update.mockImplementation(async({data}:{data:{activeVersionId:string|null}})=>{if(!current)throw Error("missing setting");current={...current,revision:current.revision+1,activeVersionId:data.activeVersionId,activeVersion:versions.find(v=>v.id===data.activeVersionId)??null};return current;});
@@ -57,4 +57,13 @@ it('requires service-specific risk fields before fitness activation',async()=>{
  const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:{...draft(),...emptyFitnessCourseAgreement('測試店','030000000','測試路'),entity:'測試商行',responsible:'測試負責人',city:'新竹縣',makeup:'協調補課',privacyNotice:'測試告知',business:'fitness'}});
  await expect(publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true})).rejects.toThrow('運動強度');
  expect(m.create).not.toHaveBeenCalled();
+});
+
+it('beauty saves/publishes only through the explicit beauty scope and store lock',async()=>{
+ vi.stubEnv('BEAUTY_AGREEMENTS_ENABLED','1');m.access.mockResolvedValue({storeId:'a',user:{id:'staff'},agreementProfile:'BEAUTY'});
+ const d={...emptyBeautyAgreement('美業測試店','030000000','合成路'),business:'beauty' as const,entity:'測試商行',responsible:'測試者',city:'新竹縣',makeup:'雙方協調改期',privacyNotice:'測試告知',beauty:{serviceScope:'一般美容',productsAndMethods:'依當次確認',specificRisks:'敏感與刺激',precautions:'先說明必要過敏資訊',aftercare:'不適聯絡本店',emergencyProcedure:'停止服務並協助就醫',refundRule:'依法辦理'}};
+ const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:d},'BEAUTY');
+ expect(m.access).toHaveBeenCalledWith('manage','a','BEAUTY');expect(m.raw).toHaveBeenCalled();expect(m.lock).not.toHaveBeenCalled();
+ const published=await publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true},'BEAUTY');expect(published.active?.version).toBe(1);expect(versions[0].document.map(c=>c.title)).toEqual(['服務共同約定','服務風險與注意事項告知']);
+ m.raw.mockResolvedValue([]);await expect(pauseCourseAgreement({storeId:'a',revision:published.revision,activeVersionId:published.active!.id},'BEAUTY')).rejects.toThrow('模組已變更');
 });

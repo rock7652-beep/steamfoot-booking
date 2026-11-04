@@ -13,3 +13,9 @@ it('permits only the exact opt-in fitness preview with isolated data and no LINE
   expect(()=>assertCourseAgreementsPreviewEnvironment({...env,...override})).toThrow('rejected');
  }
 });
+
+it('beauty review additionally forbids dedicated production credentials and beauty notifications',()=>{
+ const beauty={...env,VERCEL_GIT_COMMIT_REF:'codex/beauty-agreements-preview',BEAUTY_MODULE_ENABLED:'1',BEAUTY_AGREEMENTS_ENABLED:'1',BEAUTY_DATABASE_MODE:'legacy',BEAUTY_NOTIFICATIONS_ENABLED:'0'};
+ expect(assertCourseAgreementsPreviewEnvironment(beauty)).toBe(true);
+ for(const override of [{BEAUTY_NOTIFICATIONS_ENABLED:'1'},{BEAUTY_DATABASE_MODE:'dedicated'},{BEAUTY_DATABASE_URL:'postgresql://synthetic.invalid/db'},{BEAUTY_DATABASE_ROLE:'production-role'},{BEAUTY_DATABASE_PASSWORD:'not-allowed'}])expect(()=>assertCourseAgreementsPreviewEnvironment({...beauty,...override})).toThrow('beauty_configuration');
+});
