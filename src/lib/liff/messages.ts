@@ -306,6 +306,11 @@ export const liffMessages = {
       bodyWater: "體水分",
     },
 
+    changeTitle: "量測變化",
+    changeRangeLabel: "選擇量測比較範圍",
+    previousComparison: "與上次比較",
+    noComparableMetrics: "此範圍沒有可比較的共同指標",
+
     // 趨勢摘要
     /** {n} = trend length，e.g. "近 5 次變化" */
     trendLabel: "近 {n} 次變化",

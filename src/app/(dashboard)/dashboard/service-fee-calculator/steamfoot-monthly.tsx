@@ -1,3 +1,4 @@
+import { MonthlyAdjustments } from "./monthly-adjustments";
 import {OperationsLocalHeading} from "@/components/operations/workspace-frame";
 import { PageShell } from "@/components/desktop";
 import { IncomeMonthFilter } from "@/components/income-month-filter";
@@ -31,6 +32,9 @@ export async function SteamfootMonthly({ storeId, month, readOnly }: { storeId: 
         </div>
       </details>)}
     </section>
+    <section className="space-y-2"><h2 className="text-sm font-medium">本月收入與調整</h2><div className="overflow-x-auto rounded-lg border bg-white"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-earth-50"><tr>{["人員","原收入金額","加項合計","減項合計","調整後合計"].map(h=><th key={h} className="p-3">{h}</th>)}</tr></thead><tbody>{report.people.map(p=><tr key={p.id} className="border-t"><td className="p-3">{p.name}</td><td className="p-3">{money(p.summary?.countedAmount??0)}</td><td className="p-3">+{money(p.adjustments.addition)}</td><td className="p-3">−{money(p.adjustments.deduction)}</td><td className="p-3 font-medium">{p.summary?.needsReviewCount?"待核對":money((p.summary?.countedAmount??0)+p.adjustments.net)}</td></tr>)}</tbody></table></div><p className="text-sm text-earth-500">租金依原約定分列，不自動從收入扣除。負數差額不自動帶入下個月。</p></section>
+    {report.people.some(p=>(p.summary?.countedAmount??0)+p.adjustments.net<0)&&<p role="alert" className="text-sm text-amber-800">部分人員的減項超過原收入，請核對；差額不會自動帶入下個月。</p>}
+    <MonthlyAdjustments key={`${storeId}:${month}`} storeId={storeId} month={month} rows={report.adjustments} people={report.people} canEdit={canManage} locked={report.adjustmentMonth.locked} revision={report.adjustmentMonth.revision}/>
     <p className="text-xs text-earth-500">租金依完整租期顯示，與服務收入分列；實際收付款由店家處理。</p>
     {!!report.unassigned.length && <details className="rounded-lg border bg-white p-3"><summary className="cursor-pointer text-sm">歸店家／未指定人員（{report.unassigned.length} 堂）</summary><ServiceDetails details={report.unassigned}/></details>}
     <Link href={`/dashboard/service-fee-calculator?month=${month}&view=legacy`} className="inline-flex min-h-11 items-center text-xs text-earth-500 underline">舊版店舖月結與紀錄</Link>

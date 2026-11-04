@@ -1,0 +1,161 @@
+{
+  "status": "passed",
+  "sourceSha": "b549c7f03f8b84c5de027b1d7c5e750b89388008",
+  "engine": "PostgreSQL 17.6",
+  "syntheticOnly": true,
+  "remoteWrites": false,
+  "mockedServerActions": false,
+  "results": [
+    {
+      "kind": "steam",
+      "storeId": "monthly-live-steam",
+      "authenticated": true,
+      "base": 0,
+      "addition": 2000,
+      "deduction": 700,
+      "finalTotal": 1300,
+      "activeRows": 2,
+      "duplicateReplay": "single row",
+      "lockedWrite": "rejected",
+      "foreignStore": "rejected",
+      "reopenUnchanged": "relocked",
+      "audit": [
+        {
+          "action": "CREATE",
+          "count": 3
+        },
+        {
+          "action": "CONFIRM_MONTH",
+          "count": 3
+        },
+        {
+          "action": "UPDATE",
+          "count": 3
+        },
+        {
+          "action": "REOPEN_MONTH",
+          "count": 2
+        },
+        {
+          "action": "DELETE",
+          "count": 1
+        }
+      ],
+      "viewportChecks": 3,
+      "pageErrors": [],
+      "elapsedMs": 18208
+    },
+    {
+      "kind": "fitness",
+      "storeId": "monthly-live-fitness",
+      "authenticated": true,
+      "base": 30000,
+      "addition": 2000,
+      "deduction": 700,
+      "finalTotal": 31300,
+      "activeRows": 2,
+      "duplicateReplay": "single row",
+      "lockedWrite": "rejected",
+      "foreignStore": "rejected",
+      "reopenUnchanged": "relocked",
+      "audit": [
+        {
+          "action": "CREATE",
+          "count": 3
+        },
+        {
+          "action": "UPDATE",
+          "count": 3
+        },
+        {
+          "action": "REOPEN_MONTH",
+          "count": 2
+        },
+        {
+          "action": "DELETE",
+          "count": 1
+        }
+      ],
+      "viewportChecks": 3,
+      "pageErrors": [],
+      "elapsedMs": 21790
+    },
+    {
+      "kind": "music",
+      "storeId": "monthly-live-music",
+      "authenticated": true,
+      "base": 30000,
+      "addition": 2000,
+      "deduction": 700,
+      "finalTotal": 31300,
+      "activeRows": 2,
+      "duplicateReplay": "single row",
+      "lockedWrite": "rejected",
+      "foreignStore": "rejected",
+      "reopenUnchanged": "relocked",
+      "audit": [
+        {
+          "action": "CREATE",
+          "count": 3
+        },
+        {
+          "action": "DELETE",
+          "count": 1
+        },
+        {
+          "action": "REOPEN_MONTH",
+          "count": 2
+        },
+        {
+          "action": "UPDATE",
+          "count": 3
+        }
+      ],
+      "viewportChecks": 3,
+      "pageErrors": [],
+      "elapsedMs": 22765
+    },
+    {
+      "kind": "beauty",
+      "storeId": "monthly-live-beauty",
+      "authenticated": true,
+      "base": 30000,
+      "addition": 2000,
+      "deduction": 700,
+      "finalTotal": 31300,
+      "activeRows": 2,
+      "duplicateReplay": "single row",
+      "lockedWrite": "rejected",
+      "foreignStore": "rejected",
+      "reopenUnchanged": "relocked",
+      "audit": [
+        {
+          "action": "CREATE",
+          "count": 3
+        },
+        {
+          "action": "DELETE",
+          "count": 1
+        },
+        {
+          "action": "REOPEN_MONTH",
+          "count": 2
+        },
+        {
+          "action": "UPDATE",
+          "count": 3
+        }
+      ],
+      "viewportChecks": 3,
+      "pageErrors": [],
+      "elapsedMs": 19802
+    }
+  ],
+  "payments": {
+    "cashbook": 0,
+    "fees": 0,
+    "profit": 0,
+    "beauty": 0,
+    "notices": 0
+  }
+}

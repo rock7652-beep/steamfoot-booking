@@ -1,3 +1,4 @@
+import { MonthlyAdjustments } from "./monthly-adjustments";
 import {OperationsLocalHeading} from "@/components/operations/workspace-frame";
 import {MonthlyStoreProvider} from "@/components/operations/monthly-store-context";
 import {getCoursePersonnelText} from "@/server/services/course-personnel-label";
@@ -35,18 +36,20 @@ export async function CourseMonthly({storeId,month,readOnly=false,teacherId,sala
  if(!await hasStoreFeature(storeId,FEATURES.SERVICE_FEE_CALCULATOR))return <p>月結管理尚未開通。</p>;
  const report=await coursePrisma.$transaction(tx=>readCourseMonthlySettlement(tx,storeId,month),{isolationLevel:"RepeatableRead",timeout:20000});
  if(scope!==null){
-   report.legacyTestLines=report.legacyTestLines.filter(l=>l.kind==="FEE" && l.staffId!==null && scope.includes(l.staffId));
-   report.lines=report.lines.filter(l=>l.kind==="FEE" && l.staffId!==null && scope.includes(l.staffId));
-   report.revisions=report.revisions.map(r=>({...r,snapshot:r.snapshot.filter(l=>l.kind==="FEE"&&l.staffId!==null&&scope.includes(l.staffId))}));
+   report.legacyTestLines=report.legacyTestLines.filter(l=>(l.kind==="FEE"||l.kind==="ADJUSTMENT") && l.staffId!==null && scope.includes(l.staffId));
+   report.lines=report.lines.filter(l=>(l.kind==="FEE"||l.kind==="ADJUSTMENT") && l.staffId!==null && scope.includes(l.staffId));
+   report.revisions=report.revisions.map(r=>({...r,snapshot:r.snapshot.filter(l=>(l.kind==="FEE"||l.kind==="ADJUSTMENT")&&l.staffId!==null&&scope.includes(l.staffId))}));
  }
  const legacyView=report.separationEnabled && salaryData==="legacy";
  if(legacyView){report.lines=report.legacyTestLines;readOnly=true;}
  const period=monthRange(month);
  const changedOlder=await coursePrisma.coursePurchase.findMany({where:{storeId,confirmedAt:{lt:period.start},OR:[{voidedAt:{gte:period.start,lte:period.end}},{refunds:{some:{storeId,createdAt:{gte:period.start,lte:period.end}}}}]},select:{confirmedAt:true}});
  const olderMonths=[...new Set(changedOlder.filter(o=>o.confirmedAt).map(o=>toLocalMonthStr(o.confirmedAt!)))].sort();
- const last=report.revisions[0],confirmed=last?.fingerprint===report.fingerprint;
+ const last=report.revisions[0],confirmed=last?.fingerprint===report.fingerprint&&report.adjustmentMonth.locked;
  const [canSettings,canCashPay,store]=await Promise.all([checkPermission(user.role,user.staffId,"staff.manage"),checkPermission(user.role,user.staffId,"cashbook.create"),prisma.store.findUnique({where:{id:storeId},select:{name:true}})]);
  const canPay=canCashPay&&await canMusicFinance(user,storeId,"teacher.settlement.pay");
+ const adjustmentRows=report.adjustments.filter(r=>scope===null||scope.includes(r.staffId));
+ const adjustmentPeople=report.adjustmentPeople.filter(p=>scope===null||scope.includes(p.id));
  const issues=report.lines.filter(l=>l.issue||l.amount===null).length;
  return <MonthlyStoreProvider key={storeId} storeId={storeId} name={store?.name??storeId}><PageShell className="flex w-full min-w-0 flex-col gap-2 py-2">
  {user.role==="ADMIN"&&<p className="text-sm text-earth-600">目前操作門市：{store?.name??storeId}。月結確認與付款登錄會留下紀錄。</p>}
@@ -57,9 +60,10 @@ export async function CourseMonthly({storeId,month,readOnly=false,teacherId,sala
  <CourseMonthlySettings key={report.settings.revision} settings={report.settings} canEdit={canSettings&&canConfirm&&!readOnly}/>
  </>}/>
  {!legacyView&&!!olderMonths.length&&<p className="rounded-lg bg-amber-50 p-3 text-sm">退款／作廢影響先前結算：{olderMonths.map(m=><Link key={m} className="ml-3 underline" href={`/dashboard/service-fee-calculator?month=${m}`}>{m} 查看</Link>)}</p>}
+ {!legacyView&&<MonthlyAdjustments key={`${storeId}:${month}`} storeId={storeId} month={month} rows={adjustmentRows} people={adjustmentPeople.map(p=>({id:p.id,name:p.displayName,active:p.status==="ACTIVE"}))} canEdit={canSettings&&canConfirm&&!readOnly} locked={report.adjustmentMonth.locked} revision={report.adjustmentMonth.revision} confirmInReport/>}
  <div className="space-y-3">
 
- {!legacyView&&!!last&&<details className="group/history rounded-lg border border-earth-200 bg-white px-4"><summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm"><span>{music ? "全店結算紀錄" : "結算紀錄"}（{report.revisions.length}）</span><span aria-hidden="true" className="group-open/history:hidden">＋</span><span aria-hidden="true" className="hidden group-open/history:inline">－</span></summary><RosterTable label="月結確認紀錄" columns={["版本", "確認日期", "調整原因", "人員／金額"]}>{report.revisions.map(r=><tr key={r.id}><td>第 {r.revision} 版</td><td>{formatTWDateTime(r.createdAt)}</td><td>{r.reason}</td><td><details><summary className="min-h-11 cursor-pointer py-2">查看明細（原確認範圍）</summary>{summarizeSettlement(r.snapshot).map(p=><p key={p.id}>{p.name} · {p.issues>0?"待核對":money(p.profit+p.fee)}</p>)}</details></td></tr>)}</RosterTable></details>}
+ {!legacyView&&!!last&&<details className="group/history rounded-lg border border-earth-200 bg-white px-4"><summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm"><span>{music ? "全店結算紀錄" : "結算紀錄"}（{report.revisions.length}）</span><span aria-hidden="true" className="group-open/history:hidden">＋</span><span aria-hidden="true" className="hidden group-open/history:inline">－</span></summary><RosterTable label="月結確認紀錄" columns={["版本", "確認日期", "調整原因", "人員／金額"]}>{report.revisions.map(r=><tr key={r.id}><td>第 {r.revision} 版</td><td>{formatTWDateTime(r.createdAt)}</td><td>{r.reason}</td><td><details><summary className="min-h-11 cursor-pointer py-2">查看明細（原確認範圍）</summary>{summarizeSettlement(r.snapshot).map(p=><p key={p.id}>{p.name} · {p.issues>0?"待核對":money(p.profit+p.fee+p.adjustment)}</p>)}</details></td></tr>)}</RosterTable></details>}
  {report.lines.some(l=>l.payments.length>0)&&<details className="group/history rounded-lg border border-earth-200 bg-white px-4"><summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm"><span>{music ? "全店歷史付款紀錄" : "歷史付款紀錄"}</span><span aria-hidden="true" className="group-open/history:hidden">＋</span><span aria-hidden="true" className="hidden group-open/history:inline">－</span></summary><RosterTable label="發薪付款紀錄" columns={["付款日期", "人員／項目", "金額", "狀態", "明細／操作"]}>{report.lines.flatMap(line=>line.payments.map(p=><tr key={line.kind+p.id}><td>{formatTWDateTime(new Date(p.date))}</td><td><p className="font-medium">{line.name}</p><p>{line.label}</p></td><td className="text-right tabular-nums">{money(p.amount)}</td><td>{p.voided?"已更正":"已登記"}</td><td><details><summary className="min-h-11 cursor-pointer py-2">明細</summary><p>{p.note || "無備註"}</p>{p.reason&&<p>更正原因：{p.reason}</p>}</details>{!readOnly&&canPay&&!p.voided&&(line.kind==="PROFIT"?<CourseProfitCorrect paymentId={p.id}/>:<CourseFeeCorrectionButton paymentId={p.id}/>)}</td></tr>))}</RosterTable></details>}
  </div>
  </PageShell></MonthlyStoreProvider>;

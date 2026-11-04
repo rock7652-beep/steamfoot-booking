@@ -598,6 +598,8 @@ model VerificationToken {
 // ============================================================
 
 model Store {
+  monthlyAdjustments StaffMonthlyAdjustment[]
+  adjustmentMonths StaffAdjustmentMonth[]
   lineQuotaSetting LineQuotaSetting?
   lineQuotaAlerts LineQuotaAlert[]
   imageAnnouncementSet ImageAnnouncementSet?
@@ -1017,6 +1019,7 @@ model StoreSettlement {
 // ============================================================
 
 model Staff {
+  monthlyAdjustments StaffMonthlyAdjustment[]
   courseDefaultClassFee         Decimal?    @db.Decimal(10, 0) // 運動教室每堂預設授課費；空白與 0 元不同
   courseCoachEnabled            Boolean     @default(false)
   courseQualificationsConfirmed Boolean     @default(false)
@@ -3659,4 +3662,31 @@ model ServiceAddOnCommand {
   result Json
   createdAt DateTime @default(now())
   @@id([storeId,requestKey])
+}
+
+model StaffMonthlyAdjustment {
+  id String @id
+  storeId String
+  staffId String?
+  // BeautyTechnician composite FK is maintained by the cross-client SQL migration.
+  technicianId String?
+  month String
+  date String
+  direction String
+  amount Int
+  reason String
+  revision Int @default(1)
+  deletedAt DateTime? @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
+  store Store @relation(fields:[storeId], references:[id], onDelete:Restrict)
+  staff Staff? @relation(fields:[staffId,storeId], references:[id,storeId], onDelete:Restrict)
+  @@unique([storeId,id])
+}
+model StaffAdjustmentMonth {
+  storeId String
+  month String
+  locked Boolean @default(false)
+  revision Int @default(1)
+  store Store @relation(fields:[storeId], references:[id], onDelete:Restrict)
+  @@id([storeId,month])
 }
