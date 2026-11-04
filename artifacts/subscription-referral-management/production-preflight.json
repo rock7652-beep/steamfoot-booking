@@ -1,0 +1,927 @@
+{
+  "date": "2026-11-04",
+  "mode": "read-only catalog and aggregate queries; no personal rows",
+  "project": "qijlnhtpbintanzpxkvf",
+  "sourceCommit": "7f087f76",
+  "catalog": {
+    "roles": [
+      {
+        "rolname": "dashboard_user",
+        "rolsuper": false,
+        "rolcanlogin": false,
+        "rolbypassrls": false
+      },
+      {
+        "rolname": "authenticated",
+        "rolsuper": false,
+        "rolcanlogin": false,
+        "rolbypassrls": false
+      },
+      {
+        "rolname": "anon",
+        "rolsuper": false,
+        "rolcanlogin": false,
+        "rolbypassrls": false
+      },
+      {
+        "rolname": "service_role",
+        "rolsuper": false,
+        "rolcanlogin": false,
+        "rolbypassrls": true
+      },
+      {
+        "rolname": "postgres",
+        "rolsuper": false,
+        "rolcanlogin": true,
+        "rolbypassrls": true
+      },
+      {
+        "rolname": "authenticator",
+        "rolsuper": false,
+        "rolcanlogin": true,
+        "rolbypassrls": false
+      },
+      {
+        "rolname": "steamfoot_beauty_prod_20261025",
+        "rolsuper": false,
+        "rolcanlogin": true,
+        "rolbypassrls": false
+      },
+      {
+        "rolname": "steamfoot_addons_prod_20261102",
+        "rolsuper": false,
+        "rolcanlogin": true,
+        "rolbypassrls": false
+      }
+    ],
+    "grants": [
+      {
+        "grantee": "postgres",
+        "privileges": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE",
+        "table_name": "ConsultationLead"
+      },
+      {
+        "grantee": "postgres",
+        "privileges": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE",
+        "table_name": "Store"
+      },
+      {
+        "grantee": "postgres",
+        "privileges": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE",
+        "table_name": "StorePlanChange"
+      },
+      {
+        "grantee": "postgres",
+        "privileges": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE",
+        "table_name": "StoreSubscription"
+      }
+    ],
+    "tables": [
+      {
+        "owner": "postgres",
+        "relname": "Store",
+        "relrowsecurity": true
+      },
+      {
+        "owner": "postgres",
+        "relname": "StoreSubscription",
+        "relrowsecurity": true
+      },
+      {
+        "owner": "postgres",
+        "relname": "StorePlanChange",
+        "relrowsecurity": true
+      },
+      {
+        "owner": "postgres",
+        "relname": "ConsultationLead",
+        "relrowsecurity": true
+      }
+    ],
+    "columns": [
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "id",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "requestId",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "payloadHash",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "ConsultationLead",
+        "column_name": "originalPayload",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "storeName",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "contactName",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "industry",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "phone",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "lineId",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "contactWay",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "websiteUrl",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "facebookUrl",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "instagramUrl",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "status",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "ConsultationLead",
+        "column_name": "revision",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "sheetStatus",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "ConsultationLead",
+        "column_name": "sheetAttemptedAt",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "ConsultationLead",
+        "column_name": "sheetConfirmedAt",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "trialApplicationId",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "ConsultationLead",
+        "column_name": "trialLinkedAt",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "ConsultationLead",
+        "column_name": "trialLinkedBy",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "ConsultationLead",
+        "column_name": "createdAt",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "ConsultationLead",
+        "column_name": "updatedAt",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "ConsultationLead",
+        "column_name": "legacyImport",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "Store",
+        "column_name": "id",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "Store",
+        "column_name": "name",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "Store",
+        "column_name": "slug",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "Store",
+        "column_name": "domain",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "bool",
+        "data_type": "boolean",
+        "table_name": "Store",
+        "column_name": "isDefault",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "Store",
+        "column_name": "parentStoreId",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "PricingPlan",
+        "data_type": "USER-DEFINED",
+        "table_name": "Store",
+        "column_name": "plan",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "StorePlanStatus",
+        "data_type": "USER-DEFINED",
+        "table_name": "Store",
+        "column_name": "planStatus",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "Store",
+        "column_name": "planEffectiveAt",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "Store",
+        "column_name": "planExpiresAt",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "Store",
+        "column_name": "currentSubscriptionId",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "Store",
+        "column_name": "maxStaffOverride",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "Store",
+        "column_name": "maxCustomersOverride",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "Store",
+        "column_name": "maxMonthlyBookingsOverride",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "Store",
+        "column_name": "maxMonthlyReportsOverride",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "Store",
+        "column_name": "maxReminderSendsOverride",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "Store",
+        "column_name": "maxStoresOverride",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "Store",
+        "column_name": "createdAt",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "Store",
+        "column_name": "updatedAt",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "bool",
+        "data_type": "boolean",
+        "table_name": "Store",
+        "column_name": "isDemo",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "Store",
+        "column_name": "lineDestination",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "Store",
+        "column_name": "liffId",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "StoreOperatingStatus",
+        "data_type": "USER-DEFINED",
+        "table_name": "Store",
+        "column_name": "operatingStatus",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "bool",
+        "data_type": "boolean",
+        "table_name": "Store",
+        "column_name": "digitalButlerEnabled",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "IndustryModule",
+        "data_type": "USER-DEFINED",
+        "table_name": "Store",
+        "column_name": "industryModule",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "bool",
+        "data_type": "boolean",
+        "table_name": "Store",
+        "column_name": "managerRecipientsMigrated",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "Store",
+        "column_name": "archivedAt",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "Store",
+        "column_name": "catalogSortOrder",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StorePlanChange",
+        "column_name": "id",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StorePlanChange",
+        "column_name": "storeId",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "PlanChangeType",
+        "data_type": "USER-DEFINED",
+        "table_name": "StorePlanChange",
+        "column_name": "changeType",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "PricingPlan",
+        "data_type": "USER-DEFINED",
+        "table_name": "StorePlanChange",
+        "column_name": "fromPlan",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "PricingPlan",
+        "data_type": "USER-DEFINED",
+        "table_name": "StorePlanChange",
+        "column_name": "toPlan",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "StorePlanStatus",
+        "data_type": "USER-DEFINED",
+        "table_name": "StorePlanChange",
+        "column_name": "fromStatus",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "StorePlanStatus",
+        "data_type": "USER-DEFINED",
+        "table_name": "StorePlanChange",
+        "column_name": "toStatus",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StorePlanChange",
+        "column_name": "requestId",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StorePlanChange",
+        "column_name": "subscriptionId",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StorePlanChange",
+        "column_name": "operatorUserId",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StorePlanChange",
+        "column_name": "reason",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "StorePlanChange",
+        "column_name": "metadataJson",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "StorePlanChange",
+        "column_name": "createdAt",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StoreSubscription",
+        "column_name": "id",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StoreSubscription",
+        "column_name": "storeId",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "PricingPlan",
+        "data_type": "USER-DEFINED",
+        "table_name": "StoreSubscription",
+        "column_name": "plan",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "SubscriptionStatus",
+        "data_type": "USER-DEFINED",
+        "table_name": "StoreSubscription",
+        "column_name": "status",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "StoreSubscription",
+        "column_name": "startedAt",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "StoreSubscription",
+        "column_name": "effectiveAt",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "StoreSubscription",
+        "column_name": "expiresAt",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "StoreSubscription",
+        "column_name": "cancelledAt",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "bool",
+        "data_type": "boolean",
+        "table_name": "StoreSubscription",
+        "column_name": "isTrial",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StoreSubscription",
+        "column_name": "billingCycle",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "BillingStatus",
+        "data_type": "USER-DEFINED",
+        "table_name": "StoreSubscription",
+        "column_name": "billingStatus",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "StoreSubscription",
+        "column_name": "priceAmount",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StoreSubscription",
+        "column_name": "priceCurrency",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StoreSubscription",
+        "column_name": "sourceRequestId",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StoreSubscription",
+        "column_name": "createdBy",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StoreSubscription",
+        "column_name": "note",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "StoreSubscription",
+        "column_name": "createdAt",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "timestamp",
+        "data_type": "timestamp without time zone",
+        "table_name": "StoreSubscription",
+        "column_name": "updatedAt",
+        "is_nullable": "NO"
+      },
+      {
+        "udt_name": "SubscriptionPaymentMethod",
+        "data_type": "USER-DEFINED",
+        "table_name": "StoreSubscription",
+        "column_name": "paymentMethod",
+        "is_nullable": "YES"
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "StoreSubscription",
+        "column_name": "updatedBy",
+        "is_nullable": "YES"
+      }
+    ]
+  },
+  "checks": {
+    "enums": [
+      {
+        "type": "BillingStatus",
+        "value": "NOT_REQUIRED"
+      },
+      {
+        "type": "BillingStatus",
+        "value": "PENDING"
+      },
+      {
+        "type": "BillingStatus",
+        "value": "PAID"
+      },
+      {
+        "type": "BillingStatus",
+        "value": "FAILED"
+      },
+      {
+        "type": "BillingStatus",
+        "value": "REFUNDED"
+      },
+      {
+        "type": "BillingStatus",
+        "value": "WAIVED"
+      },
+      {
+        "type": "PlanChangeType",
+        "value": "TRIAL_STARTED"
+      },
+      {
+        "type": "PlanChangeType",
+        "value": "UPGRADE_APPROVED"
+      },
+      {
+        "type": "PlanChangeType",
+        "value": "DOWNGRADE_SCHEDULED"
+      },
+      {
+        "type": "PlanChangeType",
+        "value": "DOWNGRADE_EXECUTED"
+      },
+      {
+        "type": "PlanChangeType",
+        "value": "PLAN_ACTIVATED"
+      },
+      {
+        "type": "PlanChangeType",
+        "value": "PLAN_RENEWED"
+      },
+      {
+        "type": "PlanChangeType",
+        "value": "PLAN_CANCELLED"
+      },
+      {
+        "type": "PlanChangeType",
+        "value": "ADMIN_MANUAL_CHANGE"
+      },
+      {
+        "type": "PlanChangeType",
+        "value": "PAYMENT_CONFIRMED"
+      },
+      {
+        "type": "PlanChangeType",
+        "value": "PAYMENT_FAILED"
+      },
+      {
+        "type": "StorePlanStatus",
+        "value": "TRIAL"
+      },
+      {
+        "type": "StorePlanStatus",
+        "value": "ACTIVE"
+      },
+      {
+        "type": "StorePlanStatus",
+        "value": "PAYMENT_PENDING"
+      },
+      {
+        "type": "StorePlanStatus",
+        "value": "PAST_DUE"
+      },
+      {
+        "type": "StorePlanStatus",
+        "value": "SCHEDULED_DOWNGRADE"
+      },
+      {
+        "type": "StorePlanStatus",
+        "value": "CANCELLED"
+      },
+      {
+        "type": "StorePlanStatus",
+        "value": "EXPIRED"
+      },
+      {
+        "type": "SubscriptionStatus",
+        "value": "TRIAL"
+      },
+      {
+        "type": "SubscriptionStatus",
+        "value": "ACTIVE"
+      },
+      {
+        "type": "SubscriptionStatus",
+        "value": "PAYMENT_PENDING"
+      },
+      {
+        "type": "SubscriptionStatus",
+        "value": "PAST_DUE"
+      },
+      {
+        "type": "SubscriptionStatus",
+        "value": "CANCELLED"
+      },
+      {
+        "type": "SubscriptionStatus",
+        "value": "EXPIRED"
+      }
+    ],
+    "policies": [
+      {
+        "cmd": "ALL",
+        "roles": [
+          "steamfoot_addons_prod_20261102"
+        ],
+        "table": "Store"
+      },
+      {
+        "cmd": "ALL",
+        "roles": [
+          "steamfoot_addons_prod_20261102"
+        ],
+        "table": "Store"
+      },
+      {
+        "cmd": "ALL",
+        "roles": [
+          "steamfoot_beauty_prod_20261025"
+        ],
+        "table": "Store"
+      },
+      {
+        "cmd": "SELECT",
+        "roles": [
+          "steamfoot_beauty_prod_20261025"
+        ],
+        "table": "Store"
+      },
+      {
+        "cmd": "UPDATE",
+        "roles": [
+          "steamfoot_beauty_prod_20261025"
+        ],
+        "table": "Store"
+      }
+    ],
+    "triggers": [
+      {
+        "name": "beauty_release_lock_only",
+        "table": "Store",
+        "definition": "CREATE TRIGGER beauty_release_lock_only BEFORE UPDATE ON public.\"Store\" FOR EACH ROW EXECUTE FUNCTION beauty_release_lock_only_guard('steamfoot_beauty_prod_20261025')"
+      },
+      {
+        "name": "store_operating_status_record_and_guard",
+        "table": "Store",
+        "definition": "CREATE TRIGGER store_operating_status_record_and_guard AFTER UPDATE OF \"operatingStatus\" ON public.\"Store\" FOR EACH ROW EXECUTE FUNCTION store_status_security.record_and_guard()"
+      },
+      {
+        "name": "ConsultationLead_immutable_legacy_provenance",
+        "table": "ConsultationLead",
+        "definition": "CREATE TRIGGER \"ConsultationLead_immutable_legacy_provenance\" BEFORE UPDATE ON public.\"ConsultationLead\" FOR EACH ROW EXECUTE FUNCTION guard_consultation_legacy_provenance()"
+      },
+      {
+        "name": "ConsultationLead_immutable_original",
+        "table": "ConsultationLead",
+        "definition": "CREATE TRIGGER \"ConsultationLead_immutable_original\" BEFORE UPDATE ON public.\"ConsultationLead\" FOR EACH ROW EXECUTE FUNCTION guard_consultation_lead_update()"
+      }
+    ],
+    "defaultAcl": [
+      {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "type": "r",
+        "owner": "postgres",
+        "schema": "storage"
+      },
+      {
+        "acl": "{postgres=arwdDxtm/supabase_auth_admin,dashboard_user=arwdDxtm/supabase_auth_admin}",
+        "type": "r",
+        "owner": "supabase_auth_admin",
+        "schema": "auth"
+      },
+      {
+        "acl": "{postgres=arwdDxtm/supabase_admin,anon=arwdDxtm/supabase_admin,authenticated=arwdDxtm/supabase_admin,service_role=arwdDxtm/supabase_admin}",
+        "type": "r",
+        "owner": "supabase_admin",
+        "schema": "graphql_public"
+      },
+      {
+        "acl": "{postgres=a*r*w*d*D*x*t*m*/supabase_admin}",
+        "type": "r",
+        "owner": "supabase_admin",
+        "schema": "extensions"
+      },
+      {
+        "acl": "{postgres=arwdDxtm/supabase_admin,anon=arwdDxtm/supabase_admin,authenticated=arwdDxtm/supabase_admin,service_role=arwdDxtm/supabase_admin}",
+        "type": "r",
+        "owner": "supabase_admin",
+        "schema": "graphql"
+      },
+      {
+        "acl": "{postgres=a*r*wdDxtm/supabase_admin,dashboard_user=arwdDxtm/supabase_admin}",
+        "type": "r",
+        "owner": "supabase_admin",
+        "schema": "realtime"
+      }
+    ],
+    "consistency": {
+      "currentExpiryMismatch": 0,
+      "currentSubscriptionMissing": 0,
+      "currentSubscriptionWrongStore": 0
+    }
+  },
+  "unverified": [
+    "Production DATABASE_URL role (sensitive setting; value not retrieved)",
+    "Deployed activity flags (environment list truncated)",
+    "Actual runtime role RLS/write behavior and multi-session concurrency",
+    "Migration and production enablement not executed"
+  ]
+}

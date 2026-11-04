@@ -106,3 +106,49 @@ src/lib/subscription-referral-policy.ts 為無資料庫／無金流副作用的�
 `src/__tests__/subscription-referral-*.test.ts` 覆蓋規則、私有表約束、實際 repository 在 PGlite 的完整交易、重送、防竄改、退款／同經營者／晚綁定拒絕、月繳證據、期限衝突與稽核失敗回復；另測 server action 權限、申請保存與對外欄位最小化、旗標及表權限檢查、前端失敗保留欄位與命令 ID。登入 intent 回歸測試在 hq-login-navigation。
 
 介面證據見 `artifacts/subscription-referral-management/README.md`。這些是合成資料的實際呈現元件及攔截本機提交，不是正式登入或真實發獎驗收。
+
+
+## 正式資料庫安裝前唯讀核對（2026-11-04）
+
+來源版本 `7f087f76`，PR #1514。Supabase 專案 `steamfoot`／`qijlnhtpbintanzpxkvf`，PostgreSQL 17；與既有正式訂閱 runbook 的 ref 一致。Vercel 已核實 `www.steamfoot.com` 綁定 `steamfoot-booking`（prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR）。僅讀 catalog 及計數，未讀取申請人的姓名、電話、付款憑證或店家個別資料；原始結構證據見 `artifacts/subscription-referral-management/production-preflight.json`。
+
+### 已確認
+
+- Store、StoreSubscription、ConsultationLead 主鍵為 text，與候選外鍵相容；originalPayload 為 jsonb，現有建立時間及訂閱日期為 timestamp without time zone，新增付款／核對時間採 timestamptz。既有日期不得擅自轉換型別，沿用共用台灣時間工具。
+- StorePlanChange 所需稽核欄位及 PLAN_ACTIVATED enum 已存在，不需為此變更既有 enum。
+- 五張 StoreSubscriptionReferral* 表均尚未存在，沒有同名表覆蓋問題。
+- 未封存店家的 currentSubscription 跨店歸屬、缺失連結與兩處到期日不一致計數均為 0。此為查詢當時快照，不取代發放交易內重新核對。
+- 四張既有表已啟用 RLS。ConsultationLead 原始內容與 legacy provenance 保護 trigger 已存在；不修改它們。
+- 新的 ON DELETE RESTRICT 會阻擋刪除已建立推薦紀錄的 Store、StoreSubscription、ConsultationLead；採保留稽核及封存，不得自動 cascade 或刪獎勵來繞過限制。正式留存及必要刪除需另訂審核程序。
+
+### 未核實，不能當成已通過
+
+Vercel 的 production DATABASE_URL／DIRECT_URL 為 sensitive，這次未取回值；環境清單回應亦有截斷，不能用「清單未看到」推定活動旗標狀態。Supabase 管理連線的 postgres 權限不代表 Next.js runtime 的權限。正式 runtime 角色尚待從受保護的部署環境內，以僅回傳 current_user／project ref／權限布林值的方式核實，不能輸出連線字串或密碼。
+
+既有 beauty／addons 專用角色不是通用推薦角色，不得沿用名稱直接授權或擴大它們的業務範圍。既有 RLS policy 亦不能推論新表可讀寫。
+
+### 最小必要權限審查表（規劃，未執行 GRANT）
+
+| 表 | 所需能力 | 限制 |
+| --- | --- | --- |
+| ReferralCode | SELECT、INSERT | 每帳戶一碼，不需 DELETE |
+| Referral | SELECT、INSERT、UPDATE | 歸屬不可覆寫，僅核對欄位更新 |
+| ReferralPayment | SELECT、INSERT | 首次付款證據不可任意覆寫 |
+| ReferralRefundReview | SELECT、INSERT | 追加核對，不修改過往證據 |
+| ReferralReward | SELECT、INSERT、UPDATE | 固定 30 天，完整核發狀態約束 |
+| Store | SELECT、UPDATE planExpiresAt／updatedAt；鎖列能力 | 不授予其他業務欄位修改 |
+| StoreSubscription | SELECT、UPDATE expiresAt／updatedBy／updatedAt；鎖列能力 | 不改價格、方案或扣款設定 |
+| StorePlanChange | SELECT（RETURNING）、INSERT | 不修改或刪除稽核 |
+| ConsultationLead | SELECT、SELECT FOR UPDATE 所需 UPDATE 權限 | 程式不更新內容；保留原始內容保護 trigger |
+
+上述不是直接可貼上的 GRANT：PostgreSQL 列鎖、RETURNING、既有 RLS 的 SELECT／UPDATE policy 都必須以實際 runtime 角色驗證。非 owner／非 bypassrls 的角色即使有表權限，無適當 policy 仍不能存取資料；不得用開放 anon／authenticated 或授予 bypassrls 解決。新表維持私有，權限僅給核實的 server role，不新增公開 RPC。
+
+### 安裝方案與停止條件
+
+1. 核實實際 runtime 角色、目前 deployed 旗標與 schema/search_path；在既有隔離環境驗證該角色最小權限、RLS、鎖列及雙連線重送／併發，不寫正式獎勵。
+2. 將候選 DDL 轉成符合既有 Prisma migration 發布流程的單一審查版本，固定 checksum，確認 pending migration 清單沒有夾帶其他變更。現階段候選 SQL 仍在 docs，沒有安裝入口。
+3. migration、應用部署及活動旗標啟用分開核對。先保持活動關閉，安裝新私有表並驗證結構／約束／匿名拒絕後，才進行實際登入流程驗收。角色不明、缺欄位、RLS 未通過或既有發布 gate 未通過即停止。
+4. 月繳人工停扣／復扣安排須有總部可追溯依據；上線不會自動贈送或批次延長既有訂閱。
+5. 發生問題先關閉活動入口，保留推薦、付款與稽核紀錄；不 DROP 新表、不回收已承諾的免費天數，也不藉回滾批次改訂閱。
+
+本輪完成唯讀安裝前核對與方案整理；尚未執行正式 DDL／GRANT、修改旗標、部署或發放獎勵。未核實項目不宣稱可正式啟用。
