@@ -2,13 +2,14 @@ import { createHash } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
-import { emptyCourseAgreement, buildCourseAgreement } from '@/lib/course-agreement';
+import { emptyCourseAgreement, emptyBeautyAgreement, buildCourseAgreement } from '@/lib/course-agreement';
 import { courseAgreementSignSchema } from '@/lib/course-agreement-signing';
 import { isCourseAgreementPublicPath } from '@/lib/course-agreement-public-path';
-const m=vi.hoisted(()=>({tx:vi.fn(),version:vi.fn(),setting:vi.fn(),receipt:vi.fn(),music:vi.fn(),store:vi.fn(),lock:vi.fn(),count:vi.fn()}));
+const m=vi.hoisted(()=>({tx:vi.fn(),version:vi.fn(),setting:vi.fn(),receipt:vi.fn(),music:vi.fn(),fitness:vi.fn(),store:vi.fn(),lock:vi.fn(),count:vi.fn(),feature:vi.fn(),beautyLock:vi.fn()}));
 vi.mock('@/lib/course-db',()=>({coursePrisma:{$transaction:m.tx,courseAgreementVersion:{findUnique:m.version},courseAgreementSetting:{findUnique:m.setting},courseAgreementSignature:{findUnique:m.receipt}}}));
-vi.mock('@/lib/db',()=>({prisma:{store:{findUnique:m.store}}}));
+vi.mock('@/lib/db',()=>({prisma:{store:{findUnique:m.store},storeFeatureEntitlement:{findFirst:m.fitness}}}));
 vi.mock('@/server/services/course-business-profile',()=>({isMusicCourseStoreFromEntitlements:m.music}));
+vi.mock('@/lib/feature-gate',()=>({isStoreFeatureEnabledForRead:m.feature}));
 vi.mock('@/server/services/course-store-lock',()=>({lockCourseStore:m.lock}));
 import { beginPublicCourseAgreement, readPublicCourseAgreement, signPublicCourseAgreement, readCourseAgreementReceipt } from '@/server/services/course-agreement-public';
 import { courseAgreementReceiptToken } from '@/server/services/course-agreement-signing-token';
@@ -24,7 +25,7 @@ async function reviews(where:{tokenHash:string}){
  if(!r)return null;
  return {...r,deliveredAt:new Date(r.deliveredAt as string),expiresAt:new Date(r.expiresAt as string),signatures:(await db.query(`SELECT * FROM "CourseAgreementSignature" WHERE "reviewId"=$1`,[r.id])).rows};
 }
-const tx={courseAgreementSetting:{findUnique:()=>m.setting()},courseAgreementReview:{
+const tx={$queryRaw:m.beautyLock,courseAgreementSetting:{findUnique:()=>m.setting()},courseAgreementReview:{
  findUnique:({where}:{where:{tokenHash:string}})=>reviews(where),
  count:m.count,
  create:async({data}:{data:Record<string,unknown>})=>{await db.query(`INSERT INTO "CourseAgreementReview"(id,"storeId","versionId","tokenHash","deliveredAt","expiresAt") VALUES ('new-r',$1,$2,$3,$4,$5)`,[data.storeId,data.versionId,data.tokenHash,data.deliveredAt,data.expiresAt]);return{...data,id:'new-r'};},
@@ -88,3 +89,32 @@ it('a private receipt is still readable after pausing new signatures',async()=>{
 it('caps review issuance consistently for a busy store',async()=>{m.count.mockResolvedValue(100);await expect(beginPublicCourseAgreement(token,undefined,true)).rejects.toThrow('開啟人數較多');expect((await db.query('SELECT * FROM "CourseAgreementReview"')).rows).toHaveLength(1);});
 it('can start a new learner review without changing the previous evidence',async()=>{await signPublicCourseAgreement(token,reviewToken,input());const next=await beginPublicCourseAgreement(token,reviewToken,true);expect(next.reviewToken).not.toBe(reviewToken);expect((await db.query('SELECT * FROM "CourseAgreementSignature"')).rows).toHaveLength(1);expect((await db.query('SELECT * FROM "CourseAgreementReview"')).rows).toHaveLength(2);});
 it('cannot retrieve a receipt with a different bearer token',async()=>{m.receipt.mockResolvedValue(null);await expect(readCourseAgreementReceipt('c'.repeat(43))).rejects.toThrow('已失效');expect(m.receipt).toHaveBeenCalledWith(expect.objectContaining({where:{receiptTokenHash:hash('c'.repeat(43))}}));});
+
+
+
+const beautyToken='d'.repeat(43);
+function beautyVersion(){
+ const draft={...emptyBeautyAgreement('合成美業店'),business:'beauty' as const,entity:'合成商行',responsible:'測試負責人',city:'新竹縣',makeup:'由店家協調改期',privacyNotice:'合成告知',beauty:{serviceScope:'一般非醫療美容',productsAndMethods:'依當次確認產品',specificRisks:'敏感與刺激',precautions:'事前說明必要過敏資訊',aftercare:'不適請聯絡本店',emergencyProcedure:'中止並協助就醫',refundRule:'依適用法令'}};
+ const document=buildCourseAgreement(draft);
+ return{...version,id:'beauty-v',version:2,settingsSnapshot:draft,document,documentHash:hash(JSON.stringify(document)),signingTokenHash:hash(beautyToken)};
+}
+async function prepareBeauty(){
+ const v=beautyVersion();
+ // New immutable version in the isolated fixture; never rewrite the music snapshot.
+ if(!(await db.query(`SELECT id FROM "CourseAgreementVersion" WHERE id='beauty-v'`)).rows.length)await db.query(`INSERT INTO "CourseAgreementVersion"(id,"storeId",version,"settingsSnapshot",document,"documentHash","signingTokenHash","createdById") VALUES ('beauty-v','a',2,$1,$2,$3,$4,'staff')`,[JSON.stringify(v.settingsSnapshot),JSON.stringify(v.document),v.documentHash,v.signingTokenHash]);
+ await db.exec(`UPDATE "CourseAgreementReview" SET "versionId"='beauty-v' WHERE id='r'`);
+ vi.stubEnv('COURSE_AGREEMENTS_ENABLED','');vi.stubEnv('COURSE_AGREEMENTS_PUBLIC_ENABLED','');vi.stubEnv('BEAUTY_AGREEMENTS_ENABLED','1');vi.stubEnv('BEAUTY_AGREEMENTS_PUBLIC_ENABLED','1');vi.stubEnv('BEAUTY_MODULE_ENABLED','1');
+ m.version.mockResolvedValue(v);m.setting.mockResolvedValue({activeVersionId:v.id});m.store.mockResolvedValue({industryModule:'BEAUTY',operatingStatus:'ACTIVE'});m.feature.mockResolvedValue(true);m.beautyLock.mockResolvedValue([{id:'a'}]);return v;
+}
+it('rejects beauty risk omission and module/feature gates before signing writes',async()=>{
+ const v=await prepareBeauty();await expect(signPublicCourseAgreement(beautyToken,reviewToken,{...input(),documentHash:v.documentHash})).rejects.toThrow('分別確認');expect(m.tx).not.toHaveBeenCalled();
+ m.feature.mockResolvedValue(false);await expect(readPublicCourseAgreement(beautyToken)).rejects.toThrow('失效');
+ m.feature.mockResolvedValue(true);m.store.mockResolvedValue({industryModule:'COURSE',operatingStatus:'ACTIVE'});await expect(readPublicCourseAgreement(beautyToken)).rejects.toThrow('失效');
+});
+it('beauty signing persists independent confirmation evidence with one signature and stable retries',async()=>{
+ const v=await prepareBeauty(),payload={...input(),documentHash:v.documentHash,riskAcknowledged:true};
+ const receipt=await signPublicCourseAgreement(beautyToken,reviewToken,payload);expect(await signPublicCourseAgreement(beautyToken,reviewToken,payload)).toEqual(receipt);
+ const rows=(await db.query<Record<string,unknown>>('SELECT * FROM "CourseAgreementSignature"')).rows;expect(rows).toHaveLength(1);
+ expect(rows[0].versionId).toBe('beauty-v');expect(rows[0].signerSnapshot).toMatchObject({beautyAcknowledgement:{course:true,risk:true,documentHash:v.documentHash}});
+ expect(rows[0].signerSnapshot).not.toHaveProperty('fitnessAcknowledgement');expect(m.lock).not.toHaveBeenCalled();expect(m.beautyLock).toHaveBeenCalled();
+});

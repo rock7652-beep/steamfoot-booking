@@ -1,16 +1,19 @@
 import { isSportsSharedCardIsolatedConnection } from './sports-shared-card-preview-scope.mjs';
 
 export const COURSE_AGREEMENTS_PREVIEW_BRANCH = 'codex/agreements-1502-integration';
+export const BEAUTY_AGREEMENTS_PREVIEW_BRANCH = 'codex/beauty-music-agreements-release';
+const previewBranches = [COURSE_AGREEMENTS_PREVIEW_BRANCH, BEAUTY_AGREEMENTS_PREVIEW_BRANCH];
 export const COURSE_AGREEMENTS_DISABLED_LINE_TOKEN = 'disabled-course-agreements-rehearsal';
 
 /** Exact, opt-in integration rehearsal; never accepts a production connection. */
 export function assertCourseAgreementsPreviewEnvironment(env) {
   if (env.COURSE_AGREEMENTS_REVIEW !== '1' &&
-      ![env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].includes(COURSE_AGREEMENTS_PREVIEW_BRANCH)) return false;
+      ![env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].some(branch => previewBranches.includes(branch))) return false;
   const rejected = Object.entries({
     opt_in: env.COURSE_AGREEMENTS_REVIEW !== '1',
     provider: env.VERCEL !== '1' || env.VERCEL_ENV !== 'preview',
-    branch: env.VERCEL_GIT_COMMIT_REF !== COURSE_AGREEMENTS_PREVIEW_BRANCH,
+    branch: !previewBranches.includes(env.VERCEL_GIT_COMMIT_REF),
+    beauty_configuration: env.VERCEL_GIT_COMMIT_REF === BEAUTY_AGREEMENTS_PREVIEW_BRANCH && (env.BEAUTY_MODULE_ENABLED !== '1' || env.BEAUTY_AGREEMENTS_ENABLED !== '1' || env.BEAUTY_DATABASE_MODE !== 'legacy' || env.BEAUTY_NOTIFICATIONS_ENABLED !== '0' || [env.BEAUTY_DATABASE_URL, env.BEAUTY_DATABASE_ROLE, env.BEAUTY_DATABASE_PASSWORD].some(value => value !== undefined)),
     repository: env.VERCEL_GIT_REPO_OWNER !== 'rock7652-beep' || env.VERCEL_GIT_REPO_SLUG !== 'steamfoot-booking',
     conflicting_provider: Boolean(env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH),
     // An explicit non-credential prevents provider inheritance of the global
