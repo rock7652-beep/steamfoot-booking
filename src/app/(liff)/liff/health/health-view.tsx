@@ -23,6 +23,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { HealthChangeBrief } from "@/components/health-change-brief";
 import { HealthHistoryList } from "@/components/health-history-list";
 import { HealthTrendChartLoader } from "@/components/health-trend-chart-loader";
 import {
@@ -288,7 +289,7 @@ function LinkedView({
       <MetricGrid latest={summary.latest} alerts={summary.alerts} />
 
       {/* ── 趨勢摘要 (近 N 次) ── */}
-      {summary.trend.length >= 2 && <TrendBrief summary={summary} />}
+      {summary.trend.length >= 2 && <HealthChangeBrief trend={summary.trend} />}
 
       {/* ── LIFF 內查看歷史與曲線，不再跳到網頁會員前台 ── */}
       <button
@@ -508,64 +509,6 @@ function MetricGrid({
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function TrendBrief({ summary }: { summary: HealthSummary }) {
-  const m = liffMessages.health;
-  const first = summary.trend[0];
-  const last = summary.trend[summary.trend.length - 1];
-  type Diff = { label: string; diff: number; unit: string; lowerIsBetter: boolean };
-  const diffs: Diff[] = [];
-  if (first.weight != null && last.weight != null) {
-    diffs.push({
-      label: m.metric.weight,
-      diff: +(last.weight - first.weight).toFixed(1),
-      unit: "kg",
-      lowerIsBetter: true,
-    });
-  }
-  if (first.bodyFat != null && last.bodyFat != null) {
-    diffs.push({
-      label: m.metric.bodyFat,
-      diff: +(last.bodyFat - first.bodyFat).toFixed(1),
-      unit: "%",
-      lowerIsBetter: true,
-    });
-  }
-  if (first.muscleMass != null && last.muscleMass != null) {
-    diffs.push({
-      label: m.metric.muscleMass,
-      diff: +(last.muscleMass - first.muscleMass).toFixed(1),
-      unit: "kg",
-      lowerIsBetter: false,
-    });
-  }
-  if (diffs.length === 0) return null;
-  return (
-    <div className="rounded-lg border border-earth-200 bg-white px-3 py-2">
-      <p className="text-[11px] font-medium text-earth-500">
-        {m.trendLabel.replace("{n}", String(summary.trend.length))}
-      </p>
-      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
-        {diffs.map(({ label, diff, unit, lowerIsBetter }) => {
-          const favorable = lowerIsBetter ? diff < 0 : diff > 0;
-          const neutral = Math.abs(diff) < 0.5;
-          const cls = neutral
-            ? "text-earth-400"
-            : favorable
-              ? "text-green-600"
-              : "text-amber-600";
-          return (
-            <span key={label} className={cls}>
-              {label} {diff > 0 ? "+" : ""}
-              {diff}
-              {unit}
-            </span>
-          );
-        })}
-      </div>
     </div>
   );
 }

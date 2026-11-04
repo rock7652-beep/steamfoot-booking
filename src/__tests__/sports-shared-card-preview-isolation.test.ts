@@ -56,6 +56,17 @@ function run(overrides: Record<string, string | undefined>) {
 }
 
 describe("sports shared-card Preview preflight", () => {
+  it("allows the authorized LIFF health preview only with the existing isolation gates", () => {
+    const health = { ...valid, VERCEL_GIT_COMMIT_REF: "fix/liff-health-change-range-20261104" };
+    expect(() => assertSportsSharedCardPreviewEnvironment(health)).not.toThrow();
+    expect(() => assertSportsSharedCardPreviewEnvironment({ ...health, DATABASE_URL: production })).toThrow();
+    expect(() => assertSportsSharedCardPreviewEnvironment({ ...health, VERCEL_ENV: "production" })).toThrow();
+    const result = run({ VERCEL_GIT_COMMIT_REF: health.VERCEL_GIT_COMMIT_REF });
+    expect(result.status).toBe(0);
+    expect(result.output).toContain("recovery_skipped_outside_production");
+    expect(result.output).not.toContain(tripwire);
+  });
+
   it('schedule-conflict review keeps database and subprocess tripwires before migrations',()=>{
     const branch='fix/schedule-conflicts-20261103';
     const env={VERCEL_GIT_COMMIT_REF:branch,SPORTS_REDESIGN_STAGING:'1',SPORTS_REDESIGN_PREVIEW:'1'};
