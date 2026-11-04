@@ -15,13 +15,15 @@ export const PUBLIC_LINE_DEPENDENCY = "LINE 自動提醒功能內含、不限次
 export const PUBLIC_SUBSCRIPTION_RETENTION = "加購停用或到期不會因開關直接刪除原有資料；正式訂閱終止後的保存、匯出與刪除，依服務條款及隱私權政策辦理。";
 
 export const PUBLIC_ADDON_GROUPS = [
-  { name: "日常加購", purpose: "整理資料、照顧顧客、掌握營運", original: 500, features: [
+  { name: "日常加購", purpose: "整理資料、經營顧客、商品加購與服務加做", original: 500, features: [
     { id: "export", name: "資料匯出", description: "下載可匯出的資料，方便整理與核對。" },
     { id: "cash", name: "現金抽屜", description: "記錄現金進出與交班盤點。" },
     { id: "care", name: "顧客經營", description: "追蹤回訪、關懷與續購。" },
     { id: "health", name: "健康追蹤", description: "記錄量測與歷次變化。" },
     { id: "waitlist", name: "課程候補", description: "管理候補與空位遞補。" },
     { id: "analysis", name: "分析", description: "查看營運數據與趨勢。" },
+    { id: "product-addons", name: "加購商品", description: "下午茶、輔銷品等商品，隨服務一併加購與結帳。" },
+    { id: "service-addons", name: "加做項目", description: "依顧客需求追加服務，清楚記錄加做項目與金額。" },
   ] },
   { name: "進階加購", purpose: "處理月結、商品庫存與維修服務", original: 800, features: [
     { id: "settlement", name: "月結管理", description: "整理授課或服務明細與月結金額。" },

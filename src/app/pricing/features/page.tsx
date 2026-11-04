@@ -18,6 +18,20 @@ export const metadata: Metadata = {
 };
 
 const features = [
+  { id: "product-addons", name: "加購商品", icon: "store",
+    title: "服務之外，顧客還想帶點什麼？",
+    before: "下午茶、輔銷品等商品另外記錄，結帳時還要逐筆核對。",
+    after: "下午茶、輔銷品等商品，隨服務一併加購與結帳。",
+    manual: ["記下追加商品", "核對數量與金額", "結帳時再找紀錄"],
+    takeaway: "服務與加購商品一起核對，交接更清楚。",
+    detail: "基本版、專業版需加購，展店版內含；不納入免費任選。每項年繳 NT$6,000，一次繳清；優惠期間再送 2 個月，共使用 14 個月。加購商品與進銷存為不同功能；進貨、庫存與相關單據管理請另查看進銷存。" },
+  { id: "service-addons", name: "加做項目", icon: "checklist",
+    title: "顧客想多做一個項目，怎麼記才清楚？",
+    before: "追加服務只靠口頭交接，結帳時容易漏看項目與金額。",
+    after: "依顧客需求追加服務，清楚記錄加做項目與金額。",
+    manual: ["口頭確認追加服務", "另外記下加做費用", "結帳時重新核對"],
+    takeaway: "本次加做哪些項目、增加多少費用，都有紀錄可核對。",
+    detail: "各版本皆需加購，不納入免費任選，展店版亦不內含。每項年繳 NT$6,000，一次繳清；優惠期間再送 2 個月，共使用 14 個月。可用服務與安排方式依所選模組及實際開通內容。" },
   { id: "inventory", name: "進銷存管理", icon: "store",
     title: "商品剩多少？這筆銷售有收款嗎？",
     before: "進貨、銷貨與庫存分開記錄，賣出商品後還要重新登記收款。",
@@ -123,6 +137,8 @@ function Rows({ items }: { items: readonly (readonly [string, string])[] }) {
 }
 function Example({ id }: { id: FeatureId }) {
   if (id === "work-orders") return <div className={panel}><p className="font-semibold">多種樂器服務，都能建立工單</p><ul aria-label="工單適用情境" className="mt-3 grid grid-cols-2 gap-2 text-sm leading-6">{["鋼琴調音", "管樂保養", "提琴維修", "吉他維修保養"].map(item => <li key={item} className="rounded-lg bg-[#E9F1EB] px-3 py-2 font-medium">{item}</li>)}</ul><p className="mt-4 font-semibold">吉他換弦工單｜範例資料</p><Rows items={[["單號", "261007001"], ["種類／型號", "吉他・範例型號 A"], ["問題與需求", "琴弦老化，需換弦與保養"], ["處理內容", "更換琴弦、清潔與調整"]]} /><div className="mt-3 flex flex-wrap gap-2 text-sm"><span className="rounded-full bg-[#E9F1EB] px-3 py-2 font-medium">處理進度：已完成・待取件</span><span className="rounded-full bg-[#FBF4E5] px-3 py-2 font-medium text-[#59441E]">付款狀態：未付款</span></div><Rows items={[["商品材料", "吉他弦 1 組・NT$600"], ["工費", "NT$300"], ["應收／已收／尚欠", "NT$900／NT$0／NT$900"]]} /><p className="mt-3 text-sm leading-6 text-[#4C6259]">商品材料示意需搭配進銷存；可列印顧客聯與店家聯。</p></div>;
+  if (id === "product-addons") return <div className={panel}><p className="font-semibold">加購商品｜範例資料</p><Rows items={[["商品", "下午茶 1 份"], ["其他商品", "輔銷品"], ["結帳", "與本次服務一併核對"]]} /></div>;
+  if (id === "service-addons") return <div className={panel}><p className="font-semibold">加做項目｜範例資料</p><Rows items={[["原服務", "舒壓按摩"], ["加做項目", "局部加強"], ["加做金額", "依門市設定"]]} /></div>;
   if (id === "inventory") return <div className={panel}><p className="font-semibold">商品與庫存｜範例資料</p><Rows items={[["商品", "範例商品 A"], ["庫存", "進貨 20・銷貨 3・剩餘 17"], ["銷售收款", "串接現金收支"]]} /></div>;
   if (id === "labels") return <div className={panel}><p className="font-semibold">範例顧客 A</p><div aria-label="顧客標籤示意" className="mt-4 flex flex-wrap gap-2"><span className="rounded-full bg-[#E9F1EB] px-3 py-2 text-sm font-medium text-[#153B31]">晚間時段</span><span className="rounded-full bg-[#FBF4E5] px-3 py-2 text-sm font-medium text-[#59441E]">朋友推薦</span></div><Rows items={[["備註", "平日下班後方便安排"]]} /><p className="mt-3 text-sm leading-6 text-[#4C6259]">標籤統一分類，備註保留個別細節。</p></div>;
   if (id === "waitlist") return <div className={panel}><p className="font-semibold">課程候補｜範例資料</p><Rows items={[["課程", "週三 19:00 瑜珈"], ["候補順位", "範例學員 A・第 1 組"], ["空位出現", "依順位自動遞補"]]} /><p className="mt-3 rounded-lg bg-[#E9F1EB] p-3 text-sm leading-6">遞補成功後，以 LINE 通知學員查看預約。</p></div>;
