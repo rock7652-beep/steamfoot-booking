@@ -142,6 +142,8 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+const { assertCourseAgreementsBuildConfiguration } = await import('./course-agreements-build-readiness.mjs');
+assertCourseAgreementsBuildConfiguration(process.env);
 if (releaseMode === 'course-agreements-preview') {
   console.info('[course-agreements-preview] isolated_database=true migrations_skipped=true notifications_blocked=true');
   process.exit(0);

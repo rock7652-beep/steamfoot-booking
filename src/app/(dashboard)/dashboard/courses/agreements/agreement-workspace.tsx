@@ -96,7 +96,7 @@ export function CourseAgreementWorkspace({ initial, save, publish, pause, share,
   }
   return <div className="min-w-0 space-y-4" aria-busy={pending}>
     <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-      <div><h1 className="text-2xl font-semibold text-primary-900">課程共同約定</h1><p className="mt-1 text-sm text-earth-600">把上課方式說清楚，讓學員、店家與老師有共同依據。</p></div>
+      <div><h1 className="admin-page-title">課程共同約定</h1><p className="mt-1 text-sm text-earth-600">把上課方式說清楚，讓學員、店家與老師有共同依據。</p></div>
       {recordsHref && <DashboardLink className={button} href={recordsHref}>簽署紀錄</DashboardLink>}<DashboardLink className={button} aria-disabled={pending} href="/dashboard/courses?view=settings&section=store">返回課程設定</DashboardLink>
     </div>
     <SettingsWorkspaceFrame
