@@ -9,7 +9,7 @@ export const bookingGuides = [
     title: "顧客想改時間，怎麼處理？",
     summary: "調整原預約的日期與時段，不必重新新增。",
     important: "已完成或已取消的預約不能直接改時間。改好後，請另與顧客確認新時間。",
-    keywords: "改期 改時間 換時間 更改日期",
+    keywords: "改期 改時間 換時間 更改日期 逐位選用方案 改期有效期限 預留堂數",
     path: "預約管理 → 點選預約 → 改時間",
     steps: [
       "在預約管理選日期，點開要調整的預約，核對顧客與原時間。",
@@ -96,6 +96,11 @@ import { dailyOperationGuides20261019 } from "./operation-guide-daily-20261019";
 import { dailyOperationGuides20261020 } from "./operation-guide-daily-20261020";
 import { dailyOperationGuides20261023 } from "./operation-guide-daily-20261023";
 import { dailyOperationGuides20261025 } from "./operation-guide-daily-20261025";
+import { dailyOperationGuides20261028 } from "./operation-guide-daily-20261028";
+import { dailyOperationGuides20261027 } from "./operation-guide-daily-20261027";
+import { dailyOperationGuides20261026 } from "./operation-guide-daily-20261026";
+import { dailyOperationGuides20261030 } from "./operation-guide-daily-20261030";
+import { dailyOperationGuides20261031 } from "./operation-guide-daily-20261031";
 import { customerConsumptionGuides } from "./operation-guide-customer-consumption";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
@@ -128,6 +133,11 @@ const catalogGuides: OperationGuide[] = [
   ...dailyOperationGuides20261020,
   ...dailyOperationGuides20261023,
   ...dailyOperationGuides20261025,
+  ...dailyOperationGuides20261026,
+  ...dailyOperationGuides20261027,
+  ...dailyOperationGuides20261028,
+  ...dailyOperationGuides20261030,
+  ...dailyOperationGuides20261031,
   ...customerConsumptionGuides,
 ];
 

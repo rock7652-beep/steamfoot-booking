@@ -16,13 +16,27 @@ export const courseBasicOperationGuides: OperationGuide[] = [
   {
     id: "C127", category: "customers", title: "如何新增或修改課程學員資料？",
     summary: "先在統一顧客清單搜尋姓名、電話、所屬教練或標籤，再從右側詳情新增或編輯。", answer: "已有學員請編輯原資料；關閉詳情後會保留原分頁、捲動、篩選與未送出的草稿，避免重複建檔。",
-    path: "顧客管理 → 新增顧客／顧客詳情 → 基本資料", keywords: "新增學員 修改姓名 電話 生日 緊急聯絡人 重複建檔 尚未儲存 已保留草稿 資料已有更新 捨棄草稿",
+    path: "顧客管理 → 新增顧客／顧客詳情 → 基本資料", keywords: "新增學員 修改姓名 電話 生日 緊急聯絡人 重複建檔 尚未儲存 已保留草稿 資料已有更新 捨棄草稿 LINE 綁定 未綁定 所屬店長 清除篩選",
     steps: ["先以姓名或電話搜尋並明確選取候選，核對是否已有資料。", "新增時填寫表單；已有資料時進入基本資料，點編輯顧客資料，修改姓名、電話或緊急聯絡資訊。", "儲存成功後重新開啟該學員，核對欄位與原持有方案。"],
     important: "修改聯絡電話不等於更換 LINE 帳號；身分綁定問題應另外核對。顯示保留草稿不等於已儲存。",
-    details: ["音樂、運動與美業顧客管理統一同排顯示搜尋、標籤、LINE 綁定、所屬店長與排序；LINE 可篩選全部、已綁定或未綁定，排序保留各模組堂數／點數用語。點清除會一併移除搜尋文字與篩選，窄版可自然換行。", "新增需要顧客建立權限，修改需要顧客編輯權限；查看資料不表示可編輯。顧客標籤開啟後可在同一清單篩選，詳細操作見 C160。", "未送出的完整表單會在同帳號、同店、同一瀏覽器分頁暫存；可選捨棄草稿。連線恢復不會自動重送，需人工確認後再儲存。", "若顯示資料已有更新，代表別人或另一頁已儲存新版；目前輸入會保留但不能直接覆蓋，先核對新版或捨棄草稿後重做。", "遇到錯誤先保留內容與訊息，確認是否已建檔，不要反覆新增同名學員。"],
+    details: [
+  "音樂、運動與美業顧客管理統一同排顯示搜尋、標籤、LINE 綁定、所屬店長與排序；LINE 可篩選全部、已綁定或未綁定，排序保留各模組堂數／點數用語。點清除會一併移除搜尋文字與篩選，窄版可自然換行。",
+  "新增需要顧客建立權限，修改需要顧客編輯權限；查看資料不表示可編輯。顧客標籤開啟後可在同一清單篩選，詳細操作見 C160。",
+  "未送出的完整表單會在同帳號、同店、同一瀏覽器分頁暫存；可選捨棄草稿。連線恢復不會自動重送，需人工確認後再儲存。",
+  "若顯示資料已有更新，代表別人或另一頁已儲存新版；目前輸入會保留但不能直接覆蓋，先核對新版或捨棄草稿後重做。",
+  "遇到錯誤先保留內容與訊息，確認是否已建檔，不要反覆新增同名學員。",
+  "LINE 綁定不代表已加好友或通知送達。音樂／運動不再提供上課狀態與推薦紀錄篩選，既有紀錄保留；所屬店長篩選不等於運動另有的所屬教練欄。"
+],
     success: "原學員資料顯示正確，未因修改資料而另建重複學員。",
     permission: "customer.read", feature: null, modules: ["course"], kind: "howto", verification: "source-reviewed",
-    sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/app/(dashboard)/dashboard/courses/course-profile-forms.tsx", "src/components/operations/use-form-draft.tsx", "src/server/actions/course-members.ts"],
+    sources: [
+  "src/app/(dashboard)/dashboard/courses/member-workspace.tsx",
+  "src/app/(dashboard)/dashboard/courses/course-profile-forms.tsx",
+  "src/components/operations/use-form-draft.tsx",
+  "src/server/actions/course-members.ts",
+  "src/app/(dashboard)/dashboard/customers/_components/customers-toolbar.tsx",
+  "src/lib/course-customer-filters.ts"
+],
   },
   {
     id: "C128", category: "customers", title: "如何設定運動學員的所屬教練與推薦人？",
@@ -69,13 +83,17 @@ export const courseBasicOperationGuides: OperationGuide[] = [
   {
     id: "C130", category: "customers", title: "店內備註與本次上課備註有何不同？",
     summary: "長期提醒放學員資料，單次交代放該筆預約。", answer: "兩種備註都不能代替點名、取消或收款操作。",
-    path: "顧客管理 → 顧客詳情 → 基本資料；課表 → 課程名單 → 本次備註鉛筆", keywords: "備註 長期提醒 本次上課 教練 教師 留言 草稿 原列編輯 全文 標籤 取消 資料已有更新",
+    path: "顧客管理 → 顧客詳情 → 基本資料；課表 → 課程名單 → 本次備註鉛筆", keywords: "備註 長期提醒 本次上課 教練 教師 留言 草稿 原列編輯 全文 標籤 取消 資料已有更新 教師備註 名單同步 結果待確認 重新讀取",
     steps: ["長期服務提醒在學員基本資料編輯店內備註。", "只涉及這一堂時，在正確課次及學員列點本次備註鉛筆，原列展開編輯後明確儲存。", "核對原列更新內容；摘要截斷時點標籤與備註區查看全文，關閉後回原名單。"],
     important: "備註供授權人員查看，不是私人筆記；保留草稿不代表已儲存，備註不能代替點名或收款。",
-    details: ["店內備註需顧客編輯權限；後台本次備註需預約編輯權限，且需符合原課次及預約狀態。已取消課程預約不能修改本次備註。", "課程本次備註最多 1000 字；原列鉛筆不跳整筆詳情。Enter 可換行，取消或 Escape 遇未儲存修改會先詢問；儲存進行中會鎖住儲存與取消，避免重複送出。", "只有看到明確成功提示與原列新內容才算完成。失敗會保留輸入；資料已被別人更新時先核對目前內容，需要時選保留我的輸入，再確認後儲存。", "草稿依目前帳號、門市、瀏覽器及課次隔離，不會自動送出；儲存只改本次備註，不改點名、期數、付款或歷史。"],
+    details: ["店內備註需顧客編輯權限；後台本次備註需預約編輯權限，且需符合原課次及預約狀態。已取消課程預約不能修改本次備註。", "課程本次備註最多 1000 字；原列鉛筆不跳整筆詳情。Enter 可換行，取消或 Escape 遇未儲存修改會先詢問；儲存進行中會鎖住儲存與取消，避免重複送出。", "只有看到明確成功提示與原列新內容才算完成。失敗會保留輸入；資料已被別人更新時先核對目前內容，需要時選保留我的輸入，再確認後儲存。", "草稿依目前帳號、門市、瀏覽器及課次隔離，不會自動送出；儲存只改本次備註，不改點名、期數、付款或歷史。",
+"音樂課次上方的教師備註與學員列本次備註分開。教師備註送出後先顯示儲存／更新中，只有名單同步完成才顯示完成；已儲存但名單同步未完成時重新讀取，不能把同步失敗當成沒存而重送。結果待確認時輸入保留，可關閉編輯後重新開啟名單查原結果；他人已修改時先核對，勿覆蓋。"
+],
     success: "長期與本次內容各保留在正確位置，預約及帳務狀態不變。",
     permission: "customer.read", feature: null, modules: ["course"], kind: "explanation", verification: "source-reviewed",
-    sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/app/(dashboard)/dashboard/courses/roster.tsx", "src/components/admin/inline-roster-note.tsx", "src/components/admin/roster-reminders.tsx", "src/server/actions/course-members.ts"],
+    sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/app/(dashboard)/dashboard/courses/roster.tsx", "src/components/admin/inline-roster-note.tsx", "src/components/admin/roster-reminders.tsx", "src/server/actions/course-members.ts",
+"src/app/(dashboard)/dashboard/courses/use-teacher-note-snapshot.ts"
+],
   },
   {
     id: "C131", category: "hours", title: "如何設定每週營業、公休及預約開放日期？",
@@ -175,7 +193,11 @@ export const courseBasicOperationGuides: OperationGuide[] = [
     path: "設定 → 收款與體驗", keywords: "銀行 轉帳 帳號 體驗價格 調整範圍 官方LINE 附加項目 加購 免費 圖片 收退款 教學項目 適用 群組 課次 預覽",
     steps: ["在銀行轉帳資訊核對銀行名稱、代碼與帳號，修改後儲存。", "在體驗設定核對預設價格與可調整範圍，另行儲存。", "重新開啟確認；付款聯繫資訊需到店家資料核對官方 LINE。"],
     important: "銀行資訊與體驗價格是不同設定；每區都需確認儲存成功。",
-    details: ["運動／音樂附加項目須先由總部開通，再由門市啟用。到左側店務管理的「附加項目」設定加購或免費品項、圖片，並在群組指定適用教學項目；各課次自動沿用，不必逐堂設定。未指定時不提供選購，可用顧客畫面預覽切換教學項目確認內容。個人項目每項一份；共同商品由整筆預約選取數量，不隨人數自動增加，不增加課程時間、名額或扣堂；變更適用項目不回寫已成立訂單。會員一般預約與運動公開體驗可在確認時另選共同商品；候補不建立商品單。顧客送出只建立商品應收，不表示已付款。", "到課表的學員預約詳情展開附加項目，調整品項後另行確認已收款；退款在更多操作。確認按鈕只記錄實際款項，不會自動扣款或退款，也不會改學費或方案；取消預約後仍須另核對退款，有附加歷史不能直接刪除。音樂初版限具全店財務範圍的人員，附加抽成尚未計算。", "銀行編輯需要方案編輯權限，體驗設定另受對應權限限制；沒有按鈕時請有權限者處理。", "體驗設定套用新體驗單，不表示已收款或已完成出席；不要拿舊交易金額驗證新預設。"],
+    details: [
+  "銀行編輯需要方案編輯權限，體驗設定另受對應權限限制；沒有按鈕時請有權限者處理。",
+  "體驗設定套用新體驗單，不表示已收款或已完成出席；不要拿舊交易金額驗證新預設。",
+  "附加項目與共同商品由獨立的 add_ons.manage 權限管理，不受本題銀行設定權限取代；管理與收退款分見 ADD01／ADD02。"
+],
     success: "銀行與體驗設定保留正確，新流程顯示對應資訊。",
     permission: "plans.edit", feature: null, modules: ["course"], kind: "howto", verification: "source-reviewed",
     sources: ["src/app/(dashboard)/dashboard/courses/settings-workspace.tsx", "src/server/actions/course-settings.ts", "src/server/actions/course-add-ons.ts", "src/components/add-ons/booking.tsx"],
