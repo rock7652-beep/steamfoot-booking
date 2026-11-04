@@ -107,3 +107,17 @@ it('edits legacy purchase visibility without requiring new provider settings or 
  await act(async()=>host.querySelector<HTMLInputElement>('input[name="purchaseMode"][value="customer"]')!.click());
  await submit();expect(m.sportsSave).toHaveBeenCalled();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({id:'legacy-plan',customerPurchasable:true,chargeSettings:null});
 });
+
+it.each(['LEGACY','ASSIGNED'] as const)('uses the confirmed %s plan revision when reopening before route data refreshes',async sportsMode=>{
+ const original={...sharedPlan,id:'saved-plan',name:'舞蹈十堂',unit:'SESSION',sportsMode,sportsSubjectId:sportsMode==='ASSIGNED'?'subject':null,sportsCost:sportsMode==='ASSIGNED'?1:null,templateIds:['t'],customerPurchasable:false,chargeSettings:null};
+ const confirmed={...original,price:2300,customerPurchasable:true};
+ const data={...sportsData,fees:[{id:original.id,subject:'subject',name:original.name,unit:'堂數',amount:10,price:original.price,days:90,cost:1,shared:true,templateId:'t',snapshot:JSON.stringify(original)}]};
+ m.sportsSave.mockResolvedValue({success:false,error:'保留輸入'});
+ await mount({plan:confirmed,sportsData:data,templates:[{id:'t',name:'舞蹈',category:'',isActive:true,musicSubjectId:'subject'}],subjects:[{id:'subject',name:'舞蹈',category:'',isActive:true}]});
+ await act(async()=>host.querySelector<HTMLInputElement>('input[name="purchaseMode"][value="backend"]')!.click());
+ await submit();
+ expect(m.sportsSave).toHaveBeenCalledOnce();
+ const input=m.sportsSave.mock.calls[0][0];
+ expect(input.customerPurchasable).toBe(false);
+ expect(JSON.parse(input.snapshot)).toMatchObject({price:2300,customerPurchasable:true,templateIds:['t'],sportsMode});
+});
