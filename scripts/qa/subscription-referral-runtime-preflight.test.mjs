@@ -1,6 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateRuntimeTarget, inspectRuntime, safeFailure } from '../subscription-referral-runtime-preflight.mjs';
+import { verifyBeautyProductionCa, BEAUTY_SUPABASE_CA_FINGERPRINT } from '../beauty-production-ca.mjs';
+import { createSecureContext } from 'node:tls';
+
+test('existing pinned official CA is a valid trust anchor', () => {
+  const certificate = verifyBeautyProductionCa();
+  assert.equal(certificate.ca, true);
+  assert.equal(certificate.fingerprint256, BEAUTY_SUPABASE_CA_FINGERPRINT);
+  assert.doesNotThrow(() => createSecureContext({ ca: certificate.toString() }));
+});
 
 test('only emits known codes and phases; never raw driver errors', () => {
   const secret = 'synthetic-password-must-not-appear';

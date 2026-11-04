@@ -1,4 +1,5 @@
 import { pathToFileURL } from 'node:url';
+import { verifyBeautyProductionCa } from './beauty-production-ca.mjs';
 
 const project = 'qijlnhtpbintanzpxkvf';
 let stage = 'target_validation';
@@ -8,7 +9,7 @@ export function safeFailure(error, phase) {
     'SELF_SIGNED_CERT_IN_CHAIN', 'DEPTH_ZERO_SELF_SIGNED_CERT',
     'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'CERT_HAS_EXPIRED', 'ERR_TLS_CERT_ALTNAME_INVALID',
     '28P01', '28000', '42501', '42703', '42P01', '08P01', '08006', '57014']);
-  const phases = new Set(['target_validation', 'driver_load', 'connect', 'catalog']);
+  const phases = new Set(['target_validation', 'certificate', 'driver_load', 'connect', 'TLS', 'catalog']);
   return { stage: phases.has(phase) ? phase : 'unknown',
     code: codes.has(error?.code) ? error.code : 'UNCLASSIFIED' };
 }
@@ -64,19 +65,25 @@ async function main() {
   }
   const target = validateRuntimeTarget(process.env.DATABASE_URL);
   const connection = new URL(process.env.DATABASE_URL);
+  stage = 'certificate';
+  const ca = verifyBeautyProductionCa().toString();
   stage = 'driver_load';
   const { Client } = await import('pg');
   // Do not let URL query options override read-only startup or TLS verification.
   const client = new Client({ host: connection.hostname, port: Number(connection.port || 5432),
     user: decodeURIComponent(connection.username), password: decodeURIComponent(connection.password),
-    database: 'postgres', ssl: { rejectUnauthorized: true },
+    database: 'postgres', ssl: { ca, rejectUnauthorized: true },
     connectionTimeoutMillis: 5000, application_name: 'subscription-referral-readonly-preflight',
     options: '-c default_transaction_read_only=on' });
   try {
     stage = 'connect';
     await client.connect();
+    stage = 'TLS';
+    if (client.connection?.stream?.encrypted !== true || client.connection.stream.authorized !== true) {
+      throw new Error('Verified TLS required');
+    }
     stage = 'catalog';
-    console.log(JSON.stringify({ ...target, ...await inspectRuntime(client) }, null, 2));
+    console.log(JSON.stringify({ ...target, verified_tls: true, ...await inspectRuntime(client) }, null, 2));
   } finally { await client.end(); }
 }
 
