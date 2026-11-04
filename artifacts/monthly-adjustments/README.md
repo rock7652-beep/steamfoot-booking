@@ -49,3 +49,9 @@ fixture 只使用合成人員及記憶體資料，替換 server actions 和 next
 | 正式部署及正式資料 | 本次未執行 | 尚未上線 |
 
 Migration SHA-256：`d67a36fcf6c78744b1a6d88bf811e29efff7376d065767266768ffa39e8ee27f`。
+
+## 後續真實登入驗收（本次接續）
+
+已在產品版本 `b549c7f0` 完成四模組真實登入 → Server Action → PostgreSQL 17.6 → 月結顯示的本機隔離驗收，沒有替換 router 或 Server Action。上方「登入瀏覽器 → 真實 Server Action 未驗」為首輪開發時的歷史界線，已由本次證據補足**本機**部分；遠端部署與正式環境仍未驗、未發布。
+
+詳見 [完整流程報告](live/README.md) 與 [實際結果](live/results.json)。此輪未 push、未修改遠端 QA 設定、未套用遠端 migration；正式資料不變。
