@@ -55,6 +55,13 @@ try {
  await page.getByLabel(beauty ? '取消或改期期限' : '請假期限', { exact: true }).selectOption('deadline');
  await page.getByLabel(beauty ? '預約前幾日（0 為當日）' : '上課前幾日（0 為當日）').fill('1'); await page.getByLabel('截止時間（台灣時間）').fill('21:00');
  if(fitness||beauty){await page.getByRole('button',{name:beauty?'下一步：服務風險與照護':'下一步：運動與風險'}).click();await page.getByLabel(beauty?'可能反應與服務風險':'課程特有風險',{exact:true}).fill(beauty?'泛紅、敏感、刺激等反應':'彈力帶回彈、跌倒與碰撞');}
+ if(beauty){
+  for(const name of ['按摩','美容','美甲','美睫'])await page.getByRole('checkbox',{name,exact:true}).check();
+  const custom=page.getByLabel('按摩風險與照護說明',{exact:true});await custom.fill('自訂按摩風險與照護，重新勾選不得覆寫。');
+  await page.getByRole('checkbox',{name:'按摩',exact:true}).uncheck();await page.getByRole('checkbox',{name:'按摩',exact:true}).check();
+  if(await custom.inputValue()!=='自訂按摩風險與照護，重新勾選不得覆寫。')throw Error('Selection overwrote custom content');
+  for(const width of [1366,1024,768,390]){await page.setViewportSize({width,height:900});if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Service templates overflow '+width);await page.screenshot({path:out+'/templates-'+width+'.png',fullPage:true});}
+ }
  await page.getByRole('button', { name: '下一步：個資告知' }).click();
  await page.getByRole('button', { name: '儲存並預覽', exact: true }).click();
  await page.getByRole('alert').filter({ hasText: '模擬儲存失敗' }).waitFor();

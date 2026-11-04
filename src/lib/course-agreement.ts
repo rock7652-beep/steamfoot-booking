@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { beautyServiceTypes, beautyServiceTemplates } from './beauty-agreement-templates';
 
 const short = z.string().trim().max(200, '欄位最多 200 字');
 const text = z.string().trim().max(4000, '欄位最多 4000 字');
@@ -8,6 +9,7 @@ export const courseAgreementDraftSchema = z.object({
   business: z.enum(['pending', 'cram', 'fitness', 'beauty']),
   profile: z.enum(['MUSIC', 'FITNESS', 'BEAUTY']).optional(),
   beauty: z.object({ serviceScope: text, productsAndMethods: text, specificRisks: text, precautions: text, aftercare: text, emergencyProcedure: text, refundRule: text }).strict().optional(),
+  beautyServices: z.object({ selected: z.array(z.enum(beautyServiceTypes)).max(4).refine(items => new Set(items).size === items.length, '服務類型不可重複'), content: z.object({ massage: text.optional(), facial: text.optional(), nails: text.optional(), lashes: text.optional() }).strict() }).strict().optional(),
   fitness: z.object({ activityDescription: text, intensity: text, specificRisks: text, participationLimits: text, emergencyProcedure: text, refundRule: text }).strict().optional(),
   duration: z.number().int().min(1).max(480),
   leave: z.discriminatedUnion('mode', [
@@ -55,6 +57,9 @@ export function validateCourseAgreementForPublish(draft: CourseAgreementDraft) {
     if (!draft[field]) throw new Error(`請填寫${draft.profile === 'BEAUTY' && field === 'makeup' ? '取消與改期處理' : draft.profile === 'BEAUTY' && field === 'leaveChannel' ? '取消改期聯絡管道' : label}`);
   }
   if (draft.profile === 'BEAUTY') {
+    for (const type of draft.beautyServices?.selected ?? []) {
+      if (!draft.beautyServices?.content[type]?.trim()) throw new Error(`請填寫${beautyServiceTemplates[type].label}風險與照護說明`);
+    }
     if (draft.business !== 'beauty') throw new Error('請確認美業服務範本適用性');
     for (const [field, label] of Object.entries(beautyAgreementFields)) {
       if (!draft.beauty?.[field as keyof typeof beautyAgreementFields]) throw new Error(`請填寫${label}`);
@@ -174,6 +179,7 @@ function buildBeautyAgreement(d: CourseAgreementDraft): CourseAgreementClause[] 
     '服務中若出現灼熱、持續疼痛、明顯紅腫或其他異常，請立即告知並停止操作。本店及服務人員應依實際情況調整、中止服務或協助尋求醫療專業評估，不以本約定代替醫療判斷。',
     `服務後照護：${b?.aftercare || '【待填】'}。反應持續、惡化或有疑慮時，應聯絡本店並尋求醫療專業協助。`,
     `不適反應與緊急處理：${b?.emergencyProcedure || '【待填】'}。遇呼吸困難、意識異常或其他緊急情況應立即聯繫 119。`,
+    ...(d.beautyServices?.selected ?? []).map(type => `【${beautyServiceTemplates[type].label}】\n${d.beautyServices?.content[type] || '【待填】'}`),
     '本告知不是概括免責聲明，不免除本店或服務人員依法應負的安全、說明、注意及其他責任。簽署不代表放棄申訴、求償或其他依法享有的權利，也不代表店家保證特定美容效果。',
-  ].join('\n\n'), emphasis: ['泛紅、刺激、敏感、疼痛或其他不適', `本店服務特有風險：${b?.specificRisks || '【待填】'}`.slice(0,160), '更換項目或產品時應再次確認', '請立即告知並停止操作', `服務後照護：${b?.aftercare || '【待填】'}`.slice(0,160), '緊急情況應立即聯繫 119', '不免除本店或服務人員依法應負的安全、說明、注意及其他責任', '不代表放棄申訴、求償或其他依法享有的權利'] }];
+  ].join('\n\n'), emphasis: [...(d.beautyServices?.selected ?? []).map(type => `【${beautyServiceTemplates[type].label}】`), '泛紅、刺激、敏感、疼痛或其他不適', `本店服務特有風險：${b?.specificRisks || '【待填】'}`.slice(0,160), '更換項目或產品時應再次確認', '請立即告知並停止操作', `服務後照護：${b?.aftercare || '【待填】'}`.slice(0,160), '緊急情況應立即聯繫 119', '不免除本店或服務人員依法應負的安全、說明、注意及其他責任', '不代表放棄申訴、求償或其他依法享有的權利'] }];
 }

@@ -22,3 +22,22 @@ it('beauty receipt and PDF require the beauty acknowledgement type and retain th
  expect(()=>verifiedAgreementReceipt({...record,signerSnapshot:{name:'測試',phone:'0911000001',minor:false,fitnessAcknowledgement:ack}})).toThrow();
  expect(()=>verifiedAgreementReceipt({...record,signerSnapshot:{name:'測試',phone:'0911000001',minor:false}})).toThrow('確認紀錄');
 },20000);
+
+it('multi-service selections preserve edits and publish only selected service content',async()=>{
+ const {beautyServiceTypes,beautyServiceTemplates,toggleBeautyService}=await import('@/lib/beauty-agreement-templates');
+ let selection=toggleBeautyService(undefined,'massage',true);
+ selection.content.massage='店家自訂按摩風險與照護';
+ selection=toggleBeautyService(selection,'massage',false);
+ expect(selection.content.massage).toBe('店家自訂按摩風險與照護');
+ expect(buildCourseAgreement({...draft(),beautyServices:selection})[1].body).not.toContain('店家自訂按摩');
+ for(const type of beautyServiceTypes)selection=toggleBeautyService(selection,type,true);
+ expect(selection.content.massage).toBe('店家自訂按摩風險與照護');
+ const d={...draft(),beautyServices:selection},document=buildCourseAgreement(d);
+ expect(document).toHaveLength(2);
+ for(const type of beautyServiceTypes)expect(document[1].body).toContain(`【${beautyServiceTemplates[type].label}】`);
+ expect(()=>validateCourseAgreementForPublish(d)).not.toThrow();
+ expect(()=>validateCourseAgreementForPublish({...d,beautyServices:{...selection,content:{...selection.content,lashes:''}}})).toThrow('美睫');
+ const {courseAgreementDraftSchema}=await import('@/lib/course-agreement');
+ expect(courseAgreementDraftSchema.safeParse({...d,beautyServices:{...selection,selected:['massage','massage']}}).success).toBe(false);
+ expect(courseAgreementDraftSchema.parse(draft())).not.toHaveProperty('beautyServices');
+});

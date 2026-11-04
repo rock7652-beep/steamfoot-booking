@@ -22,3 +22,9 @@
 `node --conditions=react-server --import tsx scripts/qa/beauty-agreement-pdf-artifact.ts` 產生合成 PDF；擷取驗證完整條文與美業用語，無課程／指導員／補課誤植。輸出 `/workspace/reports/beauty-agreements-pdf/`；操作 QA 輸出 `/workspace/reports/beauty-agreements-settings/` 與 `/workspace/reports/beauty-agreement-signing/`。
 
 雲端 Preview 僅精確分支 `codex/beauty-agreements-preview`，同一個已隔離的測試 Supabase 專案，`BEAUTY_DATABASE_MODE=legacy`、`BEAUTY_NOTIFICATIONS_ENABLED=0`，不得有 dedicated beauty URL／role／password。維持既有 LINE 禁發及 migration skip；Git 自動部署關閉，正式分支配置不變。美業測試只使用新建合成 BEAUTY 店家與測試帳號，完成後停用管理帳號，保留供使用者試填的隔離入口及不可變合成證據。正式可用性與真機 Safari／LINE LIFF 仍須另行驗收。
+
+## 複選服務範例（2026-11-04）
+
+在「服務風險與照護」可複選按摩、美容、美甲、美睫；勾選即帶入可修改的非醫療範例，每類包含服務說明、可能反應、事前溝通及事後照護。共用規則仍須依實際服務填寫。取消勾選僅排除本次文件，保留自訂內容；重新勾選沿用已有文字。選取類型的內容不得空白，未知／重複類型由後端 schema 拒絕。
+
+四類內容併入第二個風險區塊，仍為兩項確認、一份簽名及一份 PDF；舊草稿未新增選取欄位時沿用原內容，已簽文件不重建。相關測試覆蓋全選、取消／重選保留、選取空白拒絕及舊 schema 相容，設定操作模擬覆蓋 1366／1024／768／390 寬度。
