@@ -6,7 +6,7 @@ import { AppError } from '@/lib/app-error';
 import { courseAgreementDraftSchema } from '@/lib/course-agreement';
 import { parseCourseAgreementSignerSnapshot } from '@/lib/course-agreement-signing';
 import type { CourseAgreementPublicDocument, CourseAgreementReceipt } from '@/lib/course-agreement-signing';
-const clausesSchema = z.array(z.object({ title: z.string(), body: z.string() })).min(1);
+const clausesSchema = z.array(z.object({ title: z.string(), body: z.string(), emphasis: z.array(z.string().min(1).max(160)).max(20).optional() })).min(1);
 export function verifiedAgreementDocument(version: { settingsSnapshot: unknown; document: unknown; documentHash: string; version: number }): CourseAgreementPublicDocument {
   const document = clausesSchema.parse(version.document);
   const hash = createHash('sha256').update(JSON.stringify(document)).digest('hex');

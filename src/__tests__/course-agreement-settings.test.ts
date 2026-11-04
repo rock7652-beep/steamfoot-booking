@@ -55,6 +55,6 @@ it('prevents fitness stores from saving or publishing the music template',async(
 it('requires service-specific risk fields before fitness activation',async()=>{
  m.access.mockResolvedValue({storeId:'a',user:{id:'staff'},agreementProfile:'FITNESS'});
  const p=await saveCourseAgreementDraft({storeId:'a',revision:0,draft:{...draft(),...emptyFitnessCourseAgreement('測試店','030000000','測試路'),entity:'測試商行',responsible:'測試負責人',city:'新竹縣',makeup:'協調補課',privacyNotice:'測試告知',business:'fitness'}});
- await expect(publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true})).rejects.toThrow('課程內容');
+ await expect(publishCourseAgreement({storeId:'a',revision:p.revision,documentHash:p.documentHash,acknowledged:true})).rejects.toThrow('運動強度');
  expect(m.create).not.toHaveBeenCalled();
 });

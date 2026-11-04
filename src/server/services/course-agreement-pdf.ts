@@ -1,5 +1,6 @@
 import 'server-only';
 import { courseAgreementTitle } from '@/lib/course-agreement';
+import { courseAgreementTextRuns } from '@/lib/course-agreement-emphasis';
 import PDFDocument from 'pdfkit';
 import { join } from 'node:path';
 import { formatTWDateTime } from '@/lib/date-utils';
@@ -24,7 +25,29 @@ export async function createCourseAgreementPdf(value: CourseAgreementReceipt): P
       doc.fontSize(12);
       ensure(doc.heightOfString(clause.title, { width }) + 50);
       doc.moveDown(.7).fillColor('#234139').text(clause.title, { width });
-      doc.moveDown(.3).fontSize(10).fillColor('#26352e').text(clause.body, { width, lineGap: 4 });
+      doc.moveDown(.3).fontSize(10).fillColor('#26352e');
+      if (!clause.emphasis?.length) doc.text(clause.body, { width, lineGap: 4 });
+      else {
+        const lines: ReturnType<typeof courseAgreementTextRuns>[] = [[]];
+        for (const run of courseAgreementTextRuns(clause)) {
+          run.text.split('\n').forEach((text, index) => {
+            if (index) lines.push([]);
+            if (text) lines.at(-1)!.push({ text, emphasized: run.emphasized });
+          });
+        }
+        // Reset the left edge at each explicit newline; continued text is only for inline spans.
+        // Fill + a fine stroke emboldens the embedded CJK glyphs without another font download.
+        doc.lineWidth(.18).strokeColor('#26352e');
+        for (const runs of lines) {
+          if (!runs.length) { doc.moveDown(); continue; }
+          runs.forEach((run, index) => {
+            const options = { width, lineGap: 4, continued: index < runs.length - 1, underline: run.emphasized, stroke: run.emphasized, fill: true };
+            if (index === 0) doc.text(run.text, 48, doc.y, options);
+            else doc.text(run.text, options);
+          });
+        }
+        doc.lineWidth(1);
+      }
     }
     const signer = value.signer;
     const evidence = [

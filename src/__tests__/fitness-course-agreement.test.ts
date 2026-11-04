@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import legacyDocument from './fixtures/course-agreement-legacy-document.json';
 import { expect, it } from 'vitest';
-import { buildCourseAgreement, courseAgreementDraftSchema, emptyCourseAgreement, emptyFitnessCourseAgreement, validateCourseAgreementForPublish } from '@/lib/course-agreement';
+import { buildCourseAgreement, courseAgreementDraftSchema, emptyCourseAgreement, emptyFitnessCourseAgreement, fitnessAgreementFields, validateCourseAgreementForPublish } from '@/lib/course-agreement';
 import { parseCourseAgreementSignerSnapshot } from '@/lib/course-agreement-signing';
 import { courseAgreementEvidenceFixture } from './fixtures/course-agreement-evidence';
 import { verifiedAgreementReceipt } from '@/server/services/course-agreement-evidence';
@@ -21,9 +21,10 @@ it('renders two blocks with instructor wording and no universal cram-school refu
  expect(()=>validateCourseAgreementForPublish(draft)).not.toThrow();
  const blocks=buildCourseAgreement(draft),text=JSON.stringify(blocks);
  expect(blocks.map(b=>b.title)).toEqual(['課程共同約定','運動健康與風險告知']);
+ expect(text).not.toContain('單堂時間為');expect(text).not.toContain('課程內容與類型：伸展與肌力');expect(text).toContain('各類運動課程及指導服務');
  expect(text).toContain('指導員');expect(text).not.toMatch(/老師|教練|短期補習班/);
  expect(text).toContain('不免除本店或指導員依法應負的責任');expect(text).toContain('不蒐集完整病史');expect(text).toContain('彈力帶回彈');
- for(const key of Object.keys(draft.fitness!)) {
+ for(const key of Object.keys(fitnessAgreementFields)) {
   const incomplete=structuredClone(draft);incomplete.fitness![key as keyof NonNullable<typeof draft.fitness>]='';
   expect(()=>validateCourseAgreementForPublish(incomplete)).toThrow();
  }
@@ -40,6 +41,7 @@ it('verifies both confirmations against immutable fitness version and creates on
  const ack={course:true,risk:true,documentHash,courseAcknowledgedAt:record.signedAt.toISOString(),riskAcknowledgedAt:record.signedAt.toISOString()};
  record.signerSnapshot={...record.signerSnapshot as object,fitnessAcknowledgement:ack};
  const receipt=verifiedAgreementReceipt(record);expect(receipt.profile).toBe('FITNESS');expect(receipt.fitnessAcknowledgement).toEqual(ack);
+ expect(()=>verifiedAgreementReceipt({...record,version:{...record.version,document:document.map(c=>({...c,emphasis:[]}))}})).toThrow('內容驗證');
  const pdf=await createCourseAgreementPdf(receipt);expect(pdf.subarray(0,5).toString()).toBe('%PDF-');
  expect(()=>verifiedAgreementReceipt({...record,signerSnapshot:{...record.signerSnapshot as object,fitnessAcknowledgement:{...ack,documentHash:'f'.repeat(64)}}})).toThrow('確認紀錄');
  expect(()=>verifiedAgreementReceipt({...record,signerSnapshot:{name:'測試',phone:'0911000001',minor:false}})).toThrow('確認紀錄');

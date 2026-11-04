@@ -191,3 +191,11 @@ DDL 失敗由交易整批回滾；發布後若回退，切回已固定的上一�
 - 合成 React 預覽：`FITNESS_AGREEMENTS_QA=1 node scripts/qa/course-agreement-settings-browser.mjs`，1920/1366/1024/768/600/390 寬度；`FITNESS_AGREEMENTS_QA=1 node scripts/qa/course-agreement-signing-browser.mjs`，360/390/768/1024/1366 寬度；無整頁溢出或 pageerror，旋轉保留簽名，下一位清空勾選，漏勾風險不能預覽送出。
 - 以上瀏覽器為真實 React 元件搭配合成 action，不是正式登入、真機 Safari／LINE LIFF 或雲端完整業務驗收。報告分別位於 `/workspace/reports/fitness-agreements-settings/`、`/workspace/reports/fitness-agreement-signing/`。
 - 選用功能仍不影響購課、排課及上課；通知停發狀態不變。測試分支禁止 Git 自動部署，手動 Preview 必須驗證隔離資料庫、通知封鎖及精確來源。
+
+### 運動約定適用範圍與重點標示（2026-11-04）
+
+依店家試閱回饋，新運動版本不限定課程名稱或固定單堂分鐘數；每次服務內容、時間、時段及地點依雙方確認的預約／購買／服務紀錄。設定介面移除運動版的單堂時間及課程名稱欄位，舊 JSON 欄位保留以讀取既有版本；風險、強度、參與限制等仍須依實際服務填寫。
+
+新範本在請假截止、補課、退費、重要條款變更、運動風險與不免責等關鍵句存入 `emphasis` 純文字片段。網頁共用粗體底線元件；PDF 用同一組片段畫底線及加重字形，無 HTML／Markdown 解析或外部字型請求。標示與本文一起納入不可變文件 hash，修改標示也須另發新版本；舊文件沒有標示資料時，不追溯加入。
+
+本機相關測試 99 項通過，包含舊音樂序列化內容、標示重疊／重複／純文字、範圍通用化及標示竄改拒絕。合成 React 預覽與簽署流程維持桌機、iPad、手機尺寸驗證；合成 PDF 擷取核對完整條文跨頁無遺失，並目視檢查底線與換行。樣本產生器：`scripts/qa/fitness-agreement-pdf-artifact.ts`，產物位於 `/workspace/reports/fitness-agreements-emphasis/`。這些是本機合成驗證，雲端新版另核對來源 SHA 與發布版本；正式站尚未合併。

@@ -2,6 +2,7 @@
 import { cloneElement, useEffect, useId, useRef, useState, type ReactElement } from 'react';
 import { DashboardLink } from '@/components/dashboard-link';
 import { SettingsListRow, SettingsWorkspaceFrame, SettingsWorkspaceNav } from '@/components/settings/settings-workspace';
+import { CourseAgreementBody } from '@/components/course-agreements/body';
 import { courseAgreementTitle, fitnessAgreementFields } from '@/lib/course-agreement';
 import type { CourseAgreementDraft, CourseAgreementPreview, CourseAgreementResult, CourseAgreementState } from '@/lib/course-agreement';
 
@@ -131,7 +132,7 @@ export function CourseAgreementWorkspace({ initial, save, publish, pause, share,
             <Field label="範本適用類型"><select value={draft.business} className={inputClass} onChange={event => set('business', event.target.value as CourseAgreementDraft['business'])}><option value="pending">尚未確認（可存草稿）</option>{fitness ? <option value="fitness">已確認適用本店運動課程服務</option> : <option value="cram">已確認適用短期補習班規範</option>}</select></Field>
           </>}
           {group === 'rules' && <>
-            <div className="grid min-w-0 gap-4 lg:grid-cols-2"><Field label="單堂時間（分鐘）"><input className={inputClass} type="number" min={1} max={480} value={draft.duration} onChange={event => set('duration', Number(event.target.value))} /></Field>{line('leaveChannel', '請假聯絡管道')}</div>
+            <div className="grid min-w-0 gap-4 lg:grid-cols-2">{!fitness && <Field label="單堂時間（分鐘）"><input className={inputClass} type="number" min={1} max={480} value={draft.duration} onChange={event => set('duration', Number(event.target.value))} /></Field>}{line('leaveChannel', '請假聯絡管道')}</div>
             <Field label="請假期限"><select className={inputClass} value={draft.leave.mode} onChange={event => set('leave', event.target.value === 'hours' ? { mode: 'hours', hours: 24 } : event.target.value === 'deadline' ? { mode: 'deadline', days: 1, time: '21:00' } : { mode: 'custom', rule: '' })}><option value="hours">提前幾小時</option><option value="deadline">指定日期與時間</option><option value="custom">自訂文字</option></select></Field>
             {draft.leave.mode === 'hours' && <Field label="提前時數"><input type="number" min={0} max={720} className={inputClass} value={draft.leave.hours} onChange={event => set('leave', { mode: 'hours', hours: Number(event.target.value) })} /></Field>}
             {draft.leave.mode === 'deadline' && <div className="grid min-w-0 gap-4 sm:grid-cols-2"><Field label="上課前幾日（0 為當日）"><input type="number" min={0} max={30} className={inputClass} value={draft.leave.days} onChange={event => draft.leave.mode === 'deadline' && set('leave', { ...draft.leave, days: Number(event.target.value) })} /></Field><Field label="截止時間（台灣時間）"><input type="time" className={inputClass} value={draft.leave.time} onChange={event => draft.leave.mode === 'deadline' && set('leave', { ...draft.leave, time: event.target.value })} /></Field></div>}
@@ -150,7 +151,7 @@ export function CourseAgreementWorkspace({ initial, save, publish, pause, share,
         </div>
       </form>}
       {stage === 'preview' && preview && <div className="space-y-5 py-5">
-        <article className="min-w-0 space-y-5 break-words"><h2 className="text-xl font-semibold text-primary-900">{preview.draft.brand || '店家'}｜{courseAgreementTitle(preview.draft.profile)}</h2><p className="text-sm text-earth-600">草稿 · 尚未啟用</p>{preview.document.map((clause, index) => <section key={clause.title}><h3 className="mb-2 text-base font-semibold text-primary-900">{index + 1}．{clause.title}</h3><p className="whitespace-pre-wrap text-base leading-7 text-earth-700">{clause.body}</p></section>)}</article>
+        <article className="min-w-0 space-y-5 break-words"><h2 className="text-xl font-semibold text-primary-900">{preview.draft.brand || '店家'}｜{courseAgreementTitle(preview.draft.profile)}</h2><p className="text-sm text-earth-600">草稿 · 尚未啟用</p>{preview.document.map((clause, index) => <section key={clause.title}><h3 className="mb-2 text-base font-semibold text-primary-900">{index + 1}．{clause.title}</h3><CourseAgreementBody clause={clause} /></section>)}</article>
         <label className="flex items-start gap-3 border-t border-earth-200 pt-5 text-sm leading-6"><input className="mt-1 size-5 shrink-0" type="checkbox" checked={acknowledged} disabled={pending} onChange={event => setAcknowledged(event.target.checked)} />我已確認店家資料、範本適用性、個資告知及實際執行規則一致。啟用後新簽署使用此版本，舊簽署文件仍保留。</label>
         <div className="flex flex-wrap justify-between gap-3"><button className={button} disabled={pending} type="button" onClick={() => { setStage('edit'); setAcknowledged(false); setError(''); }}>返回修改</button><button className={primary} disabled={pending || !acknowledged} type="button" onClick={() => void activate()}>{pending ? '啟用中…' : '確認啟用'}</button></div>
       </div>}

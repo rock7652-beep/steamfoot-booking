@@ -18,7 +18,7 @@ export const courseAgreementDraftSchema = z.object({
   pauseRule: text, equipment: text, extra: text, privacyNotice: text,
 }).strict();
 export type CourseAgreementDraft = z.infer<typeof courseAgreementDraftSchema>;
-export type CourseAgreementClause = { title: string; body: string };
+export type CourseAgreementClause = { title: string; body: string; emphasis?: string[] };
 export type CourseAgreementState = {
   storeId: string; revision: number; draft: CourseAgreementDraft;
   active: { id: string; version: number; documentHash: string } | null;
@@ -83,7 +83,7 @@ export function buildCourseAgreement(d: CourseAgreementDraft): CourseAgreementCl
 
 
 export const fitnessAgreementFields = {
-  activityDescription: '課程內容與類型', intensity: '運動強度與參與方式',
+  intensity: '運動強度與參與方式',
   specificRisks: '課程特有風險', participationLimits: '參與限制及注意事項',
   emergencyProcedure: '緊急處理方式', refundRule: '退費及解約規則',
 } as const;
@@ -99,9 +99,9 @@ export function courseAgreementTitle(profile?: 'MUSIC' | 'FITNESS') {
 function buildFitnessCourseAgreement(d: CourseAgreementDraft): CourseAgreementClause[] {
   const f = d.fitness;
   return [{ title: '課程共同約定', body: [
-    `本約定由學員與「${d.entity || '【待填營業登記名稱】'}」（品牌：${d.brand || '【待填店名】'}；負責人：${d.responsible || '【待填】'}）訂立，適用於學員在本店上課課程期間。服務地址：${d.city} ${d.address}；聯絡方式：${d.contact}。`,
+    `本約定由學員與「${d.entity || '【待填營業登記名稱】'}」（品牌：${d.brand || '【待填店名】'}；負責人：${d.responsible || '【待填】'}）訂立，適用於學員在本店參與各類運動課程及指導服務期間。服務地址：${d.city} ${d.address}；聯絡方式：${d.contact}。`,
     '首次簽署後，後續續購原則上沿用本版本；重要條款變更另行確認。每期費用、堂數、期間、開課日及課程內容，另依雙方確認並可保存的購買及課程紀錄辦理。本約定不取代每期依法應提供的交易資訊。',
-    `課程內容與類型：${f?.activityDescription || '【待填】'}。單堂時間為 ${d.duration} 分鐘；時段與地點由雙方確認。`,
+    '每次服務內容、時間、時段與地點，依雙方確認的預約、購買或服務紀錄辦理。',
     `${courseAgreementLeaveText(d.leave)} 請假聯絡管道：${d.leaveChannel}。補課方式：${d.makeup || '【待填】'}。${d.groupRule} ${d.lateRule} 遇急病、事故等特殊情況，可聯絡本店說明並協商。`,
     '指導員因故無法授課時，本店應盡早通知學員並協調補課或其他安排；替代指導員應事先說明。因本店或指導員因素未提供的課程，不視為學員已使用。天災等情況依適用法令與主管機關公告處理。',
     `暫停課程：${d.pauseRule || '請透過本店指定管道申請，由雙方確認未使用課程及後續安排，不影響依法得行使的退費權利。'}`,
@@ -111,7 +111,11 @@ function buildFitnessCourseAgreement(d: CourseAgreementDraft): CourseAgreementCl
     '影像使用：課堂拍攝應先取得相關人員同意；公開宣傳須另行取得獨立授權，本約定不授予行銷影像使用權，不同意不影響上課權益。',
     `個人資料告知：${d.privacyNotice || '【待填】'}`,
     '本店提供本文件供學員審閱及提問。簽署後保存本次版本、兩項確認紀錄、時間及一份手寫簽名，提供同一份 PDF 副本。草稿修改不影響已簽文件；爭議由本店受理協調。',
-  ].join('\n\n') }, { title: '運動健康與風險告知', body: [
+  ].join('\n\n'), emphasis: [
+    '重要條款變更另行確認。', courseAgreementLeaveText(d.leave).slice(0, 160),
+    `補課方式：${d.makeup || '【待填】'}`.slice(0, 160), '不影響依法得行使的退費權利。',
+    `退費及解約：${f?.refundRule || '【待填】'}`.slice(0, 160), '任何約定不得減損學員依法享有的權利。',
+  ] }, { title: '運動健康與風險告知', body: [
     `運動強度與參與方式：${f?.intensity || '【待填】'}。`,
     '運動可能造成肌肉痠痛、拉傷、扭傷、跌倒、碰撞或其他身體不適；風險會隨活動、強度、器材與個人狀況而不同。',
     `本課程特有風險：${f?.specificRisks || '【待填】'}。`,
@@ -120,5 +124,10 @@ function buildFitnessCourseAgreement(d: CourseAgreementDraft): CourseAgreementCl
     '本系統不蒐集完整病史。如有影響安全參與的身體狀況、傷勢、懷孕或醫療限制，請於上課前以適當方式向指導員說明必要資訊；狀況改變時應再次告知。有疑慮時先向醫療專業人員諮詢。',
     `緊急處理方式：${f?.emergencyProcedure || '【待填】'}。遇危急狀況應立即停止活動並聯繫 119，依現場情況提供適當協助。`,
     '本店及指導員仍應履行依法應負的安全、說明及注意義務。本告知不是概括免責聲明，不免除本店或指導員依法應負的責任；也不是醫療診斷、健康檢查或適合運動的認定。',
-  ].join('\n\n') }];
+  ].join('\n\n'), emphasis: [
+    '肌肉痠痛、拉傷、扭傷、跌倒、碰撞或其他身體不適',
+    `本課程特有風險：${f?.specificRisks || '【待填】'}`.slice(0, 160),
+    '應立即停止並通知指導員。', '狀況改變時應再次告知。',
+    '立即停止活動並聯繫 119', '不免除本店或指導員依法應負的責任',
+  ] }];
 }
