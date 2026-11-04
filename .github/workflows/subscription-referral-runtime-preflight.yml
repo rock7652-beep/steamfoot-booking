@@ -1,0 +1,46 @@
+name: Read-only subscription referral runtime preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type READ_ONLY_REFERRAL_PREFLIGHT (no installation or rewards)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: subscription-referral-runtime-preflight
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'READ_ONLY_REFERRAL_PREFLIGHT'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: Production – steamfoot-booking
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify target guards and read-only control flow without credentials
+        run: node --test scripts/qa/subscription-referral-runtime-preflight.test.mjs
+      - name: Install isolated locked driver without lifecycle scripts
+        run: |
+          mkdir -p "$RUNNER_TEMP/referral-preflight"
+          cp package.json package-lock.json "$RUNNER_TEMP/referral-preflight/"
+          cp scripts/subscription-referral-runtime-preflight.mjs "$RUNNER_TEMP/referral-preflight/"
+          cd "$RUNNER_TEMP/referral-preflight"
+          npm ci --ignore-scripts --omit=dev --no-audit --no-fund
+      - name: Read catalog through existing protected connection
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PREFLIGHT_DIRECTORY: ${{ runner.temp }}/referral-preflight
+        run: |
+          cd "$PREFLIGHT_DIRECTORY"
+          node subscription-referral-runtime-preflight.mjs --read-only
