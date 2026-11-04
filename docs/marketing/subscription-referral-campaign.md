@@ -152,3 +152,22 @@ Vercel 的 production DATABASE_URL／DIRECT_URL 為 sensitive，這次未取回�
 5. 發生問題先關閉活動入口，保留推薦、付款與稽核紀錄；不 DROP 新表、不回收已承諾的免費天數，也不藉回滾批次改訂閱。
 
 本輪完成唯讀安裝前核對與方案整理；尚未執行正式 DDL／GRANT、修改旗標、部署或發放獎勵。未核實項目不宣稱可正式啟用。
+
+
+### Runtime 角色核實實際結果（同日後續）
+
+已對 production DATABASE_URL 的精確 Vercel variable ID 執行唯讀查詢：回傳 type=sensitive、target=production、decrypted=false，未提供可解析的連線值。工作區僅有 .env.example，沒有 DATABASE_URL。未索取、輸出或重設任何密碼。
+
+正式 pg_stat_activity 顯示 postgres 與 beauty 專用角色經 Supavisor 連線，但無法將特定連線歸因到官網請求，**不認定其中任何角色就是主程式角色**。因此這一步的角色與實際寫入權限仍未核實；不是資料庫故障，也不是已證實無權限。
+
+已準備 `scripts/subscription-referral-runtime-preflight.mjs`，應由持有正式環境的管理者在該環境內執行：
+
+```sh
+node scripts/subscription-referral-runtime-preflight.mjs --read-only
+```
+
+程式只讀既有 DATABASE_URL，不載入 dotenv，不接受外部連線參數；目標強制正式 ref，拒絕停用 TLS，連線設定預設唯讀並以 BEGIN READ ONLY／ROLLBACK 查 catalog。只輸出 current_user、session_user、RLS／表權限布林與 policy 數，driver 原始錯誤一律遮蔽。新表缺失回報 present=false，不會嘗試建立。沒有新增 HTTP 診斷端點，沒有為取得秘密另建部署。
+
+本機已驗證錯誤／缺失 URL、錯專案、假主機、停用 TLS 拒絕，以及成功與失敗路徑均 ROLLBACK；node --check、diff 格式通過。這些是無資料庫控制流程驗證，**尚未在正式 runtime 執行**。報告本身也不能取代實際 RLS 列可見性、欄位更新、鎖列與隔離並發驗證。
+
+此步的必要外部條件：現有正式環境的執行入口。僅再次要求助理「下一步」不會讓 Sensitive 變數變得可讀；需由環境管理者執行上方命令，或提供已授權且能沿用既有 secrets 的執行方式。不要在聊天貼 DATABASE_URL 或密碼。取得不含秘密的診斷結果後，才能完成最小權限安裝審查。
