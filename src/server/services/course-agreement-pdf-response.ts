@@ -11,7 +11,7 @@ export async function courseAgreementPdfResponse(load: () => Promise<CourseAgree
     const fileId = value.id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100) || 'signed';
     return new Response(new Uint8Array(bytes), { headers: { ...COURSE_AGREEMENT_PRIVATE_HEADERS,
       'Content-Type': 'application/pdf', 'Content-Length': String(bytes.byteLength),
-      'Content-Disposition': `attachment; filename="course-agreement-${fileId}.pdf"` } });
+      'Content-Disposition': `attachment; filename="${value.profile === 'BEAUTY' ? 'service-agreement' : 'course-agreement'}-${fileId}.pdf"` } });
   } catch (error) {
     const status = error instanceof ZodError ? 400 : error instanceof AppError
       ? ({ UNAUTHORIZED: 401, FORBIDDEN: 403, NOT_FOUND: 404, VALIDATION: 400, CONFLICT: 409, BUSINESS_RULE: 400 }[error.code]) : 500;
