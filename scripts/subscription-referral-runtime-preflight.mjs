@@ -1,6 +1,17 @@
 import { pathToFileURL } from 'node:url';
 
 const project = 'qijlnhtpbintanzpxkvf';
+let stage = 'target_validation';
+export function safeFailure(error, phase) {
+  const codes = new Set(['ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET',
+    'ENETUNREACH', 'EHOSTUNREACH', 'EAI_AGAIN',
+    'SELF_SIGNED_CERT_IN_CHAIN', 'DEPTH_ZERO_SELF_SIGNED_CERT',
+    'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'CERT_HAS_EXPIRED', 'ERR_TLS_CERT_ALTNAME_INVALID',
+    '28P01', '28000', '42501', '42703', '42P01', '08P01', '08006', '57014']);
+  const phases = new Set(['target_validation', 'driver_load', 'connect', 'catalog']);
+  return { stage: phases.has(phase) ? phase : 'unknown',
+    code: codes.has(error?.code) ? error.code : 'UNCLASSIFIED' };
+}
 export function validateRuntimeTarget(raw) {
   let url;
   try { url = new URL(raw); } catch { throw new Error('DATABASE_URL missing or invalid'); }
@@ -53,6 +64,7 @@ async function main() {
   }
   const target = validateRuntimeTarget(process.env.DATABASE_URL);
   const connection = new URL(process.env.DATABASE_URL);
+  stage = 'driver_load';
   const { Client } = await import('pg');
   // Do not let URL query options override read-only startup or TLS verification.
   const client = new Client({ host: connection.hostname, port: Number(connection.port || 5432),
@@ -61,15 +73,17 @@ async function main() {
     connectionTimeoutMillis: 5000, application_name: 'subscription-referral-readonly-preflight',
     options: '-c default_transaction_read_only=on' });
   try {
+    stage = 'connect';
     await client.connect();
+    stage = 'catalog';
     console.log(JSON.stringify({ ...target, ...await inspectRuntime(client) }, null, 2));
   } finally { await client.end(); }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch(() => {
+  main().catch(error => {
     // Driver errors can contain hosts, usernames or credentials. Never print raw errors.
-    console.error('Read-only runtime preflight failed; no credentials or raw driver errors emitted.');
+    console.error(JSON.stringify({ failure: safeFailure(error, stage) }));
     process.exitCode = 1;
   });
 }

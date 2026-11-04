@@ -1,6 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateRuntimeTarget, inspectRuntime } from '../subscription-referral-runtime-preflight.mjs';
+import { validateRuntimeTarget, inspectRuntime, safeFailure } from '../subscription-referral-runtime-preflight.mjs';
+
+test('only emits known codes and phases; never raw driver errors', () => {
+  const secret = 'synthetic-password-must-not-appear';
+  const result = safeFailure({ code: 'SELF_SIGNED_CERT_IN_CHAIN', message: secret }, 'connect');
+  assert.deepEqual(result, { stage: 'connect', code: 'SELF_SIGNED_CERT_IN_CHAIN' });
+  assert.equal(JSON.stringify(result).includes(secret), false);
+  assert.deepEqual(safeFailure({ code: secret, message: secret }, secret),
+    { stage: 'unknown', code: 'UNCLASSIFIED' });
+});
 
 test('refuses missing URL, other project, fake host and disabled TLS', () => {
   for (const raw of [undefined,
