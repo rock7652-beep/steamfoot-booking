@@ -54,3 +54,9 @@ python -m http.server 4173 --bind 127.0.0.1 --directory artifacts/marketing-copy
 - 靜態預覽仍不包含 React hydration；僅用於文案及版面審查。完整應用的分支驗證沒有更改，原 app 預覽失敗狀態仍保留，不代表正式 Next build 通過。
 - GitHub 初次 CI：全專案 Typecheck 及修改檔 ESLint 通過；targeted 與 full baseline 都只失敗同一項 public-guides sitemap 頁數預期（新增美業後 34→35）。本次同步預期頁數，並將 beauty 加入公開模組 URL 驗證。
 - 初次 full baseline：16,049 passed、1 failed、261 skipped；不能宣稱全量通過。修正後本機 6 個相關測試檔共 121 項通過、測試檔 ESLint 通過；更新版遠端 CI 待確認。
+
+## 加購功能說明定稿
+
+- 加購商品：下午茶、輔銷品、保養品等商品，隨服務一併選購與結帳，清楚記錄商品、數量與金額。
+- 加做項目：依顧客需求追加服務項目，清楚記錄本次加做內容與金額，方便現場交接與結帳核對。
+- 同步功能介紹、日常加購列表與靜態文案預覽；方案勾選、年費及贈送月份沿用已確認規則。

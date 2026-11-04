@@ -22,8 +22,8 @@ export const PUBLIC_ADDON_GROUPS = [
     { id: "health", name: "健康追蹤", description: "記錄量測與歷次變化。" },
     { id: "waitlist", name: "課程候補", description: "管理候補與空位遞補。" },
     { id: "analysis", name: "分析", description: "查看營運數據與趨勢。" },
-    { id: "product-addons", name: "加購商品", description: "下午茶、輔銷品等商品，隨服務一併加購與結帳。" },
-    { id: "service-addons", name: "加做項目", description: "依顧客需求追加服務，清楚記錄加做項目與金額。" },
+    { id: "product-addons", name: "加購商品", description: "下午茶、輔銷品、保養品等商品，隨服務一併選購與結帳，清楚記錄商品、數量與金額。" },
+    { id: "service-addons", name: "加做項目", description: "依顧客需求追加服務項目，清楚記錄本次加做內容與金額，方便現場交接與結帳核對。" },
   ] },
   { name: "進階加購", purpose: "處理月結、商品庫存與維修服務", original: 800, features: [
     { id: "settlement", name: "月結管理", description: "整理授課或服務明細與月結金額。" },
