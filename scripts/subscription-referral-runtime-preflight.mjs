@@ -4,6 +4,7 @@ const project = 'qijlnhtpbintanzpxkvf';
 let stage = 'target_validation';
 export function safeFailure(error, phase) {
   const codes = new Set(['ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET',
+    'ENETUNREACH', 'EHOSTUNREACH', 'EAI_AGAIN',
     'SELF_SIGNED_CERT_IN_CHAIN', 'DEPTH_ZERO_SELF_SIGNED_CERT',
     'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'CERT_HAS_EXPIRED', 'ERR_TLS_CERT_ALTNAME_INVALID',
     '28P01', '28000', '42501', '42703', '42P01', '08P01', '08006', '57014']);
