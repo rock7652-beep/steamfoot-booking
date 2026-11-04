@@ -48,6 +48,17 @@ const errors=[],results=[];try{
   if(await page.getByLabel('法定代理人姓名',{exact:true}).inputValue()!=='合成家長')throw Error('Resize lost input');if(await pad.locator('polyline').count()!==1)throw Error('Resize lost strokes');
   await page.screenshot({path:out+'/sign-'+width+'.png',fullPage:true});results.push({width,height,overflow:false,touchSignatureRetained:true});
  }
+ await page.setViewportSize({width:390,height:844});
+ // Validate from the bottom: reveal the invalid field and preserve all strokes.
+ for(const label of ['聯絡電話','法定代理人電話']){
+  const input=page.getByLabel(label,{exact:true});const original=await input.inputValue();await input.fill('0911');
+  await page.getByRole('button',{name:'預覽簽署資料'}).click();
+  if(!await input.evaluate(el=>document.activeElement===el&&el.getBoundingClientRect().top>=0&&el.getBoundingClientRect().bottom<=innerHeight))throw Error('Invalid phone was not focused and revealed: '+label);
+  if(await input.getAttribute('aria-invalid')!=='true')throw Error('Missing invalid field indicator');
+  const description=await input.getAttribute('aria-describedby');if(!description||!await page.locator('[id="'+description+'"]').isVisible())throw Error('Missing inline error');
+  if(await pad.locator('polyline').count()!==1)throw Error('Validation discarded signature');
+  await input.fill(original);
+ }
  await page.getByRole('button',{name:'預覽簽署資料'}).click();await page.getByRole('heading',{name:'確認簽署資料'}).waitFor();
  await page.getByRole('button',{name:'確認簽署',exact:true}).click();await page.getByRole('alert').filter({hasText:'模擬回應中斷'}).waitFor();
  if(!await page.getByRole('button',{name:'返回修改',exact:true}).isDisabled())throw Error('Unknown outcome allowed changed payload');
