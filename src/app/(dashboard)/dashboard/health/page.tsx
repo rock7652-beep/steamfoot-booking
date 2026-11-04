@@ -178,7 +178,7 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
         )}
       </div>
       <div className="hidden min-w-0 max-w-full overflow-x-auto rounded-xl border border-earth-200 bg-white md:block">
-        <table className="min-w-[1320px] w-full text-left text-sm">
+        <table data-striped-list className="min-w-[1320px] w-full text-left text-sm">
           <thead className="bg-earth-50 text-xs text-earth-600">
             <tr>
               <th className="px-4 py-3">量測日期</th><th className="px-4 py-3">顧客</th><th className="px-4 py-3">電話</th>
@@ -198,7 +198,7 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
                 <Metric value={record.bmr} unit="kcal" /><Metric value={record.bodyWater} unit="%" /><Metric value={record.metabolicAge} unit="歲" />
               </tr>
             ))}
-            {result.records.length === 0 && <tr><td colSpan={12} className="px-4 py-12 text-center text-earth-500">找不到符合條件的量測紀錄</td></tr>}
+            {result.records.length === 0 && <tr data-list-divider><td colSpan={12} className="px-4 py-12 text-center text-earth-500">找不到符合條件的量測紀錄</td></tr>}
           </tbody>
         </table>
       </div>

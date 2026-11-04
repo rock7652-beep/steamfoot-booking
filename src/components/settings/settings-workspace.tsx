@@ -92,7 +92,7 @@ export function SettingsListRow({
   const settingsSearch = useContext(SettingsNavigationContext);
   const destination = href && settingsSearch !== null ? settingsWorkspaceHref(href, settingsSearch) : href;
   return (
-    <section className="@container min-w-0 border-b border-earth-200/80 last:border-0">
+    <section className="admin-striped-row @container min-w-0 border-b border-earth-200/80 last:border-0">
       <div className={compact ? "grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-2" : columns ? "grid min-h-16 items-center gap-3 py-2 @3xl:grid-cols-[minmax(180px,1.5fr)_minmax(0,3fr)_100px]" : "grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 py-3 @3xl:grid-cols-[200px_minmax(0,1fr)_auto]"}>
         <h3 title={title} className={`${compact?"col-start-1 row-start-1":!columns?"col-start-1 row-start-1":""} min-w-0 break-words text-base font-semibold text-primary-900`}>{title}</h3>
         {columns ? <div className="grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-3">{columns.map(column => <div key={column.label} className="min-w-0"><p className="mb-1 text-earth-500 @3xl:sr-only">{column.label}</p>{column.content}</div>)}</div> : <p className={`${compact?"col-start-1 row-start-2":!columns?"col-start-1 row-start-2 @3xl:col-start-2 @3xl:row-start-1":""} min-w-0 break-words text-sm tabular-nums text-earth-600`} title={summary}>{summary}</p>}

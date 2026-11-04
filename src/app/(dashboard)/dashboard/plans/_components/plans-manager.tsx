@@ -182,7 +182,7 @@ export function PlansManager({
         )
       ) : (
         <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-          <table className="admin-list-table w-full text-left text-sm">
+          <table data-striped-list className="admin-list-table w-full text-left text-sm">
             <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
               <tr>
                 <th className="px-3 py-2">類別</th>
@@ -207,7 +207,7 @@ export function PlansManager({
                 return (
                   <tr
                     key={plan.id}
-                    className={`h-12 transition hover:bg-primary-50/40 ${
+                    className={`h-12 transition  ${
                       !plan.isActive ? "opacity-60" : ""
                     }`}
                   >

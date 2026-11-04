@@ -252,7 +252,7 @@ export default async function PlanSettingsPage() {
           <h3 className="text-sm font-semibold text-earth-800">方案內含功能（免費任選與門市開關另計）</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table data-striped-list className="w-full text-sm">
             <thead>
               <tr className="border-b border-earth-100 bg-earth-50">
                 <th className="px-5 py-2.5 text-left font-medium text-earth-600">
@@ -276,7 +276,7 @@ export default async function PlanSettingsPage() {
             <tbody>
               {FEATURE_GROUPS.map((group) => (
                 <Fragment key={group.group}>
-                  <tr className="bg-earth-50/50">
+                  <tr data-list-divider className="bg-earth-50/50">
                     <td
                       colSpan={5}
                       className="px-5 py-2 text-xs font-semibold text-earth-500 uppercase tracking-wide"

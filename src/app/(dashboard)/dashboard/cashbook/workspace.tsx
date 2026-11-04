@@ -213,7 +213,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
           }
           {/* 明細列表 */}
           <div className="max-w-full overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm" role="region" aria-label="現金帳明細，可橫向捲動" tabIndex={0}>
-            <table className="w-full min-w-[1050px] divide-y divide-gray-200 text-sm [&_th]:whitespace-nowrap [&_td]:align-top">
+            <table data-striped-list className="w-full min-w-[1050px] divide-y divide-gray-200 text-sm [&_th]:whitespace-nowrap [&_td]:align-top">
               <thead className="bg-earth-50">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium text-earth-600">日期</th>
@@ -228,7 +228,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
               </thead>
               <tbody className="divide-y divide-earth-100">
                 {entries.length === 0 && (
-                  <tr>
+                  <tr data-list-divider>
                     <td colSpan={8} className="px-4 py-0">
                       <EmptyState
                         icon="empty"
@@ -239,7 +239,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                   </tr>
                 )}
                 {entries.map((e) => (
-                  <tr key={e.id} className="hover:bg-earth-50">
+                  <tr key={e.id} className="">
                     <td className="px-3 py-2 text-earth-600">
                       {new Date(e.entryDate).toLocaleDateString("zh-TW")}
                     </td>

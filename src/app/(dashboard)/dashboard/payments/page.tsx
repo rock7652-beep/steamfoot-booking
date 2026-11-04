@@ -147,7 +147,7 @@ export default async function PendingPaymentsPage({
         <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
           {/* Desktop table */}
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-sm">
+            <table data-striped-list className="w-full text-sm">
               <thead>
                 <tr className="border-b border-earth-200 bg-earth-50">
                   <th className="px-4 py-3 text-left font-medium text-earth-500">處理狀態</th>
@@ -171,7 +171,7 @@ export default async function PendingPaymentsPage({
                   return (
                     <tr
                       key={tx.id}
-                      className={`transition-colors ${isFocused ? "bg-amber-50 ring-2 ring-inset ring-amber-300" : "hover:bg-earth-50"}`}
+                      className={`transition-colors ${isFocused ? "bg-amber-50 ring-2 ring-inset ring-amber-300" : ""}`}
                     >
                       <td className="px-4 py-3">
                         <StatusBadge status={tx.rowStatus} />

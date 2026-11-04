@@ -367,7 +367,7 @@ export function CourseStaffWorkspace({
       {!music && <p className="ml-auto whitespace-nowrap text-sm text-earth-500">共 {rows.length} 筆／全部 {staff.length} 筆</p>}
 </div>
       {music?<>      <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-        <table className={"min-w-[720px] w-full text-left text-sm"}>
+        <table data-striped-list className={"min-w-[720px] w-full text-left text-sm"}>
           <thead className="bg-earth-50">
             <tr>
               {["姓名", "聯絡方式", "身分", "LINE／通知", "操作"].map((t) => (
@@ -380,7 +380,7 @@ export function CourseStaffWorkspace({
           <tbody className="divide-y divide-earth-100">
             {visibleRows.map((p,index) => (
               <Fragment key={p.id}>
-              {!p.active&&(index===0||visibleRows[index-1]?.active)&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={5} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>停用人員（{inactiveRows.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
+              {!p.active&&(index===0||visibleRows[index-1]?.active)&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={5} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>停用人員（{inactiveRows.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
               <tr
                 {...order.rowProps(p.id)}
                 className={p.active ? "" : "bg-earth-50/80 text-earth-400"}
@@ -393,7 +393,7 @@ export function CourseStaffWorkspace({
               </tr>
               </Fragment>
             ))}
-            {!inactiveExpanded&&inactiveRows.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={5} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>停用人員（{inactiveRows.length}）</span><span>展開</span></button></td></tr>}
+            {!inactiveExpanded&&inactiveRows.length>0&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={5} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>停用人員（{inactiveRows.length}）</span><span>展開</span></button></td></tr>}
           </tbody>
         </table>
       </div>

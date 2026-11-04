@@ -16,7 +16,7 @@
 .table .actions{width:64px;min-width:64px}
 .table th{position:sticky;top:0;z-index:1}
 .table{max-height:65vh}
-.clickable{cursor:pointer}.clickable:hover{background:#f5f7f5}
+.clickable{cursor:pointer}
 .results button{border:0;border-bottom:1px solid #e1e6e2;border-radius:0}
 .editor .footer{position:sticky;bottom:0;background:white;padding-bottom:8px;z-index:2}
 

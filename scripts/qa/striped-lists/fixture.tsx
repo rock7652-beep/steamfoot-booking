@@ -1,0 +1,25 @@
+import {createRoot} from 'react-dom/client';
+import {useState} from 'react';
+import {CustomersTable,type CustomerRow} from '../../../src/app/(dashboard)/dashboard/customers/_components/customers-table';
+import {DataTable} from '../../../src/components/desktop/data-table';
+import {RosterTable} from '../../../src/components/admin/roster-table';
+import {CourseStaffList} from '../../../src/app/(dashboard)/dashboard/courses/staff-list';
+import '../../../src/app/globals.css';
+const names=['林雅婷','陳怡君','王淑芬','張家豪','李佳蓉','黃志明','吳佩珊','許庭瑜'];
+const rows=Array.from({length:30},(_,i):CustomerRow=>({id:`synthetic-${i}`,name:names[i%8]+(i>7?` ${i+1}`:''),phone:`09**-***-${String(i).padStart(3,'0')}`,lineName:null,lineUserId:null,customerStage:'LEAD',lineLinkStatus:'UNLINKED',lastVisitAt:new Date('2026-11-04T00:00:00Z'),createdAt:new Date('2026-11-01T00:00:00Z'),totalPoints:0,sponsoredCount:0,sponsor:null,assignedStaff:{id:'manager',displayName:'合成店長',colorCode:'#4e7a68'},mergedIntoCustomerId:null,userStatus:null,serviceNote:i===3?'長備註：需先聯繫再安排服務，測試跨欄位對齊與換行。':'合成驗收資料',validPackageSessions:10}));
+const button='min-h-11 rounded border border-earth-200 px-3 text-sm';
+function Fixture(){
+ const [query,setQuery]=useState(''),[reverse,setReverse]=useState(false),[selected,setSelected]=useState(new Set<string>()),[opened,setOpened]=useState(''),[tab,setTab]=useState('steamfoot'),[page,setPage]=useState(0),[hide,setHide]=useState(false);
+ const found=rows.filter(r=>r.name.includes(query));const visible=(reverse?[...found].reverse():found).slice(page*10,page*10+10);
+ return <div className="min-w-0"><aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-earth-200 bg-white p-5 md:block"><strong className="text-xl text-primary-900">蒸管家</strong><p className="mt-8 rounded bg-primary-100 p-3">顧客管理</p><p className="p-3">營運／月結</p><p className="p-3">人員管理</p></aside><main className="min-w-0 space-y-4 p-4 md:ml-60"><h1 className="text-xl font-semibold text-primary-900">顧客管理</h1><p className="text-sm">隔離視覺預覽：30 筆合成資料、不連線資料庫；使用真實 CustomersTable／DataTable，標籤 metadata 與連結為展示替身。</p>
+ <div className="flex flex-wrap gap-2" role="group" aria-label="模組">{['steamfoot','fitness','music','beauty'].map(v=><button className={button} aria-pressed={tab===v} key={v} onClick={()=>setTab(v)}>{v}</button>)}</div>
+ <div className="flex flex-wrap gap-2"><input aria-label="搜尋顧客" placeholder="搜尋姓名" className="min-h-11 min-w-0 rounded border px-3 text-base" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/><button className={button} onClick={()=>setReverse(v=>!v)}>反向排序</button><button className={button} onClick={()=>setPage(v=>(v+1)%3)}>下一頁</button><span role="status">{found.length} 筆・第 {page+1} 頁</span></div>
+ <div data-fixture="customers"><CustomersTable rows={visible} selectionEnabled selectedIds={selected} onToggleRow={id=>setSelected(old=>{const next=new Set(old);if(next.has(id))next.delete(id);else next.add(id);return next;})} onToggleAll={()=>setSelected(new Set(visible.map(r=>r.id)))} hasActiveFilters={!!query} basePath="/dashboard/customers" onView={r=>setOpened(r.id)} buildViewHref={r=>`#${r.id}`} stickyActions hideAssignedStaff={tab==='music'} readOnly={false}/></div>{opened&&<p role="status">已開啟 {opened}</p>}
+ <h2 className="font-semibold">調整明細／警示保留</h2><div data-fixture="states"><DataTable columns={[{key:'name',header:'項目',accessor:r=>r.name},{key:'amount',header:'金額',accessor:r=>r.amount,align:'right'},{key:'action',header:'操作',accessor:()=> <button className={button}>編輯</button>,sticky:'right'}]} rows={[{id:'normal1',name:'第一筆',amount:100},{id:'normal2',name:'第二筆',amount:200},{id:'warning',name:'警示列',amount:-100},{id:'inactive',name:'停用列',amount:0}]} rowKey={r=>r.id} rowClassName={r=>r.id==='warning'?'bg-amber-50':r.id==='inactive'?'bg-earth-100 text-earth-400':''} rowAttributes={r=>({'data-test-state':r.id})}/></div>
+ <h2 className="font-semibold">共用明細</h2><RosterTable label="月結明細" dense columns={['日期','人員','事由','金額']}><tr><td>2026/11/04</td><td>合成技師</td><td>獎勵</td><td>+100</td></tr><tr><td>2026/11/04</td><td>合成教練</td><td>調整</td><td>−50</td></tr></RosterTable>
+ <h2 className="font-semibold">人員清單與分組標題</h2><div data-fixture="staff"><CourseStaffList rows={rows.slice(0,5).map((r,i)=>({id:r.id,name:r.name,phone:r.phone,email:null,active:i<3,onOpen:()=>{},identity:'人員',notifications:'關閉',actions:<button className={button}>編輯</button>}))} inactiveCount={2} onToggleInactive={()=>{}}/></div>
+ <h2 className="font-semibold">設定／提醒等非表格條列</h2><button className={button} onClick={()=>setHide(v=>!v)}>切換隱藏中間列</button><div data-fixture="grouped" className="rounded border border-earth-200">{[0,1,2,3].map(i=><div key={i} hidden={hide&&i===1} data-test-index={i} className="admin-striped-row border-b p-3"><details><summary className="min-h-11 cursor-pointer">條列項目 {i+1}</summary><p>同一筆資料展開的完整內容，保留同列底色。</p></details></div>)}</div>
+ <div data-fixture="calendar" className="overflow-x-auto"><table className="w-full"><tbody><tr><td>課表第一格</td></tr><tr><td>課表第二格</td></tr></tbody></table></div>
+ </main></div>;
+}
+createRoot(document.getElementById('root')!).render(<Fixture/>);

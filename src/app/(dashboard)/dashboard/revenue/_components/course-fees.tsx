@@ -34,12 +34,12 @@ export async function CourseFees({dataScope,storeId,range,readOnly}: {dataScope?
     <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-x-3 gap-y-1"><span><strong className="font-semibold">授課費</strong><span className="ml-2 text-sm text-earth-500">待核對 {pending} 堂</span></span><span className="w-full text-sm font-medium text-primary-800 sm:w-auto sm:text-right">預估 NT$ {pendingAmount.toLocaleString()}　展開明細</span></summary>
     <p className="my-2 text-sm text-earth-600">依上方日期查看課次。固定費每堂計一次；音樂課比例按實際應計學員座位核算，未完成點名須先核對。登錄已付後會同步一筆支出。</p>
     {rows.length>100&&<p role="status">僅顯示最近 100 堂，請縮短日期範圍查看其他課次。</p>}
-    <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{[music ? personnelText("課次／教師") : personnelText("課次／教練"),"授課費","付款狀態","處理"].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>
+    <div className="overflow-x-auto"><table data-striped-list className="w-full text-left text-sm"><thead><tr>{[music ? personnelText("課次／教師") : personnelText("課次／教練"),"授課費","付款狀態","處理"].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>
       {summarized.map(({row,fee,ended})=>{
         const status=row.paidAt?`已付 NT$ ${(row.amount??0).toLocaleString()} · ${fee===null?"待核對":`未付 NT$ ${Math.max(0,fee-(row.amount??0)).toLocaleString()}`}`:row.cancelledAt?"已取消":fee===null?"舊課次費率待核對":fee===0?"不另領授課費":!ended?"尚未結束":!Number.isSafeInteger(fee)?"小數金額待核對":"待付（請核對授課）";
         return <tr className="border-t align-top" key={row.id}><td className="p-2">{formatTWTime(row.startsAt)}<br/>{row.name} · {row.staffName}</td><td className="p-2">{fee===null?"—":`NT$ ${fee.toLocaleString()}`}</td><td className="p-2">{status}{row.paidAt&&<details><summary>付款備註</summary>{row.method==="CASH"?"現金":"非現金"} · {row.note}</details>}</td><td className="p-2">{canPay&&row.paymentId?<CourseFeeCorrectionButton storeId={storeId} paymentId={row.paymentId}/>:null}{canPay&&!row.cancelledAt&&ended&&fee!==null&&fee>(row.amount??0)&&Number.isSafeInteger(fee)?<CourseFeePaymentButton storeId={storeId} sessionId={row.id} amount={fee} paid={row.amount??0}/>:null}</td></tr>;
       })}
-      {!rows.length&&<tr><td colSpan={4} className="p-3">此期間沒有課次。</td></tr>}
+      {!rows.length&&<tr data-list-divider><td colSpan={4} className="p-3">此期間沒有課次。</td></tr>}
     </tbody></table></div>
   </details>;
 }

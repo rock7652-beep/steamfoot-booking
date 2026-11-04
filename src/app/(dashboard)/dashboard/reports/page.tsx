@@ -376,7 +376,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             </p>
             <p className="mt-2 text-sm font-medium text-earth-700">整體體驗到店率 <strong className="tabular-nums text-primary-800">{trialArrivalRate.toFixed(1)}%</strong><span className="ml-2 text-xs font-normal text-earth-500">完成 {trialArrivals} 人次／預約 {trialBookings} 人</span></p>
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[820px] text-left text-sm">
+              <table data-striped-list className="w-full min-w-[820px] text-left text-sm">
                 <thead className="border-b border-earth-100 text-xs text-earth-500">
                   <tr>
                     <th className="py-2 pr-3 font-medium">來源</th>

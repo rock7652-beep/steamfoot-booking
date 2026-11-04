@@ -31,7 +31,7 @@ export function CourseMonthlyPeople({entries,children,actions,category="ALL",mus
  </div>
  <div className="overflow-hidden rounded-xl border border-earth-200 bg-white">
  <div className={`hidden ${category==="ALL"?"grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]":"grid-cols-[minmax(8rem,1fr)_1fr_5rem]"} gap-x-4 border-b bg-earth-50 px-3 py-2 text-sm text-earth-500 md:grid`}><span>人員</span>{category==="ALL"&&<><span className="text-right">店長利潤</span><span className="text-right">授課費</span></>}<span className="text-right">{category==="PROFIT"?"店長利潤":category==="FEE"?(feeLabel??(music ? personnelText("教師授課費") : personnelText("教練授課費"))):"應領合計"}</span><span className="sr-only">明細</span></div>
- {!entries.length?children:sorted.map(e=><div key={e.id} hidden={!visible.some(v=>v.id===e.id)}>{e.node}</div>)}
+ {!entries.length?children:sorted.map(e=><div className="admin-striped-row" key={e.id} hidden={!visible.some(v=>v.id===e.id)}>{e.node}</div>)}
  {!!entries.length&&!visible.length&&<p role="status" className="p-4 text-sm">找不到符合的人員。</p>}
  </div></section>;
 }

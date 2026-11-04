@@ -39,7 +39,7 @@ export function CourseTodayList({
         {sessions.reduce((n, s) => n + s.unmarked, 0)} 人次
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table data-striped-list className="w-full text-left text-sm">
           <thead className="bg-earth-50">
             <tr>
               {["時間", "課程", personnelText(courseDisplayText("教練", music)), "教室", "已預約／上限", "名單與出席"].map((h) => (

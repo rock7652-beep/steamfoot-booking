@@ -349,6 +349,7 @@ export function CustomersTable({
       columns={[...columns].sort((a,b)=>["select","customer","phone","assignedStaff","lineNotification","validSessions","lastVisit","notes","actions"].indexOf(a.key)-["select","customer","phone","assignedStaff","lineNotification","validSessions","lastVisit","notes","actions"].indexOf(b.key)).filter(column => !(hideAssignedStaff && column.key === "assignedStaff"))}
       rows={rows}
       rowKey={(c) => c.id}
+      rowAttributes={c => ({"aria-selected": selectionEnabled && !!selectedIds?.has(c.id)})}
       rowHref={(c) => (isInactiveRow(c) ? "" : buildViewHref(c))}
       // PR #312-B-5：一般左鍵點整列 → 走 onView（= openCustomer，client 開 Drawer，
       // 不 soft-nav 重跑整頁）；cmd/中鍵仍用 rowHref 開新分頁 / deep-link。

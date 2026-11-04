@@ -1,0 +1,428 @@
+[
+  {
+    "file": "src/app/(customer)/book/course-portal-client.tsx",
+    "line": 1085,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/bonus-rules/_components/bonus-rules-manager.tsx",
+    "line": 168,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/bookings/source/page.tsx",
+    "line": 77,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/cashbook/_components/quick-cashbook.tsx",
+    "line": 159,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/cashbook/workspace.tsx",
+    "line": 216,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/archive/page.tsx",
+    "line": 40,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/member-workspace.tsx",
+    "line": 516,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/music-home.tsx",
+    "line": 43,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/music-period-overview.tsx",
+    "line": 35,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/music-student-courses.tsx",
+    "line": 98,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/music-student-courses.tsx",
+    "line": 99,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/music-subject-catalog.tsx",
+    "line": 74,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/opening-import/import-form.tsx",
+    "line": 52,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/rental-panel.tsx",
+    "line": 103,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/source-pilot/page.tsx",
+    "line": 29,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/source-pilot/salary/monthly-test.tsx",
+    "line": 17,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/source-pilot/salary/monthly-test.tsx",
+    "line": 19,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/source-pilot/salary/salary-preview.tsx",
+    "line": 16,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/staff-list.tsx",
+    "line": 17,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/staff-workspace.tsx",
+    "line": 370,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/today-list.tsx",
+    "line": 42,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+    "line": 1438,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
+    "line": 696,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
+    "line": 760,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/duty/duty-week-view.tsx",
+    "line": 124,
+    "striped": false,
+    "reason": "weekly duty calendar"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/growth/_components/stagnation-mini-table.tsx",
+    "line": 54,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/growth/_components/top-candidates-table.tsx",
+    "line": 165,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/health/page.tsx",
+    "line": 181,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/inventory/settlement-form.tsx",
+    "line": 25,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/inventory/workspace.tsx",
+    "line": 45,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/inventory/workspace.tsx",
+    "line": 286,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/inventory/workspace.tsx",
+    "line": 293,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/inventory/workspace.tsx",
+    "line": 296,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/ops/page.tsx",
+    "line": 155,
+    "striped": false,
+    "reason": "retired route redirects before rendering (unreachable legacy table)"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/ops/page.tsx",
+    "line": 222,
+    "striped": false,
+    "reason": "retired route redirects before rendering (unreachable legacy table)"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/payments/page.tsx",
+    "line": 150,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/plans/_components/plans-manager.tsx",
+    "line": 185,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/ranking/page.tsx",
+    "line": 36,
+    "striped": false,
+    "reason": "retired route redirects before rendering (unreachable legacy table)"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/reconciliation/workspace.tsx",
+    "line": 292,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/reports/page.tsx",
+    "line": 379,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/revenue/_components/course-fees.tsx",
+    "line": 37,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/revenue/_components/course-transaction-actions.tsx",
+    "line": 82,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/service-fee-calculator/steamfoot-adjustment-summary.tsx",
+    "line": 9,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/service-fee-calculator/steamfoot-monthly.tsx",
+    "line": 45,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/settings/perf/page.tsx",
+    "line": 43,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/settings/perf/page.tsx",
+    "line": 80,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/settings/plan/page.tsx",
+    "line": 255,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/settings/plans/page.tsx",
+    "line": 449,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx",
+    "line": 225,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/transactions/page.tsx",
+    "line": 290,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/work-orders/document/page.tsx",
+    "line": 38,
+    "striped": false,
+    "reason": "print document"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/work-orders/settlement-panel.tsx",
+    "line": 51,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/work-orders/workspace.tsx",
+    "line": 79,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/work-orders/workspace.tsx",
+    "line": 94,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/(dashboard)/dashboard/work-orders/workspace.tsx",
+    "line": 125,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/hq/dashboard/stores/page.tsx",
+    "line": 74,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/hq/dashboard/stores/subscriptions/page.tsx",
+    "line": 176,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/app/pricing/page.tsx",
+    "line": 84,
+    "striped": false,
+    "reason": "pricing comparison matrix"
+  },
+  {
+    "file": "src/app/pricing/panel-review/panel-review.tsx",
+    "line": 51,
+    "striped": false,
+    "reason": "public comparison preview"
+  },
+  {
+    "file": "src/components/admin/course-assignment-payment.tsx",
+    "line": 65,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/components/admin/course-staff-assignments.tsx",
+    "line": 18,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/components/admin/music-assignment-payment.tsx",
+    "line": 56,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/components/admin/roster-table.tsx",
+    "line": 6,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/components/admin/sports-staging-workspace.tsx",
+    "line": 460,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/components/admin/sports-staging-workspace.tsx",
+    "line": 512,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/components/beauty/add-on-statistics.tsx",
+    "line": 9,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/components/desktop/data-table.tsx",
+    "line": 105,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/components/reports/RevenueReportClient.tsx",
+    "line": 572,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/components/reports/RevenueReportClient.tsx",
+    "line": 619,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/components/reports/RevenueReportClient.tsx",
+    "line": 663,
+    "striped": true,
+    "reason": "record list"
+  },
+  {
+    "file": "src/components/wallet-session-detail.tsx",
+    "line": 64,
+    "striped": true,
+    "reason": "record list"
+  }
+]

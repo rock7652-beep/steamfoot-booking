@@ -1435,7 +1435,7 @@ export function CourseWorkspace({
             共 {filteredItems.length} 筆／全部 {catalogItems.length} 筆
           </p>}
           <div className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-earth-200 bg-white">
-            <table className={`${(!catalogSource||!!catalogSource.rentalModule) && businessProfile !== "MUSIC" && view === "rooms" ? "min-w-[860px]" : "min-w-[740px]"} w-full text-left text-sm`}>
+            <table data-striped-list className={`${(!catalogSource||!!catalogSource.rentalModule) && businessProfile !== "MUSIC" && view === "rooms" ? "min-w-[860px]" : "min-w-[740px]"} w-full text-left text-sm`}>
               <thead className="bg-earth-50 text-earth-600">
                 <tr>
                   {(view === "rooms"
@@ -1465,13 +1465,13 @@ export function CourseWorkspace({
                     "durationMinutes" in item ? (item as Template) : null;
                   return (
                     <Fragment key={item.id}>
-                    {isInactiveItem(item)&&(index===0||!isInactiveItem(visibleItems[index-1]))&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?6:catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelectedIds([]);setShowInactive(v=>!v);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
+                    {isInactiveItem(item)&&(index===0||!isInactiveItem(visibleItems[index-1]))&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?6:catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelectedIds([]);setShowInactive(v=>!v);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
                     <tr
                       data-new-room={item.id === newRoomId ? "true" : undefined}
                       {...order.rowProps(item.id)}
                       className={(
                         item.id === newRoomId ? "bg-primary-50" : item.isActive && (!template || template.visibility === "PUBLIC")
-                          ? "hover:bg-primary-50/40"
+                          ? ""
                           : "bg-earth-50 text-earth-600"
                       )}
                     >
@@ -1508,7 +1508,7 @@ export function CourseWorkspace({
                           {template ? ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[template.visibility ?? "PUBLIC"]) : item.isActive ? "啟用":"停用"}
                         </span>
                       </td>)}
-                      <td className={`whitespace-nowrap px-3 py-2 align-middle ${view==="rooms"?"sticky right-0 z-10 min-w-[128px] bg-white text-center":businessProfile!=="MUSIC"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
+                      <td className={`whitespace-nowrap px-3 py-2 align-middle ${view==="rooms"?"sticky right-0 z-10 min-w-[128px] bg-inherit text-center":businessProfile!=="MUSIC"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
                         {sportsNative || businessProfile === "MUSIC" || beautyRoomActions ? <>
                         <div className="flex items-center justify-center gap-1">
                           {view==="rooms"&&!beautyRoomActions&&canEdit&&<button type="button" className={`${button} min-h-11`} aria-label={`編輯${item.name}`} disabled={pending} onClick={()=>{setRoomRentalHistory(false);setCopyTemplate(false);setEditing({kind:"room",value:item});open("edit");}}>編輯</button>}
@@ -1548,7 +1548,7 @@ export function CourseWorkspace({
                     </Fragment>
                   );
                 })}
-                {!inactiveExpanded&&inactiveFilteredItems.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?6:catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelectedIds([]);setShowInactive(true);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>展開</span></button></td></tr>}
+                {!inactiveExpanded&&inactiveFilteredItems.length>0&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?6:catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelectedIds([]);setShowInactive(true);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>展開</span></button></td></tr>}
               </tbody>
             </table>
             {!filteredItems.length && (

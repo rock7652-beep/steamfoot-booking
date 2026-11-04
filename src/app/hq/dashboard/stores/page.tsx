@@ -71,7 +71,7 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
       </div>
       {!result.success && <p role="alert" className="mb-3 text-sm text-red-600">{result.error}</p>}
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-        <table className="admin-list-table w-full min-w-[1100px] text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
+        <table data-striped-list className="admin-list-table w-full min-w-[1100px] text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
           <thead className="border-b border-earth-200 bg-earth-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-earth-600">店名</th>
@@ -93,7 +93,7 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
               const status = STATUS_LABELS[store.planStatus] ?? { label: store.planStatus, color: "bg-gray-100 text-gray-600" };
               const operatingColor = retired ? "bg-gray-100 text-gray-500" : OPERATING_STATUS_COLORS[store.operatingStatus] ?? "bg-gray-100 text-gray-600";
               return (
-                <tr key={store.id} className="hover:bg-earth-50/50">
+                <tr key={store.id} className="">
                   <td className="px-4 py-3 font-medium text-earth-900">{store.name}{store.archivedAt && <span className="ml-2 text-sm text-earth-500">已封存</span>}</td>
                   <td className="px-4 py-3 text-earth-500 font-mono text-xs">{store.slug}</td>
                   <td className="px-4 py-3 text-earth-600">{store.plan}</td>
