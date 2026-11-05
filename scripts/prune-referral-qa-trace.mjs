@@ -21,7 +21,8 @@ export function pruneReferralQaTrace(traceFile,root,apply=false,maxBytes=230*102
  if(apply)writeFileSync(traceFile,JSON.stringify({...trace,files:keep}));
  return {removed,removedBytes,kept:keep.length,keptBytes,runtimeDependenciesPreserved:true};
 }
-export function prepareReferralQaEngineFiles(root){
+export function prepareReferralQaEngineFiles(root,label="Isolated QA"){
+ if(!["Isolated QA","Production PostgreSQL"].includes(label))throw Error("Unexpected packaging label");
  for(const schema of ['prisma/schema.prisma','course-prisma/schema.prisma','beauty-prisma/schema.prisma']){
   if(!/datasource\s+db\s*\{[^}]*provider\s*=\s*"postgresql"/.test(readFileSync(resolve(root,schema),'utf8')))throw Error('QA packaging only supports the verified PostgreSQL clients');
  }
@@ -30,7 +31,7 @@ export function prepareReferralQaEngineFiles(root){
  const runtime=resolve(root,'node_modules/@prisma/client/runtime');
  if(existsSync(runtime))for(const name of readdirSync(runtime)){
   if(!unusedProviderEngine.test('node_modules/@prisma/client/runtime/'+name))continue;
-  cpSync(join(runtime,name),join(archive,name));writeFileSync(join(runtime,name),'// Isolated QA: all verified clients use native PostgreSQL.\nthrow new Error("This isolated QA build only supports PostgreSQL engines");\n');moved.push('unused-provider-engine/'+name);
+  cpSync(join(runtime,name),join(archive,name));writeFileSync(join(runtime,name),`// ${label}: all verified clients use native PostgreSQL.\nthrow new Error(${JSON.stringify(`This ${label==="Isolated QA"?"isolated QA":"production PostgreSQL"} build only supports PostgreSQL engines`)});\n`);moved.push('unused-provider-engine/'+name);
  }
  return {archive,moved};
 }
