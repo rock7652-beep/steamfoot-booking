@@ -685,7 +685,9 @@ function dispatchProxy(...args: Parameters<typeof authenticatedProxy>) {
     const alias=/^\/s\/referral-qa-20261105-[abc]\/admin\/dashboard\/settings\/subscription-referrals$/.test(req.nextUrl.pathname);
     if(!["GET","HEAD"].includes(req.method)&&!alias&&!writable.some(p=>p.endsWith("/")?req.nextUrl.pathname.startsWith(p):req.nextUrl.pathname===p))return new NextResponse("Method not allowed",{status:405,headers});
     const url=req.nextUrl.clone();url.pathname=target.destination;
-    const response=target.redirect?NextResponse.redirect(url):target.destination!==req.nextUrl.pathname?NextResponse.rewrite(url,{request:{headers:nonStoreRequestHeaders(req)}}):routePassThrough(req);
+    const requestHeaders=nonStoreRequestHeaders(req);
+    if(target.storeSlug)requestHeaders.set("x-store-slug",target.storeSlug);
+    const response=target.redirect?NextResponse.redirect(url):target.destination!==req.nextUrl.pathname?NextResponse.rewrite(url,{request:{headers:requestHeaders}}):routePassThrough(req);
     Object.entries(headers).forEach(([k,v])=>response.headers.set(k,v));return response;
   }
 

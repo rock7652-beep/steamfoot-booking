@@ -22,7 +22,7 @@ export function assertSubscriptionReferralQa(env=process.env){
 export function referralQaRoute(path){
  if(path==='/')return {destination:'/referral-test',redirect:true};
  const m=path.match(/^\/s\/(referral-qa-20261105-[abc])\/admin\/dashboard\/settings\/subscription-referrals$/);
- if(m)return {destination:'/dashboard/settings/subscription-referrals'};
+ if(m)return {destination:'/dashboard/settings/subscription-referrals',storeSlug:m[1]};
  const pages=['/referral-test','/hq/login','/hq/dashboard/stores/referrals','/dashboard/settings/subscription-referrals','/pricing/referral','/api/subscription-referrals/availability','/pricing/submit','/apply','/pricing/apply.html','/pricing','/pricing/features','/privacy'];
  if(pages.includes(path)||/^\/api\/auth\/(?:session|csrf|providers|signin|signout|error|callback\/credentials)$/.test(path)||path.startsWith('/_next/static/')||/^\/pricing\/(?:brand|images)\/[a-zA-Z0-9/_-]+\.(?:png|jpg|jpeg|webp|svg)$/.test(path))return {destination:path==='/apply'?'/pricing/apply.html':path};
  return null;
