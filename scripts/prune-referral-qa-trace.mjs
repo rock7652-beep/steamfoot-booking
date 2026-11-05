@@ -35,7 +35,7 @@ export function archiveReferralQaReviewSources(root){
  const runtime=resolve(root,'node_modules/@prisma/client/runtime');
  if(existsSync(runtime))for(const name of readdirSync(runtime)){
   if(!unusedProviderEngine.test('node_modules/@prisma/client/runtime/'+name))continue;
-  cpSync(join(runtime,name),join(archive,name));rmSync(join(runtime,name));moved.push('unused-provider-engine/'+name);
+  cpSync(join(runtime,name),join(archive,name));writeFileSync(join(runtime,name),'// Isolated QA: all verified clients use native PostgreSQL.\nthrow new Error("This isolated QA build only supports PostgreSQL engines");\n');moved.push('unused-provider-engine/'+name);
  }
  return {archive,moved};
 }

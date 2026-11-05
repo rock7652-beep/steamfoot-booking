@@ -38,3 +38,5 @@ Vercel 首次部署即使請求 Preview 也可能被平台指派為 production�
 只調整 NFT 清單後，Vercel 最終封裝仍回報相同大小。補強為在專用 Vercel `/vercel/pathN` 建置副本中，完成 build 且精確 QA gate 通過後，把三個非執行目錄封存到建置根目錄以外的臨時備份；不更改 Git 來源或本機開發目錄。單元測試確認原始內容可在備份讀取、執行程式與憑證仍保留。最終部署結果另記，不以本機大小推估取代。
 
 再次檢查平台封裝來源後，QA 打包也會校驗三份 Prisma datasource 均為 PostgreSQL，只封存 Prisma runtime 中 CockroachDB／MySQL／SQLite／SQL Server 的 WASM base64 引擎。保留 PostgreSQL WASM、原生 Linux 引擎、執行程式與憑證；一併清理所有 NFT 中這些已知非執行依賴的參照，防止 instrumentation／其他 trace 合併時再次加入。不變更資料庫 provider 或執行期引擎設定。
+
+透過 withGitRepoInfo 取得完整部署錯誤後，確認第三次失敗已不是大小上限，而是 Vercel 仍會 lstat 原非PostgreSQL引擎路徑造成 ENOENT。修正為封存原始檔後，在原位留下明確拒絕非PostgreSQL引擎的輕量程式，滿足平台路徑檢查；不替換PostgreSQL或原生引擎，不宣稱其他資料庫在此QA可用。
