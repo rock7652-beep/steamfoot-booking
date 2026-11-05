@@ -477,7 +477,7 @@ describe('local marketing publication acceptance isolation',()=>{
   });
   it('skips migration work before clients or subprocesses',()=>{
     enableLocal();
-    const env=Object.fromEntries(Object.entries(process.env).filter(([,value])=>value!==undefined));
+    const env={...Object.fromEntries(Object.entries(process.env).filter(([,value])=>value!==undefined)),NODE_ENV:process.env.NODE_ENV};
     const result=spawnSync(process.execPath,['scripts/ci-migrate.mjs'],{env,encoding:'utf8',timeout:15000});
     expect(result.status).toBe(0);expect(result.stdout).toContain('database_disabled=true migrations_skipped=true');
     expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
