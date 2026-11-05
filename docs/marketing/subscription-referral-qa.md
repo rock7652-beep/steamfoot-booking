@@ -84,3 +84,11 @@ LINE完整網址修正的應用來源 `9beba3298dadd1be2dbb8050450c4fdab17269f4`
 正式入口目的地是官網 `/apply?ref=...`，自動帶碼至需求／體驗申請表；目前活動尚未正式公開。隔離測試連結仍有Vercel保護及原HQ申請限制，使用者已被告知從LINE開啟可能看到Vercel登入，這不是可公開推薦的正式入口。本次不以文案確認作為正式發布或關閉保護的授權。
 
 已核准誘因文案的應用來源 `12c3e8a26aa357f86fd3c583bb8e6fda20ab5eb8`、隔離部署 `dpl_DZuKDBS2oKKDyiSBaxnf7KdjHNJr` 已READY，CI41994266050四項工作全成功。真實推薦人登入驗證LINE參數逐字及換行符合核准文案，連結實際開啟申請表並帶碼；未送訊息／申請，未變更測試進度。證據見 [核准文案驗收](../../artifacts/subscription-referral-copy/README.md)。測試版保護與正式未公開狀態不變。
+
+## 申請頁品牌分享卡
+
+使用者核准補齊申請頁分享標題、說明與品牌圖片，先測試、不正式公開。public/pricing/apply.html新增靜態Open Graph及Twitter分享設定；標題「蒸管家｜朋友推薦與體驗申請」，條件式說明包含活動開放期間、首次付費開通滿30天、未退款及核對後發放。1200×630 PNG使用既有蒸管家Logo、品牌色與「朋友推薦，雙方各享額外30天」；圖片也列出適用條件，無個人資料或推薦碼。圖片由 scripts/generate-referral-share-image.mjs 排版產生，原Logo不變，重製需Noto Sans CJK TC字型。
+
+OG canonical及圖片使用預定正式www.steamfoot.com絕對網址，不含個人推薦碼；這不改變瀏覽器原始查詢參數或推薦歸屬。素材與設定在正式發布前不會出現在正式網址；隔離站Vercel保護保留，因此匿名LINE爬蟲仍會看到Vercel，不能以本次素材完成宣稱已修復公開LINE預覽。正式發布後仍須以公開網址核對實際LINE抓取／快取結果。
+
+本機8項分享／metadata回歸、受影響檔案ESLint及完整TypeScript通過；圖片87KB，MIME PNG、1200×630與標籤一致。表單body、JS、活動旗標、授權、扣款、通知與資料庫未更動。
