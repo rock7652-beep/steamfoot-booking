@@ -10,7 +10,7 @@
 - migration 名稱：`20261104235300_subscription_referral_private_core`。
 - SQL SHA256：`9280d0494060f1e3cbff109bac26693868127b2e9c958cbe74600eccda5a1fd3`。
 - [manifest.json](manifest.json) 固定 SQL 來源、checksum、五表及 API 拒絕角色；同時列出安裝前／後檢查稿的 checksum。
-- 本包未加入 `prisma/migrations`、CI 安裝 dispatcher 或正式部署 workflow，不會因 push 自動安裝。
+- 本包未加入原 `prisma/migrations` 或既有 CI 安裝 dispatcher。新增的安裝 workflow 僅能手動觸發，不會因 push／PR 自動安裝。
 
 目前本機 161 筆 Prisma migration 與正式已完成帳本 138 筆相比，有 24 筆本機名稱未記錄、1 筆正式名稱不在本機；正式沒有未解決的 failed migration。這只是名稱比對，不能判定對應 DDL 尚未以其他方式套用。**不得從原儲存庫直接跑整批 migrate deploy，也不替這 24 筆執行 resolve。** 比對證據：[migration-ledger-comparison.json](../../../artifacts/subscription-referral-management/migration-ledger-comparison.json)。
 
@@ -49,8 +49,8 @@ node scripts/stage-subscription-referral-migration.mjs --stage
 使用官方 PostgreSQL 17 映像（digest 與實際版本在證據 JSON），容器 `--network none`、無發布埠、只用臨時 Unix socket。合成父表保留使用欄位的正式型別，尤其既有日期為 timestamp without time zone；不複製正式資料或憑證。
 
 ```sh
-node --test scripts/qa/subscription-referral-staging.test.mjs
-node --import tsx scripts/qa/subscription-referral-installation-rehearsal.mjs --rehearse
+node --test scripts/qa/subscription-referral-private-installation.test.mjs scripts/qa/subscription-referral-staging.test.mjs
+node scripts/qa/subscription-referral-private-installation-rehearsal.mjs --rehearse
 ```
 
 - Prisma 實際只套用一筆 migration，保留既有合成業務資料與不同來源的歷史帳本；第二次 deploy 不重複套用。
@@ -60,4 +60,26 @@ node --import tsx scripts/qa/subscription-referral-installation-rehearsal.mjs --
 - 月繳缺扣款證據被拒絕，稽核失敗使 Store、StoreSubscription 及獎勵完整回復。
 - 中途名稱衝突使先前 DDL 回復，既有衝突表及 failed ledger 留供審查。
 
-證據：[installation-rehearsal.json](../../../artifacts/subscription-referral-management/installation-rehearsal.json)。這不是完整正式 schema／trigger 重播、壓力測試或真實登入／金流驗收。未安裝正式資料庫。
+先前資料表及實際 repository 雙連線驗證來自官網／功能 PR #1514 的 `f7b8537c`，證據：[installation-rehearsal.json](../../../artifacts/subscription-referral-management/installation-rehearsal.json)。本安裝 PR 不包含該業務程式。獨立安裝 runner 的五組實際驗證（inspect 不部署、apply 僅一筆、權限／checksum／帳本／既有資料保留、已安裝即停止、失敗不重試或 resolve）見 [private-installation-runner-rehearsal.json](../../../artifacts/subscription-referral-management/private-installation-runner-rehearsal.json)。這不是完整正式 schema／trigger 重播、壓力測試或真實登入／金流驗收。未安裝正式資料庫。
+
+
+## 獨立 PR 的手動執行入口
+
+新增 `.github/workflows/subscription-referral-private-installation.yml` 與 `scripts/install-subscription-referral-private-core.mjs`。這份 PR 只包含安裝工具、來源 SQL、檢查稿與證據，不包含官網文案、推薦 runtime／頁面、功能旗標或 Prisma models 變更。
+
+合併 PR 與執行正式 DDL 是不同授權。合併本身不會安裝；目前這兩項動作都未執行。
+
+| mode | 確認文字 | 行為 |
+| --- | --- | --- |
+| inspect（預設） | READ_ONLY_REFERRAL_INSTALL_PREFLIGHT | 使用 DIRECT_URL 做唯讀檢查，回報 canInstall 及目前安裝狀態；不呼叫 Prisma deploy |
+| apply | INSTALL_REFERRAL_PRIVATE_CORE_ONLY | 所有 preflight 通過後，只部署 manifest 指定的一筆；完成 postflight；不改訂閱或啟用活動 |
+
+兩種模式都要求：GitHub workflow_dispatch、正確 repository、main、精確 approved source_sha 等於本次 GITHUB_SHA、上述 SQL SHA256 及模式專屬確認文字，並沿用 `Production – steamfoot-booking` 環境保護。任何欄位不符均在提供資料庫憑證之前停止。CLI 在一般終端機直接執行也會拒絕。
+
+DIRECT_URL 只在最後一步提供，必須是核准正式專案的 postgres 角色、database postgres、直接或 session pooler 的 5432 埠；拒絕 transaction pooler 6543、其他專案／角色／schema。沿用已有 Supabase 官方固定指紋 CA，Node 驗證 socket encrypted／authorized，Prisma 使用嚴格驗證的 sslcert。沒有公開新秘密、改密碼或新增 backend 授權。
+
+套件依既有 lockfile 安裝且略過 repo lifecycle hooks；只在無 DB 秘密步驟準備固定版本的 Prisma engine。來源以本次精確 commit 封存取出白名單檔案，不使用會碰到舊失效 gitlink 的 checkout，也不保留 Git 認證。
+
+正式執行順序仍是：先核准合併，核實 merge SHA，執行 inspect；確認 DIRECT_URL 目標、TLS、角色與 canInstall 後，再對同一個核准版本另行核准 apply。若 main 已移動，source_sha 不符即停止，不自動改用新版本。
+
+apply 遇既有目標表或任何同名 migration 記錄會先停止；部署錯誤僅回報已知 Prisma 代碼，不輸出 raw stderr／秘密，不重試或 resolve。安裝後核對舊帳本全部欄位的摘要、五表空白、RLS、API／PUBLIC 拒絕、約束及 checksum。任何 postflight 不符都停止並保留狀態，不自動 DROP、刪紀錄、回復訂閱或處理扣款。
