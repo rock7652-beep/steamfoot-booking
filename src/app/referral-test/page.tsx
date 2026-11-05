@@ -13,5 +13,29 @@ export default async function ReferralTestPage(){
  const identity=await prisma.$queryRaw<{role:string;superuser:boolean;bypass:boolean}[]>`SELECT current_user AS role,rolsuper AS superuser,rolbypassrls AS bypass FROM pg_roles WHERE rolname=current_user`;
  if(identity[0]?.role!==REFERRAL_QA_ROLE||identity[0].superuser||identity[0].bypass||stores.length!==REFERRAL_QA_STORES.length||stores.some(s=>!REFERRAL_QA_STORES.includes(s.id)))throw Error('Referral QA database isolation check failed');
  const paid=await prisma.storeSubscription.findUnique({where:{id:'referral-qa-20261105-sub-b'},select:{startedAt:true}});
- return <ReferralQaShell><h1 className="text-2xl font-semibold">推薦功能測試</h1><p className="text-base">目前登入：{user?.name??'尚未登入'}。使用密碼登入；切換角色時先按上方登出。</p><section className="grid gap-3 md:grid-cols-2">{[['推薦人（體驗中）','referral-a@steamfoot-qa.invalid'],['朋友（已付費滿 30 天）','referral-b@steamfoot-qa.invalid'],['朋友（新申請）','referral-c@steamfoot-qa.invalid'],['總部核對','referral-hq@steamfoot-qa.invalid']].map(([title,email])=><article className="min-w-0 rounded-xl border bg-white p-4" key={email}><h2 className="text-lg font-semibold">{title}</h2><p className="break-all text-base">{email}</p><Link href="/hq/login?intent=subscription-referral" className="inline-flex min-h-11 items-center underline">前往登入</Link></article>)}</section><section className="space-y-3 rounded-xl border bg-white p-4"><h2 className="text-xl font-semibold">建議測試順序</h2><ol className="list-decimal space-y-3 pl-6 text-base leading-7"><li>登入推薦人，查看推薦碼與連結；重複取得仍是同一組。複製的連結僅指向本測試站。</li><li>登出，登入總部帳號，再開啟下方「朋友申請表」。以店名「【HQ測試】推薦驗收－新朋友」送出，推薦碼需自行勾選確認。這是既有隔離預覽限制；正式朋友不需登入總部。</li><li>到總部推薦管理，確認新申請的推薦碼已保存。新申請需先關聯體驗申請，不會憑相似店名自動綁定。</li><li>開啟預備的「【HQ測試】推薦驗收－滿30天朋友」申請，選擇同名朋友店，勾選核對並鎖定推薦關係。</li><li>展開收款與退款核對，選該朋友的正式訂閱。測試收款時間填 {paid?formatTWDateTime(paid.startedAt):'尚未就緒'}，憑證填 QA-PAID-B，本次查核編號填 QA-REVIEW-B，確認不同經營者及首次實收，保存後重新整理。</li><li>查看雙方各 30 天獎勵，核對免費期間並分別發放。朋友為月繳，請填 QA-BILLING-B 並勾選已核對不扣款；推薦人的試用獎勵不需月繳核對編號。</li><li>重新整理或再次送出，確認不重複增加天數；再分別登入雙方帳號核對已發放天數。</li></ol><div className="flex flex-wrap gap-4"><Link className="inline-flex min-h-11 items-center underline" href="/apply?ref=SB-TESTABCD">朋友申請表</Link><Link className="inline-flex min-h-11 items-center underline" href="/hq/dashboard/stores/referrals">總部推薦管理</Link><Link className="inline-flex min-h-11 items-center underline" href="/dashboard/settings/subscription-referrals">店家我的推薦</Link></div></section><section className="space-y-3"><h2 className="text-xl font-semibold">測試店目前到期日</h2>{stores.map(s=><p className="break-words text-base" key={s.id}>{s.name}：{s.planExpiresAt?toLocalDateStr(s.planExpiresAt):'未設定'}</p>)}</section><p className="text-base leading-7">共用實際推薦頁面、登入權限與發獎交易；本入口只簡化測試導覽。尚未滿 30 天的關係不會提前發獎，不以測試開關縮短等待期。需要重置案例時請通知我們；不提供會清除資料的公開重置按鈕。</p></ReferralQaShell>;
+ return <ReferralQaShell>
+  <h1 className="text-2xl font-semibold">推薦功能測試</h1>
+  <p className="text-base">目前登入：{user?.name??'尚未登入'}。切換帳號前，先按上方登出。</p>
+  <section className="space-y-3 rounded-xl border bg-white p-4">
+   <h2 className="text-xl font-semibold">先用總部帳號試一次</h2>
+   <p className="break-all text-base">帳號：referral-hq@steamfoot-qa.invalid</p>
+   <p className="text-base">密碼請使用對話中提供的測試密碼。</p>
+   <Link href="/hq/login?intent=subscription-referral" className="inline-flex min-h-11 items-center rounded-lg bg-primary-700 px-4 py-2 text-base text-white">登入總部帳號</Link>
+   <ol className="list-decimal space-y-3 pl-6 text-base leading-7">
+    <li><strong>確認朋友的店家：</strong>展開「滿30天朋友」，選同名店家，勾選後按確認。</li>
+    <li><strong>確認收款：</strong>填入下方測試資料，選「沒有退款」，勾選首次收款與不同經營者，再按「確認收款」。</li>
+    <li><strong>一次發放：</strong>填扣款安排紀錄 QA-BILLING-B，勾選免費期間不扣款，再按「確認發放雙方各 30 天」。</li>
+   </ol>
+   <div className="space-y-1 rounded-lg bg-earth-50 p-3 text-base"><p>測試收款時間：{paid?formatTWDateTime(paid.startedAt):'尚未就緒'}</p><p>收款憑證：QA-PAID-B</p><p>這次核對紀錄：QA-REVIEW-B</p></div>
+   <Link href="/hq/dashboard/stores/referrals" className="inline-flex min-h-11 items-center underline">已登入？前往推薦獎勵 →</Link>
+   <p className="text-base text-earth-600">已準備滿 30 天的合成案例，不用等待。只會修改測試資料，不會真的扣款或發送通知。</p>
+  </section>
+  <details className="space-y-3 rounded-xl border bg-white p-4"><summary className="min-h-11 cursor-pointer text-lg font-semibold">其他測試：推薦碼、朋友申請、查看獎勵</summary>
+   <div className="space-y-2 break-all text-base"><p>推薦人：referral-a@steamfoot-qa.invalid</p><p>朋友：referral-b@steamfoot-qa.invalid</p><p>新朋友：referral-c@steamfoot-qa.invalid</p></div>
+   <p className="text-base">切換帳號後可查看自己的推薦碼與已發放天數。推薦碼 SB-TESTABCD；複製連結只會指向本測試站。</p>
+   <div className="flex flex-wrap gap-4"><Link href="/dashboard/settings/subscription-referrals" className="inline-flex min-h-11 items-center underline">店家我的推薦</Link><Link href="/apply?ref=SB-TESTABCD" className="inline-flex min-h-11 items-center underline">朋友申請表</Link></div>
+   <p className="text-base text-earth-600">申請表在測試版須用總部帳號，店名以「【HQ測試】推薦驗收」開頭；新申請仍需先在需求諮詢關聯體驗申請。這是測試限制，正式朋友不需總部登入。</p>
+  </details>
+  <details className="rounded-xl border bg-white p-4"><summary className="min-h-11 cursor-pointer text-base font-semibold">查看測試店目前到期日</summary>{stores.map(s=><p className="break-words text-base" key={s.id}>{s.name}：{s.planExpiresAt?toLocalDateStr(s.planExpiresAt):'未設定'}</p>)}</details>
+ </ReferralQaShell>;
 }

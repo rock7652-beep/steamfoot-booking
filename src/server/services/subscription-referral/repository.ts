@@ -89,13 +89,15 @@ export async function verifyReferralPayment(db: ReferralDatabase, actorId:string
     if(!oldReview)await tx.query('INSERT INTO "StoreSubscriptionReferralRefundReview" (id,"paymentId","checkedAt",refunded,"checkedBy","verificationRef") VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',[input.commandId,paymentId,checkedAt,input.refunded,actorId,input.verificationRef]);
     await tx.query('UPDATE "StoreSubscriptionReferral" SET "identityReview"=\'DISTINCT\',"identityReviewedBy"=$2,"identityReviewedAt"=$3 WHERE id=$1 RETURNING id',[relation.id,actorId,checkedAt]);
     if(eligibility.state==="ELIGIBLE")for(const reward of eligibility.rewards)await tx.query('INSERT INTO "StoreSubscriptionReferralReward" (id,"referralId","referrerStoreId","referredStoreId","beneficiaryStoreId","refundReviewId",days) VALUES ($1,$2,$3,$4,$5,$6,30) ON CONFLICT ("referralId","beneficiaryStoreId") DO NOTHING RETURNING id',[reward.key,relation.id,relation.referrerStoreId,relation.referredStoreId,reward.accountId,input.commandId]);
-    return {state:eligibility.state,message:eligibility.state==="ELIGIBLE"?"已核對，雙方各 30 天獎勵已記錄；尚未套用期限。":eligibility.state==="WAITING"?"已保存收款核對，尚未滿 30 天；期滿後請重新核對退款。":"已保存退款核對，不發放獎勵。"};
+    return {state:eligibility.state,message:eligibility.state==="ELIGIBLE"?"已確認收款與無退款，可查看雙方獎勵狀態。":eligibility.state==="WAITING"?"已保存收款核對，尚未滿 30 天；期滿後請重新核對退款。":"已保存退款核對，不發放獎勵。"};
   });
 }
 export interface ApplyRewardInput { rewardId:string; expectedExpiresOn:string; billingReference?:string; billingConfirmed:boolean }
 /** Runtime adapter must authenticate HQ before invoking this service. */
 export async function applyReferralReward(db:ReferralDatabase,actorId:string,input:ApplyRewardInput,now:Date) {
-  return db.transaction(async tx=>{
+  return db.transaction(tx=>applyReferralRewardInTransaction(tx,actorId,input,now));
+}
+async function applyReferralRewardInTransaction(tx:ReferralSql,actorId:string,input:ApplyRewardInput,now:Date) {
     const reward=(await tx.query<RewardRecord>('SELECT * FROM "StoreSubscriptionReferralReward" WHERE id=$1 FOR UPDATE',[input.rewardId]))[0];
     if(!reward)fail("獎勵不存在");
     if(reward.state==="APPLIED")return {message:"此獎勵已發放，未重複延長。",replayed:true};
@@ -121,5 +123,28 @@ export async function applyReferralReward(db:ReferralDatabase,actorId:string,inp
     await tx.query('UPDATE "StoreSubscriptionReferralReward" SET state=\'APPLIED\',"appliedSubscriptionId"=$2,"previousExpiresOn"=$3::date,"freeFromOn"=$4::date,"newExpiresOn"=$5::date,"billingConfirmationRef"=$6,"appliedBy"=$7,"appliedAt"=$8 WHERE id=$1 RETURNING id',[reward.id,current.currentSubscriptionId,plan.previousExpiresOn,plan.freeFromOn,plan.newExpiresOn,input.billingReference||null,actorId,now]);
     await tx.query('INSERT INTO "StorePlanChange" (id,"storeId","changeType","fromPlan","toPlan","fromStatus","toStatus","subscriptionId","operatorUserId",reason,"metadataJson","createdAt") VALUES ($1,$2,\'PLAN_ACTIVATED\',$3::"PricingPlan",$3::"PricingPlan",$4::"StorePlanStatus",$4::"StorePlanStatus",$5,$6,$7,$8::jsonb,$9) RETURNING id',[randomUUID(),current.id,current.plan,current.planStatus,current.currentSubscriptionId,actorId,"推薦活動獎勵：主方案延長 30 天",JSON.stringify({referralRewardId:reward.id,previousExpiresOn:plan.previousExpiresOn,newExpiresOn:plan.newExpiresOn,billingConfirmationRef:input.billingReference||null}),now]);
     return {message:`已發放 30 天，到期日延長至 ${plan.newExpiresOn}。`,replayed:false};
+}
+
+
+export interface ApplyReferralRewardsInput {
+  referralId:string;
+  referrer:{expectedExpiresOn:string;billingReference?:string};
+  referred:{expectedExpiresOn:string;billingReference?:string};
+  billingConfirmed:boolean;
+}
+/** One atomic command: validate the exact pair and serialize refund reviews and both subscriptions. */
+export async function applyReferralRewards(db:ReferralDatabase,actorId:string,input:ApplyReferralRewardsInput,now:Date){
+  return db.transaction(async tx=>{
+    const relation=(await tx.query<ReferralRecord>('SELECT * FROM "StoreSubscriptionReferral" WHERE id=$1 FOR UPDATE',[input.referralId]))[0];
+    if(!relation)fail("推薦紀錄不存在，請重新整理");
+    const rewards=await tx.query<RewardRecord>('SELECT * FROM "StoreSubscriptionReferralReward" WHERE "referralId"=$1 ORDER BY id FOR UPDATE',[relation.id]);
+    if(rewards.length!==2||new Set(rewards.map(r=>r.beneficiaryStoreId)).size!==2||rewards.some(r=>![relation.referrerStoreId,relation.referredStoreId].includes(r.beneficiaryStoreId)))fail("雙方獎勵尚未準備好，請先確認收款與活動資格");
+    for(const storeId of [relation.referrerStoreId,relation.referredStoreId].sort())await lockSubscription(tx,storeId);
+    const results=[];
+    for(const reward of rewards){
+      const detail=reward.beneficiaryStoreId===relation.referrerStoreId?input.referrer:input.referred;
+      results.push(await applyReferralRewardInTransaction(tx,actorId,{rewardId:reward.id,...detail,billingConfirmed:input.billingConfirmed},now));
+    }
+    return {message:results.every(r=>r.replayed)?"雙方獎勵已發放，未重複增加天數。":"完成！雙方各 30 天已發放，已發過的獎勵不會重複增加。",replayed:results.every(r=>r.replayed)};
   });
 }

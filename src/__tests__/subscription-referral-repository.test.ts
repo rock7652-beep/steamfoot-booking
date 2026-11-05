@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { describe, it, expect } from "vitest";
-import { ensureReferralCode, validReferralCode, bindReferralLead, verifyReferralPayment, applyReferralReward, type ReferralDatabase, type ReferralSql, type VerifyReferralInput } from "@/server/services/subscription-referral/repository";
+import { ensureReferralCode, validReferralCode, bindReferralLead, verifyReferralPayment, applyReferralReward, applyReferralRewards, type ReferralDatabase, type ReferralSql, type VerifyReferralInput } from "@/server/services/subscription-referral/repository";
 
 async function fixture(){
   const pg=new PGlite();
@@ -86,4 +86,43 @@ describe('subscription referral durable workflow (isolated PostgreSQL)',()=>{
    await expect(applyReferralReward(db,'hq',{rewardId:reward.id,expectedExpiresOn:'2026-11-20',billingConfirmed:false},new Date('2026-11-02T10:00:00+08:00'))).rejects.toThrow('退款狀態');
   }finally{await pg.close();}
  },30000);
+ it('awards both accounts atomically and replays the pair without extending again',async()=>{
+  const {pg,db}=await fixture();try{
+   const {relation,input}=await paidRelation(db);await verifyReferralPayment(db,'hq',input,mature);
+   const command={referralId:relation.id,referrer:{expectedExpiresOn:'2026-11-20'},referred:{expectedExpiresOn:'2026-11-30',billingReference:'monthly-check'},billingConfirmed:true};
+   await expect(applyReferralRewards(db,'hq',{...command,billingConfirmed:false},mature)).rejects.toThrow('扣款安排');
+   expect(await db.query(`SELECT id FROM "StoreSubscriptionReferralReward" WHERE state='APPLIED'`)).toHaveLength(0);
+   expect(await db.query('SELECT id FROM "StorePlanChange"')).toHaveLength(0);
+   expect((await db.query<{end:string}>(`SELECT to_char("planExpiresAt",'YYYY-MM-DD') AS end FROM "Store" WHERE id='a'`))[0].end).toBe('2026-11-20');
+   expect((await applyReferralRewards(db,'hq',command,mature)).replayed).toBe(false);
+   expect((await applyReferralRewards(db,'hq',command,mature)).replayed).toBe(true);
+   expect(await db.query(`SELECT id FROM "StoreSubscriptionReferralReward" WHERE state='APPLIED'`)).toHaveLength(2);
+   expect(await db.query('SELECT id FROM "StorePlanChange"')).toHaveLength(2);
+   expect(await db.query<{id:string;end:string}>(`SELECT id,to_char("planExpiresAt",'YYYY-MM-DD') AS end FROM "Store" WHERE id IN ('a','b') ORDER BY id`)).toEqual([{id:'a',end:'2026-12-20'},{id:'b',end:'2026-12-30'}]);
+  }finally{await pg.close();}
+ },30000);
+ it('does not award either side on stale expiry, missing pair, or second-side audit failure',async()=>{
+  const {pg,db}=await fixture();try{
+   const {relation,input}=await paidRelation(db);await verifyReferralPayment(db,'hq',input,mature);
+   const command={referralId:relation.id,referrer:{expectedExpiresOn:'2026-11-20'},referred:{expectedExpiresOn:'2026-11-30',billingReference:'monthly-check'},billingConfirmed:true};
+   await expect(applyReferralRewards(db,'hq',{...command,referred:{...command.referred,expectedExpiresOn:'2026-11-29'}},mature)).rejects.toThrow('到期日已變更');
+   await pg.exec(`CREATE FUNCTION fail_second_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW."storeId"='b' THEN RAISE EXCEPTION 'second-side audit failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_second_audit BEFORE INSERT ON "StorePlanChange" FOR EACH ROW EXECUTE FUNCTION fail_second_audit();`);
+   await expect(applyReferralRewards(db,'hq',command,mature)).rejects.toThrow('second-side audit failure');
+   expect(await db.query('SELECT id FROM "StorePlanChange"')).toHaveLength(0);
+   expect(await db.query(`SELECT id FROM "StoreSubscriptionReferralReward" WHERE state='APPLIED'`)).toHaveLength(0);
+   await db.query(`DELETE FROM "StoreSubscriptionReferralReward" WHERE "beneficiaryStoreId"='b'`);
+   await expect(applyReferralRewards(db,'hq',command,mature)).rejects.toThrow('雙方獎勵尚未準備好');
+  }finally{await pg.close();}
+ },30000);
+ it('completes a previously partial award without awarding the first account twice',async()=>{
+  const {pg,db}=await fixture();try{
+   const {relation,input}=await paidRelation(db);await verifyReferralPayment(db,'hq',input,mature);
+   const first=(await db.query<{id:string}>(`SELECT id FROM "StoreSubscriptionReferralReward" WHERE "beneficiaryStoreId"='a'`))[0];
+   await applyReferralReward(db,'hq',{rewardId:first.id,expectedExpiresOn:'2026-11-20',billingConfirmed:false},mature);
+   await applyReferralRewards(db,'hq',{referralId:relation.id,referrer:{expectedExpiresOn:'2026-11-20'},referred:{expectedExpiresOn:'2026-11-30',billingReference:'monthly-check'},billingConfirmed:true},mature);
+   expect(await db.query('SELECT id FROM "StorePlanChange"')).toHaveLength(2);
+   expect((await db.query<{end:string}>(`SELECT to_char("planExpiresAt",'YYYY-MM-DD') AS end FROM "Store" WHERE id='a'`))[0].end).toBe('2026-12-20');
+  }finally{await pg.close();}
+ },30000);
+
 });
