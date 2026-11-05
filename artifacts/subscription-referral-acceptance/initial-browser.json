@@ -1,0 +1,13 @@
+{
+  "sourceCommit": "5db2b76116eb3ad148398414a709dec5621661b2",
+  "ownerLogin": true,
+  "hqLogin": true,
+  "ownerCannotAccessHq": true,
+  "referralLinkStaysInPreview": true,
+  "errors": [
+    {
+      "message": "Minified React error #419; visit https://react.dev/errors/419 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+      "path": "/hq/dashboard/stores/referrals"
+    }
+  ]
+}

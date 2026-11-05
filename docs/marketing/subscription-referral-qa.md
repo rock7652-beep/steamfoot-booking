@@ -25,7 +25,7 @@
 
 ## 驗證狀態
 
-專用邊界與推薦／登入相關83項測試通過；ESLint通過。託管 build、完整TypeScript及實際登入／發獎／重送與手機、iPad驗收結果待部署後補充。不將已建資料表或靜態元件測試視為完整流程通過。
+實際部署版本 `5db2b76116eb3ad148398414a709dec5621661b2`，部署 `dpl_AKqcBGPciqK6Zift2LDRFT29bxu4` 已 READY。CI 41971134972 的 Targeted tests、ESLint、Typecheck、Full Vitest baseline 全部成功。真實登入、申請、綁定、收款／退款核對、雙方30天、月繳阻擋及相同 Server Action 重送已通過；兩個 Store 與 current StoreSubscription 期限一致，僅兩筆發獎稽核。390／768／1024／1366 px 真實店家／HQ頁面與登出切換均通過，無水平溢出。完整證據與限制見 [驗收紀錄](../../artifacts/subscription-referral-acceptance/README.md)。
 
 正式活動與正式旗標保持關閉，正式站未發布。測試版啟用旗標只屬於上述專案 Preview target。
 
@@ -42,3 +42,18 @@ Vercel 首次部署即使請求 Preview 也可能被平台指派為 production�
 透過 withGitRepoInfo 取得完整部署錯誤後，確認第三次失敗已不是大小上限，而是 Vercel 仍會 lstat 原非PostgreSQL引擎路徑造成 ENOENT。修正為封存原始檔後，在原位留下明確拒絕非PostgreSQL引擎的輕量程式，滿足平台路徑檢查；不替換PostgreSQL或原生引擎，不宣稱其他資料庫在此QA可用。
 
 第四次平台完整錯誤為 lstat artifacts/README.md 缺失。最終策略不再移動文件／驗收／QA腳本原件：全部保留原路徑，只從 trace 清單排除它們，並備份／縮減已驗證未使用的非PostgreSQL引擎。測試確認 docs、artifacts、scripts/qa、程式及PostgreSQL引擎都留在原位。前述移出review目錄策略已被此修正取代，不應使用。
+
+
+## 實際登入驗證發現與修正
+
+- 既有店家登入會導向 `/s/:slug/admin/...`。QA 白名單 rewrite 原先清除了 store slug，導致權限層以「店舖路由資訊無效」拒絕；已由已驗證的三個測試店路徑重新注入 `x-store-slug`，保留原 `x-next-pathname` 與後端店家授權。不能接受客戶端任意 slug。
+- 綁定申請使用 `SELECT FOR UPDATE`，PostgreSQL 需至少一欄 UPDATE privilege。僅為專用 QA role 增加 ConsultationLead.updatedAt 的欄位權限，原 payload／歸屬欄位仍不可更新，既有僅合成申請的 RLS 不變。已在 preview 套用 `referral_qa_lead_row_lock_privilege`；正式庫未修改。
+- 真實 Prisma `$queryRawUnsafe` 不能反序列化 PostgreSQL advisory lock 的 void 回傳（P2010）；原 PGlite adapter 不會呈現此限制。保留鎖定，只將回傳轉 text。已用無網路 PostgreSQL 17 容器與實際 Prisma client 重現舊查詢失敗、修正查詢成功，並在既有 repository 測試 adapter 加入 void 型別邊界，舊查詢負向控制確實失敗，修正後相關42項通過。詳見驗收目錄的 prisma-lock-regression.json。
+- 已於初次 READY 版本實際登入合成 HQ 並填送推薦申請表，推薦碼自動帶入、確認預設未勾選、回應200／NOT_SENT_PREVIEW，僅保存測試庫，未送外部通知。最終部署的完整交易與 RWD 結果另列於驗收證據。
+
+
+## 交付案例狀態
+
+真實發獎驗證後，已只重置 A→B 合成案例：清除該測試關係與其獎勵／付款／查核列，恢復兩店及 current subscription 的精確初始期限。保留原始申請、體驗申請、推薦碼與原發獎稽核，另追加兩筆明確 QA 恢復稽核。唯讀確認滿30天申請再次待綁定、當前獎勵0筆、原發獎稽核2筆、恢復稽核2筆。未修改其他店或正式資料。工具第一次重置確認逾時，唯讀確認完全未執行後依工具指示重試成功，沒有跳過確認或改用其他身份。
+
+最後瀏覽器驗證正常店家 slug 登入、實際剪貼簿的絕對測試連結及 HQ 預備案例可從綁定開始。頁面先完成 hydration 再點擊複製；早期自動化在 SSR 已顯示、hydration 未完成時點擊沒有產生狀態，不能當作有效互動測試。
