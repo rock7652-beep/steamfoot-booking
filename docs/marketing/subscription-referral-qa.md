@@ -40,3 +40,5 @@ Vercel 首次部署即使請求 Preview 也可能被平台指派為 production�
 再次檢查平台封裝來源後，QA 打包也會校驗三份 Prisma datasource 均為 PostgreSQL，只封存 Prisma runtime 中 CockroachDB／MySQL／SQLite／SQL Server 的 WASM base64 引擎。保留 PostgreSQL WASM、原生 Linux 引擎、執行程式與憑證；一併清理所有 NFT 中這些已知非執行依賴的參照，防止 instrumentation／其他 trace 合併時再次加入。不變更資料庫 provider 或執行期引擎設定。
 
 透過 withGitRepoInfo 取得完整部署錯誤後，確認第三次失敗已不是大小上限，而是 Vercel 仍會 lstat 原非PostgreSQL引擎路徑造成 ENOENT。修正為封存原始檔後，在原位留下明確拒絕非PostgreSQL引擎的輕量程式，滿足平台路徑檢查；不替換PostgreSQL或原生引擎，不宣稱其他資料庫在此QA可用。
+
+第四次平台完整錯誤為 lstat artifacts/README.md 缺失。最終策略不再移動文件／驗收／QA腳本原件：全部保留原路徑，只從 trace 清單排除它們，並備份／縮減已驗證未使用的非PostgreSQL引擎。測試確認 docs、artifacts、scripts/qa、程式及PostgreSQL引擎都留在原位。前述移出review目錄策略已被此修正取代，不應使用。

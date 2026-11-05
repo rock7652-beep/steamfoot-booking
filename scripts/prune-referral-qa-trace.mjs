@@ -1,6 +1,6 @@
 // Build packaging only: remove the same non-runtime directories already excluded
 // by next.config.ts. Next 16 Turbopack does not apply route globs to Proxy traces.
-import {readFileSync,writeFileSync,statSync,existsSync,mkdtempSync,renameSync,cpSync,rmSync,readdirSync} from 'node:fs';
+import {readFileSync,writeFileSync,statSync,existsSync,mkdtempSync,cpSync,readdirSync} from 'node:fs';
 import {resolve,dirname,relative,sep,join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
@@ -21,17 +21,12 @@ export function pruneReferralQaTrace(traceFile,root,apply=false,maxBytes=230*102
  if(apply)writeFileSync(traceFile,JSON.stringify({...trace,files:keep}));
  return {removed,removedBytes,kept:keep.length,keptBytes,runtimeDependenciesPreserved:true};
 }
-export function archiveReferralQaReviewSources(root){
+export function prepareReferralQaEngineFiles(root){
  for(const schema of ['prisma/schema.prisma','course-prisma/schema.prisma','beauty-prisma/schema.prisma']){
   if(!/datasource\s+db\s*\{[^}]*provider\s*=\s*"postgresql"/.test(readFileSync(resolve(root,schema),'utf8')))throw Error('QA packaging only supports the verified PostgreSQL clients');
  }
  const archive=mkdtempSync(join(tmpdir(),'referral-qa-build-review-'));const moved=[];
- for(const name of ['docs','artifacts','scripts/qa']){
-  const source=resolve(root,name);if(!existsSync(source))continue;
-  const destination=join(archive,name.replaceAll('/','-'));
-  try{renameSync(source,destination);}catch(error){if(error.code!=='EXDEV')throw error;cpSync(source,destination,{recursive:true});rmSync(source,{recursive:true});}
-  moved.push(name);
- }
+ // Keep all review sources: the platform reads their paths after build.
  const runtime=resolve(root,'node_modules/@prisma/client/runtime');
  if(existsSync(runtime))for(const name of readdirSync(runtime)){
   if(!unusedProviderEngine.test('node_modules/@prisma/client/runtime/'+name))continue;
@@ -53,7 +48,7 @@ if(process.argv[1]===fileURLToPath(import.meta.url)){
    else if(entry.isFile()&&entry.name.endsWith('.nft.json'))pruneReferralQaTrace(file,root,true,Infinity);
   }}
   pruneOtherTraces(resolve(root,'.next'));
-  const archived=archiveReferralQaReviewSources(root);
-  console.log('[referral-qa-trace]',JSON.stringify({reviewDirectoriesArchived:archived.moved,backupOutsideProject:true}));
+  const archived=prepareReferralQaEngineFiles(root);
+  console.log('[referral-qa-trace]',JSON.stringify({unusedProviderEnginesBackedUp:archived.moved,backupOutsideProject:true}));
  }
 }
