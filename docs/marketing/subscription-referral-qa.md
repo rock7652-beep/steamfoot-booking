@@ -92,3 +92,6 @@ LINE完整網址修正的應用來源 `9beba3298dadd1be2dbb8050450c4fdab17269f4`
 OG canonical及圖片使用預定正式www.steamfoot.com絕對網址，不含個人推薦碼；這不改變瀏覽器原始查詢參數或推薦歸屬。素材與設定在正式發布前不會出現在正式網址；隔離站Vercel保護保留，因此匿名LINE爬蟲仍會看到Vercel，不能以本次素材完成宣稱已修復公開LINE預覽。正式發布後仍須以公開網址核對實際LINE抓取／快取結果。
 
 本機8項分享／metadata回歸、受影響檔案ESLint及完整TypeScript通過；圖片87KB，MIME PNG、1200×630與標籤一致。表單body、JS、活動旗標、授權、扣款、通知與資料庫未更動。
+
+
+品牌分享卡應用來源 `104aa3a5f959254f94b8581a8fdff6ce9b98d84a`、隔離部署 `dpl_GVwESPeRStm9FJ4dZwoA3xg1iHH7` 已READY；CI42006801699四項檢查全成功。授權預覽的原始HTML具品牌meta，圖片200／image/png與已提交檔案完全一致，申請表帶碼正常，360／390／768／1024／1366寬無溢出、無pageerror，匿名保護仍在。未外發訊息或送出表單；正式公開LINE抓取／快取仍須正式發布後另驗。證據見 [品牌分享卡驗收](../../artifacts/subscription-referral-og/README.md)。
