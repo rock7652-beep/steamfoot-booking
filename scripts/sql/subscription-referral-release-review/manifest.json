@@ -1,0 +1,27 @@
+{
+  "status": "review-only; production installation not authorized",
+  "migrationName": "20261104235300_subscription_referral_private_core",
+  "sqlFile": "docs/marketing/subscription-referral-schema.sql",
+  "sha256": "9280d0494060f1e3cbff109bac26693868127b2e9c958cbe74600eccda5a1fd3",
+  "productionProject": "qijlnhtpbintanzpxkvf",
+  "runtimeConnectionEvidence": "GitHub Actions only; Vercel role unverified",
+  "newTables": [
+    "StoreSubscriptionReferralCode",
+    "StoreSubscriptionReferral",
+    "StoreSubscriptionReferralPayment",
+    "StoreSubscriptionReferralRefundReview",
+    "StoreSubscriptionReferralReward"
+  ],
+  "blockedApiRoles": [
+    "anon",
+    "authenticated",
+    "service_role"
+  ],
+  "changesExistingBusinessRows": false,
+  "grantsNewPrivileges": false,
+  "runsOnPush": false,
+  "reviewFiles": {
+    "preflight.sql": "aaab88a26a863d62c37f4404016888680b30a51a85d50bca848605634caae6e7",
+    "postflight.sql": "e18d56e410f2848a83f2fead113f07cca257bd70ab695ceee0f5ee57ff1be4f8"
+  }
+}
