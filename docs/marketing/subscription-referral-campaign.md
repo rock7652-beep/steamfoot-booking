@@ -171,3 +171,30 @@ node scripts/subscription-referral-runtime-preflight.mjs --read-only
 本機已驗證錯誤／缺失 URL、錯專案、假主機、停用 TLS 拒絕，以及成功與失敗路徑均 ROLLBACK；node --check、diff 格式通過。這些是無資料庫控制流程驗證，**尚未在正式 runtime 執行**。報告本身也不能取代實際 RLS 列可見性、欄位更新、鎖列與隔離並發驗證。
 
 此步的必要外部條件：現有正式環境的執行入口。僅再次要求助理「下一步」不會讓 Sensitive 變數變得可讀；需由環境管理者執行上方命令，或提供已授權且能沿用既有 secrets 的執行方式。不要在聊天貼 DATABASE_URL 或密碼。取得不含秘密的診斷結果後，才能完成最小權限安裝審查。
+
+
+### 唯讀診斷已成功（2026-11-04）
+
+使用者明確同意合併 #1518 並執行一次含官方 CA 的唯讀診斷。已核實 merge commit `1f81bb11bdc0e41e30ab6fc706c0a626b1ca3a76`，成功執行 https://github.com/rock7652-beep/steamfoot-booking/actions/runs/41936237193 。TLS 憑證鏈與主機驗證保留；沿用既有固定指紋的 Supabase 官方 Root CA，沒有關閉 rejectUnauthorized。
+
+- 正式 project ref 正確，verified_tls=true，transaction_read_only=on。
+- GitHub Production 環境的既有 DATABASE_URL 實際登入角色與 session_role 均為 postgres。
+- Store、StoreSubscription、StorePlanChange、ConsultationLead 已存在且 RLS 開啟；本次角色為 owner／bypassrls，catalog 所列 SELECT／INSERT／UPDATE 權限均存在，未新增授權。
+- 推薦五表仍未建立；這不是已安裝表缺權限，而是 present=false。
+- 只查系統 catalog，未寫入資料、套用獎勵、安裝表、變更秘密、處理扣款或外發通知。
+- 這次證明 GitHub 既有受保護連線可用；不能把它當成 Vercel DATABASE_URL 同值／同角色的證明，亦不代表 RLS 列可見性、實際更新或多人並發已驗收。
+
+安全結果保存於 `artifacts/subscription-referral-management/runtime-preflight-success.json`。前面「需管理者自行執行命令」的外部執行限制已由核准的 Actions 流程解決；Vercel 主連線一致性、正式資料表安裝及活動啟用仍是不同步驟，本次沒有一併執行。
+
+
+## 2026-11-05：正式安裝審查包完成，尚未安裝
+
+唯一安裝審查入口：`scripts/sql/subscription-referral-release-review/README.md`；manifest 固定候選 SQL SHA256、migration 名稱、五表、API 拒絕角色與 preflight／postflight 稿。
+
+唯讀核對發現本機 161 筆與正式已完成 138 筆帳本存在名稱差異：24 筆本機未記錄、1 筆正式名稱不在本機，未解決 failed 為 0。這不證明 DDL 未曾以其他方式套用。沒有因此執行 resolve 或補套歷史 migration。新 staging 工具只把本次一筆放入全新暫存 schema，沒有接入原 migration dispatcher、push hook 或正式 workflow。
+
+候選 SQL 另明確撤回 service_role 權限；即使它有 BYPASSRLS 或平台有預設表授權，推薦私有表仍不讓 Data API 角色讀寫。沒有擴大既有 postgres、beauty、addons 或其他角色權限。
+
+已於官方 PostgreSQL 17 拋棄式容器完成真實 Prisma deploy、安裝前／後檢查、保留既有合成資料與歷史、重複 deploy、三種 API 角色拒絕、兩連線實際 repository 重送、月繳證據／稽核失敗 rollback 與中途 DDL 衝突回復。容器無網路、無發布埠，只用臨時 Unix socket；結束後已清除容器及暫存資料。證據 `artifacts/subscription-referral-management/installation-rehearsal.json`。
+
+此為候選包與隔離驗證，正式資料庫未安裝。Vercel 主連線角色、安裝用 DIRECT_URL 的安全目標／TLS 核對、完整正式 schema／trigger 相容性與後續實際登入驗收未被上述合成測試取代。正式安裝、合併與活動啟用仍需按精確範圍核准，不因完成審查包而自動執行。

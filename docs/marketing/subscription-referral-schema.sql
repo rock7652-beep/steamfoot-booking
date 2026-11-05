@@ -81,7 +81,7 @@ BEGIN
   FOREACH target_table IN ARRAY ARRAY['StoreSubscriptionReferralCode','StoreSubscriptionReferral','StoreSubscriptionReferralPayment','StoreSubscriptionReferralRefundReview','StoreSubscriptionReferralReward'] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',target_table);
     EXECUTE format('REVOKE ALL ON TABLE public.%I FROM PUBLIC',target_table);
-    FOREACH target_role IN ARRAY ARRAY['anon','authenticated'] LOOP
+    FOREACH target_role IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
       IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = target_role) THEN
         EXECUTE format('REVOKE ALL ON TABLE public.%I FROM %I',target_table,target_role);
       END IF;

@@ -7,7 +7,7 @@ describe("subscription referral review schema", () => {
   it("enforces attribution, receipt and reward uniqueness, date math and private access", async () => {
     const db = new PGlite();
     try {
-      await db.exec(`CREATE TABLE "Store" (id text PRIMARY KEY); CREATE TABLE "StoreSubscription" (id text PRIMARY KEY); CREATE TABLE "ConsultationLead" (id text PRIMARY KEY); CREATE ROLE anon; CREATE ROLE authenticated; INSERT INTO "Store" VALUES ('a'),('b'),('c'); INSERT INTO "StoreSubscription" VALUES ('sub-a'),('sub-b');`);
+      await db.exec(`CREATE TABLE "Store" (id text PRIMARY KEY); CREATE TABLE "StoreSubscription" (id text PRIMARY KEY); CREATE TABLE "ConsultationLead" (id text PRIMARY KEY); CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role; INSERT INTO "Store" VALUES ('a'),('b'),('c'); INSERT INTO "StoreSubscription" VALUES ('sub-a'),('sub-b');`);
       await db.exec(readFileSync("docs/marketing/subscription-referral-schema.sql", "utf8"));
       await db.exec(`INSERT INTO "StoreSubscriptionReferralCode" ("storeId",code,"createdBy") VALUES ('a','SB-ABCDEFGH','hq');
         INSERT INTO "StoreSubscriptionReferral" (id,"referrerStoreId","referredStoreId",code,"boundAt","createdBy") VALUES ('relation','a','b','SB-ABCDEFGH','2026-10-01','hq');
@@ -26,7 +26,7 @@ describe("subscription referral review schema", () => {
       expect((await db.query<{state:string}>(`SELECT state FROM "StoreSubscriptionReferralReward" WHERE id='award-a'`)).rows[0].state).toBe('READY');
       const { rows }=await db.query<{relrowsecurity:boolean}>(`SELECT relrowsecurity FROM pg_class WHERE relname LIKE 'StoreSubscriptionReferral%' AND relkind='r'`);
       expect(rows).toHaveLength(5);expect(rows.every(row=>row.relrowsecurity)).toBe(true);
-      for(const role of ['anon','authenticated']) {
+      for(const role of ['anon','authenticated','service_role']) {
         await db.exec(`SET ROLE ${role}`);
         await expect(db.exec(`SELECT * FROM "StoreSubscriptionReferralReward"`)).rejects.toThrow(/permission denied/i);
         await expect(db.query(rewardSql,['forbidden','a',30])).rejects.toThrow(/permission denied/i);
