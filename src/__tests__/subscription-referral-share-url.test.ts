@@ -13,7 +13,7 @@ describe('subscription referral share URL',()=>{
   expect(doc.body.textContent).toContain(expected);
   const line=new URL(doc.querySelector('a')!.href);
   expect(line.origin).toBe('https://line.me');
-  expect(line.searchParams.get('text')).toBe(`推薦你使用蒸管家：${expected}`);
+  expect(line.searchParams.get('text')).toBe(`🎁 用我的推薦連結申請蒸管家，你和我都能額外獲得 30 天免費使用！\n\n讓預約、收款、顧客管理更輕鬆，一起少忙一點 😊\n\n點這裡申請 👇\n${expected}\n\n＊首次付費開通滿 30 天且未退款，核對後發放。`);
  });
  it.each(['http://example.com','https://example.com/path','https://user:pass@example.com','https://example.com?x=1'])('rejects invalid configured origins %s',origin=>expect(()=>subscriptionReferralLink(code,origin)).toThrow('推薦連結網址無效'));
 });
