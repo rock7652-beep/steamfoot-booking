@@ -34,3 +34,7 @@
 Vercel 首次部署即使請求 Preview 也可能被平台指派為 production；已取消該次部署，改用官方 API 的 staging target，仍要求 VERCEL_ENV=preview。沒有向正式官網專案部署或配置正式環境憑證。
 
 完整 Next build 成功後，首個 staging 部署因 Proxy 函式 256.62 MB 超過250 MB失敗。Next16 Turbopack 的 Proxy trace 仍包含既有排除規則指定的 docs／artifacts／scripts/qa。專用 QA build command 加上 scripts/prune-referral-qa-trace.mjs --prune，只從此 QA 的 middleware NFT 排除這三種非執行目錄，保留其他執行依賴、引擎、憑證與未知路徑；剩餘超過230 MiB即停止，不提高Vercel方案或修改既有發布／權限gate。正式build command不變。
+
+只調整 NFT 清單後，Vercel 最終封裝仍回報相同大小。補強為在專用 Vercel `/vercel/pathN` 建置副本中，完成 build 且精確 QA gate 通過後，把三個非執行目錄封存到建置根目錄以外的臨時備份；不更改 Git 來源或本機開發目錄。單元測試確認原始內容可在備份讀取、執行程式與憑證仍保留。最終部署結果另記，不以本機大小推估取代。
+
+再次檢查平台封裝來源後，QA 打包也會校驗三份 Prisma datasource 均為 PostgreSQL，只封存 Prisma runtime 中 CockroachDB／MySQL／SQLite／SQL Server 的 WASM base64 引擎。保留 PostgreSQL WASM、原生 Linux 引擎、執行程式與憑證；一併清理所有 NFT 中這些已知非執行依賴的參照，防止 instrumentation／其他 trace 合併時再次加入。不變更資料庫 provider 或執行期引擎設定。
