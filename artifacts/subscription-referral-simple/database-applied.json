@@ -1,0 +1,38 @@
+{
+  "rewards": [
+    {
+      "id": "[\"subscription-referral-v1\",\"6d12da05-6e73-48b8-9a04-4b32d45c95ea\",\"referral-qa-20261105-a\"]",
+      "store": "referral-qa-20261105-a",
+      "state": "APPLIED",
+      "days": 30,
+      "previousExpiresOn": "2026-11-25",
+      "newExpiresOn": "2026-12-25",
+      "billingConfirmationRef": null
+    },
+    {
+      "id": "[\"subscription-referral-v1\",\"6d12da05-6e73-48b8-9a04-4b32d45c95ea\",\"referral-qa-20261105-b\"]",
+      "store": "referral-qa-20261105-b",
+      "state": "APPLIED",
+      "days": 30,
+      "previousExpiresOn": "2026-11-30",
+      "newExpiresOn": "2026-12-30",
+      "billingConfirmationRef": "QA-SIMPLE-BILLING-B"
+    }
+  ],
+  "stores": [
+    {
+      "id": "referral-qa-20261105-a",
+      "storeExpiry": "2026-12-25T00:00:00",
+      "subscriptionExpiry": "2026-12-25T00:00:00"
+    },
+    {
+      "id": "referral-qa-20261105-b",
+      "storeExpiry": "2026-12-30T00:00:00",
+      "subscriptionExpiry": "2026-12-30T00:00:00"
+    }
+  ],
+  "thisRunAuditCount": 2,
+  "historicalRewardAudits": 4,
+  "sourceCommit": "a29c74dd41cedb2919f3c0d32ed64d7f35a33cdd",
+  "afterIdenticalServerActionReplayedTwice": true
+}
