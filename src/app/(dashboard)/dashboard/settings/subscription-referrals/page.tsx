@@ -1,3 +1,4 @@
+import {assertSubscriptionReferralQa} from "../../../../../../scripts/subscription-referral-qa-scope.mjs";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -16,5 +17,5 @@ export default async function SubscriptionReferralsPage(){
     referralDatabase.query<{code:string}>('SELECT code FROM "StoreSubscriptionReferralCode" WHERE "storeId"=$1',[storeId]),
     referralDatabase.query<{state:string;days:number}>('SELECT state,COALESCE(sum(days),0)::int AS days FROM "StoreSubscriptionReferralReward" WHERE "beneficiaryStoreId"=$1 GROUP BY state',[storeId]),
   ]);
-  return <PageShell><PageHeader title="我的推薦" subtitle="好用，值得分享。成功推薦，雙方各得 30 天。"/><MySubscriptionReferralCode initialCode={codes[0]?.code??null} createAction={createMySubscriptionReferralCode}/><dl className="grid gap-3 sm:grid-cols-2">{[["READY","已獲得、待套用"],["APPLIED","已發放"]].map(([state,label])=><div key={state} className="rounded-xl border border-earth-200 bg-white p-4"><dt className="text-base text-earth-600">{label}</dt><dd className="mt-2 text-2xl font-semibold">{rewards.find(row=>row.state===state)?.days??0} 天</dd></div>)}</dl><p className="text-base leading-7 text-earth-600">只顯示自己的推薦碼與獎勵天數，不公開朋友的電話、付款金額或其他聯絡資料。已到期的帳戶保留獎勵，重新啟用並核對後使用。</p></PageShell>;
+  return <PageShell><PageHeader title="我的推薦" subtitle="好用，值得分享。成功推薦，雙方各得 30 天。"/><MySubscriptionReferralCode shareWithinCurrentSite={assertSubscriptionReferralQa()} initialCode={codes[0]?.code??null} createAction={createMySubscriptionReferralCode}/><dl className="grid gap-3 sm:grid-cols-2">{[["READY","已獲得、待套用"],["APPLIED","已發放"]].map(([state,label])=><div key={state} className="rounded-xl border border-earth-200 bg-white p-4"><dt className="text-base text-earth-600">{label}</dt><dd className="mt-2 text-2xl font-semibold">{rewards.find(row=>row.state===state)?.days??0} 天</dd></div>)}</dl><p className="text-base leading-7 text-earth-600">只顯示自己的推薦碼與獎勵天數，不公開朋友的電話、付款金額或其他聯絡資料。已到期的帳戶保留獎勵，重新啟用並核對後使用。</p></PageShell>;
 }

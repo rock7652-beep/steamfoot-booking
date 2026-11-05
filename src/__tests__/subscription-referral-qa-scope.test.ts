@@ -1,0 +1,13 @@
+import {describe,it,expect} from 'vitest';
+import {assertSubscriptionReferralQa,isReferralQaConnection,referralQaRoute,REFERRAL_QA_PROJECT,REFERRAL_QA_BRANCH,REFERRAL_QA_ROLE} from '../../scripts/subscription-referral-qa-scope.mjs';
+const url=`postgresql://${REFERRAL_QA_ROLE}.ttworfzgwejdeolegkxl:synthetic@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require`;
+const env={SUBSCRIPTION_REFERRAL_QA:'1',VERCEL:'1',VERCEL_ENV:'preview',VERCEL_PROJECT_ID:REFERRAL_QA_PROJECT,VERCEL_GIT_COMMIT_REF:REFERRAL_QA_BRANCH,VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',AUTH_SECRET:'synthetic',DATABASE_URL:url,DIRECT_URL:url,SUBSCRIPTION_REFERRALS_ENABLED:'true',CONSULTATION_HQ_ENABLED:'true',CONSULTATION_PREVIEW_INTAKE_ENABLED:'true'};
+describe('dedicated referral QA boundary',()=>{
+ it('does not change ordinary environments',()=>expect(assertSubscriptionReferralQa({VERCEL_ENV:'production'})).toBe(false));
+ it('only accepts the dedicated project, branch and restricted role',()=>expect(assertSubscriptionReferralQa(env)).toBe(true));
+ it.each(Object.keys(env))('rejects missing %s',key=>{if(key==='SUBSCRIPTION_REFERRAL_QA')return;expect(()=>assertSubscriptionReferralQa({...env,[key]:undefined})).toThrow();});
+ it.each([{VERCEL_ENV:'production'},{VERCEL_PROJECT_ID:'prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR'},{VERCEL_GIT_COMMIT_REF:'main'},{DATABASE_URL:url.replace('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf')},{DIRECT_URL:url.replace(REFERRAL_QA_ROLE,'postgres')},{LINE_CHANNEL_ACCESS_TOKEN:'secret'},{RESEND_API_KEY:'secret'},{SHEETS_WEBHOOK_URL:'secret'},{ECPAY_HASH_KEY:'secret'},{WORKERS_CI_BRANCH:'main'}])('rejects unsafe scope %j',patch=>expect(()=>assertSubscriptionReferralQa({...env,...patch})).toThrow());
+ it.each([url+'&schema=other',url+'&options=-csearch_path%3Dother',url+'&sslmode=disable'])('rejects connection overrides',value=>expect(isReferralQaConnection(value)).toBe(false));
+ it('blocks unrelated public, private, cron and webhook routes',()=>{for(const p of ['/api/cron/reminders','/api/line/webhook','/hq/dashboard/stores','/s/real-store/admin/dashboard','/api/authentication/other','/api/auth/../../cron/reminders','/_next/image'])expect(referralQaRoute(p)).toBeNull();});
+ it('allows only test-store aliases and selected operational pages',()=>{expect(referralQaRoute('/s/referral-qa-20261105-a/admin/dashboard/settings/subscription-referrals')?.destination).toBe('/dashboard/settings/subscription-referrals');expect(referralQaRoute('/hq/dashboard/stores/referrals')?.destination).toBe('/hq/dashboard/stores/referrals');});
+});

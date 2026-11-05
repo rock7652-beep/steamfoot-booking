@@ -1,3 +1,4 @@
+import {assertSubscriptionReferralQa,referralQaRoute} from "../scripts/subscription-referral-qa-scope.mjs";
 import { courseAgreementPublicBoundary } from '@/lib/course-agreement-public-boundary';
 import {digitalManagerCronPreviewPathAllowed} from "../scripts/digital-manager-cron-preview-scope.mjs";
 import {calendarProxyReadOperation,traceCalendarProxyRead} from "@/lib/calendar-proxy-read-timing";
@@ -676,6 +677,18 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   return operation?traceCalendarProxyRead(operation,()=>dispatchProxy(...args)):dispatchProxy(...args);
 }
 function dispatchProxy(...args: Parameters<typeof authenticatedProxy>) {
+  if(assertSubscriptionReferralQa()){
+    const req=args[0];const target=referralQaRoute(req.nextUrl.pathname);
+    const headers={"X-Robots-Tag":"noindex, nofollow","Cache-Control":"no-store"};
+    if(!target)return new NextResponse("Not available in referral QA",{status:404,headers});
+    const writable=["/hq/login","/api/auth/","/pricing/submit","/referral-test","/hq/dashboard/stores/referrals","/dashboard/settings/subscription-referrals"];
+    const alias=/^\/s\/referral-qa-20261105-[abc]\/admin\/dashboard\/settings\/subscription-referrals$/.test(req.nextUrl.pathname);
+    if(!["GET","HEAD"].includes(req.method)&&!alias&&!writable.some(p=>p.endsWith("/")?req.nextUrl.pathname.startsWith(p):req.nextUrl.pathname===p))return new NextResponse("Method not allowed",{status:405,headers});
+    const url=req.nextUrl.clone();url.pathname=target.destination;
+    const response=target.redirect?NextResponse.redirect(url):target.destination!==req.nextUrl.pathname?NextResponse.rewrite(url,{request:{headers:nonStoreRequestHeaders(req)}}):routePassThrough(req);
+    Object.entries(headers).forEach(([k,v])=>response.headers.set(k,v));return response;
+  }
+
   const [req] = args;
   // Public capability services resolve their store without a session fallback.
   const agreementResponse = courseAgreementPublicBoundary(req, ((process.env.COURSE_AGREEMENTS_ENABLED === '1' && process.env.COURSE_AGREEMENTS_PUBLIC_ENABLED === '1') || (process.env.BEAUTY_MODULE_ENABLED === '1' && process.env.BEAUTY_AGREEMENTS_ENABLED === '1' && process.env.BEAUTY_AGREEMENTS_PUBLIC_ENABLED === '1')), isGuideUiPreview());

@@ -1,0 +1,17 @@
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { assertSubscriptionReferralQa,REFERRAL_QA_ROLE,REFERRAL_QA_STORES } from '../../../scripts/subscription-referral-qa-scope.mjs';
+import { ReferralQaShell } from '@/components/subscription-referrals/qa-shell';
+import { getCurrentUser } from '@/lib/session';
+import { prisma } from '@/lib/db';
+import { formatTWDateTime, toLocalDateStr } from '@/lib/date-utils';
+export const dynamic='force-dynamic';
+export default async function ReferralTestPage(){
+ if(!assertSubscriptionReferralQa())notFound();
+ const user=await getCurrentUser();
+ const stores=await prisma.store.findMany({select:{id:true,name:true,planExpiresAt:true},orderBy:{id:'asc'}});
+ const identity=await prisma.$queryRaw<{role:string;superuser:boolean;bypass:boolean}[]>`SELECT current_user AS role,rolsuper AS superuser,rolbypassrls AS bypass FROM pg_roles WHERE rolname=current_user`;
+ if(identity[0]?.role!==REFERRAL_QA_ROLE||identity[0].superuser||identity[0].bypass||stores.length!==REFERRAL_QA_STORES.length||stores.some(s=>!REFERRAL_QA_STORES.includes(s.id)))throw Error('Referral QA database isolation check failed');
+ const paid=await prisma.storeSubscription.findUnique({where:{id:'referral-qa-20261105-sub-b'},select:{startedAt:true}});
+ return <ReferralQaShell><h1 className="text-2xl font-semibold">推薦功能測試</h1><p className="text-base">目前登入：{user?.name??'尚未登入'}。使用密碼登入；切換角色時先按上方登出。</p><section className="grid gap-3 md:grid-cols-2">{[['推薦人（體驗中）','referral-a@steamfoot-qa.invalid'],['朋友（已付費滿 30 天）','referral-b@steamfoot-qa.invalid'],['朋友（新申請）','referral-c@steamfoot-qa.invalid'],['總部核對','referral-hq@steamfoot-qa.invalid']].map(([title,email])=><article className="min-w-0 rounded-xl border bg-white p-4" key={email}><h2 className="text-lg font-semibold">{title}</h2><p className="break-all text-base">{email}</p><Link href="/hq/login?intent=subscription-referral" className="inline-flex min-h-11 items-center underline">前往登入</Link></article>)}</section><section className="space-y-3 rounded-xl border bg-white p-4"><h2 className="text-xl font-semibold">建議測試順序</h2><ol className="list-decimal space-y-3 pl-6 text-base leading-7"><li>登入推薦人，查看推薦碼與連結；重複取得仍是同一組。複製的連結僅指向本測試站。</li><li>登出，登入總部帳號，再開啟下方「朋友申請表」。以店名「【HQ測試】推薦驗收－新朋友」送出，推薦碼需自行勾選確認。這是既有隔離預覽限制；正式朋友不需登入總部。</li><li>到總部推薦管理，確認新申請的推薦碼已保存。新申請需先關聯體驗申請，不會憑相似店名自動綁定。</li><li>開啟預備的「【HQ測試】推薦驗收－滿30天朋友」申請，選擇同名朋友店，勾選核對並鎖定推薦關係。</li><li>展開收款與退款核對，選該朋友的正式訂閱。測試收款時間填 {paid?formatTWDateTime(paid.startedAt):'尚未就緒'}，憑證填 QA-PAID-B，本次查核編號填 QA-REVIEW-B，確認不同經營者及首次實收，保存後重新整理。</li><li>查看雙方各 30 天獎勵，核對免費期間並分別發放。朋友為月繳，請填 QA-BILLING-B 並勾選已核對不扣款；推薦人的試用獎勵不需月繳核對編號。</li><li>重新整理或再次送出，確認不重複增加天數；再分別登入雙方帳號核對已發放天數。</li></ol><div className="flex flex-wrap gap-4"><Link className="inline-flex min-h-11 items-center underline" href="/apply?ref=SB-TESTABCD">朋友申請表</Link><Link className="inline-flex min-h-11 items-center underline" href="/hq/dashboard/stores/referrals">總部推薦管理</Link><Link className="inline-flex min-h-11 items-center underline" href="/dashboard/settings/subscription-referrals">店家我的推薦</Link></div></section><section className="space-y-3"><h2 className="text-xl font-semibold">測試店目前到期日</h2>{stores.map(s=><p className="break-words text-base" key={s.id}>{s.name}：{s.planExpiresAt?toLocalDateStr(s.planExpiresAt):'未設定'}</p>)}</section><p className="text-base leading-7">共用實際推薦頁面、登入權限與發獎交易；本入口只簡化測試導覽。尚未滿 30 天的關係不會提前發獎，不以測試開關縮短等待期。需要重置案例時請通知我們；不提供會清除資料的公開重置按鈕。</p></ReferralQaShell>;
+}
