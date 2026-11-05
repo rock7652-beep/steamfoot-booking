@@ -28,3 +28,9 @@
 專用邊界與推薦／登入相關83項測試通過；ESLint通過。託管 build、完整TypeScript及實際登入／發獎／重送與手機、iPad驗收結果待部署後補充。不將已建資料表或靜態元件測試視為完整流程通過。
 
 正式活動與正式旗標保持關閉，正式站未發布。測試版啟用旗標只屬於上述專案 Preview target。
+
+## QA 打包限制
+
+Vercel 首次部署即使請求 Preview 也可能被平台指派為 production；已取消該次部署，改用官方 API 的 staging target，仍要求 VERCEL_ENV=preview。沒有向正式官網專案部署或配置正式環境憑證。
+
+完整 Next build 成功後，首個 staging 部署因 Proxy 函式 256.62 MB 超過250 MB失敗。Next16 Turbopack 的 Proxy trace 仍包含既有排除規則指定的 docs／artifacts／scripts/qa。專用 QA build command 加上 scripts/prune-referral-qa-trace.mjs --prune，只從此 QA 的 middleware NFT 排除這三種非執行目錄，保留其他執行依賴、引擎、憑證與未知路徑；剩餘超過230 MiB即停止，不提高Vercel方案或修改既有發布／權限gate。正式build command不變。
