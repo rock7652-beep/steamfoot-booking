@@ -73,3 +73,6 @@ Vercel 首次部署即使請求 Preview 也可能被平台指派為 production�
 使用者回報分享到 LINE 只出現 `/apply?ref=SB-TESTABCD`，不能直接點開。原因是 QA 使用相對路徑，複製時有補 origin，LINE 分享卻沒有。改由伺服器在已通過隔離 gate 的 QA 注入 Vercel 部署 origin；畫面、剪貼簿與 LINE 文字共用同一個完整 HTTPS 連結，首個 SSR 畫面即正確，不等待 hydration 或點擊後才替換 href。正式環境仍使用 `https://www.steamfoot.com`，不將合成推薦碼導向正式站。
 
 相關26項測試、受影響檔案ESLint與完整TypeScript通過；回歸包含 SSR 的可見文字與 LINE text 參數同址，以及非HTTPS、帶認證、路徑或query的錯誤origin拒絕。不實際傳送LINE訊息，託管頁面驗證另記錄。
+
+
+LINE完整網址修正的應用來源 `9beba3298dadd1be2dbb8050450c4fdab17269f4`、隔離部署 `dpl_7RhTmyDwKmD9sWfmAAZgXTiJciWp` 已 READY，CI 41990419783 四項檢查全成功。已真實登入確認可見文字、LINE分享參數與實際剪貼簿同為完整HTTPS網址，開啟後申請表帶入原碼；390／768／1366寬無水平溢出、無pageerror。未透過工具傳送LINE訊息或送出申請，測試保護與HQ申請限制不變。證據見 [LINE分享驗收](../../artifacts/subscription-referral-share/README.md)。
