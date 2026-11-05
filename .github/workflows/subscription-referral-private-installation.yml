@@ -1,0 +1,102 @@
+name: Reviewed subscription referral private table installation
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'inspect reads only; apply installs the five reviewed private tables'
+        required: true
+        default: inspect
+        type: choice
+        options: [inspect, apply]
+      source_sha:
+        description: 'Exact approved main commit SHA (must match this workflow run)'
+        required: true
+        type: string
+      sql_sha256:
+        description: 'Approved SQL checksum'
+        required: true
+        default: 9280d0494060f1e3cbff109bac26693868127b2e9c958cbe74600eccda5a1fd3
+        type: string
+      confirmation:
+        description: 'inspect: READ_ONLY_REFERRAL_INSTALL_PREFLIGHT; apply: INSTALL_REFERRAL_PRIVATE_CORE_ONLY'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: subscription-referral-private-installation-production
+  cancel-in-progress: false
+
+jobs:
+  reviewed-installation:
+    if: github.ref == 'refs/heads/main'
+    environment: Production – steamfoot-booking
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Retrieve only installation sources from this exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/tarball/$GITHUB_SHA" > "$RUNNER_TEMP/referral-install-source.tar.gz"
+          python3 - <<'PY'
+          import os, tarfile
+          from pathlib import Path
+          required = {'package.json', 'package-lock.json',
+            'scripts/install-subscription-referral-private-core.mjs',
+            'scripts/stage-subscription-referral-migration.mjs',
+            'scripts/beauty-production-ca.mjs', 'scripts/certs/supabase-root-2021.crt',
+            'scripts/qa/subscription-referral-private-installation.test.mjs',
+            'scripts/qa/subscription-referral-staging.test.mjs',
+            'scripts/sql/subscription-referral-release-review/manifest.json',
+            'scripts/sql/subscription-referral-release-review/preflight.sql',
+            'scripts/sql/subscription-referral-release-review/postflight.sql',
+            'docs/marketing/subscription-referral-schema.sql'}
+          with tarfile.open(Path(os.environ['RUNNER_TEMP']) / 'referral-install-source.tar.gz') as archive:
+            for member in archive.getmembers():
+              relative = member.name.partition('/')[2]
+              if relative not in required:
+                continue
+              if not member.isfile() or member.size > 10_000_000:
+                raise RuntimeError('Unexpected installation source member')
+              destination = Path(relative)
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              destination.write_bytes(archive.extractfile(member).read())
+              required.remove(relative)
+          if required:
+            raise RuntimeError('Missing installation source files')
+          PY
+          rm "$RUNNER_TEMP/referral-install-source.tar.gz"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Test guards without production credentials
+        run: node --test scripts/qa/subscription-referral-private-installation.test.mjs scripts/qa/subscription-referral-staging.test.mjs
+      - name: Validate approval inputs before dependency work or database credentials
+        env:
+          REFERRAL_APPROVED_SOURCE_SHA: ${{ inputs.source_sha }}
+          REFERRAL_APPROVED_SQL_SHA256: ${{ inputs.sql_sha256 }}
+          REFERRAL_CONFIRMATION: ${{ inputs.confirmation }}
+          REFERRAL_MODE: ${{ inputs.mode }}
+        run: |
+          node --input-type=module -e 'import { validateInstallationScope } from "./scripts/install-subscription-referral-private-core.mjs"; validateInstallationScope(process.env, process.env.REFERRAL_MODE);'
+      - name: Install locked dependencies without repository lifecycle hooks
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node node_modules/@prisma/engines/scripts/postinstall.js
+      - name: Run only the separately approved mode
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          REFERRAL_APPROVED_SOURCE_SHA: ${{ inputs.source_sha }}
+          REFERRAL_APPROVED_SQL_SHA256: ${{ inputs.sql_sha256 }}
+          REFERRAL_CONFIRMATION: ${{ inputs.confirmation }}
+          REFERRAL_MODE: ${{ inputs.mode }}
+        run: |
+          case "$REFERRAL_MODE" in
+            inspect) node scripts/install-subscription-referral-private-core.mjs --inspect ;;
+            apply) node scripts/install-subscription-referral-private-core.mjs --apply ;;
+            *) exit 1 ;;
+          esac

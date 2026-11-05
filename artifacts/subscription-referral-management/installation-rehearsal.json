@@ -1,0 +1,21 @@
+{
+  "image": "postgres@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b",
+  "postgresVersion": 170011,
+  "migrationName": "20261104235300_subscription_referral_private_core",
+  "checksum": "9280d0494060f1e3cbff109bac26693868127b2e9c958cbe74600eccda5a1fd3",
+  "isolation": "new disposable Docker cluster; --network none; Unix socket only; synthetic parents; no production connection",
+  "checks": [
+    "read_only_preflight_matches_required_parent_columns_and_empty_target",
+    "single_migration_applied_existing_business_rows_and_history_unchanged",
+    "read_only_postflight_verifies_all_tables_constraints_private_access_and_ledger_checksum",
+    "second_deploy_did_not_repeat_or_reconcile_history",
+    "five_tables_rls_and_all_api_role_grants_revoked_even_with_default_grants",
+    "two_connections_code_binding_award_and_application_retries_do_not_duplicate",
+    "monthly_without_evidence_denied_and_audit_failure_rolls_back_all_subscription_changes",
+    "mid_install_name_collision_rolls_back_ddl_and_preserves_failed_migration_for_review"
+  ],
+  "limitations": [
+    "Synthetic parent tables reproduce used columns, not the complete live schema or triggers.",
+    "Two-session retry coverage is not a stress or complete production UI acceptance test."
+  ]
+}
