@@ -67,3 +67,9 @@ Vercel 首次部署即使請求 Preview 也可能被平台指派為 production�
 
 
 簡化版 `a29c74dd41cedb2919f3c0d32ed64d7f35a33cdd` 已於隔離專案部署 `dpl_EC38ftTDGNAqVa74PZAh8AKk37cR` READY。CI 41981593314 四項工作全部成功；已實測一次雙方發放、錯誤整筆回復、輸入保留、相同請求重送兩次及雙方真實登入顯示30天。手機／iPad直橫向／桌機與寬螢幕共10組頁面版面通過。完成後已恢復初始合成案例，歷史發獎及恢復稽核分別保留4筆。最新證據見 [操作簡化驗收](../../artifacts/subscription-referral-simple/README.md)，前述5db版本為歷史驗證。
+
+## LINE 分享完整網址修正
+
+使用者回報分享到 LINE 只出現 `/apply?ref=SB-TESTABCD`，不能直接點開。原因是 QA 使用相對路徑，複製時有補 origin，LINE 分享卻沒有。改由伺服器在已通過隔離 gate 的 QA 注入 Vercel 部署 origin；畫面、剪貼簿與 LINE 文字共用同一個完整 HTTPS 連結，首個 SSR 畫面即正確，不等待 hydration 或點擊後才替換 href。正式環境仍使用 `https://www.steamfoot.com`，不將合成推薦碼導向正式站。
+
+相關26項測試、受影響檔案ESLint與完整TypeScript通過；回歸包含 SSR 的可見文字與 LINE text 參數同址，以及非HTTPS、帶認證、路徑或query的錯誤origin拒絕。不實際傳送LINE訊息，託管頁面驗證另記錄。
