@@ -1,4 +1,5 @@
 import {assertCompactOperationsPreview} from "./compact-operations-preview-scope.mjs";
+import {isMarketingPublicationLocalQa} from './marketing-publication-local-qa.mjs';
 import {assertCourseAgreementsPreviewEnvironment} from './course-agreements-preview-scope.mjs';
 import {assertBeautySharedPagesLocalQaEnvironment,assertBeautySharedPagesBuildQaEnvironment} from "./beauty-shared-pages-local-qa-scope.mjs";
 import {MUSIC_RELEASE_BRANCH,assertMusicNativeReleaseEnvironment} from "./music-native-workflow-scope.mjs";
@@ -281,9 +282,10 @@ export function assertConsultationPreviewEnvironment(env) {
  * provider provenance; the Preview-only intake flag must never leak there.
  * The existing no-database guide sandbox is handled before this dispatcher.
  * @param {Readonly<Record<string, string | undefined>>} env
- * @returns {"compact-operations-preview" | "beauty-hosted-preview" | "mocked-unit-test" | "production" | "music-opening-preview" | "beauty-release-qa" | "beauty-production-qa" | "local-beauty-qa" | "beauty-sandbox-qa" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
+ * @returns {"marketing-local-qa" | "compact-operations-preview" | "beauty-hosted-preview" | "mocked-unit-test" | "production" | "music-opening-preview" | "beauty-release-qa" | "beauty-production-qa" | "local-beauty-qa" | "beauty-sandbox-qa" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
+  if(isMarketingPublicationLocalQa(env))return 'marketing-local-qa';
   if (assertCourseAgreementsPreviewEnvironment(env)) return 'course-agreements-preview';
   if(assertCompactOperationsPreview(env))return "compact-operations-preview";
   if(env.BEAUTY_SHARED_PAGES_BUILD_QA==='1'){assertBeautySharedPagesBuildQaEnvironment(env);return 'local-beauty-qa';}

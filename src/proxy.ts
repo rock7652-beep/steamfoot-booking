@@ -8,6 +8,7 @@ import { beautySandboxRewriteUrl } from "../scripts/beauty-sandbox-qa-scope.mjs"
 import { retiredStoreBoundary } from "@/lib/retired-store-boundary";
 
 import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview, isSpaRetirementUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
+import { isMarketingPublicationLocalQa, isMarketingPublicationLocalQaPath } from "../scripts/marketing-publication-local-qa.mjs";
 import { findPublicGuide, guidePath } from "@/lib/public-guides";
 import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
@@ -723,17 +724,20 @@ function dispatchProxy(...args: Parameters<typeof authenticatedProxy>) {
       return new NextResponse("Read-only guide preview", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
     const path = req.nextUrl.pathname;
 
-    if (isMarketingStickyUiPreview()) {
+    if (isMarketingStickyUiPreview() || isMarketingPublicationLocalQa()) {
       const pages = ["/", "/pricing", "/pricing/business", "/pricing/cases", "/cases", "/apply", "/pricing/apply.html", "/pricing/features", "/pricing/features/slots", "/pricing/features/fitness", "/pricing/features/music", "/guides", "/pricing/guides"];
       const publicArticle = /^\/(?:pricing\/)?guides\/[a-z0-9-]+\/?$/.test(path);
       const asset = path.startsWith("/_next/static/") || /^\/pricing\/(?:brand|images|business-assets)\/[a-zA-Z0-9/_-]+\.(?:png|jpg|jpeg|webp|svg)$/.test(path);
-      if (!pages.includes(path) && !publicArticle && !asset)
+      const allowed = isMarketingPublicationLocalQa() ? isMarketingPublicationLocalQaPath(path) : pages.includes(path) || publicArticle || asset;
+      if (!allowed)
         return new NextResponse("Not available in marketing preview", { status: 404, headers });
       const marketing = marketingRoute(path);
       if (!marketing) return NextResponse.next({ headers });
       if (marketing.kind === "not-found") return new NextResponse("Not found", { status: 404, headers });
       const url = req.nextUrl.clone();
       url.pathname = marketing.destination;
+      // Next start normalizes request URLs to localhost; keep local rewrites internal.
+      if (isMarketingPublicationLocalQa()) url.host = req.headers.get("host") ?? url.host;
       const response = marketing.kind === "redirect" ? NextResponse.redirect(url, 308) : NextResponse.rewrite(url);
       Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
       return response;
