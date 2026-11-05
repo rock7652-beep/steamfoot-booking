@@ -33,6 +33,8 @@ GRANT UPDATE("planExpiresAt","updatedAt") ON "Store" TO steamfoot_referral_qa_20
 GRANT UPDATE("expiresAt","updatedBy","updatedAt") ON "StoreSubscription" TO steamfoot_referral_qa_20261105;
 GRANT SELECT,INSERT,UPDATE ON "StaffLoginRecord" TO steamfoot_referral_qa_20261105;
 GRANT INSERT ON "ConsultationLead" TO steamfoot_referral_qa_20261105;
+-- Row locking requires UPDATE on one column; immutable intake fields remain read-only.
+GRANT UPDATE("updatedAt") ON "ConsultationLead" TO steamfoot_referral_qa_20261105;
 GRANT SELECT,INSERT ON "StorePlanChange" TO steamfoot_referral_qa_20261105;
 CREATE POLICY referral_qa_20261105 ON "Store" TO steamfoot_referral_qa_20261105 USING(id IN ('referral-qa-20261105-a','referral-qa-20261105-b','referral-qa-20261105-c')) WITH CHECK(id IN ('referral-qa-20261105-a','referral-qa-20261105-b','referral-qa-20261105-c'));
 CREATE POLICY referral_qa_20261105 ON "Staff" TO steamfoot_referral_qa_20261105 USING("storeId" IN ('referral-qa-20261105-a','referral-qa-20261105-b','referral-qa-20261105-c'));

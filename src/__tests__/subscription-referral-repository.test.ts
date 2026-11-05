@@ -13,7 +13,7 @@ async function fixture(){
   INSERT INTO "Store" VALUES ('a','推薦店',NULL,NULL,'EXPERIENCE','TRIAL','2026-11-20T00:00:00Z','sub-a',now()),('b','朋友店',NULL,NULL,'EXPERIENCE','TRIAL','2026-11-20T00:00:00Z','sub-b',now()),('c','另一店',NULL,NULL,'BASIC','ACTIVE','2026-11-30T00:00:00Z','sub-c',now());
   INSERT INTO "StoreSubscription" VALUES ('sub-a','a','EXPERIENCE','TRIAL',true,'YEARLY','NOT_REQUIRED',0,'2026-10-22T00:00:00Z','2026-10-22T00:00:00Z','2026-11-20T00:00:00Z',NULL,now()),('sub-b','b','EXPERIENCE','TRIAL',true,'YEARLY','NOT_REQUIRED',0,'2026-10-02T02:00:00Z','2026-10-02T02:00:00Z','2026-11-20T00:00:00Z',NULL,now()),('sub-c','c','BASIC','ACTIVE',false,'YEARLY','PAID',6000,'2026-10-02T02:00:00Z','2026-10-02T02:00:00Z','2026-11-30T00:00:00Z',NULL,now());`);
   await pg.exec(readFileSync('docs/marketing/subscription-referral-schema.sql','utf8'));
-  function adapter(raw:Pick<PGlite,'query'>):ReferralSql{return {query:async<T extends object>(text:string,values:unknown[]=[])=>{return (await raw.query<T>(text,values)).rows;}};}
+  function adapter(raw:Pick<PGlite,'query'>):ReferralSql{return {query:async<T extends object>(text:string,values:unknown[]=[])=>{const result=await raw.query<T>(text,values);if(result.fields.some(field=>field.dataTypeID===2278))throw new Error("Prisma raw query cannot deserialize PostgreSQL void");return result.rows;}};}
   const db:ReferralDatabase={...adapter(pg),transaction:work=>pg.transaction(tx=>work(adapter(tx)))};
   const code=await ensureReferralCode(db,'a','hq');
   await db.query('INSERT INTO "ConsultationLead" VALUES ($1,$2::jsonb,$3,$4)',['lead',JSON.stringify({subscriptionReferralCode:code,subscriptionReferralConfirmed:true}),new Date('2026-09-30T10:00:00+08:00'),'application']);

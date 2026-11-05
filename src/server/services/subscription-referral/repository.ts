@@ -16,7 +16,8 @@ export type RewardRecord = { id: string; referralId: string; beneficiaryStoreId:
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function fail(message: string): never { throw new Error(message); }
 async function lockSubscription(tx: ReferralSql, storeId: string) {
-  await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`subscription:${storeId}`]);
+  // Prisma raw queries cannot deserialize PostgreSQL void (OID 2278).
+  await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))::text AS lock", [`subscription:${storeId}`]);
 }
 async function requireDistinctStoreOrganizations(tx:ReferralSql,a:string,b:string) {
   const roots=await tx.query<{origin:string;root:string}>(`WITH RECURSIVE tree(origin,id,"parentStoreId") AS (SELECT id,id,"parentStoreId" FROM "Store" WHERE id=ANY($1::text[]) UNION SELECT t.origin,p.id,p."parentStoreId" FROM tree t JOIN "Store" p ON p.id=t."parentStoreId") SELECT origin,id AS root FROM tree WHERE "parentStoreId" IS NULL`,[[a,b]]);
