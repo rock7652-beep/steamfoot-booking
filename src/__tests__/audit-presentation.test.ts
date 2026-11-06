@@ -98,6 +98,32 @@ describe("human-readable audit presentation", () => {
    expect(auditListDescription(item,"店家檢視 · 音樂測試店（目前資料）")).toBe("提出切換店家請求：音樂測試店");
  });
  it("puts real before/after values into the event sentence without missing-data boilerplate", () => {
-   expect(auditListDescription({action:"UPDATE",targetType:"CourseTeacherCompensationSetting",beforeJson:{defaultRatio:.5},afterJson:{defaultRatio:.6}},"老師拆帳設定 · 敬緯")).toBe("修改老師拆帳設定：敬緯 · 老師預設拆帳比例：50% → 60%");
+   expect(auditListDescription({action:"UPDATE",targetType:"CourseTeacherCompensationSetting",beforeJson:{defaultRatio:.5},afterJson:{defaultRatio:.6}},"老師拆帳設定 · 敬緯")).toBe("修改敬緯的預設拆帳比例：50% → 60%");
    expect(auditListDescription({action:"UPDATE",targetType:"CourseCompensation",beforeJson:null,afterJson:{storeId:"own",unknown:"x"}},"課程拆帳設定 · 敬緯")).toBe("修改課程拆帳設定：敬緯");
  });
+
+describe("one-line explanations of the subject, action and result", () => {
+ it("shows saved refund amounts and order contents without inventing per-item refund allocation", () => {
+   const afterJson={customerName:"王小明",amount:-500,items:[{id:"a",name:"教材",quantity:1,price:400},{id:"b",name:"飲品",quantity:2,price:50}]};
+   expect(auditListDescription({action:"SHARED_GOODS_REFUND",targetType:"ServiceAddOnOrder",afterJson})).toBe("王小明的商品單退款 NT$ 500｜教材 ×1、飲品 ×2");
+   expect(auditListDescription({action:"SHARED_GOODS_REFUND",targetType:"ServiceAddOnOrder",afterJson:{id:"receipt-secret",amount:-80}})).toBe("商品單退款 NT$ 80");
+ });
+ it("explains only changed item quantities and prices", () => {
+   const before=[{id:"a",name:"教材",quantity:1,price:500},{id:"b",name:"飲品",quantity:1,price:50}];
+   const after=[{id:"a",name:"教材",quantity:2,price:600},before[1]];
+   const description=auditListDescription({action:"SHARED_GOODS_SAVE",targetType:"ServiceAddOnOrder",afterJson:{customerName:"王小明",before,after}});
+   expect(description).toBe("修改王小明的商品單：教材數量：1 → 2；教材單價：NT$ 500 → NT$ 600");
+   expect(description).not.toContain("飲品");
+ });
+ it("does not infer added or removed items from a missing snapshot", () => {
+   expect(auditListDescription({action:"SHARED_GOODS_SAVE",targetType:"ServiceAddOnOrder",afterJson:{after:[{id:"a",name:"教材",quantity:2,price:600}]}})).toBe("儲存商品單");
+   expect(auditListDescription({action:"SAVE_ADD_ON_CATALOG",targetType:"ServiceAddOnCatalog",summary:"儲存附加項目",afterJson:{groups:[{options:[{name:"教材",price:500}]}]}})).not.toContain("新增");
+ });
+ it("explains catalog price edits and creation with recorded baselines", () => {
+   expect(auditListDescription({action:"SAVE_ADD_ON_CATALOG",targetType:"ServiceAddOnCatalog",beforeJson:{groups:[{options:[{id:"a",name:"教材",price:500}]}]},afterJson:{groups:[{options:[{id:"a",name:"教材",price:600}]}]}})).toBe("教材單價：NT$ 500 → NT$ 600");
+ });
+ it("uses booking snapshots before current names and drops seconds", () => {
+   expect(auditListDescription({action:"CREATE",targetType:"CourseBooking",afterJson:{customerName:"王小明",nameSnapshot:"木吉他 · abc123",startsAt:"2026-11-12T13:00:00Z"}},"課程預約 · 改名後 · 鋼琴 · 2026/11/13 20:00:00")).toBe("替王小明預約「木吉他」｜2026/11/12 21:00");
+   expect(auditListDescription({action:"CANCEL",targetType:"CourseBooking"},"課程預約 · 王小明 · 木吉他 · 2026/11/12 21:00:00")).toBe("取消王小明的「木吉他」預約｜2026/11/12 21:00");
+ });
+});

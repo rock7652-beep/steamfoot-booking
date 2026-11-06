@@ -1,6 +1,8 @@
 import { redactAuditValue } from "./audit-redact";
+import { courseDisplayName } from "./course-template-presentation";
 
 export const auditTargetLabels: Record<string, string> = {
+  ServiceAddOnOrder: "商品單", ServiceAddOnCatalog: "加購商品設定",
   MusicSubject: "教學項目",
   Booking: "蒸足預約", SpaBooking: "服務預約", SpaBookingGroup: "同行服務預約", CourseBooking: "課程預約",
   CourseSession: "課程堂次", CourseTemplate: "課程設定", CourseWaitlist: "候補名單", CourseWaitlistSetting: "候補設定",
@@ -110,6 +112,37 @@ export function auditSummary(item: PresentedAudit, target?: string) {
 
 /** A compact list sentence: event context once, followed only by useful changes. */
 export function auditListDescription(item: PresentedAudit, target?: string, references: AuditReferences = {}, visibleStoreName?: string) {
+  const snapshot = { ...auditRecord(item.beforeJson), ...auditRecord(item.afterJson) };
+  const person = typeof snapshot.customerName === "string" && snapshot.customerName.trim() ? auditText(snapshot.customerName) : null;
+  if (item.targetType === "ServiceAddOnOrder" && /^(SHARED_GOODS|ADD_ON)_(SAVE|COLLECT|REFUND)$/.test(item.action)) {
+    const owner = person ? `${person}的` : "";
+    if (item.action.endsWith("_SAVE")) {
+      const changes = auditProductChanges(snapshot.before, snapshot.after);
+      return `${changes.length ? "修改" : "儲存"}${owner}商品單${changes.length ? `：${changes.join("；")}` : ""}`;
+    }
+    const amount = typeof snapshot.amount === "number" && Number.isFinite(snapshot.amount) && snapshot.amount !== 0 ? auditValue("amount", Math.abs(snapshot.amount)) : null;
+    const items = auditProducts(snapshot.items).map(product => `${product.name}${product.quantity === null ? "" : ` ×${product.quantity}`}`);
+    // Refunds apply to the order; never claim the refunded amount belongs to one item.
+    return `${owner}商品單${item.action.endsWith("_REFUND") ? "退款" : "收款"}${amount ? ` ${amount}` : ""}${items.length ? `｜${items.join("、")}` : ""}`;
+  }
+  if (item.targetType === "ServiceAddOnCatalog") {
+    const before = auditRecord(item.beforeJson), after = auditRecord(item.afterJson);
+    const products = (groups: unknown) => Array.isArray(groups) ? groups.flatMap(group => {
+      const options = auditRecord(group).options;
+      return Array.isArray(options) ? options : [];
+    }) : [];
+    const changes = Array.isArray(before.groups) && Array.isArray(after.groups) ? auditProductChanges(products(before.groups), products(after.groups)) : [];
+    const toggle = typeof before.enabled === "boolean" && typeof after.enabled === "boolean" && before.enabled !== after.enabled ? `${after.enabled ? "開啟" : "關閉"}加購商品` : null;
+    if (changes.length || toggle) return [toggle, ...changes].filter(Boolean).join("；");
+  }
+  if (item.targetType === "CourseBooking" && ["CREATE", "CANCEL", "CANCELLED"].includes(item.action)) {
+    const parts = target?.replace(/^課程預約 · /, "").replace(/（目前(?:資料|姓名)）/g, "").split(" · ") ?? [];
+    const name = person ?? (parts[0] && !parts[0].includes("未保存") ? parts[0] : null);
+    const course = typeof snapshot.nameSnapshot === "string" ? courseDisplayName(auditText(snapshot.nameSnapshot)) : parts[1];
+    const time = snapshot.startsAt ? auditValue("startsAt", snapshot.startsAt) : parts[2];
+    const operation = item.action === "CREATE" ? (name ? `替${name}預約${course ? `「${course}」` : "課程"}` : "新增課程預約") : `取消${name ? `${name}的` : ""}${course ? `「${course}」` : "課程"}預約`;
+    return `${operation}${time ? `｜${time.replace(/(\d{1,2}:\d{2}):\d{2}\b/g, "$1").replace(/\s+/g, " ")}` : ""}`;
+  }
   const summary = auditSummary(item, target);
   if (item.targetType === "StoreView") {
     // The destination is already in the store column. Keep request semantics:
@@ -118,11 +151,43 @@ export function auditListDescription(item: PresentedAudit, target?: string, refe
     return suffix && summary.endsWith(suffix) ? summary.slice(0, -suffix.length) : summary;
   }
   const unavailable = /未記錄|未保存|未提供|已隱藏/;
+  if (item.targetType === "CourseTeacherCompensationSetting") {
+    const changes = auditChanges(item.beforeJson, item.afterJson, references);
+    const ratio = changes.find(change => change.label === "老師預設拆帳比例");
+    if (changes.length === 1 && ratio && !unavailable.test(ratio.before + ratio.after)) {
+      const teacher = typeof snapshot.staffName === "string" ? auditText(snapshot.staffName) : target?.replace(/^老師拆帳設定 · /, "").replace(/（目前資料）/g, "");
+      return `修改${teacher && !teacher.includes("未保存") ? `${teacher}的` : "老師"}預設拆帳比例：${ratio.before} → ${ratio.after}`;
+    }
+  }
   const details = auditChanges(item.beforeJson, item.afterJson, references)
     .filter(change => change.label && !unavailable.test(change.before) && !unavailable.test(change.after))
     .filter(change => !(item.action === "CREATE" && summary.includes(change.after)))
     .map(change => `${change.label}：${change.before ? `${change.before} → ` : ""}${change.after}`);
   return details.length ? `${summary} · ${details.join("；")}` : summary;
+}
+
+function auditProducts(value: unknown) {
+  return (Array.isArray(value) ? value : []).flatMap(item => {
+    const product = auditRecord(item);
+    if (typeof product.name !== "string" || !product.name.trim()) return [];
+    return [{ key: typeof product.id === "string" ? product.id : product.name, name: auditText(product.name), quantity: typeof product.quantity === "number" && Number.isSafeInteger(product.quantity) && product.quantity > 0 ? product.quantity : null, price: typeof product.price === "number" && Number.isFinite(product.price) && product.price >= 0 ? product.price : null, active: typeof product.active === "boolean" ? product.active : null }];
+  });
+}
+function auditProductChanges(before: unknown, after: unknown) {
+  if (!Array.isArray(before) || !Array.isArray(after)) return [];
+  const previous = new Map(auditProducts(before).map(product => [product.key, product]));
+  const next = new Map(auditProducts(after).map(product => [product.key, product]));
+  const changes: string[] = [];
+  for (const [key, product] of next) {
+    const old = previous.get(key);
+    if (!old) { changes.push(`新增${product.name}${product.quantity === null ? "" : ` ×${product.quantity}`}${product.price === null ? "" : `（單價 ${auditValue("amount", product.price)}）`}`); continue; }
+    if (old.name !== product.name) changes.push(`品名：${old.name} → ${product.name}`);
+    if (old.quantity !== null && product.quantity !== null && old.quantity !== product.quantity) changes.push(`${product.name}數量：${old.quantity} → ${product.quantity}`);
+    if (old.price !== null && product.price !== null && old.price !== product.price) changes.push(`${product.name}單價：${auditValue("amount", old.price)} → ${auditValue("amount", product.price)}`);
+    if (old.active !== null && product.active !== null && old.active !== product.active) changes.push(`${product.active ? "啟用" : "停用"}${product.name}`);
+  }
+  for (const [key, product] of previous) if (!next.has(key)) changes.push(`移除${product.name}`);
+  return changes;
 }
 export function auditValue(key: string, value: unknown, references: AuditReferences = {}, depth = 0): string {
   if (value === null || value === undefined || value === "") return "未記錄";
