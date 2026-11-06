@@ -36,8 +36,14 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
         }
         if (sportsRule) {
           const {assertSportsProductionReady}=await import("./sports-production-readiness");await assertSportsProductionReady(tx,storeId);
-          await saveSportsTeachingRule(tx, storeId, row, sportsRule, replay);
-          if(!replay){const {enqueueOperationAudit}=await import("./operation-audit-outbox");await enqueueOperationAudit({actorUserId:user.id,storeId,module:"FITNESS",targetType:"MusicSubject",targetId:row.id,action:"SPORTS_ITEM_RULE",summary:"設定教學項目授課資格與計酬"},tx,requestKey);}
+          const previousRule = await saveSportsTeachingRule(tx, storeId, row, sportsRule, replay);
+          if(!replay){
+            const coachIds = [...new Set([...(previousRule?.coachIds ?? []), ...sportsRule.coachIds])];
+            const coaches = coachIds.length ? await tx.$queryRaw<Array<{id:string;name:string}>>`SELECT s.id,COALESCE(s."displayName",u.name) AS name FROM "Staff" s JOIN "User" u ON u.id=s."userId" WHERE s."storeId"=${storeId} AND s.id=ANY(${coachIds}::text[])` : [];
+            const names = (ids:string[]) => [...ids].sort().map(id=>coaches.find(c=>c.id===id)?.name ?? "姓名未保存");
+            const {enqueueOperationAudit}=await import("./operation-audit-outbox");
+            await enqueueOperationAudit({actorUserId:user.id,storeId,module:"FITNESS",targetType:"MusicSubject",targetId:row.id,action:"SPORTS_ITEM_RULE",summary:`設定「${row.name}」授課資格與計酬`,before:previousRule?{name:row.name,pointCost:previousRule.pointCost,coachNames:names(previousRule.coachIds),rules:previousRule.expectedCompensation?[previousRule.expectedCompensation]:[]}:undefined,after:{name:row.name,pointCost:sportsRule.pointCost,coachNames:names(sportsRule.coachIds),rules:[sportsRule.compensation]}},tx,requestKey);
+          }
         }
       };
       if (id) {

@@ -7,6 +7,16 @@ import {lockCashDay} from './cash-day';
 import {parseTaiwanDateToDbDate,toLocalDateStr} from '@/lib/date-utils';
 export type AddOnActor={storeId:string;userId:string;staffId:string|null;module?:'STEAMFOOT'|'FITNESS'|'MUSIC'};
 export type AddOnSubject={ownership?:'PERSON'|'RESERVATION';reservationKey?:string;serviceId?:string|null;id:string;bookingId:string;customerId:string|null;status:string;bookingStatus:string};
+
+/** Snapshot the authorized subject inside the same business transaction.
+ * This captures order contents, not a per-item allocation of a receipt/refund. */
+export async function addOnAuditEvidence(tx:Prisma.TransactionClient,a:AddOnActor,p:AddOnSubject,result:Prisma.InputJsonObject,method?:string):Promise<Prisma.InputJsonObject>{
+ const [customer,order]=await Promise.all([
+  p.customerId?tx.customer.findFirst({where:{id:p.customerId,storeId:a.storeId},select:{name:true}}):null,
+  Array.isArray(result.after)?null:tx.serviceAddOnOrder.findUnique({where:p.ownership==='RESERVATION'?{storeId_module_bookingId_reservationKey:{storeId:a.storeId,module:a.module??'STEAMFOOT',bookingId:p.bookingId,reservationKey:p.reservationKey!}}:{storeId_module_participantId:{storeId:a.storeId,module:a.module??'STEAMFOOT',participantId:p.id}},select:{items:true}}),
+ ]);
+ return {...result,customerName:customer?.name??null,items:Array.isArray(result.after)?result.after:order?.items??[],...(method?{paymentMethod:method}:{})};
+}
 export async function addOnCommand<T extends Prisma.InputJsonValue>(tx:Prisma.TransactionClient,a:AddOnActor,key:string,intent:unknown,work:()=>Promise<T>):Promise<T>{
  const hash=createHash('sha256').update(JSON.stringify({actor:a.userId,...(a.module&&a.module!=='STEAMFOOT'?{module:a.module}:{}),intent})).digest('hex');
  const prior=await tx.serviceAddOnCommand.findUnique({where:{storeId_requestKey:{storeId:a.storeId,requestKey:key}}});

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { AuditChanges } from "@/components/audit-changes";
-import { auditActionLabel, auditChanges, auditSummary, auditValue, auditSnapshotTarget } from "@/lib/audit-presentation";
+import { auditActionLabel, auditListDescription, auditChanges, auditSummary, auditValue, auditSnapshotTarget } from "@/lib/audit-presentation";
 
 describe("human-readable audit presentation", () => {
   it("explains actual actions, including old logs without summaries", () => {
@@ -16,16 +16,16 @@ describe("human-readable audit presentation", () => {
     expect(auditSummary({action:"UPDATE",targetType:"Customer"},"顧客資料 · 小華")).toBe("修改顧客資料：小華");
     expect(auditSummary({action:"INVENTORY_WRITE",targetType:"InventoryOrder",summary:"建立銷貨單"},"進銷貨單 · 銷貨 · 小華 · 2026-10-07")).toBe("建立小華的銷貨單 · 2026-10-07");
     expect(auditSummary({action:"HQ_VIEW_STORE",targetType:"StoreView",summary:"切換總部店家檢視請求「蒸足店」"},"店家檢視 · 蒸足店（目前資料）")).toBe("提出切換店家請求：蒸足店");
-    expect(auditSummary({action:"UPDATE",targetType:"Customer"},"顧客資料 · 舊紀錄未保存辨識內容，或資料已移除")).toBe("修改顧客資料（資料未記錄）");
+    expect(auditSummary({action:"UPDATE",targetType:"Customer"},"顧客資料 · 舊紀錄未保存辨識內容，或資料已移除")).toBe("修改顧客資料");
   });
   it("keeps current-data provenance in details and never treats a switch request as success", () => {
     const target="進銷貨單 · 銷貨 · 小華 · 2026-10-07（目前資料）";
     expect(auditSummary({action:"INVENTORY_WRITE",targetType:"InventoryOrder",summary:"編輯銷貨單"},target)).toBe("修改小華的銷貨單 · 2026-10-07");
     expect(auditSummary({action:"UPDATE_PAYMENT_METHOD",targetType:"Transaction",summary:"更正收款方式"},"收款單 · 小華（目前資料）")).toBe("修改付款方式：小華");
     expect(auditSummary({action:"HQ_VIEW_ALL_STORES",targetType:"StoreView",summary:"已返回總部"},"店家檢視 · 舊店家（目前資料）")).toBe("提出返回總部全部店家請求");
-    expect(auditSummary({action:"CUSTOMER_LABEL_SET",targetType:"Customer"},"顧客資料 · 舊紀錄未保存辨識內容，或資料已移除")).toBe("調整顧客標籤（資料未記錄）");
+    expect(auditSummary({action:"CUSTOMER_LABEL_SET",targetType:"Customer"},"顧客資料 · 舊紀錄未保存辨識內容，或資料已移除")).toBe("調整顧客標籤");
     const html=renderToStaticMarkup(createElement(AuditChanges,{before:{paymentMethod:"CASH"},after:{paymentMethod:"TRANSFER"},target,targetType:"InventoryOrder"}));
-    expect(html).toContain("資料來源：目前資料");
+    expect(html).toContain("對象名稱為目前名稱。");
     expect(html).toContain("現金");
     expect(html).toContain("轉帳");
     expect(renderToStaticMarkup(createElement(AuditChanges,{before:null,after:null,target:"顧客資料 · 小華"}))).not.toContain("資料來源");
@@ -42,7 +42,7 @@ describe("human-readable audit presentation", () => {
     const html = renderToStaticMarkup(createElement(AuditChanges,{ before:{customerId:"foreign-secret-id",futureField:{detailCode:"RAW_ENUM"}},after:{customerId:"other-secret-id",futureField:{detailCode:"NEW_ENUM"},status:"FUTURE_STATUS"} }));
     for (const raw of ["foreign-secret-id","other-secret-id","futureField","detailCode","RAW_ENUM","NEW_ENUM","FUTURE_STATUS"]) expect(html).not.toContain(raw);
     expect(html).toContain("舊紀錄未保存名稱");
-    expect(html).toContain("部分異動說明未記錄");
+    expect(html).toContain("部分修改明細未保存");
   });
   it("uses authorized names and permission explanations", () => {
     expect(auditValue("customerId","x",{"customerId:x":"小華（目前姓名）"})).toBe("小華（目前姓名）");
@@ -54,7 +54,7 @@ describe("human-readable audit presentation", () => {
   it("keeps snapshots and does not invent missing history", () => {
     expect(auditSnapshotTarget({targetType:"CourseBooking",action:"CREATE",afterJson:{customerName:"小華"}})).toContain("小華");
     expect(auditSnapshotTarget({targetType:"Booking",action:"CREATE"})).toBeNull();
-    expect(renderToStaticMarkup(createElement(AuditChanges,{before:null,after:null}))).toContain("異動內容未記錄");
+    expect(renderToStaticMarkup(createElement(AuditChanges,{before:null,after:null}))).toContain("未保存修改明細");
     expect(auditChanges({status:"ACTIVE"},{status:"ACTIVE"})).toEqual([]);
   });
   it("shows only added and removed permissions and does not invent a missing baseline", () => {
@@ -77,4 +77,65 @@ describe("human-readable audit presentation", () => {
     expect(auditSummary({action:"FUTURE_ACTION",targetType:"FutureTarget",summary:"FutureTarget FUTURE_ACTION"})).not.toMatch(/FUTURE_ACTION|FutureTarget/);
     expect(auditSummary({action:"UPDATE",targetType:"Customer",summary:"修改顧客 11111111-2222-3333-4444-555555555555 FUTURE_ENUM"})).not.toMatch(/11111111|FUTURE_ENUM/);
   });
+});
+
+ it("keeps store context out of changes and explains compensation percentages", () => {
+   expect(auditChanges({defaultRatio:0.5},{storeId:"own",defaultRatio:0.6,revision:2,scope:"NEW_SESSIONS"})).toEqual([{label:"老師預設拆帳比例",before:"50%",after:"60%"}]);
+   expect(auditChanges(null,{storeId:"own"})).toEqual([]);
+   expect(auditValue("rules",[{mode:"CLASS",value:1500}])).toBe("每堂 NT$ 1,500");
+   expect(auditValue("rules",[{mode:"SHARE",value:60}])).toBe("授課人員分得 60%");
+ });
+ it("compares named course fees and omits unchanged courses", () => {
+   const before={teachingFees:{a:{name:"木吉他",rules:[{mode:"SHARE",value:50}]},b:{name:"鋼琴",rules:[]}}};
+   const after={teachingFees:{a:{name:"木吉他",rules:[{mode:"SHARE",value:60}]},b:{name:"鋼琴",rules:[]}}};
+   expect(auditChanges(before,after)).toEqual([{label:"木吉他授課費",before:"授課人員分得 50%",after:"授課人員分得 60%"}]);
+   expect(auditSnapshotTarget({action:"UPDATE",targetType:"CourseCompensation",afterJson:{staffName:"敬緯"}})).toContain("敬緯");
+ });
+
+ it("keeps store-switch requests to one sentence without repeating the store column", () => {
+   const item={action:"HQ_VIEW_STORE",targetType:"StoreView",summary:"切換總部店家檢視請求「音樂測試店」",beforeJson:{viewedStoreId:"old"},afterJson:{viewedStoreId:"new"}};
+   expect(auditListDescription(item,"店家檢視 · 音樂測試店（目前資料）",{},"音樂測試店")).toBe("提出切換店家請求");
+   expect(auditListDescription(item,"店家檢視 · 音樂測試店（目前資料）")).toBe("提出切換店家請求：音樂測試店");
+ });
+ it("puts real before/after values into the event sentence without missing-data boilerplate", () => {
+   expect(auditListDescription({action:"UPDATE",targetType:"CourseTeacherCompensationSetting",beforeJson:{defaultRatio:.5},afterJson:{defaultRatio:.6}},"老師拆帳設定 · 敬緯")).toBe("修改敬緯的預設拆帳比例：50% → 60%");
+   expect(auditListDescription({action:"UPDATE",targetType:"CourseCompensation",beforeJson:null,afterJson:{storeId:"own",unknown:"x"}},"課程拆帳設定 · 敬緯")).toBe("修改課程拆帳設定：敬緯");
+ });
+
+describe("one-line explanations of the subject, action and result", () => {
+ it("shows saved refund amounts and order contents without inventing per-item refund allocation", () => {
+   const afterJson={customerName:"王小明",amount:-500,items:[{id:"a",name:"教材",quantity:1,price:400},{id:"b",name:"飲品",quantity:2,price:50}]};
+   expect(auditListDescription({action:"SHARED_GOODS_REFUND",targetType:"ServiceAddOnOrder",afterJson})).toBe("王小明的商品單退款 NT$ 500｜教材 ×1、飲品 ×2");
+   expect(auditListDescription({action:"SHARED_GOODS_REFUND",targetType:"ServiceAddOnOrder",afterJson:{id:"receipt-secret",amount:-80}})).toBe("商品單退款 NT$ 80");
+ });
+ it("explains only changed item quantities and prices", () => {
+   const before=[{id:"a",name:"教材",quantity:1,price:500},{id:"b",name:"飲品",quantity:1,price:50}];
+   const after=[{id:"a",name:"教材",quantity:2,price:600},before[1]];
+   const description=auditListDescription({action:"SHARED_GOODS_SAVE",targetType:"ServiceAddOnOrder",afterJson:{customerName:"王小明",before,after}});
+   expect(description).toBe("修改王小明的商品單：教材數量：1 → 2；教材單價：NT$ 500 → NT$ 600");
+   expect(description).not.toContain("飲品");
+ });
+ it("does not infer added or removed items from a missing snapshot", () => {
+   expect(auditListDescription({action:"SHARED_GOODS_SAVE",targetType:"ServiceAddOnOrder",afterJson:{after:[{id:"a",name:"教材",quantity:2,price:600}]}})).toBe("儲存商品單");
+   expect(auditListDescription({action:"SAVE_ADD_ON_CATALOG",targetType:"ServiceAddOnCatalog",summary:"儲存附加項目",afterJson:{groups:[{options:[{name:"教材",price:500}]}]}})).not.toContain("新增");
+ });
+ it("explains catalog price edits and creation with recorded baselines", () => {
+   expect(auditListDescription({action:"SAVE_ADD_ON_CATALOG",targetType:"ServiceAddOnCatalog",beforeJson:{groups:[{options:[{id:"a",name:"教材",price:500}]}]},afterJson:{groups:[{options:[{id:"a",name:"教材",price:600}]}]}})).toBe("教材單價：NT$ 500 → NT$ 600");
+ });
+ it("uses booking snapshots before current names and drops seconds", () => {
+   expect(auditListDescription({action:"CREATE",targetType:"CourseBooking",afterJson:{customerName:"王小明",nameSnapshot:"木吉他 · abc123",startsAt:"2026-11-12T13:00:00Z"}},"課程預約 · 改名後 · 鋼琴 · 2026/11/13 20:00:00")).toBe("替王小明預約「木吉他」｜2026/11/12 21:00");
+   expect(auditListDescription({action:"CANCEL",targetType:"CourseBooking"},"課程預約 · 王小明 · 木吉他 · 2026/11/12 21:00:00")).toBe("取消王小明的「木吉他」預約｜2026/11/12 21:00");
+ });
+});
+
+it("separates recorded leave from granted makeup rights without claiming a makeup was booked", () => {
+ const target="課程預約 · 王小明 · 木吉他 · 2026/11/12 21:00:00（目前資料）";
+ expect(auditListDescription({action:"STUDENT_LEAVE",targetType:"CourseBooking",summary:"記錄學員請假"},target)).toBe("王小明請假｜木吉他｜2026/11/12 21:00");
+ const description=auditListDescription({action:"NATIVE_LEAVE_MAKEUP",targetType:"CourseBooking",summary:"請假扣原堂數，另給同期限補課"},target);
+ expect(description).toBe("王小明可補課（已扣堂、期限不變）｜木吉他｜2026/11/12 21:00");
+ expect(description).not.toContain("已安排補課");
+ expect(description.match(/王小明/g)).toHaveLength(1);
+});
+it("does not invent an absent learner or course for legacy leave events", () => {
+ expect(auditListDescription({action:"STUDENT_LEAVE",targetType:"CourseBooking"},"課程預約 · 舊紀錄未保存辨識內容，或資料已移除")).toBe("學員請假");
 });

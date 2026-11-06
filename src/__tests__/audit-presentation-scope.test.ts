@@ -1,6 +1,6 @@
 import { beforeEach, it, expect, vi } from "vitest";
-const m = vi.hoisted(()=>({ customers:vi.fn(), stores:vi.fn(), bookings:vi.fn(), staff:vi.fn(), plans:vi.fn(), spaBookings:vi.fn() }));
-vi.mock("@/lib/db",()=>({prisma:{customer:{findMany:m.customers},store:{findMany:m.stores},booking:{findMany:m.bookings},staff:{findMany:m.staff},servicePlan:{findMany:m.plans}}}));
+const m = vi.hoisted(()=>({ customers:vi.fn(), stores:vi.fn(), bookings:vi.fn(), staff:vi.fn(), plans:vi.fn(), spaBookings:vi.fn(),receipt:vi.fn() }));
+vi.mock("@/lib/db",()=>({prisma:{customer:{findMany:m.customers},store:{findMany:m.stores},booking:{findMany:m.bookings},staff:{findMany:m.staff},servicePlan:{findMany:m.plans},serviceAddOnReceipt:{findMany:m.receipt}}}));
 vi.mock("@/lib/spa-db",()=>({spaPrisma:{spaBooking:{findMany:m.spaBookings}}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{}}));
 vi.mock("@/lib/permissions",()=>({PERMISSION_LABELS:{"audit.read":"查看操作紀錄"}}));
@@ -55,4 +55,15 @@ it("keeps archived SPA evidence without reading retired or Steamfoot booking tab
   expect(result.get("a")?.target).toContain("舊紀錄未保存辨識內容");
   expect(m.spaBookings).not.toHaveBeenCalled();
   expect(m.bookings).not.toHaveBeenCalled();
+});
+
+it("retains the original audit when supplementary receipt access fails",async()=>{
+ m.receipt.mockRejectedValue(new Error("private connection details must not be logged"));
+ const log=vi.spyOn(console,"error").mockImplementation(()=>{});
+ try {
+  const result=await resolveAuditPresentation([{id:"a",storeId:"own",targetType:"ServiceAddOnOrder",targetId:"group:party",action:"SHARED_GOODS_REFUND",afterJson:{id:"receipt",amount:-80}}]);
+  expect(result.get("a")?.references).toEqual({});
+  expect(result.get("a")?.target).toContain("商品單");
+  expect(log).toHaveBeenCalledWith("[audit-presentation] legacy-addon-evidence-unavailable",{error:"Error"});
+ } finally {log.mockRestore();}
 });
