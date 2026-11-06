@@ -24,7 +24,7 @@ export const dailyOperationGuides20260930: OperationGuide[] = [
     steps: ["由具 audit.read 的 HQ 管理員先點「返回 HQ 總部」，再開啟「操作與登入紀錄」；不要為查完整稽核而切入門市。", "依日期、操作人、模組及關鍵字找出目標紀錄，展開核對門市、時間、當時身分、白話摘要及異動前後值；缺少內容時依「未記錄」提示判讀。", "需要查當次登入或跨筆篩選時依 I12 操作；若要修正，先關閉紀錄，再切到正確門市的原功能走正式更正流程。"],
     important: "操作紀錄是唯讀稽核資料，不能代替退款、取消、扣堂更正或實際通知。門市不取得 HQ 完整紀錄；獨立開通的 OWNER 本店業務紀錄見 I20；功能上線前的舊歷史不會補填操作人。",
     success: "HQ 能辨識正確門市的最近操作人、時間及變更內容；需更正的資料仍由原功能處理。",
-    details: ["單筆入口目前顯示最近 20 筆；HQ 集中中心「操作與登入紀錄」每頁 50 筆，並有受閱讀狀態保護的 60 秒自動更新，詳見 I12。沒有紀錄不表示資料從未存在，可能是功能上線前的歷史。", "HQ 完整稽核限 HQ ADMIN 與 audit.read；切店不保留此權限，只能依本店獨立授權查看有限業務紀錄，返回總部後才恢復完整稽核。電話等敏感內容會遮蔽。", "內容用白話動作及異動欄位辨識資料；「異動內容未記錄」不是沒有做過操作。標示「目前資料」的名稱是目前資料來源，不應視為當時完整快照。", "店長與教練若標記為同一人，紀錄仍保留實際登入身分及當下姓名快照；系統自動操作會標示觸發人。"],
+    details: ["單筆入口目前顯示最近 20 筆；HQ 集中中心「操作與登入紀錄」每頁 50 筆，並有受閱讀狀態保護的 60 秒自動更新，詳見 I12。沒有紀錄不表示資料從未存在，可能是功能上線前的歷史。", "HQ 完整稽核限 HQ ADMIN 與 audit.read；切店不保留此權限，只能依本店獨立授權查看有限業務紀錄，返回總部後才恢復完整稽核。電話等敏感內容會遮蔽。", "內容用白話動作及異動欄位辨識資料；展開後優先看修改項目的「原本 → 改為」。未保存可辨識明細不表示沒有操作，也不能還原缺少的歷史。名稱備註可另外展開查看；依目前資料顯示的名稱僅供辨識，不是當時快照。", "店長與教練若標記為同一人，紀錄仍保留實際登入身分及當下姓名快照；系統自動操作會標示觸發人。"],
     modules: ["steamfoot", "spa", "course"], permission: "audit.read", feature: null, kind: "howto", verification: "source-reviewed",
     sources: ["src/components/operation-history-button.tsx", "src/components/operation-audit-access.tsx", "src/components/audit-changes.tsx", "src/lib/permissions.ts", "src/lib/audit-presentation.ts", "src/server/actions/operation-audit.ts", "src/server/services/operation-audit.ts", "src/app/(dashboard)/dashboard/operation-audits/page.tsx", "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/app/(dashboard)/dashboard/courses/roster.tsx", "src/app/(dashboard)/dashboard/cashbook/page.tsx"],
   },

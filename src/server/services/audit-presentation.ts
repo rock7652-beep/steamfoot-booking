@@ -24,9 +24,9 @@ export async function resolveAuditPresentation(rows: AuditRow[], options: { hq?:
       found.forEach(r => set("Booking",r.id,r.storeId,`${r.customer.name} · ${r.bookingDate.toISOString().slice(0,10)} ${r.slotTime}`)); })(),
     (async () => { const OR = groups(["Customer"]); if (!OR.length) return;
       const found = await prisma.customer.findMany({ where: { OR }, select: { id: true, storeId: true, name: true } }); found.forEach(r => set("Customer",r.id,r.storeId,r.name)); })(),
-    (async () => { const OR = groups(["Staff","StaffPermission"]); if (!OR.length) return;
+    (async () => { const OR = groups(["Staff","StaffPermission","CourseCompensation","CourseTeacherCompensationSetting","CourseTeacherFinanceScope"]); if (!OR.length) return;
       const found = await prisma.staff.findMany({ where: { OR }, select: { id: true, storeId: true, user: { select: { name: true } } } });
-      found.forEach(r => ["Staff","StaffPermission"].forEach(t => set(t,r.id,r.storeId,r.user.name))); })(),
+      found.forEach(r => ["Staff","StaffPermission","CourseCompensation","CourseTeacherCompensationSetting","CourseTeacherFinanceScope"].forEach(t => set(t,r.id,r.storeId,r.user.name))); })(),
     (async () => { const OR = groups(["CustomerPlanWallet"]); if (!OR.length) return;
       const found = await prisma.customerPlanWallet.findMany({ where: { OR }, select: { id: true, storeId: true, customer: { select: { name: true } }, plan: { select: { name: true } } } });
       found.forEach(r => set("CustomerPlanWallet",r.id,r.storeId,`${r.customer.name} · ${r.plan.name}`)); })(),

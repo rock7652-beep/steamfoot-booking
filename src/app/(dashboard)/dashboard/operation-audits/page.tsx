@@ -1,6 +1,6 @@
 import { resolveOperationAuditScope } from "@/server/services/store-operation-audit-access";
 import { StoreOperationAuditView } from "./store-operation-audit-view";
-import { auditRoleLabel, auditSummary } from "@/lib/audit-presentation";
+import { auditSummary } from "@/lib/audit-presentation";
 import { resolveAuditPresentation } from "@/server/services/audit-presentation";
 import { AuditChanges } from "@/components/audit-changes";
 import { notFound, redirect } from "next/navigation";
@@ -134,7 +134,7 @@ export default async function OperationAuditsPage({
   // Server read completion timestamp; this async component runs per authorized request.
   // eslint-disable-next-line react-hooks/purity
   const renderedAt = Date.now();
-  const columns = storeId ? "@[720px]:grid-cols-[96px_150px_minmax(0,1fr)_20px]" : "@[900px]:grid-cols-[96px_150px_minmax(0,1fr)_150px_20px]";
+  const columns = storeId ? "@[720px]:grid-cols-[96px_150px_minmax(0,1fr)]" : "@[900px]:grid-cols-[96px_150px_minmax(0,1fr)_150px]";
   return (
     <PageShell compact>
       <AuditAutoRefresh key={`${user.id}:${storeId ?? "all"}:operation`} renderedAt={renderedAt} dateTo={dateTo} followToday={followToday} page={page}>
@@ -163,15 +163,15 @@ export default async function OperationAuditsPage({
           <span>共 {result.total} 筆</span><span>第 {result.page}／{totalPages} 頁</span>
         </div>
         <div aria-hidden="true" className={`hidden gap-3 border-b border-earth-100 bg-earth-50/50 px-3 py-2 text-sm text-earth-500 ${storeId ? "@[720px]:grid" : "@[900px]:grid"} ${columns}`}>
-          <span>時間</span><span>操作人</span><span>做了什麼</span>{!storeId ? <span>店家</span> : null}<span />
+          <span>時間</span><span>操作人</span><span>做了什麼</span>{!storeId ? <span>店家</span> : null}
         </div>
         {result.items.length === 0 ? (
           <div className="px-6 py-14 text-center text-earth-500">指定期間尚無操作紀錄</div>
         ) : (
           <div className="divide-y divide-earth-100">
             {result.items.map((item, index) => (
-              <details key={item.id} data-record={item.id} className="group px-3 open:bg-earth-50/60">
-                <summary className={`grid min-h-11 cursor-pointer list-none grid-cols-[96px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 py-2 text-sm [&::-webkit-details-marker]:hidden ${columns}`}>
+              <article key={item.id} data-record={item.id} className="min-w-0 px-3 py-2">
+                <div className={`grid min-h-11 grid-cols-[96px_minmax(0,1fr)] items-center gap-x-3 gap-y-1 text-sm ${columns}`}>
                   <time dateTime={item.createdAt.toISOString()} className="col-start-1 row-start-1 tabular-nums text-earth-500">{auditTimeLabel(item.createdAt, result.items[index - 1]?.createdAt)}</time>
                   <span className="col-start-2 row-start-1 min-w-0 break-words text-earth-700">{item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}</span>
                   <span className={`col-span-2 col-start-1 row-start-2 min-w-0 break-words ${storeId ? "@[720px]:col-span-1 @[720px]:col-start-3 @[720px]:row-start-1" : "@[900px]:col-span-1 @[900px]:col-start-3 @[900px]:row-start-1"}`}>
@@ -179,17 +179,12 @@ export default async function OperationAuditsPage({
                     <span className="ml-2 text-earth-500">{MODULE_LABELS[displayedModule(item)]}</span>
                   </span>
                   {!storeId ? <span className="col-span-2 min-w-0 break-words text-earth-500 @[900px]:col-span-1 @[900px]:col-start-4 @[900px]:row-start-1">{item.storeId ? storeNames.get(item.storeId) ?? "已封存門市" : "系統"}</span> : null}
-                  <span aria-hidden="true" className={`col-start-3 row-start-1 text-center text-earth-400 transition-transform group-open:rotate-90 ${storeId ? "@[720px]:col-start-4" : "@[900px]:col-start-5"}`}>›</span>
-                </summary>
-                <div className="mt-2 min-w-0 grid gap-2 border-t border-earth-100 pt-2 text-sm md:grid-cols-2">
-                  <time className="text-earth-500 md:col-span-2">{item.createdAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", hour12: false })}</time>
-                  {(item.actorRoleSnapshot || item.loginRecordId) && <div className="flex flex-wrap gap-x-3 gap-y-1 md:col-span-2 text-earth-500">
-                    {item.actorRoleSnapshot && <span>{auditRoleLabel(item.actorRoleSnapshot)}</span>}
-                    {item.loginRecordId && <Link className="underline" href={`/dashboard/operation-audits?tab=login&login=${encodeURIComponent(item.loginRecordId)}&dateFrom=${dateFrom}&dateTo=${dateTo}&returnTo=${encodeURIComponent(returnQuery)}`}>查看當次登入</Link>}
-                  </div>}
-                  <div className="min-w-0 md:col-span-2"><AuditChanges target={presentation.get(item.id)?.target} targetType={item.targetType} before={item.beforeJson} after={item.afterJson} references={presentation.get(item.id)?.references} /></div>
                 </div>
-              </details>
+                <div className="min-w-0 space-y-2 pb-1 text-sm">
+                  <div className="min-w-0 md:col-span-2"><AuditChanges target={presentation.get(item.id)?.target} targetType={item.targetType} before={item.beforeJson} after={item.afterJson} references={presentation.get(item.id)?.references} /></div>
+                  {item.loginRecordId && <Link className="inline-flex min-h-11 items-center text-earth-500 underline" href={`/dashboard/operation-audits?tab=login&login=${encodeURIComponent(item.loginRecordId)}&dateFrom=${dateFrom}&dateTo=${dateTo}&returnTo=${encodeURIComponent(returnQuery)}`}>查看當次登入</Link>}
+                </div>
+              </article>
             ))}
           </div>
         )}
