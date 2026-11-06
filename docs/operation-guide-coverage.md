@@ -8,6 +8,7 @@
 - readiness需活動與諮詢開關及五張私有表權限就緒；#1519僅手動安裝審查包，合併不等於安裝或活動啟用。本次未執行workflow、SQL、收款／核發、建立推薦碼、分享外發、改期限或啟用正式旗標。官網行銷改文及OG圖不另算後台教學缺漏。
 - 完整變更清單核對含行銷、推薦policy／actions／repository／頁面及建置腳本；新pre/postbuild審查預設opt-in關閉，production packaging與原精確指南分支／隔離DB／migration前退出護欄保留。不手動重建、不更改保護、預算或其他任務排程。更新同分支需新版自動Preview以包含新文章，初段預覽不可驗本段；可能消耗既有CI／Vercel額度，缺用量及費率不能估金額，Cloudflare非依賴。
 - 依Framework及情境02／05／06／07／08／09／10核對；03僅文案草稿保留、04只核對防重不送交易，01不宣稱效能改善。本機指南51檔／236項、推薦相關回歸6檔／635項及差異來源ESLint、whitespace通過；完整型別通過；最終CI結果另記PR。不以先前CI或初段234項測試冒稱本段通過。
+- 預覽修復：本日head fcdf247a的部署 dpl_DWUbz3PWpPBqx8utpZYQ6qKTsTDx 因middleware 262.52MB超過250MB而失敗，不能宣稱可用。新增build-only打包入口，只在原精確指南分支、專案、Vercel build sandbox及雙隔離連線通過時執行；正式main與其他分支略過。沿用已審查helper排除review素材trace及未用的非PostgreSQL引擎，原檔備份在build root外，保留PostgreSQL／native引擎、憑證、資產與未知runtime依賴。不改資料、通知、保護或正式部署設定。本輪最終指南及打包回歸55檔／249項通過（與先前635項部分重疊，不加總）；新版本自動Preview／CI結果另記PR。
 - **實際操作驗收：受阻／未清題。** 本機瀏覽器缺來源工作階段；初段雲端Preview被Vercel登入保護擋住，沒有已登入且確認資料隔離／通知封鎖的後台。最終Preview另核對正常存取；未做桌機1366px／寬螢幕、iPad1024×768／768×1024搜尋、開合、返回及角色實測，新截圖0張。不以功能PR截圖、HTTP200或測試替代，不重試先前未獲准公開分享。
 
 ## 2026-11-05 後台增量盤點（同一草稿 #1429）

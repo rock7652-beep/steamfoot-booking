@@ -1245,10 +1245,25 @@
     "typecheck": "passed",
     "eslint": "passed",
     "whitespace": "passed",
-    "guideTestFilesPassed": 51,
-    "guideTestsPassed": 236,
+    "guideTestFilesPassed": 52,
+    "guideTestsPassed": 238,
     "relatedTestFilesPassed": 6,
-    "relatedTestsPassed": 635
+    "relatedTestsPassed": 635,
+    "finalRegressionFilesPassed": 55,
+    "finalRegressionTestsPassed": 249,
+    "relatedTestOverlapNote": "55檔249項包含指南及打包／release回歸；先前6檔635項推薦回歸部分重疊，不相加。"
   },
-  "sourceAddedBackendGuideIds": []
+  "sourceAddedBackendGuideIds": [],
+  "previewPackagingRepair": {
+    "failedHead": "fcdf247aab10d96ee4a39746c1ed9c1424be994f",
+    "failedDeployment": "dpl_DWUbz3PWpPBqx8utpZYQ6qKTsTDx",
+    "reason": "middleware 262.52MB exceeds Vercel 250MB limit",
+    "scope": "exact existing operation-guide Preview branch, project and isolated connections only; production and other branches skipped",
+    "changes": [
+      "build trace excludes review docs/artifacts/QA sources without deleting originals",
+      "reuse reviewed non-PostgreSQL engine backup helper; PostgreSQL/native engines and runtime assets retained"
+    ],
+    "businessRulesChanged": false,
+    "databaseOrNotificationChanges": false
+  }
 }
