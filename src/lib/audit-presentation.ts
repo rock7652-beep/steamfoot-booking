@@ -107,6 +107,23 @@ export function auditSummary(item: PresentedAudit, target?: string) {
   if (name && operation.includes(name)) return operation;
   return `${operation}：${parts.join(" · ")}`;
 }
+
+/** A compact list sentence: event context once, followed only by useful changes. */
+export function auditListDescription(item: PresentedAudit, target?: string, references: AuditReferences = {}, visibleStoreName?: string) {
+  const summary = auditSummary(item, target);
+  if (item.targetType === "StoreView") {
+    // The destination is already in the store column. Keep request semantics:
+    // a recorded request is not evidence that switching succeeded.
+    const suffix = visibleStoreName ? `：${visibleStoreName}` : "";
+    return suffix && summary.endsWith(suffix) ? summary.slice(0, -suffix.length) : summary;
+  }
+  const unavailable = /未記錄|未保存|未提供|已隱藏/;
+  const details = auditChanges(item.beforeJson, item.afterJson, references)
+    .filter(change => change.label && !unavailable.test(change.before) && !unavailable.test(change.after))
+    .filter(change => !(item.action === "CREATE" && summary.includes(change.after)))
+    .map(change => `${change.label}：${change.before ? `${change.before} → ` : ""}${change.after}`);
+  return details.length ? `${summary} · ${details.join("；")}` : summary;
+}
 export function auditValue(key: string, value: unknown, references: AuditReferences = {}, depth = 0): string {
   if (value === null || value === undefined || value === "") return "未記錄";
   if (value === "[已隱藏]" || /password|secret|token|authorization|cookie|otp|verificationcode/i.test(key)) return "敏感資料已隱藏";

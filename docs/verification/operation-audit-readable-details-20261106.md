@@ -45,3 +45,24 @@
 ### 公開上傳授權
 
 使用者已明確回覆「同意上傳並建立預覽」，授權將此次相關 16 個程式碼、測試與文件檔案上傳至原公開儲存庫並建立 Vercel Preview；不包含環境檔或憑證，也不授權正式發布。
+
+### 遠端 Preview 交付
+
+- Draft PR：https://github.com/rock7652-beep/steamfoot-booking/pull/1520
+- 來源 SHA：`1e536d044ab2330c9f8469e9ef3172b9281f3cc1`
+- 部署：`dpl_BroZiwZzoPUP1GemENodtHTjdj2f`，READY，target=null（Preview）。
+- URL：https://steamfoot-booking-om7g90nks-rock7652-2111s-projects.vercel.app/hq/dashboard/operation-audits
+- Vercel 建置通過，未合併或正式發布。Sports shared-card isolated PostgreSQL acceptance 遠端通過。
+- 受保護預覽 fetch 與 share-link 工具被自動審核拒絕，原因為它們可能建立任何持連結者可存取的分享入口；未取得這種分享授權。沒有改用其他通道繞過；保留原 Vercel protection，提供原始受保護網址並在 Codex 瀏覽器開啟，使用者需自行登入。未完成登入後業務驗收。
+
+## 2026-11-06 最新修正：恢復緊湊條列式清單
+
+使用者實際查看 Preview 後指出整塊明細攤開更混亂，要求維持條列式清單並移除不必要與重複資訊。此決策取代先前「每筆下方直接攤開明細」方案。
+
+- 一筆維持一列：時間、操作人、做了什麼、店家。移除獨立明細底色區塊、模組標籤、來源段落、重複缺漏提示與獨立登入連結。
+- 只把可靠、可讀的變動值併入事件句子；不將未保存／隱藏值假裝成完整修改前後值。切店請求不再重複列出來源→目的店及目前名稱段落，目的店由店家欄顯示，保留「請求」語意而不冒稱切換成功。
+- 點操作人姓名仍可查看當次登入。保留原有日期、篩選、分頁、捲動及權限範圍。
+- 新增純呈現 OperationAuditRow，頁面與隔離 fixture 共用實際列元件；窄容器把店家併入操作內容，避免額外整行，不省略店家。
+- 相關測試 13 檔／128 項通過，包含切店目的店去重、單店情境保留目的店、真實前後值與缺漏提示去除。
+- 桌機隔離 fixture 1366／1920 寬第一列 45 CSS px，同屏可見 15 筆合成紀錄；無任何展開控制或水平溢出。截圖 `/tmp/audit-compact-1366.png`；此為真實列元件的靜態合成資料，非登入後完整驗收。
+- 更新沿用同一授權分支、PR 與隔離 Preview；無正式合併或發布授權。

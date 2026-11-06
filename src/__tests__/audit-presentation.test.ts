@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { AuditChanges } from "@/components/audit-changes";
-import { auditActionLabel, auditChanges, auditSummary, auditValue, auditSnapshotTarget } from "@/lib/audit-presentation";
+import { auditActionLabel, auditListDescription, auditChanges, auditSummary, auditValue, auditSnapshotTarget } from "@/lib/audit-presentation";
 
 describe("human-readable audit presentation", () => {
   it("explains actual actions, including old logs without summaries", () => {
@@ -90,4 +90,14 @@ describe("human-readable audit presentation", () => {
    const after={teachingFees:{a:{name:"木吉他",rules:[{mode:"SHARE",value:60}]},b:{name:"鋼琴",rules:[]}}};
    expect(auditChanges(before,after)).toEqual([{label:"木吉他授課費",before:"授課人員分得 50%",after:"授課人員分得 60%"}]);
    expect(auditSnapshotTarget({action:"UPDATE",targetType:"CourseCompensation",afterJson:{staffName:"敬緯"}})).toContain("敬緯");
+ });
+
+ it("keeps store-switch requests to one sentence without repeating the store column", () => {
+   const item={action:"HQ_VIEW_STORE",targetType:"StoreView",summary:"切換總部店家檢視請求「音樂測試店」",beforeJson:{viewedStoreId:"old"},afterJson:{viewedStoreId:"new"}};
+   expect(auditListDescription(item,"店家檢視 · 音樂測試店（目前資料）",{},"音樂測試店")).toBe("提出切換店家請求");
+   expect(auditListDescription(item,"店家檢視 · 音樂測試店（目前資料）")).toBe("提出切換店家請求：音樂測試店");
+ });
+ it("puts real before/after values into the event sentence without missing-data boilerplate", () => {
+   expect(auditListDescription({action:"UPDATE",targetType:"CourseTeacherCompensationSetting",beforeJson:{defaultRatio:.5},afterJson:{defaultRatio:.6}},"老師拆帳設定 · 敬緯")).toBe("修改老師拆帳設定：敬緯 · 老師預設拆帳比例：50% → 60%");
+   expect(auditListDescription({action:"UPDATE",targetType:"CourseCompensation",beforeJson:null,afterJson:{storeId:"own",unknown:"x"}},"課程拆帳設定 · 敬緯")).toBe("修改課程拆帳設定：敬緯");
  });

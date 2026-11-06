@@ -1,8 +1,7 @@
 import { resolveOperationAuditScope } from "@/server/services/store-operation-audit-access";
 import { StoreOperationAuditView } from "./store-operation-audit-view";
-import { auditSummary } from "@/lib/audit-presentation";
+import { auditListDescription } from "@/lib/audit-presentation";
 import { resolveAuditPresentation } from "@/server/services/audit-presentation";
-import { AuditChanges } from "@/components/audit-changes";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell } from "@/components/desktop";
@@ -18,6 +17,7 @@ import { AuditAutoRefresh } from "./audit-auto-refresh";
 import { AuditListState } from "./audit-list-state";
 import { auditTimeLabel, auditReturnQuery } from "./audit-list-format";
 import { OperationAuditFilters } from "./operation-audit-filters";
+import { OperationAuditRow, auditListColumns } from "./operation-audit-row";
 
 const MODULE_LABELS: Record<OperationModule, string> = {
   STEAM: "蒸足",
@@ -28,17 +28,6 @@ const MODULE_LABELS: Record<OperationModule, string> = {
   SHARED: "共用店務",
   SYSTEM: "系統管理",
 };
-
-const SYSTEM_TARGETS = new Set(["Staff", "StaffPermission", "CourseTeacherFinanceScope"]);
-
-function displayedModule(item: { module: string | null; targetType: string }): OperationModule {
-  if (item.module && Object.hasOwn(MODULE_LABELS, item.module)) return item.module as OperationModule;
-  if (SYSTEM_TARGETS.has(item.targetType)) return "SYSTEM";
-  if (item.targetType.startsWith("Course")) return "COURSE";
-  if (item.targetType.startsWith("Spa")) return "SPA";
-  if (item.targetType === "Booking") return "STEAM";
-  return "SHARED";
-}
 
 function dateDaysAgo(days: number) {
   return toLocalDateStr(new Date(Date.now() - days * 86_400_000));
@@ -134,7 +123,7 @@ export default async function OperationAuditsPage({
   // Server read completion timestamp; this async component runs per authorized request.
   // eslint-disable-next-line react-hooks/purity
   const renderedAt = Date.now();
-  const columns = storeId ? "@[720px]:grid-cols-[96px_150px_minmax(0,1fr)]" : "@[900px]:grid-cols-[96px_150px_minmax(0,1fr)_150px]";
+  const columns = auditListColumns(!storeId);
   return (
     <PageShell compact>
       <AuditAutoRefresh key={`${user.id}:${storeId ?? "all"}:operation`} renderedAt={renderedAt} dateTo={dateTo} followToday={followToday} page={page}>
@@ -162,7 +151,7 @@ export default async function OperationAuditsPage({
         <div className="flex items-center justify-between border-b border-earth-100 px-3 py-2 text-sm text-earth-600">
           <span>共 {result.total} 筆</span><span>第 {result.page}／{totalPages} 頁</span>
         </div>
-        <div aria-hidden="true" className={`hidden gap-3 border-b border-earth-100 bg-earth-50/50 px-3 py-2 text-sm text-earth-500 ${storeId ? "@[720px]:grid" : "@[900px]:grid"} ${columns}`}>
+        <div aria-hidden="true" className={`hidden gap-3 border-b border-earth-100 bg-earth-50/50 px-3 py-2 text-sm text-earth-500 ${storeId ? "@[720px]:grid" : "@[640px]:grid"} ${columns}`}>
           <span>時間</span><span>操作人</span><span>做了什麼</span>{!storeId ? <span>店家</span> : null}
         </div>
         {result.items.length === 0 ? (
@@ -170,21 +159,12 @@ export default async function OperationAuditsPage({
         ) : (
           <div className="divide-y divide-earth-100">
             {result.items.map((item, index) => (
-              <article key={item.id} data-record={item.id} className="min-w-0 px-3 py-2">
-                <div className={`grid min-h-11 grid-cols-[96px_minmax(0,1fr)] items-center gap-x-3 gap-y-1 text-sm ${columns}`}>
-                  <time dateTime={item.createdAt.toISOString()} className="col-start-1 row-start-1 tabular-nums text-earth-500">{auditTimeLabel(item.createdAt, result.items[index - 1]?.createdAt)}</time>
-                  <span className="col-start-2 row-start-1 min-w-0 break-words text-earth-700">{item.source === "SYSTEM" ? `系統自動（觸發：${item.actorNameSnapshot ?? item.actor.name}）` : item.actorNameSnapshot ?? item.actor.name}</span>
-                  <span className={`col-span-2 col-start-1 row-start-2 min-w-0 break-words ${storeId ? "@[720px]:col-span-1 @[720px]:col-start-3 @[720px]:row-start-1" : "@[900px]:col-span-1 @[900px]:col-start-3 @[900px]:row-start-1"}`}>
-                    <span className="font-medium text-earth-900">{auditSummary(item, presentation.get(item.id)?.target)}</span>
-                    <span className="ml-2 text-earth-500">{MODULE_LABELS[displayedModule(item)]}</span>
-                  </span>
-                  {!storeId ? <span className="col-span-2 min-w-0 break-words text-earth-500 @[900px]:col-span-1 @[900px]:col-start-4 @[900px]:row-start-1">{item.storeId ? storeNames.get(item.storeId) ?? "已封存門市" : "系統"}</span> : null}
-                </div>
-                <div className="min-w-0 space-y-2 pb-1 text-sm">
-                  <div className="min-w-0 md:col-span-2"><AuditChanges target={presentation.get(item.id)?.target} targetType={item.targetType} before={item.beforeJson} after={item.afterJson} references={presentation.get(item.id)?.references} /></div>
-                  {item.loginRecordId && <Link className="inline-flex min-h-11 items-center text-earth-500 underline" href={`/dashboard/operation-audits?tab=login&login=${encodeURIComponent(item.loginRecordId)}&dateFrom=${dateFrom}&dateTo=${dateTo}&returnTo=${encodeURIComponent(returnQuery)}`}>查看當次登入</Link>}
-                </div>
-              </article>
+              <OperationAuditRow key={item.id} id={item.id}
+                time={<time dateTime={item.createdAt.toISOString()}>{auditTimeLabel(item.createdAt, result.items[index - 1]?.createdAt)}</time>}
+                actor={item.loginRecordId ? <Link className="inline-flex min-h-11 items-center underline decoration-earth-200 underline-offset-4" aria-label={`查看${item.actorNameSnapshot ?? item.actor.name}當次登入`} href={`/dashboard/operation-audits?tab=login&login=${encodeURIComponent(item.loginRecordId)}&dateFrom=${dateFrom}&dateTo=${dateTo}&returnTo=${encodeURIComponent(returnQuery)}`}>{item.source === "SYSTEM" ? `系統（${item.actorNameSnapshot ?? item.actor.name}觸發）` : item.actorNameSnapshot ?? item.actor.name}</Link> : item.source === "SYSTEM" ? `系統（${item.actorNameSnapshot ?? item.actor.name}觸發）` : item.actorNameSnapshot ?? item.actor.name}
+                description={auditListDescription(item, presentation.get(item.id)?.target, presentation.get(item.id)?.references, !storeId && item.storeId ? storeNames.get(item.storeId) : undefined)}
+                storeName={!storeId ? item.storeId ? storeNames.get(item.storeId) ?? "已封存門市" : "系統" : undefined}
+              />
             ))}
           </div>
         )}
