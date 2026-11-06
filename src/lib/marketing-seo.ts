@@ -8,7 +8,7 @@ export const MARKETING_ORIGIN = "https://www.steamfoot.com";
 // query strings, request hosts, filesystem routes, or authenticated navigation.
 export const MARKETING_SITEMAP_PATHS = [
   "/", "/pricing", "/pricing/features", "/cases", "/guides",
-  "/pricing/features/slots",
+  "/pricing/features/slots", "/pricing/features/beauty",
   "/pricing/features/music", "/pricing/features/fitness",
   "/apply", "/privacy", "/terms", "/refunds",
   ...PUBLISHED_GUIDE_PATHS,

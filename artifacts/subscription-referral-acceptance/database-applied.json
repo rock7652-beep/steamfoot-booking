@@ -1,0 +1,37 @@
+{
+  "rewards": [
+    {
+      "id": "[\"subscription-referral-v1\",\"6b243d88-e55c-46c2-b33e-6c69921ae549\",\"referral-qa-20261105-a\"]",
+      "store": "referral-qa-20261105-a",
+      "state": "APPLIED",
+      "days": 30,
+      "previousExpiresOn": "2026-11-25",
+      "newExpiresOn": "2026-12-25",
+      "billingConfirmationRef": null
+    },
+    {
+      "id": "[\"subscription-referral-v1\",\"6b243d88-e55c-46c2-b33e-6c69921ae549\",\"referral-qa-20261105-b\"]",
+      "store": "referral-qa-20261105-b",
+      "state": "APPLIED",
+      "days": 30,
+      "previousExpiresOn": "2026-11-30",
+      "newExpiresOn": "2026-12-30",
+      "billingConfirmationRef": "QA-E2E-BILLING-B"
+    }
+  ],
+  "stores": [
+    {
+      "id": "referral-qa-20261105-b",
+      "storeExpiry": "2026-12-30T00:00:00",
+      "subscriptionExpiry": "2026-12-30T00:00:00"
+    },
+    {
+      "id": "referral-qa-20261105-a",
+      "storeExpiry": "2026-12-25T00:00:00",
+      "subscriptionExpiry": "2026-12-25T00:00:00"
+    }
+  ],
+  "auditCount": 2,
+  "sourceCommit": "5db2b76116eb3ad148398414a709dec5621661b2",
+  "afterIdenticalServerActionReplay": true
+}

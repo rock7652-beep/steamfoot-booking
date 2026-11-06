@@ -1,3 +1,4 @@
+import {assertSubscriptionReferralQa,referralQaRoute} from "../scripts/subscription-referral-qa-scope.mjs";
 import { courseAgreementPublicBoundary } from '@/lib/course-agreement-public-boundary';
 import {digitalManagerCronPreviewPathAllowed} from "../scripts/digital-manager-cron-preview-scope.mjs";
 import {calendarProxyReadOperation,traceCalendarProxyRead} from "@/lib/calendar-proxy-read-timing";
@@ -8,6 +9,7 @@ import { beautySandboxRewriteUrl } from "../scripts/beauty-sandbox-qa-scope.mjs"
 import { retiredStoreBoundary } from "@/lib/retired-store-boundary";
 
 import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview, isSpaRetirementUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
+import { isMarketingPublicationLocalQa, isMarketingPublicationLocalQaPath } from "../scripts/marketing-publication-local-qa.mjs";
 import { findPublicGuide, guidePath } from "@/lib/public-guides";
 import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
@@ -675,6 +677,20 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   return operation?traceCalendarProxyRead(operation,()=>dispatchProxy(...args)):dispatchProxy(...args);
 }
 function dispatchProxy(...args: Parameters<typeof authenticatedProxy>) {
+  if(assertSubscriptionReferralQa()){
+    const req=args[0];const target=referralQaRoute(req.nextUrl.pathname);
+    const headers={"X-Robots-Tag":"noindex, nofollow","Cache-Control":"no-store"};
+    if(!target)return new NextResponse("Not available in referral QA",{status:404,headers});
+    const writable=["/hq/login","/api/auth/","/pricing/submit","/referral-test","/hq/dashboard/stores/referrals","/dashboard/settings/subscription-referrals"];
+    const alias=/^\/s\/referral-qa-20261105-[abc]\/admin\/dashboard\/settings\/subscription-referrals$/.test(req.nextUrl.pathname);
+    if(!["GET","HEAD"].includes(req.method)&&!alias&&!writable.some(p=>p.endsWith("/")?req.nextUrl.pathname.startsWith(p):req.nextUrl.pathname===p))return new NextResponse("Method not allowed",{status:405,headers});
+    const url=req.nextUrl.clone();url.pathname=target.destination;
+    const requestHeaders=nonStoreRequestHeaders(req);
+    if(target.storeSlug)requestHeaders.set("x-store-slug",target.storeSlug);
+    const response=target.redirect?NextResponse.redirect(url):target.destination!==req.nextUrl.pathname?NextResponse.rewrite(url,{request:{headers:requestHeaders}}):routePassThrough(req);
+    Object.entries(headers).forEach(([k,v])=>response.headers.set(k,v));return response;
+  }
+
   const [req] = args;
   // Public capability services resolve their store without a session fallback.
   const agreementResponse = courseAgreementPublicBoundary(req, ((process.env.COURSE_AGREEMENTS_ENABLED === '1' && process.env.COURSE_AGREEMENTS_PUBLIC_ENABLED === '1') || (process.env.BEAUTY_MODULE_ENABLED === '1' && process.env.BEAUTY_AGREEMENTS_ENABLED === '1' && process.env.BEAUTY_AGREEMENTS_PUBLIC_ENABLED === '1')), isGuideUiPreview());
@@ -723,17 +739,20 @@ function dispatchProxy(...args: Parameters<typeof authenticatedProxy>) {
       return new NextResponse("Read-only guide preview", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
     const path = req.nextUrl.pathname;
 
-    if (isMarketingStickyUiPreview()) {
+    if (isMarketingStickyUiPreview() || isMarketingPublicationLocalQa()) {
       const pages = ["/", "/pricing", "/pricing/business", "/pricing/cases", "/cases", "/apply", "/pricing/apply.html", "/pricing/features", "/pricing/features/slots", "/pricing/features/fitness", "/pricing/features/music", "/guides", "/pricing/guides"];
       const publicArticle = /^\/(?:pricing\/)?guides\/[a-z0-9-]+\/?$/.test(path);
       const asset = path.startsWith("/_next/static/") || /^\/pricing\/(?:brand|images|business-assets)\/[a-zA-Z0-9/_-]+\.(?:png|jpg|jpeg|webp|svg)$/.test(path);
-      if (!pages.includes(path) && !publicArticle && !asset)
+      const allowed = isMarketingPublicationLocalQa() ? isMarketingPublicationLocalQaPath(path) : pages.includes(path) || publicArticle || asset;
+      if (!allowed)
         return new NextResponse("Not available in marketing preview", { status: 404, headers });
       const marketing = marketingRoute(path);
       if (!marketing) return NextResponse.next({ headers });
       if (marketing.kind === "not-found") return new NextResponse("Not found", { status: 404, headers });
       const url = req.nextUrl.clone();
       url.pathname = marketing.destination;
+      // Next start normalizes request URLs to localhost; keep local rewrites internal.
+      if (isMarketingPublicationLocalQa()) url.host = req.headers.get("host") ?? url.host;
       const response = marketing.kind === "redirect" ? NextResponse.redirect(url, 308) : NextResponse.rewrite(url);
       Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
       return response;

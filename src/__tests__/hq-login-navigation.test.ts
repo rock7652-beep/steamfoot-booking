@@ -1,4 +1,4 @@
-import {beforeEach,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({find:vi.fn(),signIn:vi.fn(),slug:vi.fn(),clear:vi.fn(),cookie:vi.fn(),audit:vi.fn(),AuthError:class AuthError extends Error{}}));
 vi.mock('@/lib/db',()=>({prisma:{user:{findUnique:m.find}}}));
 vi.mock('@/lib/auth',()=>({signIn:m.signIn,signOut:vi.fn()}));
@@ -33,4 +33,17 @@ it('does not convert an unexpected authentication failure into a successful navi
 });
 it('keeps missing credentials out of the authentication pipeline',async()=>{
  expect(await hqLoginAction({error:null},new FormData())).toEqual({error:'請輸入 Email 和密碼'});expect(m.find).not.toHaveBeenCalled();expect(m.signIn).not.toHaveBeenCalled();
+});
+
+afterEach(()=>vi.unstubAllEnvs());
+it('returns a verified owner to referral management only for the exact enabled intent',async()=>{
+ vi.stubEnv('SUBSCRIPTION_REFERRALS_ENABLED','true');const data=form();data.set('intent','subscription-referral');data.set('returnTo','https://evil.example');
+ expect(await hqLoginAction({error:null},data)).toEqual({error:null,redirectTo:'/s/own-store/admin/dashboard/settings/subscription-referrals'});
+ vi.stubEnv('SUBSCRIPTION_REFERRALS_ENABLED','false');expect((await hqLoginAction({error:null},data)).redirectTo).toBe('/s/own-store/admin/dashboard');
+});
+it('does not turn staff intent into owner authority, and keeps administrators in global HQ',async()=>{
+ vi.stubEnv('SUBSCRIPTION_REFERRALS_ENABLED','true');const data=form();data.set('intent','subscription-referral');
+ m.find.mockResolvedValue({id:'staff',role:'STAFF',status:'ACTIVE',staff:{storeId:'own-store'}});
+ expect((await hqLoginAction({error:null},data)).redirectTo).toBe('/s/own-store/admin/dashboard');
+ m.find.mockResolvedValue({id:'hq',role:'ADMIN',status:'ACTIVE'});expect((await hqLoginAction({error:null},data)).redirectTo).toBe('/hq/dashboard/stores/referrals');
 });

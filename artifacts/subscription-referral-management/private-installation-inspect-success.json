@@ -1,0 +1,192 @@
+{
+  "date": "2026-11-05",
+  "run": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/41942538430",
+  "mergedPr": 1519,
+  "sourceCommit": "236d637dd9f03f9824bdd92841457e7e9d2a86f3",
+  "approvedScope": "Merge PR 1519 after CI success and run inspect only; apply not authorized",
+  "result": {
+    "mode": "inspect",
+    "project": "qijlnhtpbintanzpxkvf",
+    "identity": {
+      "database": "postgres",
+      "role": "postgres"
+    },
+    "canInstall": true,
+    "preflight": {
+      "actor": "postgres",
+      "database": "postgres",
+      "readOnly": true,
+      "columnChecks": [
+        {
+          "udt": "text",
+          "matches": true,
+          "table_name": "Store",
+          "column_name": "id"
+        },
+        {
+          "udt": "text",
+          "matches": true,
+          "table_name": "StoreSubscription",
+          "column_name": "id"
+        },
+        {
+          "udt": "text",
+          "matches": true,
+          "table_name": "ConsultationLead",
+          "column_name": "id"
+        },
+        {
+          "udt": "jsonb",
+          "matches": true,
+          "table_name": "ConsultationLead",
+          "column_name": "originalPayload"
+        },
+        {
+          "udt": "timestamp",
+          "matches": true,
+          "table_name": "Store",
+          "column_name": "planExpiresAt"
+        },
+        {
+          "udt": "text",
+          "matches": true,
+          "table_name": "Store",
+          "column_name": "currentSubscriptionId"
+        },
+        {
+          "udt": "text",
+          "matches": true,
+          "table_name": "StoreSubscription",
+          "column_name": "storeId"
+        },
+        {
+          "udt": "timestamp",
+          "matches": true,
+          "table_name": "StoreSubscription",
+          "column_name": "expiresAt"
+        },
+        {
+          "udt": "int4",
+          "matches": true,
+          "table_name": "StoreSubscription",
+          "column_name": "priceAmount"
+        },
+        {
+          "udt": "text",
+          "matches": true,
+          "table_name": "StoreSubscription",
+          "column_name": "updatedBy"
+        },
+        {
+          "udt": "jsonb",
+          "matches": true,
+          "table_name": "StorePlanChange",
+          "column_name": "metadataJson"
+        },
+        {
+          "udt": "text",
+          "matches": true,
+          "table_name": "StorePlanChange",
+          "column_name": "operatorUserId"
+        }
+      ],
+      "canCreateInPublic": true,
+      "newTablesAllAbsent": true,
+      "canReferenceParents": true,
+      "requiredColumnsMatch": true,
+      "unresolvedMigrations": 0,
+      "existingAppliedMigrationCount": 138
+    },
+    "postflight": {
+      "actor": "postgres",
+      "database": "postgres",
+      "readOnly": true,
+      "migration": null,
+      "allFiveRls": false,
+      "constraints": null,
+      "allFivePresent": false,
+      "apiAccessChecks": [
+        {
+          "name": "StoreSubscriptionReferralCode",
+          "allowed": true,
+          "rolname": "authenticated"
+        },
+        {
+          "name": "StoreSubscriptionReferralCode",
+          "allowed": true,
+          "rolname": "anon"
+        },
+        {
+          "name": "StoreSubscriptionReferralCode",
+          "allowed": true,
+          "rolname": "service_role"
+        },
+        {
+          "name": "StoreSubscriptionReferral",
+          "allowed": true,
+          "rolname": "authenticated"
+        },
+        {
+          "name": "StoreSubscriptionReferral",
+          "allowed": true,
+          "rolname": "anon"
+        },
+        {
+          "name": "StoreSubscriptionReferral",
+          "allowed": true,
+          "rolname": "service_role"
+        },
+        {
+          "name": "StoreSubscriptionReferralPayment",
+          "allowed": true,
+          "rolname": "authenticated"
+        },
+        {
+          "name": "StoreSubscriptionReferralPayment",
+          "allowed": true,
+          "rolname": "anon"
+        },
+        {
+          "name": "StoreSubscriptionReferralPayment",
+          "allowed": true,
+          "rolname": "service_role"
+        },
+        {
+          "name": "StoreSubscriptionReferralRefundReview",
+          "allowed": true,
+          "rolname": "authenticated"
+        },
+        {
+          "name": "StoreSubscriptionReferralRefundReview",
+          "allowed": true,
+          "rolname": "anon"
+        },
+        {
+          "name": "StoreSubscriptionReferralRefundReview",
+          "allowed": true,
+          "rolname": "service_role"
+        },
+        {
+          "name": "StoreSubscriptionReferralReward",
+          "allowed": true,
+          "rolname": "authenticated"
+        },
+        {
+          "name": "StoreSubscriptionReferralReward",
+          "allowed": true,
+          "rolname": "anon"
+        },
+        {
+          "name": "StoreSubscriptionReferralReward",
+          "allowed": true,
+          "rolname": "service_role"
+        }
+      ],
+      "publicHasNoPrivileges": true,
+      "apiRolesHaveNoPrivileges": false
+    },
+    "databaseWritesPerformed": false,
+    "verifiedTls": true,
+    "sourceCommit": "236d637dd9f03f9824bdd92841457e7e9d2a86f3"
+  }
+}

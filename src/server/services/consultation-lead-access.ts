@@ -1,3 +1,4 @@
+import {assertSubscriptionReferralQa} from "../../../scripts/subscription-referral-qa-scope.mjs";
 import { isPreview } from "@/lib/runtime-env";
 import { trialApplicationDatabaseAllowed } from "@/server/services/trial-application-access";
 
@@ -5,6 +6,7 @@ import { isIsolatedConsultationDatabaseUrl } from "../../../scripts/consultation
 
 /** Pure configuration guard: never opens a database or reports its credentials. */
 export function consultationDatabaseAllowed(): boolean {
+  if(assertSubscriptionReferralQa())return true;
   if (process.env.CONSULTATION_PREVIEW_INTAKE_ENABLED === "true" && !isPreview()) return false;
   if (!trialApplicationDatabaseAllowed()) return false;
   if (!isPreview()) return true;

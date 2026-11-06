@@ -1,0 +1,72 @@
+{
+  "sourceCommit": "5db2b76116eb3ad148398414a709dec5621661b2",
+  "realAuthenticatedPages": true,
+  "realLogoutAndRoleSwitch": true,
+  "results": [
+    {
+      "width": 390,
+      "role": "owner",
+      "viewport": 390,
+      "body": 390,
+      "document": 390,
+      "horizontalOverflow": false
+    },
+    {
+      "width": 390,
+      "role": "hq",
+      "viewport": 390,
+      "body": 390,
+      "document": 390,
+      "horizontalOverflow": false
+    },
+    {
+      "width": 768,
+      "role": "owner",
+      "viewport": 768,
+      "body": 768,
+      "document": 768,
+      "horizontalOverflow": false
+    },
+    {
+      "width": 768,
+      "role": "hq",
+      "viewport": 768,
+      "body": 768,
+      "document": 768,
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1024,
+      "role": "owner",
+      "viewport": 1024,
+      "body": 1024,
+      "document": 1024,
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1024,
+      "role": "hq",
+      "viewport": 1024,
+      "body": 1024,
+      "document": 1024,
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1366,
+      "role": "owner",
+      "viewport": 1366,
+      "body": 1366,
+      "document": 1366,
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1366,
+      "role": "hq",
+      "viewport": 1366,
+      "body": 1366,
+      "document": 1366,
+      "horizontalOverflow": false
+    }
+  ],
+  "errors": []
+}

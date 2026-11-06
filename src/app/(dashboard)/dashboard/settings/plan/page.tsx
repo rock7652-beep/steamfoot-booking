@@ -146,6 +146,7 @@ export default async function PlanSettingsPage() {
         }
       />
 
+      {process.env.SUBSCRIPTION_REFERRALS_ENABLED === "true" && getEffectiveActorRole(user) === "OWNER" && <DashLink href="/dashboard/settings/subscription-referrals" className="inline-flex min-h-11 items-center text-base font-medium underline underline-offset-4">我的推薦與免費天數 →</DashLink>}
       <section className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-sm font-semibold text-earth-900">目前方案</h2>
         <InfoList items={planSummary} />
