@@ -115,15 +115,17 @@ export function auditListDescription(item: PresentedAudit, target?: string, refe
   const snapshot = { ...auditRecord(item.beforeJson), ...auditRecord(item.afterJson) };
   const person = typeof snapshot.customerName === "string" && snapshot.customerName.trim() ? auditText(snapshot.customerName) : null;
   if (item.targetType === "ServiceAddOnOrder" && /^(SHARED_GOODS|ADD_ON)_(SAVE|COLLECT|REFUND)$/.test(item.action)) {
-    const owner = person ? `${person}的` : "";
+    const customer = person ?? references["receipt:customerName"];
+    const owner = customer ? `${customer}的` : "";
     if (item.action.endsWith("_SAVE")) {
       const changes = auditProductChanges(snapshot.before, snapshot.after);
       return `${changes.length ? "修改" : "儲存"}${owner}商品單${changes.length ? `：${changes.join("；")}` : ""}`;
     }
     const amount = typeof snapshot.amount === "number" && Number.isFinite(snapshot.amount) && snapshot.amount !== 0 ? auditValue("amount", Math.abs(snapshot.amount)) : null;
     const items = auditProducts(snapshot.items).map(product => `${product.name}${product.quantity === null ? "" : ` ×${product.quantity}`}`);
+    const itemText = items.length ? items.join("、") : snapshot.items === undefined ? references["receipt:items"] : null;
     // Refunds apply to the order; never claim the refunded amount belongs to one item.
-    return `${owner}商品單${item.action.endsWith("_REFUND") ? "退款" : "收款"}${amount ? ` ${amount}` : ""}${items.length ? `｜${items.join("、")}` : ""}`;
+    return `${owner}商品單${item.action.endsWith("_REFUND") ? "退款" : "收款"}${amount ? ` ${amount}` : ""}${itemText ? `｜${itemText}` : ""}`;
   }
   if (item.targetType === "ServiceAddOnCatalog") {
     const before = auditRecord(item.beforeJson), after = auditRecord(item.afterJson);

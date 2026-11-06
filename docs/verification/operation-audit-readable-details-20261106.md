@@ -86,3 +86,33 @@ URL：https://steamfoot-booking-3nw5k6nk3-rock7652-2111s-projects.vercel.app/hq/
 - 本機 16 個相關測試檔／136 項通過，含 PGlite 隔離 SQL、既有收退款權限、預約及通知流程、快照與跨店隔離。TypeScript、ESLint、diff 檢查通過。
 - 實際 OperationAuditRow 靜態合成 fixture：1366、1920、1024、768、390 寬無水平溢出，沒有展開控制。桌機／iPad第一列45px；390寬第一列105px。截圖 `/tmp/audit-sentences-1366.png`。
 - 尚未更新線上 Preview，也未做正式資料交易或變更正式站。新快照的真實登入後收退款流程未驗，不能把靜態合成資料或測試通過寫成完整業務驗收。
+
+### 一句話敘述版 Preview 已交付
+
+使用者明確回覆「同意上傳並更新預覽」，授權這次11個修訂檔案。來源commit `92c84c1b1ede1591febe4c642556ddd96b3123c1`；部署 `dpl_AQMGQLaauCL5NSWkJGRh3t9rmKGg` 已 READY，aliasError=null，target=null（Preview）。
+
+新版URL：https://steamfoot-booking-31z5hcgxh-rock7652-2111s-projects.vercel.app/hq/dashboard/operation-audits
+
+Vercel編譯、TypeScript、完整建置與發布通過。遠端Music makeup與Sports shared-card隔離資料庫回歸通過；沒有正式合併、資料遷移或正式發布。沿用原Vercel登入保護；登入後列表與新商品／預約快照仍待使用者於隔離預覽驗收，不宣稱模型已登入完成業務驗收。
+
+## 請假與補課文字精簡
+
+使用者要求僅精簡請假、補課文字。只修改列表呈現與回歸測試：`王小明請假｜木吉他｜2026/11/12 21:00`、`王小明可補課（已扣堂、期限不變）｜木吉他｜2026/11/12 21:00`。移除重複說明與秒數，不更動請假、扣堂或補課資格的資料／規則，不合併刪除兩種不同稽核事件。依原 NATIVE_LEAVE_MAKEUP 的實際程式碼保留「扣原堂數、取得同期限補課資格」語意，不寫成已安排補課。27項呈現及範圍測試、ESLint、diff檢查通過。
+
+請假／補課文字精簡已更新至同一PR／分支，commit `1d489f997b940581e1d0e3f004e2526bc7e2ac01`，部署 `dpl_AFqPFG9RxUfe11sVTDYvFcP6PzFT` 已 READY。
+
+URL：https://steamfoot-booking-3nxtnqqa0-rock7652-2111s-projects.vercel.app/hq/dashboard/operation-audits
+
+27項呈現與範圍測試、ESLint、diff檢查通過；Vercel編譯、TypeScript、建置發布通過。Music makeup與Sports shared-card隔離回歸通過。維持原登入保護、未合併或發布正式站，登入後畫面待使用者確認。
+
+## 舊商品收退款紀錄：依原單補顯示，不覆寫歷史
+
+使用者詢問能否補存舊紀錄缺少的對象與品項。本次先核對現有隔離 Preview，再實作只讀補顯示，不 UPDATE AuditLog／收退款單／收支單，不把目前商品單內容誤當歷史快照。
+
+- 唯讀核對專案 `steamfoot-preview`（`ttworfzgwejdeolegkxl`），查詢均使用 BEGIN READ ONLY、statement_timeout、ROLLBACK。2026-10-01以後的17筆相關收退款稽核全部可對回原ServiceAddOnReceipt與addon:收支單，金額、操作人、收支方向、商品單歸屬及備註前綴均吻合，17筆都有目前顧客參照。只讀回傳聚合筆數，沒有匯出實際姓名／單據內容，沒有碰正式專案。
+- 原收支單備註由收退款程式於同交易保存當時品項；現金帳編輯／刪除入口明確拒絕addon:款項。品項取自該原始備註，不查目前購物車items去猜歷史。
+- 當前姓名僅用同店、原收支單customerId參照取得，顯示「（目前姓名）」而非宣稱當時姓名。既存姓名／品項快照永遠優先，不被補查資料覆蓋。
+- 嚴格核對稽核receipt ID、store、amount、收退款方向、actor（有欄位時）、商品單ownership與target、收支單金額／方向／建立人及系統備註前綴；任一不符不補。未知對象不借用操作人姓名。
+- 每頁批次讀取，不逐筆排隊。補查表或角色讀取失敗只記錄安全錯誤類型，保留原清單，不擴權或更改資料庫授權。
+- 57項呈現、範圍、跨店／跨單／金額／方向／actor不一致、快照優先、批次查詢與補查失敗降級測試通過；TypeScript、ESLint、diff檢查通過。實作後再執行等價唯讀核對查詢，確認17筆仍符合補查條件。
+- 這是頁面讀取時的補充資訊，不改寫儲存的舊摘要，也未擴充既有關鍵字搜尋欄位。正式環境能補多少筆需另核對，不能把Preview的17筆當正式資料的覆蓋率。未驗登入後真實UI。
