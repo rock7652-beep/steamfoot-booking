@@ -135,12 +135,16 @@ export function auditListDescription(item: PresentedAudit, target?: string, refe
     const toggle = typeof before.enabled === "boolean" && typeof after.enabled === "boolean" && before.enabled !== after.enabled ? `${after.enabled ? "開啟" : "關閉"}加購商品` : null;
     if (changes.length || toggle) return [toggle, ...changes].filter(Boolean).join("；");
   }
-  if (item.targetType === "CourseBooking" && ["CREATE", "CANCEL", "CANCELLED"].includes(item.action)) {
+  if (item.targetType === "CourseBooking" && ["CREATE", "CANCEL", "CANCELLED", "STUDENT_LEAVE", "NATIVE_LEAVE_MAKEUP"].includes(item.action)) {
     const parts = target?.replace(/^課程預約 · /, "").replace(/（目前(?:資料|姓名)）/g, "").split(" · ") ?? [];
     const name = person ?? (parts[0] && !parts[0].includes("未保存") ? parts[0] : null);
     const course = typeof snapshot.nameSnapshot === "string" ? courseDisplayName(auditText(snapshot.nameSnapshot)) : parts[1];
     const time = snapshot.startsAt ? auditValue("startsAt", snapshot.startsAt) : parts[2];
-    const operation = item.action === "CREATE" ? (name ? `替${name}預約${course ? `「${course}」` : "課程"}` : "新增課程預約") : `取消${name ? `${name}的` : ""}${course ? `「${course}」` : "課程"}預約`;
+    const context = course ? `｜${course}` : "";
+    const operation = item.action === "STUDENT_LEAVE" ? `${name ?? "學員"}請假${context}`
+      : item.action === "NATIVE_LEAVE_MAKEUP" ? `${name ?? "學員"}可補課（已扣堂、期限不變）${context}`
+      : item.action === "CREATE" ? (name ? `替${name}預約${course ? `「${course}」` : "課程"}` : "新增課程預約")
+      : `取消${name ? `${name}的` : ""}${course ? `「${course}」` : "課程"}預約`;
     return `${operation}${time ? `｜${time.replace(/(\d{1,2}:\d{2}):\d{2}\b/g, "$1").replace(/\s+/g, " ")}` : ""}`;
   }
   const summary = auditSummary(item, target);

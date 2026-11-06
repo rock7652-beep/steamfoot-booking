@@ -127,3 +127,15 @@ describe("one-line explanations of the subject, action and result", () => {
    expect(auditListDescription({action:"CANCEL",targetType:"CourseBooking"},"課程預約 · 王小明 · 木吉他 · 2026/11/12 21:00:00")).toBe("取消王小明的「木吉他」預約｜2026/11/12 21:00");
  });
 });
+
+it("separates recorded leave from granted makeup rights without claiming a makeup was booked", () => {
+ const target="課程預約 · 王小明 · 木吉他 · 2026/11/12 21:00:00（目前資料）";
+ expect(auditListDescription({action:"STUDENT_LEAVE",targetType:"CourseBooking",summary:"記錄學員請假"},target)).toBe("王小明請假｜木吉他｜2026/11/12 21:00");
+ const description=auditListDescription({action:"NATIVE_LEAVE_MAKEUP",targetType:"CourseBooking",summary:"請假扣原堂數，另給同期限補課"},target);
+ expect(description).toBe("王小明可補課（已扣堂、期限不變）｜木吉他｜2026/11/12 21:00");
+ expect(description).not.toContain("已安排補課");
+ expect(description.match(/王小明/g)).toHaveLength(1);
+});
+it("does not invent an absent learner or course for legacy leave events", () => {
+ expect(auditListDescription({action:"STUDENT_LEAVE",targetType:"CourseBooking"},"課程預約 · 舊紀錄未保存辨識內容，或資料已移除")).toBe("學員請假");
+});
