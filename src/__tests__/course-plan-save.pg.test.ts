@@ -81,9 +81,11 @@ const database=()=>{if(!db)throw Error('Explicit test database required');return
  it.each(['LEGACY','ASSIGNED'] as const)('saves SQL-null %s plans in both directions with confirmed snapshots',async sportsMode=>{
   let plan=await fixture(sportsMode);
   for(const customerPurchasable of [false,true,false]){
-   const result=await saveCoursePointPlan(edit(plan,customerPurchasable));
-   expect(result,JSON.stringify(result)).toMatchObject({success:true,data:{id:plan.id,customerPurchasable,price:5800,points:10,validDays:90,templateIds:plan.templateIds}});
+   const name='Renamed dance '+randomUUID();
+   const result=await saveCoursePointPlan({...edit(plan,customerPurchasable),name});
+   expect(result,JSON.stringify(result)).toMatchObject({success:true,data:{id:plan.id,name,customerPurchasable,price:5800,points:10,validDays:90,templateIds:plan.templateIds}});
    plan=await database().coursePointPlan.findUniqueOrThrow({where:{id:plan.id}});
+   expect(plan.name).toBe(name);
    expect(plan.customerPurchasable).toBe(customerPurchasable);
    expect(plan.chargeSettings).toBeNull();
   }
