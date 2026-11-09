@@ -4,13 +4,13 @@ import 'server-only';
 import {readSportsTeachingTemplates} from './sports-teaching-templates';
 import {coursePrisma} from '@/lib/course-db';
 import {readCourseSessionDetail} from '@/server/queries/course-session-detail';
-import {resolveSportsEntitlement} from '@/lib/sports-entitlement';
+import {resolveSportsEntitlement,sportsBookingEnrollment} from '@/lib/sports-entitlement';
 import {readSportsSessionRule} from './sports-staging-schedule';
 import type {Prisma} from '../../../generated/course-client';
 
 /** Read-only preview; check-in still selects and debits under the store lock.
  * One batch for every unlinked learner, including shared-card reservations. */
-export async function readSportsRosterBalances(storeId:string,sessionId:string,customerIds:string[],reader:Prisma.TransactionClient=coursePrisma,calendarCustomerIds?:string[]){
+export async function readSportsRosterBalances(storeId:string,sessionId:string,customerIds:string[],reader:Prisma.TransactionClient=coursePrisma,calendarCustomerIds?:string[],rosterBookings?:Parameters<typeof sportsBookingEnrollment>[1][]){
  const ids=[...new Set(customerIds)];
  const balances=new Map<string,ItemBalance & {byUnit:ItemBalance[]}>();
  const entries=new Map<string,Array<ItemBalance & {id:string}>>();
@@ -26,15 +26,21 @@ export async function readSportsRosterBalances(storeId:string,sessionId:string,c
   readSportsTeachingTemplates(reader,storeId,session.template.musicSubjectId),
  ]);
  if(!rule)return balances;
+ const defaultEnrollment=rule.enrollment==='ASSIGNED'?'ASSIGNED':rule.enrollment==='OPEN'?'OPEN':null;
+ const enrollmentByCustomer=new Map(ids.map(customerId=>{
+  const booking=rosterBookings?.find(row=>row.customerId===customerId&&!row.companionIndex);
+  return [customerId,booking?sportsBookingEnrollment(rule,booking):defaultEnrollment] as const;
+ }));
  const cards=calendar?readRows.filter(card=>!!card.expiresAt&&card.expiresAt>=threshold&&card.members.some(member=>!!member.customerId&&ids.includes(member.customerId))):readRows;
  for(const card of cards){
   if(card.termSessionIds.length&&!card.termSessionIds.includes(session.id))continue;
-  const rights=resolveSportsEntitlement({...card,templateRestricted:card.requestKey.startsWith('no-show-makeup:')},{templateId:session.templateId,subjectId:session.template.musicSubjectId,pointCost:session.pointCost,enrollment:rule.enrollment==='ASSIGNED'?'ASSIGNED':rule.enrollment==='OPEN'?'OPEN':null,legacyPlanId:rule.planId,compatibleTemplateIds});
-  if(!rights.eligible)continue;
   const available=Math.max(0,card.remaining-card.bookings.reduce((n,b)=>n+b.pointCost,0));
-  const balance={id:card.id,remaining:card.remaining,available,cost:rights.cost,unit:card.unit,planName:card.nameSnapshot};
   for(const member of card.members){
    if(!member.customerId||!ids.includes(member.customerId))continue;
+   const enrollment=enrollmentByCustomer.get(member.customerId)??null;
+   const rights=resolveSportsEntitlement({...card,templateRestricted:card.requestKey.startsWith('no-show-makeup:')},{templateId:session.templateId,subjectId:session.template.musicSubjectId,pointCost:session.pointCost,enrollment,legacyPlanId:rule.planId,compatibleTemplateIds});
+   if(!rights.eligible)continue;
+   const balance={id:card.id,remaining:card.remaining,available,cost:rights.cost,unit:card.unit,planName:card.nameSnapshot};
    entries.set(member.customerId,[...(entries.get(member.customerId)??[]),balance]);
   }
  }

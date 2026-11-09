@@ -17,6 +17,13 @@ beforeEach(()=>{
  m.manager.mockImplementation(async(permission:string)=>{if(permission===m.denied||permission==="teacher.compensation.read"&&!m.finance)throw new Error("FORBIDDEN");return {storeId:"sports-live-flow-store",user:{id:"staff",role:"STAFF"}};});
  m.compensation.mockResolvedValue([{templateId:"t",rules:[{mode:"HOUR",value:700}]}]);m.plans.mockResolvedValue([{id:"plan",name:"十堂",points:10,price:2000,validDays:90,unit:"SESSION",templateIds:["t"],isActive:true}]);
 });
+it('passes the fixed roster through an open sports schedule without silently discarding it',async()=>{
+ const {sportsStagingCommand}=await import('@/server/actions/sports-staging');
+ m.plan.mockResolvedValue(null);m.coaches.mockResolvedValue([{id:'coach'}]);m.schedule.mockResolvedValue({success:true});
+ const payload={subject:'subject',kind:'單次',mode:'開放選課',date:'2099-01-01',time:'10:00',duration:60,count:1,coach:'老師',coachId:'coach',room:'A',capacity:4,students:['fixed'],price:0,requestKey:'00000000-0000-4000-8000-000000000001'};
+ expect(await sportsStagingCommand({operation:'schedule',payload})).toMatchObject({success:true});
+ expect(m.schedule).toHaveBeenCalledWith(expect.objectContaining({capacity:4,sportsStaging:expect.objectContaining({enrollment:'OPEN',students:[{customerId:'fixed',cardId:null}]})}));
+});
 it.each([false,true])("排課讀取無論有無計酬權限(%s)均不查詢或回傳計酬",async finance=>{
  m.finance=finance;const result=await loadSportsStaging(true);expect(result.success).toBe(true);if(!result.success)return;
  expect(result.data.fees).toHaveLength(1);expect(result.data.fees[0].compensation).toBeUndefined();expect(m.compensation).not.toHaveBeenCalled();expect(m.manager).not.toHaveBeenCalledWith("teacher.compensation.read");

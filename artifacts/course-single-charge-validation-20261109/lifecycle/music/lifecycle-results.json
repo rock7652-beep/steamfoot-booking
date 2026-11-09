@@ -1,0 +1,86 @@
+{
+  "kind": "music",
+  "complete": true,
+  "mocks": false,
+  "checks": [
+    {
+      "step": "purchase-receipt",
+      "customerId": "qa-mixed-local-music-student-0",
+      "id": "cmw93flvo0011l8cr6fznlfph",
+      "status": "CONFIRMED",
+      "price": 800,
+      "cardId": "cmw93flvl000zl8cronr6ovql",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "purchase-receipt",
+      "customerId": "qa-mixed-local-music-student-1",
+      "id": "cmw93fnrj0015l8cr78tjih2c",
+      "status": "CONFIRMED",
+      "price": 800,
+      "cardId": "cmw93fnrg0013l8cr9syutdvn",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "member-self-booked-mixed-class",
+      "bookingId": "cmw93fr3e0017l8crrd788aug",
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-music-student-0",
+      "status": "ATTENDED",
+      "remaining": 0,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-music-student-0",
+      "status": "RESERVED",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-music-student-1",
+      "status": "ATTENDED",
+      "remaining": 0,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-music-student-1",
+      "status": "RESERVED",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-music-student-0",
+      "status": "ATTENDED",
+      "remaining": 0,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-music-student-0",
+      "status": "CANCELLED",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "fixed-leave-keeps-public-class-open",
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-music-student-0",
+      "status": "RESERVED",
+      "remaining": 1,
+      "pass": true
+    }
+  ],
+  "errors": []
+}
