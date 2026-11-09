@@ -90,8 +90,8 @@ describe.each(clients)("$name runtime database isolation", ({ name, key, load })
 });
 
 describe("sports shared-card outbound notification suppression", () => {
-  it('schedule-conflict Preview blocks LINE, email and Beauty even with sender credentials configured',async()=>{
-    vi.stubEnv('VERCEL_GIT_COMMIT_REF','fix/schedule-conflicts-20261103');
+  it.each(['fix/schedule-conflicts-20261103', 'fix/liff-sdk-security-20261109'])('%s Preview blocks LINE, email and Beauty even with sender credentials configured',async(branch)=>{
+    vi.stubEnv('VERCEL_GIT_COMMIT_REF',branch);
     vi.stubEnv('BEAUTY_MODULE_ENABLED','1');vi.stubEnv('BEAUTY_NOTIFICATIONS_ENABLED','1');
     vi.stubEnv('STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN','fixture-token');vi.stubEnv('RESEND_API_KEY','fixture-token');
     const fetch=vi.fn();vi.stubGlobal('fetch',fetch);
