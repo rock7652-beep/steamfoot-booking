@@ -101,6 +101,29 @@ describe("liff client wrapper", () => {
       expect(mockInit).toHaveBeenCalledTimes(1);
     });
 
+    it("shares one pending initialization between concurrent callers", async () => {
+      let finish: (() => void) | undefined;
+      mockInit.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+      const first = initLiff("liff-123");
+      const second = initLiff("liff-123");
+      await vi.waitFor(() => expect(mockInit).toHaveBeenCalledTimes(1));
+      finish?.();
+      const [firstSdk, secondSdk] = await Promise.all([first, second]);
+      expect(firstSdk).toBe(secondSdk);
+      expect(mockInit).toHaveBeenCalledTimes(1);
+    });
+
+    it("clears a failed shared initialization before retrying", async () => {
+      mockInit.mockRejectedValueOnce(new Error("temporary SDK outage"));
+      const outcomes = await Promise.allSettled([initLiff("liff-123"), initLiff("liff-123")]);
+      expect(outcomes.map((outcome) => outcome.status)).toEqual(["rejected", "rejected"]);
+      expect(mockInit).toHaveBeenCalledTimes(1);
+      expect(getIDToken()).toBeNull();
+      mockInit.mockResolvedValueOnce(undefined);
+      await expect(initLiff("liff-123")).resolves.toBeDefined();
+      expect(mockInit).toHaveBeenCalledTimes(2);
+    });
+
     it("initLiff wraps SDK errors into LiffInitError", async () => {
       mockInit.mockRejectedValueOnce(new Error("network failed"));
       const caught = await initLiff("liff-123").catch((e: unknown) => e);
