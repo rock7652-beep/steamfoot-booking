@@ -1,4 +1,5 @@
 "use client";
+import {useCustomerCardReader} from "@/components/admin/use-customer-card-reader";
 import { useMusicDataRevision } from "@/components/operations/panel-read-cache";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { RosterTable } from "@/components/admin/roster-primitives";
@@ -7,7 +8,6 @@ import { CourseCardReservations } from "./card-reservations";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { useEffect, useRef, useState } from "react";
 import { browseCourseCards } from "@/server/actions/course-browse";
-import {readNativeCourseCards} from "@/lib/course-card-read-client";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
@@ -16,7 +16,7 @@ export function CourseCardBrowser({load,reservations,sessionUnitLabel="堂", nat
   dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
   onSelect:(card:CourseCardView)=>void;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
 }) {
-  const browseReader = usePanelReader(load?"module-card-browse":"course-card-browse", load??(native?readNativeCourseCards:browseCourseCards), String(revision));
+  const browseReader = useCustomerCardReader({load,native,revision});
   const detailReader = usePanelReader(load?"module-card":"course-card", load??browseCourseCards);
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;totals?:CourseBalanceTotal[];error?:string}|null>(null);
@@ -62,7 +62,7 @@ export function CourseCardBrowser({load,reservations,sessionUnitLabel="堂", nat
       <select aria-label="方案效期" className="min-h-11 rounded-lg border border-earth-200 bg-white px-2 text-sm" value={state.history ? "history":"active"} onChange={e=>onChange({...state,history:e.target.value==="history",page:0})}><option value="active">有效方案</option><option value="history">已到期／停用</option></select>
     </div>
     {!ready && <p role="status">更新中…</p>}
-    {ready && result?.error ? <p role="alert">{result.error}<button className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <fieldset disabled={!ready} className={!ready?"opacity-60":""}>
+    {ready && result?.error ? <p role="alert">{result.error}<button className="min-h-11 px-3" onClick={()=>{browseReader.invalidate({customerId,dataScope,...state});setRetry(n=>n+1);}}>重試</button></p> : <fieldset disabled={!ready} className={!ready?"opacity-60":""}>
       {native?<div className="divide-y divide-earth-100">{renderRows()}</div>:<RosterTable dense widths={["30%","10%","16%","10%","22%","12%"]} label="學費與堂數方案清單" columns={["方案", "剩餘", "已預約", "可用", "期限", "操作"]}>
 
         {renderRows()}

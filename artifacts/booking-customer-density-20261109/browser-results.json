@@ -1,0 +1,77 @@
+[
+  {
+    "name": "desktop",
+    "width": 1440,
+    "height": 1000,
+    "passed": true,
+    "checks": [
+      "fixed 640px panel; stable tab geometry",
+      "overview balance",
+      "records pagination",
+      "tab retains page and scroll",
+      "profile accessible",
+      "no page overflow"
+    ],
+    "data": "isolated fixture; no real transactions"
+  },
+  {
+    "name": "ipad-landscape",
+    "width": 1024,
+    "height": 768,
+    "passed": true,
+    "checks": [
+      "fixed 640px panel; stable tab geometry",
+      "overview balance",
+      "records pagination",
+      "tab retains page and scroll",
+      "profile accessible",
+      "no page overflow"
+    ],
+    "data": "isolated fixture; no real transactions"
+  },
+  {
+    "name": "ipad-portrait",
+    "width": 768,
+    "height": 1024,
+    "passed": true,
+    "checks": [
+      "fixed 640px panel; stable tab geometry",
+      "overview balance",
+      "records pagination",
+      "tab retains page and scroll",
+      "profile accessible",
+      "no page overflow"
+    ],
+    "data": "isolated fixture; no real transactions"
+  },
+  {
+    "name": "short-screen",
+    "width": 1024,
+    "height": 600,
+    "passed": true,
+    "checks": [
+      "fixed 640px panel; stable tab geometry",
+      "overview balance",
+      "records pagination",
+      "tab retains page and scroll",
+      "profile accessible",
+      "no page overflow"
+    ],
+    "data": "isolated fixture; no real transactions"
+  },
+  {
+    "name": "narrow",
+    "width": 390,
+    "height": 844,
+    "passed": true,
+    "checks": [
+      "fixed 640px panel; stable tab geometry",
+      "overview balance",
+      "records pagination",
+      "tab retains page and scroll",
+      "profile accessible",
+      "no page overflow"
+    ],
+    "data": "isolated fixture; no real transactions"
+  }
+]
