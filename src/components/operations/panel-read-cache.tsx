@@ -141,6 +141,7 @@ export function usePanelReader<Args extends unknown[], T>(
   return useMemo(() => ({
     read: (...args: Args) => cache.load(JSON.stringify(args)),
     peek: (...args: Args) => cache.peek(JSON.stringify(args)),
+    snapshot: (...args: Args) => cache.snapshot(JSON.stringify(args)),
     get: (...args: Args) => cache.get(JSON.stringify(args)),
     refresh: (...args: Args) => cache.load(JSON.stringify(args), {revalidate:true}),
     seed(value: T, ...args: Args) { cache.seed(JSON.stringify(args), value); },
