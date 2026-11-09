@@ -9,6 +9,7 @@ let originalOverflow = "";
 
 interface RightSheetProps {
   className?: string;
+  covered?: boolean;
   presentation?: "side" | "centered";
   compact?: boolean;
   fitContent?: boolean;
@@ -24,6 +25,7 @@ interface RightSheetProps {
 
 export function RightSheet({
   className = "",
+  covered = false,
   presentation = "side",
   open,
   onClose,
@@ -88,9 +90,9 @@ export function RightSheet({
         if (summary) summary.blur();
       }}
       data-presentation={presentation}
-      inert={!open}
+      inert={!open || covered}
       style={centered ? { top: 0, right: 0 } : undefined}
-      aria-hidden={!open}
+      aria-hidden={!open || covered}
       className={`${className} fixed inset-0 ${centered ? "z-[80]" : compact ? "z-[70]" : "z-50"} ${
         open ? "pointer-events-auto" : "pointer-events-none"
       }`}
@@ -108,7 +110,7 @@ export function RightSheet({
         ref={panelRef}
         tabIndex={compact || centered ? -1 : undefined}
         role="dialog"
-        aria-modal="true"
+        aria-modal={!covered}
         aria-labelledby={labelledById}
         style={centered ? { "--sheet-width": `${width}px`, "--sheet-max-height": `${maxHeight}px` } as CSSProperties : { width }}
         className={`${styles.panel} ${centered ? styles.centered : styles.side} ${styles.mobileScrollable} flex flex-col ${compact ? "border-l border-earth-200 border-t-4 border-t-secondary-500 [&>header]:bg-primary-50 [&>footer]:bg-earth-50" : ""} bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 ${
