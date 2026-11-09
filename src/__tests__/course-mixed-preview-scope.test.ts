@@ -5,7 +5,7 @@ import {assertReviewedReleaseEnvironment} from "../../scripts/consultation-previ
 import {musicNativeWorkflowEnabled} from "../../scripts/music-native-workflow-scope.mjs";
 import {sportsStagingEnabled} from "@/lib/sports-staging";
 const connection="postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co/postgres?sslmode=require";
-const env={VERCEL:"1",VERCEL_ENV:"preview",NODE_ENV:"production",VERCEL_PROJECT_ID:"prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR",VERCEL_GIT_COMMIT_REF:MIXED_ENROLLMENT_PREVIEW_BRANCH,VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",COURSE_MIXED_ENROLLMENT_PREVIEW:"1",SPORTS_REDESIGN_STAGING:"1",SPORTS_REDESIGN_PREVIEW:"1",DATABASE_URL:connection,DIRECT_URL:connection};
+const env={VERCEL:"1",VERCEL_ENV:"preview",NODE_ENV:"production" as const,VERCEL_PROJECT_ID:"prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR",VERCEL_GIT_COMMIT_REF:MIXED_ENROLLMENT_PREVIEW_BRANCH,VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",COURSE_MIXED_ENROLLMENT_PREVIEW:"1",SPORTS_REDESIGN_STAGING:"1",SPORTS_REDESIGN_PREVIEW:"1",DATABASE_URL:connection,DIRECT_URL:connection};
 afterEach(()=>vi.unstubAllEnvs());
 it("uses the existing migration-free Preview mode only for the exact isolated project",()=>{
  expect(()=>assertSportsRedesignPreviewEnvironment(env)).not.toThrow();
