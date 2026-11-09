@@ -130,3 +130,24 @@ it.each([false,true])('only enables scheduling after current metadata is confirm
  await act(async()=>radio.click());
  expect(Array.from(m.host.querySelectorAll('button')).find(b=>b.textContent==='新增')!.disabled).toBe(metadataPending);await m.close();
 });
+
+it('submits an open class with fixed learners and preserves the draft when either mode closes',async()=>{
+ vi.mocked(sportsStagingCommand).mockResolvedValue({success:true});
+ const m=await mount({coachId:'coach'});
+ try{
+  const query=m.host.querySelector<HTMLInputElement>('[aria-label="搜尋學員"]')!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(query,'學員');query.dispatchEvent(new Event('input',{bubbles:true}));});
+  await act(async()=>m.host.querySelector<HTMLElement>('[role="option"]')!.click());
+  await act(async()=>m.host.querySelectorAll<HTMLInputElement>('input[type="radio"]')[1].click());
+  await act(async()=>m.host.querySelector<HTMLInputElement>('[aria-label="同時安排固定學員"]')!.click());
+  expect(m.host.textContent).toContain('固定學員 1 人');expect(m.host.textContent).toContain('剩餘 7 人可自由選課');
+  await act(async()=>m.host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+  expect(vi.mocked(sportsStagingCommand).mock.calls.at(-1)![0]).toMatchObject({payload:{mode:'開放選課',capacity:8,students:['student']}});
+  await m.rerenderModes({selfBookingEnabled:true,assignedSchedulingEnabled:false});
+  expect(m.host.querySelector('[aria-label="同時安排固定學員"]')).toBeNull();
+  await act(async()=>m.host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+  expect(vi.mocked(sportsStagingCommand).mock.calls.at(-1)![0]).toMatchObject({payload:{mode:'開放選課',students:[]}});
+  await m.rerenderModes({selfBookingEnabled:true,assignedSchedulingEnabled:true});
+  expect(m.host.textContent).toContain('固定學員 1 人');
+ }finally{await m.close();}
+});

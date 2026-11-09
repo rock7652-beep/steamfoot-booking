@@ -550,7 +550,7 @@ export async function sportsStagingCommand(input: unknown) {
       const count=frequency==="SINGLE"||perpetual?1:d.count;
       // Resolve cards only after createCourseSchedule holds the Store lock and
       // has checked for an existing receipt. Retries preserve original intent.
-      const students = (d.mode === '指定學員' ? d.students : []).map(customerId=>({customerId,cardId:null}));
+      const students = d.students.map(customerId=>({customerId,cardId:null}));
       if (d.kind === "體驗") await courseManager("trial.create");
       return await result(
         createCourseSchedule({

@@ -1,0 +1,52 @@
+{
+  "kind": "music",
+  "phase": "verify",
+  "environment": "protected Vercel Preview + isolated Supabase",
+  "mocks": false,
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "elapsedMs": 3752
+    },
+    {
+      "step": "cold-calendar-data-ready",
+      "elapsedMs": 2965,
+      "pass": true
+    },
+    {
+      "step": "authoritative-database-result",
+      "pass": true,
+      "sessionId": "cmw944pcg0000lk07wc7b29e1",
+      "capacity": 4,
+      "fixedLearners": 1,
+      "booked": 2,
+      "openSeats": 2
+    },
+    {
+      "step": "reload-persists-roster",
+      "pass": true,
+      "elapsedMs": 2474
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    }
+  ],
+  "errors": []
+}
