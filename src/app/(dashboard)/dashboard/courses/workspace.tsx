@@ -401,7 +401,7 @@ export function CourseWorkspace({
     const request=++calendarRequest.current;
     calendarReadsInFlight.current++;
     const monthDate=`${date.slice(0,7)}-01`;
-    const cached=navigation?sportsCalendarReader.peek(monthDate):undefined;
+    const cached=navigation?sportsCalendarReader.snapshot(monthDate):undefined;
     const fresh=navigation?sportsCalendarReader.get(monthDate):undefined;
     const accept=(result:Awaited<ReturnType<typeof sportsCalendarReader.read>>)=>{
       if(!result.success)return;
@@ -413,7 +413,7 @@ export function CourseWorkspace({
     if(!background){setCalendarReading(!fresh?.success);setCalendarReadError("");}
     try{
       const ensured=ensure&&sportsNative&&canCreate&&!calendarSource;
-      if(!navigation)sportsCalendarReader.clear();
+      if(!navigation&&!background)sportsCalendarReader.clear();
       if(cached?.success)accept(cached);
       const result=ensured?await syncSportsCalendar(date):await (navigation?sportsCalendarReader.refresh(monthDate):sportsCalendarReader.read(monthDate));
       if(request!==calendarRequest.current)return null;
@@ -737,7 +737,8 @@ export function CourseWorkspace({
   useEffect(()=>{
     if(calendarSource||(!sportsNative&&!musicCalendar))return;
     ++calendarRequest.current;calendarTargetMonth.current=loadedDate.slice(0,7);setNativeCalendar(null);setCalendarReading(false);sportsCalendarReader.clear();setCalendarPreloadRevision(value=>value+1);
-  },[sportsNative,musicCalendar,calendarSource,sourceSessions,loadedDate,sportsCalendarReader]);
+    sportsCalendarReader.seed({success:true,data:{storeId,month:loadedDate.slice(0,7),sessions:sourceSessions,calendarDays:sourceCalendarDays,cancelledBookings:sourceCancelledBookings,staffAvailabilityExceptions:sourceStaffAvailabilityExceptions,rosterSnapshots}},`${loadedDate.slice(0,7)}-01`);
+  },[sportsNative,musicCalendar,calendarSource,sourceSessions,loadedDate,sportsCalendarReader,storeId,sourceCalendarDays,sourceCancelledBookings,sourceStaffAvailabilityExceptions,rosterSnapshots]);
   function go(date: string) {
     setCalendarReadError("");
     if(date!==selectedDate)cancelPendingTeacherNote();
