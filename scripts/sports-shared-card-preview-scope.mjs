@@ -9,6 +9,7 @@ const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   "fix/calendar-customer-preload-20261109",
   "fix/calendar-retained-months-20261109",
   "fix/calendar-preload-window-20261109",
+  "fix/production-review-screenshot-trace-20261109",
   "feat/record-list-density",
   "fix/monthly-adjustment-feedback-density",
   "fix/liff-health-change-range-20261104",
