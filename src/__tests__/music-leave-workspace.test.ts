@@ -32,3 +32,46 @@ it("never offers a full session or a session the learner already attends",async(
  expect(result.rows[0].sessions).toEqual([]);
  expect(m.coupons.mock.calls[0][0].where.closedAt).toBeNull();
 });
+
+const nativeSource = { ...leaf, card: { id: 'ordinary', requestKey: 'paid-original' } };
+const repeatedLeave = { ...leaf, id: 'makeup-leave', cardId: 'coupon', card: { id: 'coupon', requestKey: 'music-leave-makeup:leave' }, session: { ...leaf.session, id: 'makeup-session', startsAt: new Date('2026-10-20T02:00Z') } };
+it('counts a repeated coupon leave under its original entitlement, not as another pending right', async () => {
+ m.bookings.mockReset().mockResolvedValueOnce([repeatedLeave, nativeSource]).mockResolvedValue([{ id: 'makeup-leave', cardId: 'coupon', status: 'CANCELLED', absenceKind: 'STUDENT_LEAVE', session: repeatedLeave.session }]);
+ m.coupons.mockResolvedValue([{ id: 'coupon', requestKey: 'music-leave-makeup:leave' }]);
+ const result = await getMusicLeaveWorkspace('store', [{ id: 'student', name: 'Learner' }]);
+ expect(result.rows).toHaveLength(1);
+ expect(result.rows[0]).toMatchObject({ id: 'leave', state: '待安排', issue: null, cardId: 'coupon' });
+ expect(result.rows.filter(r=>r.state==='待安排')).toHaveLength(1);
+});
+it('shows one scheduled right after a cancelled makeup is rebooked', async () => {
+ m.bookings.mockReset().mockResolvedValueOnce([repeatedLeave, nativeSource]).mockResolvedValue([{ id: 'old', cardId: 'coupon', status: 'CANCELLED', absenceKind: 'STUDENT_LEAVE', session: repeatedLeave.session }, { id: 'new', cardId: 'coupon', status: 'RESERVED', session: { ...repeatedLeave.session, id: 'new-session' } }]);
+ m.coupons.mockResolvedValue([{ id: 'coupon', requestKey: 'music-leave-makeup:leave' }]);
+ const result = await getMusicLeaveWorkspace('store', [{ id: 'student', name: 'Learner' }]);
+ expect(result.rows).toHaveLength(1);
+ expect(result.rows[0]).toMatchObject({ state: '已安排', issue: null, booking: { id: 'new-session' }, sessions: [] });
+});
+it('keeps an unmatched coupon leave visible as needing review, never as an arrangeable right', async () => {
+ m.bookings.mockReset().mockResolvedValueOnce([repeatedLeave]).mockResolvedValue([]);
+ m.coupons.mockResolvedValue([]);
+ const result = await getMusicLeaveWorkspace('store', [{ id: 'student', name: 'Learner' }]);
+ expect(result.rows).toHaveLength(1);
+ expect(result.rows[0]).toMatchObject({ state: '需處理', issue: '請從原課堂核對補課資格', sessions: [] });
+});
+it('does not hide another student’s unmatched leave behind a similarly named source', async () => {
+ m.bookings.mockReset().mockResolvedValueOnce([repeatedLeave, { ...nativeSource, customerId: 'other' }]).mockResolvedValue([]);
+ const result = await getMusicLeaveWorkspace('store', [{ id: 'student', name: 'Learner' }, { id: 'other', name: 'Other' }]);
+ expect(result.rows.some(r=>r.id==='makeup-leave' && r.customerId==='student' && r.state==='需處理')).toBe(true);
+});
+it('folds a pilot coupon repeat leave without changing the pilot source eligibility', async () => {
+ m.bookings.mockReset().mockResolvedValueOnce([{ ...repeatedLeave, card: { id: 'coupon', requestKey: 'yjy-pilot-makeup:leave' } }, leaf]).mockResolvedValue([]);
+ const result = await getMusicLeaveWorkspace('store', [{ id: 'student', name: 'Learner' }]);
+ expect(result.rows).toHaveLength(1);
+ expect(result.rows[0]).toMatchObject({ id: 'leave', separate: true, cardId: 'coupon', state: '待安排' });
+});
+it('retains a repeat leave for review when its source is outside the bounded result', async () => {
+ const unrelated = Array.from({ length: 999 }, (_, i) => ({ ...nativeSource, id: `other-${i}` }));
+ m.bookings.mockReset().mockResolvedValueOnce([repeatedLeave, ...unrelated, nativeSource]).mockResolvedValue([]);
+ const result = await getMusicLeaveWorkspace('store', [{ id: 'student', name: 'Learner' }]);
+ expect(result.truncated).toBe(true);
+ expect(result.rows.some(r=>r.id==='makeup-leave' && r.state==='需處理')).toBe(true);
+});
