@@ -25,4 +25,17 @@
 
 結果與代表截圖：`artifacts/course-single-charge-validation-20261109/lifecycle/`。桌機／iPad 名單與排課沿用前述三尺寸；會員選課在 390×844 執行。額外購課流程使用 1366×900；未宣稱實體裝置或付款閘道驗收（CARD 為店長實際收款登錄）。
 
-Hosted Preview 首輪運動完整流程成功；音樂課表發現既有期初資料讀取沿用舊 Preview 分支限制，錯誤 digest `2168097698`。補上混合排課的嚴格隔離 profile，僅放行封存資料讀取；歷史匯入 gate 未變更，新增測試確認 production／錯誤專案／正式 DB／外發憑證仍被拒絕。Hosted 最終結果待下方補錄。
+Hosted Preview 首輪運動完整流程成功；音樂課表發現既有期初資料讀取沿用舊 Preview 分支限制，錯誤 digest `2168097698`。補上混合排課的嚴格隔離 profile，僅放行封存資料讀取；歷史匯入 gate 未變更，新增測試確認 production／錯誤專案／正式 DB／外發憑證仍被拒絕。Hosted 最終結果如下。
+
+
+## 受保護 Hosted Preview 最終結果
+
+- 最終程式版本 `c8b8b9a264ceff9699948a027b47243c78eb0f5d`，Vercel Preview `dpl_Fr4WqJP8RJ2eh6ZeAtkoLaDjCjAz` READY，隔離 Supabase `ttworfzgwejdeolegkxl`。沒有 migration 或正式 DB 寫入。
+- 使用者明確允許僅限隔離 Preview 的 23 小時存取連結；連結與應用程式密碼均僅存私有測試檔案。音樂和運動均以真實 OWNER／CUSTOMER 登入、server actions／交易與獨立只讀 SQL 核對，無 mocks。
+- 運動完整購課／選課／扣還堂於前一版 `6603c5fa` 的 `dpl_4tQUu2yvTYv4ugvGqQyhVAj4vtUL` 通過；該版發現音樂封存讀取的隔離限制。修正只影響此項讀取 gate。音樂完整流程於最終版通過，兩模組最後均於最終版重新登入、重開課表／名單與獨立 DB 核對。
+- 四筆購課各 800、CONFIRMED，最終各剩 1 堂；每班容量 4、固定 1 人＋自行選課 1 人、剩 2 位。兩人出席扣至 0、更正回 1；固定學員免扣堂請假回 1，課程仍開放，恢復預約後仍為 1。
+- 最終版兩模組名單重開與 1366×900／1024×768／768×1024 檢查通過，會員選課 390×844。測試腳本修正了隱藏租借欄位同名、歷史列表多堂課、補課按鈕同名前綴、hydration 等待及 SQL 無排序等驗收定位問題；沒有用 SQL 建立購課、預約或扣還堂結果。
+- 任務結束已撤銷兩個暫時連結；8 個自建帳號停用並清空密碼、2 位自建 staff 停用、自己的課程／方案／教室停用，測試課堂及預約取消。四筆合成收款與稽核紀錄保留在隔離 DB。音樂 selfBooking 暫時啟用以 revision 9→10 進行測試，再以 CAS 恢復 false、revision 11；沒有覆寫其他修改。獨立核對 activeUsers／activeStaff／openSessions／reservedBookings 全為 0。
+- 程式版同 SHA 的完整 Vitest、Targeted、Typecheck、ESLint、mixed-enrollment PostgreSQL 與 Vercel checks 通過。Cloudflare Workers 外部 build 仍失敗，現行 main `2d39215d` 也有相同失敗（build `467821bd-af3a-4e4d-a436-959e8e25bb7d`）；未取得遠端原因、未修改 Cloudflare 設定。正式網域現有路徑為 Vercel，這項失敗未宣稱已修復。
+
+結果與截圖：`artifacts/course-single-charge-validation-20261109/hosted/`。這補齊 Hosted 驗收缺口；不代表正式站已部署／正式資料寫入驗收、實體裝置或外部付款及通知送達驗收。PR #1528 尚未合併，沒有正式發布。最終附件補錄只新增文件與證據，沿用上述程式版 Preview。
