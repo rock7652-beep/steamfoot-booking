@@ -1,0 +1,566 @@
+{
+  "date": "2026-11-09",
+  "timezone": "Asia/Taipei",
+  "branch": "feat/mixed-course-enrollment-20261109",
+  "baseCommit": "236d637dd9f03f9824bdd92841457e7e9d2a86f3",
+  "deliveryState": "PR #1526; latest main integrated; authenticated local acceptance passed. Live final CI/deployment conclusions are maintained in the PR description and check runs; production unchanged.",
+  "behavior": {
+    "modules": [
+      "music",
+      "sports"
+    ],
+    "entry": "新增排課 → 開放選課 → 同時安排固定學員",
+    "sharedCapacity": true,
+    "requiresBothSchedulingModes": true,
+    "fixedSeriesRetainsRoster": true,
+    "leaveKeepsMixedClassOpen": true,
+    "sportsFixedRights": "assigned rights for original scheduled reservations",
+    "sportsSelfBookingRights": "open rights, including self-rebooking after cancellation"
+  },
+  "verification": {
+    "targetedRegression": {
+      "files": 19,
+      "tests": 280,
+      "result": "passed"
+    },
+    "finalBalanceRegression": {
+      "files": 2,
+      "tests": 20,
+      "result": "passed",
+      "note": "overlaps targeted regression"
+    },
+    "finalGuideRegression": {
+      "files": 3,
+      "tests": 10,
+      "result": "passed",
+      "note": "partly overlaps targeted regression"
+    },
+    "typescript": {
+      "command": "node --max-old-space-size=12288 node_modules/typescript/bin/tsc --noEmit --incremental --tsBuildInfoFile /tmp/course-mixed-enrollment.tsbuildinfo",
+      "result": "passed after adding PostgreSQL tests"
+    },
+    "eslint": {
+      "result": "no errors",
+      "preExistingWarnings": [
+        "src/server/actions/course.ts: unused musicStore in moveCourseSessions"
+      ]
+    },
+    "diffCheck": "passed",
+    "browser": {
+      "command": "node scripts/qa/course-mixed-enrollment-browser.mjs",
+      "environment": "local Vite, Chromium, actual form components, 30 synthetic customers, stubbed server actions",
+      "results": [
+        {
+          "module": "音樂",
+          "width": 1366,
+          "height": 900,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "音樂",
+          "width": 1920,
+          "height": 1080,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "音樂",
+          "width": 1024,
+          "height": 768,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "音樂",
+          "width": 768,
+          "height": 1024,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "音樂",
+          "width": 560,
+          "height": 800,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "音樂",
+          "width": 390,
+          "height": 844,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "運動",
+          "width": 1366,
+          "height": 900,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "運動",
+          "width": 1920,
+          "height": 1080,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "運動",
+          "width": 1024,
+          "height": 768,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "運動",
+          "width": 768,
+          "height": 1024,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "運動",
+          "width": 560,
+          "height": 800,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "運動",
+          "width": 390,
+          "height": 844,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        }
+      ]
+    },
+    "postgresqlIntegration": {
+      "result": "passed",
+      "database": "PostgreSQL 16, one dedicated loopback-only Docker container, database course_mixed_test",
+      "suites": [
+        {
+          "path": "src/__tests__/course-mixed-enrollment.pg.test.ts",
+          "passed": 23
+        },
+        {
+          "path": "src/__tests__/sports-card-modes.pg.test.ts",
+          "passed": 10
+        },
+        {
+          "path": "src/__tests__/item-core-flows.pg.test.ts",
+          "testNamePattern": "sports:|music:",
+          "passed": 4,
+          "excluded": 3
+        }
+      ],
+      "passedTotal": 37,
+      "schema": "Generated current course Prisma schema, actual music ledger table DDL and period uniqueness, actual point-entry constraints, isolated metadata tables; random per-suite schemas are removed by afterAll.",
+      "boundariesReplaced": [
+        "session authorization",
+        "deployment readiness/storage selection",
+        "outbound delivery and Next after callbacks",
+        "test booking horizon and feature capabilities"
+      ],
+      "verified": [
+        "real scheduling action and idempotency",
+        "fixed and public seats share capacity",
+        "parallel last-seat reservations",
+        "parallel fixed attendance debits once",
+        "original fixed rights versus self-rebooking open rights",
+        "member leave and public class availability",
+        "queue replay, promotion, pause/re-enable",
+        "debit, duplicate attendance and correction restoration",
+        "later database failure rolls back earlier reservations and audit; nontransactional sequence proves both insert attempts reached the database",
+        "invalid duplicate/oversized fixed rosters",
+        "both scheduling switches reject stale new requests while existing attendance remains usable",
+        "subsequent music and sports fixed occurrences preserve their fixed rosters",
+        "existing music/sports purchase, FIFO and restoration regression"
+      ],
+      "testHarnessRepair": "Added missing assertSportsBookingReadReady deployment-boundary mock to the two existing PostgreSQL suites.",
+      "preliminaryBaselineNote": "Initial broad baseline also included an unrelated beauty fixture with a missing e.startsAt column; beauty and optional hosted UI tests were excluded from the final music/sports regression and are not claimed as passed.",
+      "commands": [
+        "BOOKING_CONCURRENCY_TEST_DATABASE_URL=<dedicated-loopback-_test-database> node node_modules/vitest/vitest.mjs run src/__tests__/course-mixed-enrollment.pg.test.ts src/__tests__/sports-card-modes.pg.test.ts",
+        "BOOKING_CONCURRENCY_TEST_DATABASE_URL=<same-isolated-database> node node_modules/vitest/vitest.mjs run src/__tests__/item-core-flows.pg.test.ts -t 'sports:|music:'"
+      ],
+      "logs": [
+        "/tmp/course-mixed-pg-tests.log",
+        "/tmp/course-item-pg-regression.log"
+      ],
+      "cleanup": {
+        "container": "f882271af2e0dce37ec141253c179202835586ff6a0c6abb5760cc36b2ad1231",
+        "result": "removed; temporary database data was stored in tmpfs"
+      }
+    },
+    "postgresqlTestLint": {
+      "result": "passed with no warnings or errors",
+      "files": 3
+    },
+    "previewIsolation": {
+      "result": "passed",
+      "vitestTests": 63,
+      "nodeTests": 5,
+      "automaticGitDeploy": "disabled only for this feature branch",
+      "project": "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR",
+      "database": "steamfoot-preview / ttworfzgwejdeolegkxl",
+      "migrations": "existing sports-redesign-preview skips migrations",
+      "notifications": "generic Preview outbound lock plus branch-scoped empty delivery credentials",
+      "stores": [
+        "store-lubymusic",
+        "sports-live-flow-store"
+      ]
+    },
+    "protectedPreview": {
+      "result": "READY; authenticated browser acceptance not run",
+      "deploymentId": "dpl_7EoemQRQA9ruHXcGtLsKKZoVWSHH",
+      "url": "https://steamfoot-booking-7unl5n39b-rock7652-2111s-projects.vercel.app",
+      "sourceCommit": "39fa22bbe1f4f89d980c326f5bd676c2e72fd5a4",
+      "target": "preview",
+      "project": "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR",
+      "database": "ttworfzgwejdeolegkxl",
+      "protection": "existing Vercel SSO protection retained",
+      "build": "compile, TypeScript and deployment passed",
+      "earlierBuilds": "Two builds stopped safely at the isolation guard for inherited nonempty delivery credential names; branch-only empty overrides added, then build passed. No migration ran.",
+      "accessBlocker": {
+        "action": "vercel_get_access_to_vercel_url",
+        "result": "rejected by automatic approval review; no share link created",
+        "reason": "Bearer share link would allow anyone possessing it to access for 23 hours, beyond authorized protected access.",
+        "safeAccessChecked": "No callable connected Browser extension tool, existing CLI auth, or short-lived OIDC token available. No protection bypass or substitute share-link tool attempted.",
+        "requiredNextStep": "Obtain normal authenticated browser access before hosted UI acceptance."
+      },
+      "dataWrites": "No remote synthetic accounts, schedules, store settings, or QA role changes executed.",
+      "production": "No production deployment, database write or notification delivery.",
+      "followUp": "Final integrated deployment is recorded in PR #1526; this entry preserves the original protected Preview and access rejection evidence."
+    },
+    "authenticatedLocalBrowser": {
+      "result": "passed",
+      "command": "node scripts/qa/course-mixed-enrollment-local.mjs",
+      "environment": "Real loopback Next 16.2.2 development server; real credentials, session authorization, actions, PostgreSQL16; no mocks",
+      "isolation": "Dedicated loopback Docker container, synthetic stores/accounts/learners, no delivery credentials or external customer identities",
+      "flows": [
+        {
+          "kind": "music",
+          "phase": "save",
+          "environment": "loopback Next development + dedicated PostgreSQL",
+          "mocks": false,
+          "complete": true,
+          "checks": [
+            {
+              "step": "actual-login",
+              "pass": true,
+              "elapsedMs": 1692
+            },
+            {
+              "step": "cold-calendar-data-ready",
+              "elapsedMs": 1136,
+              "pass": true
+            },
+            {
+              "step": "mixed-form-resize-retains-draft",
+              "width": 1366,
+              "height": 900,
+              "pass": true
+            },
+            {
+              "step": "mixed-form-resize-retains-draft",
+              "width": 1024,
+              "height": 768,
+              "pass": true
+            },
+            {
+              "step": "mixed-form-resize-retains-draft",
+              "width": 768,
+              "height": 1024,
+              "pass": true
+            },
+            {
+              "step": "real-server-action-confirmed",
+              "pass": true,
+              "url": "http://localhost:3107/s/lubymusic/admin/dashboard/courses?view=schedule&date=2030-11-04"
+            },
+            {
+              "step": "authoritative-database-result",
+              "pass": true,
+              "sessionId": "cmw91d40g0003l88tk7m1j6e0",
+              "capacity": 4,
+              "fixedLearners": 1,
+              "openSeats": 3
+            },
+            {
+              "step": "reload-persists-roster",
+              "pass": true,
+              "elapsedMs": 746
+            },
+            {
+              "step": "persisted-roster-responsive",
+              "width": 1366,
+              "height": 900,
+              "pass": true
+            },
+            {
+              "step": "persisted-roster-responsive",
+              "width": 1024,
+              "height": 768,
+              "pass": true
+            },
+            {
+              "step": "persisted-roster-responsive",
+              "width": 768,
+              "height": 1024,
+              "pass": true
+            }
+          ],
+          "errors": [],
+          "saveButton": {
+            "enabled": true,
+            "text": "新增"
+          }
+        },
+        {
+          "kind": "sports",
+          "phase": "save",
+          "environment": "loopback Next development + dedicated PostgreSQL",
+          "mocks": false,
+          "complete": true,
+          "checks": [
+            {
+              "step": "actual-login",
+              "pass": true,
+              "elapsedMs": 5921
+            },
+            {
+              "step": "cold-calendar-data-ready",
+              "elapsedMs": 2897,
+              "pass": true
+            },
+            {
+              "step": "mixed-form-resize-retains-draft",
+              "width": 1366,
+              "height": 900,
+              "pass": true
+            },
+            {
+              "step": "mixed-form-resize-retains-draft",
+              "width": 1024,
+              "height": 768,
+              "pass": true
+            },
+            {
+              "step": "mixed-form-resize-retains-draft",
+              "width": 768,
+              "height": 1024,
+              "pass": true
+            },
+            {
+              "step": "real-server-action-confirmed",
+              "pass": true,
+              "url": "http://localhost:3107/s/sports-live-flow/admin/dashboard/courses?view=schedule&date=2030-11-04"
+            },
+            {
+              "step": "authoritative-database-result",
+              "pass": true,
+              "sessionId": "cmw91cvqt0000l88tsq7nswje",
+              "capacity": 4,
+              "fixedLearners": 1,
+              "openSeats": 3
+            },
+            {
+              "step": "reload-persists-roster",
+              "pass": true,
+              "elapsedMs": 2354
+            },
+            {
+              "step": "persisted-roster-responsive",
+              "width": 1366,
+              "height": 900,
+              "pass": true
+            },
+            {
+              "step": "persisted-roster-responsive",
+              "width": 1024,
+              "height": 768,
+              "pass": true
+            },
+            {
+              "step": "persisted-roster-responsive",
+              "width": 768,
+              "height": 1024,
+              "pass": true
+            }
+          ],
+          "errors": [],
+          "saveButton": {
+            "enabled": true,
+            "text": "新增"
+          }
+        }
+      ],
+      "artifacts": "artifacts/course-mixed-enrollment-20261109",
+      "cleanup": "Task-owned Next process and PostgreSQL container removed after the complete successful run",
+      "limits": "Not hosted Vercel SSO, physical iPad, real notification delivery, or production migration acceptance; elapsed times are single development observations, not production performance benchmarks."
+    },
+    "integratedRegression": {
+      "result": "passed",
+      "unitFiles": 12,
+      "unitTests": 209,
+      "isolationFiles": 4,
+      "isolationTests": 93,
+      "note": "Overlapping test sets; do not add their counts. PostgreSQL33+4 rerun after main integration also passed.",
+      "typescript": "passed on preceding integration; latest exact-head CI Typecheck is tracked in PR #1526",
+      "lint": "no errors; existing unused musicStore warning only"
+    },
+    "cloudflare": {
+      "result": "existing external check failure; not passed",
+      "featureBuild": "b89a82c4-6030-406a-bc0d-7f668696bd93",
+      "mainCommit": "e20df39e",
+      "mainBuild": "2d0b1bb8-da2c-4321-934b-fa37b376f24c",
+      "mainAlsoFails": true,
+      "currentReleaseRoute": "Vercel project prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR has verified production www.steamfoot.com; steamfoot.com redirects to www",
+      "mergeRules": "2026-11-09 current read: main protected=false and branch rules=[]; no policy changed",
+      "remoteLogs": "No callable Cloudflare tool or credential; exact remote failure stage unknown. No platform settings changed."
+    },
+    "latestCalendarIntegration": {
+      "main": "5b5b8716100ac4c998d4c294f8a7faa6d1e0895c",
+      "tests": 70,
+      "files": 4,
+      "result": "passed",
+      "authenticatedBrowserRerun": "Both music and sports passed after integrating retained-calendar snapshots; no browser errors; authoritative database and responsive roster checks passed."
+    }
+  },
+  "limitations": [
+    "Browser dimensions were emulated; no physical iPad or mobile-device claim.",
+    "Production database migrations/readiness and deployment integrations were not tested; disposable fixture schema details are listed above.",
+    "Protected Preview deployed successfully; hosted authenticated browser-to-database acceptance remains blocked by unavailable normal browser authentication. No production deployment, production data write, or notification delivery.",
+    "Full authenticated local browser acceptance passed; hosted Vercel authentication remains unverified. Cloudflare external build failure is recorded separately with current production route and main baseline evidence."
+  ],
+  "changedFileSha256": {
+    ".github/workflows/course-mixed-enrollment-audit.yml": "ced6b2a2bd3403b09139b6ab8db46bf164aedb07d5d36f0ae9d6e3d1c68f2557",
+    "artifacts/course-mixed-enrollment-20261109/music-mixed-form-1024.png": "f0a2cc438f65b8ef7b748acfdd4c5fd90b0fa2e2fdc6afcf6a24fc68d77328c0",
+    "artifacts/course-mixed-enrollment-20261109/music-mixed-form-1366.png": "2043d7f1b19efc5069c1dc8436dffc74eaf57fe814ad9d6251b961cb96302f6e",
+    "artifacts/course-mixed-enrollment-20261109/music-mixed-form-768.png": "505cf16e60b599a16aa389e38aa9ca5e7948ee431245d634c4f7eac1a92bc295",
+    "artifacts/course-mixed-enrollment-20261109/music-results.json": "98194d157bdfa3a185def52ec6ef06576cbc681fd7125d390ae154a94eec8e9a",
+    "artifacts/course-mixed-enrollment-20261109/music-roster-1024.png": "e28811d23b2558062eabdb7472459b327afc0537e7440d16822f8590ec9bb907",
+    "artifacts/course-mixed-enrollment-20261109/music-roster-1366.png": "99d38cdfe987f922942d01ce2163dda10dd0f71210fd6869a97651d5328274b1",
+    "artifacts/course-mixed-enrollment-20261109/music-roster-768.png": "85ae9e31f4a8b993017922a44af02767a5846ac9b84609e2f28db0629b26543d",
+    "artifacts/course-mixed-enrollment-20261109/sports-mixed-form-1024.png": "73f5cf746681713ceb0018f5fa584cd5adf95ac87ddc8f37640f758f0e9680d5",
+    "artifacts/course-mixed-enrollment-20261109/sports-mixed-form-1366.png": "f4c8dfca32b8263bc27e358a8a0d76af880b0eee33da93bca94beabcc773e9d0",
+    "artifacts/course-mixed-enrollment-20261109/sports-mixed-form-768.png": "f2be8f3d36566c9cce12023c14dfee59f73ec5c8f28de06f36a8c0d14bdc489f",
+    "artifacts/course-mixed-enrollment-20261109/sports-results.json": "4c6a25bb5e0490d77360efb45efca5e52ecce911678a63e949c9f7532da21543",
+    "artifacts/course-mixed-enrollment-20261109/sports-roster-1024.png": "dfd2c959dbcd4f99b856b4dab58c870bc899257f513fcca3a4475dd97951f57b",
+    "artifacts/course-mixed-enrollment-20261109/sports-roster-1366.png": "888708427d26b86fffbf1d13d62d3fc91e887d6597dedf84c054f17067cc0a5d",
+    "artifacts/course-mixed-enrollment-20261109/sports-roster-768.png": "907deffb5c2f3805ceaaca744447ee9917649e11a7452956c0d3c60f3091b7eb",
+    "docs/course-decisions.md": "8721d1da7418cf6d4e2305bb0647f5ba6dd35ac2dae09e20e52f60acebc16783",
+    "docs/verification/course-mixed-enrollment-local.md": "fbad2a50edf76ee59ecac3c1f4b52be72e9602ed4e478bfc9a04a051f1c761dc",
+    "scripts/consultation-preview-scope.mjs": "767dabbf7fe5015603f04230fc884641212c73d89e23d589948554645dd74f08",
+    "scripts/music-native-workflow-scope.mjs": "bcc9d9f0cb09d23b1a9d32bcefcc9dd99921871d62247a445eefd3c804703e24",
+    "scripts/qa/course-mixed-enrollment-browser.mjs": "e8fa89a3200c6bc9aa8f974b4c7d2cbb8f7d634874e006545237017055a768dd",
+    "scripts/qa/course-mixed-enrollment-fixture.tsx": "8fe82038b38a0735927214871e14be6e82598f7257d898f6766b85e4d5071859",
+    "scripts/qa/course-mixed-enrollment-local-browser.mjs": "10ab8c5fdb3e350355ff6e34c0279ef1a2fe89c55e4406a0b1de0a9d592d9fcf",
+    "scripts/qa/course-mixed-enrollment-local-seed.ts": "0f17d156e6f1b24e743260957219f29564c95495357475881495b3de380dff76",
+    "scripts/qa/course-mixed-enrollment-local.mjs": "2ba39cbf14886837491959f7e12c49494c6a02f05eb0e5ff6353eb062731edca",
+    "scripts/sports-redesign-preview-scope.mjs": "ecb24625c8e6265b676f66cff928bc061666add80cd6a41021656d0d804dbbf5",
+    "scripts/sports-shared-card-preview-scope.mjs": "a108ded115c351286277e1064a52ae5fe24fbce284fff0374cba746b17e4d989",
+    "src/__tests__/course-actions.test.ts": "047a93dddd4d72263ea91090579a8526cde4a5b063458e2c0aa60bab1fa90dd9",
+    "src/__tests__/course-mixed-enrollment.pg.test.ts": "1670d12be52b8d226b0b33ac48a556fd03bdfb9b83578a28c3e33e750dec5429",
+    "src/__tests__/course-mixed-preview-scope.test.ts": "d5c352a7a18f1da03bab81ee9bab87b165cd10caa3c125ecd77d0a6783895969",
+    "src/__tests__/course-mixed-release.test.ts": "93968e6b3941e430c324ea2d16ce2a3e2e2d6e76a702debfb76a4963f260435e",
+    "src/__tests__/course-schedule-check.test.ts": "c7f159a06730d119e23de44d8c3b9f82ed45fb2779f13008bc02141b362b8bd3",
+    "src/__tests__/course-shared-card-booking.test.ts": "6385ee989872c245312f8e08bc5e2318b78b29f29df1201c0a79543a83ebb2b0",
+    "src/__tests__/item-core-flows.pg.test.ts": "24b6dd869e7849060b6d1cd6df42846ea3db5d69eafa88dd1e52fcd66fda73de",
+    "src/__tests__/music-schedule-dropdowns.test.ts": "27329720cf0b08b7371249aa7d147f52c675402431dbf19978dd465b37a32799",
+    "src/__tests__/operation-guide-daily-20261019.test.ts": "8673486bb65b0aee8af58516d19a478d911b0409d0dbd16eaa75ca3d19d37f75",
+    "src/__tests__/operation-guide-daily-20261021.test.ts": "855edac08c545f0d4fddb1c0bfe7ecfbff65d65b9b6da490fe59396021e181eb",
+    "src/__tests__/sports-card-modes.pg.test.ts": "c37ff87ee91d17aa45e26748aa9d3b3087bca0ac67741e283082a13b7573b1e1",
+    "src/__tests__/sports-entitlement.test.ts": "4fdb215a13cfcc0227fe10e3d19a54000a933f3fada9425f7edf64a199047950",
+    "src/__tests__/sports-permanent-series.test.ts": "39b234182d7e7b6e8debe5054c0f070834372cb04dffc0fdefb066cb11f7024a",
+    "src/__tests__/sports-roster-balance.test.ts": "f40680ead83f11c0baa9833752fdb11b5443f63af563ce1d231a645b10d074ae",
+    "src/__tests__/sports-schedule-allocation.test.ts": "6392eb7badb61f7fa58f0c9f4b4ffa6507a5ccdfbf7fc50674983666ff813645",
+    "src/__tests__/sports-schedule-compensation-access.test.ts": "598690b266fe4e0e56819c0437abee6fd8e85796da5821135a645a7b426cede6",
+    "src/__tests__/sports-schedule-native-ui.test.ts": "92b4d581ff0f200596d7d3749986a1405a60aaabd2a03cd16a8f8285684ab0c7",
+    "src/app/(dashboard)/dashboard/courses/music-schedule-wizard.tsx": "12350c3a5ccfa134c185a800f99e14e9268b322560430664671ae152eaf34f34",
+    "src/app/(dashboard)/dashboard/courses/sports-schedule-fields.tsx": "8bdb4c804bb279717d6e664e32809ee2a186733ac7c9624019601add814f950b",
+    "src/components/admin/course-fixed-learners-toggle.tsx": "5ff0673e3026db1cff5bc160f82a7bec00ff3bfbf5baffb6beb0f34e0037f9d4",
+    "src/lib/operation-guide-daily-20261019.ts": "373d21a7dbfdc72fdcba94297103528c0073ae9d79c8bb17a27049fddbf24084",
+    "src/lib/operation-guide-daily-20261025.ts": "f9dc18f51477a50ffd43a880e529582ac7b06bda9e6f5c6305c1e5274c637643",
+    "src/lib/sports-entitlement.ts": "f5038384ce52e797f173ca3874b3cfb4b23e6c81112dd145acbb66ae01fb0873",
+    "src/lib/sports-native-preview.ts": "2a6e4e9bd7650e19e3cf536baac7f064164478586cd2d18f9efc1025ea371c83",
+    "src/lib/sports-staging.ts": "6f70388f96a3868fca66fbd53d2e0eb541ff8e7dd8d6c845a4b1292f03211959",
+    "src/server/actions/course-schedule-check.ts": "296f3b2527b5823419add42c665ce7a7f17bde556ef7bb7c626e967a53759545",
+    "src/server/actions/course.ts": "007a76c35628de5e7833d1ee05d9c0cf509106073fa920bb413be53c8185a6e0",
+    "src/server/actions/sports-staging.ts": "c74a1b9dbb43d71b1f0df232650fa37d314010ef35fb3febee66adac2486e8b7",
+    "src/server/queries/course-members.ts": "39bfbc938cb83ddf88fb46f0c206b2a8244c1c55bb0a8efe580f17a132db7503",
+    "src/server/services/course-booking.ts": "8eed183e8fada285b06434ba6f2892c9f95d7c8b0ff12736a6c1e543b19b589d",
+    "src/server/services/course-item-attendance.ts": "f494bc7b5ec6d78a9d62f94d44bc5788b85666c2ed34e23c9dba8859994baee9",
+    "src/server/services/sports-permanent-series.ts": "da0f678e11abb3cb44b6f2c04aa7dff0a09a63ffd73dae8f8b0e51c2b9e096f9",
+    "src/server/services/sports-roster-balance.ts": "72071f3d1d9dcb7a167758f924e9be870b81ec925bfb191fe150d2781bddb772",
+    "src/server/services/sports-staging-schedule.ts": "ba8acde5144e9920c81c741643147cdb2cbb1bd2da79e49e259f8a7fcccd041a",
+    "vercel.json": "69cbda6982ec1d16262fc472a7147d5243338a32d5a31d7074c2bc858cd60262"
+  },
+  "authorization": {
+    "preview": "User requested next step after isolated DB acceptance; authenticated isolated Preview acceptance authorized; no production release.",
+    "production": "not authorized"
+  },
+  "pullRequest": "https://github.com/rock7652-beep/steamfoot-booking/pull/1526",
+  "integratedMain": "5b5b8716100ac4c998d4c294f8a7faa6d1e0895c"
+}

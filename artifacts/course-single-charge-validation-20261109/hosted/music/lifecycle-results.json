@@ -1,0 +1,83 @@
+{
+  "kind": "music",
+  "complete": true,
+  "mocks": false,
+  "checks": [
+    {
+      "step": "purchase-receipt",
+      "customerId": "qa-life-20261109-963c7d-music-student-0",
+      "status": "CONFIRMED",
+      "price": 800,
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "purchase-receipt",
+      "customerId": "qa-life-20261109-963c7d-music-student-1",
+      "status": "CONFIRMED",
+      "price": 800,
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "member-self-booked-mixed-class",
+      "bookingId": "cmw949uw20001jp08byd3mhzu",
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-life-20261109-963c7d-music-student-0",
+      "status": "ATTENDED",
+      "remaining": 0,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-life-20261109-963c7d-music-student-0",
+      "status": "RESERVED",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-life-20261109-963c7d-music-student-1",
+      "status": "ATTENDED",
+      "remaining": 0,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-life-20261109-963c7d-music-student-1",
+      "status": "RESERVED",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-life-20261109-963c7d-music-student-0",
+      "status": "ATTENDED",
+      "remaining": 0,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-life-20261109-963c7d-music-student-0",
+      "status": "CANCELLED",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "fixed-leave-keeps-public-class-open",
+      "pass": true
+    },
+    {
+      "step": "leave-restored",
+      "status": "RESERVED",
+      "remaining": 1,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "environment": "protected Vercel Preview + isolated Supabase",
+  "fixturePrefix": "qa-life-20261109-963c7d"
+}

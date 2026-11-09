@@ -49,6 +49,10 @@ it("reports a rental on a later date and checks unpaid assigned students on ever
  m.bookings.mockResolvedValue([{customerId:"a",customerName:"小安",session:{startsAt:new Date("2099-10-08T10:00:00Z"),endsAt:new Date("2099-10-08T11:00:00Z")}}]);
  expect(await inspectCourseSchedule({...input,enrollmentMode:"ASSIGNED",learners:[{customerId:"a",cardId:null}]})).toMatchObject({success:true,issues:[{date:"2099-10-08",reason:"18:00 教室已有租借"},{date:"2099-10-08",reason:"小安同時段已有課"}]});
 });
+it("checks an unpaid fixed learner on every date of an open music batch",async()=>{
+ m.bookings.mockResolvedValue([{customerId:"a",customerName:"小安",session:{startsAt:new Date("2099-10-08T10:00:00Z"),endsAt:new Date("2099-10-08T11:00:00Z")}}]);
+ expect(await inspectCourseSchedule({...input,enrollmentMode:"OPEN",learners:[{customerId:"a",cardId:null}]})).toMatchObject({success:true,issues:[{date:"2099-10-08",reason:"小安同時段已有課"}]});
+});
 
 it("does not disclose another staff member's students in an assigned preview",async()=>{
  m.customers.mockResolvedValue(0);

@@ -16,7 +16,7 @@ import { lockCourseStore } from "@/server/services/course-store-lock";
 // Authorization/environment boundary only: business reads/writes and store locks use PostgreSQL.
 vi.mock("@/lib/sports-native-preview", () => ({ sportsNativePreview: () => true }));
 vi.mock("@/lib/sports-staging", () => ({ requireSportsStaging: vi.fn(), sportsStagingEnabled: () => true }));
-vi.mock("@/server/services/sports-production-readiness", () => ({ sportsRulesAvailable: async () => true, assertSportsProductionReady: vi.fn() }));
+vi.mock("@/server/services/sports-production-readiness", () => ({ sportsRulesAvailable: async () => true, assertSportsProductionReady: vi.fn(), assertSportsBookingReadReady: vi.fn() }));
 vi.mock("@/lib/feature-gate", () => ({ getStoreLimitsByStoreId: async () => ({ maxMonthlyBookings: null }) }));
 vi.mock("@/server/services/course-business-profile", () => ({ isMusicCourseStore: async () => false }));
 vi.mock("@/server/services/course-access", () => ({ courseTransaction: vi.fn() }));

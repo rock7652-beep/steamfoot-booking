@@ -1,4 +1,21 @@
 import { z } from "zod";
+const fixedRoster = z.object({ students: z.array(z.object({ customerId: z.string() })) });
+
+/** Open seats keep open-card rights. Only a persisted scheduling reservation
+ * for a named fixed learner uses assigned rights in a mixed class. Rejoining
+ * through self booking (including after leave) remains an open reservation. */
+export function sportsBookingEnrollment(
+  rule: { enrollment: string; payload?: unknown },
+  booking: { customerId?: string | null; companionIndex?: number | null; requestKey: string; session: { id: string; requestKey: string; requestIndex: number } },
+): "ASSIGNED" | "OPEN" | null {
+  if (rule.enrollment === "ASSIGNED") return "ASSIGNED";
+  if (rule.enrollment !== "OPEN") return null;
+  const roster = fixedRoster.safeParse(rule.payload);
+  if (!booking.companionIndex && booking.customerId && roster.success && roster.data.students.some(row => row.customerId === booking.customerId) &&
+      (booking.requestKey === `sports-fixed:${booking.session.id}:${booking.customerId}` ||
+       booking.requestKey === `${booking.session.requestKey}:${booking.session.requestIndex}:${booking.customerId}`)) return "ASSIGNED";
+  return "OPEN";
+}
 
 /** Persisted on the plan, then copied unchanged to the purchase and card. */
 export type SportsEntitlementFields = {

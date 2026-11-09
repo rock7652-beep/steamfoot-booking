@@ -190,7 +190,9 @@
       "codex/agreements-1502-integration": false,
       "codex/all-modules-agreements-release": false,
       "fix/agreement-privacy-default": false,
-      "content/marketing-beauty-addons-20261104": false
+      "feat/mixed-course-enrollment-20261109": false,
+      "content/marketing-beauty-addons-20261104": false,
+      "fix/course-single-charge-validation-20261109": false
     }
   }
 }
