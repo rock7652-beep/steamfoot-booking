@@ -8,7 +8,7 @@ import { isMusicCourseStore, readCourseBusinessProfile } from "./course-business
 import { courseDebitPolicy, courseBookingWasDebited, correctedCourseBookingWillDebit } from "@/lib/course-debit-policy";
 import { assertCourseSelfBookingEnabled, assertCourseSelfLeaveEnabled, assertCourseSelfRescheduleEnabled } from "./course-self-booking";
 import { recordCourseStoreNotice } from "./course-store-notices";
-import { bindMusicLesson } from "./music-lesson-periods";
+import { bindMusicLesson, releaseMusicLesson } from "./music-lesson-periods";
 import {courseCardStartIssue} from "@/lib/course-card-start";
 import { syncNativeMakeupExpiry, nativeDeductedLeaveIds, isNativeMusicLeaveCard, nativeLeaveWasDebited, isNativeMusicMakeup, issueNativeMusicMakeup, closeNativeMusicMakeup } from "./music-native-leave";
 import { courseCardMatchesItem } from "./music-item-compatibility";
@@ -511,8 +511,8 @@ export async function settleCourseBooking(
     if(!booking?.cardId) return fail("學員尚未有可扣抵方案");
   }
 
-  // Sports never issue makeup rights; music leave keeps its separate policy.
-  if(!actor.customerId&&booking.bookingKind==="UNPAID"&&!booking.cardId&&(target==="ATTENDED"||target==="NO_SHOW")&&await isMusicCourseStore(tx,actor.storeId)){
+  // Bind eligible paid music lessons before leave; settled unpaid leaves are not rebound on retry.
+  if(!actor.customerId&&booking.bookingKind==="UNPAID"&&!booking.cardId&&(target==="ATTENDED"||target==="NO_SHOW"||(target==="STUDENT_LEAVE"&&booking.status==="RESERVED"))&&await isMusicCourseStore(tx,actor.storeId)){
     const {bindMusicAttendanceCard}=await import("./music-item-cards");
     await bindMusicAttendanceCard(tx,actor,bookingId);
     booking=await tx.courseBooking.findFirst({where:{id:bookingId,storeId:actor.storeId},include:{session:true,card:{include:{members:true,musicOpeningState:{select:MUSIC_OPENING_SELECT}}}}});
@@ -597,6 +597,7 @@ export async function settleCourseBooking(
     data: { status: target === "STUDENT_LEAVE" ? "CANCELLED" : target, absenceKind: target === "STUDENT_LEAVE" ? (musicGroupLeave ? "GROUP_LEAVE_FORFEITED" : "STUDENT_LEAVE") : null },
   });
   if(!options.suppressNotice && (target === "STUDENT_LEAVE" || target === "CANCELLED"))await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${booking.id}`,kind:target==="STUDENT_LEAVE"?"LEAVE":"CANCEL",customerName:booking.customerName,courseName:booking.session.nameSnapshot,coachId:booking.session.coachId,startsAt:booking.session.startsAt,details:{absenceKind:target==="STUDENT_LEAVE"?(musicGroupLeave?"GROUP_LEAVE_FORFEITED":"STUDENT_LEAVE"):null}});
+  if(nativeMakeupLeave)await releaseMusicLesson(tx,actor.storeId,booking.id);
   if(pilotLeave)await issueMusicPilotLeaveMakeup(tx,actor,booking);
   if(nativeLeave)await issueNativeMusicMakeup(tx,actor,booking);
   if ((nativeSports) || target === "STUDENT_LEAVE" || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, booking.sessionId);
@@ -692,6 +693,8 @@ export async function correctCourseAttendance(
   if (b.status === target && !cancellingLeave) return b;
   if (b.card?.closedAt) return fail("此方案已退款或結清，無法更正出席額度");
   if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
+  const nativeMakeupCancellation = target === "CANCELLED" && await isNativeMusicMakeup(tx,actor.storeId,b.card);
+  if(nativeMakeupCancellation && b.status === "CANCELLED" && b.absenceKind === absenceKind)return b;
   if(pilotLeave)await closeUnusedMusicPilotMakeup(tx,actor.storeId,b.id);
   if(nativeLeave)await closeNativeMusicMakeup(tx,actor.storeId,b.id);
   if ((target === "CANCELLED" || (nativeSports)&&(target === "RESERVED" || target === "ATTENDED")) && b.status === "NO_SHOW") {
@@ -751,6 +754,7 @@ export async function correctCourseAttendance(
 
   const deferred=(nativeSports)&&target==="RESERVED"&&(b.requestKey?.startsWith("sports-fixed:")||b.requestKey?.startsWith("sports-makeup:"))&&b.bookingKind!=="TRIAL";
   const updated = await tx.courseBooking.update({ where: { id: b.id }, data: { status: target,...(deferred?{cardId:null,bookingKind:"UNPAID",pointCost:0,makeupForBookingId:null}:{}), absenceKind, checkedInAt: target === "ATTENDED" ? new Date() : null } });
+  if(nativeMakeupCancellation)await releaseMusicLesson(tx,actor.storeId,b.id);
   if(!options.suppressNotice&&(restoringLeave || target==="CANCELLED"))await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${b.id}`,kind:restoringLeave?"RESTORE":"CANCEL",customerName:b.customerName,courseName:b.session.nameSnapshot,coachId:b.session.coachId,startsAt:b.session.startsAt});
   if ((nativeSports) || restoringLeave || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, b.sessionId);
   return updated;

@@ -5,6 +5,13 @@ import { coursePrisma } from "@/lib/course-db";
 import { getCourseCards } from "./course-members";
 import { toLocalDateStr } from "@/lib/date-utils";
 
+function couponSourceId(requestKey: string) {
+  for (const prefix of ["music-leave-makeup:", "yjy-pilot-makeup:"]) {
+    if (requestKey.startsWith(prefix)) return requestKey.slice(prefix.length);
+  }
+  return null;
+}
+
 /** Read projection only. Reservations still use createCourseBooking's live checks. */
 export async function getMusicLeaveWorkspace(storeId: string, customers: { id: string; name: string }[],dataScope?:string) {
   const leaves = await coursePrisma.courseBooking.findMany({
@@ -12,7 +19,17 @@ export async function getMusicLeaveWorkspace(storeId: string, customers: { id: s
     include: { card: { select: { id: true, requestKey: true } }, session: { select: { id: true, startsAt: true, templateId: true, nameSnapshot: true, template: { select: { classType: true } } } } },
     orderBy: [{ session: { startsAt: "desc" } }, { id: "asc" }], take: 1001,
   });
-  const shown = leaves.slice(0, 1000).filter(row => row.card && row.customerId);
+  // Coupon-backed repeat leaves belong to the original right, not another
+  // pending entitlement. Only fold a proven same-student source in this scoped
+  // result; missing/truncated sources stay visible for review. Booking history
+  // and ledger rows are never changed by this projection.
+  const sourceLeaves = new Map(leaves.slice(0, 1000).filter(row => row.card && couponSourceId(row.card.requestKey) === null).map(row => [row.id, row]));
+  const shown = leaves.slice(0, 1000).filter(row => {
+    if (!row.card || !row.customerId) return false;
+    const sourceId = couponSourceId(row.card.requestKey);
+    const source = sourceId ? sourceLeaves.get(sourceId) : null;
+    return !source || source.customerId !== row.customerId;
+  });
   const coupons = shown.length ? await coursePrisma.coursePointCard.findMany({ where: { storeId, closedAt: null, requestKey: { in: shown.flatMap(row => [`yjy-pilot-makeup:${row.id}`, `music-leave-makeup:${row.id}`]) } }, select: { id: true, requestKey: true } }) : [];
   const itemTemplates = new Map(await Promise.all([...new Set(shown.map(row=>row.session.templateId))].map(async id=>[id,await musicItemTemplateIds(coursePrisma,storeId,id)] as const)));
   const cardIds = [...new Set([...shown.map(row => row.card!.id), ...coupons.map(c => c.id)])];
@@ -28,13 +45,13 @@ export async function getMusicLeaveWorkspace(storeId: string, customers: { id: s
     const linked = children.filter(c => separate ? !!coupon && c.cardId === coupon.id && c.status !== "CANCELLED" : c.makeupForBookingId === row.id);
     const child = linked[0];
     const issue = linked.length > 1 ? "有多筆補課關聯，請先核對" : !card ? "補課方案尚未完成核對" : card.openingIssue || (card.closed ? "方案已停用" : card.expired ? "已超過補課期限" : !child && card.available <= 0 ? "目前沒有可預約堂數" : null);
-    const state = child?.status === "ATTENDED" ? "已補課" : child?.status === "RESERVED" ? "已安排" : child?.absenceKind === "STUDENT_LEAVE" ? "補課再次請假" : child?.status === "NO_SHOW" ? "補課曠課" : issue ? "需處理" : "待安排";
-    // A pilot coupon cannot itself issue another pilot coupon; show that rule explicitly.
-    const supported = separate || (!row.card!.requestKey.startsWith("yjy-pilot-makeup:") && !row.card!.requestKey.startsWith("music-leave-makeup:"));
+    const supported = separate || couponSourceId(row.card!.requestKey) === null;
+    const displayIssue = supported ? issue : "請從原課堂核對補課資格";
+    const state = !supported ? "需處理" : child?.status === "ATTENDED" ? "已補課" : child?.status === "RESERVED" ? "已安排" : child?.absenceKind === "STUDENT_LEAVE" ? "補課再次請假" : child?.status === "NO_SHOW" ? "補課曠課" : issue ? "需處理" : "待安排";
     return {
       id: row.id, customerId: row.customerId!, customerName: customers.find(c => c.id === row.customerId)?.name ?? "學員",
       date: row.session.startsAt.toISOString(), sourceSessionId: row.session.id, name: row.session.nameSnapshot,
-      cardId: card?.id ?? null, separate, state, issue: supported ? issue : "請從原課堂核對補課資格",
+      cardId: card?.id ?? null, separate, state, issue: displayIssue,
       expiry: card?.expiresAt ?? null,
       booking: child ? { id: child.session.id, date: child.session.startsAt.toISOString(), name: child.session.nameSnapshot } : null,
       sessions: !child && !issue && supported ? sessions.slice(0, 500).filter(s => itemTemplates.get(row.session.templateId)?.includes(s.templateId) && (s.bookings?.length??0)<(s.capacity??Infinity) && !s.bookings?.some(b=>b.customerId===row.customerId) && s.startsAt > row.session.startsAt && (!card?.expiresAt || s.startsAt <= new Date(card.expiresAt))).map(s => ({ id: s.id, date: s.startsAt.toISOString(), name: s.nameSnapshot })) : [],

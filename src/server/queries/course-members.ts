@@ -18,7 +18,7 @@ import {musicPeriodAt,musicSnapshotBonus} from "@/lib/music-course-products";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "../../../generated/course-client";
-import { isMusicPilotCard } from "@/server/services/music-pilot-policy";
+import { isMusicPilotCard, musicPilotReadIssue } from "@/server/services/music-pilot-policy";
 import { musicSourceDisplayNote } from "@/lib/music-source-import";
 import {courseSessionAdjustmentRecords} from '@/server/services/course-session-adjustment-records';
 import type {SessionAdjustmentRecord} from '@/lib/plan-session-adjustment';
@@ -55,7 +55,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
   // Member portals receive only their separate public lesson projection.
   return (await Promise.all(cards.map(async (c) => {
     const opening = readMusicOpeningCard(c, storeId, customerId);
-    const openingIssue = musicOpeningOperationIssue(opening, c);
+    const openingIssue = musicOpeningOperationIssue(opening, c) ?? musicPilotReadIssue(c);
     const held = c.bookings.reduce((sum, b) => sum + b.pointCost, 0);
     const originalExpiry = opening.kind === "NATIVE" ? c.expiresAt : opening.kind === "OPENING" && opening.record.expiresAt ? new Date(opening.record.expiresAt) : null;
     const expired = originalExpiry !== null && originalExpiry.getTime() < Date.now();
@@ -177,7 +177,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     hasCards ? once("roster-native-leave-ids",()=>nativeDeductedLeaveIds(coursePrisma,storeId)) : [],
     hasCards && bookings[0]?musicItemTemplateIds(coursePrisma,storeId,bookings[0].session.templateId):[] as string[],
     once("roster-pilot-evidence",async()=>{
-  const pilotCards=new Set((await Promise.all(readBookings.filter(b=>b.card?.requestKey?.startsWith("yjy-pilot-card:")).map(async b=>await isMusicPilotCard(coursePrisma,storeId,b.card)?b.card!.id:null))).filter((id):id is string=>id!==null));
+  const pilotCards=new Set((await Promise.all(readBookings.filter(b=>b.card?.requestKey?.startsWith("yjy-pilot-card:")&&!musicPilotReadIssue(b.card)).map(async b=>await isMusicPilotCard(coursePrisma,storeId,b.card)?b.card!.id:null))).filter((id):id is string=>id!==null));
       return {pilotCards};
     }),
     readBookings.some(b => !isMusicOpeningMakeupBooking(b) && !b.companionIndex && !!b.customerId && !!b.card?.plan.allowShared && !b.card.termSessionIds.length)
@@ -208,7 +208,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     const openingMakeup = isMusicOpeningMakeupBooking({ ...b, musicOpeningMakeupEntitlementId });
     const opening = readMusicOpeningCard(card, storeId, b.customerId);
     const openingLesson = readMusicOpeningLesson(opening, { ...b, musicOpeningMakeupEntitlementId, musicOpeningTermKey, musicOpeningLessonOrdinal, musicOpeningSourceLessonKey });
-    let openingIssue = openingLesson.kind === "BLOCKED" ? openingLesson.issue : null;
+    let openingIssue = openingLesson.kind === "BLOCKED" ? openingLesson.issue : musicPilotReadIssue(card);
     const openingOperationWarning = musicOpeningOperationIssue(opening, card ?? {});
     const sourceLessons = opening.kind === "OPENING" ? (card?.bookings ?? []).filter(item=>item.status!=="CANCELLED"||["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(item.absenceKind??"")).map(item => ({ item, lesson: readMusicOpeningLesson(opening, item) })) : [];
     if (sourceLessons.some(item => item.lesson.kind === "BLOCKED")) openingIssue = "此期有來源堂次尚未核對，暫不推算期別";
@@ -304,7 +304,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
         ? "本人預約"
         : `${b.operatorName ?? "共卡成員"}代約`
       : "店長建立",
-    available: !card || !courseCardCoversDate(card, storeId, new Date()) ? 0 : Math.max(0, card.remaining - card.bookings.filter((item) => item.status === "RESERVED").reduce((n, item) => n + item.pointCost, 0)),
+    available: !card || musicPilotReadIssue(card) || !courseCardCoversDate(card, storeId, new Date()) ? 0 : Math.max(0, card.remaining - card.bookings.filter((item) => item.status === "RESERVED").reduce((n, item) => n + item.pointCost, 0)),
     cardId: b.cardId,
     cardRemaining: card?.remaining ?? null,
     ...(!openingMakeup&&!card?.musicOpeningStateRequired&&b.bookingKind!=="TRIAL"?{sportsBalance:unlinkedBalances.get(b.customerId??"")??null}:{}),

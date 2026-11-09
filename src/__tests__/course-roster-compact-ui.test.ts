@@ -741,3 +741,71 @@ it.each([false,true])('renders the calendar-preloaded full roster on first rende
 });
 
 it('keeps a cancelled single beauty appointment visible after removing its list filters',async()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const data=preparedRoster('cancelled-single');data.roster[0].status='CANCELLED';const source:import('@/app/(dashboard)/dashboard/courses/roster-source').CourseRosterSource={compactSingle:true,read:async()=>({success:true,data}),note:vi.fn(),actions:()=>[],labels:{list:'預約名單',pending:'待服務',attended:'已完成',unit:'次'}};const host=document.createElement('div');document.body.append(host);const root=createRoot(host);try{await act(async()=>root.render(createElement(CourseRoster,{source,sportsNative:true,initialSnapshot:{sessionId:'single-beauty',data},sessionId:'single-beauty',capacity:0,canCreate:false,canEdit:true})));expect(host.textContent).toContain('已預讀學員');expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeNull();expect(host.textContent).not.toContain('尚未加入學員');}finally{await act(async()=>root.unmount());host.remove();}});
+
+it('records an unbound music leave without first marking attendance or inventing the resulting debit',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.status.mockReset();m.correction.mockClear();
+ vi.stubGlobal('requestAnimationFrame',(callback:FrameRequestCallback)=>{callback(0);return 1;});
+ const data=preparedRoster('deferred-leave');
+ Object.assign(data.roster[0],{bookingKind:'UNPAID',cardId:null,pointCost:0,cardRemaining:null,planName:'待繳費',available:8});
+ const other={...data.roster[0],id:'other-learner',customerId:'other-customer',customerName:'另一位學員'};data.roster.push(other);
+ const committed={...data.roster[0],status:'CANCELLED',absenceKind:'STUDENT_LEAVE',bookingKind:'CARD',cardId:'synthetic-card',pointCost:1,cardRemaining:7,leaveDeductsWithMakeup:true,sportsBalance:{remaining:7,available:7,cost:1,unit:'SESSION',planName:'十堂方案'}};
+ let finish!:(value:unknown)=>void;m.status.mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'policy-leave',capacity:3,canCreate:true,canEdit:true,musicLayout:true,classType:'GROUP',initialSnapshot:{sessionId:'policy-leave',data}})));
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="已預讀學員 更多操作"]')!.click());
+  const leave=[...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(b=>b.textContent==='學員請假');
+  expect([...document.querySelectorAll('[role="menuitem"]')].map(b=>b.textContent)).toContain('學員請假');
+  await act(async()=>leave!.click());
+  const dialog=document.querySelector('[role="dialog"][aria-label="學員請假"]')!;
+  expect(dialog.textContent).toContain('依目前有效方案與店家請假規則');
+  expect(dialog.textContent).not.toContain('不補課');expect(m.status).not.toHaveBeenCalled();
+  const confirm=[...dialog.querySelectorAll('button')].find(b=>b.textContent==='確認請假')!;
+  await act(async()=>{confirm.click();confirm.click();});
+  expect(m.status).toHaveBeenCalledExactlyOnceWith({returnRoster:true,bookingId:'deferred-leave',status:'STUDENT_LEAVE'});
+  expect(m.correction).not.toHaveBeenCalled();
+  expect(host.querySelector<HTMLButtonElement>('button[aria-label="另一位學員：點名"]')!.disabled).toBe(false);
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="另一位學員 更多操作"]')!.click());
+  expect(document.querySelector('[role="menu"]')).not.toBeNull();
+  expect(host.textContent?.replace(/\s/g,'')).toContain('本期剩餘8堂');
+  expect(host.textContent).not.toContain('已記錄 已預讀學員 請假');
+  await act(async()=>finish({success:true,rosterSnapshot:{sessionId:'policy-leave',data:{roster:[committed,other],teacherNote:'',teacherAttendance:'SCHEDULED',teacherAttendanceReason:'',waitlist:[],waitlistStopMinutes:0}}}));
+  expect(host.textContent?.replace(/\s/g,'')).toContain('本期剩餘7堂');
+  expect(host.textContent).toContain('請假・扣堂另補');
+ }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
+});
+
+it.each(['permission','teacher','trial','imported','blocked','settled'])('does not offer policy leave for an ineligible music row: %s',async variant=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.status.mockClear();
+ vi.stubGlobal('requestAnimationFrame',(callback:FrameRequestCallback)=>{callback(0);return 1;});
+ const data=preparedRoster('ineligible-'+variant);
+ if(variant==='teacher')data.session!.teacherAttendance='LEAVE';
+ if(variant==='trial')Object.assign(data.roster[0],{bookingKind:'TRIAL',cardId:null,pointCost:0,trialPrice:0});
+ if(variant==='imported')data.roster[0].openingImported=true;
+ if(variant==='blocked')data.roster[0].openingIssue='來源尚未核定';
+ if(variant==='settled')data.roster[0].status='ATTENDED';
+ const sessionId='ineligible-'+variant;const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId,capacity:3,canCreate:true,canEdit:variant!=='permission',musicLayout:true,initialSnapshot:{sessionId,data}})));
+  const more=host.querySelector<HTMLButtonElement>('button[aria-label="已預讀學員 更多操作"]');
+  if(more)await act(async()=>more.click());
+  expect([...document.querySelectorAll('[role="menuitem"]')].map(b=>b.textContent)).not.toContain('學員請假');
+  expect(m.status).not.toHaveBeenCalled();
+ }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
+});
+
+it('cancels music leave confirmation without a write and retains the original balance on a rejected request',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.status.mockReset().mockResolvedValue({success:false,error:'名單已更新，請重新核對'});
+ vi.stubGlobal('requestAnimationFrame',(callback:FrameRequestCallback)=>{callback(0);return 1;});
+ const data=preparedRoster('leave-rejected');Object.assign(data.roster[0],{bookingKind:'UNPAID',cardId:null,pointCost:0,cardRemaining:null,available:8});
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ const open=async()=>{await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="已預讀學員 更多操作"]')!.click());await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(b=>b.textContent==='學員請假')!.click());};
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'leave-rejected',capacity:3,canCreate:true,canEdit:true,musicLayout:true,initialSnapshot:{sessionId:'leave-rejected',data}})));
+  await open();await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="dialog"][aria-label="學員請假"] button')].find(b=>b.textContent==='返回')!.click());
+  expect(m.status).not.toHaveBeenCalled();
+  await open();await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="dialog"][aria-label="學員請假"] button')].find(b=>b.textContent==='確認請假')!.click());
+  expect(m.status).toHaveBeenCalledTimes(1);expect(host.textContent).toContain('名單已更新，請重新核對');
+  expect(host.textContent?.replace(/\s/g,'')).toContain('本期剩餘8堂');expect(host.textContent).not.toContain('已記錄 已預讀學員 請假');
+ }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
+});
