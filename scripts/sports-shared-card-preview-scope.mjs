@@ -5,6 +5,7 @@ export const CALENDAR_PHASE_PREVIEW_BRANCH = "chore/calendar-phase-timing-202611
 export const SCHEDULE_CONFLICT_PREVIEW_BRANCH = "fix/schedule-conflicts-20261103";
 export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-photo-20261016";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
+  "feat/mixed-course-enrollment-20261109",
   "fix/calendar-customer-preload-20261109",
   "fix/calendar-retained-months-20261109",
   "feat/record-list-density",
