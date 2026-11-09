@@ -1225,7 +1225,7 @@ export function CourseWorkspace({
                 <button className="ml-auto text-xs" type="button" onClick={()=>calendarSource?.move?calendarSource.move.onCancel():setMoveClipboard(null)}>取消</button>
               </div>
             )}
-          {calendarDataReady&&calendarReadError&&(sportsNative||musicCalendar)&&<div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-amber-800">課表更新失敗，目前保留上次資料。<button type="button" className="min-h-11 underline" onClick={()=>void refreshNativeCalendar(selectedDate,true)}>重新讀取</button></div>}
+          {calendarDataReady&&calendarReadError&&(sportsNative||musicCalendar)&&<div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-amber-800">課表更新失敗：{calendarReadError}。目前保留上次資料。<button type="button" className="min-h-11 underline" onClick={()=>void refreshNativeCalendar(selectedDate,true)}>重新讀取</button></div>}
           <CalendarMonthBoundary ready={calendarDataReady} date={selectedDate} loading={calendarReading||calendarNavigating} error={sportsNative||musicCalendar?calendarReadError:""} onRetry={()=>{if(sportsNative||musicCalendar)void refreshNativeCalendar(selectedDate,true);else go(selectedDate);}}>
           {scheduleMode === "month" ? (
             <>

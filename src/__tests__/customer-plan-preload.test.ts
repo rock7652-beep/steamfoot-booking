@@ -9,13 +9,14 @@ vi.mock('@/lib/music-period-read-client',()=>({readMusicPeriods:m.periods}));
 vi.mock('@/server/actions/music-student-workspace',()=>({loadMusicStudentWorkspace:m.overview}));
 vi.mock('@/server/actions/course-customer-history',()=>({loadCourseCustomerPurchases:m.orders}));
 vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()}),usePathname:()=>'/dashboard/courses',useSearchParams:()=>new URLSearchParams()}));
-import {PanelReadProvider} from '@/components/operations/panel-read-cache';
+import {PanelReadProvider,useInvalidateCustomerPlanReads} from '@/components/operations/panel-read-cache';
 import {useCustomerPlanPreload,useCustomerCardReader} from '@/components/admin/use-customer-plan-preload';
+let invalidate:()=>void;
 let root:Root,host:HTMLDivElement,preload:ReturnType<typeof useCustomerPlanPreload>,reader:ReturnType<typeof useCustomerCardReader>;
 type Options=Parameters<typeof useCustomerPlanPreload>[0];
-function Parent({options,open}:{options:Options;open:boolean}){const value=useCustomerPlanPreload(options);React.useEffect(()=>{preload=value;},[value]);return open?React.createElement(Child,{options}):null;}
+function Parent({options,open}:{options:Options;open:boolean}){const value=useCustomerPlanPreload(options),clear=useInvalidateCustomerPlanReads();React.useEffect(()=>{preload=value;invalidate=clear;},[value,clear]);return open?React.createElement(Child,{options}):null;}
 function Child({options}:{options:Options}){const value=useCustomerCardReader(options);React.useEffect(()=>{reader=value;},[value]);return null;}
-async function render(options:Options,open=false,store='A'){await act(async()=>root.render(React.createElement(PanelReadProvider,{key:store},React.createElement(Parent,{options,open}))));}
+async function render(options:Options,open=false,store='A',instance='panel'){await act(async()=>root.render(React.createElement(PanelReadProvider,{key:store},React.createElement(Parent,{key:instance,options,open}))));}
 beforeEach(()=>{vi.clearAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement('div');root=createRoot(host);for(const fn of Object.values(m))fn.mockResolvedValue({success:true,rows:[],data:[],hasMore:false});});
 afterEach(async()=>{await act(async()=>root.unmount());vi.useRealTimers();});
 it.each([false,true])('shares a completed background read with a newly opened customer (%s native)',async native=>{
@@ -42,4 +43,25 @@ it('allows foreground retry after speculative failures and deduplicates an in-fl
  m.cards.mockResolvedValueOnce({success:false,error:'offline'});const options={canReadCards:true};await render(options);await preload.reader.read('student');expect(preload.reader.get('student')).toBe(false);
  let done!:(value:unknown)=>void;m.cards.mockImplementationOnce(()=>new Promise(resolve=>{done=resolve;}));const background=preload.reader.read('student');await Promise.resolve();await render(options,true);
  const opened=reader.read({customerId:'student',search:'',history:false,page:0});done({success:true,rows:[],hasMore:false});await opened;await background;expect(m.cards).toHaveBeenCalledTimes(2);
+});
+
+it.each(['mutation','customer-event'])('does not resurrect pre-purchase revision zero after closing and reopening a beauty panel (%s)',async trigger=>{
+ const load=vi.fn().mockResolvedValueOnce({success:true,rows:[{id:'old-plan'}],hasMore:false}).mockResolvedValueOnce({success:true,rows:[{id:'purchased-plan'}],hasMore:false});
+ const options={load,canReadCards:true,native:true};
+ await render(options,true);await preload.reader.read('customer');expect(preload.reader.get('customer')).toBe(true);
+ await act(async()=>{if(trigger==='mutation')invalidate();else window.dispatchEvent(new Event('customer-search-invalidated'));});
+ await render({...options,revision:1},true);
+ // A keyed native panel remount resets its own local counter, while the provider survives.
+ await render(options,true,'A','reopened');expect(preload.reader.get('customer')).toBe(false);
+ expect(await reader.read({customerId:'customer',search:'',history:false,page:0})).toMatchObject({rows:[{id:'purchased-plan'}]});expect(load).toHaveBeenCalledTimes(2);
+});
+it('detaches pre-purchase in-flight reads in all previous revisions',async()=>{
+ let finish!:(value:unknown)=>void;
+ const load=vi.fn().mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;})).mockResolvedValueOnce({success:true,rows:[{id:'new-plan'}],hasMore:false});
+ const options={load,canReadCards:true};await render(options);
+ const pending=preload.reader.read('customer');await Promise.resolve();
+ await act(async()=>invalidate());await render(options,true,'A','reopened');
+ expect(await reader.read({customerId:'customer',search:'',history:false,page:0})).toMatchObject({rows:[{id:'new-plan'}]});
+ finish({success:true,rows:[{id:'old-plan'}],hasMore:false});await pending;
+ expect(await reader.read({customerId:'customer',search:'',history:false,page:0})).toMatchObject({rows:[{id:'new-plan'}]});
 });

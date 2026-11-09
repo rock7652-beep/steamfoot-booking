@@ -1,5 +1,6 @@
 "use client";
 import {useCustomerPlanPreload} from "@/components/admin/use-customer-plan-preload";
+import {useInvalidateCustomerPlanReads} from "@/components/operations/panel-read-cache";
 import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import {courseCheckoutReceipt,type CourseCheckoutReceipt} from "@/lib/course-checkout-receipt";
 import {coursePlanModeAllowed} from "@/lib/course-scheduling-modes";
@@ -219,7 +220,12 @@ export function CourseMemberWorkspace({
   const [dirty, setDirty] = useState(false);
   const [cardBrowse,setCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
-  const [cardRevision,setCardRevision]=useState(0);
+  const [cardRevision,advanceCardRevision]=useState(0);
+  const invalidateCustomerPlanReads=useInvalidateCustomerPlanReads();
+  const setCardRevision=useCallback((update:import('react').SetStateAction<number>)=>{
+    invalidateCustomerPlanReads();
+    advanceCardRevision(update);
+  },[invalidateCustomerPlanReads]);
   const planPreload=useCustomerPlanPreload({load:source?.browseCards,native:sportsNative,music,canReadCards,canReadBookings,canReadTransactions,revision:cardRevision,dataScope});
   useIdleReadPreload({enabled:panel==='person'&&!!person,blocked:dirty||pending,keys:person?[person.id]:[],reader:planPreload.reader});
   const [balanceReceipts,setBalanceReceipts]=useState<{storeId:typeof previewStoreId;values:Record<string,{available:number;ids:string[]}>}>({storeId:previewStoreId,values:{}});

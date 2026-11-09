@@ -13,6 +13,17 @@ export const useMusicDataRevision = () => useContext(MusicRevision);
 type Cache<T> = ReturnType<typeof createClientReadCache<T>>;
 type Registry = Map<string, Cache<unknown>>;
 const Context = createContext<Registry | null>(null);
+const customerPlanNamespaces = new Set(['course-card-browse','module-card-browse','course-card','module-card','music-periods','music-student-workspace','purchases','beauty-customer-detail']);
+function clearCustomerPlanReads(registry: Registry) {
+  for (const [key, cache] of registry) {
+    if (customerPlanNamespaces.has(JSON.parse(key)[0])) cache.clear();
+  }
+}
+/** Clear every revision, including caches retained after a customer panel closes. */
+export function useInvalidateCustomerPlanReads() {
+  const registry = useContext(Context);
+  return useCallback(() => { if (registry) clearCustomerPlanReads(registry); }, [registry]);
+}
 const PurchaseSeeds = createContext<ReturnType<typeof createPurchaseSnapshotSeeds> | null>(null);
 /** Mounted inside the account/store/module/permission-keyed OperationScope. No persisted data. */
 export function PanelReadProvider({children}: {children?: ReactNode}) {
@@ -24,6 +35,11 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const studentPage = pathname?.endsWith("/dashboard/courses") && searchParams.get("view")==="customers";
+  useEffect(() => {
+    const invalidate = () => clearCustomerPlanReads(registry);
+    window.addEventListener('customer-search-invalidated', invalidate);
+    return () => window.removeEventListener('customer-search-invalidated', invalidate);
+  }, [registry]);
   useEffect(() => {
     if (!isMusicSyncRoute(pathname)) return;
     let active = true, epoch = 0, deferredRosterRefresh=false;

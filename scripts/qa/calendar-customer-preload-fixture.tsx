@@ -1,4 +1,4 @@
-import {useCallback,useMemo,useState,type ComponentProps} from 'react';
+import {useCallback,useEffect,useMemo,useState,type ComponentProps} from 'react';
 import {createRoot} from 'react-dom/client';
 import {CourseWorkspace,type CourseCalendarSnapshot} from '@/app/(dashboard)/dashboard/courses/workspace';
 import {CourseMemberWorkspace} from '@/app/(dashboard)/dashboard/courses/member-workspace';
@@ -18,10 +18,12 @@ function Calendar(){
  return <CourseWorkspace storeId="synthetic" selectedDate={profile==='beauty'?sourceDate:'2026-11-04'} today="2026-11-04" nowIso="2026-11-04T00:00:00Z" calendarDays={source.calendarDays} rooms={rooms} templates={templates} sessions={source.sessions} cancelledBookings={[]} coaches={[{id:'coach',displayName:'合成人員',phone:'',status:'ACTIVE',courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:['template']}]} staffAvailability={[]} staffAvailabilityExceptions={[]} canCreate canEdit view="schedule" businessProfile={profile==='music'?'MUSIC':'FITNESS'} sportsNative={profile!=='music'} calendarSource={calendarSource}/>;
 }
 function Customers(){
+ const [instance,setInstance]=useState(0);
+ useEffect(()=>{const remount=()=>setInstance(value=>value+1);window.addEventListener('qa:remount-customer',remount);return()=>window.removeEventListener('qa:remount-customer',remount);},[]);
  const people=[{id:'customer-a',name:'合成顧客甲',phone:'0900000001',serviceNote:null,userId:null,assignedStaff:null,sponsor:null},{id:'customer-b',name:'合成顧客乙',phone:'0900000002',serviceNote:null,userId:null,assignedStaff:null,sponsor:null}];
  const source=useMemo(()=>profile==='beauty'?{browseCards:(input:unknown)=>readFixture('cards',input),basePath:'/dashboard/beauty?tab=顧客管理',sessionUnitLabel:'次',confirmDiscard:false,support:async()=>({success:false,error:'synthetic support disabled'})} as never:undefined,[]);
  const props={source,previewStoreId:'synthetic',sportsNative:profile!=='music',music:profile==='music',view:'customers',templates,people,plans:[],cards:[],customerRows:people.map(p=>({...p,mergedIntoCustomerId:null,userStatus:null,validPackageSessions:0,sponsoredCount:0})),canEdit:false,canCreate:false,canManageStaff:false,canAssign:false,canReadBookings:true,canReadTransactions:profile==='music',healthEnabled:false,canReadCards:true,assignmentStaff:[],canAssignManager:false} as unknown as ComponentProps<typeof CourseMemberWorkspace>;
- return <CourseMemberWorkspace {...props}/>;
+ return <CourseMemberWorkspace key={instance} {...props}/>;
 }
 const labels={available:true,enabled:false,canEdit:false,canManage:false,categories:[],labels:[],assignments:{}};
 createRoot(document.getElementById('root')!).render(<PanelReadProvider><CustomerLabelsProvider initial={labels}><main className="min-w-0 p-4"><p>隔離預覽・合成資料・業務寫入停用</p>{kind==='calendar'?<Calendar/>:<Customers/>}</main></CustomerLabelsProvider></PanelReadProvider>);

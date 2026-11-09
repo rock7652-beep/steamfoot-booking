@@ -60,12 +60,12 @@ const server = await createServer({ root, configFile: false, define:{"process.en
 await server.listen();
 let browser;
 const results=[],errors=[];
-const edges=process.argv.includes("--edge");
+const edges=process.argv.includes("--edge"),mutation=process.argv.includes("--mutation");
 const modules=["sports","music","beauty"].filter(m=>!process.argv.some(arg=>arg.startsWith("--profile="))||process.argv.includes("--profile="+m));
 try{
  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  const origin=`http://127.0.0.1:${server.httpServer.address().port}`;
- if(!process.argv.includes("--customers"))for(const profile of modules)for(const [width,height] of (edges?[[1366,900]]:[[1366,900],[1920,1080],[1024,768],[768,1024]])){
+ if(!process.argv.includes("--customers")&&!mutation)for(const profile of modules)for(const [width,height] of (edges?[[1366,900]]:[[1366,900],[1920,1080],[1024,768],[768,1024]])){
   const context=await browser.newContext({viewport:{width,height}}),page=await context.newPage(),requests=[];
   let failMonth='',delay=650;const monthDelays={};
   const dayWithData=month=>page.getByRole('button',{name:new RegExp('^'+month+'-04，1')}).first();
@@ -106,6 +106,7 @@ try{
 
  if(!edges)for(const profile of modules)for(const [width,height] of [[1366,900],[1024,768],[768,1024]]){
   const context=await browser.newContext({viewport:{width,height}}),page=await context.newPage(),requests=[];
+  let purchased=false;
   page.on('pageerror',e=>errors.push({profile,kind:'customers',error:e.message}));
   await page.route('**/*',async route=>{
    const req=route.request(),url=new URL(req.url());
@@ -118,7 +119,7 @@ try{
     requests.push({op,customerId:input.customerId});await new Promise(r=>setTimeout(r,650));
     const id=input.customerId;
     const card={id:'card-'+id,name:'合成方案 '+id,planId:'plan',unit:'SESSION',members:[{id,name:id==='customer-a'?'合成顧客甲':'合成顧客乙',phone:'0900000001'}],remaining:8,held:1,available:7,expiresAt:'2027-01-01T00:00:00Z',closed:false,expired:false,entries:[],templateIds:['template'],termSessionIds:[],allowShared:false,openingImported:false,openingIssue:null,musicValidityDays:null,musicActivatedAt:null};
-    await route.fulfill({json:op==='cards'?{success:true,rows:[card],hasMore:false,totals:[{unit:'SESSION',count:1,remaining:8,held:1,available:7}]}:op==='overview'?{success:true,data:{balance:{remaining:8,held:1,available:7,makeupRemaining:0,issues:0},next:null,canReadBookings:true}}:{success:true,data:[],hasMore:false,purchaseRevision:'r1'}});return;
+    await route.fulfill({json:op==='cards'?{success:true,rows:purchased?[card,{...card,id:'new-card-'+id,name:'新購方案 '+id}]:[card],hasMore:false,totals:[{unit:'SESSION',count:1,remaining:8,held:1,available:7}]}:op==='overview'?{success:true,data:{balance:{remaining:8,held:1,available:7,makeupRemaining:0,issues:0},next:null,canReadBookings:true}}:{success:true,data:[],hasMore:false,purchaseRevision:'r1'}});return;
    }
    return route.continue();
   });
@@ -134,7 +135,14 @@ try{
   assert.ok(warmMs<650,'customer open waited for transport');assert.equal(requests.filter(r=>r.op==='cards'&&r.customerId==='customer-a').length,before,'opening discarded preload');
   const dialog=page.getByRole('dialog').first();const box=await dialog.boundingBox();assert.ok(box&&box.x>=0&&box.y>=0&&box.x+box.width<=width+1&&box.y+box.height<=height+1,'customer panel outside viewport');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-  await page.screenshot({path:path.join(out,profile+'-customer-'+width+'.png'),fullPage:true});results.push({profile,kind:'customers',width,height,warmMs,readCount:before,correctCustomer:true,panelContained:true});console.log(JSON.stringify(results.at(-1)));await context.close();
+  if(mutation){
+   await dialog.getByRole('button',{name:'關閉',exact:true}).click();await dialog.waitFor({state:'hidden'});purchased=true;
+   await page.evaluate(()=>{window.dispatchEvent(new Event('customer-search-invalidated'));window.dispatchEvent(new Event('qa:remount-customer'));});
+   await page.getByRole('button',{name:'合成顧客甲',exact:true}).click();await page.getByText('新購方案 customer-a',{exact:true}).waitFor();
+   assert.equal(requests.filter(r=>r.op==='cards'&&r.customerId==='customer-a').length,before+1,'reopened revision zero reused pre-purchase data');
+   assert.ok(await page.getByText('合成方案 customer-a',{exact:true}).count(),'existing plan disappeared');
+  }
+  await page.screenshot({path:path.join(out,profile+'-customer-'+width+'.png'),fullPage:true});results.push({profile,kind:'customers',width,height,warmMs,readCount:before,correctCustomer:true,panelContained:true,...(mutation?{purchaseEventInvalidation:true,keyedPanelRemount:true}: {})});console.log(JSON.stringify(results.at(-1)));await context.close();
  }
- writeFileSync(path.join(out,edges?'edges.json':'results.json'),JSON.stringify({fixtureOnly:true,results,errors},null,2));assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:results.length,results}));
+ writeFileSync(path.join(out,edges?'edges.json':mutation?'mutation.json':'results.json'),JSON.stringify({fixtureOnly:true,results,errors},null,2));assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:results.length,results}));
 }finally{await browser?.close();await server.close();}

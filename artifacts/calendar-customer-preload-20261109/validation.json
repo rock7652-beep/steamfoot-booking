@@ -4,8 +4,8 @@
   "vitest": {
     "mainFiles": 16,
     "mainPassed": 91,
-    "additionalPurchasePanelPassed": 6,
-    "customerPreloadRetested": 7
+    "additionalPurchasePanelPassed": 7,
+    "customerPreloadRetested": 6
   },
   "typecheck": "passed: NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit",
   "eslint": "passed: all changed/new TS, TSX and MJS files",

@@ -20,7 +20,7 @@
 
 ## 本地驗證
 
-- `npx vitest run` 指定 16 組相關測試：91 項通過；另驗既有購買回執／panel cache 與修改後的顧客預讀測試，13 項通過（其中 7 項與前組重複）。
+- `npx vitest run` 指定 16 組相關測試：91 項通過；另驗既有購買回執／panel cache 與修改後的顧客預讀測試，13 項通過（其中 6 項與前組重複）。
 - `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit` 通過。
 - 修改及新增的 TS／TSX／MJS 檔 ESLint 通過；`git diff --check` 通過。
 - 有效資料、空期別、預讀／開啟去重、權限停用、legacy 範圍、帳號／門市隔離、TTL 到期、購買修訂、失敗重試、失效後舊請求及同步 seed 競態均有測試。
@@ -49,3 +49,13 @@
 ## PR 準備（2026-11-09）
 
 使用者已明確授權建立 PR。已取得最新 main `ada7a55e9747e0c4fba3482804de8810702bee63`，與本次修改檔案無重疊；PR 保留近期蒸足介面與其他已合併變更。PR 將觸發既有 GitHub CI，不手動觸發 migration、預覽或正式部署。CLI 憑證無法使用，改由已有寫入權限的 GitHub 連接工具提交。
+
+## PR #1524 審查修正
+
+- 自動審查的 P1：美業 keyed 視窗關閉後會重設本地方案修訂，原 revision 0 快取可能在 15 秒內再次出現。修正為方案異動時同步清除 provider 中所有方案修訂的快取；各模組的 `customer-search-invalidated` 也會清除同一資源族。失效會解除舊在途請求，保留其他視窗與草稿，不靠關閉／重開規避問題。
+- 新增購買後關閉／重建／重開、顧客事件失效及舊回應晚到的測試。美業 1366×900、1024×768、768×1024 均以合成購買完成事件驗證看到原方案及新方案，沒有提交真實購買；見 [mutation.json](../../artifacts/calendar-customer-preload-20261109/mutation.json)。
+- CI 中的 6 個 UI suite 因預讀元件靜態匯入伺服器 Action 而提早啟動 auth；改成真正需要讀取時才載入 Action，保留相同的查詢與授權。美業 shallow fixture 同步提供新的 reader port 與顧客欄位。
+- 背景刷新測試改為分別計算目前月份刷新與相鄰月份預讀，仍驗證 60 秒刷新間隔；切月測試維持所選日期且使用標準月份 key。更新失敗會保留 server 的具體錯誤與重試入口。
+- CI 目標測試照既有 workflow 重跑：207 組、3,002 項通過；原本全量 CI 失敗的 7 個 suite 加新回歸案例，8 組、182 項通過。隔離 scope 測試 29 項通過，子程序使用 tripwire 禁止真實資料庫／migration。
+- 針對使用者要求接續 PR 驗證，只將本 PR 的精確分支加入既有 Preview allowlist；保留 repo owner／slug、preview 環境、兩條隔離資料庫連線及停發通知檢查，不擴大成任意分支，也不變更 Vercel 環境變數。分支提交會沿用既有自動建置，不另手動重建。
+- 最新修正逐檔指紋見 [review-validation.json](../../artifacts/calendar-customer-preload-20261109/review-validation.json)；正式站仍未合併或部署。
