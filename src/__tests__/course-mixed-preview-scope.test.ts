@@ -1,5 +1,7 @@
 import {afterEach,expect,it,vi} from "vitest";
 vi.mock("@/lib/db",()=>({prisma:{}}));
+vi.mock("@/server/services/read-request-memo",()=>({memoizeReadRequest:(_key:string,work:()=>unknown)=>work()}));
+import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {assertSportsRedesignPreviewEnvironment,MIXED_ENROLLMENT_PREVIEW_BRANCH} from "../../scripts/sports-redesign-preview-scope.mjs";
 import {assertReviewedReleaseEnvironment} from "../../scripts/consultation-preview-scope.mjs";
 import {musicNativeWorkflowEnabled} from "../../scripts/music-native-workflow-scope.mjs";
@@ -30,4 +32,18 @@ it("limits sports capability to the existing synthetic sports store",async()=>{
  expect(await sportsStagingEnabled("sports-live-flow-store")).toBe(true);
  expect(await sportsStagingEnabled("store-lubymusic")).toBe(false);
  expect(await sportsStagingEnabled("another-store")).toBe(false);
+});
+const local={NODE_ENV:"development" as const,SPORTS_LIVE_FLOW_QA:"1",SPORTS_REDESIGN_STAGING:"1",AUTH_URL:"http://127.0.0.1:3107",NEXTAUTH_URL:"http://127.0.0.1:3107",DATABASE_URL:"postgresql://postgres@127.0.0.1:55438/sports_live_flow_test",DIRECT_URL:"postgresql://postgres@127.0.0.1:55438/sports_live_flow_test"};
+it("supports real native workflow acceptance only on the existing loopback QA boundary",async()=>{
+ for(const [key,value]of Object.entries(local))vi.stubEnv(key,value);
+ expect(musicNativeWorkflowEnabled("store-lubymusic",local)).toBe(true);
+ expect(musicNativeWorkflowEnabled("other",local)).toBe(false);
+ expect(await sportsNativePreview("sports-live-flow-store")).toBe(true);
+ expect(await sportsNativePreview("other")).toBe(false);
+});
+it.each([{NODE_ENV:"production" as const},{VERCEL_ENV:"preview"},{AUTH_URL:"https://example.invalid"},{DATABASE_URL:connection},{DIRECT_URL:connection}])("does not extend local native capabilities beyond QA: %j",async patch=>{
+ const invalid={...local,...patch};
+ for(const [key,value]of Object.entries(invalid))vi.stubEnv(key,value);
+ expect(musicNativeWorkflowEnabled("store-lubymusic",invalid)).toBe(false);
+ await expect(sportsNativePreview("sports-live-flow-store")).rejects.toThrow();
 });
