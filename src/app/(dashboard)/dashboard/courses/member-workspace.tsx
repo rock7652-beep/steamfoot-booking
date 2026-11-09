@@ -1,4 +1,7 @@
 "use client";
+import {useCustomerPlanPreload} from "@/components/admin/use-customer-plan-preload";
+import {useInvalidateCustomerPlanReads} from "@/components/operations/panel-read-cache";
+import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import {courseCheckoutReceipt,type CourseCheckoutReceipt} from "@/lib/course-checkout-receipt";
 import {coursePlanModeAllowed} from "@/lib/course-scheduling-modes";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
@@ -217,7 +220,14 @@ export function CourseMemberWorkspace({
   const [dirty, setDirty] = useState(false);
   const [cardBrowse,setCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
-  const [cardRevision,setCardRevision]=useState(0);
+  const [cardRevision,advanceCardRevision]=useState(0);
+  const invalidateCustomerPlanReads=useInvalidateCustomerPlanReads();
+  const setCardRevision=useCallback((update:import('react').SetStateAction<number>)=>{
+    invalidateCustomerPlanReads();
+    advanceCardRevision(update);
+  },[invalidateCustomerPlanReads]);
+  const planPreload=useCustomerPlanPreload({load:source?.browseCards,native:sportsNative,music,canReadCards,canReadBookings,canReadTransactions,revision:cardRevision,dataScope});
+  useIdleReadPreload({enabled:panel==='person'&&!!person,blocked:dirty||pending,keys:person?[person.id]:[],reader:planPreload.reader});
   const [balanceReceipts,setBalanceReceipts]=useState<{storeId:typeof previewStoreId;values:Record<string,{available:number;ids:string[]}>}>({storeId:previewStoreId,values:{}});
 
   const [checkoutCards,setCheckoutCards]=useState<(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number})|undefined>(undefined);
@@ -502,10 +512,10 @@ export function CourseMemberWorkspace({
       {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar driver={catalogSource?.status} key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}:${purchaseFilter}:${sharedFilter}:${inactiveExpanded}`} canDelete={canDelete} names={Object.fromEntries(visiblePlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} states={Object.fromEntries(visiblePlans.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visiblePlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {!music && view === "plans" && planArea === "catalog" && <p className="ml-auto whitespace-nowrap text-sm text-earth-500">共 {filteredPlans.length} 筆／全部 {plans.length} 筆</p>}
 </div>
-      {view === "customers" ? panelOnly?null:<CourseCustomerList assignCustomers={source?.assignCustomers} basePath={source?.basePath} sessionUnitLabel={source?.sessionUnitLabel} sportsNative={sportsNative} music={music} customerPage={customerPage} rows={visibleCustomerRows} cards={cards} balanceOverrides={balanceReceipts.storeId===previewStoreId?Object.fromEntries(Object.entries(balanceReceipts.values).filter(([,value])=>!value.ids.every(id=>cards.some(card=>card.id===id))).map(([id,value])=>[id,value.available])):{}} canReadCards={canReadCards}
+      {view === "customers" ? panelOnly?null:<CourseCustomerList planPreload={planPreload} preloadBlocked={!!panel||pending||dirty} assignCustomers={source?.assignCustomers} basePath={source?.basePath} sessionUnitLabel={source?.sessionUnitLabel} sportsNative={sportsNative} music={music} customerPage={customerPage} rows={visibleCustomerRows} cards={cards} balanceOverrides={balanceReceipts.storeId===previewStoreId?Object.fromEntries(Object.entries(balanceReceipts.values).filter(([,value])=>!value.ids.every(id=>cards.some(card=>card.id===id))).map(([id,value])=>[id,value.available])):{}} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge} canExport={canExport}
-        onView={id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); }}
+        onView={id => { planPreload.prefetch(id);if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); }}
         onEdit={music && canEdit ? id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setPersonTab("info"); setEditingPerson(true); } : undefined}
         onViewPlans={music && canReadCards ? id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setPersonTab(music ? "courses" : "plans"); setCustomerCardBrowse({search:"",history:false,page:0}); } : undefined}
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
@@ -597,7 +607,7 @@ export function CourseMemberWorkspace({
             {healthEnabled && !music && <button type="button" disabled={pending||formPending} aria-pressed={panel === "health"} className={`min-h-11 rounded-lg px-3 text-sm ${panel === "health" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-primary-50"}`} onClick={()=>{if(panel !== "health")open("health");}}>健康追蹤</button>}
           </nav>}
           <div data-course-person-scroll={scrollKey} ref={studentScroll} onScroll={e=>{studentScrollPositions.current[scrollKey]=e.currentTarget.scrollTop;try{sessionStorage.setItem(scrollKey,String(e.currentTarget.scrollTop));}catch{}}} className={`@container/member min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain ${music ? "p-3" : "p-4"}`}>
-            {music && panel === "person" && person && personTab === "info" && !editingPerson && <MusicStudentOverview legacy={dataScope === "legacy"} key={`overview-${person.id}`} customerId={person.id} tab={personTab} />}
+            {music && panel === "person" && person && personTab === "info" && !editingPerson && <MusicStudentOverview revision={cardRevision} legacy={dataScope === "legacy"} key={`overview-${person.id}`} customerId={person.id} tab={personTab} />}
             {confirmedPurchase}
             {panel==="assign"&&pending&&<p role="status" className="mb-3 rounded-lg bg-primary-50 px-4 py-3 font-medium text-primary-900">正在確認購買與收款，請稍候，勿重複送出。</p>}
             {notice && <div role="status" className="mb-3 flex flex-wrap items-center justify-between gap-2 text-primary-700"><span>{notice}</span>{notice==="結帳完成，方案已加入"&&purchased&&canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>{music||sportsNative?"安排課程":"前往課表"}</DashboardLink>}</div>}

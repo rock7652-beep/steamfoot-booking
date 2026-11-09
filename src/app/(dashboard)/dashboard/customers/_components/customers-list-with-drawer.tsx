@@ -414,6 +414,8 @@ export function CustomersListWithDrawer({
         onClose={closeDrawer}
         labelledById={titleId}
         width={1000}
+        fixedHeight
+        maxHeight={640}
       >
         {detail && detail.id === openId ? (
           <CustomerDetailDrawerContent

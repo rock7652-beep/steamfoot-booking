@@ -1,4 +1,7 @@
 "use client";
+import {usePanelReadCache} from '@/components/operations/panel-read-cache';
+import {readBeautyCustomerDetail,beautyCustomerDetailScope} from '@/lib/beauty/customer-detail-read';
+import {useIdleReadPreload} from '@/components/admin/use-calendar-month-preload';
 import {useBeautyPersonnelText} from "@/components/course-personnel-label";
 import {BeautyTechnicianRoster,type TechnicianReceipt} from './technician-roster';
 import dynamic from "next/dynamic";
@@ -29,6 +32,9 @@ export function BeautyNativeRoster({allowPreparedSnapshot=true,onSnapshotInvalid
  const [goods,setGoods]=useState<string|null>(null);
  const customerRevision=useBeautyCustomerRevision(busy||!!expanded||suspended);
  const readerScope=JSON.stringify([data.storeId,customerRevision]);
+ const customerDetailReader=usePanelReadCache('beauty-customer-detail',readBeautyCustomerDetail,beautyCustomerDetailScope(data),15_000);
+ const customerPreload=useMemo(()=>({read:customerDetailReader.load,get:customerDetailReader.get}),[customerDetailReader]);
+ useIdleReadPreload({enabled:data.access.customerAccess,blocked:busy||technicianBusy||rosterBusy||!!expanded||!!suspended,keys:[...new Set(data.items.filter(row=>bookingId?row.groupId===selectedGroupId:toLocalDateStr(new Date(row.startsAt))===data.date).flatMap(row=>row.customerId?[row.customerId]:[]))].slice(0,5),reader:customerPreload});
  const fullReader=usePanelReader('beauty-roster-full',readBeautyRoster,readerScope,0);
  const versionReader=usePanelReader('beauty-roster-version',syncBeautyRoster,readerScope,0);
  const read=useCallback((id:string)=>fullReader.read(id,data.storeId),[fullReader,data.storeId]);

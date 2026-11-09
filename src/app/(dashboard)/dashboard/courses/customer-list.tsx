@@ -1,4 +1,5 @@
 "use client";
+import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import { normalizeCourseCustomerFilters } from "@/lib/course-customer-filters";
 import {useMusicCustomerPage} from "@/components/admin/use-music-customer-page";
 import { musicNoteDisplay } from "@/lib/music-display";
@@ -15,8 +16,9 @@ import type { CourseCardView } from "./member-workspace";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { DashboardLink } from "@/components/dashboard-link";
 
-export function CourseCustomerList({ beautyMode:explicitBeautyMode=false, assignCustomers=bulkAssignCourseCustomers, rows, cards, customerPage:sourceCustomerPage, canReadCards, onView, onViewPlans, onEdit, onCreate, onAssign, onPurchase, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false, sportsNative = false, basePath="/dashboard/courses?view=customers", sessionUnitLabel="堂", sessionBalances=[],balanceOverrides={} }: {
-  beautyMode?:boolean;
+const emptyPreloadReader={read:async()=>null,get:()=>undefined};
+export function CourseCustomerList({ planPreload, preloadBlocked=false, beautyMode:explicitBeautyMode=false, assignCustomers=bulkAssignCourseCustomers, rows, cards, customerPage:sourceCustomerPage, canReadCards, onView, onViewPlans, onEdit, onCreate, onAssign, onPurchase, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false, sportsNative = false, basePath="/dashboard/courses?view=customers", sessionUnitLabel="堂", sessionBalances=[],balanceOverrides={} }: {
+  planPreload?:{reader:{read:(id:string)=>Promise<unknown>;get:(id:string)=>unknown};prefetch:(id:string)=>void};preloadBlocked?:boolean;beautyMode?:boolean;
   assignCustomers?:typeof bulkAssignCourseCustomers;
   balanceOverrides?:Record<string,number>;basePath?:string; sessionUnitLabel?:string; sessionBalances?:{customerId:string;available:number}[];
   customerPage?: CourseCustomerPage;
@@ -66,10 +68,11 @@ export function CourseCustomerList({ beautyMode:explicitBeautyMode=false, assign
   };
   const staff = [...new Map(rows.flatMap(row => row.assignedStaff ? [[row.assignedStaff.id, row.assignedStaff] as const] : [])).values()];
   const pageRows = customerPage ? filtered : filtered.slice((page - 1) * 20, page * 20);
+  useIdleReadPreload({enabled:!!planPreload&&canReadCards,blocked:preloadBlocked||selectedIds.size>0,keys:pageRows.slice(0,5).map(row=>row.id),reader:planPreload?.reader??emptyPreloadReader});
   return <section className={`space-y-3 ${selectedIds.size ? "pb-40" : ""}`}>
     <CustomersToolbar beautyMode={beautyMode} labelsInMore={sportsNative} musicMode={music} staffOptions={assignmentStaff.length ? assignmentStaff : staff} basePath={listBasePath} courseMode trailing={canMerge || canExport || (sportsNative&&onPurchase) ? <ExclusiveMenu label={sportsNative?"顧客管理更多操作":"更多"} triggerText={sportsNative?"⋯":undefined}>{sportsNative&&onPurchase&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm text-primary-700" onClick={onPurchase}>購買方案</button>}{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
-    <CustomersTable compactActions={music} onEdit={onEdit ? row=>onEdit(row.id) : undefined} renderNote={music ? row => musicNoteDisplay(row.serviceNote) ? <button type="button" className="min-h-11 max-w-64 text-left text-sm text-earth-600" onClick={()=>onView(row.id)} aria-label={`${row.name} 備註與資料來源`}><span className="line-clamp-1">{musicNoteDisplay(row.serviceNote) || "—"}</span></button> : null : undefined} assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
+    <CustomersTable onPrefetch={row=>planPreload?.prefetch(row.id)} compactActions={music} onEdit={onEdit ? row=>onEdit(row.id) : undefined} renderNote={music ? row => musicNoteDisplay(row.serviceNote) ? <button type="button" className="min-h-11 max-w-64 text-left text-sm text-earth-600" onClick={()=>onView(row.id)} aria-label={`${row.name} 備註與資料來源`}><span className="line-clamp-1">{musicNoteDisplay(row.serviceNote) || "—"}</span></button> : null : undefined} assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
       selectionEnabled={canAssignManager && !music} selectedIds={selectedIds}
       onToggleRow={id => { const next = new Set(selectedIds); if (next.has(id)) next.delete(id); else next.add(id); setSelected(next); }}
       onToggleAll={() => { const ids = pageRows.filter(row => !isInactiveRow(row)).map(row => row.id); const next=new Set(selectedIds); if(ids.every(id=>next.has(id)))ids.forEach(id=>next.delete(id));else ids.forEach(id=>next.add(id));setSelected(next); }}

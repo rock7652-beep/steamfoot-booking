@@ -125,12 +125,13 @@
  }
 }
 
-/* Customer review dialogs stay anchored without filling empty screen space. */
+/* Keep customer/booking review geometry stable across loading and inner tabs. */
 @media (min-width: 640px) {
   :global(.customer-review-panel) .centered {
     top: 1.5rem;
     transform: translateX(-50%);
-    height: auto;
-    max-height: min(var(--sheet-max-height, 900px), calc(100dvh - 3rem));
+    height: min(var(--sheet-max-height, 640px), calc(100dvh - 3rem));
+    max-height: calc(100dvh - 3rem);
+    overflow: hidden;
   }
 }

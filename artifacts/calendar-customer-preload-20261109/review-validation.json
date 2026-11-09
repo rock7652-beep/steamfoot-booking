@@ -1,0 +1,26 @@
+{
+  "parentCommit": "f9532d55c0f854d3f79a680939a7372acc0ce978",
+  "sources": {
+    "scripts/qa/calendar-customer-preload-browser.mjs": "56503cb6e6c03e33a6f9c8a410595d61f0d9d05e22685aa98c2e843bfa082153",
+    "scripts/qa/calendar-customer-preload-fixture.tsx": "579f18ed371d802e404082d7f420d24c4f495b6b9e61bfc19326699b4097c458",
+    "scripts/sports-shared-card-preview-scope.mjs": "dc3ab0e46e3f42a12e9e1e6b0028b8f76b12405d73f2f5c95db09d9468da627c",
+    "src/__tests__/beauty-addon-collection-port-merge.test.ts": "56ffa2b022eb1f359ae5a2566f41ab9191843483204b7b35c790fd2103cab738",
+    "src/__tests__/beauty-roster-attendance.test.ts": "0088e242e8ef407e6294c7a0b50bf3804503c7fb8d9cf845b20cb5dadcb1120e",
+    "src/__tests__/course-schedule-background-refresh.test.ts": "1143bb4464e7881b0f2357ef842013cb6b11cb0283b3751dd11e2b66b6a7766b",
+    "src/__tests__/customer-plan-preload.test.ts": "e7e76173daeb12c29601acd683931f1cb9bb195f7309744c0356db75bc993871",
+    "src/__tests__/sports-shared-card-preview-isolation.test.ts": "b636adc7e765d0b4978d3e768c7b0b902ef2462fd348467e83dc3bd3e696f508",
+    "src/app/(dashboard)/dashboard/courses/member-workspace.tsx": "74025e68d4325845b561da374404b45f48630fa254480cf012bba0b49922424d",
+    "src/app/(dashboard)/dashboard/courses/workspace.tsx": "a7c979afc028998c639639b55d8711de0ec6cf1f82b3f28899923f0c4729b51a",
+    "src/components/admin/use-customer-card-reader.ts": "ce534decb598d9a633a4dec7e3cbfdc4e66b833fab25a1cd94a322f9501a7411",
+    "src/components/admin/use-customer-plan-preload.ts": "c3b463838a94f3bf0a6f41a45e652d75c611106f552f5f6a509607efbbb71fd5",
+    "src/components/operations/panel-read-cache.tsx": "d825b39f1840d90848fc4268d90d94c67e19d92f72bd44cf28038ee0321e8a64",
+    "src/lib/beauty/customer-detail-read.ts": "715f1c9ac1b8486cc4122b57d3152bdb3430ee284df116cb4f30ffcb3c750ab7"
+  },
+  "regressionTestsPassed": 182,
+  "ciTargetedTestsPassed": 3002,
+  "ciTargetedFilesPassed": 207,
+  "previewIsolationTestsPassed": 29,
+  "customerMutationBrowserCases": 3,
+  "realTransactionsSubmitted": false,
+  "previewAuthorization": "exact fix/calendar-customer-preload-20261109 branch only; existing database and notification gates unchanged"
+}
