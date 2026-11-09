@@ -47,3 +47,14 @@ it.each([{NODE_ENV:"production" as const},{VERCEL_ENV:"preview"},{AUTH_URL:"http
  expect(musicNativeWorkflowEnabled("store-lubymusic",invalid)).toBe(false);
  await expect(sportsNativePreview("sports-live-flow-store")).rejects.toThrow();
 });
+
+it("contains the charge correction Preview in the same isolated profile",async()=>{
+ const fix={...env,VERCEL_GIT_COMMIT_REF:"fix/course-single-charge-validation-20261109"};
+ expect(assertReviewedReleaseEnvironment(fix)).toBe("sports-redesign-preview");
+ expect(musicNativeWorkflowEnabled("store-lubymusic",fix)).toBe(true);
+ expect(()=>assertSportsRedesignPreviewEnvironment({...fix,VERCEL_PROJECT_ID:"other"})).toThrow();
+ expect(()=>assertSportsRedesignPreviewEnvironment({...fix,LINE_CHANNEL_ACCESS_TOKEN:"synthetic"})).toThrow();
+ for(const [key,value]of Object.entries(fix))vi.stubEnv(key,value);
+ expect(await sportsStagingEnabled("sports-live-flow-store")).toBe(true);
+ expect(await sportsStagingEnabled("other")).toBe(false);
+});
