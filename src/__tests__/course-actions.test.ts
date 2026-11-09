@@ -457,6 +457,8 @@ describe('sports guest trial transaction',()=>{
   mocks.template.mockResolvedValue({id:'yoga',name:'舊項目 · abcdef',musicSubject:{name:'A課程'},pointCost:2,isActive:true,visibility:'PUBLIC'});
   mocks.planName.mockResolvedValue({name:'A課程-20堂'});
   expect(await createCourseSchedule(input)).toMatchObject({success:true,data:{count:1}});
+  expect(mocks.quote).toHaveBeenCalledTimes(2);
+  for(const call of mocks.quote.mock.calls)expect(call[2]).toMatchObject({isTrial:true,requireSelection:true});
   expect(mocks.permission).toHaveBeenCalledWith('customer.create');
   const writes=mocks.execute.mock.calls.filter(c=>c[0].join('').includes('INSERT INTO "Customer"'));
   expect(writes).toHaveLength(existingCustomer?0:1);

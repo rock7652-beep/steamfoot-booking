@@ -734,7 +734,7 @@ export async function createCourseSchedule(input: unknown) {
           );
           if (fixedOrigin) throw new AppError("CONFLICT", "原固定課保留此時段；可排單次臨時課，不可再排固定課");
         }
-        const lockedCharge=await resolveScheduleCharge(tx,storeId,{...data,sports:!!data.sportsStaging,requireSelection:data.isTrial||data.scheduleType==='SINGLE'||data.sportsStaging?.frequency==='SINGLE',open:data.sportsStaging?.enrollment==='OPEN',defaultTrialPrice:chargeDefaults?.trialDefaultPrice??0});
+        const lockedCharge=!data.isTrial?null:await resolveScheduleCharge(tx,storeId,{...data,sports:!!data.sportsStaging,requireSelection:true,open:data.sportsStaging?.enrollment==='OPEN',defaultTrialPrice:chargeDefaults?.trialDefaultPrice??0});
         if(JSON.stringify(lockedCharge)!==JSON.stringify(chargeQuote))throw new AppError('CONFLICT','收費方式已有更新，請重新確認');
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);

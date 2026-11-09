@@ -1,0 +1,78 @@
+{
+  "kind": "sports",
+  "phase": "save",
+  "environment": "loopback Next development + dedicated PostgreSQL",
+  "mocks": false,
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "elapsedMs": 7233
+    },
+    {
+      "step": "cold-calendar-data-ready",
+      "elapsedMs": 3487,
+      "pass": true
+    },
+    {
+      "step": "mixed-form-resize-retains-draft",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "mixed-form-resize-retains-draft",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "mixed-form-resize-retains-draft",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "real-server-action-confirmed",
+      "pass": true,
+      "url": "http://localhost:3107/s/sports-live-flow/admin/dashboard/courses?view=schedule&date=2030-11-04"
+    },
+    {
+      "step": "authoritative-database-result",
+      "pass": true,
+      "sessionId": "cmw927svv0000l85bnb4202pl",
+      "capacity": 4,
+      "fixedLearners": 1,
+      "openSeats": 3
+    },
+    {
+      "step": "reload-persists-roster",
+      "pass": true,
+      "elapsedMs": 1775
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "saveButton": {
+    "enabled": true,
+    "text": "新增"
+  }
+}

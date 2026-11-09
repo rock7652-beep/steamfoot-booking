@@ -40,6 +40,9 @@ async function main(){
   await course.musicSubject.create({data:{id:subjectId,storeId,name:`混合驗收${label}`}});
   await course.courseRoom.create({data:{id:roomId,storeId,name:`混合${label}教室`,capacity:4}});
   await course.courseTemplate.create({data:{id:templateId,storeId,name:`混合驗收${label}`,musicSubjectId:subjectId,durationMinutes:60,pointCost:1,capacity:4,defaultRoomId:roomId,classType:'GROUP'}});
+  // Real stores already have fee settings. Regular scheduling must remain usable
+  // when these exist, while trial pricing keeps its explicit selection rules.
+  for(const mode of kind==='sports'?['OPEN','ASSIGNED']:['LEGACY'])await course.coursePointPlan.create({data:{id:id+'-fee-'+mode,storeId,name:`${label}單次收費 ${mode}`,unit:'SESSION',points:1,price:800,validDays:30,templateIds:[templateId],sportsMode:mode,...(kind==='sports'?{sportsSubjectId:subjectId}:{}),chargeSettings:{kind:'single',durationMinutes:90,trialPrice:300,trialDuration:30,providerIds:[staffId]}}});
   const customers=[];
   for(let n=0;n<3;n++){const cid=id+'-student-'+n,name=`${label}驗收學員${['甲','乙','丙'][n]}`;await db.customer.create({data:{id:cid,storeId,name,phone:'099900010'+n,assignedStaffId:staffId}});customers.push({id:cid,name});}
   accounts.push({kind,storeId,slug,userId,staffId,email,password,templateId,subjectId,subjectName:`混合驗收${label}`,roomId,roomName:`混合${label}教室`,teacherName:`混合${label}老師`,customers,date:'2030-11-04',time:'10:00'});
