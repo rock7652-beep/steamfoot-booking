@@ -22,6 +22,7 @@ export function assertSportsRedesignPreviewEnvironment(env) {
       (env.VERCEL_PROJECT_ID !== 'prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR' || env.COURSE_MIXED_ENROLLMENT_PREVIEW !== '1' ||
        env.PRODUCTION_MIGRATION_TARGET || Object.entries(env).some(([key,value])=>Boolean(value)&&
         /^(?:(?:LINE_|WEB_LINE_|STEAM_BUTLER_LINE_|MESSENGER_).*(?:TOKEN|SECRET)|RESEND_API_KEY|SMTP_|STORE_LINE_ADDITIONAL_CONFIG_JSON)/.test(key)))) {
-    throw new Error('Mixed enrollment Preview requires its exact project, opt-in, isolated database and disabled delivery credentials.');
+    const configuredDeliveryKeys=Object.entries(env).filter(([key,value])=>Boolean(value)&&/^(?:(?:LINE_|WEB_LINE_|STEAM_BUTLER_LINE_|MESSENGER_).*(?:TOKEN|SECRET)|RESEND_API_KEY|SMTP_|STORE_LINE_ADDITIONAL_CONFIG_JSON)/.test(key)).map(([key])=>key);
+    throw new Error(`Mixed enrollment Preview requires its exact project, opt-in, isolated database and disabled delivery credentials. project_match=${env.VERCEL_PROJECT_ID==='prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR'} opt_in=${env.COURSE_MIXED_ENROLLMENT_PREVIEW==='1'} migration_target_present=${Boolean(env.PRODUCTION_MIGRATION_TARGET)} configured_delivery_keys=${configuredDeliveryKeys.join(',')||'none'}`);
   }
 }
