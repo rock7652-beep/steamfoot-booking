@@ -30,7 +30,11 @@ export async function scheduleMusicStudentMakeup(tx:Prisma.TransactionClient,act
  const coupon=await tx.coursePointCard.findFirst({where:{storeId,closedAt:null,requestKey:{in:[`yjy-pilot-makeup:${source.id}`,`music-leave-makeup:${source.id}`]}}});
  const separate=source.card.requestKey.startsWith("yjy-pilot-card:")||!!coupon;
  if((separate?coupon?.id:source.cardId)!==input.cardId)throw new AppError("CONFLICT","補課方案已變更，請重新查看補課紀錄");
- if(await tx.courseBooking.findFirst({where:{storeId,...(separate?{cardId:input.cardId}:{makeupForBookingId:source.id}),OR:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}}))throw new AppError("CONFLICT","這次請假已安排補課，請重新查看");
+ // Native cancelled attempts release their allocation and reuse this same coupon.
+ // The normal reservation below still verifies its source, balance and expiry;
+ // pilot and ordinary linked makeups retain their existing occupancy policy.
+ const nativeCoupon=coupon?.requestKey===`music-leave-makeup:${source.id}`;
+ if(await tx.courseBooking.findFirst({where:{storeId,...(separate?{cardId:input.cardId}:{makeupForBookingId:source.id}),OR:nativeCoupon?[{status:{not:"CANCELLED"}}]:[{status:{not:"CANCELLED"}},{absenceKind:"STUDENT_LEAVE"}]}}))throw new AppError("CONFLICT","這次請假已安排補課，請重新查看");
  const startsAt=parseTaipeiDateTime(input.date,input.time);
  if(!startsAt||startsAt<=new Date()||startsAt<=source.session.startsAt)throw new AppError("VALIDATION","請選擇原請假課程之後的未來時段");
  const duration=source.session.endsAt.getTime()-source.session.startsAt.getTime();

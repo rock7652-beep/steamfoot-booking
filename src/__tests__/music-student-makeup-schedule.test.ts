@@ -25,3 +25,23 @@ it("retries the committed receipt without creating another lesson or reservation
 it("propagates a reservation failure to the outer transaction rather than returning an empty lesson",async()=>{m.reserve.mockRejectedValueOnce(new Error("方案已到期"));await expect(run()).rejects.toThrow("方案已到期");expect(m.capture).not.toHaveBeenCalled();});
 it("uses the separate makeup coupon without changing ordinary-card linkage rules",async()=>{tx.courseBooking.findFirst.mockReset().mockResolvedValueOnce({id:"leave",cardId:"original",card:{requestKey:"yjy-pilot-card:original"},session:{templateId:"teaching:guitar",nameSnapshot:"吉他",startsAt:new Date("2099-11-01T10:00Z"),endsAt:new Date("2099-11-01T10:50Z"),pointCost:1}}).mockResolvedValue(null);tx.coursePointCard.findFirst.mockResolvedValue({id:"card"});await run();expect(m.reserve).toHaveBeenCalledWith(tx,actor,expect.objectContaining({cardId:"card",makeupForBookingId:null}),500);});
 it("rejects recurring conflicts and rentals without creating empty lessons",async()=>{m.series.mockReturnValueOnce([{date:"2099-11-20",reason:"固定課"}]);await expect(run()).rejects.toThrow("固定課");expect(tx.courseSession.create).not.toHaveBeenCalled();tx=fixture();m.series.mockReturnValue([]);tx.courseRental.findFirst.mockResolvedValue({id:"rental"});await expect(run()).rejects.toThrow("租借");expect(tx.courseSession.create).not.toHaveBeenCalled();});
+
+it("reuses a native coupon after cancelled leave attempts without creating a second right",async()=>{
+ const source={id:"leave",cardId:"original",card:{requestKey:"native-paid"},session:{templateId:"teaching:guitar",nameSnapshot:"吉他",startsAt:new Date("2099-11-01T10:00Z"),endsAt:new Date("2099-11-01T10:50Z"),pointCost:1}};
+ tx.coursePointCard.findFirst.mockResolvedValue({id:"card",requestKey:"music-leave-makeup:leave"});
+ tx.courseBooking.findFirst.mockReset().mockImplementation(async({where})=>where.id?source:where.OR.some((clause:{absenceKind?:string})=>clause.absenceKind==="STUDENT_LEAVE")?{id:"released-attempt",status:"CANCELLED",absenceKind:"STUDENT_LEAVE"}:null);
+ expect(await run()).toEqual({sessionId:"new",bookingId:"booking"});
+ expect(m.reserve).toHaveBeenCalledWith(tx,actor,expect.objectContaining({cardId:"card",makeupForBookingId:null}),500);
+ expect(tx.courseSession.create).toHaveBeenCalledTimes(1);
+});
+it("continues to reject active reservations on a native coupon",async()=>{
+ tx.coursePointCard.findFirst.mockResolvedValue({id:"card",requestKey:"music-leave-makeup:leave"});
+ tx.courseBooking.findFirst.mockResolvedValueOnce({id:"held",status:"RESERVED"});
+ await expect(run()).rejects.toThrow("已安排補課");expect(tx.courseSession.create).not.toHaveBeenCalled();
+});
+it("retains the pilot cancelled-leave restriction",async()=>{
+ const source={id:"leave",cardId:"original",card:{requestKey:"yjy-pilot-card:original"},session:{templateId:"teaching:guitar",nameSnapshot:"吉他",startsAt:new Date("2099-11-01T10:00Z"),endsAt:new Date("2099-11-01T10:50Z"),pointCost:1}};
+ tx.coursePointCard.findFirst.mockResolvedValue({id:"card",requestKey:"yjy-pilot-makeup:leave"});
+ tx.courseBooking.findFirst.mockReset().mockImplementation(async({where})=>where.id?source:where.OR.some((clause:{absenceKind?:string})=>clause.absenceKind==="STUDENT_LEAVE")?{id:"pilot-leave",status:"CANCELLED",absenceKind:"STUDENT_LEAVE"}:null);
+ await expect(run()).rejects.toThrow("已安排補課");expect(tx.courseSession.create).not.toHaveBeenCalled();
+});
