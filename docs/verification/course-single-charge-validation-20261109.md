@@ -15,3 +15,14 @@
 - 修改檔 lint 無錯誤；course.ts 原有 unused musicStore 警告保留。最終型別與雲端 CI 結果以本修正 PR 的同版 checks 為準。
 
 本紀錄是本機 Next development 與隔離 PostgreSQL 驗收，並非正式站寫入驗收、Hosted SSO 後操作或實體 iPad 驗收。Task-owned DB、Next server 與暫時帳密已清除。正式部署尚未執行；本分支停用 Vercel 自動部署，既有 main／其他分支設定保留。
+
+
+## 完整業務流程補驗
+
+2026-11-09 執行 `COURSE_QA_LIFECYCLE=1 node scripts/qa/course-mixed-enrollment-local.mjs`。每次使用全新 task-owned PostgreSQL 與真實 Next app，店長與會員均透過正式登入流程操作，沒有 auth/action mock；每個交易結果再由獨立 SQL 查核。
+
+音樂、運動均通過：已有有效收費方式時建立混合課；店長為固定學員及自由選課學員實際購課、收款各 800 元；會員自行加入同一堂課；兩人出席各扣 1 堂，更正各還 1 堂；店長將已出席改為免扣堂請假後返還 1 堂，課程仍未取消／釋出，恢復預約後不重複還堂。音樂團課一般學員請假的原有扣堂規則未變更；本次請假操作是店長更正／免扣堂，不能據此宣稱所有請假均退堂。
+
+結果與代表截圖：`artifacts/course-single-charge-validation-20261109/lifecycle/`。桌機／iPad 名單與排課沿用前述三尺寸；會員選課在 390×844 執行。額外購課流程使用 1366×900；未宣稱實體裝置或付款閘道驗收（CARD 為店長實際收款登錄）。
+
+Hosted Preview 首輪運動完整流程成功；音樂課表發現既有期初資料讀取沿用舊 Preview 分支限制，錯誤 digest `2168097698`。補上混合排課的嚴格隔離 profile，僅放行封存資料讀取；歷史匯入 gate 未變更，新增測試確認 production／錯誤專案／正式 DB／外發憑證仍被拒絕。Hosted 最終結果待下方補錄。

@@ -46,6 +46,10 @@ export function musicNativeWorkflowEnabled(storeId,env=process.env){
 }
 /** Read/filter sealed preview data on either reviewed branch; never authorizes an importer. */
 export function assertMusicPreviewDataReviewEnvironment(env){
+ if(MIXED_ENROLLMENT_PREVIEW_BRANCHES.includes(env.VERCEL_GIT_COMMIT_REF)){
+  assertSportsRedesignPreviewEnvironment(env);
+  return;
+ }
  if(env.VERCEL_GIT_COMMIT_REF===MUSIC_RELEASE_BRANCH){
   if(assertMusicNativeReleaseEnvironment(env)!=='preview')throw Error('Music data review requires isolated preview');
   return;

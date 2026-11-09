@@ -42,9 +42,9 @@ async function main(){
   await course.courseTemplate.create({data:{id:templateId,storeId,name:`混合驗收${label}`,musicSubjectId:subjectId,durationMinutes:60,pointCost:1,capacity:4,defaultRoomId:roomId,classType:'GROUP'}});
   // Real stores already have fee settings. Regular scheduling must remain usable
   // when these exist, while trial pricing keeps its explicit selection rules.
-  for(const mode of kind==='sports'?['OPEN','ASSIGNED']:['LEGACY'])await course.coursePointPlan.create({data:{id:id+'-fee-'+mode,storeId,name:`${label}單次收費 ${mode}`,unit:'SESSION',points:1,price:800,validDays:30,templateIds:[templateId],sportsMode:mode,...(kind==='sports'?{sportsSubjectId:subjectId}:{}),chargeSettings:{kind:'single',durationMinutes:90,trialPrice:300,trialDuration:30,providerIds:[staffId]}}});
+  for(const mode of kind==='sports'?['OPEN','ASSIGNED']:['LEGACY'])await course.coursePointPlan.create({data:{id:id+'-fee-'+mode,storeId,name:`${label}單次收費 ${mode}`,unit:'SESSION',points:1,price:800,validDays:3650,templateIds:[templateId],sportsMode:mode,...(kind==='sports'?{sportsSubjectId:mode==='ASSIGNED'?subjectId:null,sportsCost:mode==='ASSIGNED'?1:null}:{musicTerms:1,musicTermSizes:[1]}),chargeSettings:{kind:'single',durationMinutes:90,trialPrice:300,trialDuration:30,providerIds:[staffId]}}});
   const customers=[];
-  for(let n=0;n<3;n++){const cid=id+'-student-'+n,name=`${label}驗收學員${['甲','乙','丙'][n]}`;await db.customer.create({data:{id:cid,storeId,name,phone:'099900010'+n,assignedStaffId:staffId}});customers.push({id:cid,name});}
+  for(let n=0;n<3;n++){const cid=id+'-student-'+n,name=`${label}驗收學員${['甲','乙','丙'][n]}`,memberEmail=cid+'@example.invalid',memberPassword=randomBytes(24).toString('hex');await db.user.create({data:{id:cid+'-user',email:memberEmail,name,role:'CUSTOMER',passwordHash:hashSync(memberPassword,10)}});await db.customer.create({data:{id:cid,userId:cid+'-user',storeId,name,phone:'099900010'+n,assignedStaffId:staffId}});customers.push({id:cid,name,email:memberEmail,password:memberPassword});}
   accounts.push({kind,storeId,slug,userId,staffId,email,password,templateId,subjectId,subjectName:`混合驗收${label}`,roomId,roomName:`混合${label}教室`,teacherName:`混合${label}老師`,customers,date:'2030-11-04',time:'10:00'});
  }
  writeFileSync('/tmp/mixed-local-access.json',JSON.stringify({base:'http://localhost:3107',accounts}),{mode:0o600});
