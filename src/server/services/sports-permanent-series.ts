@@ -1,5 +1,6 @@
 import {calendarPhase,calendarSyncPhase,calendarCount} from "./course-calendar-timing";
 import { findSportsCard } from "./sports-card-selection";
+import { sportsBookingEnrollment } from "@/lib/sports-entitlement";
 import {sportsProductionEnabled} from "../../../scripts/sports-production-scope.mjs";
 import {verifySportsPermanentReadiness} from "../../../scripts/sports-permanent-readiness.mjs";
 import {sportsSeriesTable,assertSportsPermanentCreationAllowed} from "@/lib/sports-series-storage";
@@ -121,9 +122,9 @@ export async function bindSportsAttendanceCard(tx:Tx,actor:CourseActor,bookingId
  const b=await tx.courseBooking.findFirst({where:{id:bookingId,storeId:actor.storeId},include:{session:true}});
  if(!b||b.cardId||b.bookingKind!=="UNPAID")return;
  if(!(await sportsNativePreview(actor.storeId))||actor.customerId)throw new AppError("FORBIDDEN","固定課點名僅限本店授權人員");
- const [rule]=await tx.$queryRaw<Array<{planId:string|null;enrollment:string}>>`SELECT "planId",enrollment FROM "SportsStagingSessionRule" WHERE "storeId"=${actor.storeId} AND "sessionId"=${b.sessionId}`;
+ const [rule]=await tx.$queryRaw<Array<{planId:string|null;enrollment:string;payload:unknown}>>`SELECT "planId",enrollment,payload FROM "SportsStagingSessionRule" WHERE "storeId"=${actor.storeId} AND "sessionId"=${b.sessionId}`;
  if(!rule)throw new AppError("VALIDATION","找不到固定課權益規則，尚未扣抵");
- const picked=await findSportsCard(tx,actor.storeId,b.customerId!,[b.session],rule);
+ const picked=await findSportsCard(tx,actor.storeId,b.customerId!,[b.session],{...rule,enrollment:sportsBookingEnrollment(rule,b)??rule.enrollment});
  if(!picked)throw new AppError("VALIDATION","學員沒有適用且足額的有效方案；尚未扣堂，請先購買或續課");
  await tx.courseBooking.update({where:{id:b.id},data:{cardId:picked.card.id,bookingKind:"CARD",...(b.requestKey.startsWith("sports-makeup:")?{makeupForBookingId:b.requestKey.split(":")[1]}:{}),pointCost:picked.cost}});
 }

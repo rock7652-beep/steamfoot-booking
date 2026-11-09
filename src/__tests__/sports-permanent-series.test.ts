@@ -8,6 +8,15 @@ import type {Prisma} from "../../generated/course-client";
 const series={requestKey:"weekly",roomId:"room",coachId:"coach",startsAt:new Date("2026-11-02T08:00:00Z"),endsAt:new Date("2026-11-02T09:00:00Z"),frequency:"WEEKLY",untilDate:null,excludedDates:[],cancelledAt:null};
 const actor={storeId:"sports-live-flow-store",userId:"owner",name:"老闆"};
 beforeEach(()=>{m.enabled=true;});
+it.each(["sports-fixed:s:student","schedule:0:student","free-rejoin"])("mixed attendance preserves fixed/open rights: %s",async requestKey=>{
+ const session={id:"s",requestKey:"schedule",requestIndex:0,templateId:"template",pointCost:3,startsAt:new Date("2099-01-01")};
+ const rule={enrollment:"OPEN",planId:null,payload:{students:[{customerId:"student",cardId:null}]}};
+ const card={createdAt:new Date("2026-01-01"),unit:"POINT",planId:"plan",templateIds:[],requestKey:"normal",expiresAt:new Date("2099-12-31"),remaining:10,bookings:[]};
+ const update=vi.fn();
+ const tx={coursePurchase:{findMany:vi.fn().mockResolvedValue([])},courseTemplate:{findFirst:vi.fn().mockResolvedValue({musicSubjectId:"subject"}),findMany:vi.fn().mockResolvedValue([{id:"template"}])},$queryRaw:vi.fn().mockResolvedValue([rule]),courseBooking:{findFirst:vi.fn().mockResolvedValue({id:"booking",bookingKind:"UNPAID",cardId:null,requestKey,sessionId:"s",customerId:"student",session}),update},coursePointCard:{findMany:vi.fn().mockResolvedValue([{...card,id:"assigned",sportsMode:"ASSIGNED",sportsSubjectId:"subject",sportsCost:2},{...card,id:"open",sportsMode:"OPEN",sportsSubjectId:null,sportsCost:null}])}};
+ await bindSportsAttendanceCard(tx as unknown as Prisma.TransactionClient,actor,"booking");
+ expect(update).toHaveBeenCalledWith({where:{id:"booking"},data:expect.objectContaining({cardId:requestKey==="free-rejoin"?"open":"assigned",pointCost:requestKey==="free-rejoin"?3:2})});
+});
 describe("運動持續固定課",()=>{
  it("多年後仍占時段，查日曆不決定系列壽命",()=>{
   const far=fixedSeriesOccurrenceOnDate(series,"2030-11-04");expect(far?.startsAt.toISOString()).toBe("2030-11-04T08:00:00.000Z");

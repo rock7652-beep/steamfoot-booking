@@ -515,7 +515,6 @@ export async function createCourseSchedule(input: unknown) {
       const music = await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
       if (!music) throw new AppError("FORBIDDEN","此排課流程僅適用音樂模組");
       if (data.enrollmentMode === "ASSIGNED" && !data.learners.length) throw new AppError("VALIDATION","請指定至少一位學員");
-      if (data.enrollmentMode === "OPEN" && data.learners.length) throw new AppError("VALIDATION","開放報名建立時不指定學員");
       if (data.enrollmentMode === "ASSIGNED") data.capacity = data.learners.length;
       if (data.learners.length) {
         await courseManager("customer.read");
@@ -636,6 +635,9 @@ export async function createCourseSchedule(input: unknown) {
         if (!template || template.musicSubject?.isActive === false || template.visibility === "OFF" || !room || !coaches.length)
           throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與授課人員");
         if (template.classType !== "RENTAL") assertCourseSchedulingMode(schedulingRule, data.sportsStaging?.enrollment ?? data.enrollmentMode ?? data.bookingAudience);
+        // A mixed class needs both grants, checked again under the store lock.
+        if (data.sportsStaging?.enrollment === "OPEN" && data.sportsStaging.students.length || musicScheduling && data.enrollmentMode === "OPEN" && data.learners.length)
+          assertCourseSchedulingMode(schedulingRule, "ASSIGNED");
         await assertCourseResources(tx,storeId,{...data,requireMusicSubject:musicScheduling});
         if(musicScheduling&&data.scheduleType==="FIXED"){
           const [rules,occupied,rentals]=await Promise.all([

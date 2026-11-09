@@ -1,0 +1,329 @@
+{
+  "date": "2026-11-09",
+  "timezone": "Asia/Taipei",
+  "branch": "feat/mixed-course-enrollment-20261109",
+  "baseCommit": "236d637dd9f03f9824bdd92841457e7e9d2a86f3",
+  "deliveryState": "local working tree; not pushed or deployed",
+  "behavior": {
+    "modules": [
+      "music",
+      "sports"
+    ],
+    "entry": "新增排課 → 開放選課 → 同時安排固定學員",
+    "sharedCapacity": true,
+    "requiresBothSchedulingModes": true,
+    "fixedSeriesRetainsRoster": true,
+    "leaveKeepsMixedClassOpen": true,
+    "sportsFixedRights": "assigned rights for original scheduled reservations",
+    "sportsSelfBookingRights": "open rights, including self-rebooking after cancellation"
+  },
+  "verification": {
+    "targetedRegression": {
+      "files": 19,
+      "tests": 280,
+      "result": "passed"
+    },
+    "finalBalanceRegression": {
+      "files": 2,
+      "tests": 20,
+      "result": "passed",
+      "note": "overlaps targeted regression"
+    },
+    "finalGuideRegression": {
+      "files": 3,
+      "tests": 10,
+      "result": "passed",
+      "note": "partly overlaps targeted regression"
+    },
+    "typescript": {
+      "command": "node --max-old-space-size=12288 node_modules/typescript/bin/tsc --noEmit --incremental --tsBuildInfoFile /tmp/course-mixed-enrollment.tsbuildinfo",
+      "result": "passed after adding PostgreSQL tests"
+    },
+    "eslint": {
+      "result": "no errors",
+      "preExistingWarnings": [
+        "src/server/actions/course.ts: unused musicStore in moveCourseSessions"
+      ]
+    },
+    "diffCheck": "passed",
+    "browser": {
+      "command": "node scripts/qa/course-mixed-enrollment-browser.mjs",
+      "environment": "local Vite, Chromium, actual form components, 30 synthetic customers, stubbed server actions",
+      "results": [
+        {
+          "module": "音樂",
+          "width": 1366,
+          "height": 900,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "音樂",
+          "width": 1920,
+          "height": 1080,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "音樂",
+          "width": 1024,
+          "height": 768,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "音樂",
+          "width": 768,
+          "height": 1024,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "音樂",
+          "width": 560,
+          "height": 800,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "音樂",
+          "width": 390,
+          "height": 844,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "運動",
+          "width": 1366,
+          "height": 900,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "運動",
+          "width": 1920,
+          "height": 1080,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "運動",
+          "width": 1024,
+          "height": 768,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "運動",
+          "width": 768,
+          "height": 1024,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "運動",
+          "width": 560,
+          "height": 800,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        },
+        {
+          "module": "運動",
+          "width": 390,
+          "height": 844,
+          "overflow": false,
+          "fixedLearners": 1,
+          "capacity": 4,
+          "openSeats": 3,
+          "resizePreserved": true,
+          "failurePreserved": true,
+          "retrySameIntent": true
+        }
+      ]
+    },
+    "postgresqlIntegration": {
+      "result": "passed",
+      "database": "PostgreSQL 16, one dedicated loopback-only Docker container, database course_mixed_test",
+      "suites": [
+        {
+          "path": "src/__tests__/course-mixed-enrollment.pg.test.ts",
+          "passed": 23
+        },
+        {
+          "path": "src/__tests__/sports-card-modes.pg.test.ts",
+          "passed": 10
+        },
+        {
+          "path": "src/__tests__/item-core-flows.pg.test.ts",
+          "testNamePattern": "sports:|music:",
+          "passed": 4,
+          "excluded": 3
+        }
+      ],
+      "passedTotal": 37,
+      "schema": "Generated current course Prisma schema, actual music ledger table DDL and period uniqueness, actual point-entry constraints, isolated metadata tables; random per-suite schemas are removed by afterAll.",
+      "boundariesReplaced": [
+        "session authorization",
+        "deployment readiness/storage selection",
+        "outbound delivery and Next after callbacks",
+        "test booking horizon and feature capabilities"
+      ],
+      "verified": [
+        "real scheduling action and idempotency",
+        "fixed and public seats share capacity",
+        "parallel last-seat reservations",
+        "parallel fixed attendance debits once",
+        "original fixed rights versus self-rebooking open rights",
+        "member leave and public class availability",
+        "queue replay, promotion, pause/re-enable",
+        "debit, duplicate attendance and correction restoration",
+        "later database failure rolls back earlier reservations and audit; nontransactional sequence proves both insert attempts reached the database",
+        "invalid duplicate/oversized fixed rosters",
+        "both scheduling switches reject stale new requests while existing attendance remains usable",
+        "subsequent music and sports fixed occurrences preserve their fixed rosters",
+        "existing music/sports purchase, FIFO and restoration regression"
+      ],
+      "testHarnessRepair": "Added missing assertSportsBookingReadReady deployment-boundary mock to the two existing PostgreSQL suites.",
+      "preliminaryBaselineNote": "Initial broad baseline also included an unrelated beauty fixture with a missing e.startsAt column; beauty and optional hosted UI tests were excluded from the final music/sports regression and are not claimed as passed.",
+      "commands": [
+        "BOOKING_CONCURRENCY_TEST_DATABASE_URL=<dedicated-loopback-_test-database> node node_modules/vitest/vitest.mjs run src/__tests__/course-mixed-enrollment.pg.test.ts src/__tests__/sports-card-modes.pg.test.ts",
+        "BOOKING_CONCURRENCY_TEST_DATABASE_URL=<same-isolated-database> node node_modules/vitest/vitest.mjs run src/__tests__/item-core-flows.pg.test.ts -t 'sports:|music:'"
+      ],
+      "logs": [
+        "/tmp/course-mixed-pg-tests.log",
+        "/tmp/course-item-pg-regression.log"
+      ],
+      "cleanup": {
+        "container": "f882271af2e0dce37ec141253c179202835586ff6a0c6abb5760cc36b2ad1231",
+        "result": "removed; temporary database data was stored in tmpfs"
+      }
+    },
+    "postgresqlTestLint": {
+      "result": "passed with no warnings or errors",
+      "files": 3
+    },
+    "previewIsolation": {
+      "result": "passed",
+      "vitestTests": 63,
+      "nodeTests": 5,
+      "automaticGitDeploy": "disabled only for this feature branch",
+      "project": "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR",
+      "database": "steamfoot-preview / ttworfzgwejdeolegkxl",
+      "migrations": "existing sports-redesign-preview skips migrations",
+      "notifications": "generic Preview outbound lock plus branch-scoped empty delivery credentials",
+      "stores": [
+        "store-lubymusic",
+        "sports-live-flow-store"
+      ]
+    }
+  },
+  "limitations": [
+    "Browser dimensions were emulated; no physical iPad or mobile-device claim.",
+    "Database tests execute real actions/services with session authorization boundaries replaced; no authenticated hosted browser-to-database end-to-end run is claimed.",
+    "Production database migrations/readiness and deployment integrations were not tested; disposable fixture schema details are listed above.",
+    "No remote preview, production deployment, production data write, or notification delivery.",
+    "Cloudflare is not a dependency of the local UI and transaction checks."
+  ],
+  "changedFileSha256": {
+    "docs/course-decisions.md": "6266a1e09b20a28c21ee98a88405f2de8d3c2b1c7414258336c061fe1e22d0f5",
+    "scripts/consultation-preview-scope.mjs": "25933cd184fa502119b59c19af3849718cc4ee1bf38219aebdf8046a3ccc5455",
+    "scripts/music-native-workflow-scope.mjs": "fd8c7e16fccb14e43384c271e6f05400cc6cee10dbdd0bec1fcbed84b295dd8a",
+    "scripts/qa/course-mixed-enrollment-browser.mjs": "e8fa89a3200c6bc9aa8f974b4c7d2cbb8f7d634874e006545237017055a768dd",
+    "scripts/qa/course-mixed-enrollment-fixture.tsx": "8fe82038b38a0735927214871e14be6e82598f7257d898f6766b85e4d5071859",
+    "scripts/sports-redesign-preview-scope.mjs": "c5e072fce9c608213d3448d7b068dfbeb7cab20eb7f03814f46bbb49ee5131ee",
+    "scripts/sports-shared-card-preview-scope.mjs": "393e71caae34eb7b8fac95e404a1596d67950eb91738ef0fee78951f5df385b5",
+    "src/__tests__/course-actions.test.ts": "047a93dddd4d72263ea91090579a8526cde4a5b063458e2c0aa60bab1fa90dd9",
+    "src/__tests__/course-mixed-enrollment.pg.test.ts": "1670d12be52b8d226b0b33ac48a556fd03bdfb9b83578a28c3e33e750dec5429",
+    "src/__tests__/course-mixed-preview-scope.test.ts": "099b6000a8c16e66b024a694a8af18b61b3e574bb0df172be12b824eac285427",
+    "src/__tests__/course-mixed-release.test.ts": "93968e6b3941e430c324ea2d16ce2a3e2e2d6e76a702debfb76a4963f260435e",
+    "src/__tests__/course-schedule-check.test.ts": "c7f159a06730d119e23de44d8c3b9f82ed45fb2779f13008bc02141b362b8bd3",
+    "src/__tests__/course-shared-card-booking.test.ts": "6385ee989872c245312f8e08bc5e2318b78b29f29df1201c0a79543a83ebb2b0",
+    "src/__tests__/item-core-flows.pg.test.ts": "24b6dd869e7849060b6d1cd6df42846ea3db5d69eafa88dd1e52fcd66fda73de",
+    "src/__tests__/music-schedule-dropdowns.test.ts": "27329720cf0b08b7371249aa7d147f52c675402431dbf19978dd465b37a32799",
+    "src/__tests__/operation-guide-daily-20261019.test.ts": "8673486bb65b0aee8af58516d19a478d911b0409d0dbd16eaa75ca3d19d37f75",
+    "src/__tests__/operation-guide-daily-20261021.test.ts": "855edac08c545f0d4fddb1c0bfe7ecfbff65d65b9b6da490fe59396021e181eb",
+    "src/__tests__/sports-card-modes.pg.test.ts": "c37ff87ee91d17aa45e26748aa9d3b3087bca0ac67741e283082a13b7573b1e1",
+    "src/__tests__/sports-entitlement.test.ts": "4fdb215a13cfcc0227fe10e3d19a54000a933f3fada9425f7edf64a199047950",
+    "src/__tests__/sports-permanent-series.test.ts": "39b234182d7e7b6e8debe5054c0f070834372cb04dffc0fdefb066cb11f7024a",
+    "src/__tests__/sports-roster-balance.test.ts": "f40680ead83f11c0baa9833752fdb11b5443f63af563ce1d231a645b10d074ae",
+    "src/__tests__/sports-schedule-allocation.test.ts": "6392eb7badb61f7fa58f0c9f4b4ffa6507a5ccdfbf7fc50674983666ff813645",
+    "src/__tests__/sports-schedule-compensation-access.test.ts": "598690b266fe4e0e56819c0437abee6fd8e85796da5821135a645a7b426cede6",
+    "src/__tests__/sports-schedule-native-ui.test.ts": "92b4d581ff0f200596d7d3749986a1405a60aaabd2a03cd16a8f8285684ab0c7",
+    "src/app/(dashboard)/dashboard/courses/music-schedule-wizard.tsx": "12350c3a5ccfa134c185a800f99e14e9268b322560430664671ae152eaf34f34",
+    "src/app/(dashboard)/dashboard/courses/sports-schedule-fields.tsx": "8bdb4c804bb279717d6e664e32809ee2a186733ac7c9624019601add814f950b",
+    "src/components/admin/course-fixed-learners-toggle.tsx": "5ff0673e3026db1cff5bc160f82a7bec00ff3bfbf5baffb6beb0f34e0037f9d4",
+    "src/lib/operation-guide-daily-20261019.ts": "373d21a7dbfdc72fdcba94297103528c0073ae9d79c8bb17a27049fddbf24084",
+    "src/lib/operation-guide-daily-20261025.ts": "f9dc18f51477a50ffd43a880e529582ac7b06bda9e6f5c6305c1e5274c637643",
+    "src/lib/sports-entitlement.ts": "f5038384ce52e797f173ca3874b3cfb4b23e6c81112dd145acbb66ae01fb0873",
+    "src/lib/sports-staging.ts": "6f70388f96a3868fca66fbd53d2e0eb541ff8e7dd8d6c845a4b1292f03211959",
+    "src/server/actions/course-schedule-check.ts": "296f3b2527b5823419add42c665ce7a7f17bde556ef7bb7c626e967a53759545",
+    "src/server/actions/course.ts": "007a76c35628de5e7833d1ee05d9c0cf509106073fa920bb413be53c8185a6e0",
+    "src/server/actions/sports-staging.ts": "c74a1b9dbb43d71b1f0df232650fa37d314010ef35fb3febee66adac2486e8b7",
+    "src/server/queries/course-members.ts": "39bfbc938cb83ddf88fb46f0c206b2a8244c1c55bb0a8efe580f17a132db7503",
+    "src/server/services/course-booking.ts": "742b71a1ea4ccba98406aab585fd8f5741ecaf2d352900d20817deacb329c408",
+    "src/server/services/course-item-attendance.ts": "f494bc7b5ec6d78a9d62f94d44bc5788b85666c2ed34e23c9dba8859994baee9",
+    "src/server/services/sports-permanent-series.ts": "da0f678e11abb3cb44b6f2c04aa7dff0a09a63ffd73dae8f8b0e51c2b9e096f9",
+    "src/server/services/sports-roster-balance.ts": "72071f3d1d9dcb7a167758f924e9be870b81ec925bfb191fe150d2781bddb772",
+    "src/server/services/sports-staging-schedule.ts": "ba8acde5144e9920c81c741643147cdb2cbb1bd2da79e49e259f8a7fcccd041a",
+    "vercel.json": "866e32ee0100d52b598a775631b3417366cba40acdaee412064bdfb89f4ce97b"
+  },
+  "authorization": {
+    "preview": "User requested next step after isolated DB acceptance; authenticated isolated Preview acceptance authorized; no production release.",
+    "production": "not authorized"
+  }
+}
