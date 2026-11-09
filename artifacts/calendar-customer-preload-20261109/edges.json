@@ -1,0 +1,42 @@
+{
+  "fixtureOnly": true,
+  "results": [
+    {
+      "module": "sports",
+      "width": 1366,
+      "height": 900,
+      "warmMs": 89,
+      "preloadReadOnly": true,
+      "completeMonth": true,
+      "cachedRefreshFailure": true,
+      "retry": true,
+      "lateResponseIsolated": true,
+      "coldFailureRetry": true
+    },
+    {
+      "module": "music",
+      "width": 1366,
+      "height": 900,
+      "warmMs": 89,
+      "preloadReadOnly": true,
+      "completeMonth": true,
+      "cachedRefreshFailure": true,
+      "retry": true,
+      "lateResponseIsolated": true,
+      "coldFailureRetry": true
+    },
+    {
+      "module": "beauty",
+      "width": 1366,
+      "height": 900,
+      "warmMs": 78,
+      "preloadReadOnly": true,
+      "completeMonth": true,
+      "cachedRefreshFailure": true,
+      "retry": true,
+      "lateResponseIsolated": true,
+      "coldFailureRetry": true
+    }
+  ],
+  "errors": []
+}

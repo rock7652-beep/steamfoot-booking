@@ -86,29 +86,29 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
   </MusicRevision.Provider></PurchaseSeeds.Provider></Context.Provider>;
 }
 /** scopeVersion includes any alternate store, permission or server-row revision used by the loader. */
-export function usePanelReadCache<T>(namespace: string, fetcher: (key: string) => Promise<T>, scopeVersion = "", ttlMs = 15_000) {
+export function usePanelReadCache<T>(namespace: string, fetcher: (key: string) => Promise<T>, scopeVersion = "", ttlMs = 15_000, maxEntries = 50) {
   const shared = useContext(Context);
   const revision = useMusicDataRevision();
   const [fallback] = useState<Registry>(() => new Map());
   const registry = shared ?? fallback;
   return useMemo(() => {
-    const key = JSON.stringify([namespace, scopeVersion, ttlMs, revision]);
+    const key = JSON.stringify([namespace, scopeVersion, ttlMs, maxEntries, revision]);
     const existing = registry.get(key);
     if (existing) return existing as Cache<T>;
     const cache = createClientReadCache<T>(fetcher, {
-      ttlMs,
+      ttlMs, maxEntries,
       shouldCache: value => !(value && typeof value === "object" && "success" in value && value.success === false),
     });
     // Bound resource namespaces/revisions as well as each resource's entries.
     if (registry.size >= 50) registry.delete(registry.keys().next().value!);
     registry.set(key, cache as Cache<unknown>);
     return cache;
-  }, [registry, namespace, scopeVersion, ttlMs, fetcher, revision]);
+  }, [registry, namespace, scopeVersion, ttlMs, maxEntries, fetcher, revision]);
 }
 
 /** All captured scope values must be included in scopeVersion. Live balances and slots use ttlMs=0. */
 export function usePanelReader<Args extends unknown[], T>(
-  namespace: string, fetcher: (...args: Args) => Promise<T>, scopeVersion = "", ttlMs = 0,
+  namespace: string, fetcher: (...args: Args) => Promise<T>, scopeVersion = "", ttlMs = 0, maxEntries = 50,
 ) {
   const seeds = useContext(PurchaseSeeds);
   const decode = useCallback((key: string) => {
@@ -121,10 +121,13 @@ export function usePanelReader<Args extends unknown[], T>(
     }
     return musicPanelRead(namespace,args,()=>fetcher(...args));
   }, [fetcher,namespace,seeds,scopeVersion,ttlMs]);
-  const cache = usePanelReadCache(namespace, decode, scopeVersion, ttlMs);
+  const cache = usePanelReadCache(namespace, decode, scopeVersion, ttlMs, maxEntries);
   return useMemo(() => ({
     read: (...args: Args) => cache.load(JSON.stringify(args)),
     peek: (...args: Args) => cache.peek(JSON.stringify(args)),
+    get: (...args: Args) => cache.get(JSON.stringify(args)),
+    refresh: (...args: Args) => cache.load(JSON.stringify(args), {revalidate:true}),
+    seed(value: T, ...args: Args) { cache.seed(JSON.stringify(args), value); },
     prefetch: (...args: Args) => cache.prefetch(JSON.stringify(args)),
     invalidate: (...args: Args) => cache.invalidate(JSON.stringify(args)),
     clear: cache.clear,
