@@ -119,3 +119,11 @@ it('retains bounded display snapshots beyond freshness while invalidation detach
  const pending=cache.load('next',{revalidate:true});await Promise.resolve();cache.clear();old.resolve('late');await pending;
  expect(cache.snapshot('next')).toBeUndefined();
 });
+
+it('evicts the least recently reused month instead of the original month',()=>{
+ const cache=createClientReadCache(async key=>key,{maxEntries:5});
+ for(const month of ['11','10','12','09','01'])cache.seed(month,month);
+ for(const month of ['12','11','01','10'])expect(cache.snapshot(month)).toBe(month);
+ cache.seed('02','02');
+ expect(cache.snapshot('09')).toBeUndefined();expect(cache.snapshot('11')).toBe('11');
+});
