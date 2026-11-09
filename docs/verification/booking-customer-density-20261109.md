@@ -35,3 +35,11 @@
 ### 後續小調整：直接新增與次要摘要
 
 已付款且完成體驗、收款未撤銷，並且有購買權限的顧客，在原人員區塊直接顯示「＋新增方案」，不必先開更多選單。原有購買權限及 pending／blocked 狀態保持；收合方案按鈕沿用原位置。新購方案摘要改為與其他次要資訊一致的灰字，字級維持可讀，不改金額、堂數或交易規則。重新執行參與者 UI 回歸與四種尺寸的 first-layer 隔離預覽，截圖已更新；未發布正式站。
+
+### 已授權的隔離預覽分支
+
+使用者另行同意套用隔離預覽草案並啟動一次自動建置。本次只把 `feat/steam-booking-compact-20261109` 加入既有 module-roster-preview 路徑，強制正確 Vercel Preview／repository metadata、兩條隔離資料庫連線、個別收款 opt-in，並禁止公開諮詢收件。沿用既有 migrations_skipped 分支及 Preview 通知封鎖；沒有取消保護、修改資料庫連線或正式環境設定。
+
+Vercel 僅此 Preview 分支設定 `BOOKING_PARTICIPANTS_ENABLED=true`、`CONSULTATION_PREVIEW_INTAKE_ENABLED=false`；未讀取、複製或變更連線密碼。47 項隔離保護與相關回歸測試通過，含拒絕正式連線、錯誤 repository、未授權分支、Cloudflare 來源及不符的功能旗標。
+
+第一輪 GitHub 完整 Vitest 為 16217 通過、267 跳過、1 失敗；失敗是舊 steam-booking-shared-dialog 測試仍要求隱藏當日清單。已按使用者新決策更新為清單保持掛載並 covered，另由 RightSheet 真實元件測試驗證 inert 及狀態保留。舊完整測試結果不能宣稱全綠；新提交等待遠端完整回歸。
