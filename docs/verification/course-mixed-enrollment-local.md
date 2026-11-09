@@ -12,4 +12,4 @@ node scripts/qa/course-mixed-enrollment-local.mjs
 
 流程保留 `/tmp/mixed-local-acceptance/{music,sports}/save-results.json`、表單與名單截圖。暫時帳密只在 mode 0600 的 `/tmp/mixed-local-access.json`；不得提交或外傳。腳本在成功／失敗時關閉自己啟動的 server、移除自己建立的 container。若執行中被強制中斷，應先核對 `codex.task=course-mixed-enrollment-local-qa` 標籤，再清理該 container；不可清除其他既有服務。
 
-這是本機 Next development 全流程驗收，不是 Vercel 保護層、實體 iPad、正式資料庫 migration 或通知送達驗收。隔離 PostgreSQL 交易案例另由 `course-mixed-enrollment-audit.yml` 在 PR 上執行，要求 33 項混合排課／運動方案測試零跳過，並回歸 4 項既有音樂／運動購課與扣還堂案例。
+這是本機 Next development 全流程驗收，不是 Vercel 保護層、實體 iPad、正式資料庫 migration 或通知送達驗收。隔離 PostgreSQL 交易案例另由 `course-mixed-enrollment-audit.yml` 在 PR 上執行，要求 39 項混合排課／運動方案測試零跳過，並回歸 4 項既有音樂／運動購課與扣還堂案例。驗收門市包含已設定的單次收費方式，確認一般課不會要求畫面上不存在的收費欄位；體驗課仍須驗證收費選擇。

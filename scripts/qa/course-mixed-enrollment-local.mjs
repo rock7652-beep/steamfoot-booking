@@ -21,11 +21,12 @@ try{
  run('node_modules/.bin/prisma',['db','execute','--schema','course-prisma/schema.prisma','--stdin'],ddl);
  console.log(run('node_modules/.bin/tsx',['scripts/qa/course-mixed-enrollment-local-seed.ts']).trim());
  server=spawn('node',['node_modules/next/dist/bin/next','dev','--hostname','localhost','--port','3107'],{env,detached:true,stdio:['ignore','pipe','pipe']});
- let log='';server.stdout.on('data',b=>{log+=b;});server.stderr.on('data',b=>{log+=b;});
+ let log='';server.stdout.on('data',b=>{log+=b;writeFileSync(out+'/server.log',log,{mode:0o600});});server.stderr.on('data',b=>{log+=b;writeFileSync(out+'/server.log',log,{mode:0o600});});
  let ready=false;
  for(let n=0;n<60;n++){if(server.exitCode!==null)throw Error('Local Next server exited');try{const response=await fetch('http://localhost:3107/hq/login');if(response.status===200){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,250));}assert.ok(ready,'Local app must become ready');
  for(const kind of ['sports','music']){
   const result=await new Promise((resolve,reject)=>{const child=spawn('node',['scripts/qa/course-mixed-enrollment-local-browser.mjs',kind,'save'],{env,stdio:['ignore','pipe','pipe']});let output='';child.stdout.on('data',b=>{output+=b;});child.stderr.on('data',b=>{output+=b;});child.on('error',reject);child.on('exit',code=>code===0?resolve(output):reject(Error(output.slice(-2500))));});console.log(result.trim());
+  if(process.env.COURSE_QA_LIFECYCLE==='1'){const life=await new Promise((resolve,reject)=>{const child=spawn('node',['scripts/qa/course-mixed-enrollment-lifecycle.mjs',kind],{env,stdio:['ignore','pipe','pipe']});let output='';child.stdout.on('data',b=>output+=b);child.stderr.on('data',b=>output+=b);child.on('error',reject);child.on('exit',code=>code===0?resolve(output):reject(Error(output.slice(-3000))));});console.log(life.trim());}
  }
  writeFileSync(out+'/server.log',log,{mode:0o600});
  console.log('Both authenticated mixed course flows passed; production untouched.');

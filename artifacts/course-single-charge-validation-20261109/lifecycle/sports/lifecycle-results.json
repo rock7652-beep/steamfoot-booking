@@ -1,0 +1,86 @@
+{
+  "kind": "sports",
+  "complete": true,
+  "mocks": false,
+  "checks": [
+    {
+      "step": "purchase-receipt",
+      "customerId": "qa-mixed-local-sports-student-0",
+      "id": "cmw93f07p0006l8crx3eib4rv",
+      "status": "CONFIRMED",
+      "price": 800,
+      "cardId": "cmw93f07m0004l8crj4v5ykv4",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "purchase-receipt",
+      "customerId": "qa-mixed-local-sports-student-1",
+      "id": "cmw93f2ka000al8crkb7l034f",
+      "status": "CONFIRMED",
+      "price": 800,
+      "cardId": "cmw93f2k80008l8criw61k5hv",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "member-self-booked-mixed-class",
+      "bookingId": "cmw93f6vw000cl8crhicuwst3",
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-sports-student-0",
+      "status": "ATTENDED",
+      "remaining": 0,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-sports-student-0",
+      "status": "RESERVED",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-sports-student-1",
+      "status": "ATTENDED",
+      "remaining": 0,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-sports-student-1",
+      "status": "RESERVED",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-sports-student-0",
+      "status": "ATTENDED",
+      "remaining": 0,
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-sports-student-0",
+      "status": "CANCELLED",
+      "remaining": 1,
+      "pass": true
+    },
+    {
+      "step": "fixed-leave-keeps-public-class-open",
+      "pass": true
+    },
+    {
+      "step": "booking-and-balance",
+      "customerId": "qa-mixed-local-sports-student-0",
+      "status": "RESERVED",
+      "remaining": 1,
+      "pass": true
+    }
+  ],
+  "errors": []
+}

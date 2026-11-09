@@ -112,6 +112,21 @@ let created=false;
  }
 
  for(const kind of ["sports","music"] as const){
+  it.each(["OPEN","ASSIGNED","MIXED"] as const)(`${kind}: regular single classes ignore charge selection even with configured fees (%s)`,async mode=>{
+   const f=await fixture(kind,3);
+   await db().coursePointPlan.create({data:{storeId:f.storeId,name:"已設定的單次收費",unit:"SESSION",points:1,price:800,validDays:30,templateIds:[f.template.id],...(kind==="sports"?{sportsMode:mode==="ASSIGNED"?"ASSIGNED":"OPEN",sportsSubjectId:f.template.musicSubjectId}:{}),chargeSettings:{kind:"single",durationMinutes:90,trialPrice:300,trialDuration:30,providerIds:[f.input.coachId]}}});
+   if(kind==="music"){
+    f.input.enrollmentMode=mode==="ASSIGNED"?"ASSIGNED":"OPEN";
+    if(mode==="OPEN")f.input.learners=[];
+   }else{
+    f.input.sportsStaging={...f.input.sportsStaging!,enrollment:mode==="ASSIGNED"?"ASSIGNED":"OPEN",students:mode==="OPEN"?[]:f.input.sportsStaging!.students,...(mode==="ASSIGNED"?{waitlist:undefined}:{})};
+   }
+   const session=await f.create();
+   expect(session.chargeSnapshot).toBeNull();
+   expect(+session.endsAt-+session.startsAt).toBe(60*60_000);
+   expect(await db().courseBooking.count({where:{sessionId:session.id}})).toBe(mode==="OPEN"?0:1);
+   expect(await db().coursePurchase.count({where:{storeId:f.storeId}})).toBe(0);
+  });
   it(`${kind}: action creates one public class, reserves fixed seats, replays once and rejects changed intent`,async()=>{
    const f=await fixture(kind,3),s=await f.create();await f.create();
    expect(await db().courseSession.count({where:{storeId:f.storeId}})).toBe(1);

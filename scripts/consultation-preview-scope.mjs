@@ -9,7 +9,7 @@ import { assertBeautyLocalQaEnvironment } from "./beauty-local-qa-scope.mjs";
 import { assertBeautySandboxQaEnvironment } from "./beauty-sandbox-qa-scope.mjs";
 import { assertBeautyReleaseQaEnvironment } from "./beauty-release-qa-scope.mjs";
 import { assertBeautyProductionQaEnvironment } from "./beauty-production-qa-scope.mjs";
-import { assertSportsRedesignPreviewEnvironment, MIXED_ENROLLMENT_PREVIEW_BRANCH, SILVERLILY_CALENDAR_PREVIEW_BRANCH, SPORTS_REDESIGN_PREVIEW_BRANCH, SPORTS_CARD_MODES_PREVIEW_BRANCH, SPORTS_OPENING_GUIDE_PREVIEW_BRANCH, SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH, SETTINGS_OUTCOMES_PREVIEW_BRANCH, YOUNGSKY_SETTINGS_PREVIEW_BRANCH } from "./sports-redesign-preview-scope.mjs";
+import { assertSportsRedesignPreviewEnvironment, MIXED_ENROLLMENT_PREVIEW_BRANCHES, SILVERLILY_CALENDAR_PREVIEW_BRANCH, SPORTS_REDESIGN_PREVIEW_BRANCH, SPORTS_CARD_MODES_PREVIEW_BRANCH, SPORTS_OPENING_GUIDE_PREVIEW_BRANCH, SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH, SETTINGS_OUTCOMES_PREVIEW_BRANCH, YOUNGSKY_SETTINGS_PREVIEW_BRANCH } from "./sports-redesign-preview-scope.mjs";
 export const RESTORE_BOOKING_DISPLAY_PREVIEW_BRANCH = "fix/restore-booking-session-display-20261015";
 import { assertSportsLiveFlowQaEnvironment } from "./sports-live-flow-qa-scope.mjs";
 import { MUSIC_OPENING_BRANCH, assertMusicOpeningPreviewEnvironment } from "./music-opening-preview-scope.mjs";
@@ -318,7 +318,7 @@ export function assertReviewedReleaseEnvironment(env) {
     assertImageAnnouncementsAcceptance(env);
     return "local-image-announcements-qa";
   }
-  if ([MIXED_ENROLLMENT_PREVIEW_BRANCH,SCHEDULE_CONFLICT_PREVIEW_BRANCH,CALENDAR_PHASE_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF) || env.SPORTS_REDESIGN_PREVIEW || [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].some(branch=>[SILVERLILY_CALENDAR_PREVIEW_BRANCH,SETTINGS_OUTCOMES_PREVIEW_BRANCH,YOUNGSKY_SETTINGS_PREVIEW_BRANCH,SPORTS_REDESIGN_PREVIEW_BRANCH,SPORTS_CARD_MODES_PREVIEW_BRANCH,SPORTS_OPENING_GUIDE_PREVIEW_BRANCH,SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH].includes(branch))) {
+  if ([...MIXED_ENROLLMENT_PREVIEW_BRANCHES,SCHEDULE_CONFLICT_PREVIEW_BRANCH,CALENDAR_PHASE_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF) || env.SPORTS_REDESIGN_PREVIEW || [env.VERCEL_GIT_COMMIT_REF, env.WORKERS_CI_BRANCH, env.CF_PAGES_BRANCH].some(branch=>[SILVERLILY_CALENDAR_PREVIEW_BRANCH,SETTINGS_OUTCOMES_PREVIEW_BRANCH,YOUNGSKY_SETTINGS_PREVIEW_BRANCH,SPORTS_REDESIGN_PREVIEW_BRANCH,SPORTS_CARD_MODES_PREVIEW_BRANCH,SPORTS_OPENING_GUIDE_PREVIEW_BRANCH,SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH].includes(branch))) {
     assertSportsRedesignPreviewEnvironment(env);
     if ([SETTINGS_OUTCOMES_PREVIEW_BRANCH,YOUNGSKY_SETTINGS_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF)) assertModuleRosterPreviewEnvironment(env);
     return "sports-redesign-preview";

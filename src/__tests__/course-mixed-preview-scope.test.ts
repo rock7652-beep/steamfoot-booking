@@ -4,7 +4,8 @@ vi.mock("@/server/services/read-request-memo",()=>({memoizeReadRequest:(_key:str
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {assertSportsRedesignPreviewEnvironment,MIXED_ENROLLMENT_PREVIEW_BRANCH} from "../../scripts/sports-redesign-preview-scope.mjs";
 import {assertReviewedReleaseEnvironment} from "../../scripts/consultation-preview-scope.mjs";
-import {musicNativeWorkflowEnabled} from "../../scripts/music-native-workflow-scope.mjs";
+import {musicNativeWorkflowEnabled,assertMusicPreviewDataReviewEnvironment} from "../../scripts/music-native-workflow-scope.mjs";
+import {assertMusicOpeningPreviewEnvironment} from "../../scripts/music-opening-preview-scope.mjs";
 import {sportsStagingEnabled} from "@/lib/sports-staging";
 const connection="postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co/postgres?sslmode=require";
 const env={VERCEL:"1",VERCEL_ENV:"preview",NODE_ENV:"production" as const,VERCEL_PROJECT_ID:"prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR",VERCEL_GIT_COMMIT_REF:MIXED_ENROLLMENT_PREVIEW_BRANCH,VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",COURSE_MIXED_ENROLLMENT_PREVIEW:"1",SPORTS_REDESIGN_STAGING:"1",SPORTS_REDESIGN_PREVIEW:"1",DATABASE_URL:connection,DIRECT_URL:connection};
@@ -46,4 +47,24 @@ it.each([{NODE_ENV:"production" as const},{VERCEL_ENV:"preview"},{AUTH_URL:"http
  for(const [key,value]of Object.entries(invalid))vi.stubEnv(key,value);
  expect(musicNativeWorkflowEnabled("store-lubymusic",invalid)).toBe(false);
  await expect(sportsNativePreview("sports-live-flow-store")).rejects.toThrow();
+});
+
+it("contains the charge correction Preview in the same isolated profile",async()=>{
+ const fix={...env,VERCEL_GIT_COMMIT_REF:"fix/course-single-charge-validation-20261109"};
+ expect(assertReviewedReleaseEnvironment(fix)).toBe("sports-redesign-preview");
+ expect(musicNativeWorkflowEnabled("store-lubymusic",fix)).toBe(true);
+ expect(()=>assertSportsRedesignPreviewEnvironment({...fix,VERCEL_PROJECT_ID:"other"})).toThrow();
+ expect(()=>assertSportsRedesignPreviewEnvironment({...fix,LINE_CHANNEL_ACCESS_TOKEN:"synthetic"})).toThrow();
+ for(const [key,value]of Object.entries(fix))vi.stubEnv(key,value);
+ expect(await sportsStagingEnabled("sports-live-flow-store")).toBe(true);
+ expect(await sportsStagingEnabled("other")).toBe(false);
+});
+
+it.each([MIXED_ENROLLMENT_PREVIEW_BRANCH,"fix/course-single-charge-validation-20261109"])("allows historical card reads without permitting imports on %s",branch=>{
+ const preview={...env,VERCEL_GIT_COMMIT_REF:branch};
+ expect(()=>assertMusicPreviewDataReviewEnvironment(preview)).not.toThrow();
+ expect(()=>assertMusicOpeningPreviewEnvironment(preview)).toThrow();
+ for(const patch of [{VERCEL_ENV:"production"},{VERCEL_PROJECT_ID:"other"},{COURSE_MIXED_ENROLLMENT_PREVIEW:""},{DIRECT_URL:connection.replace("ttworfzgwejdeolegkxl","qijlnhtpbintanzpxkvf")},{LINE_CHANNEL_ACCESS_TOKEN:"synthetic"}]){
+  expect(()=>assertMusicPreviewDataReviewEnvironment({...preview,...patch})).toThrow();
+ }
 });

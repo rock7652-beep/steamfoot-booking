@@ -1,0 +1,78 @@
+{
+  "kind": "music",
+  "phase": "save",
+  "environment": "loopback Next development + dedicated PostgreSQL",
+  "mocks": false,
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "elapsedMs": 2800
+    },
+    {
+      "step": "cold-calendar-data-ready",
+      "elapsedMs": 1654,
+      "pass": true
+    },
+    {
+      "step": "mixed-form-resize-retains-draft",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "mixed-form-resize-retains-draft",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "mixed-form-resize-retains-draft",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "real-server-action-confirmed",
+      "pass": true,
+      "url": "http://localhost:3107/s/lubymusic/admin/dashboard/courses?view=schedule&date=2030-11-04"
+    },
+    {
+      "step": "authoritative-database-result",
+      "pass": true,
+      "sessionId": "cmw9282000003l85bh3hs1k58",
+      "capacity": 4,
+      "fixedLearners": 1,
+      "openSeats": 3
+    },
+    {
+      "step": "reload-persists-roster",
+      "pass": true,
+      "elapsedMs": 952
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "saveButton": {
+    "enabled": true,
+    "text": "新增"
+  }
+}
