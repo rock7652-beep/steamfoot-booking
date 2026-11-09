@@ -3,7 +3,7 @@
   "timezone": "Asia/Taipei",
   "branch": "feat/mixed-course-enrollment-20261109",
   "baseCommit": "236d637dd9f03f9824bdd92841457e7e9d2a86f3",
-  "deliveryState": "local working tree; not pushed or deployed",
+  "deliveryState": "pushed feature branch; protected Preview READY; hosted authenticated acceptance blocked; production unchanged",
   "behavior": {
     "modules": [
       "music",
@@ -270,26 +270,47 @@
         "store-lubymusic",
         "sports-live-flow-store"
       ]
+    },
+    "protectedPreview": {
+      "result": "READY; authenticated browser acceptance not run",
+      "deploymentId": "dpl_7EoemQRQA9ruHXcGtLsKKZoVWSHH",
+      "url": "https://steamfoot-booking-7unl5n39b-rock7652-2111s-projects.vercel.app",
+      "sourceCommit": "39fa22bbe1f4f89d980c326f5bd676c2e72fd5a4",
+      "target": "preview",
+      "project": "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR",
+      "database": "ttworfzgwejdeolegkxl",
+      "protection": "existing Vercel SSO protection retained",
+      "build": "compile, TypeScript and deployment passed",
+      "earlierBuilds": "Two builds stopped safely at the isolation guard for inherited nonempty delivery credential names; branch-only empty overrides added, then build passed. No migration ran.",
+      "accessBlocker": {
+        "action": "vercel_get_access_to_vercel_url",
+        "result": "rejected by automatic approval review; no share link created",
+        "reason": "Bearer share link would allow anyone possessing it to access for 23 hours, beyond authorized protected access.",
+        "safeAccessChecked": "No callable connected Browser extension tool, existing CLI auth, or short-lived OIDC token available. No protection bypass or substitute share-link tool attempted.",
+        "requiredNextStep": "Obtain normal authenticated browser access before hosted UI acceptance."
+      },
+      "dataWrites": "No remote synthetic accounts, schedules, store settings, or QA role changes executed.",
+      "production": "No production deployment, database write or notification delivery."
     }
   },
   "limitations": [
     "Browser dimensions were emulated; no physical iPad or mobile-device claim.",
     "Database tests execute real actions/services with session authorization boundaries replaced; no authenticated hosted browser-to-database end-to-end run is claimed.",
     "Production database migrations/readiness and deployment integrations were not tested; disposable fixture schema details are listed above.",
-    "No remote preview, production deployment, production data write, or notification delivery.",
-    "Cloudflare is not a dependency of the local UI and transaction checks."
+    "Cloudflare is not a dependency of the local UI and transaction checks.",
+    "Protected Preview deployed successfully; hosted authenticated browser-to-database acceptance remains blocked by unavailable normal browser authentication. No production deployment, production data write, or notification delivery."
   ],
   "changedFileSha256": {
-    "docs/course-decisions.md": "6266a1e09b20a28c21ee98a88405f2de8d3c2b1c7414258336c061fe1e22d0f5",
+    "docs/course-decisions.md": "8721d1da7418cf6d4e2305bb0647f5ba6dd35ac2dae09e20e52f60acebc16783",
     "scripts/consultation-preview-scope.mjs": "25933cd184fa502119b59c19af3849718cc4ee1bf38219aebdf8046a3ccc5455",
     "scripts/music-native-workflow-scope.mjs": "fd8c7e16fccb14e43384c271e6f05400cc6cee10dbdd0bec1fcbed84b295dd8a",
     "scripts/qa/course-mixed-enrollment-browser.mjs": "e8fa89a3200c6bc9aa8f974b4c7d2cbb8f7d634874e006545237017055a768dd",
     "scripts/qa/course-mixed-enrollment-fixture.tsx": "8fe82038b38a0735927214871e14be6e82598f7257d898f6766b85e4d5071859",
-    "scripts/sports-redesign-preview-scope.mjs": "c5e072fce9c608213d3448d7b068dfbeb7cab20eb7f03814f46bbb49ee5131ee",
+    "scripts/sports-redesign-preview-scope.mjs": "ecb24625c8e6265b676f66cff928bc061666add80cd6a41021656d0d804dbbf5",
     "scripts/sports-shared-card-preview-scope.mjs": "393e71caae34eb7b8fac95e404a1596d67950eb91738ef0fee78951f5df385b5",
     "src/__tests__/course-actions.test.ts": "047a93dddd4d72263ea91090579a8526cde4a5b063458e2c0aa60bab1fa90dd9",
     "src/__tests__/course-mixed-enrollment.pg.test.ts": "1670d12be52b8d226b0b33ac48a556fd03bdfb9b83578a28c3e33e750dec5429",
-    "src/__tests__/course-mixed-preview-scope.test.ts": "099b6000a8c16e66b024a694a8af18b61b3e574bb0df172be12b824eac285427",
+    "src/__tests__/course-mixed-preview-scope.test.ts": "b6ac12496ab0a5677d7c775ffaf63bea14725e5547d40938e1a818a884abb330",
     "src/__tests__/course-mixed-release.test.ts": "93968e6b3941e430c324ea2d16ce2a3e2e2d6e76a702debfb76a4963f260435e",
     "src/__tests__/course-schedule-check.test.ts": "c7f159a06730d119e23de44d8c3b9f82ed45fb2779f13008bc02141b362b8bd3",
     "src/__tests__/course-shared-card-booking.test.ts": "6385ee989872c245312f8e08bc5e2318b78b29f29df1201c0a79543a83ebb2b0",
