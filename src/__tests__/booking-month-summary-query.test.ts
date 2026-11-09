@@ -37,7 +37,7 @@ it("derives daily people, bookings and staff totals from the exact displayed row
   expect(input.where.storeId).toBe("store");
   expect(h.validate).toHaveBeenCalledWith(expect.anything(), "store", "read");
   expect(h.viewContext).not.toHaveBeenCalled();
-  expect(input.where.bookingStatus.in).not.toContain("CANCELLED");
+  expect(input.where.bookingStatus.in).toContain("CANCELLED");
   expect(input.select.customer.select.planWallets).toBeUndefined();
 });
 it("preserves receipt, trial-price fallback, deduction names and the linked-wallet balance", async () => {
@@ -75,4 +75,13 @@ it("uses actual participant services for plan labels and unpaid filtering", asyn
   const rows=await getMonthBookingSummary(2026,9,"store");
   expect(rows[27].bookings[0]).toMatchObject({participantSummary:"剩 10 堂・十堂・無到期限制",participantNeedsCollection:false});
   expect(rows[27].bookings[1]).toMatchObject({participantSummary:"十堂・已扣 1 堂 ／ 體驗・待到店",participantNeedsCollection:true});
+});
+
+it("keeps cancelled rows off the calendar while counting monthly cancellations and individual progress", async () => {
+  vi.stubEnv("BOOKING_PARTICIPANTS_ENABLED", "true");
+  h.bookings.mockResolvedValue([{...booking("cancelled",28),bookingStatus:"CANCELLED"},booking("mixed",28,3),{...booking("done",28,2),bookingStatus:"COMPLETED",attendedPeople:1}]);
+  h.participants.mockResolvedValue(["COMPLETED","PENDING","NO_SHOW"].map(status=>({bookingId:"mixed",service:"FIRST_TRIAL",status,collectionTransactionId:null})));
+  const rows=await getMonthBookingSummary(2026,9,"store");
+  expect(rows[27].bookings.map(b=>b.id)).toEqual(["mixed","done"]);
+  expect(rows[27].monthlyStats).toEqual({bookings:2,people:5,completed:2,pending:1,cancelled:1,noShow:1});
 });

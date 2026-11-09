@@ -56,3 +56,24 @@ it("Escape closes only the top panel and keeps the background locked until every
   await act(async () => root.render([sheet("parent", false, parentClose), sheet("child", false, childClose)]));
   expect(document.body.style.overflow).toBe("auto");
 });
+
+it("retains the covered roster and disables its controls while a foreground dialog is open", async () => {
+  const close = vi.fn();
+  // eslint-disable-next-line react/no-children-prop -- Required children prop in this createElement fixture.
+  const parent = (covered: boolean) => React.createElement(RightSheet, {
+    key: "roster", open: true, covered, presentation: "centered", onClose: close,
+    children: React.createElement("input", { defaultValue: "陳", "aria-label": "清單搜尋" }),
+  });
+  await act(async () => root.render(parent(false)));
+  const input = host.querySelector("input")!;
+  input.value = "陳小姐";
+  await act(async () => root.render([parent(true), sheet("payment", true, close)]));
+  const roster = host.querySelector("[data-right-sheet]")!;
+  expect(roster.hasAttribute("inert")).toBe(true);
+  expect(roster.getAttribute("aria-hidden")).toBe("true");
+  expect(roster.querySelector("input")).toBe(input);
+  expect(input.value).toBe("陳小姐");
+  await act(async () => root.render(parent(false)));
+  expect(roster.hasAttribute("inert")).toBe(false);
+  expect(input.value).toBe("陳小姐");
+});

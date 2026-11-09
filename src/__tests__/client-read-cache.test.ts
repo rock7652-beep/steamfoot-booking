@@ -97,3 +97,13 @@ it("does not cache unsuccessful action results", async () => {
   expect(await cache.load("a")).toEqual({success:true});
   expect(fetcher).toHaveBeenCalledTimes(2);
 });
+
+it("keeps an authoritative synchronized month when an older speculative read finishes later", async () => {
+ const old=deferred<string>();
+ const cache=createClientReadCache(()=>old.promise,{maxEntries:5});
+ const pending=cache.load('2026-11');await Promise.resolve();
+ cache.seed('2026-11','synchronized');old.resolve('before-sync');await pending;
+ expect(cache.get('2026-11')).toBe('synchronized');
+ for(let i=0;i<5;i++)cache.seed(String(i),String(i));
+ expect(cache.get('2026-11')).toBeUndefined();
+});
