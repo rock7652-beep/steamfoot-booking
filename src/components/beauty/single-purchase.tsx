@@ -10,17 +10,17 @@ import {BeautyCollectionPanel} from './collection-panel';
 import type {BeautyDashboardData} from '@/server/beauty/queries';
 import type {CourseCustomerSource} from '@/app/(dashboard)/dashboard/courses/member-source';
 const button='min-h-11 rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-50';
-type Props=Parameters<NonNullable<CourseCustomerSource['purchaseService']>>[0]&{data:BeautyDashboardData};
-export function BeautySinglePurchase({data,customerId,onGuard,onSaved,onClose}:Props){
+type Props=Parameters<NonNullable<CourseCustomerSource['purchaseService']>>[0]&{data:BeautyDashboardData;collectionRecoveryEnabled?:boolean};
+export function BeautySinglePurchase({data,customerId,onGuard,onSaved,onClose,collectionRecoveryEnabled=false}:Props){
  const [selected,setSelected]=useState(customerId??''),[busy,setBusy]=useState(false);
  const guard=useCallback((dirty:boolean,pending:boolean)=>{setBusy(pending);onGuard(dirty,pending);},[onGuard]);
  const activeCustomer=customerId??selected;
  return <div className="min-w-0 space-y-3">
   {!customerId&&<label className="block">顧客<CourseCustomerPicker choices={data.customers.map(c=>({id:c.id,name:c.name,phone:c.phone,lineName:c.lineName??null}))} name="singleCustomerId" enabled={!busy} onChange={rows=>setSelected(rows[0]?.id??'')}/></label>}
-  {activeCustomer?<SingleDraft key={data.storeId+':'+activeCustomer} data={data} customerId={activeCustomer} onSaved={onSaved} onClose={onClose} onGuard={guard}/>:<p>請先選擇顧客，再核對單次或體驗服務。</p>}
+  {activeCustomer?<SingleDraft key={data.storeId+':'+activeCustomer} data={data} customerId={activeCustomer} collectionRecoveryEnabled={collectionRecoveryEnabled} onSaved={onSaved} onClose={onClose} onGuard={guard}/>:<p>請先選擇顧客，再核對單次或體驗服務。</p>}
  </div>;
 }
-function SingleDraft({data,customerId,onGuard,onSaved,onClose}:Props&{customerId:string}){
+function SingleDraft({data,customerId,onGuard,onSaved,onClose,collectionRecoveryEnabled=false}:Props&{customerId:string}){
  const load=useCallback((offset:number)=>readBeautySingleServices(data.storeId,customerId,offset),[data.storeId,customerId]);
  const reader=usePanelReader('beauty-single-services',load,data.storeId+':'+customerId,0);
  type Result=Extract<Awaited<ReturnType<typeof load>>,{success:true}>;
@@ -42,7 +42,7 @@ function SingleDraft({data,customerId,onGuard,onSaved,onClose}:Props&{customerId
   }};
  },[data,snapshot,customerId]);
  const refresh=()=>{setBooking(false);setCollect(null);setMissingReceipt(false);setRetry(n=>n+1);};
- const collection=collect?<BeautyCollectionPanel modal ids={collect} canDiscount={!!data.manage.discount} onGuard={guard} onSaved={onSaved} onClose={refresh}/>:null;
+ const collection=collect?<BeautyCollectionPanel modal ids={collect} storeId={data.storeId} collectionRecoveryEnabled={collectionRecoveryEnabled} canDiscount={!!data.manage.discount} onGuard={guard} onSaved={onSaved} onClose={refresh}/>:null;
  if(missingReceipt)return <div role="status"><p>預約已成立，收款資料尚待核對。請從預約清單開啟該筆收款，勿重新建立預約。</p><button className={button} onClick={refresh}>核對既有服務</button></div>;
  if(booking)return <div className="space-y-3"><button type="button" className={button} disabled={pending} onClick={()=>setBooking(false)}>返回既有服務</button><ServiceReservationForm source={source} date={toLocalDateStr()} seed={{customerId}} onGuard={guard} onCreated={()=>{}}/></div>;
  return <>{collection}<section className="min-w-0 space-y-3" aria-label="單次與體驗服務">

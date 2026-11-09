@@ -74,7 +74,8 @@ function setup(storeId = MUSIC_STORE) {
     template: { isActive: true, visibility: "PUBLIC", classType: "PRIVATE", musicSubject: { isActive: true } },
   };
   const card = {
-    musicBonusLessons:0,musicTermSizes:[5],templateIds:[],termSessionIds:[],requestKey:"synthetic-native",id: input.cardId, storeId, unit: "SESSION", remaining: 5,
+    musicBonusLessons:0,musicTermSizes:[5],templateIds:["synthetic-template"],termSessionIds:[],requestKey:"synthetic-native",id: input.cardId, storeId, unit: "SESSION", remaining: 5,
+    musicOpeningStateRequired:false,musicOpeningState:null,musicJoinSessionId:null,musicValidityDays:null,musicActivatedAt:null,createdAt:new Date("2026-10-01"),bookings:[],
     expiresAt: new Date("2026-12-31T00:00:00Z"), members: [{ customerId: input.customerId }],
   };
   const state = { monthly: 100, occupied: 0, held: 0, duplicate: false, overlap: false };
@@ -91,9 +92,12 @@ function setup(storeId = MUSIC_STORE) {
     $executeRaw: vi.fn(async () => 1),
     // The music fixture has no sports-rule table; catalog lookup remains a persistence boundary.
     $queryRawUnsafe: vi.fn(async () => [{present:false}]),
-    courseSession: { findFirst: vi.fn(async () => session) },
+    courseSession: { findFirst: vi.fn(async () => session),findMany:vi.fn(async()=>[]) },
+    courseTemplate:{findFirst:vi.fn(async()=>({musicSubjectId:null}))},
+    coursePurchase:{findMany:vi.fn(async()=>[])},
     coursePointCard: {
       findFirst: vi.fn(async () => card),
+      findMany:vi.fn(async()=>[card]),
       updateMany: vi.fn(async () => ({ count: 1 })),
     },
     courseBookingRule: { findUnique: vi.fn(async () => ({ bookingLeadMinutes: 0 })) },

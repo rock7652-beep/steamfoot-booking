@@ -13,7 +13,7 @@ export async function recordCourseProfitPayment(tx:Prisma.TransactionClient,acto
  const previous=await tx.$queryRaw<Array<{purchaseId:string;amount:number;method:string;note:string;voidedAt:Date|null}>>`SELECT "purchaseId",amount,method,note,"voidedAt" FROM "CourseProfitPayment" WHERE "storeId"=${storeId} AND "requestKey"=${d.requestKey}`;
  if(previous[0]){const p=previous[0];if(p.voidedAt||p.purchaseId!==d.purchaseId||p.amount!==d.amount||p.method!==d.method||p.note!==d.note)throw new AppError("CONFLICT","付款請求已使用，請重新核對");return;}
  const report=await readCourseMonthlySettlement(tx,storeId,d.month);
- if(report.revisions[0]?.fingerprint!==report.fingerprint)throw new AppError("CONFLICT","請先確認目前月結金額，再登錄付款");
+ if(report.adjustmentMonth?.locked===false||report.revisions[0]?.fingerprint!==report.fingerprint)throw new AppError("CONFLICT","請先確認目前月結金額，再登錄付款");
  const line=report.lines.find(l=>l.kind==="PROFIT"&&l.id===d.purchaseId);
  if(!line||line.issue||line.amount===null||!line.staffId)throw new AppError("BUSINESS_RULE","此筆利潤需先核對");
  const remaining=line.amount-line.paid;

@@ -8,16 +8,20 @@ const db = vi.hoisted(() => ({
   purchases: vi.fn(),
   cards: vi.fn(),
   sessionCount: vi.fn(),
+  sessionDetail:vi.fn(),sessionBatch:vi.fn(),
+  balances:vi.fn(async()=>new Map()),
 }));
 vi.mock("@/lib/course-db", () => ({
   coursePrisma: {
     courseBooking: { findMany: (query: { where: { sessionId?: string } }) => query.where.sessionId ? db.bookings(query) : db.absences(query), groupBy: db.leaveCounts },
-    courseSession: { count: db.sessionCount },
+    courseSession: { count: db.sessionCount,findFirst:db.sessionDetail,findMany:db.sessionBatch },
+    courseTemplate: { findFirst: async () => null, findMany: async () => [] },
     coursePurchase: { findMany: db.purchases },
     coursePointCard: { findMany: db.cards },
   },
 }));
 vi.mock("@/lib/db", () => ({ prisma: { customer: { findMany: db.customers } } }));
+vi.mock("@/server/services/music-item-cards",()=>({readMusicItemBalances:db.balances}));
 import { getCourseRoster } from "@/server/queries/course-members";
 
 const day = (n: number) => new Date(`2026-09-${String(n).padStart(2, "0")}T10:00:00.000Z`);
@@ -133,4 +137,111 @@ it("shows bonus lessons separately from paid periods", async()=>{
  db.bookings.mockResolvedValue([row("student",lessons[4],enrollment,"PRIVATE")]);
  const [result]=await getCourseRoster("music-store","session-4");
  expect([result.termIndex,result.termCount,result.bonusPeriod]).toEqual([1,1,true]);
+});
+
+it('does not load purchased cards or purchase history for a trial-only roster',async()=>{
+ const current=lesson('trial',0);
+ db.bookings.mockResolvedValue([{...row('trial',current,card('trial',[current],10)),card:null,cardId:null,bookingKind:'TRIAL',trialPrice:350}]);
+ const result=await getCourseRoster('music-store','session-0');
+ expect(result).toHaveLength(1);expect(result[0]).toMatchObject({bookingKind:'TRIAL',trialPrice:350,planName:'體驗（不使用方案）'});
+ expect(db.purchases).not.toHaveBeenCalled();expect(db.cards).not.toHaveBeenCalled();
+});
+it('returns an empty roster without looking up unrelated customer and purchase history',async()=>{
+ db.bookings.mockResolvedValue([]);expect(await getCourseRoster('music-store','empty')).toEqual([]);
+ expect(db.customers).not.toHaveBeenCalled();expect(db.purchases).not.toHaveBeenCalled();expect(db.cards).not.toHaveBeenCalled();
+});
+
+it("reads live item balances while unrelated absence history is still pending",async()=>{
+ const current=lesson("student",0,"RESERVED");
+ db.bookings.mockResolvedValue([row("student",current,card("student",[current],4),"PRIVATE")]);
+ let release!:(value:never[])=>void;
+ db.absences.mockReturnValueOnce(new Promise<never[]>(resolve=>{release=resolve}));
+ let finished=false;
+ const read=getCourseRoster("music-store","session-0").then(result=>{finished=true;return result});
+ await vi.waitFor(()=>expect(db.balances).toHaveBeenCalled());
+ expect(finished).toBe(false);
+ release([]);
+ expect(await read).toHaveLength(1);
+});
+it('counts absence badges from the same scoped history used by each learner',async()=>{
+ const first=lesson('first',0),second=lesson('second',0);
+ db.bookings.mockResolvedValue([row('first',first,card('first',[first],4)),row('second',second,card('second',[second],4))]);
+ db.absences.mockResolvedValue([
+  {customerId:'first',absenceKind:'STUDENT_LEAVE',status:'CANCELLED',session:{startsAt:day(1)}},
+  {customerId:'first',absenceKind:null,status:'NO_SHOW',session:{startsAt:day(2)}},
+  {customerId:'second',absenceKind:'GROUP_LEAVE_FORFEITED',status:'CANCELLED',session:{startsAt:day(3)}},
+ ]);
+ const result=await getCourseRoster('music-store','session-0');
+ expect(result.map(r=>[r.customerId,r.absenceCount,r.absenceHistory.length])).toEqual([['first',2,2],['second',1,1]]);
+ expect(db.leaveCounts).not.toHaveBeenCalled();
+ expect(db.absences.mock.calls[0][0].where).toMatchObject({storeId:'music-store',bookingKind:{not:'OPENING_MAKEUP'},musicOpeningMakeupEntitlementId:null,customerId:{in:['first','second']}});
+});
+
+import {withReadRequestMemo} from '@/server/services/read-request-memo';
+import {readCourseSessionDetail} from '@/server/queries/course-session-detail';
+it('reuses the exact same session scalars in scoped HTTP reads without changing financial selections or the DTO',async()=>{
+ const current=lesson('first',0);const booking=row('first',current,card('first',[current],4),'PRIVATE');db.bookings.mockResolvedValue([booking]);db.sessionDetail.mockResolvedValue({id:'session-0',...booking.session});
+ const legacy=await getCourseRoster('music-store','session-0');expect(db.sessionDetail).not.toHaveBeenCalled();
+ const [scoped]=await withReadRequestMemo(()=>Promise.all([getCourseRoster('music-store','session-0'),readCourseSessionDetail('music-store','session-0')]));
+ expect(JSON.stringify(scoped)).toBe(JSON.stringify(legacy));expect(db.sessionDetail).toHaveBeenCalledOnce();
+ expect(db.bookings.mock.calls[0][0].select.session).toEqual(expect.objectContaining({select:expect.any(Object)}));expect(db.bookings.mock.calls[1][0].select.session).toBeUndefined();
+ expect(db.bookings.mock.calls[1][0].select.card).toEqual(db.bookings.mock.calls[0][0].select.card);expect(db.bookings.mock.calls[1][0].select.trialPayments).toEqual(db.bookings.mock.calls[0][0].select.trialPayments);
+ expect(db.sessionDetail).toHaveBeenCalledWith(expect.objectContaining({where:{id:'session-0',storeId:'music-store'},relationLoadStrategy:'join'}));
+});
+it('does not read session metadata for an empty scoped roster and rejects a missing scoped session',async()=>{
+ db.bookings.mockResolvedValue([]);await expect(withReadRequestMemo(()=>getCourseRoster('music-store','empty'))).resolves.toEqual([]);expect(db.sessionDetail).not.toHaveBeenCalled();
+ const current=lesson('first',0);db.bookings.mockResolvedValue([row('first',current,card('first',[current],4))]);db.sessionDetail.mockResolvedValue(null);
+ await expect(withReadRequestMemo(()=>getCourseRoster('music-store','session-0'))).rejects.toMatchObject({code:'NOT_FOUND'});
+});
+
+import {withCourseCalendarRead} from '@/server/services/course-calendar-read-scope';
+it('batches month participants without changing either learner’s complete financial and period projection',async()=>{
+ const history=[lesson('first',0),lesson('first',1,'NO_SHOW')];
+ const first=row('first',history[0],card('first',history,10),'PRIVATE');
+ const second=row('first',history[1],card('first',history,10),'PRIVATE');
+ const trial={...row('trial',lesson('trial',1),card('trial',[],20),'PRIVATE'),card:null,cardId:null,bookingKind:'TRIAL',trialPrice:350};
+ const source=[first,second,trial];
+ const sessionRows=source.map(r=>({id:r.sessionId,...r.session}));db.sessionBatch.mockResolvedValue(sessionRows);
+ db.bookings.mockImplementation(async(q:{where:{sessionId:string|{in:string[]}};select:{sessionId?:boolean}})=>{
+  const selected=source.filter(r=>typeof q.where.sessionId==='string'?r.sessionId===q.where.sessionId:q.where.sessionId.in.includes(r.sessionId));
+  return q.select.sessionId?selected.map(({session,...r})=>{void session;return r;}):selected.map(({sessionId,...r})=>{void sessionId;return r;});
+ });
+ db.customers.mockResolvedValue([{id:'first',phone:'0911-111-111',serviceNote:'A'}, {id:'trial',phone:'0922-222-222',serviceNote:'B'}]);
+ db.absences.mockResolvedValue([{customerId:'first',absenceKind:null,status:'NO_SHOW',session:{startsAt:day(8)}}]);
+ db.purchases.mockResolvedValue([{customerId:'first',cardId:'card-first',points:10,price:3000,paymentMethod:'CASH',confirmedAt:day(1)}]);
+ const ids=['session-0','session-1','empty'];
+ const original=await Promise.all(ids.map(id=>getCourseRoster('music-store',id)));
+ for(const mock of [db.bookings,db.customers,db.absences,db.purchases,db.cards,db.sessionCount])mock.mockClear();
+ const batched=await withReadRequestMemo(()=>withCourseCalendarRead('music-store',ids,()=>Promise.all(ids.map(id=>getCourseRoster('music-store',id)))));
+ expect(batched).toEqual(original);
+ expect({bookings:db.bookings.mock.calls.length,customers:db.customers.mock.calls.length,absences:db.absences.mock.calls.length,purchases:db.purchases.mock.calls.length,sessions:db.sessionBatch.mock.calls.length}).toEqual({bookings:1,customers:1,absences:1,purchases:1,sessions:1});
+ expect(db.cards.mock.calls.filter(call=>call[0].where.id)).toHaveLength(1);
+ expect(batched[0][0].customerPhone).toBe('0911-111-111');expect(batched[1].find(r=>r.bookingKind==='TRIAL')).toMatchObject({trialPrice:350,planName:'體驗（不使用方案）'});
+ expect(batched[0].some(r=>r.customerId==='trial')).toBe(false);
+});
+
+it('batches complete and incomplete group periods without changing any roster fields',async()=>{
+ const a=lesson('first',0),b=lesson('second',1);
+ const first=row('first',a,card('first',[a],8));
+ const second=row('second',b,card('second',[b],8));
+ second.session.requestKey='other-series';
+ const source=[first,second];
+ const sessions=source.map(r=>({id:r.sessionId,...r.session}));
+ db.sessionCount.mockImplementation(async(q:{where:{requestKey:string}})=>q.where.requestKey==='series'?8:7);
+ db.sessionBatch.mockImplementation(async(q:{select:{id?:boolean}})=>q.select.id?sessions:[
+  ...Array.from({length:8},(_,requestIndex)=>({requestKey:'series',templateId:'guitar',requestIndex})),
+  ...Array.from({length:7},(_,requestIndex)=>({requestKey:'other-series',templateId:'guitar',requestIndex})),
+ ]);
+ db.bookings.mockImplementation(async(q:{where:{sessionId:string|{in:string[]}};select:{sessionId?:boolean}})=>{
+  const selected=source.filter(r=>typeof q.where.sessionId==='string'?r.sessionId===q.where.sessionId:q.where.sessionId.in.includes(r.sessionId));
+  return q.select.sessionId?selected.map(({session,...r})=>{void session;return r;}):selected.map(({sessionId,...r})=>{void sessionId;return r;});
+ });
+ const ids=source.map(r=>r.sessionId);
+ const original=await Promise.all(ids.map(id=>getCourseRoster('music-store',id)));
+ expect(original[0][0].groupCohortProgress).toEqual({index:5,count:8});
+ expect(original[1][0].groupCohortProgress).toBeNull();
+ db.sessionCount.mockClear();
+ const batched=await withReadRequestMemo(()=>withCourseCalendarRead('music-store',ids,()=>Promise.all(ids.map(id=>getCourseRoster('music-store',id)))));
+ expect(batched).toEqual(original);
+ expect(db.sessionCount).not.toHaveBeenCalled();expect(db.sessionBatch).toHaveBeenCalledTimes(2);
 });

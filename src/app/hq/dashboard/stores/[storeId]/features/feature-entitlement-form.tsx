@@ -74,7 +74,7 @@ export function FeatureEntitlementForm({
             onChange={event => edit("override", event.target.value)}
             className="min-h-11 w-full rounded-md border border-earth-200 bg-white px-2 text-sm text-earth-800 focus:border-primary-500 focus:outline-none"
           >
-            <option value="INHERIT">{isStoreAudit ? "預設隱藏（記錄持續）" : isSharedCard ? "預設隱藏（保留既有使用權益）" : "跟隨方案"}</option>
+            <option value="INHERIT">{featureKey==="beauty_service_add_ons"?"預設關閉（需總部開通）":isStoreAudit ? "預設隱藏（記錄持續）" : isSharedCard ? "預設隱藏（保留既有使用權益）" : "跟隨方案"}</option>
             <option value="ENABLED">啟用</option>
             <option value="LOCKED">{isStoreAudit ? "關閉 · 隱藏入口，記錄持續" : isSharedCard ? "鎖定 · 停止新增共享，保留既有權益" : "鎖定 · 顯示入口，無法使用"}</option>
             <option value="HIDDEN">{isSharedCard ? "隱藏 · 移除新增入口，保留既有權益" : "隱藏 · 不顯示入口"}</option>

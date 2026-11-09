@@ -1,0 +1,142 @@
+[
+  {
+    "width": 360,
+    "path": "/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 360,
+    "path": "/pricing/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 360,
+    "path": "/pricing/features/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 360,
+    "path": "/pricing/features/beauty/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 390,
+    "path": "/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 390,
+    "path": "/pricing/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 390,
+    "path": "/pricing/features/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 390,
+    "path": "/pricing/features/beauty/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 768,
+    "path": "/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 768,
+    "path": "/pricing/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 768,
+    "path": "/pricing/features/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 768,
+    "path": "/pricing/features/beauty/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 1024,
+    "path": "/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 1024,
+    "path": "/pricing/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 1024,
+    "path": "/pricing/features/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 1024,
+    "path": "/pricing/features/beauty/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 1366,
+    "path": "/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 1366,
+    "path": "/pricing/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 1366,
+    "path": "/pricing/features/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  },
+  {
+    "width": 1366,
+    "path": "/pricing/features/beauty/",
+    "status": 200,
+    "pageOverflow": false,
+    "fixture": "static SSR, actual components; no hydration or production routing"
+  }
+]

@@ -146,6 +146,7 @@ export default async function PlanSettingsPage() {
         }
       />
 
+      {process.env.SUBSCRIPTION_REFERRALS_ENABLED === "true" && getEffectiveActorRole(user) === "OWNER" && <DashLink href="/dashboard/settings/subscription-referrals" className="inline-flex min-h-11 items-center text-base font-medium underline underline-offset-4">我的推薦與免費天數 →</DashLink>}
       <section className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-sm font-semibold text-earth-900">目前方案</h2>
         <InfoList items={planSummary} />
@@ -252,7 +253,7 @@ export default async function PlanSettingsPage() {
           <h3 className="text-sm font-semibold text-earth-800">方案內含功能（免費任選與門市開關另計）</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table data-striped-list className="w-full text-sm">
             <thead>
               <tr className="border-b border-earth-100 bg-earth-50">
                 <th className="px-5 py-2.5 text-left font-medium text-earth-600">
@@ -276,19 +277,19 @@ export default async function PlanSettingsPage() {
             <tbody>
               {FEATURE_GROUPS.map((group) => (
                 <Fragment key={group.group}>
-                  <tr className="bg-earth-50/50">
+                  <tr data-list-divider className="bg-earth-50/50">
                     <td
                       colSpan={5}
-                      className="px-5 py-2 text-xs font-semibold text-earth-500 uppercase tracking-wide"
+                      className="px-5 py-1 text-xs font-semibold text-earth-500 uppercase tracking-wide"
                     >
                       {group.group}
                     </td>
                   </tr>
                   {group.features.map((f) => (
                     <tr key={f.key} className="border-b border-earth-50">
-                      <td className="px-5 py-2 text-earth-700">{f.label}</td>
+                      <td className="px-5 py-1 text-earth-700">{f.label}</td>
                       {plans.map((plan) => (
-                        <td key={plan} className="px-4 py-2 text-center">
+                        <td key={plan} className="px-4 py-1 text-center">
                           {hasFeature(plan, f.key) ? (
                             <svg
                               className="mx-auto h-4 w-4 text-green-500"

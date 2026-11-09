@@ -9,6 +9,7 @@ import { getIndustryModule } from "@/lib/industry-modules";
 import { LiffShell } from "../liff-shell";
 import { PublicTrialLiffBridge } from "./public-trial-liff-bridge";
 import { resolveLoginAcceptanceLiffId } from "@/lib/liff/member-login-acceptance-preview";
+import { requireSportsPublicTrialStore } from "@/server/services/sports-public-trial-store";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +26,16 @@ export default async function PublicTrialLiffPage({ searchParams }: { searchPara
   if (!config) notFound();
   const industry = await getStoreIndustryModule(presentation.id);
   if (config.configured && config.storeId !== presentation.id) notFound();
-  if (industry === "course") return <LiffShell
+  if (industry === "course") {
+    const fitness = await requireSportsPublicTrialStore(storeSlug).then(() => true, () => false);
+    if (fitness) return <PublicTrialLiffBridge liffId={config.liffId} storeSlug={presentation.slug}
+      storeName={presentation.name} contactUrl={presentation.contactUrl} bookingPath={`/sports-trial/${presentation.slug}`} />;
+    return <LiffShell
     storeSlug={presentation.slug} storeName={presentation.name} liffId={config.liffId}
     contactUrl={presentation.contactUrl} healthAssessmentEnabled={false}
     terminology={getIndustryModule("course").customer} memberDataSource="course" bookingIntent
   />;
+  }
   if (industry !== "beauty" && industry !== "steamfoot") notFound();
 
   return (

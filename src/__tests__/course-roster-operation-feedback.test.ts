@@ -1,28 +1,36 @@
+import {preparedRoster} from './fixtures/prepared-roster';
+// UI state fixtures use the shared read transport; the real HTTP protocol is tested separately.
+vi.mock("@/lib/course-session-detail-client",()=>({readCourseSessionDetailClient:(...args:unknown[])=>m.load(...args)}));
 vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null}),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:vi.fn()}));
 vi.mock("@/server/actions/music-roster-attendance",()=>({correctMusicRosterAttendance:vi.fn()}));
 vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
 // @vitest-environment jsdom
 /** Real CourseRoster failure/concurrency tests using synthetic data.
  * These establish DOM/state behavior, not browser geometry or live DB writes. */
-import { act, createElement } from "react";
+import { act, createElement, useState, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), save: vi.fn(), status: vi.fn(), batch: vi.fn(), refresh: vi.fn(), confirmed: vi.fn(), native: vi.fn() }));
+vi.mock("@/server/actions/course-purchase-intent", () => ({ prepareCoursePurchaseIntent: vi.fn(), getCoursePurchaseIntent: vi.fn(), getPendingCoursePurchaseIntent: vi.fn(), cancelCoursePurchaseIntent: vi.fn(), acknowledgeCoursePurchaseIntent: vi.fn() }));
+const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), save: vi.fn(), combined: vi.fn(), status: vi.fn(), batch: vi.fn(), refresh: vi.fn(), confirmed: vi.fn(), native: vi.fn() }));
 vi.mock("@/lib/sports-session-detail-client",()=>({readSportsSessionDetail:m.native}));
+vi.mock('@/lib/music-panel-transport',()=>({musicPanelRead:(_operation:string,_args:unknown[],fallback:()=>unknown)=>fallback()}));
 vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/courses", useRouter: () => ({ refresh: m.refresh, replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/server/actions/course-companions", () => ({ addCourseCompanion: vi.fn(), loadCourseCompanionUsage: vi.fn(), saveCourseCompanionUsage: vi.fn() }));
 vi.mock("@/server/actions/course-roster-enrollment", () => ({ previewCourseEnrollment: vi.fn(), enrollCourseSeries: vi.fn() }));
 vi.mock("@/server/actions/course", () => ({ scheduleTeacherMakeup: vi.fn() }));
 vi.mock("@/server/actions/course-checkout-status", () => ({ getCourseCheckoutCashStatus: vi.fn() }));
-vi.mock("@/server/actions/course-members", () => ({ loadCourseSessionDetail: m.load, loadCourseRosterQuick: m.quick, saveCourseRosterNote: m.save, updateCourseBookingStatus: m.status, updateCourseRosterBatch: m.batch, createCourseBooking: vi.fn(), saveCourseCustomer: vi.fn(), cancelCourseSession: vi.fn() }));
+vi.mock("@/server/actions/course-members", () => ({ loadCourseSessionDetail: m.load, loadCourseRosterQuick: m.quick, saveCourseRosterNote: m.save, saveMusicTeacherNoteWithRoster:m.combined, updateCourseBookingStatus: m.status, updateCourseRosterBatch: m.batch, createCourseBooking: vi.fn(), saveCourseCustomer: vi.fn(), cancelCourseSession: vi.fn() }));
 vi.mock("@/server/actions/course-trial", () => ({ createCourseTrial: vi.fn(), collectCourseTrial: vi.fn(), voidCourseTrialPayment: vi.fn() }));
 vi.mock("@/server/actions/course-waitlist", () => ({ joinManagerCourseWaitlist: vi.fn(), promoteCourseWaitlistManually: vi.fn() }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/collect-trial-modal", () => ({ CollectTrialModal: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal", () => ({ CorrectTrialCollectionModal: () => null }));
 vi.mock("@/components/customer-labels", () => ({ CustomerLabels: () => null }));
 vi.mock("@/components/operation-history-button", () => ({ OperationHistoryButton: () => null }));
+import {useTeacherNoteSnapshot} from '@/app/(dashboard)/dashboard/courses/use-teacher-note-snapshot';
+import type {CalendarRosterSnapshots} from '@/app/(dashboard)/dashboard/courses/roster-source';
 import { CourseRoster } from "@/app/(dashboard)/dashboard/courses/roster";
 import { OperationScope } from "@/components/operations/operation-scope";
+import * as musicFinanceSync from '@/lib/music-finance-sync';
 
 const booking = (id = "a", notes = "原始備註") => ({
   id, customerId: id, customerName: id === "a" ? "甲同學" : "乙同學", customerPhone: "0900000001",
@@ -39,6 +47,10 @@ const data = (notes = "原始備註") => ({ success: true, data: {
   session: { startsAt: "2026-10-01T02:00:00Z", pointCost: 1, teacherAttendance: "SCHEDULED", teacherNote: "教師提醒" },
   roster: [booking("a", notes), booking("b", "另一位備註")], cards: [], trial: null,
 } });
+const preparedNoteData=()=>{
+ const full=preparedRoster();
+ return {...full,session:{...full.session,teacherNote:'教師提醒'},roster:['a','b'].map(id=>({...full.roster[0],id,customerId:id,customerName:id==='a'?'甲同學':'乙同學',notes:id==='a'?'原始備註':'另一位備註'}))};
+};
 let host: HTMLDivElement, root: Root;
 beforeEach(() => {
   vi.resetAllMocks(); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -60,6 +72,35 @@ const row = (name = "甲同學") => host.querySelector<HTMLButtonElement>(`butto
 const attendance = (name = "甲同學") => row(name).querySelector<HTMLButtonElement>("button[data-roster-action-trigger]")!;
 async function clickAttendance(name = "甲同學") { await act(async () => attendance(name).click()); }
 function deferred<T>() { let resolve!: (value: T) => void; let reject!: (error: Error) => void; const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; }); return { promise, resolve, reject }; }
+
+it('applies a matching authoritative attendance projection without another request',async()=>{
+ m.status.mockResolvedValue({success:true,rosterSnapshot:{sessionId:'session-a',data:{roster:[{...booking(),status:'ATTENDED',customerName:'後端確認學員'},booking('b')],waitlist:[]}}});
+ await render(true);await clickAttendance();expect(m.quick).not.toHaveBeenCalled();expect(host.querySelector('[aria-label="後端確認學員：已出席"]')).not.toBeNull();
+});
+it('does not use another class projection and falls back to its scoped reader',async()=>{
+ m.status.mockResolvedValue({success:true,rosterSnapshot:{sessionId:'foreign',data:{roster:[{...booking(),planName:'不得套用'}]}}});
+ m.quick.mockResolvedValue({success:true,data:{roster:[{...booking(),status:'ATTENDED'},booking('b')],waitlist:[]}});
+ await render(true);await clickAttendance();expect(m.quick).toHaveBeenCalledOnce();expect(host.textContent).not.toContain('不得套用');
+});
+it('reconciles once instead of accepting an older response after concurrent row writes',async()=>{
+ const first=deferred<unknown>(),second=deferred<unknown>();m.status.mockImplementation(input=>input.bookingId==='a'?first.promise:second.promise);
+ m.quick.mockResolvedValue({success:true,data:{roster:[{...booking(),status:'ATTENDED'},{...booking('b'),status:'ATTENDED'}],waitlist:[]}});
+ await render(true);await clickAttendance();await clickAttendance('乙同學');
+ await act(async()=>second.resolve({success:true,rosterSnapshot:{sessionId:'session-a',data:{roster:[booking(),{...booking('b'),status:'ATTENDED'}]}}}));
+ await act(async()=>first.resolve({success:true,rosterSnapshot:{sessionId:'session-a',data:{roster:[{...booking(),planName:'過期回應',status:'ATTENDED'},booking('b')]}}}));
+ expect(m.quick).toHaveBeenCalledOnce();expect(host.textContent).not.toContain('過期回應');expect(attendance('乙同學').getAttribute('aria-label')).toBe('乙同學：已出席');
+});
+
+it('defers finance-triggered quick reads during attendance and reconciles exactly once after commit',async()=>{
+ const oldPath=window.location.pathname;vi.stubEnv('NEXT_PUBLIC_BUILD_ENV','staging');window.history.replaceState({},'','/s/lubymusic/admin/dashboard/courses');
+ try{
+  const write=deferred<{success:boolean}>();m.status.mockReturnValue(write.promise);
+  m.quick.mockResolvedValue({success:true,data:{roster:[{...booking(),status:'ATTENDED'},booking('b')],waitlist:[],teacherAttendance:'SCHEDULED'}});
+  await render(true);await clickAttendance();
+  await act(async()=>musicFinanceSync.publishMusicFinanceChange());expect(m.quick).not.toHaveBeenCalled();
+  await act(async()=>write.resolve({success:true}));expect(m.quick).toHaveBeenCalledOnce();
+ }finally{vi.unstubAllEnvs();window.history.replaceState({},'',oldPath);}
+});
 
 it.each([false, true])("%s shows local pending immediately, guards same-tick repeats and waits for server confirmation", async music => {
   const write = deferred<{ success: boolean }>(); m.status.mockReturnValue(write.promise);
@@ -203,4 +244,152 @@ it('uses the version port in the background and retains the same rows when uncha
  sync.mockResolvedValueOnce({success:true,version:'version-b',unchanged:false,data:{...data('背景更新').data,readVersion:'version-b'}});
  await act(async()=>vi.advanceTimersByTimeAsync(3100));expect(read).toHaveBeenCalledOnce();expect(host.textContent).toContain('背景更新');
  vi.useRealTimers();
+});
+
+import {usePanelReader} from '@/components/operations/panel-read-cache';
+import {readCourseSessionDetailClient} from '@/lib/course-session-detail-client';
+it('starts a fresh roster read on the opening click, shares only its in-flight request, and rechecks after reopening',async()=>{
+ const first=deferred<ReturnType<typeof data>>(),second=deferred<ReturnType<typeof data>>();m.load.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+ function ClickRoster(){const [open,setOpen]=useState(false);const reader=usePanelReader('music-session-detail',readCourseSessionDetailClient,'',0);return createElement('div',null,createElement('button',{onClick:()=>{reader.prefetch('session-a',true,false);setOpen(true);}},'測試開啟'),createElement('button',{onClick:()=>setOpen(false)},'測試關閉'),open?createElement(CourseRoster,{sessionId:'session-a',capacity:1,canCreate:false,canEdit:false,musicLayout:true}):null);}
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:click-test:course'},createElement(ClickRoster))));
+ const click=(label:string)=>act(async()=>{[...host.querySelectorAll('button')].find(button=>button.textContent===label)!.click();});
+ await click('測試開啟');expect(m.load).toHaveBeenCalledOnce();expect(m.load).toHaveBeenCalledWith('session-a',true,false);expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeNull();
+ await act(async()=>first.resolve(data()));expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).not.toBeNull();
+ await click('測試關閉');await click('測試開啟');expect(m.load).toHaveBeenCalledTimes(2);expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeNull();
+ await act(async()=>second.resolve(data('新查核資料')));expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).not.toBeNull();
+});
+
+it.each([true,false])('reconciles music teacher notes and retains one calendar refresh owner: parent=%s',async hasParent=>{
+ const publication=vi.spyOn(musicFinanceSync,'publishMusicFinanceChange');
+ const write=deferred<{success:boolean}>(),read=deferred<{success:boolean;data:{roster:ReturnType<typeof booking>[];teacherNote:string;teacherAttendance:string;teacherAttendanceReason:string}}>();
+ const committed=vi.fn(),invalidate=vi.fn();m.save.mockReturnValueOnce(write.promise);m.quick.mockReturnValueOnce(read.promise);
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:teacher-note:course'},createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,teacherName:'老師',onSnapshotInvalidated:invalidate,onCommitted:hasParent?committed:undefined}))));
+ await act(async()=>host.querySelector<HTMLButtonElement>('button[title="教師提醒"]')!.click());
+ const input=document.querySelector<HTMLTextAreaElement>('textarea[placeholder="記錄本次上課需要留意的事項"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'更新的教師備註');input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ expect(committed).not.toHaveBeenCalled();
+ await act(async()=>write.resolve({success:true}));
+ expect(m.save).toHaveBeenCalledWith({sessionId:'session-a',bookingId:undefined,note:'更新的教師備註',expectedNote:'教師提醒'});
+ expect(invalidate).toHaveBeenCalled();expect(committed).toHaveBeenCalledTimes(hasParent?1:0);expect(m.quick).toHaveBeenCalledOnce();expect(m.refresh).not.toHaveBeenCalled();
+ expect(publication).toHaveBeenCalledWith('general',undefined,hasParent?{calendarRefreshOwned:true}:undefined);
+ await act(async()=>read.resolve({success:true,data:{roster:[booking()],teacherNote:'後端核對的備註',teacherAttendance:'SCHEDULED',teacherAttendanceReason:''}}));
+ expect(host.querySelector('button[title="後端核對的備註"]')).not.toBeNull();
+ expect(committed).toHaveBeenCalledTimes(hasParent?1:0);expect(m.refresh).toHaveBeenCalledTimes(hasParent?0:1);
+});
+
+it.each(['accepted','rejected','read-failed','foreign-session','conflict','unknown','server-uncertain'] as const)('uses one combined action without a second client read for music teacher notes: %s',async outcome=>{
+ const lease={accept:vi.fn(()=>outcome==='accepted'),invalidate:vi.fn(()=>true),dispose:vi.fn()},begin=vi.fn(()=>lease),committed=vi.fn(),invalidate=vi.fn(),publication=vi.spyOn(musicFinanceSync,'publishMusicFinanceChange');
+ const seed=preparedNoteData();
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:targeted-teacher-note'},createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,teacherName:'老師',initialSnapshot:{sessionId:'session-a',data:seed},beginTeacherNoteSnapshot:begin,onCommitted:committed,onSnapshotInvalidated:invalidate}))));
+ m.load.mockClear();m.combined.mockResolvedValue({success:true,sync:{state:'ready',snapshot:{sessionId:'session-a',data:{...seed,session:{...seed.session,teacherNote:'後端備註'}}}}});
+ if(outcome==='read-failed')m.combined.mockResolvedValue({success:true,sync:{state:'failed',error:'offline'}});
+ if(outcome==='foreign-session')m.combined.mockResolvedValue({success:true,sync:{state:'ready',snapshot:{sessionId:'foreign',data:seed}}});
+ if(outcome==='server-uncertain')m.combined.mockResolvedValue({success:false,uncertain:true,error:'結果待確認，輸入已保留'});
+ if(outcome==='conflict')m.combined.mockResolvedValue({success:false,error:'版本衝突，保留輸入'});
+ if(outcome==='unknown')m.combined.mockRejectedValue(Error('lost response'));
+ await act(async()=>host.querySelector<HTMLButtonElement>('button[title="教師提醒"]')!.click());
+ const input=document.querySelector<HTMLTextAreaElement>('textarea[placeholder="記錄本次上課需要留意的事項"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'  帶空白的輸入  ');input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ expect(begin).toHaveBeenCalledWith('session-a');expect(m.combined).toHaveBeenCalledExactlyOnceWith({sessionId:'session-a',note:'  帶空白的輸入  ',expectedNote:'教師提醒'});expect(m.quick).not.toHaveBeenCalled();expect(m.load).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();expect(invalidate).not.toHaveBeenCalled();expect(lease.dispose).toHaveBeenCalledOnce();
+ if(outcome==='accepted'){
+  expect(m.load).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();expect(lease.accept).toHaveBeenCalledOnce();expect(committed).not.toHaveBeenCalled();expect(m.refresh).not.toHaveBeenCalled();expect(lease.invalidate).not.toHaveBeenCalled();expect(host.querySelector('button[title="後端備註"]')).not.toBeNull();expect(publication).toHaveBeenCalledWith('general',undefined,{calendarRefreshOwned:true});
+ }else if(outcome==='conflict'||outcome==='unknown'||outcome==='server-uncertain'){
+  expect(m.load).not.toHaveBeenCalled();expect(lease.accept).not.toHaveBeenCalled();expect(committed).not.toHaveBeenCalled();expect(input.value).toBe('  帶空白的輸入  ');expect(document.body.textContent).toContain(outcome==='conflict'?'版本衝突':'結果待確認');expect(lease.invalidate).toHaveBeenCalledOnce();if(outcome!=='conflict'){expect(input.closest('form')!.querySelector<HTMLButtonElement>('button[type=submit]')?.disabled).toBe(true);const cancel=input.closest('form')!.querySelector<HTMLButtonElement>('button[type=button]')!;expect(cancel.disabled).toBe(false);await act(async()=>cancel.click());expect(document.body.querySelector('textarea[placeholder="記錄本次上課需要留意的事項"]')).toBeNull();expect(m.combined).toHaveBeenCalledOnce();}
+ }else{
+  expect(committed).toHaveBeenCalledOnce();expect(lease.invalidate).toHaveBeenCalledOnce();expect(host.textContent).toContain('備註已儲存，名單同步未完成');
+ }
+});
+
+it('keeps attendance on its existing authoritative projection path when a note lease is available',async()=>{
+ const begin=vi.fn();m.status.mockResolvedValue({success:true,rosterSnapshot:{sessionId:'session-a',data:{roster:[{...booking(),status:'ATTENDED'},booking('b')],waitlist:[]}}});
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:note-scope-attendance'},createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,initialSnapshot:{sessionId:'session-a',data:preparedNoteData()},beginTeacherNoteSnapshot:begin}))));
+ await clickAttendance();expect(begin).not.toHaveBeenCalled();expect(m.status).toHaveBeenCalledOnce();expect(m.quick).not.toHaveBeenCalled();expect(attendance('甲同學').getAttribute('aria-label')).toBe('甲同學：已出席');
+});
+it('does not apply or refresh from a late note read after changing the account/session scope',async()=>{
+ const read=deferred<unknown>(),lease={accept:vi.fn(()=>true),invalidate:vi.fn(()=>false),dispose:vi.fn()},committed=vi.fn();
+ await act(async()=>root.render(createElement(OperationScope,{key:'old-account',scope:'old-account:store-a'},createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,initialSnapshot:{sessionId:'session-a',data:preparedNoteData()},beginTeacherNoteSnapshot:()=>lease,onCommitted:committed}))));
+ m.combined.mockReturnValueOnce(read.promise);await act(async()=>host.querySelector<HTMLButtonElement>('button[title="教師提醒"]')!.click());
+ const input=document.querySelector<HTMLTextAreaElement>('textarea[placeholder="記錄本次上課需要留意的事項"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'舊帳號備註');input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ const next={...preparedNoteData(),session:{...preparedNoteData().session,teacherNote:'新帳號備註'}};
+ await act(async()=>root.render(createElement(OperationScope,{key:'new-account',scope:'new-account:store-b'},createElement(CourseRoster,{sessionId:'session-b',musicLayout:true,capacity:10,canCreate:false,canEdit:true,initialSnapshot:{sessionId:'session-b',data:next}}))));
+ await act(async()=>read.resolve({success:true,sync:{state:'ready',snapshot:{sessionId:'session-a',data:{...preparedNoteData(),session:{...preparedNoteData().session,teacherNote:'舊帳號晚到回覆'}}}}}));
+ expect(lease.accept).not.toHaveBeenCalled();expect(committed).not.toHaveBeenCalled();expect(host.querySelector('button[title="新帳號備註"]')).not.toBeNull();expect(host.textContent).not.toContain('舊帳號晚到回覆');
+});
+
+it.each([true,false])('invalidates prepared rosters after a confirmed native note save only: success=%s',async success=>{
+ const write=deferred<{success:boolean;error?:string}>(),invalidate=vi.fn(),committed=vi.fn();m.save.mockReturnValue(write.promise);
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:store-a:course:editable'},createElement(CourseRoster,{sessionId:'session-a',sportsNative:true,capacity:10,canCreate:false,canEdit:true,teacherName:'老師',onSnapshotInvalidated:invalidate,onCommitted:committed}))));
+ await act(async()=>host.querySelector<HTMLButtonElement>('button[title="教師提醒"]')!.click());
+ const input=document.querySelector<HTMLTextAreaElement>('textarea[placeholder="記錄本次上課需要留意的事項"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'更新的教師備註');input.dispatchEvent(new Event('input',{bubbles:true}));});
+ await act(async()=>input.closest('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(invalidate).not.toHaveBeenCalled();expect(committed).not.toHaveBeenCalled();
+ await act(async()=>write.resolve(success?{success:true}:{success:false,error:'版本衝突，保留輸入'}));
+ expect(invalidate).toHaveBeenCalledTimes(success?1:0);expect(committed).toHaveBeenCalledTimes(success?1:0);
+ if(success)expect(host.querySelector('button[title="更新的教師備註"]')).not.toBeNull();else{expect(input.value).toBe('更新的教師備註');expect(document.body.textContent).toContain('版本衝突，保留輸入');}
+});
+
+it.each(['success','failed','superseded','rejected'] as const)('keeps native note controls busy until the parent calendar settles: %s',async outcome=>{
+ const sync=deferred<boolean|null>(),committed=vi.fn(()=>sync.promise),busy=vi.fn();
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:native-note:sync'},createElement(CourseRoster,{sessionId:'session-a',sportsNative:true,capacity:10,canCreate:false,canEdit:true,teacherName:'老師',onCommitted:committed,onBusyChange:busy}))));
+ await act(async()=>host.querySelector<HTMLButtonElement>('button[title="教師提醒"]')!.click());
+ const input=document.querySelector<HTMLTextAreaElement>('textarea[placeholder="記錄本次上課需要留意的事項"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'同步中的已存備註');input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+ expect(committed).toHaveBeenCalledOnce();expect(host.querySelector('button[title="同步中的已存備註"]')).not.toBeNull();
+ expect(busy.mock.lastCall?.[0]).toBe(true);
+ expect(host.querySelector<HTMLSelectElement>('select[aria-label$="出勤狀態"]')!.disabled).toBe(true);
+ await act(async()=>{if(outcome==='rejected')sync.reject(Error('read failed'));else sync.resolve(outcome==='success'?true:outcome==='failed'?false:null);});
+ expect(busy.mock.lastCall?.[0]).toBe(false);
+ expect(host.querySelector('button[title="同步中的已存備註"]')).not.toBeNull();
+ if(outcome!=='success')expect(host.textContent).toContain('備註已儲存，課表同步未完成，請重新讀取');
+});
+
+it('retains the roster on read failure, offers a deduplicated retry and clears only the read error on success',async()=>{
+ await render(true);const original=row();m.load.mockRejectedValueOnce(Error('offline'));
+ await act(async()=>window.dispatchEvent(new Event('focus')));
+ expect(row()).toBe(original);expect(host.textContent).toContain('讀取失敗，現有名單已保留，請重試');
+ const read=deferred<ReturnType<typeof data>>();m.load.mockReturnValueOnce(read.promise);
+ const retry=()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='重新讀取名單')!;
+ await act(async()=>{retry().click();retry().click();});expect(m.load).toHaveBeenCalledTimes(3);expect(host.textContent).toContain('重新讀取中…');
+ await act(async()=>read.resolve(data('核對後備註')));expect(host.textContent).not.toContain('讀取失敗');expect(host.textContent).not.toContain('重新讀取名單');expect(row().textContent).toContain('核對後備註');expect(m.status).not.toHaveBeenCalled();
+});
+it('an initial failed roster read can retry without a route reload or a write',async()=>{
+ m.load.mockRejectedValueOnce(Error('offline'));await render(true);expect(host.querySelector('[data-roster-ready]')).toBeNull();
+ m.load.mockResolvedValueOnce(data());await act(async()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='重新讀取名單')!.click());
+ expect(host.querySelector('[data-roster-ready="true"]')).not.toBeNull();expect(m.refresh).not.toHaveBeenCalled();expect(m.status).not.toHaveBeenCalled();
+});
+it('keeps a failed retry available and ignores its late response after switching sessions',async()=>{
+ await render(true);m.load.mockRejectedValueOnce(Error('offline'));await act(async()=>window.dispatchEvent(new Event('focus')));
+ const retry=()=>[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='重新讀取名單')!;
+ m.load.mockRejectedValueOnce(Error('still offline'));await act(async()=>retry().click());expect(retry().disabled).toBe(false);
+ const old=deferred<ReturnType<typeof data>>();m.load.mockReturnValueOnce(old.promise);await act(async()=>retry().click());
+ m.load.mockResolvedValueOnce(data('乙課正確備註'));await render(true,'session-b');await act(async()=>old.resolve(data('甲課過期備註')));
+ expect(host.textContent).toContain('乙課正確備註');expect(host.textContent).not.toContain('甲課過期備註');expect(host.textContent).not.toContain('讀取失敗');
+});
+
+it('keeps a cleared note visible when an older parent response arrives after confirmation',async()=>{
+ const initial={storeId:'store-a',details:{'session-a':preparedNoteData()}};
+ const committed=vi.fn();let deliver!:(incoming:CalendarRosterSnapshots)=>void;
+ function Harness(){
+  const [incoming,setIncoming]=useState<CalendarRosterSnapshots>(initial),[invalidated,onInvalidate]=useState<CalendarRosterSnapshots>();
+  useEffect(()=>{deliver=setIncoming;},[]);
+  const {snapshots,begin,invalidate,reconcileRequest}=useTeacherNoteSnapshot({incoming,invalidated,scope:'music:store-a:2026-10',enabled:true,onInvalidate});
+  useEffect(()=>{if(reconcileRequest)committed();},[reconcileRequest]);
+  return createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,teacherName:'老師',initialSnapshot:snapshots&&snapshots!==invalidated?{sessionId:'session-a',data:snapshots.details['session-a']}:undefined,beginTeacherNoteSnapshot:begin,onSnapshotInvalidated:invalidate,onCommitted:committed});
+ }
+ await act(async()=>root.render(createElement(OperationScope,{scope:'account:late-parent-note'},createElement(Harness))));
+ const empty={...initial.details['session-a'],session:{...initial.details['session-a'].session,teacherNote:''}};m.combined.mockResolvedValue({success:true,sync:{state:'ready',snapshot:{sessionId:'session-a',data:empty}}});
+ await act(async()=>host.querySelector<HTMLButtonElement>('button[title="教師提醒"]')!.click());
+ const input=document.querySelector<HTMLTextAreaElement>('textarea[placeholder="記錄本次上課需要留意的事項"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'');input.dispatchEvent(new Event('input',{bubbles:true}));});
+ await act(async()=>input.closest('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(host.querySelector('button[title="教師提醒"]')).toBeNull();expect(committed).not.toHaveBeenCalled();
+ await act(async()=>deliver(JSON.parse(JSON.stringify(initial))));
+ expect(host.querySelector('button[title="教師提醒"]')).toBeNull();expect(committed).toHaveBeenCalledOnce();
+ const fresh={...initial,details:{'session-a':empty}};await act(async()=>deliver(fresh));
+ expect(host.querySelector('button[title="教師提醒"]')).toBeNull();expect(host.textContent).toContain('備註 ✎');
+ // A remount reads the repaired parent, rather than reviving the old note.
+ await act(async()=>root.render(createElement(OperationScope,{key:'remount',scope:'account:late-parent-note'},createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,initialSnapshot:{sessionId:'session-a',data:fresh.details['session-a']}}))));
+ expect(host.querySelector('button[title="教師提醒"]')).toBeNull();expect(host.textContent).toContain('備註 ✎');
 });

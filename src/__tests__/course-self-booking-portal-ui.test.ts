@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
+vi.mock("@/server/actions/central-member-store", () => ({ selectCentralMemberStoreAction: vi.fn() }));
 vi.mock("@/server/actions/course-teacher-session",()=>({loadCourseTeacherSession:vi.fn(),changeCourseTeacherSession:vi.fn()}));
 import { act, createElement as el } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CoursePortalData } from "@/app/(customer)/book/course-portal";
-const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), note: vi.fn(), purchase: vi.fn(), booking: vi.fn(), cancel: vi.fn(), join: vi.fn(), leave: vi.fn(), load: vi.fn(), confirm: vi.fn(), reschedule: vi.fn(), sportsTrial: vi.fn() }));
+const m = vi.hoisted(() => ({ goods:vi.fn(), refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), note: vi.fn(), purchase: vi.fn(), booking: vi.fn(), cancel: vi.fn(), join: vi.fn(), leave: vi.fn(), load: vi.fn(), confirm: vi.fn(), reschedule: vi.fn(), sportsTrial: vi.fn() }));
+vi.mock("@/server/actions/customer-booking-goods",()=>({readCustomerBookingGoods:m.goods}));
 vi.mock("@/server/actions/sports-staging",()=>({bookSportsTrial:m.sportsTrial}));
 vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn(),loadCourseStoreNotices:vi.fn(),markCourseStoreNotice:vi.fn()}));
 vi.mock("@/server/actions/course-teacher-changes",()=>({loadCourseTeacherChange:vi.fn(),loadCourseTeacherLeave:vi.fn(),changeCourseTeacherBooking:vi.fn()}));
@@ -52,6 +54,7 @@ beforeEach(() => {
   window.history.replaceState(null, "", "/s/a/book"); window.scrollTo = vi.fn(); HTMLElement.prototype.scrollIntoView = vi.fn();
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   for (const action of [m.booking, m.cancel, m.join, m.leave, m.confirm, m.reschedule, m.purchase, m.attendance, m.sportsTrial]) action.mockResolvedValue({ success: true });
+  m.goods.mockResolvedValue({success:true,data:null});
   m.load.mockResolvedValue(notificationData());
 });
 afterEach(async () => { vi.restoreAllMocks(); await act(async () => root.unmount()); host.remove(); });
@@ -253,3 +256,5 @@ it("does not append an empty open-course message beneath an existing personal le
  data.bookings=[{...data.sessions[0],id:"booking",sessionId:"session",status:"ATTENDED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31"}] as unknown as CoursePortalData["bookings"];
  await render(data);expect(host.textContent).toContain("已出席");expect(host.textContent).not.toContain("當天沒有課程");expect(host.textContent).not.toContain("當日沒有課程");
 });
+
+it('submits selected goods once with the same member reservation and keeps candidate metadata separate from quota',async()=>{m.goods.mockResolvedValue({success:true,data:{revision:3,groups:[{id:'g',title:'飲品',kind:'SHARED_GOODS',multiple:true,required:false,options:[{id:'tea',name:'茶',price:80,duration:0,active:true}]}]}});await render(props());await click('預約');const d=dialog();await act(async()=>d.querySelector<HTMLInputElement>('[aria-label="加購商品選購"] input')!.click());await act(async()=>d.querySelector<HTMLButtonElement>('[aria-label="增加茶"]')!.click());await click('確認預約',d);expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({sessionId:'session',sharedGoods:{revision:3,selections:[{id:'tea',quantity:2}]}}));});

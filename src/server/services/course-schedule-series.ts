@@ -34,7 +34,7 @@ export async function materializeCourseScheduleSeries() {
     await coursePrisma.$transaction(async tx => {
       // The same store lock is used by all course schedule writers.
       const stores = await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT id FROM "Store" WHERE id = ${item.storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE
+        SELECT id FROM "Store" WHERE id = ${item.storeId} AND "industryModule"::text = 'COURSE' AND "operatingStatus"::text IN ('ACTIVE','TRIAL') FOR UPDATE
       `;
       if (!stores.length) return;
       const series = await tx.courseScheduleSeries.findFirst({ where: { id: item.id, storeId: item.storeId, cancelledAt: null } });

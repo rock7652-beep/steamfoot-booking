@@ -110,6 +110,20 @@ describe("manager delivery preferences and durable deduplication", () => {
     ).toBe(false);
     expect(managerPreferences({ sameDay: true }, false).sameDay).toBe(false);
   });
+  it('quarantines pre-resume event delivery even when a new retry log is claimed today',async()=>{
+    vi.stubEnv('LINE_DELIVERY_RESUME_AT',new Date(Date.now()-60_000).toISOString());
+    try{
+      await deliverManagerNotification({...event,eventCreatedAt:new Date(Date.now()-120_000)});
+      expect(h.push).not.toHaveBeenCalled();
+      expect(h.updateLog).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:'SKIPPED',errorMessage:'停發期間的舊通知不補發'})}));
+    }finally{vi.unstubAllEnvs();}
+  });
+  it('keeps a retry tied to its original saved event time after restoration',async()=>{
+    const at=new Date(Date.now()-60_000),old=new Date(at.getTime()-1000);
+    vi.stubEnv('LINE_DELIVERY_RESUME_AT',at.toISOString());
+    h.createLog.mockRejectedValue(duplicate());h.findLog.mockResolvedValue({id:'old-retry',status:'FAILED',createdAt:old,renderedBody:'old'});h.claimLog.mockResolvedValue({count:1});
+    try{await deliverManagerNotification(event);expect(h.push).not.toHaveBeenCalled();expect(h.updateLog).toHaveBeenCalledWith(expect.objectContaining({where:{id:'old-retry'},data:expect.objectContaining({status:'SKIPPED'})}));}finally{vi.unstubAllEnvs();}
+  });
   it("honors a master switch turned off after recipient selection", async () => {
     h.current.mockResolvedValue(null);
     await deliverManagerNotification(event);
@@ -136,6 +150,7 @@ describe("manager delivery preferences and durable deduplication", () => {
       "line-b",
       [expect.objectContaining({ type: "flex", altText: expect.stringContaining("預約通知") })],
       expect.any(String),
+      expect.any(Date),
     );
   });
   it.each([
@@ -199,6 +214,7 @@ describe("manager delivery preferences and durable deduplication", () => {
       "line-a",
       [{ type: "text", text: "original" }],
       "retry-uuid",
+      expect.any(Date),
     );
   });
   it("retries the exact saved Flex payload even when the event body changes", async () => {
@@ -207,7 +223,7 @@ describe("manager delivery preferences and durable deduplication", () => {
     h.findLog.mockResolvedValue({ id: "retry-flex", status: "FAILED", createdAt: new Date(), renderedBody: "old", renderedMessages: saved });
     h.claimLog.mockResolvedValue({ count: 1 });
     await deliverManagerNotification(event);
-    expect(h.push).toHaveBeenCalledWith("store-a", "line-a", saved, "retry-flex");
+    expect(h.push).toHaveBeenCalledWith("store-a", "line-a", saved, "retry-flex", expect.any(Date));
   });
   it("does not retry beyond LINE's deduplication window", async () => {
     h.createLog.mockRejectedValue(duplicate());

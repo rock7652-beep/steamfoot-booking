@@ -191,6 +191,7 @@ export async function runBeautyNotifications(now = new Date(),storeId?:string) {
               retryKey,
               now,
               transactionScoped:true,
+              eventCreatedAt:event.createdAt,
             });
             await tx.$executeRaw`UPDATE "BeautyEvent" SET status=${status},attempts=attempts+1 WHERE id=${event.id}`;
             return status;

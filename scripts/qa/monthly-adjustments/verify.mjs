@@ -1,0 +1,31 @@
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE??'/opt/codex/cua_node/lib/node_modules/playwright/index.mjs');
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH??'/usr/bin/chromium',args:['--no-sandbox']});
+const page=await browser.newPage({locale:'zh-TW'});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto('http://127.0.0.1:4197/',{waitUntil:'networkidle'});
+for(const [label,width,height] of [['desktop',1366,900],['ipad-landscape',1180,820],['ipad-portrait',820,1180],['narrow',390,844]]){
+ await page.setViewportSize({width,height});await page.screenshot({path:`${process.cwd()}/artifacts/monthly-adjustments/${label}.png`,fullPage:false});
+ if(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth))throw new Error(`${label}: page overflow`);
+ await page.getByRole('button',{name:'＋新增調整'}).click();
+ await page.getByLabel('人員 *').selectOption('s0');
+ await page.getByLabel('金額 *',{exact:true}).fill('500');
+ await page.getByLabel('調整事由 *').fill('瀏覽器測試獎勵');
+ await page.screenshot({path:`${process.cwd()}/artifacts/monthly-adjustments/${label}-form.png`,fullPage:false});
+ await page.getByRole('button',{name:'儲存',exact:true}).click();
+ await page.getByRole('status').filter({hasText:'已儲存'}).waitFor();
+}
+await page.setViewportSize({width:1366,height:900});
+await page.getByRole('searchbox').fill('瀏覽器測試獎勵');
+if(await page.getByRole('row').count()!==5)throw new Error('search/create mismatch');
+await page.getByRole('button',{name:'編輯',exact:true}).first().click();
+await page.getByLabel('加項／減項 *').selectOption('SUBTRACT');await page.getByLabel('金額 *',{exact:true}).fill('300');
+await page.getByLabel('調整事由 *').fill('瀏覽器測試減項');await page.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('status').filter({hasText:'已儲存'}).waitFor();
+await page.getByRole('searchbox').fill('瀏覽器測試減項');await page.getByText('−$300',{exact:true}).waitFor();
+await page.getByRole('button',{name:'刪除',exact:true}).click();await page.getByRole('button',{name:'確認刪除',exact:true}).click();await page.getByText('沒有符合條件的明細。').waitFor();
+await page.getByRole('searchbox').fill('');
+page.on('dialog',d=>d.accept());await page.getByRole('button',{name:'完成月結',exact:true}).click();await page.getByRole('button',{name:'重新開啟月結',exact:true}).waitFor();
+if(await page.getByRole('button',{name:'編輯',exact:true}).count())throw new Error('locked month editable');
+await page.getByRole('button',{name:'重新開啟月結',exact:true}).click();await page.getByRole('button',{name:'＋新增調整'}).waitFor();
+await page.getByRole('button',{name:'＋新增調整'}).click();await page.getByLabel('人員 *').selectOption('s0');await page.getByLabel('金額 *',{exact:true}).fill('500');await page.getByLabel('調整事由 *').fill('測試失敗');await page.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('alert').filter({hasText:'儲存失敗'}).waitFor();if(await page.getByLabel('調整事由 *').inputValue()!=='測試失敗')throw new Error('lost draft');
+await page.getByRole('button',{name:'取消',exact:true}).click();
+await page.goto('http://127.0.0.1:4197/?readonly',{waitUntil:'networkidle'});if(await page.getByRole('button',{name:'＋新增調整'}).count())throw new Error('read only action');
+console.log(JSON.stringify({result:'passed',sizes:4,checks:['create','search','edit','delete','lock','reopen','failure retains draft','read-only','no page overflow'],errors}));await browser.close();

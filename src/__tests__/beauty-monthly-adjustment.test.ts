@@ -1,0 +1,20 @@
+import { expect,it,vi } from "vitest";
+import type { Prisma } from "../../generated/beauty-client";
+const m=vi.hoisted(()=>({rows:vi.fn(),month:vi.fn()}));
+vi.mock("@/server/services/staff-monthly-adjustment",()=>({readMonthlyAdjustments:m.rows,readAdjustmentMonth:m.month}));
+vi.mock("@/server/beauty/access",()=>({audit:vi.fn(),command:vi.fn()}));
+vi.mock("@/server/beauty/charge-runtime",()=>({beautyChargeRulesEnabled:()=>false}));
+vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
+vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
+import { settlement } from "@/server/beauty/commerce";
+it("keeps original beauty fees and adds signed adjustments to the monthly fingerprint and confirmation payload",async()=>{
+ const tx={beautyAppointment:{findMany:async()=>[{id:"service",technicianId:"tech",personName:"顧客",serviceName:"服務",startsAt:new Date("2026-11-01T02:00:00Z"),fee:30000,revision:1}]},beautyPayment:{findMany:async()=>[]}} as unknown as Prisma.TransactionClient;
+ m.month.mockResolvedValue({locked:false,revision:1});m.rows.mockResolvedValue([]);
+ const original=await settlement(tx,"A","2026-11");
+ m.rows.mockResolvedValue([{id:"add",staffId:"tech",date:"2026-11-02",direction:"ADD",amount:2000,reason:"服務獎勵",revision:1},{id:"sub",staffId:"tech",date:"2026-11-03",direction:"SUBTRACT",amount:800,reason:"出勤時數調整",revision:1}]);
+ const report=await settlement(tx,"A","2026-11");
+ expect(report.lines.map(l=>l.fee)).toEqual([30000,2000,-800]);expect(report.lines.reduce((sum,l)=>sum+l.fee,0)).toBe(31200);
+ expect(report.lines[1]).toMatchObject({kind:"ADJUSTMENT",technicianId:"tech",serviceName:"服務獎勵"});expect(report.fingerprint).not.toBe(original.fingerprint);
+ expect(m.rows).toHaveBeenLastCalledWith("A","2026-11",tx);
+ expect(m.month).toHaveBeenLastCalledWith("A","2026-11",tx,"beauty");
+});

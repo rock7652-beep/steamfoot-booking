@@ -1,4 +1,5 @@
 "use client";
+import {courseCheckoutReceipt,type CourseCheckoutReceipt} from "@/lib/course-checkout-receipt";
 import {coursePlanModeAllowed} from "@/lib/course-scheduling-modes";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
@@ -24,7 +25,8 @@ import { courseDisplayText } from "@/lib/course-display-text";
 import {musicTeachingKey} from "@/lib/music-teaching-item";
 import {musicPlanItems} from "@/lib/music-catalog";
 import { isMusicPreviewPage, publishMusicFinanceChange } from "@/lib/music-finance-sync";
-import {musicCheckoutTransport} from "@/lib/music-checkout-transport";
+import {CHECKOUT_OUTCOME_UNCONFIRMED,musicCheckoutTransport} from "@/lib/music-checkout-transport";
+import { CoursePurchaseRecoveryNotice, useCoursePurchaseRecovery } from "./purchase-recovery";
 import { musicNoteDisplay } from "@/lib/music-display";
 import { MusicStudentCourses } from "./music-student-courses";
 import { MusicStudentOverview } from "./music-student-overview";
@@ -52,7 +54,7 @@ import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
 import {calculateCourseSaleAllocation} from "@/lib/course-sale-allocation";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
-import { Fragment, useCallback,useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, useEffect,useEffectEvent, useCallback,useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
@@ -87,6 +89,10 @@ const field =
   "min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
+import {PlanManagementControls} from '@/components/admin/plan-management-controls';
+import {saveCourseSessionAdjustment} from '@/server/actions/course-session-adjustment';
+import {saveCourseCardManagement} from '@/server/actions/course-card-management';
+
 export function CourseMemberWorkspace({
   source,panelOnly=false,initialCustomerId,onPanelClose,initialAction,
   catalogSource,
@@ -108,7 +114,7 @@ export function CourseMemberWorkspace({
   canEdit,
   canCreate,
   canManageStaff,
-  canAssign,
+  canAssign,canManageCards=false,
   canSchedule=false,
   canReadBookings,
   canReadTransactions,
@@ -149,7 +155,7 @@ export function CourseMemberWorkspace({
   canEdit: boolean;
   canCreate: boolean;
   canManageStaff: boolean;
-  canAssign: boolean;canSchedule?:boolean;
+  canAssign: boolean;canManageCards?:boolean;canSchedule?:boolean;
   canReadBookings: boolean;
   canReadTransactions: boolean;
   healthEnabled: boolean;
@@ -176,6 +182,8 @@ export function CourseMemberWorkspace({
   const router = useRouter();
   const params = useSearchParams();
   const [purchaseFilter, setPurchaseFilter] = useState("all");
+  const [checkoutReceipt,setCheckoutReceipt]=useState<CourseCheckoutReceipt|null>(null);
+  const purchaseErrorRef=useRef<HTMLParagraphElement>(null);
   const [savedSharedFilter, setSharedFilter] = useState("all");
   const sharedFilter = !music && sharedCardState === "HIDDEN" ? "all" : savedSharedFilter;
   const sharingVisible = music || sharedCardState !== "HIDDEN";
@@ -210,6 +218,9 @@ export function CourseMemberWorkspace({
   const [cardBrowse,setCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
   const [cardRevision,setCardRevision]=useState(0);
+  const [balanceReceipts,setBalanceReceipts]=useState<{storeId:typeof previewStoreId;values:Record<string,{available:number;ids:string[]}>}>({storeId:previewStoreId,values:{}});
+
+  const [checkoutCards,setCheckoutCards]=useState<(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number})|undefined>(undefined);
   const [loadedCard,setLoadedCard]=useState<CourseCardView|null>(null);
   const [cardOpening,setCardOpening]=useState(0);
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(params.get("studentRecords")==="bookings"&&canReadBookings?"bookings":canReadTransactions?"purchases":"bookings");
@@ -244,7 +255,7 @@ export function CourseMemberWorkspace({
     if (!canLeave()) return false;
     setDirty(false);
     if(value === "assign" || value === "card")setPersonTab(music ? "courses" : "plans");
-    if(value === "assign")setServicePurchase(false);
+    if(value === "assign"){setServicePurchase(false);setCheckoutReceipt(null);}
     if(value === "assign")setRevenueStaffId(customerRows.find(c=>c.id===person?.id)?.assignedStaff?.id??"");
     if (value === "person") { setPersonTab("info"); setEditingPerson(false); }
     if (value === "assign" && music) { setRenewal(false); setPurchaseCustomerId(""); setPurchaseSubjectId(""); setPlanId(""); setAssignmentSummary({paid:null,valid:false}); }
@@ -260,11 +271,12 @@ export function CourseMemberWorkspace({
   function preparePlan(next: Plan | null,readOnly=false) { if(open("plan")){setPlan(next);setPlanReadOnly(readOnly);} }
   const [formPending,setFormPending]=useState(false);
   const [servicePurchase,setServicePurchase]=useState(false);
+  const purchaseRecovery = useCoursePurchaseRecovery(person?.id || purchaseCustomerId || undefined, panel === "assign" && !servicePurchase,source?.automaticPurchaseCompletion);
   const onServicePurchaseGuard=useCallback((dirty:boolean,busy:boolean)=>{setDirty(dirty);setFormPending(busy);},[]);
   useCourseDraftGuard(confirmDiscard&&(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(dirty || supportGuard.dirty),(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
   function finishDraftForm(row?:Plan,syncWarning=false){publishMusicFinanceChange();if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("收費方式已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
-  useCustomerPanelUrl(view === "customers", panel && customerPanel ? person.id : null, personTab);
+  useCustomerPanelUrl(view === "customers"&&!panelOnly, panel && customerPanel ? person.id : null, personTab);
   const [visitedTabs,setVisitedTabs]=useState<{id:string;tabs:string[]}>({id:"",tabs:[]});
   const hasVisitedTab=(tab:string)=>personTab===tab || (visitedTabs.id===person?.id && visitedTabs.tabs.includes(tab));
   const studentScroll=useRef<HTMLDivElement>(null);
@@ -282,7 +294,7 @@ export function CourseMemberWorkspace({
 
   async function submit(
     event: FormEvent<HTMLFormElement>,
-    action: (data: FormData) => Promise<{ success: boolean; error?: string;syncWarning?:boolean }>,
+    action: (data: FormData) => Promise<{ success: boolean;discarded?:boolean;financePublished?:boolean; error?: string;syncWarning?:boolean;checkoutReceipt?:unknown;checkoutCards?:import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot }>,
   ) {
     event.preventDefault();
     if (submitting.current) return;
@@ -291,23 +303,79 @@ export function CourseMemberWorkspace({
     setError("");
       try {
         const result = await action(data);
+        if (result.discarded) return;
         if (!result.success) {
           setError(result.error ?? "儲存失敗");
           return;
         }
         if(source&&!canCloseConfirmedSettingsSave(result,setError))return;
-        publishMusicFinanceChange();setDirty(false);setCardRevision(n=>n+1);
+        if(panel==="assign"){
+          const receipt=courseCheckoutReceipt.safeParse(result.checkoutReceipt);
+          if(receipt.success)setCheckoutReceipt(receipt.data);
+          toast.success("購買成功，方案已加入");
+        }
+        if(panel==="assign"&&purchaseRecovery.enabled&&!source?.automaticPurchaseCompletion){
+          if(result.checkoutCards)setCheckoutCards({...result.checkoutCards,revision:cardRevision+1});
+          if(!result.financePublished)publishMusicFinanceChange();
+          setCardRevision(n=>n+1);setDirty(false);setNotice("購買已完成，請確認後繼續購買");
+          return;
+        }
+        if(panel==="assign"&&source?.automaticPurchaseCompletion){
+          if(result.checkoutCards?.result.totals){const customerId=result.checkoutCards.customerId;const available=result.checkoutCards.result.totals.filter(t=>t.unit==='SESSION').reduce((sum,t)=>sum+t.available,0);setBalanceReceipts(old=>({storeId:previewStoreId,values:{...(old.storeId===previewStoreId?old.values:{}),[customerId]:{available,ids:result.checkoutCards!.result.rows.map(card=>card.id)}}}));}
+          if(result.checkoutCards)setCheckoutCards({...result.checkoutCards,revision:cardRevision+1});
+          setCardRevision(n=>n+1);setDirty(false);setNotice('');
+          window.dispatchEvent(new Event('customer-search-invalidated'));
+          if(source.purchaseCompleted){source.purchaseCompleted();return;}
+          setCustomerCardBrowse({search:'',history:false,page:0});
+          if(person){setPanel('person');setPersonTab('info');}else setPanel(null);
+          router.refresh();return;
+        }
+        if(panel==="assign"&&source?.purchaseCompleted){setDirty(false);source.purchaseCompleted();return;}
+        if(result.checkoutCards)setCheckoutCards({...result.checkoutCards,revision:cardRevision+1});
+        if(!result.financePublished){publishMusicFinanceChange();setCardRevision(n=>n+1);}setDirty(false);
         if(panel==="assign")setPurchased({customerId:String(data.get("customerId")??person?.id??""),templateId:music&&purchaseSubjectId?musicTeachingKey(purchaseSubjectId):sportsData?.subjects.find(s=>s.id===plans.find(p=>p.id===planId)?.sportsSubjectId)?.templateId??plans.find(p=>p.id===planId)?.templateIds[0]??""});
         if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab(music ? "courses" : "info"); setEditingPerson(false); }
         else setPanel(null);
         if (panel === "plan") toast.success("方案已儲存");
         else setNotice(panel === "assign" ? "結帳完成，方案已加入" : "已儲存");
         window.dispatchEvent(new Event("customer-search-invalidated"));
-        if(!isMusicPreviewPage())setTimeout(() => router.refresh(), 0);
+        // Native source panels refresh their own readers and publish the scoped
+        // customer event; keep the underlying reservation list mounted.
+        if(!source&&!isMusicPreviewPage()&&!result.financePublished&&!result.checkoutCards)setTimeout(() => router.refresh(), 0);
       } catch {
-        setError("連線中斷，請重試");
+        setError(panel === "assign" ? CHECKOUT_OUTCOME_UNCONFIRMED : "連線中斷，請重試");
       } finally {submitting.current=false;setPending(false);}
   }
+  const [completingPurchaseScope,setCompletingPurchaseScope]=useState("");
+  const automaticCompletionScope=JSON.stringify([!!source?.automaticPurchaseCompletion,panel,previewStoreId,person?.id||purchaseCustomerId]);
+  const automaticScopeRef=useRef(automaticCompletionScope);automaticScopeRef.current=automaticCompletionScope;
+  useEffect(()=>{automaticScopeRef.current=automaticCompletionScope;return()=>{automaticScopeRef.current='';};},[automaticCompletionScope]);
+  const recoverCompletedPurchase=useEffectEvent(async(expectedScope:string)=>{
+    setCompletingPurchaseScope(expectedScope);
+    const next=await purchaseRecovery.acknowledge('COMMITTED');
+    if(automaticScopeRef.current!==expectedScope||next?.kind!=='none-known')return;
+    const customerId=person?.id||purchaseCustomerId;
+    if(customerId&&source?.browseCards){
+      try{
+        const result=await source.browseCards({customerId});
+        if(automaticScopeRef.current!==expectedScope)return;
+        if(result.success){
+          setCheckoutCards({customerId,result,revision:cardRevision+1});
+          if(result.totals){const available=result.totals.filter(t=>t.unit==='SESSION').reduce((sum,t)=>sum+t.available,0);setBalanceReceipts(old=>({storeId:previewStoreId,values:{...(old.storeId===previewStoreId?old.values:{}),[customerId]:{available,ids:result.rows.map(card=>card.id)}}}));}
+        }
+      }catch{/* The purchase stays completed; the normal reader can retry. */}
+    }
+    if(automaticScopeRef.current!==expectedScope)return;
+    setDirty(false);setCardRevision(n=>n+1);setNotice('');
+    window.dispatchEvent(new Event('customer-search-invalidated'));
+    if(source?.purchaseCompleted){source.purchaseCompleted();return;}
+    if(person){setPanel('person');setPersonTab('info');}else setPanel(null);
+    router.refresh();
+  });
+  const completedPurchaseKey=source?.automaticPurchaseCompletion&&panel==='assign'&&purchaseRecovery.view.kind==='intent'&&purchaseRecovery.view.intent.status==='COMMITTED'?JSON.stringify([automaticCompletionScope,purchaseRecovery.view.intent.requestKey]):'';
+  useEffect(()=>{
+    if(completedPurchaseKey)void recoverCompletedPurchase(automaticCompletionScope);
+  },[completedPurchaseKey,automaticCompletionScope]);
   const order=useCourseDisplayOrder("plan",plans,displayOrder,(!catalogSource||!!catalogSource.order)&&canEdit&&!search&&status==="all"&&templateFilter==="all"&&purchaseFilter==="all"&&sharedFilter==="all"&&!hideTestData&&!busyIds.length,p=>p.isActive,catalogSource?.order);
   const filteredPlans = plans
     .filter(
@@ -331,6 +399,8 @@ export function CourseMemberWorkspace({
   const purchaseItems=[...new Map(activePlans.flatMap(p=>planItems(p)).map(s=>[s.id,s])).values()];
   const activeModes=schedulingModes??sportsData?.schedulingModes;
   const purchasablePlans=activePlans.filter(p=>!sportsNative||coursePlanModeAllowed(activeModes,p.sportsMode));
+  useEffect(()=>{if(error){purchaseErrorRef.current?.focus({preventScroll:true});purchaseErrorRef.current?.scrollIntoView?.({block:"nearest"});}},[error]);
+  const confirmedPurchase=checkoutReceipt&&<section role="status" aria-live="polite" className="mb-3 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-primary-900"><p className="font-semibold">本次購買已完成</p><p>{checkoutReceipt.name} · {checkoutReceipt.quantity} {checkoutReceipt.unit==="POINT"?"點":"堂"} · 實收 NT$ {checkoutReceipt.paid.toLocaleString("zh-TW")}</p><p className="text-sm">已加入方案，持有方案資料正在同步，請勿重複購買。</p></section>;
   const purchasePlans=music?activePlans.filter(p=>planItems(p).some(s=>s.id===purchaseSubjectId)):purchasablePlans;
   const pointPlans = activePlans.filter((item) => item.unit === "POINT").length;
   const sessionPlans = activePlans.filter((item) => item.unit === "SESSION").length;
@@ -351,6 +421,7 @@ export function CourseMemberWorkspace({
         </>);
   return (
     <>
+      {!panel&&confirmedPurchase}
       {!panel&&notice==="結帳完成，方案已加入"&&purchased&&<div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800"><span>{notice}</span>{canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>{music||sportsNative?"安排課程":"前往課表"}</DashboardLink>}</div>}
       {view === "plans" && !compactCatalog && <div className="flex flex-wrap items-center gap-3">
       {view === "plans" && (
@@ -418,7 +489,7 @@ export function CourseMemberWorkspace({
           </button>
         )}
       </div>
-      {error && !panel && <p role="alert" className="mb-3 text-red-700">{error}</p>}
+      {error && !panel && <p ref={purchaseErrorRef} tabIndex={-1} role="alert" className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-3 font-medium text-red-800">{error}</p>}
       {notice && (
         <div role="status" className="mb-3 flex flex-wrap items-center gap-2 text-sm text-primary-700">
           <span>{notice}</span>
@@ -431,7 +502,7 @@ export function CourseMemberWorkspace({
       {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar driver={catalogSource?.status} key={`${hideTestData}:${search}:${status}:${planUnit}:${templateFilter}:${purchaseFilter}:${sharedFilter}:${inactiveExpanded}`} canDelete={canDelete} names={Object.fromEntries(visiblePlans.map(p=>[p.id,p.name]))} kind="plan" blockedIds={busyIds} states={Object.fromEntries(visiblePlans.map(item=>[item.id,item.isActive]))} onApplied={applyStatus} onPendingChange={setStatusBusy} ids={visiblePlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {!music && view === "plans" && planArea === "catalog" && <p className="ml-auto whitespace-nowrap text-sm text-earth-500">共 {filteredPlans.length} 筆／全部 {plans.length} 筆</p>}
 </div>
-      {view === "customers" ? panelOnly?null:<CourseCustomerList assignCustomers={source?.assignCustomers} basePath={source?.basePath} sessionUnitLabel={source?.sessionUnitLabel} sportsNative={sportsNative} music={music} customerPage={customerPage} rows={visibleCustomerRows} cards={cards} canReadCards={canReadCards}
+      {view === "customers" ? panelOnly?null:<CourseCustomerList assignCustomers={source?.assignCustomers} basePath={source?.basePath} sessionUnitLabel={source?.sessionUnitLabel} sportsNative={sportsNative} music={music} customerPage={customerPage} rows={visibleCustomerRows} cards={cards} balanceOverrides={balanceReceipts.storeId===previewStoreId?Object.fromEntries(Object.entries(balanceReceipts.values).filter(([,value])=>!value.ids.every(id=>cards.some(card=>card.id===id))).map(([id,value])=>[id,value.available])):{}} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge} canExport={canExport}
         onView={id => { if (!open("person")) return; setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); }}
@@ -442,7 +513,7 @@ export function CourseMemberWorkspace({
         onAssign={canAssign&&purchasablePlans.length>0 ? id => { if (!open("assign")) return; setPerson(people.find(p => p.id === id) ?? null); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
       planArea === "catalog" ? <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
-        <table className={`${music ? "min-w-[740px]" : "min-w-[1000px] table-fixed"} w-full text-left text-sm`}>
+        <table data-striped-list className={`${music ? "min-w-[740px]" : "min-w-[1000px] table-fixed"} w-full text-left text-sm`}>
           <thead className={` bg-earth-50`}>
             <tr>
               {(music ? ["科目類別", "收費名稱", "課堂數", "收費金額", "狀態", "操作"] : ["方案／適用課程", "額度", "售價", "有效天數", "購買方式", "操作"]).map((h) => (
@@ -453,29 +524,29 @@ export function CourseMemberWorkspace({
             </tr>
           </thead>
           <tbody className={` divide-y divide-earth-100`}>
-            {!filteredPlans.length && <tr><td colSpan={6} className="p-6 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
+            {!filteredPlans.length && <tr data-list-divider><td colSpan={6} className="px-6 py-1 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
             {visiblePlans.map((p,index) => (
                   <Fragment key={p.id}>
-                  {!p.isActive&&(index===0||visiblePlans[index-1]?.isActive)&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={6} className="px-3 py-2"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
+                  {!p.isActive&&(index===0||visiblePlans[index-1]?.isActive)&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={6} className="px-3 py-1"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
                   <tr
                     {...order.rowProps(p.id)}
                     className={` ${p.isActive ? "" : "bg-earth-50/80 text-earth-400"}`}
                   >
-                    {music ? <><td className="px-3 py-2">{planItems(p).map(s=>s.name).join("、") || "待確認對應"}</td><td className="min-w-0 px-3 py-2"><div className="flex items-center gap-2">{canEdit&&order.handle(p.id,p.name)}{canEdit&&<input type="checkbox" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" className="min-h-11 text-left font-medium text-primary-900 hover:underline" onClick={()=>preparePlan(p,!canEdit)}>{p.name}</button></div></td></> : <td className="px-3 py-2"><div className="flex min-h-11 items-center gap-2">{canEdit && order.handle(p.id,p.name)}{canEdit && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" aria-label={p.name} data-plan-name={p.name} className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 text-left hover:underline" onClick={()=>preparePlan(p,!canEdit)}><span className="block w-full truncate font-medium text-primary-900" title={p.name}>{p.name}</span>{sportsNative&&!coursePlanModeAllowed(activeModes,p.sportsMode)&&<span className="text-sm text-earth-500">模式已關閉・保留紀錄</span>}<span className="block w-full max-w-96 truncate text-sm text-earth-700" title={p.sportsMode==="OPEN"?"開放選課通用卡":p.sportsMode==="ASSIGNED"?`指定項目方案 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "全部課程"}>{p.sportsMode==="OPEN"?"開放選課通用卡":p.sportsMode==="ASSIGNED"?`指定項目方案 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "全部課程"}</span></button>{sharingVisible && p.allowShared && <CourseSharedCardIndicator name={p.name} onOpen={()=>preparePlan(p,true)}/>}</div></td>}
-                    <td className={` whitespace-nowrap px-3 py-2`}>{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
-                    <td className={` whitespace-nowrap px-3 py-2`}>NT$ {p.price.toLocaleString("zh-TW")}{!music && p.price > 0 && <p className="text-xs text-earth-500">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? "堂" : "點"}</p>}</td>
+                    {music ? <><td className="px-3 py-1">{planItems(p).map(s=>s.name).join("、") || "待確認對應"}</td><td className="min-w-0 px-3 py-1"><div className="flex items-center gap-2">{canEdit&&order.handle(p.id,p.name)}{canEdit&&<input type="checkbox" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" className="min-h-11 text-left font-medium text-primary-900 hover:underline" onClick={()=>preparePlan(p,!canEdit)}>{p.name}</button></div></td></> : <td className="px-3 py-1"><div className="flex min-h-11 items-center gap-2">{canEdit && order.handle(p.id,p.name)}{canEdit && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" aria-label={p.name} data-plan-name={p.name} className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 text-left hover:underline" onClick={()=>preparePlan(p,!canEdit)}><span className="block w-full truncate font-medium text-primary-900" title={p.name}>{p.name}</span>{sportsNative&&!coursePlanModeAllowed(activeModes,p.sportsMode)&&<span className="text-sm text-earth-500">模式已關閉・保留紀錄</span>}<span className="block w-full max-w-96 truncate text-sm text-earth-700" title={p.sportsMode==="OPEN"?"開放選課通用卡":p.sportsMode==="ASSIGNED"?`指定項目方案 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "全部課程"}>{p.sportsMode==="OPEN"?"開放選課通用卡":p.sportsMode==="ASSIGNED"?`指定項目方案 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "全部課程"}</span></button>{sharingVisible && p.allowShared && <CourseSharedCardIndicator name={p.name} onOpen={()=>preparePlan(p,true)}/>}</div></td>}
+                    <td className={` whitespace-nowrap px-3 py-1`}>{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
+                    <td className={` whitespace-nowrap px-3 py-1`}>NT$ {p.price.toLocaleString("zh-TW")}{!music && p.price > 0 && <p className="text-xs text-earth-500">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? "堂" : "點"}</p>}</td>
                     {!music && <>
-                    <td className="whitespace-nowrap px-3 py-2">{p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</td>
-                    <td className="whitespace-nowrap px-3 py-2">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}</td>
+                    <td className="whitespace-nowrap px-3 py-1">{p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</td>
+                    <td className="whitespace-nowrap px-3 py-1">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}</td>
                     </>}
-                    {music&&(<td className={` px-3 py-2`}><span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${p.isActive ? "bg-emerald-50 text-emerald-700" : "bg-earth-100 text-earth-500"}`}>{p.isActive ? "上架" : "下架"}</span></td>)}
-                    <td className={`whitespace-nowrap px-3 py-2 align-middle ${!music?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
+                    {music&&(<td className={` px-3 py-1`}><span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${p.isActive ? "bg-emerald-50 text-emerald-700" : "bg-earth-100 text-earth-500"}`}>{p.isActive ? "上架" : "下架"}</span></td>)}
+                    <td className={`whitespace-nowrap px-3 py-1 align-middle ${!music?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
                       {canEdit && <div className="flex items-center justify-center"><ExclusiveMenu quiet triggerText="⋯" label={`${p.name}操作`}><button type="button" className="min-h-11 w-full px-3 text-left text-sm" disabled={busyIds.includes(p.id)} onClick={()=>preparePlan(p)}>編輯</button><CourseStatusButton driver={catalogSource?.status} quiet kind="plan" id={p.id} disabled={busyIds.includes(p.id)} active={p.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/></ExclusiveMenu></div>}
                     </td>
                   </tr>
                   </Fragment>
                 ))}
-            {!inactiveExpanded&&inactiveFilteredPlans.length>0&&<tr className="border-y border-earth-200 bg-earth-100"><td colSpan={6} className="px-3 py-2"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>展開</span></button></td></tr>}
+            {!inactiveExpanded&&inactiveFilteredPlans.length>0&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={6} className="px-3 py-1"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>展開</span></button></td></tr>}
           </tbody>
         </table>
       </div> : canReadCards ? <CourseCardBrowser compact={music} dataScope={dataScope} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
@@ -527,6 +598,8 @@ export function CourseMemberWorkspace({
           </nav>}
           <div data-course-person-scroll={scrollKey} ref={studentScroll} onScroll={e=>{studentScrollPositions.current[scrollKey]=e.currentTarget.scrollTop;try{sessionStorage.setItem(scrollKey,String(e.currentTarget.scrollTop));}catch{}}} className={`@container/member min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain ${music ? "p-3" : "p-4"}`}>
             {music && panel === "person" && person && personTab === "info" && !editingPerson && <MusicStudentOverview legacy={dataScope === "legacy"} key={`overview-${person.id}`} customerId={person.id} tab={personTab} />}
+            {confirmedPurchase}
+            {panel==="assign"&&pending&&<p role="status" className="mb-3 rounded-lg bg-primary-50 px-4 py-3 font-medium text-primary-900">正在確認購買與收款，請稍候，勿重複送出。</p>}
             {notice && <div role="status" className="mb-3 flex flex-wrap items-center justify-between gap-2 text-primary-700"><span>{notice}</span>{notice==="結帳完成，方案已加入"&&purchased&&canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>{music||sportsNative?"安排課程":"前往課表"}</DashboardLink>}</div>}
             {error && (
               <p role="alert" className="mb-3 text-red-700">
@@ -562,11 +635,11 @@ export function CourseMemberWorkspace({
             )}
             {music ? <>
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
-            {music && customerPanel && person && hasVisitedTab("courses") && <div hidden={panel!=="person"||personTab!=="courses"}><MusicStudentCourses canSchedule={canSchedule} key={person.id} customerId={person.id} revision={cardRevision} templates={templates} subjects={subjects} canReadBookings={canReadBookings} canReadTransactions={canReadTransactions} canReadCards={canReadCards} canAssign={canAssign} onPurchase={selection=>{if(open("assign")&&selection&&activePlans.some(p=>p.id===selection.planId)){setRenewal(true);setPurchaseSubjectId(selection.subjectId);setPlanId(selection.planId);}}} onManageCard={id=>{if(open("card")){setCardId(id);setLoadedCard(null);setCardOpening(n=>n+1);}}}/></div>}
+            {music && customerPanel && person && hasVisitedTab("courses") && <div hidden={panel!=="person"||personTab!=="courses"}><MusicStudentCourses active={panel==="person"&&personTab==="courses"} canSchedule={canSchedule} key={person.id} customerId={person.id} revision={cardRevision} templates={templates} subjects={subjects} canReadBookings={canReadBookings} canReadTransactions={canReadTransactions} canReadCards={canReadCards} canAssign={canAssign} onPurchase={selection=>{if(open("assign")&&selection&&activePlans.some(p=>p.id===selection.planId)){setRenewal(true);setPurchaseSubjectId(selection.subjectId);setPlanId(selection.planId);}}} onManageCard={id=>{if(open("card")){setCardId(id);setLoadedCard(null);setCardOpening(n=>n+1);}}}/></div>}
             {!music && (panel === "person") && person && hasVisitedTab("plans") && <section hidden={panel!=="person"||personTab!=="plans"} className="mb-4 space-y-3">
               {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>{music ? "購課／續購" : "購買方案"}</button>}
               {canReadCards && <section aria-label={sharingVisible ? "持有與共卡方案" : "持有方案"}>
-                <CourseCardBrowser compact={music} dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
+                <CourseCardBrowser snapshot={checkoutCards} compact={music} dataScope={dataScope} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
 
               </section>}
 
@@ -625,10 +698,10 @@ export function CourseMemberWorkspace({
               {!sportsNative&&attribution}
               {canReadCards && <section aria-label="持有方案" className="border-t border-earth-100 pt-2">
                 <div className="flex min-h-11 items-center justify-between gap-3"><h3 className="text-sm font-semibold">持有方案</h3>{canAssign && <button type="button" className={button} onClick={() => open("assign")}>購買方案</button>}</div>
-                <CourseCardBrowser load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
+                <CourseCardBrowser snapshot={checkoutCards} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
               </section>}
               {source?.support?<DeferredCustomerSupport key={person.id} customerId={person.id} load={source.support}/>:<>
-              <StoreMemberConnectionPanel compact={sportsNative} key={`membership-${person.id}`} customerId={person.id} />
+              <StoreMemberConnectionPanel compact={sportsNative} key={`membership-${person.id}`} customerId={person.id} pendingOnly />
               <CustomerPanelAdvanced key={`line-${person.id}`} managerSimple active customerId={person.id} readOnly={!!source||!canEdit} canEdit={!source&&canEdit} onMutated={() => router.refresh()}/></>}
               {!sportsNative&&detailFields}
               {canManageStaff && <ExclusiveMenu quiet triggerText="更多" label="顧客其他操作"><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("coach")}>{personnelText("加入為教練")}</button></ExclusiveMenu>}
@@ -649,6 +722,7 @@ export function CourseMemberWorkspace({
             )}
             {panel === "assign" && source?.purchaseService && <label className="mb-3 block">消費類型<select aria-label="消費類型" className={field} value={servicePurchase?"service":"plan"} disabled={pending||formPending||formUncertain} onChange={e=>{setServicePurchase(e.target.value==="service");setDirty(false);setError("");}}><option value="plan">多次方案</option><option value="service">單次／體驗</option></select></label>}
             {panel === "assign" && servicePurchase && source?.purchaseService?.({customerId:person?.id,onGuard:onServicePurchaseGuard,onSaved:()=>{publishMusicFinanceChange();setDirty(false);setFormPending(false);setCardRevision(n=>n+1);setNotice("服務收款完成");if(person){setPanel("person");setPersonTab("info");}else setPanel(null);router.refresh();},onClose:()=>{if(canLeave()){setDirty(false);setServicePurchase(false);}}})}
+            {panel === "assign" && !servicePurchase && <CoursePurchaseRecoveryNotice automaticCompletion={source?.automaticPurchaseCompletion} recovery={purchaseRecovery} disabled={pending||formPending} onCommitted={()=>{setCardRevision(n=>n+1);publishMusicFinanceChange();if(source?.purchaseCompleted){source.purchaseCompleted();return;}open("assign");setNotice("購買已完成，方案正在更新");}}/>}
             {panel === "assign" && !servicePurchase && (
               <form
                 id="course-member-form"
@@ -656,11 +730,12 @@ export function CourseMemberWorkspace({
                 className={music ? "grid min-w-0 grid-cols-1 items-start gap-3 @min-[40rem]/member:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]" : "grid grid-cols-1 gap-5 min-[1024px]:grid-cols-2"}
                 onSubmit={(e) =>
                   submit(e, (d) =>
-                    musicCheckoutTransport("purchase", {
+                    purchaseRecovery.submit({
                       planId,
-                      customerId: d.get("customerId"),
+                      customerId: String(d.get("customerId") ?? ""),
                       expiresDate: d.get("expires"),
                       ...(source?.automaticAllocation?{beautyExpectedStoreCost:(plans.find(p=>p.id===planId)?.catalogSnapshot?.storeCost??null)}:{}),
+                      musicSnapshotView:music?"periods":undefined,
                       musicPurchaseTerms:music?Number(d.get("musicPurchaseTerms")??1):undefined,
                       musicReceived:d.get("musicReceivedResolved")!==null?Number(d.get("musicReceivedResolved")):undefined,
                       musicPaymentDate:d.get("musicPaymentDate")?String(d.get("musicPaymentDate")):undefined,
@@ -676,7 +751,7 @@ export function CourseMemberWorkspace({
                       paymentMethod: d.get("paymentMethod"),
                       transferLastFour: String(d.get("transferLastFour") ?? ""),
                       requestKey,
-                    }, input=>source?source.assign(input as Record<string,unknown>):assignCoursePointCard(input)),
+                    }, prepared => musicCheckoutTransport("purchase", prepared, input=>source?source.assign(input as Record<string,unknown>):assignCoursePointCard(input))),
                   )
                 }
               >
@@ -690,7 +765,7 @@ export function CourseMemberWorkspace({
                 {music&&<label className="block">教學項目<CourseOptionSelect label="教學項目" required value={purchaseSubjectId} options={purchaseItems.map(s=>({id:s.id,label:s.name}))} onChange={id=>changePurchaseSelection(()=>{setPurchaseSubjectId(id);setPlanId("");setAssignmentSummary({paid:null,valid:false});})}/></label>}
                 <label className="block">
                   {music?"收費方式":"方案"}
-                  <CourseOptionSelect label={music?"收費方式":"方案"} required value={planId} options={purchasePlans.map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? source?.sessionUnitLabel??"堂":"點"}`}))} onChange={id=>changePurchaseSelection(()=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);if(!music)setDirty(true);})}/>
+                  <CourseOptionSelect label={music?"收費方式":"方案"} required value={planId} options={purchasePlans.map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? source?.sessionUnitLabel??"堂":"點"}`}))} onChange={id=>{if(id===planId)return;changePurchaseSelection(()=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);if(!music)setDirty(true);});}}/>
 
                 </label>
                 {music ? <input type="hidden" name="expires" value="2099-12-31"/> : <label className="block" key={planId}>
@@ -717,7 +792,7 @@ export function CourseMemberWorkspace({
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>
                 <fieldset data-purchase-details disabled={pending} className={music ? "contents" : "min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5"}>
-                  {music ? plans.filter(p=>p.id===planId).map(p=><MusicAssignmentPayment split customerId={person?.id??purchaseCustomerId} key={p.id} plan={p} canDiscount={canDiscount} onSummary={setAssignmentSummary}/>) : <CourseAssignmentPayment cashReader={source?.cashStatus} profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>}
+                  {music ? plans.filter(p=>p.id===planId).map(p=><MusicAssignmentPayment split customerId={person?.id??purchaseCustomerId} key={p.id} plan={p} canDiscount={canDiscount} onSummary={setAssignmentSummary}/>) : <CourseAssignmentPayment defaultPaymentMethod={source?.defaultPaymentMethod} cashReader={source?.cashStatus} profitEnabled={profitEnabled&&!music} key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions&&profitEnabled&&!music} onSummary={setAssignmentSummary}/>}
                 {source?.automaticAllocation&&<div className="mt-2 text-sm" role="status">{(()=>{const cost=plans.find(p=>p.id===planId)?.storeCost;if(cost==null)return '尚未設定店家固定費用，本次不計算分潤。';if(assignmentSummary.paid==null)return '確認實收後顯示分配。';const allocation=calculateCourseSaleAllocation(assignmentSummary.paid,cost);return `店家 ${allocation.storeAmount.toLocaleString()}／所屬店長 ${allocation.developerAmount.toLocaleString()}（${customerRows.find(c=>c.id===(person?.id??purchaseCustomerId))?.assignedStaff?.displayName??'未歸屬'}）${allocation.shortfall?'；實收低於固定費用':''}`;})()}</div>}
                 </fieldset>
               </form>
@@ -727,7 +802,8 @@ export function CourseMemberWorkspace({
                 {cardLoading && <p role="status">讀取方案詳細資料中…</p>}
                 {cardError && <div role="alert" className="mb-3 text-red-700"><p>{cardError}</p><button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-primary-700" onClick={cardDetail.retry}>重新載入</button></div>}
                 <CourseCardSummary card={card} sessionUnitLabel={source?.sessionUnitLabel}/>
-                {!cardLoading&&!cardError&&!error&&source?.cardManagement?.(card,{onPending:setFormPending,onSaved:()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}})}
+                {!cardLoading&&!cardError&&!error&&source?.cardManagement?.(card,{onPending:setFormPending,onDirtyChange:setDirty,onSaved:()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}})}
+                {!source&&canManageCards&&previewStoreId&&!cardLoading&&!cardError&&!error&&<PlanManagementControls key={card.id+":"+card.expiresAt+":"+card.remaining} storeId={previewStoreId} card={card} save={saveCourseCardManagement} sessionAdjustment={{save:saveCourseSessionAdjustment,records:card.sessionAdjustments??[],members:card.members,blockedReason:card.openingImported||card.templateRestricted?'來源方案或補課權益須由原專用流程核對。':undefined}} unitLabel={card.unit==='SESSION'?'堂':'點'} expiryHint={music&&card.musicValidityDays?'儲存後以指定到期日為準，首次上課與恢復點名不再重算本方案期限；既有補課權益仍保留。':undefined} onDirtyChange={setDirty} onPending={setFormPending} onSaved={()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}}/>}
                 {canReadBookings && !cardLoading && !cardError && !error && card.held > 0 && <CourseCardReservations load={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} cardId={card.id} held={card.held} unit={card.unit} revision={cardRevision}/>}
                 {(source?.canManageMembers??canAssign) && sharingVisible && card.allowShared && !cardLoading && !cardError && !error && (
                   <form
@@ -765,7 +841,7 @@ export function CourseMemberWorkspace({
                 form="course-member-form"
                 type="submit"
                 className={`${button} ${panel === "plan" && !music ? fitnessEditorSave : music ? "min-w-28" : "w-full"} !bg-primary-700 !text-white`}
-                disabled={pending || formPending || (panel === "card" && (!sharingEnabled || cardLoading || !!cardError || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
+                disabled={pending || formPending || (panel === "card" && (!sharingEnabled || cardLoading || !!cardError || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid || purchaseRecovery.blocked || completingPurchaseScope===automaticCompletionScope))}
               >
                 {pending || formPending ? "儲存中…" : panel === "assign" ? music ? "儲存學費" : "確認結帳" : panel === "card" ? "儲存共卡成員" : formUncertain ? "重試確認儲存結果" : "儲存"}
               </button></div>
@@ -799,10 +875,13 @@ export function CourseCardEntries({ card,sessionUnitLabel="堂",entryLabels={} }
     ...entryLabels,
     GRANT: "取得額度",
     REFUND: "退款收回額度",
-    VOID: "誤建作廢收回額度",
+    VOID: "註銷／作廢收回額度",
     RESERVE: "預約保留額度",
     RELEASE: "取消預約返還額度",
     DEBIT: "出席使用",
+    MANUAL_BACKFILL: "補登已上課扣除",
+    MANUAL_VOID: "註銷堂數",
+    MANUAL_REVERSE: "更正返還",
   };
   return (
     <details className="mt-5">
@@ -812,6 +891,7 @@ export function CourseCardEntries({ card,sessionUnitLabel="堂",entryLabels={} }
           <li key={e.id} className="py-2">
             {formatTWDateTime(new Date(e.createdAt))} ·{" "}
             {e.kind.startsWith("CORRECT:") ? "點名更正" : labels[e.kind.split(":")[0]] ?? "額度異動"} {e.points} {card.unit === "SESSION" ? sessionUnitLabel : "點"}
+            {card.sessionAdjustments?.filter(r=>r.id===e.id).map(r=><div key={r.id} className="mt-1 space-y-1 text-earth-600">{card.sessionAdjustments?.some(c=>c.reversalOf===r.id)&&<p>原調整已更正返還</p>}{r.occurredOn&&<p>實際上課日期：{r.occurredOn}</p>}<p>操作人員：{r.actorName} · 原因：{r.reason||'未填寫'}</p></div>)}
           </li>
         ))}
       </ul>

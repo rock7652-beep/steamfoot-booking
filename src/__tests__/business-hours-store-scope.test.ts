@@ -23,6 +23,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 const tx = {
+  $executeRaw:vi.fn().mockResolvedValue(0),
+  $queryRaw:vi.fn().mockResolvedValue([]),
   businessHours: {
     deleteMany: mocks.txHoursDeleteMany,
     createMany: mocks.txHoursCreateMany,
@@ -40,6 +42,7 @@ const tx = {
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $queryRaw:vi.fn().mockResolvedValue([]),
     booking: { count: mocks.bookingCount, groupBy: mocks.bookingGroupBy },
     specialBusinessDay: { upsert: mocks.specialUpsert },
     store: { findFirst: mocks.storeFindFirst },
@@ -67,11 +70,13 @@ vi.mock("@/lib/industry-module-server", () => ({
   getStoreIndustryModule: vi.fn().mockResolvedValue("steamfoot"),
 }));
 
+import {getStoreIndustryModule} from "@/lib/industry-module-server";
 import { addSpecialDay, applyDaySlotOverrides, syncFromHeadquarters } from "@/server/actions/business-hours";
 
 describe("business-hours store isolation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    tx.$queryRaw.mockReset().mockResolvedValue([]);
     mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: false }, slotOverrides: [] });
     mocks.requirePermission.mockResolvedValue({ role: "ADMIN", storeId: null });
     mocks.resolveWriteStoreId.mockResolvedValue("branch-a");
@@ -80,8 +85,42 @@ describe("business-hours store isolation", () => {
     mocks.specialUpsert.mockResolvedValue({ id: "special-a" });
   });
 
-  it("rejects reopening a closed day without writing misleading slot overrides", async () => {
-    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: true }, slotOverrides: [] });
+  it("explains the isolated preview date restriction before database writes", async () => {
+    vi.stubEnv("COMPACT_OPERATIONS_PREVIEW", "1");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    mocks.resolveWriteStoreId.mockResolvedValue("addons-qa-beauty");
+    try {
+      const result = await applyDaySlotOverrides({date:"2026-11-03",changes:[{startTime:"13:00",action:"disable"}]});
+      expect(result).toMatchObject({success:false,error:expect.stringContaining("2030/11/03")});
+      expect(mocks.loadDayBusinessHoursContext).not.toHaveBeenCalled();
+      expect(mocks.txSlotOverrideUpsert).not.toHaveBeenCalled();
+    } finally { vi.unstubAllEnvs(); }
+  });
+
+  it("rejects a store switch before loading or writing slots",async()=>{
+    const result=await applyDaySlotOverrides({date:"2026-11-03",expectedStoreId:"branch-b",changes:[{startTime:"09:00",action:"disable"}]});
+    expect(result).toMatchObject({success:false,error:expect.stringContaining("門市已切換")});
+    expect(mocks.loadDayBusinessHoursContext).not.toHaveBeenCalled();
+    expect(mocks.txSlotOverrideUpsert).not.toHaveBeenCalled();
+  });
+  it("rejects a stale hours revision before any slot mutation",async()=>{
+    const result=await applyDaySlotOverrides({date:"2026-11-03",expectedHoursRevision:"old-revision",changes:[{startTime:"09:00",action:"disable"}]});
+    expect(result).toMatchObject({success:false,error:expect.stringContaining("營業資料已更新")});
+    expect(mocks.txSlotOverrideUpsert).not.toHaveBeenCalled();
+    expect(tx.$executeRaw).toHaveBeenCalled();
+  });
+  it("closes a beauty slot without cancelling existing appointments or reading Steamfoot bookings",async()=>{
+    vi.mocked(getStoreIndustryModule).mockResolvedValueOnce("beauty");
+    mocks.loadDayBusinessHoursContext.mockResolvedValue({rule:{closed:false,periods:[{openTime:"09:00",closeTime:"18:00",slotInterval:30}]},slotOverrides:[]});
+    tx.$queryRaw.mockImplementation(async(parts:TemplateStringsArray)=>parts.join("").includes("BeautyAppointment")?[{id:"existing",startsAt:new Date("2026-11-03T09:00:00+08:00"),occupiedEndsAt:new Date("2026-11-03T10:00:00+08:00")}]:[]);
+    const result=await applyDaySlotOverrides({date:"2026-11-03",expectedStoreId:"branch-a",changes:[{startTime:"09:30",action:"disable"}]});
+    expect(result).toMatchObject({success:true,data:{changed:1,bookedPeopleKept:1}});
+    expect(mocks.bookingGroupBy).not.toHaveBeenCalled();
+    expect(mocks.txSlotOverrideUpsert).toHaveBeenCalledWith(expect.objectContaining({create:expect.objectContaining({storeId:"branch-a",startTime:"09:30",type:"disabled"})}));
+  });
+
+  it("rejects reopening a training day", async () => {
+    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: true, status: "training", source: "special" }, slotOverrides: [] });
     const result = await applyDaySlotOverrides({
       date: "2026-09-21",
       changes: [{ startTime: "09:30", action: "enable" }],
@@ -89,6 +128,15 @@ describe("business-hours store isolation", () => {
     expect(result.success).toBe(false);
     expect(mocks.txSlotOverrideUpsert).not.toHaveBeenCalled();
     expect(mocks.loadDayBusinessHoursContext).toHaveBeenCalledWith("branch-a", "2026-09-21");
+  });
+
+  it.each(["weekly", "special"])("opens only an explicit slot on a %s closed day", async (source) => {
+    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: true, status: "closed", source }, slotOverrides: [] });
+    const result = await applyDaySlotOverrides({date:"2026-11-03",changes:[{startTime:"19:30",action:"enable",capacity:4}]});
+    expect(result.success).toBe(true);
+    expect(mocks.txSlotOverrideUpsert).toHaveBeenCalledWith(expect.objectContaining({create:expect.objectContaining({storeId:"branch-a",startTime:"19:30",type:"enabled",capacity:4})}));
+    expect(mocks.txSpecialUpsert).not.toHaveBeenCalled();
+    expect(mocks.specialUpsert).not.toHaveBeenCalled();
   });
 
   it("replaces a custom day's legacy slot overrides only after booking validation", async () => {
@@ -152,7 +200,7 @@ describe("business-hours store isolation", () => {
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
       },
     });
-    expect(mocks.specialUpsert).toHaveBeenCalledWith(
+    expect(mocks.txSpecialUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { storeId_date: { storeId: "branch-a", date: new Date("2026-08-01") } },
         create: expect.objectContaining({ storeId: "branch-a" }),

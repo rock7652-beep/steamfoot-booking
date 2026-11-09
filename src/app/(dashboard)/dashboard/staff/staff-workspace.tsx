@@ -222,7 +222,7 @@ export function StaffWorkspace({
             identity:<>{person.roleLabel}{person.status!=='ACTIVE'&&<span className="text-earth-500">停用</span>}</>,notifications:<span className="text-earth-500">—</span>,
             actions:<ExclusiveMenu quiet triggerText="⋯" label={`${person.displayName}操作`}><button className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>setEditor({type:'details',personId:person.id})}>{person.canEdit?'編輯':'查看'}</button>{person.canEdit&&<StaffStatusToggle staffId={person.id} currentStatus={person.status} quiet/>}</ExclusiveMenu>
           }))}/>:(          <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-            <table className="admin-list-table w-full min-w-[660px] text-left text-sm">
+            <table data-striped-list className="admin-list-table w-full min-w-[660px] text-left text-sm">
               <thead className="bg-earth-50 text-earth-600">
                 <tr>
                   {["姓名", "角色", "電話", "Email", "狀態", "操作"].map(
@@ -236,7 +236,7 @@ export function StaffWorkspace({
               </thead>
               <tbody className="divide-y divide-earth-100">
                 {filteredPeople.map((person) => (
-                  <tr key={person.id} className={accountListOnly && person.status !== "ACTIVE" ? "bg-earth-50 opacity-60 hover:opacity-100 focus-within:opacity-100" : "hover:bg-primary-50/40"}>
+                  <tr key={person.id} className={accountListOnly && person.status !== "ACTIVE" ? "bg-earth-50 opacity-60 hover:opacity-100 focus-within:opacity-100" : ""}>
                     <th
                       scope="row"
                       className="px-3 py-1 font-medium text-primary-900"

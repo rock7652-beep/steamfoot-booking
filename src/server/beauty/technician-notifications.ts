@@ -27,6 +27,7 @@ export async function queueTechnicianDigest(storeId:string,now:Date) {
 }
 /** Store lock and current event status are checked by the common Beauty worker. */
 export async function deliverTechnicianEvent(tx:Prisma.TransactionClient,store:{id:string;name:string},event:{id:string;kind:string;body:string;userId:string|null;appointmentId:string|null;createdAt:Date},now:Date,skip:(reason:string)=>Promise<'SKIPPED'>) {
+ if(beautyNotificationDeliveryBlocked())return skip('LINE 服務通知已停用');
  if(!TECHNICIAN_NOTICE_KINDS.includes(event.kind as TechnicianNoticeKind)||!event.userId)return skip('技師通知對象不明');
  const kind=event.kind as TechnicianNoticeKind,body:TechnicianNoticeBody=JSON.parse(event.body);
  if(beautyNotificationActivationAt()&&event.createdAt<beautyNotificationActivationAt()!)return skip('啟用前通知不補發');
@@ -60,7 +61,7 @@ export async function deliverTechnicianEvent(tx:Prisma.TransactionClient,store:{
  const id=`beauty:${event.id}`,hash=createHash('sha256').update(id).digest('hex');
  await tx.messageLog.upsert({where:{id},create:{id,storeId:store.id,customerId:person.id,renderedBody:message.altText,status:'PENDING',channel:'LINE'},update:{status:'PENDING',errorMessage:null}});
  const retryKey=`${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-a${hash.slice(17,20)}-${hash.slice(20,32)}`;
- const status=await deliverCourseCardNotification(tx,{id,storeId:store.id,person,messages:[message],retryKey,now,transactionScoped:true});
+ const status=await deliverCourseCardNotification(tx,{id,storeId:store.id,person,messages:[message],retryKey,now,eventCreatedAt:event.createdAt,transactionScoped:true});
  await tx.$executeRaw`UPDATE "BeautyEvent" SET status=${status},attempts=attempts+1 WHERE id=${event.id} AND "storeId"=${store.id}`;
  return status;
 }

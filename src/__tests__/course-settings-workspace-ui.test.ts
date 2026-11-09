@@ -15,6 +15,7 @@ vi.mock("@/server/actions/shop", () => ({ updateTrialSettings: vi.fn(), updateDu
 vi.mock("@/server/actions/course-booking-window", () => ({ saveCourseBookingWindow: m.windowSave }));
 vi.mock("@/server/actions/course-trial", () => ({ saveCourseTrialSettings: m.trialSave }));
 vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn()}));
+import {subscribeStoreProfileSaved} from "@/lib/store-profile-sync";
 import { courseSettingsSectionRevision } from "@/lib/course-settings-sections";
 import { CourseSettingsWorkspace } from "@/app/(dashboard)/dashboard/courses/settings-workspace";
 import { FeaturePresentationProvider, type FeaturePresentationMap } from "@/components/feature-presentation";
@@ -255,4 +256,14 @@ it('mounts Beauty content in the original settings categories without Course rul
  await render(props);expect(host.querySelector('section[aria-label="收款與體驗"]')?.hasAttribute('hidden')).toBe(false);
  expect(host.textContent).not.toContain('允許學員自行請假');expect(host.textContent).toContain('美業付款資料');
  await click('營業與預約');expect(window.location.search).toContain('tab=');expect(new URLSearchParams(window.location.search).get('tab')).toBe('設定');
+});
+
+it("only publishes the saved store profile after confirmation, preserving the guide on failed saves",async()=>{
+ const receive=vi.fn(),unsubscribe=subscribeStoreProfileSaved("a",receive);
+ try{
+  await render({...defaults,shopPhone:"測試電話"});await input("name","已設定店家");
+  m.save.mockResolvedValueOnce({success:false,error:"儲存失敗"});await submit();expect(receive).not.toHaveBeenCalled();
+  m.save.mockResolvedValueOnce({success:true});await submit();
+  expect(receive).toHaveBeenCalledOnce();expect(receive).toHaveBeenCalledWith({name:"已設定店家",address:defaults.address,shopPhone:"測試電話"});
+ }finally{unsubscribe();}
 });

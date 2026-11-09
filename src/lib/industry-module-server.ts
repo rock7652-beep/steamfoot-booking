@@ -1,5 +1,7 @@
 import "server-only";
 import { cache } from "react";
+import {memoizeReadRequest,verifiedStaffRead} from "@/server/services/read-request-memo";
+import {measureMusicRead} from "@/lib/music-read-timing";
 import { sportsNativePreview } from "@/lib/sports-native-preview";
 
 import { prisma } from "@/lib/db";
@@ -23,7 +25,15 @@ const previewModule=cache((storeId:string)=>prisma.$queryRaw<Array<{industryModu
 export async function getStoreIndustryModule(
   storeId: string,
 ): Promise<IndustryModuleId> {
-  const stores = (await sportsNativePreview(storeId))?await previewModule(storeId):await prisma.$queryRaw<Array<{ industryModule: string }>>`
+  return memoizeReadRequest(`store.industry-module:${storeId}`,()=>readStoreIndustryModule(storeId));
+}
+async function readStoreIndustryModule(storeId:string):Promise<IndustryModuleId>{
+  // Keep the existing production activation and preview-isolation guards even
+  // when the same request already knows the current store's module.
+  const native=await measureMusicRead("module.nativeGuard",()=>sportsNativePreview(storeId));
+  const verified=verifiedStaffRead();
+  await measureMusicRead(verified?.storeId===storeId?"module.metadata.hit":"module.metadata.miss",async()=>{});
+  const stores = verified?.storeId===storeId?[{industryModule:verified.industryModule}]:native?await previewModule(storeId):await prisma.$queryRaw<Array<{ industryModule: string }>>`
     SELECT "industryModule"::text AS "industryModule"
     FROM "Store"
     WHERE id = ${storeId}

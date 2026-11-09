@@ -1,0 +1,27 @@
+{
+  "sourceCommit": "c78865ba0328f563e8f59e6cc3f254f676824be4",
+  "sourceTree": "ed43a61d62697c8778bbd40c8f61b0768a6bdfad",
+  "branch": "release/music-production-20261023",
+  "deploymentId": "dpl_9hDWkvWYFQU1KX5KkfJDEwEDjSrG",
+  "url": "https://steamfoot-booking-cts12spz6-rock7652-2111s-projects.vercel.app",
+  "state": "READY",
+  "production": false,
+  "previewDatabase": "ttworfzgwejdeolegkxl",
+  "dedicatedTenant": "ops-music-20261027",
+  "loginCredentialPublished": false,
+  "browserAcceptanceComplete": true,
+  "pending": [],
+  "reviewRejections": [
+    "Unscoped empty deployment/update tool probes rejected; no such mutation executed",
+    "Temporary protected-preview share link rejected because bearer access was not explicitly authorized",
+    "Explicit API target preview rejected by API; target omission/staging rejected by review as insufficient environment proof"
+  ],
+  "qaAccountSuspended": true,
+  "priorSessionRevoked": true,
+  "temporaryShareRevoked": true,
+  "privateLoginFilesRemoved": true,
+  "schemaAdditionsPreviewOnly": [
+    "CoursePointPlan.chargeSettings",
+    "CourseSession.chargeSnapshot"
+  ]
+}

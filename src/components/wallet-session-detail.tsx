@@ -61,7 +61,7 @@ export function WalletSessionDetail({ sessions, adminVoid }: Props) {
 
   return (
     <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
-      <table className="w-full text-xs sm:text-sm">
+      <table data-striped-list className="w-full text-xs sm:text-sm">
         <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
           <tr>
             <th className="px-2 py-2 text-left">堂次</th>
@@ -80,16 +80,16 @@ export function WalletSessionDetail({ sessions, adminVoid }: Props) {
         </thead>
         <tbody className="divide-y divide-earth-100">
           {sessions.map((s) => (
-            <tr key={s.id} className="hover:bg-earth-50/60">
-              <td className="px-2 py-2 text-earth-700">第 {s.sessionNo} 堂</td>
-              <td className="px-2 py-2">
+            <tr key={s.id} className="">
+              <td className="px-2 py-1 text-earth-700">第 {s.sessionNo} 堂</td>
+              <td className="px-2 py-1">
                 <span
                   className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-medium ${STATUS_BADGE[s.status]}`}
                 >
                   {STATUS_LABEL[s.status]}
                 </span>
               </td>
-              <td className="px-2 py-2 text-earth-500">
+              <td className="px-2 py-1 text-earth-500">
                 {s.booking?.bookingDate ? (
                   <span className="tabular-nums">
                     {formatTWTime(s.booking.bookingDate, { dateOnly: true })} {s.booking.slotTime}
@@ -98,7 +98,7 @@ export function WalletSessionDetail({ sessions, adminVoid }: Props) {
                   <span className="text-earth-300">—</span>
                 )}
               </td>
-              <td className="px-2 py-2 text-earth-500">
+              <td className="px-2 py-1 text-earth-500">
                 {s.completedAt ? (
                   <span className="tabular-nums">
                     {formatTWTime(s.completedAt, { dateOnly: true })}
@@ -107,7 +107,7 @@ export function WalletSessionDetail({ sessions, adminVoid }: Props) {
                   <span className="text-earth-300">—</span>
                 )}
               </td>
-              <td className="px-2 py-2 text-earth-500">
+              <td className="px-2 py-1 text-earth-500">
                 {s.voidedAt ? (
                   <span className="tabular-nums">
                     {formatTWTime(s.voidedAt, { dateOnly: true })}
@@ -118,13 +118,13 @@ export function WalletSessionDetail({ sessions, adminVoid }: Props) {
               </td>
               {showAdminCols && (
                 <>
-                  <td className="px-2 py-2 text-earth-600">
+                  <td className="px-2 py-1 text-earth-600">
                     {s.voidReason ?? <span className="text-earth-300">—</span>}
                   </td>
-                  <td className="px-2 py-2 text-earth-500">
+                  <td className="px-2 py-1 text-earth-500">
                     {s.voidedByStaff?.displayName ?? <span className="text-earth-300">—</span>}
                   </td>
-                  <td className="px-2 py-2 text-center">
+                  <td className="px-2 py-1 text-center">
                     {s.status === "AVAILABLE" ? (
                       adminVoid!.renderButton(s)
                     ) : (

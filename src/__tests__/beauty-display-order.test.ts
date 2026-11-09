@@ -4,6 +4,9 @@ const m=vi.hoisted(()=>({manager:vi.fn(),feature:vi.fn(),transaction:vi.fn(),aud
 vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:m.transaction,audit:m.audit}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
 vi.mock('next/cache',()=>({revalidatePath:vi.fn()}));
+// These acceptance cases exercise the PGlite business transaction. Error-log
+// delivery is external I/O and must not outlive the test worker's teardown.
+vi.mock('@/lib/error-logger',()=>({logError:vi.fn(),categorizeError:()=> 'UNKNOWN'}));
 import {saveBeautyDisplayOrder} from '@/server/actions/beauty-display-order';
 let db:PGlite;
 beforeAll(async()=>{db=new PGlite();await db.exec(`CREATE TABLE "CourseDisplayOrder" ("storeId" text,kind text,ids text[],revision int,primary key("storeId",kind));CREATE TABLE "CourseRoom" (id text primary key,"storeId" text);INSERT INTO "CourseRoom" VALUES ('a','A'),('b','A'),('foreign','B');`);});
@@ -23,7 +26,7 @@ it('commits and reloads real SQL order and revision, retaining omitted rows',asy
 it('sorts only actual Beauty service and plan IDs without invented products or Course catalog writes',async()=>{
  expect(await saveBeautyDisplayOrder({kind:'subject',ids:['s2','s1'],revision:0})).toMatchObject({success:true});
  expect(await saveBeautyDisplayOrder({kind:'plan',ids:['plan:p1'],revision:0})).toMatchObject({success:true});
- expect((await db.query<{ids:string[]}>('SELECT ids FROM "CourseDisplayOrder" WHERE kind=\'plan\'')).rows[0].ids).toEqual(['plan:p1']);
+ expect((await db.query<{ids:string[]}>('SELECT ids FROM "CourseDisplayOrder" WHERE kind=\'plan\'')).rows[0].ids).toEqual(['plan:p1','service:s1','service:s2']);
  expect(m.manager).toHaveBeenCalledWith('plans.edit',true);expect(m.feature).toHaveBeenCalled();
 });
 it('rejects stale revision and foreign IDs without overwriting committed order',async()=>{
@@ -46,4 +49,10 @@ it('does not enter a transaction after denied permission, read-only scope or fea
  expect(await saveBeautyDisplayOrder({kind:'room',ids:['a'],revision:0})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();
  m.feature.mockRejectedValueOnce(Error('未開通'));
  expect(await saveBeautyDisplayOrder({kind:'plan',ids:['plan:p1'],revision:0})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();
+});
+
+it('stores single and plan order together without altering service associations',async()=>{
+ expect(await saveBeautyDisplayOrder({kind:'plan',ids:['plan:p1','service:s2','service:s1'],revision:0})).toEqual({success:true,revision:1});
+ expect((await db.query<{ids:string[]}>('SELECT ids FROM "CourseDisplayOrder"')).rows[0].ids).toEqual(['plan:p1','service:s2','service:s1']);
+ expect(await saveBeautyDisplayOrder({kind:'plan',ids:['service:other'],revision:1})).toMatchObject({success:false});
 });

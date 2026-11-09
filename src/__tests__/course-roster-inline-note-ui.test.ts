@@ -1,3 +1,5 @@
+// UI state fixtures use the shared read transport; the real HTTP protocol is tested separately.
+vi.mock("@/lib/course-session-detail-client",()=>({readCourseSessionDetailClient:(...args:unknown[])=>m.load(...args)}));
 vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null}),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:vi.fn()}));
 vi.mock("@/server/actions/music-roster-attendance",()=>({correctMusicRosterAttendance:vi.fn()}));
 vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }));
@@ -7,7 +9,8 @@ vi.mock("@/server/actions/music-periods", () => ({ loadMusicPeriods: vi.fn() }))
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), save: vi.fn(), status: vi.fn(), refresh: vi.fn() }));
+vi.mock("@/server/actions/course-purchase-intent", () => ({ prepareCoursePurchaseIntent: vi.fn(), getCoursePurchaseIntent: vi.fn(), getPendingCoursePurchaseIntent: vi.fn(), cancelCoursePurchaseIntent: vi.fn(), acknowledgeCoursePurchaseIntent: vi.fn() }));
+const m = vi.hoisted(() => ({ addOnRead:vi.fn(),addOnMutate:vi.fn(),load: vi.fn(), quick: vi.fn(), save: vi.fn(), status: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/courses", useRouter: () => ({ refresh: m.refresh, replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/server/actions/course-companions", () => ({ addCourseCompanion: vi.fn(), loadCourseCompanionUsage: vi.fn(), saveCourseCompanionUsage: vi.fn() }));
 vi.mock("@/server/actions/course-roster-enrollment", () => ({ previewCourseEnrollment: vi.fn(), enrollCourseSeries: vi.fn() }));
@@ -20,6 +23,8 @@ vi.mock("@/app/(dashboard)/dashboard/bookings/collect-trial-modal", () => ({ Col
 vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal", () => ({ CorrectTrialCollectionModal: () => null }));
 vi.mock("@/components/customer-labels", () => ({ CustomerLabels: () => null }));
 vi.mock("@/components/operation-history-button", () => ({ OperationHistoryButton: () => null }));
+vi.mock("@/server/actions/course-add-ons",()=>({readCourseBookingAddOns:m.addOnRead,mutateCourseBookingAddOns:m.addOnMutate}));
+vi.mock("@/server/actions/shared-goods",()=>({readSharedGoods:vi.fn(),mutateSharedGoods:vi.fn()}));
 import { CourseRoster } from "@/app/(dashboard)/dashboard/courses/roster";
 import { OperationScope } from "@/components/operations/operation-scope";
 
@@ -238,4 +243,24 @@ it("music ignores a note response after changing the session scope",async()=>{
   await render(true);await open();await musicType("舊課程備註");await clickText("儲存",document.querySelector('[role="dialog"]')!);
   m.load.mockResolvedValue(data("新課程內容"));await render(true,"session-b");
   await act(async()=>response.resolve({success:true}));expect(row().textContent).toContain("新課程內容");expect(row().textContent).not.toContain("舊課程備註");
+});
+
+it.each(['FITNESS','MUSIC'] as const)('%s roster opens the shared add-on panel and protects a pending save from Escape',async addOnModule=>{
+ const current=data();m.load.mockResolvedValue({...current,data:{...current.data,session:{...current.data.session,addOns:{storeId:'store-a',module:addOnModule,canEdit:true,canCollect:true,canRefund:true}}}});
+ m.addOnRead.mockResolvedValue({success:true,data:{catalogRevision:1,canSelect:true,groups:[{id:'g',title:'加購',required:false,multiple:true,options:[{id:'tea',name:'養生茶',price:80,duration:0,active:true}]}],order:null,receipts:[],collected:0,editable:true}});
+ const write=deferred<{success:true;data:{id:string}}>();m.addOnMutate.mockReturnValue(write.promise);
+ await render(addOnModule==='MUSIC');
+ await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="甲同學 標籤"],button[aria-label="甲同學 預約詳情"]')!.click());
+ await act(async()=>{await new Promise(resolve=>setTimeout(resolve,50));});
+ const button=(name:string)=>[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent?.trim()===name)!;
+ await vi.waitFor(()=>expect(button('附加項目 ▾')).toBeTruthy());
+ await act(async()=>button('附加項目 ▾').click());
+ expect(m.addOnRead).toHaveBeenCalledWith({storeId:'store-a',bookingId:'session-a',participantId:'a'});
+ await act(async()=>button('調整品項').click());
+ await act(async()=>document.querySelector<HTMLInputElement>('input[type="checkbox"][value="tea"]')?.click()??document.querySelector<HTMLInputElement>('[aria-label="附加項目明細"] input[type="checkbox"]')!.click());
+ await act(async()=>button('儲存附加項目').click());
+ expect(m.addOnMutate).toHaveBeenCalledWith(expect.objectContaining({storeId:'store-a',bookingId:'session-a',participantId:'a',operation:'SAVE',ids:['tea']}));
+ await act(async()=>document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true})));
+ expect(document.querySelector('[aria-labelledby="course-roster-info-title"]')).toBeTruthy();
+ await act(async()=>write.resolve({success:true,data:{id:'order'}}));
 });

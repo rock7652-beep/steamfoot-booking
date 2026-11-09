@@ -36,6 +36,7 @@ const booking = { id: "booking", ...companion, session, card, operatorUserId: "m
 const db = {
   courseBooking: { findUnique: vi.fn(), findFirst: vi.fn(), findFirstOrThrow: vi.fn(), findMany: vi.fn(), count: vi.fn(), aggregate: vi.fn(), create: vi.fn(), update: vi.fn() },
   courseSession: { findFirst: vi.fn(), update: vi.fn() },
+  courseTemplate: { findMany: vi.fn().mockResolvedValue([]) },
   coursePointCard: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   courseBookingRule: { findUnique: vi.fn() },
   coursePointEntry: { create: vi.fn(), findUnique: vi.fn() },
@@ -65,6 +66,7 @@ beforeEach(() => {
   db.courseBooking.create.mockImplementation(async ({ data }) => ({ id: `new-${data.customerId ?? "guest"}`, ...data }));
   db.courseBooking.update.mockImplementation(async ({ data }) => ({ ...booking, ...data }));
   db.courseSession.findFirst.mockResolvedValue(session);
+  db.courseTemplate.findMany.mockResolvedValue([]);
   db.coursePointCard.findFirst.mockResolvedValue(card);
   db.coursePointCard.updateMany.mockResolvedValue({ count: 1 });
   db.courseWaitlistSetting.findUnique.mockResolvedValue({ enabled: true, defaultLimit: 5, autoPromoteStopMinutes: 240 });

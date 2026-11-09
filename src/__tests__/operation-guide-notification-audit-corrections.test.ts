@@ -32,7 +32,8 @@ describe("merged notification and HQ audit guide corrections", () => {
   it("keeps sample preview, sending and real LINE acceptance separate", () => {
     for (const id of ["F01", "F03", "C123"]) {
       expect(contents(id)).toContain("查看訊息預覽");
-      expect(contents(id)).toContain("通知類型");
+      expect([...guide(id).steps,...guide(id).details].join(" ")).toContain("通知收件人");
+      expect([...guide(id).steps,...guide(id).details].join(" ")).not.toContain("用通知分類下拉選單");
       expect(contents(id)).toContain("示範");
       expect(contents(id)).toMatch(/不(?:會)?跳轉/);
       expect(contents(id)).toMatch(/不發 LINE|不發送通知/);

@@ -1,5 +1,7 @@
 "use server";
 import { courseDisplayName } from "@/lib/course-template-presentation";
+import {SILENT_STORE_NOTICE_KINDS} from "@/lib/receivable-notice";
+import {noticeWindow} from "@/lib/store-notice-lifecycle";
 import {z} from "zod";
 import {coursePrisma} from "@/lib/course-db";
 import {prisma} from "@/lib/db";
@@ -11,20 +13,18 @@ import type {CourseNoticeItem,CourseNoticeKind} from "@/lib/course-store-notices
 const store=z.string().min(1).max(100);
 export async function loadCourseStoreNotices(input:unknown) {
  try {
-  const d=z.object({storeId:store,handled:z.boolean(),summaryOnly:z.boolean().default(false),offset:z.number().int().min(0).max(100000).default(0)}).parse(input);
+  const d=z.object({storeId:store,handled:z.boolean(),summaryOnly:z.boolean().default(false),offset:z.number().int().min(0).max(100000).default(0)}).parse(input);const window=noticeWindow(d.handled);
   const {storeId,user,isChildStoreView}=await courseManagerRead("booking.read");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
-  const rule=await coursePrisma.courseBookingRule.findUnique({where:{storeId}});
-  if(rule?.backendNoticesEnabled===false)return {success:true as const,storeId,enabled:false,items:[] as CourseNoticeItem[],count:0,canHandle:false,more:false};
   if(d.summaryOnly){
-   const count=await coursePrisma.courseStoreNotice.count({where:{storeId,handledAt:null}});
+   const count=await coursePrisma.courseStoreNotice.count({where:{storeId,kind:{notIn:[...SILENT_STORE_NOTICE_KINDS]},readAt:null,publishedAt:{gt:window.retainedAfter,lte:window.now}}});
    return {success:true as const,storeId,enabled:true,items:[] as CourseNoticeItem[],count,canHandle:false,more:false};
   }
   const [rows,count,canHandle]=await Promise.all([
-   coursePrisma.courseStoreNotice.findMany({where:{storeId,handledAt:d.handled?{not:null}:null},orderBy:d.handled?[{handledAt:"desc"},{id:"asc"}]:[{startsAt:"asc"},{createdAt:"asc"},{id:"asc"}],skip:d.offset,take:51}),
-   coursePrisma.courseStoreNotice.count({where:{storeId,handledAt:null}}),
+   coursePrisma.courseStoreNotice.findMany({where:{storeId,kind:{notIn:[...SILENT_STORE_NOTICE_KINDS]},publishedAt:{gt:window.after,lte:window.through},...(d.handled?{OR:[{readAt:{not:null}},{publishedAt:{lte:window.latestAfter}}]}:{readAt:null})},orderBy:[{publishedAt:"desc"},{id:"desc"}],skip:d.offset,take:51}),
+   coursePrisma.courseStoreNotice.count({where:{storeId,kind:{notIn:[...SILENT_STORE_NOTICE_KINDS]},readAt:null,publishedAt:{gt:window.retainedAfter,lte:window.now}}}),
    isChildStoreView?Promise.resolve(false):checkPermission(user.role,user.staffId,"booking.update")]);
-  const items:CourseNoticeItem[]=rows.slice(0,50).map(r=>({...r,courseName:courseDisplayName(r.courseName),customerName:r.subjectKey.startsWith("session:")?courseDisplayName(r.customerName):r.customerName,canViewCourse:!isChildStoreView && /^(session|booking):.+/.test(r.subjectKey),kind:r.kind as CourseNoticeKind,startsAt:r.startsAt.toISOString(),previousStartsAt:r.previousStartsAt?.toISOString()??null,handledAt:r.handledAt?.toISOString()??null,createdAt:r.createdAt.toISOString(),updatedAt:r.updatedAt.toISOString()}));
+  const items:CourseNoticeItem[]=rows.slice(0,50).map(r=>({...r,courseName:courseDisplayName(r.courseName),customerName:r.subjectKey.startsWith("session:")?courseDisplayName(r.customerName):r.customerName,canViewCourse:!isChildStoreView && /^(session|booking):.+/.test(r.subjectKey),kind:r.kind as CourseNoticeKind,startsAt:r.startsAt.toISOString(),previousStartsAt:r.previousStartsAt?.toISOString()??null,handledAt:r.readAt?.toISOString()??null,handledByName:r.readByName,publishedAt:r.publishedAt.toISOString(),createdAt:r.createdAt.toISOString(),updatedAt:r.updatedAt.toISOString()}));
   return {success:true as const,storeId,enabled:true,items,count,canHandle,more:rows.length>50};
  }catch(e){const r=handleActionError(e);return {success:false as const,error:r.success?"操作失敗":r.error};}
 }
@@ -34,8 +34,11 @@ export async function loadCourseStoreNoticeTarget(input:unknown) {
   const d=z.object({storeId:store,id:store}).parse(input);
   const {storeId,user}=await courseManager("booking.read");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
-  if((await coursePrisma.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled===false)throw new AppError("FORBIDDEN","後台異動通知已關閉");
-  const notice=await coursePrisma.courseStoreNotice.findFirst({where:{id:d.id,storeId},select:{subjectKey:true}});
+  const notice=d.id.startsWith('digital:')?await (async()=>{
+   const rows=await coursePrisma.$queryRaw<Array<{targetId:string;eventType:string}>>`SELECT "targetId","eventType" FROM public."DigitalManagerNotice" WHERE id=${d.id.slice(8)} AND "storeId"=${storeId} AND (("eventType"='INCOMPLETE_SERVICE_REMINDER' AND "eventKey" LIKE 'course-incomplete-attendance:%') OR ("eventType"='OUTSTANDING_PAYMENT' AND "eventKey" LIKE 'course-receivable:trial:%'))`;
+   if(rows[0]?.eventType==='OUTSTANDING_PAYMENT'&&!await checkPermission(user.role,user.staffId,"transaction.read"))throw new AppError("FORBIDDEN","需要付款查閱權限");
+   return rows[0]?{subjectKey:`booking:${rows[0].targetId}`}:null;
+  })():await coursePrisma.courseStoreNotice.findFirst({where:{id:d.id,storeId},select:{subjectKey:true}});
   if(!notice)throw new AppError("NOT_FOUND","找不到通知");
   let sessionId:string|undefined;
   if(notice.subjectKey.startsWith("session:"))sessionId=notice.subjectKey.slice(8);
@@ -53,18 +56,18 @@ export async function loadCourseStoreNoticeTarget(input:unknown) {
 }
 export async function markCourseStoreNotice(input:unknown) {
  try {
-  const d=z.object({storeId:store,id:store,handled:z.boolean(),revision:z.number().int().nonnegative()}).parse(input);
+  const d=z.object({storeId:store,id:store,handled:z.boolean(),revision:z.number().int().nonnegative()}).parse(input);const window=noticeWindow(d.handled);
   const {storeId,user}=await courseManager("booking.update");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
   const saved=await courseTransaction(storeId,async tx=>{
-   if((await tx.courseBookingRule.findUnique({where:{storeId}}))?.backendNoticesEnabled===false)throw new AppError("FORBIDDEN","後台異動通知已關閉");
    const n=await tx.courseStoreNotice.findFirst({where:{id:d.id,storeId}});
    if(!n)throw new AppError("NOT_FOUND","找不到通知");
    if(n.revision!==d.revision)throw new AppError("CONFLICT","通知已更新，請重新確認");
-   const data={handledAt:d.handled?new Date():null,handledById:d.handled?user.id:null,handledByName:d.handled?user.name??"門市人員":null};
+   if(n.publishedAt<=window.retainedAfter||n.publishedAt>window.now)throw new AppError("CONFLICT","訊息已到期，請重新整理");
+   const data={readAt:d.handled?new Date():null,readById:d.handled?user.id:null,readByName:d.handled?user.name??"門市人員":null};
    const updated=await tx.courseStoreNotice.update({where:{id:n.id},data:{...data,revision:{increment:1}}});
-   await enqueueOperationAudit({actorUserId:user.id,actorNameSnapshot:user.name,storeId,module:"COURSE",targetType:"CourseStoreNotice",targetId:n.id,action:d.handled?"HANDLE_NOTICE":"REOPEN_NOTICE",summary:d.handled?"標記門市通知已處理":"恢復門市通知待處理"},tx);
-   return {id:n.id,revision:updated.revision,handledAt:updated.handledAt?.toISOString()??null,handledByName:updated.handledByName};
+   await enqueueOperationAudit({actorUserId:user.id,actorNameSnapshot:user.name,storeId,module:"COURSE",targetType:"CourseStoreNotice",targetId:n.id,action:d.handled?"HANDLE_NOTICE":"REOPEN_NOTICE",summary:d.handled?"標記門市訊息已讀":"恢復門市訊息未讀"},tx);
+   return {id:n.id,revision:updated.revision,handledAt:updated.readAt?.toISOString()??null,handledByName:updated.readByName};
   });
   return {success:true as const,storeId,data:saved};
  }catch(e){const r=handleActionError(e);return {success:false as const,error:r.success?"操作失敗":r.error};}
@@ -74,6 +77,7 @@ export async function saveCourseOperationSwitch(input:unknown) {
   const d=z.object({storeId:store,key:z.enum(["selfLeaveEnabled","selfRescheduleEnabled","backendNoticesEnabled"]),enabled:z.boolean(),previous:z.boolean()}).parse(input);
   const {storeId,user}=await courseManager("business_hours.manage");
   if(storeId!==d.storeId)throw new AppError("CONFLICT","門市已切換");
+  if(d.key==="backendNoticesEnabled")throw new AppError("VALIDATION","門市通知持續接收；提示音可在小鈴噹內調整");
   const data=await courseTransaction(storeId,async tx=>{
    const before=await tx.courseBookingRule.findUnique({where:{storeId}});
    const current=before?.[d.key]??(d.key==="selfRescheduleEnabled"?before?.selfBookingEnabled??true:true);

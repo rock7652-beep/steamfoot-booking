@@ -1,5 +1,11 @@
 "use server";
+import { setAdjustmentMonthLock } from "@/server/services/staff-monthly-adjustment";
+import {beautyReadTransaction} from '@/server/beauty/read-transaction';
 import {beautyChargeRulesEnabled,readCatalogCharge} from '@/server/beauty/charge-runtime';
+import {beautyPlanPurchaseIntentsEnabled} from '@/server/beauty/plan-checkout-input';
+import {beautyMemberPurchaseIntentsEnabled,beautyMemberPurchaseFingerprint,commitBeautyMemberPurchaseIntent} from '@/server/beauty/member-purchase-intent';
+import {confirmOnlineBeautyOrder} from '@/server/beauty/online-confirm';
+import {beautyCollectionIntentsEnabled,commitBeautyCollectionIntent} from '@/server/beauty/collection-intent';
 import {withReadRequestMemo} from "@/server/services/read-request-memo";
 import {traceBeautyRead,beautyReadStep} from "@/server/beauty/read-timing";
 import {resolveBeautyBookingInput,beautySlotsForActor} from "@/server/beauty/availability";
@@ -7,6 +13,7 @@ import {persistBeautyCatalog} from '@/server/beauty/catalog';
 import {recordBeautyStoreNotice} from "@/server/beauty/store-notices";
 import {beautyNotificationDeliveryBlocked} from "@/lib/beauty/notification-policy";
 import {notifyBeautyBookingManagers,notifyBeautyPurchaseManagers} from "@/server/beauty/manager-notifications";
+import {recordDigitalManagerNotice,resolveDigitalManagerNotice} from "@/server/services/digital-manager-notices";
 import { cardAllowsRecipient } from "@/lib/beauty/member-booking";
 import {serviceCharges} from "@/server/beauty/service-charges";
 import {linkCompanion} from "@/server/beauty/companions";
@@ -22,7 +29,6 @@ import { FEATURES } from "@/lib/feature-flags";
 import { requireStoreFeature,hasStoreFeature } from "@/lib/feature-gate";
 import {updateCustomerSchema} from "@/lib/validators/customer";
 import {
-  planInput,
   settingsInput,
   partyInput,
   changeInput,
@@ -106,8 +112,8 @@ export async function saveBeautySettings(input: unknown) {
         throw new AppError("CONFLICT", "設定已更新");
       await tx.beautySetting.upsert({
         where: { storeId: a.storeId },
-        create: { ...d, storeId: a.storeId, revision: 1 },
-        update: { ...d, revision: { increment: 1 } },
+        create: { ...d, notifications:d.notifications??current.notifications, storeId: a.storeId, revision: 1 },
+        update: { ...d, notifications:d.notifications??current.notifications, revision: { increment: 1 } },
       });
       await audit(tx, a, "SETTINGS", JSON.stringify(d));
       return { saved: true };
@@ -387,6 +393,7 @@ async function moveBeautyAppointmentCore(
             revision: { increment: 1 },
           },
         });
+        if(next.endsAt.getTime()!==b.endsAt.getTime())await resolveDigitalManagerNotice(tx,{storeId:a.storeId,eventKey:`beauty-incomplete:${b.id}:${b.endsAt.toISOString()}`,actorUserId:a.userId??'system',actorName:a.name??'系統'});
         await recordBeautyStoreNotice(tx,a,policy.backendNoticesEnabled,{...b,technicianId:next.technicianId,startsAt:allocation.startsAt},"MOVE",{startsAt:b.startsAt,technicianId:b.technicianId});
         await tx.beautyEvent.updateMany({
           where: {
@@ -430,7 +437,10 @@ async function collectBeautyPaymentCore(input: unknown) {
     await requireStoreFeature(a.storeId, FEATURES.TRANSACTION_MANAGEMENT);
     const d=paymentInput.parse(input),canDiscount=!!d.quotes?.some(q=>q.discount);
     if(canDiscount)await requirePermission("transaction.discount");
-    return beautyTransaction(a, (tx) => collect(tx,a,d,{canDiscount}));
+    if(beautyCollectionIntentsEnabled(a.storeId))await requirePermission('booking.read');
+    return beautyTransaction(a, (tx) => beautyCollectionIntentsEnabled(a.storeId)
+      ? commitBeautyCollectionIntent(tx,a,d,()=>collect(tx,a,d,{canDiscount}))
+      : collect(tx,a,d,{canDiscount}));
   });
 }
 export async function readBeautyCollection(ids:unknown){return (await traceBeautyRead('collection.read',()=>readBeautyCollectionCore(ids))).value;}
@@ -438,9 +448,9 @@ async function readBeautyCollectionCore(ids:unknown){
  return result(async()=>{
   const a=await beautyManager("transaction.create");await requirePermission("booking.read");await requireStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
   const wanted=z.array(key).min(1).max(12).refine(a=>new Set(a).size===a.length).parse(ids);
-  return beautyTransaction(a,async tx=>{
+  return beautyReadTransaction(async tx=>{
    const rows=await tx.beautyAppointment.findMany({where:{storeId:a.storeId,id:{in:wanted}}});
-   if(rows.length!==wanted.length||rows.some(b=>b.cardId||b.status==='CANCELLED'))throw new AppError('CONFLICT','服務已更新或不適用收款，請重新開啟');
+   if(rows.length!==wanted.length||rows.some(b=>b.status==='CANCELLED'||b.cardId&&(!Array.isArray(b.addOnItems)||!b.addOnItems.some(item=>item&&typeof item==='object'&&!Array.isArray(item)&&typeof item.price==='number'&&item.price>0))))throw new AppError('CONFLICT','服務已更新或不適用收款，請重新開啟');
    return serviceCharges(tx,a.storeId,wanted.map(id=>rows.find(b=>b.id===id)!));
   });
  });
@@ -450,6 +460,9 @@ export async function purchaseBeautyPlan(input: unknown) {
     const a = await beautyManager("wallet.create", true);
     await requireStoreFeature(a.storeId, FEATURES.PLAN_MANAGEMENT);
     await requirePermission("transaction.create");
+    // Legacy direct issuance has no durable intent contract. Never permit it
+    // to bypass the staged guard when the new mode is deliberately enabled.
+    if (beautyPlanPurchaseIntentsEnabled(a.storeId)) throw new AppError('CONFLICT','請更新後台並從顧客資料重新開啟購買');
     const d = cardInput.parse(input);
     const p = await beautyPrisma.beautyPlan.findFirst({
       where: { id: d.planId, storeId: a.storeId },
@@ -477,13 +490,16 @@ export async function confirmBeautySettlement(input: unknown) {
         requestKey: z.string().uuid(),
         month: z.string(),
         fingerprint: z.string(),
+        expectedLockRevision: z.number().int().nonnegative().optional(),
       })
       .parse(input);
     return beautyTransaction(a, (tx) =>
       command(tx, a, d.requestKey, d, async () => {
         const report = await settlement(tx, a.storeId, d.month);
+        if(d.expectedLockRevision!==undefined&&report.adjustmentMonth.revision!==d.expectedLockRevision)throw new AppError("CONFLICT","月結已變更，請重新核對");
         if (report.fingerprint !== d.fingerprint)
           throw new AppError("CONFLICT", "月結已變更，請重新核對");
+        await setAdjustmentMonthLock(tx,a.storeId,d.month,true);
         await tx.beautySettlement.create({
           data: {
             storeId: a.storeId,
@@ -531,17 +547,26 @@ export async function requestBeautyPlan(input: unknown) {
           requestKey: z.string().uuid(),
           planId: key,
           lastFour: z.string().regex(/^\d{4}$/, "請填轉帳後四碼"),
+          expectedName: z.string().trim().min(1).max(100).optional(),
+          expectedPrice: z.number().int().min(0).max(10000000).optional(),
+          expectedSessions: z.number().int().min(1).max(10000).optional(),
+          expectedRevision: z.number().int().nonnegative().optional(),
         })
         .parse(input);
     await requireStoreFeature(a.storeId, FEATURES.PLAN_MANAGEMENT);
-    const bank = await prisma.shopConfig.findUnique({
-      where: { storeId: a.storeId },
-      select: { bankName: true, bankAccountNumber: true },
-    });
-    if (!bank?.bankName || !bank.bankAccountNumber)
-      throw new AppError("VALIDATION", "店家尚未設定銀行資料，請洽店家購買");
-    const purchased=await beautyTransaction(a, (tx) =>
-      command(tx, a, d.requestKey, d, async () => {
+    const guarded=beautyMemberPurchaseIntentsEnabled(a.storeId);
+    if(guarded&&(d.expectedName===undefined||d.expectedPrice===undefined||d.expectedSessions===undefined||d.expectedRevision===undefined))
+      throw new AppError('CONFLICT','方案內容尚未核對，請重新開啟並聯絡店家');
+    const purchased=await beautyTransaction(a, (tx) => {
+      const createRequest=()=>command(tx, a, d.requestKey, d, async () => {
+        // Replaying an already recorded request must not depend on settings
+        // that may have changed after the original submission succeeded.
+        const bank = await prisma.shopConfig.findUnique({
+          where: { storeId: a.storeId },
+          select: { bankName: true, bankAccountNumber: true },
+        });
+        if (!bank?.bankName || !bank.bankAccountNumber)
+          throw new AppError("VALIDATION", "店家尚未設定銀行資料，請洽店家購買");
         const plan = await tx.beautyPlan.findFirst({
           where: {
             id: d.planId,
@@ -551,6 +576,8 @@ export async function requestBeautyPlan(input: unknown) {
           },
         });
         if (!plan) throw new AppError("NOT_FOUND", "此方案目前不開放購買");
+        if(guarded&&(plan.name!==d.expectedName||plan.price!==d.expectedPrice||plan.sessions!==d.expectedSessions||plan.revision!==d.expectedRevision))
+          throw new AppError('CONFLICT','方案內容或價格已變更，請重新核對並聯絡店家');
         const order = await tx.beautyPurchase.create({
           data: {
             storeId: a.storeId,
@@ -560,6 +587,7 @@ export async function requestBeautyPlan(input: unknown) {
             lastFour: d.lastFour,
           },
         });
+        await recordDigitalManagerNotice(tx,{storeId:a.storeId,eventKey:`beauty-purchase-pending:${order.id}`,eventType:"TRANSFER_PENDING_CONFIRMATION",targetId:order.id});
         await audit(
           tx,
           a,
@@ -567,8 +595,11 @@ export async function requestBeautyPlan(input: unknown) {
           JSON.stringify({ orderId: order.id, managerNoticeEligible: !beautyNotificationDeliveryBlocked() && (await settings(tx,a.storeId)).notifications }),
         );
         return { id: order.id };
-      }),
-    );
+      });
+      return guarded
+        ? commitBeautyMemberPurchaseIntent(tx,a,{requestKey:d.requestKey,fingerprint:beautyMemberPurchaseFingerprint({requestKey:d.requestKey,planId:d.planId,lastFour:d.lastFour,expectedName:d.expectedName!,expectedPrice:d.expectedPrice!,expectedSessions:d.expectedSessions!,expectedRevision:d.expectedRevision!})},createRequest)
+        : createRequest();
+    });
     await notifyBeautyPurchaseManagers(a.storeId,purchased.id);
     return purchased;
   });
@@ -578,43 +609,11 @@ export async function confirmBeautyPurchase(input: unknown) {
     const a = await beautyManager("wallet.create", true);
     await requireStoreFeature(a.storeId, FEATURES.PLAN_MANAGEMENT);
     await requirePermission("transaction.create");
+    // Pending online orders need a separate migration to the guarded
+    // lifecycle. Do not silently issue a card outside that lifecycle.
+    if (beautyPlanPurchaseIntentsEnabled(a.storeId)) throw new AppError('CONFLICT','線上待確認訂單暫不可結帳，請聯絡管理員核對');
     const d = z.object({ requestKey: z.string().uuid(), id: key }).parse(input);
-    return beautyTransaction(a, (tx) =>
-      command(tx, a, d.requestKey, d, async () => {
-        const order = await tx.beautyPurchase.findFirst({
-          where: { storeId: a.storeId, id: d.id },
-        });
-        if (!order) throw new AppError("NOT_FOUND", "找不到訂單");
-        if (order.status === "CONFIRMED") return { cardId: order.cardId! };
-        if (order.status !== "PENDING")
-          throw new AppError("CONFLICT", "訂單狀態已變更");
-        const snapshot = planInput.parse(order.snapshot);
-        if (!snapshot.id) throw new AppError("VALIDATION", "購入快照待核對");
-        const receipt = await issueCard(
-          tx,
-          a,
-          {
-            requestKey: d.requestKey + ":issue",
-            planId: order.planId,
-            customerId: order.customerId,
-            memberIds: [order.customerId],
-            paid: snapshot.price,
-            method: "BANK_TRANSFER",
-          },
-          { ...snapshot, id: snapshot.id, storeId: a.storeId,storeCost:order.snapshot&&typeof order.snapshot==='object'&&!Array.isArray(order.snapshot)&&'storeCost' in order.snapshot&&typeof order.snapshot.storeCost==='number'?order.snapshot.storeCost:null,chargeRuleSnapshot:order.snapshot&&typeof order.snapshot==='object'&&!Array.isArray(order.snapshot)&&'chargeRuleSnapshot' in order.snapshot?order.snapshot.chargeRuleSnapshot:null },
-        );
-        await tx.beautyPurchase.update({
-          where: { id: order.id },
-          data: { cardId: receipt.cardId, status: "CONFIRMED" },
-        });
-        const corrected=await tx.beautyTransactionRevision.findFirst({where:{storeId:a.storeId,transactionId:order.id},orderBy:{revision:'desc'}});
-        if(corrected){
-          const payment=await tx.beautyPayment.findFirstOrThrow({where:{storeId:a.storeId,cardId:receipt.cardId,kind:'SALE'}});
-          await tx.beautyTransactionRevision.create({data:{storeId:a.storeId,transactionId:payment.id,revision:1,note:corrected.note,revenueStaffId:corrected.revenueStaffId,actorUserId:a.userId!}});
-        }
-        return receipt;
-      }),
-    );
+    return beautyTransaction(a,tx=>confirmOnlineBeautyOrder(tx,a,d));
   });
 }
 

@@ -2,10 +2,12 @@
 import { publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import {useState, useTransition} from "react";
 import {useRouter} from "next/navigation";
+import {useMonthlyStore,MonthlyStoreLabel} from "@/components/operations/monthly-store-context";
 import {payCourseFee,correctCourseFee} from "@/server/actions/course-fee-payment";
 
-export function CourseFeePaymentButton({sessionId, amount, paid=0}: {sessionId:string; amount:number;paid?:number}) {
+export function CourseFeePaymentButton({sessionId, amount, paid=0,storeId}: {sessionId:string; amount:number;paid?:number;storeId?:string}) {
   const [paymentAmount,setPaymentAmount]=useState(String(amount-paid));
+  const monthlyStore=useMonthlyStore();
   const [open,setOpen]=useState(false), [method,setMethod]=useState<"CASH"|"OTHER">("OTHER");
   const [note,setNote]=useState(""), [requestKey,setRequestKey]=useState(""), [error,setError]=useState("");
   const [pending,start]=useTransition();
@@ -14,12 +16,12 @@ export function CourseFeePaymentButton({sessionId, amount, paid=0}: {sessionId:s
   return <form className="min-w-48 space-y-2" onSubmit={event=>{event.preventDefault();start(async()=>{
     setError("");
     try {
-      const result=await payCourseFee({sessionId,expectedAmount:amount,amount:Number(paymentAmount),expectedRemaining:amount-paid,method,note,requestKey});
+      const result=await payCourseFee({expectedStoreId:storeId??monthlyStore?.storeId,sessionId,expectedAmount:amount,amount:Number(paymentAmount),expectedRemaining:amount-paid,method,note,requestKey});
       if(!result.success){setError(result.error);return;}
       setOpen(false);publishMusicFinanceChange();router.refresh();
     } catch {setError("連線未完成，請重試；同一筆不會重複入帳。");}
   });}}>
-    <p>尚未支付 NT$ {(amount-paid).toLocaleString()}。此處僅登錄，不會自動匯款。</p>
+    <MonthlyStoreLabel/><p>尚未支付 NT$ {(amount-paid).toLocaleString()}。此處僅登錄，不會自動匯款。</p>
     <label className="block">本次已付金額<input className="block min-h-11 border" type="number" min="1" max={amount-paid} step="1" value={paymentAmount} disabled={pending} required onChange={e=>setPaymentAmount(e.target.value)}/></label>
     <label className="block">付款方式<select disabled={pending} className="block min-h-11 border" value={method} onChange={e=>setMethod(e.target.value as "CASH"|"OTHER")}><option value="OTHER">轉帳／其他非現金</option><option value="CASH">現金</option></select></label>
     <label className="block">付款備註<input disabled={pending} className="block min-h-11 border" value={note} maxLength={500} required onChange={e=>setNote(e.target.value)}/></label>
@@ -29,13 +31,14 @@ export function CourseFeePaymentButton({sessionId, amount, paid=0}: {sessionId:s
   </form>;
 }
 
-export function CourseFeeCorrectionButton({paymentId}:{paymentId:string}) {
+export function CourseFeeCorrectionButton({paymentId,storeId}:{paymentId:string;storeId?:string}) {
+  const monthlyStore=useMonthlyStore();
   const [open,setOpen]=useState(false), [reason,setReason]=useState(""), [error,setError]=useState("");
   const [pending,start]=useTransition();const router=useRouter();
   if(!open)return <button className="min-h-11 text-primary-700" onClick={()=>setOpen(true)}>更正誤登</button>;
   return <form className="space-y-2" onSubmit={e=>{e.preventDefault();start(async()=>{
-    setError("");try{const result=await correctCourseFee({paymentId,reason});if(!result.success){setError(result.error);return;}setOpen(false);publishMusicFinanceChange();router.refresh();}catch{setError("連線未完成，請重試；不會重複沖回。");}
-  });}}><p>確認後會保留原付款紀錄，並同步沖回對應支出。僅適用於記錯的付款，不代表已向授課人員收回款項；真實溢付不可用更正誤登代替收回。</p>
+    setError("");try{const result=await correctCourseFee({expectedStoreId:storeId??monthlyStore?.storeId,paymentId,reason});if(!result.success){setError(result.error);return;}setOpen(false);publishMusicFinanceChange();router.refresh();}catch{setError("連線未完成，請重試；不會重複沖回。");}
+  });}}><MonthlyStoreLabel/><p>確認後會保留原付款紀錄，並同步沖回對應支出。僅適用於記錯的付款，不代表已向授課人員收回款項；真實溢付不可用更正誤登代替收回。</p>
     <label>更正原因<input className="block min-h-11 border" required maxLength={500} disabled={pending} value={reason} onChange={e=>setReason(e.target.value)}/></label>
     {error&&<p role="alert">{error}</p>}<button className="min-h-11 px-3" disabled={pending||!reason.trim()}>確認更正</button><button className="min-h-11 px-3" type="button" disabled={pending} onClick={()=>setOpen(false)}>取消</button>
   </form>;

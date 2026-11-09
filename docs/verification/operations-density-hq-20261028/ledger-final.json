@@ -1,0 +1,137 @@
+{
+  "results": [
+    {
+      "step": "actual-hq-login",
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "sports-live-flow-store",
+      "area": "ledger",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "sports-live-flow-store",
+      "area": "ledger",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "sports-live-flow-store",
+      "area": "ledger",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-music",
+      "area": "ledger",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-music",
+      "area": "ledger",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-music",
+      "area": "ledger",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-dance",
+      "area": "ledger",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-dance",
+      "area": "ledger",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-dance",
+      "area": "ledger",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-beauty",
+      "area": "ledger",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-beauty",
+      "area": "ledger",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-beauty",
+      "area": "ledger",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-steam",
+      "area": "ledger",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-steam",
+      "area": "ledger",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "responsive-toolbar",
+      "storeId": "ops-steam",
+      "area": "ledger",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "complete",
+      "checks": 16,
+      "browserErrors": 0,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "realLocalDatabase": true,
+  "physicalIPad": false
+}

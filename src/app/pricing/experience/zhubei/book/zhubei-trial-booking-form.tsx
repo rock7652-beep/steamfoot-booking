@@ -1,4 +1,7 @@
 "use client";
+import {CustomerBookingGoodsField,CustomerBookingGoodsSummary} from "@/components/add-ons/customer-booking-goods";
+import {bookingGoodsInput,bookingGoodsTotal,type CustomerBookingGoodsDraft} from "@/lib/customer-booking-goods";
+
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -118,6 +121,7 @@ export function ZhubeiTrialBookingForm({
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+  const [goods,setGoods]=useState<CustomerBookingGoodsDraft>();
   const [success, setSuccess] = useState<{ date: string; time: string; people: number; expectedAmount: number; notificationSetup?: TrialNotificationSetup } | null>(null);
 
   useEffect(() => {
@@ -202,7 +206,7 @@ export function ZhubeiTrialBookingForm({
     setSubmitting(true);
     setMessage("");
     try {
-      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, people, website, entry, source, storeSlug, noticeAccepted, lineTrialPilot: pilot });
+      const result = await submitPublicTrialBooking({ sharedGoods:bookingGoodsInput(goods,storeSlug),name, phone, bookingDate, slotTime, people, website, entry, source, storeSlug, noticeAccepted, lineTrialPilot: pilot });
       if (result.status === "ok") {
         setSuccess({
           date: result.bookingDate,
@@ -229,7 +233,7 @@ export function ZhubeiTrialBookingForm({
         <h2 className="mt-3 text-xl font-bold text-earth-900">體驗預約成功</h2>
         <p className="mt-3 text-sm text-earth-600">{success.date}　{success.time}</p>
         <p className="mt-2 text-sm text-earth-600">預約人數：{success.people} 人</p>
-        <p className="mt-2 text-sm font-semibold text-primary-700">到店付款：{formatCurrency(success.expectedAmount)}</p>
+        <CustomerBookingGoodsSummary draft={goods}/><p className="mt-2 text-sm font-semibold text-primary-700">到店付款：{formatCurrency(success.expectedAmount+bookingGoodsTotal(goods,storeSlug))}</p>
         <p className="mt-2 text-sm text-earth-600">{storeSlug === "staging" ? "蒸足測試店：測試方案，無須付款" : "首次蒸足體驗每人 NT$499｜約 45 分鐘"}</p>
         <p className="mt-4 text-xs leading-5 text-earth-500">到店後再付款即可。這次預約不需要會員帳號，也不會扣除任何正式方案堂數。</p>
         <p className="mt-4 rounded-xl bg-primary-50 px-4 py-3 text-sm leading-6 text-primary-800">以下是第一次到店前需要知道的事項，建議先看完並儲存門市導航。</p>
@@ -259,7 +263,7 @@ export function ZhubeiTrialBookingForm({
   const firstDow = new Date(Date.UTC(viewYear, viewMonth - 1, 1)).getUTCDay();
   const isCurrentMonth = viewYear === initialMonth.year && viewMonth === initialMonth.month;
   const ready = bookingDate && slotTime && people && name.trim() && phone.trim() && noticeAccepted;
-  const expectedAmount = (storeSlug === "staging" ? 0 : 499) * people;
+  const expectedAmount = (storeSlug === "staging" ? 0 : 499) * people+bookingGoodsTotal(goods,storeSlug);
 
   return (
     <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
@@ -387,6 +391,7 @@ export function ZhubeiTrialBookingForm({
 
       <div className="hidden" aria-hidden="true"><label htmlFor="website">網站</label><input id="website" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></div>
       {message && <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">{message}</div>}
+      <CustomerBookingGoodsField slug={storeSlug} draft={goods} onChange={setGoods} disabled={submitting}/>
       <button type="button" disabled={!ready || submitting} onClick={() => void submit()} className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary-600 px-4 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{submitting ? "正在建立預約…" : `立即預約｜${formatCurrency(expectedAmount)}`}</button>
       <p className="mt-3 text-center text-xs leading-5 text-earth-500">不用註冊、不用設密碼，到店後再付款。</p>
     </section>

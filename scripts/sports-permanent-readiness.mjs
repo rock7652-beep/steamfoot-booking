@@ -48,3 +48,13 @@ export async function verifySportsPermanentReadiness(query) {
  }
  return {ready:true, applicationRole:row.application_role};
 }
+
+/** Booking does not read/write series rows, but still rejects incompatible
+ * series metadata. Scheduling retains the separate full writer check above.
+ * @param {(sql:string)=>Promise<Array<Record<string,unknown>>>} query */
+export async function verifySportsPermanentBookingCatalog(query){
+ let row;
+ try{[row]=await query(sportsPermanentReadinessSql);}catch{throw new Error('運動固定課資料庫版本尚未就緒。');}
+ if(!row||['rls_enabled','version_matches','browser_blocked','columns_match','unique_request'].some(key=>row[key]!==true))throw new Error('運動固定課資料庫版本尚未就緒。');
+ return {ready:true,applicationRole:row.application_role};
+}

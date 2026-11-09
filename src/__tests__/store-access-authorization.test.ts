@@ -263,3 +263,34 @@ it("filters unsupported persisted module enums before Prisma decodes the HQ sele
   await getAccessibleStores({role:"ADMIN"});
   expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({industryModule:{in:["STEAMFOOT","COURSE","BEAUTY"]}})}));
 });
+
+import {rememberVerifiedStaffRead,withReadRequestMemo} from '@/server/services/read-request-memo';
+const stamped={userId:'user-hq',role:'OWNER',staffId:'staff-hq',storeId:'hq',industryModule:'COURSE',store:{slug:'hq',name:'HQ',operatingStatus:'ACTIVE'}};
+const stampedUser={id:'user-hq',role:'OWNER',staffId:'staff-hq',storeId:'hq'};
+it('validates the live auth store snapshot only within its exact read actor and does not reuse it for switches',async()=>{
+ mockFindMany.mockReset();installStoreQueryMock();
+ const {validateStoreAccess}=await import('@/lib/store');
+ await withReadRequestMemo(async()=>{rememberVerifiedStaffRead(stamped);expect(await validateStoreAccess(stampedUser,'hq','read')).toBe('hq');expect(await validateStoreAccess(stampedUser,'hq','write')).toBe('hq');expect(mockFindMany).not.toHaveBeenCalled();await validateStoreAccess(stampedUser,'hq','switch');expect(mockFindMany).toHaveBeenCalledOnce();});
+ mockFindMany.mockResolvedValueOnce([]);await expect(withReadRequestMemo(()=>validateStoreAccess(stampedUser,'hq','read'))).rejects.toThrow('已停用');expect(mockFindMany).toHaveBeenCalledTimes(2);
+});
+it.each(['PAUSED','INACTIVE','UNKNOWN'])('rejects non-operating auth store metadata %s without falling back to a stale allowed store',async operatingStatus=>{
+ mockFindMany.mockClear();const {validateStoreAccess}=await import('@/lib/store');
+ await expect(withReadRequestMemo(async()=>{rememberVerifiedStaffRead({...stamped,store:{...stamped.store,operatingStatus}});return validateStoreAccess(stampedUser,'hq','read');})).rejects.toThrow('已停用');expect(mockFindMany).not.toHaveBeenCalled();
+});
+it.each([{userId:'other'},{role:'STAFF'},{staffId:'other'},{storeId:'other'}])('requires an exact actor for auth store reuse: %j',async mismatch=>{
+ mockFindMany.mockReset();installStoreQueryMock();const {validateStoreAccess}=await import('@/lib/store');
+ await withReadRequestMemo(async()=>{rememberVerifiedStaffRead({...stamped,...mismatch});await validateStoreAccess(stampedUser,'hq','read');});expect(mockFindMany).toHaveBeenCalledOnce();
+});
+it.each(['SPA','UNKNOWN'])('rejects unsupported auth store module %s',async industryModule=>{
+ const {validateStoreAccess}=await import('@/lib/store');await expect(withReadRequestMemo(async()=>{rememberVerifiedStaffRead({...stamped,industryModule});return validateStoreAccess(stampedUser,'hq','read');})).rejects.toThrow('已停用');
+});
+it('resolves an exactly matching route from the live auth store, retaining forwarded-header validation and next-request lookup',async()=>{
+ mockFindUnique.mockClear();mockFindMany.mockClear();mockCookieGet.mockReturnValue(undefined);
+ mockHeaderGet.mockImplementation((name:string)=>name==='x-next-pathname'?'/s/hq/admin/dashboard/courses':name==='x-store-slug'?'hq':null);
+ const {getActiveStoreForRead}=await import('@/lib/store');
+ await withReadRequestMemo(async()=>{rememberVerifiedStaffRead(stamped);expect(await getActiveStoreForRead(stampedUser)).toBe('hq');});expect(mockFindUnique).not.toHaveBeenCalled();expect(mockFindMany).not.toHaveBeenCalled();
+ mockHeaderGet.mockImplementation((name:string)=>name==='x-next-pathname'?'/s/hq/admin/dashboard/courses':name==='x-store-slug'?'forged':null);
+ await expect(withReadRequestMemo(async()=>{rememberVerifiedStaffRead(stamped);return getActiveStoreForRead(stampedUser);})).rejects.toThrow('路由資訊無效');
+ mockHeaderGet.mockImplementation((name:string)=>name==='x-next-pathname'?'/s/hq/admin/dashboard/courses':name==='x-store-slug'?'hq':null);
+ mockFindUnique.mockResolvedValueOnce(null);await expect(withReadRequestMemo(()=>getActiveStoreForRead(stampedUser))).rejects.toThrow('已停用');expect(mockFindUnique).toHaveBeenCalledOnce();
+});

@@ -1,0 +1,161 @@
+{
+  "scope": "real hosted Preview, real credentials and server actions, synthetic fixtures; no auth bypass",
+  "base": "https://steamfoot-booking-akchjnk4s-rock7652-2111s-projects.vercel.app",
+  "appCommit": "4e167b02",
+  "complete": true,
+  "provenance": {
+    "sports": "Completed before original run stopped at music QA fixture pagination; original complete=false preserved in workspace.",
+    "musicAndBeauty": "Separate resumed run complete=true after adding exact QA card search.",
+    "testerCorrections": [
+      "null session assertion",
+      "native sports card entry selector",
+      "music held-card search beyond first page"
+    ]
+  },
+  "results": [
+    {
+      "module": "sports",
+      "step": "wrong-password-no-session",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "step": "reserved-card-close-blocked",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "step": "extend-in-place",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 3729
+    },
+    {
+      "module": "sports",
+      "step": "shorten-in-place",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 6727
+    },
+    {
+      "module": "sports",
+      "step": "close-in-place",
+      "pass": true
+    },
+    {
+      "module": "sports",
+      "step": "reload-keeps-original-route",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "reserved-card-close-blocked",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "extend-in-place",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 3184
+    },
+    {
+      "module": "music",
+      "step": "shorten-in-place",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 9289
+    },
+    {
+      "module": "music",
+      "step": "lost-committed-response-same-request-retry",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "close-in-place",
+      "pass": true
+    },
+    {
+      "module": "music",
+      "step": "reload-keeps-original-route",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "real-owner-login",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "reserved-card-close-blocked",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "management-entry",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "extend-in-place",
+      "pass": true,
+      "date": "2027-02-27",
+      "elapsedMs": 2714
+    },
+    {
+      "module": "beauty",
+      "step": "shorten-in-place",
+      "pass": true,
+      "date": "2026-11-29",
+      "elapsedMs": 4231
+    },
+    {
+      "module": "beauty",
+      "step": "close-in-place",
+      "pass": true
+    },
+    {
+      "module": "beauty",
+      "step": "reload-keeps-original-route",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "assetsFailed": []
+}

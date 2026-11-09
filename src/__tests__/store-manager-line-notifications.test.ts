@@ -14,7 +14,7 @@ vi.mock("@/lib/db", () => ({
       findMany: recipientFindMany,
       findFirst: vi.fn(async () => ({ lineUserId: "Umanager123", displayName: "店長", preferences: {} })),
     },
-    managerNotificationLog: { create: vi.fn(async ({ data }) => data), update: vi.fn() },
+    managerNotificationLog: { create: vi.fn(async ({ data }) => ({...data,createdAt:new Date()})), update: vi.fn() },
   },
 }));
 
@@ -133,6 +133,7 @@ describe("store manager LINE notifications", () => {
       "Umanager123",
       [expect.objectContaining({ type: "flex", altText: expect.stringContaining("💰 等待確認入帳") })],
       expect.any(String),
+      expect.any(Date),
     );
   });
 

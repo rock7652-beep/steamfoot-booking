@@ -1,0 +1,18 @@
+{
+  "image": "postgres@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b",
+  "postgresVersion": 170011,
+  "migration": "20261104235300_subscription_referral_private_core",
+  "checksum": "9280d0494060f1e3cbff109bac26693868127b2e9c958cbe74600eccda5a1fd3",
+  "checks": [
+    "inspect_mode_reads_actual_catalog_without_invoking_prisma",
+    "apply_mode_runs_one_actual_prisma_migration_and_preserves_business_rows_and_history",
+    "actual_postflight_confirms_five_private_tables_constraints_checksum_and_revoked_api_grants",
+    "reinspection_reports_existing_installation_and_reapply_stops_before_deploy",
+    "mid_install_failure_rolls_back_ddl_and_runner_does_not_retry_resolve_or_delete_failed_ledger"
+  ],
+  "isolation": "new disposable Docker PostgreSQL 17; no network or published ports; Unix socket; synthetic data only",
+  "limitations": [
+    "Exercises the exported install orchestration using an explicitly local connection, not the production CLI or secrets.",
+    "No production migration, new role grants, campaign enablement, subscription changes or real user data involved."
+  ]
+}

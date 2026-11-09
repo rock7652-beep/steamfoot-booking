@@ -1,0 +1,35 @@
+{
+  "sourceCommit": "a29c74dd41cedb2919f3c0d32ed64d7f35a33cdd",
+  "realAuthenticatedActions": true,
+  "exactlyOnePairAwardButton": true,
+  "monthlyOnlyForMonthlyAccount": true,
+  "nativeMissingBillingBlocked": true,
+  "staleExpiryRollsBackBothVerifiedAgainstFreshDatabasePage": true,
+  "failedDraftAndResizePreserveBilling": true,
+  "oneClickAwardsBoth": true,
+  "identicalServerActionReplayedTwice": true,
+  "bothBeneficiariesSee30Days": true,
+  "rwd": [
+    {
+      "viewport": 390,
+      "body": 390,
+      "document": 390
+    },
+    {
+      "viewport": 768,
+      "body": 768,
+      "document": 768
+    },
+    {
+      "viewport": 1024,
+      "body": 1024,
+      "document": 1024
+    },
+    {
+      "viewport": 1366,
+      "body": 1366,
+      "document": 1366
+    }
+  ],
+  "errors": []
+}

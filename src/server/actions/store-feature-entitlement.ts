@@ -1,11 +1,14 @@
 "use server";
 
+import { recordOperationAudit } from "@/server/services/operation-audit";
 import { revalidatePath } from "next/cache";
 import type {
   StoreFeatureEntitlementSource,
   StoreFeatureEntitlementStatus,
 } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { addonsPrisma } from "@/lib/addons-db";
+import { addOnsDatabaseSelection, AddOnsDatabaseConfigurationError } from "@/lib/addons-database-url";
 import { dayRange } from "@/lib/date-utils";
 import { AppError } from "@/lib/errors";
 import { FEATURES } from "@/lib/feature-flags";
@@ -81,6 +84,46 @@ export async function saveStoreFeatureEntitlement(
     });
     if (!store) return { success: false, error: "店舖不存在" };
     if (store.industryModule === "SPA") return { success: false, error: "SPA 模組已停用，歷史設定僅供封存" };
+
+    if(featureKey===FEATURES.BEAUTY_SERVICE_ADD_ONS&&store.industryModule!=="BEAUTY")return {success:false,error:"加做服務僅適用美業店家"};
+    if (featureKey === FEATURES.ADD_ONS || featureKey === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
+      if (override !== "INHERIT" && !ENTITLEMENT_STATUSES.has(override as StoreFeatureEntitlementStatus)) return {success:false,error:"無效的覆寫狀態"};
+      if (!ENTITLEMENT_SOURCES.has(source as StoreFeatureEntitlementSource)) return {success:false,error:"無效的來源"};
+      const startsAt=parseDateBoundary(startsAtInput,"start"),expiresAt=parseDateBoundary(expiresAtInput,"end");
+      if(startsAt&&expiresAt&&startsAt>expiresAt)return {success:false,error:"開始日不可晚於到期日"};
+      if(featureKey===FEATURES.ADD_ONS&&override==="ENABLED"){
+        // Verify on the dedicated connection before opening the main-client write
+        // transaction. Disabling must remain possible when that connection is down.
+        try{
+          addOnsDatabaseSelection();
+          const available=await addonsPrisma.$transaction(async tx=>{
+            const scopedStore=await tx.store.findUnique({where:{id:storeId},select:{id:true}});
+            if(!scopedStore)return false;
+            await tx.serviceAddOnCatalog.findFirst({where:{storeId},select:{enabled:true}});
+            return true;
+          });
+          if(!available)return {success:false,error:"加購商品專用連線尚未授權此門市，暫時無法啟用。"};
+        }catch(error){
+          return {success:false,error:error instanceof AddOnsDatabaseConfigurationError?"加購商品尚未完成專用連線設定，暫時無法啟用。":"加購商品專用連線驗證未通過，暫時無法啟用；請聯絡系統管理員。"};
+        }
+      }
+      await prisma.$transaction(async tx=>{
+        await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
+        const where={uq_store_feature_entitlement:{storeId,featureKey}};
+        const before=await tx.storeFeatureEntitlement.findUnique({where});
+        if(override==="INHERIT")await tx.storeFeatureEntitlement.deleteMany({where:{storeId,featureKey}});
+        else await tx.storeFeatureEntitlement.upsert({where,create:{storeId,featureKey,status:override as StoreFeatureEntitlementStatus,source:source as StoreFeatureEntitlementSource,startsAt,expiresAt,note:note||null,createdBy:admin.id,updatedBy:admin.id},update:{status:override as StoreFeatureEntitlementStatus,source:source as StoreFeatureEntitlementSource,startsAt,expiresAt,note:note||null,updatedBy:admin.id}});
+        const snapshot=(value:typeof before)=>value?{status:value.status,source:value.source,startsAt:value.startsAt?.toISOString()??null,expiresAt:value.expiresAt?.toISOString()??null}:null;
+        const after=await tx.storeFeatureEntitlement.findUnique({where});
+        await recordOperationAudit({actor:admin,actorUserId:admin.id,storeId,module:"SYSTEM",targetType:"StoreFeatureEntitlement",targetId:featureKey,action:"SET_ADD_ONS_FEATURE",summary:featureKey===FEATURES.BEAUTY_SERVICE_ADD_ONS?"總部調整加做服務功能":"總部調整附加項目功能",before:{entitlement:snapshot(before)},after:{entitlement:snapshot(after)}},tx);
+      });
+      revalidateStoreFeatureEntitlements();
+      revalidatePath(`/hq/dashboard/stores/${storeId}`);
+      revalidatePath(`/hq/dashboard/stores/${storeId}/features`);
+      revalidatePath('/dashboard/add-ons');
+      revalidatePath('/dashboard/beauty');
+      return {success:true,data:undefined};
+    }
 
     if (featureKey === FEATURES.SHARED_CARD) {
       if (override !== "INHERIT" && !ENTITLEMENT_STATUSES.has(override as StoreFeatureEntitlementStatus)) return { success: false, error: "無效的覆寫狀態" };

@@ -3,6 +3,7 @@ import { pushMessage, pushSteamButlerMessage, type LineMessage } from "@/lib/lin
 import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 import { resolveCentralLineRecipientForCustomer } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
+import { isLineDeliveryEventCurrent } from "@/lib/line-delivery-pause";
 
 const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -39,6 +40,13 @@ export async function sendRecurringBookingConfirmation(recurrenceGroupId: string
       },
     });
     if (!group) throw new Error("RECURRING_GROUP_NOT_FOUND");
+    if (!isLineDeliveryEventCurrent(group.createdAt)) {
+      await prisma.bookingRecurrenceGroup.updateMany({
+        where: { id: recurrenceGroupId, confirmationNotificationStatus: "PROCESSING", confirmationNotificationClaimedAt: claimedAt },
+        data: { confirmationNotificationStatus: "SKIPPED", confirmationNotificationError: "停發期間的舊通知不補發" },
+      });
+      return;
+    }
 
     const centralRecipient = await resolveCentralLineRecipientForCustomer(group.customerId, group.storeId);
     const route = await resolveVerifiedReminderLineRoute(
@@ -58,8 +66,8 @@ export async function sendRecurringBookingConfirmation(recurrenceGroupId: string
       text: `${group.customer.name} 您好！\n\n已為您保留每週固定時段：\n${dates.join("\n")}\n\n共 ${group.totalOccurrences} 週、${group.people} 人，預留 ${reservedSessions} 堂方案額度。每次服務完成後才會核銷該次堂數。\n\n${shopName}`,
     }];
     const result = route.channel === "STORE"
-      ? await pushMessage(group.storeId, route.recipientLineUserId, messages)
-      : await pushSteamButlerMessage(route.recipientLineUserId, messages);
+      ? await pushMessage(group.storeId, route.recipientLineUserId, messages, undefined, group.createdAt)
+      : await pushSteamButlerMessage(route.recipientLineUserId, messages, undefined, group.createdAt);
     if (!result.success) throw new Error(result.error ?? "LINE_DELIVERY_FAILED");
 
     await prisma.bookingRecurrenceGroup.updateMany({

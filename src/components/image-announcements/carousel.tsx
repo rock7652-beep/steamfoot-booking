@@ -35,7 +35,7 @@ export function ImageAnnouncementCarousel({ items, storeSlug, preview = false }:
         {active.map(item => {
           const selected = item.id === current.id;
           return <button key={item.id} type="button" aria-label="放大公告圖片" aria-hidden={!selected} inert={!selected} tabIndex={selected ? 0 : -1}
-            className={`${styles.preview} ${selected ? styles.current : ""} relative w-full overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-primary-600`}
+            data-display-mode={item.displayMode ?? "original"} className={`${styles.preview} ${selected ? styles.current : ""} relative w-full overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-primary-600`}
             onClick={() => { if (swiped.current) { swiped.current = false; return; } setPaused(true); setOpen(true); }}>
             {/* All slides share one grid cell. The tallest reserves space so
                 different image proportions do not move the booking list. */}

@@ -1,9 +1,10 @@
 "use client";
 import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
+import { FrontendAccountMenu } from "@/components/frontend-account-menu";
 
 import { courseMemberReturnPath } from "@/lib/course-delivery-links";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
-import { SteamButlerLogo } from "@/components/steam-butler-logo";
+import { MemberPortalHeader } from "@/components/member-portal-header";
 
 /**
  * LiffShell — LIFF 入口頁 client component (PR-A + PR-C2 wiring)
@@ -94,18 +95,18 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getIDToken, initLiff, isInLineClient } from "@/lib/liff/client";
 import { liffMessages } from "@/lib/liff/messages";
-import { fetchLiffWallets, type LiffWalletRow, type LiffMakeupCreditRow } from "@/server/actions/liff-my-wallets";
-import { fetchLiffBookings, type LiffBookingRow } from "@/server/actions/liff-my-bookings";
-import { fetchLiffHealthSummary } from "@/server/actions/liff-health";
-import { fetchLiffMemberStoreContext, type LiffMemberStoreOption } from "@/server/actions/liff-member-stores";
+import type { LiffWalletRow, LiffMakeupCreditRow } from "@/server/actions/liff-my-wallets";
+import type { LiffBookingRow } from "@/server/actions/liff-my-bookings";
+import { fetchLiffHomeAccess, fetchLiffHomeSummary } from "@/server/actions/liff-member-home";
+import { measureLiffClientPhase } from "@/lib/liff/client-timing";
+import type { LiffMemberStoreOption } from "@/server/actions/liff-member-stores";
 import type { HealthSummary } from "@/lib/health-service";
 import { getMemberPlanSummary } from "@/lib/liff/member-plan-summary";
-import { fetchLiffReferralShareContext, type LiffReferralShareContext } from "@/server/actions/liff-referral-share";
+import type { LiffReferralShareContext } from "@/server/actions/liff-referral-share";
 import { LiffBottomNav } from "./liff-bottom-nav";
 import { LiffStoreSwitcher } from "./liff-store-switcher";
 import { LiffStoreShareCard } from "./liff-store-share-card";
 import { STEAMFOOT_INDUSTRY_MODULE, type MemberHomeTerminology } from "@/lib/industry-modules";
-import { fetchLiffStaffAccess } from "@/server/actions/liff-staff-access";
 
 import type { IndustryModuleId } from "@/lib/industry-modules";
 import { STATUS_LABEL } from "@/lib/booking-constants";
@@ -169,7 +170,7 @@ export function LiffShell({
     (async () => {
       // ── 1. Init LIFF ──
       try {
-        const sdk = await initLiff(liffId);
+        const sdk = await measureLiffClientPhase("sdk_init", () => initLiff(liffId));
         if (cancelled) return;
         if (!isInLineClient() && bookingIntent && !sdk.isLoggedIn()) {
           sdk.login({ redirectUri: window.location.href });
@@ -191,14 +192,7 @@ export function LiffShell({
 
       const loadMemberHome = async () => {
         try {
-          const [wallets, bookings, health, referralShare] = await Promise.all([
-            fetchLiffWallets(),
-            fetchLiffBookings(),
-            healthAssessmentEnabled
-              ? fetchLiffHealthSummary()
-              : Promise.resolve(null),
-            fetchLiffReferralShareContext(),
-          ]);
+          const { wallets, bookings, health, referralShare } = await measureLiffClientPhase("home_summary", () => fetchLiffHomeSummary(healthAssessmentEnabled));
           if (cancelled) return;
           setMemberSummary({
             walletsStatus: wallets?.status === "ok" ? "ok" : "error",
@@ -233,20 +227,17 @@ export function LiffShell({
       // ── 3. /api/liff/exchange ──
       setState({ kind: "exchanging" });
       try {
-        const body = await refreshLiffSession({ idToken, storeSlug });
+        const body = await measureLiffClientPhase("session_exchange", () => refreshLiffSession({ idToken, storeSlug }));
         if (cancelled) return;
 
         if (body.status === "session_created") {
           // Course uses the same authenticated mobile portal in LINE and browsers.
           // Branch before legacy summaries/work routing to avoid steamfoot/SPA data.
           if (memberDataSource === "course") {
-            window.location.replace(courseMemberReturnPath(storeSlug, bookingIntent ? "?courseView=schedule" : window.location.search));
+            window.location.replace(courseMemberReturnPath(storeSlug, bookingIntent ? "?courseView=schedule" : window.location.search, true));
             return;
           }
-          const [memberContext, workAccess] = await Promise.all([
-            fetchLiffMemberStoreContext().catch(() => null),
-            fetchLiffStaffAccess().catch(() => ({ status: "no_access" as const })),
-          ]);
+          const { memberContext, workAccess } = await measureLiffClientPhase("home_access", () => fetchLiffHomeAccess());
           if (cancelled) return;
           if (memberContext?.status === "signed_in") {
             setMemberStores(memberContext.stores);
@@ -298,21 +289,11 @@ export function LiffShell({
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-3 px-4 pb-4 pt-2">
-      <header aria-label="LINE 門市識別" className="flex items-center justify-between gap-3">
-        <SteamButlerLogo className="w-20" />
-        <div className="min-w-0 flex-1 text-right">
-          {state.kind === "signed_in" ? (
-            <LiffStoreSwitcher
-              currentStoreSlug={storeSlug}
-              currentStoreName={storeName}
-              stores={memberStores}
-            />
-          ) : (
-            <p className="break-words text-lg font-semibold text-primary-900">{storeName}</p>
-          )}
-          <p className="mt-0.5 text-sm text-earth-500">{liffMessages.shell.memberHomeLabel}</p>
-        </div>
-      </header>
+      <MemberPortalHeader label="LINE 門市識別"
+        store={state.kind === "signed_in" ? <LiffStoreSwitcher currentStoreSlug={storeSlug} currentStoreName={storeName} stores={memberStores} /> : <p className="break-words text-lg font-semibold text-primary-900">{storeName}</p>}
+        caption={liffMessages.shell.memberHomeLabel}
+        account={<FrontendAccountMenu storeSlug={storeSlug} name={state.kind === "signed_in" ? state.displayName : null} readOnly={state.kind === "initializing" || state.kind === "exchanging"} />}
+      />
 
       {state.kind === "initializing" && (
         <Loading text={liffMessages.shell.initializing} />
@@ -498,19 +479,7 @@ function WelcomeCta({
   );
 }
 
-export function WelcomeBack({
-  storeSlug,
-  displayName,
-  memberSummary,
-  healthAssessmentEnabled,
-  terminology,
-  memberDataSource = "steamfoot",
-  bookingHref,
-  memberLinks,
-  hasWorkAccess = false,
-  compactHome = false,
-  previewAnnouncements = false,
-}: {
+type WelcomeBackProps = {
   storeSlug: string;
   displayName: string | null;
   memberSummary: MemberHomeSummary | "error" | null;
@@ -527,7 +496,28 @@ export function WelcomeBack({
   hasWorkAccess?: boolean;
   compactHome?: boolean;
   previewAnnouncements?: boolean;
-}) {
+};
+
+export function WelcomeBack(props: WelcomeBackProps) {
+  // Public announcements do not depend on private membership summaries.
+  // Keep one stable mount while those summaries load or fail.
+  return <>
+    <StoreImageAnnouncements storeSlug={props.storeSlug} preview={props.previewAnnouncements ?? false} />
+    <MemberHomeContent {...props} />
+  </>;
+}
+
+function MemberHomeContent({
+  storeSlug,
+  displayName,
+  memberSummary,
+  healthAssessmentEnabled,
+  terminology,
+  memberDataSource = "steamfoot",
+  bookingHref,
+  memberLinks,
+  compactHome = false,
+}: WelcomeBackProps) {
   if (!memberSummary) {
     return (
       <div className="flex flex-col gap-3">
@@ -588,8 +578,6 @@ export function WelcomeBack({
       <p className="px-1 text-sm font-medium text-earth-600">
         {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
       </p>
-
-      <StoreImageAnnouncements storeSlug={storeSlug} preview={previewAnnouncements} />
 
       <section className="rounded-2xl bg-primary-800 px-4 py-3 text-white shadow-[0_14px_34px_rgba(52,47,39,0.18)]">
         <p className="text-sm font-medium text-earth-300">下一次預約</p>

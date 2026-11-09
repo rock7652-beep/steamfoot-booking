@@ -69,6 +69,16 @@ it("調課後的原位置也可排較長新課", async () => {
  await expect(assertSportsSeriesFree(tx as unknown as Prisma.TransactionClient, store,
   [{startsAt: at("08:30"), endsAt: at("10:30")}], resources)).resolves.toBeUndefined();
 });
+it("取消當次固定課後可排體驗，但後續固定週仍保留", async () => {
+ const tx = recordsFixture([freed("2026-11-23", {
+  startsAt: at("09:00", "2026-11-23"), endsAt: at("10:00", "2026-11-23"),
+  releasedAt: null, cancelledAt: at("08:00", "2026-11-23"),
+ })]);
+ await expect(assertSportsSeriesFree(tx as unknown as Prisma.TransactionClient, store,
+  [range("2026-11-23")], resources)).resolves.toBeUndefined();
+ await expect(assertSportsSeriesFree(tx as unknown as Prisma.TransactionClient, store,
+  [range("2026-11-30")], resources)).rejects.toThrow("持續固定課");
+});
 it.each([
  ["未釋放的原課", freed("2026-11-02", {releasedAt: null})],
  ["其他店家", freed("2026-11-02", {storeId: "another-store"})],
@@ -93,11 +103,20 @@ it("原課釋放不放寬新永久系列，後續每週仍保留", async () => {
  await expect(assertSportsSeriesFree(tx as unknown as Prisma.TransactionClient, store,
   [{startsAt: at("09:00"), endsAt: at("11:00")}], resources, "new-series", "WEEKLY")).rejects.toThrow("固定時段尚未建立");
 });
+it("固定課遇到後續單次衝突時列出所有日期，不只第一筆", async () => {
+ const session=(day:string)=>({...range(day),roomId:"room",coachId:"coach"});
+ const tx={...recordsFixture([],[]),courseSession:{findMany:vi.fn().mockResolvedValue([
+  session("2026-11-30"),session("2026-11-23"),
+ ])},courseRental:{findMany:vi.fn().mockResolvedValue([])}};
+ await expect(assertSportsSeriesFree(tx as unknown as Prisma.TransactionClient,store,
+  [range("2026-11-02")],resources,"new-series","WEEKLY"))
+  .rejects.toThrow("2026-11-23 · 2026-11-23 09:00–2026-11-23 10:00 教室及老師已有課程；2026-11-30 · 2026-11-30 09:00–2026-11-30 10:00 教室及老師已有課程");
+});
 it.each(["course", "rental"])("釋放原課後仍阻擋延伸部分已占用的 %s", async kind => {
  const {rentalConflict} = await import("@/server/services/course-rental");
  const occupied = {...freed(), id: "new-occupant", requestKey: "another", startsAt: at("10:00"), endsAt: at("11:00"), releasedAt: null};
  const tx = recordsFixture(kind === "course" ? [freed(), occupied] : [freed()]);
- if (kind === "rental") tx.courseRental.findFirst.mockResolvedValue({id: "rental"} as never);
+ if (kind === "rental") tx.courseRental.findFirst.mockResolvedValue({id: "rental",occupiedStartsAt:at("10:00"),occupiedEndsAt:at("11:00")} as never);
  await expect(rentalConflict(tx as unknown as Prisma.TransactionClient, store, "room", at("09:00"), at("11:00")))
   .rejects.toThrow("已有課程或租借");
 });

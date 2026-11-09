@@ -446,7 +446,7 @@ export default async function PlansCenterPage() {
         </header>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-[13px]">
+          <table data-striped-list className="w-full min-w-[760px] text-[13px]">
             <thead>
               <tr className="border-y border-earth-100 text-[11px] text-earth-400">
                 <th className="px-5 py-2 text-left font-medium">功能</th>
@@ -467,14 +467,14 @@ export default async function PlansCenterPage() {
                       : ""
                   }
                 >
-                  <td className="px-5 py-2 text-earth-600">{row.label}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-5 py-1 text-earth-600">{row.label}</td>
+                  <td className="px-3 py-1">
                     <ComparisonText value={row.basic} />
                   </td>
-                  <td className="bg-primary-50/40 px-3 py-2">
+                  <td className="bg-primary-50/40 px-3 py-1">
                     <ComparisonText value={row.professional} />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-1">
                     <ComparisonText value={row.scale} />
                   </td>
                 </tr>

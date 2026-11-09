@@ -25,7 +25,7 @@ export function PersonalIncomePanel({ lines, feeLabel = "授課費", compact = f
   const visible = filterIncomeLines(lines, query);
   const pagination = pageIncomeLines(visible, page);
   const filtered = query.trim() !== "";
-  const kinds = (["FEE", "PROFIT"] as const).filter(kind => lines.some(line => line.kind === kind));
+  const kinds = (["FEE", "PROFIT", "ADJUSTMENT"] as const).filter(kind => lines.some(line => line.kind === kind));
 
   if (!lines.length) return <p role="status" className="rounded-xl border border-earth-200 bg-white p-4 text-sm">本月尚無本人的已確認收入項目。</p>;
 
@@ -54,7 +54,7 @@ export function PersonalIncomePanel({ lines, feeLabel = "授課費", compact = f
       if (!group.length) return null;
       return <section key={kind} className="overflow-hidden rounded-xl border border-earth-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-          <h2 className="text-sm font-semibold">{kind === "FEE" ? feeLabel : "店長利潤"}<span className="ml-2 text-xs font-normal text-earth-500">共 {allInKind.length} 筆</span></h2>
+          <h2 className="text-sm font-semibold">{kind === "FEE" ? feeLabel : kind === "ADJUSTMENT" ? "獎勵與調整" : "店長利潤"}<span className="ml-2 text-xs font-normal text-earth-500">共 {allInKind.length} 筆</span></h2>
           {kinds.length > 1 ? <span className="break-words text-xs tabular-nums text-earth-600">{filtered ? "篩選小計" : "整月小計"} {money(summarizePersonalIncome(allInKind).total)}</span> : null}
         </div>
         {group.map((line, index) => {

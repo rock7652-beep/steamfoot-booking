@@ -14,7 +14,7 @@ import { BookableUntilForm } from "./bookable-until-form";
 
 const WEEK_DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 
-export default async function ScheduleSettingsPage({searchParams}:{searchParams?:Promise<{tab?:string}>}={}) {
+export default async function ScheduleSettingsPage({searchParams}:{searchParams?:Promise<{tab?:string}>}) {
   const params=await searchParams;
   const user = await getCurrentUser();
   if (!user) notFound();

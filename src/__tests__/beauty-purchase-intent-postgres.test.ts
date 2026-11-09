@@ -1,0 +1,97 @@
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+vi.mock('server-only',()=>({}));
+import { acknowledgeBeautyPlanIntent, beautyPlanIntentFingerprint, cancelBeautyPlanIntent, commitBeautyPlanIntent, prepareBeautyPlanIntent, prepareBeautyPlanIntentAtomic, readBeautyPlanIntent } from '@/server/beauty/purchase-intent';
+import { assertOnlineConfirmationSettled } from '@/server/beauty/online-confirm-guard';
+import type { Tx } from '@/server/beauty/booking';
+
+// Opt-in only: the test will connect solely to the dedicated local QA database
+// and always creates an isolated throwaway schema. Never point it at live data.
+const url=process.env.QA_INTENT_PG;
+const valid=!!url && (()=>{try{const u=new URL(url);return u.protocol==='postgresql:'&&u.hostname==='127.0.0.1'&&u.port==='55439'&&u.pathname==='/booking_concurrency_test'&&u.search===''&&u.hash==='';}catch{return false;}})();
+const {Client}=createRequire(import.meta.url)('pg');
+const schema=`beauty_intent_test_${process.pid}`;
+const actor={storeId:'beauty-test-store',userId:'test-actor',manager:true};
+const key='123e4567-e89b-42d3-a456-426614174000', customerId='test-customer';
+const fp=()=>beautyPlanIntentFingerprint({customerId,amount:123,transferLastFour:'4321'});
+type QueryClient={query:(query:string,values?:unknown[])=>Promise<{rows:unknown[];rowCount:number|null}>;end:()=>Promise<void>;connect:()=>Promise<void>};
+const connect=async()=>{const c=new Client({connectionString:url}) as QueryClient;await c.connect();await c.query(`SET search_path TO "${schema}"`);return c;};
+function txFor(c:QueryClient):Tx { const tagged=async(strings:TemplateStringsArray,...values:unknown[])=>c.query(strings.reduce((text,s,i)=>text+s+(i<values.length?`$${i+1}`:''),''),values);return {$queryRaw:async(...args:Parameters<typeof tagged>)=>(await tagged(...args)).rows,$executeRaw:async(...args:Parameters<typeof tagged>)=>(await tagged(...args)).rowCount} as unknown as Tx; }
+async function transaction<T>(fn:(tx:Tx)=>Promise<T>):Promise<T>{const c=await connect();try{await c.query('BEGIN');await c.query('SELECT id FROM "Store" WHERE id=$1 FOR UPDATE',[actor.storeId]);const result=await fn(txFor(c));await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK');throw e;}finally{await c.end();}}
+
+describe.skipIf(!valid)('beauty plan intent with real store-row locking',()=>{
+ beforeAll(async()=>{process.env.AUTH_SECRET='local-intent-test-secret';const c=new Client({connectionString:url}) as QueryClient;await c.connect();await c.query(`CREATE SCHEMA "${schema}"`);await c.query(`SET search_path TO "${schema}"`);await c.query('CREATE TABLE "Store" (id text PRIMARY KEY)');await c.query('CREATE TABLE "User" (id text PRIMARY KEY)');await c.query('CREATE TABLE "Customer" ("storeId" text,id text,PRIMARY KEY("storeId",id))');await c.query('CREATE TABLE "BeautyCard" ("storeId" text,id text,PRIMARY KEY("storeId",id))');await c.query('CREATE TABLE "BeautyPurchase" ("storeId" text,id text,"cardId" text,PRIMARY KEY("storeId",id))');await c.query('INSERT INTO "Store" (id) VALUES ($1)',[actor.storeId]);await c.query('INSERT INTO "User" (id) VALUES ($1)',[actor.userId]);await c.query('INSERT INTO "Customer" ("storeId",id) VALUES ($1,$2)',[actor.storeId,customerId]);const migration=readFileSync('supabase/migrations/20261028111327_beauty_plan_purchase_intents.sql','utf8').replaceAll('public.',`"${schema}".`);await c.query(migration);await c.query('CREATE TABLE "TestCard" (id text PRIMARY KEY)');await c.end();});
+ afterAll(async()=>{const c=new Client({connectionString:url}) as QueryClient;await c.connect();await c.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);await c.end();delete process.env.AUTH_SECRET;});
+ it('applies the actual migration with RLS, no public grants and unresolved unique index',async()=>{const c=await connect();const r=await c.query(`SELECT c.relrowsecurity,NOT EXISTS (SELECT 1 FROM aclexplode(COALESCE(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee=0) AS no_public,pg_get_expr(i.indpred,i.indrelid) AS predicate FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_index i ON i.indrelid=c.oid JOIN pg_class x ON x.oid=i.indexrelid WHERE n.nspname=$1 AND c.relname='BeautyPurchaseIntent' AND x.relname='BeautyPurchaseIntent_one_unresolved_per_customer'`,[schema]);await c.end();expect(r.rows).toHaveLength(1);expect(r.rows[0]).toMatchObject({relrowsecurity:true,no_public:true});expect((r.rows[0] as {predicate:string}).predicate).toContain('COMMITTED');expect((r.rows[0] as {predicate:string}).predicate).toContain('PREPARED');});
+ it('keeps order correction and card refund blocked through commit until explicit acknowledgement',async()=>{
+  process.env.BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED='1';const k=key+'-order';
+  try{
+   await transaction(async tx=>{await tx.$executeRaw`INSERT INTO "BeautyPurchase" ("storeId",id) VALUES (${actor.storeId},'order')`;await prepareBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()});await tx.$executeRaw`INSERT INTO "BeautyOnlineConfirmIntent" ("storeId","requestKey","orderId") VALUES (${actor.storeId},${k},'order')`;});
+   await expect(transaction(tx=>assertOnlineConfirmationSettled(tx,actor.storeId,{orderId:'order'}))).rejects.toThrow('尚未完成的核帳確認');
+   await transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},async()=>{await tx.$executeRaw`INSERT INTO "BeautyCard" ("storeId",id) VALUES (${actor.storeId},'online-card')`;await tx.$executeRaw`UPDATE "BeautyPurchase" SET "cardId"='online-card' WHERE "storeId"=${actor.storeId} AND id='order'`;return {cardId:'online-card'};}));
+   await expect(transaction(tx=>assertOnlineConfirmationSettled(tx,actor.storeId,{cardId:'online-card'}))).rejects.toThrow('尚未完成的核帳確認');
+   await transaction(tx=>acknowledgeBeautyPlanIntent(tx,actor,{requestKey:k,customerId,purchaseId:'online-card'}));
+   await expect(transaction(tx=>assertOnlineConfirmationSettled(tx,actor.storeId,{orderId:'order',cardId:'online-card'}))).resolves.toBeUndefined();
+  }finally{delete process.env.BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED;}
+ });
+ it('serializes confirmation against a concurrent correction under the same store lock',async()=>{
+  process.env.BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED='1';const k=key+'-guard-race';
+  try{
+   await transaction(async tx=>{await tx.$executeRaw`INSERT INTO "BeautyPurchase" ("storeId",id) VALUES (${actor.storeId},'order-race')`;await prepareBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()});await tx.$executeRaw`INSERT INTO "BeautyOnlineConfirmIntent" ("storeId","requestKey","orderId") VALUES (${actor.storeId},${k},'order-race')`;});
+   let entered!:()=>void,release!:()=>void;const ready=new Promise<void>(r=>{entered=r}),gate=new Promise<void>(r=>{release=r});
+   const commit=transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},async()=>{await tx.$executeRaw`INSERT INTO "BeautyCard" ("storeId",id) VALUES (${actor.storeId},'race-card')`;await tx.$executeRaw`UPDATE "BeautyPurchase" SET "cardId"='race-card' WHERE "storeId"=${actor.storeId} AND id='order-race'`;entered();await gate;return {cardId:'race-card'};}));
+   await ready;const correction=transaction(tx=>assertOnlineConfirmationSettled(tx,actor.storeId,{orderId:'order-race'}));release();
+   expect(await commit).toEqual({cardId:'race-card'});await expect(correction).rejects.toThrow('尚未完成的核帳確認');
+   await transaction(tx=>acknowledgeBeautyPlanIntent(tx,actor,{requestKey:k,customerId,purchaseId:'race-card'}));
+  }finally{delete process.env.BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED;}
+ });
+ it('also blocks refund or void for a direct-purchase card until acknowledged',async()=>{
+  process.env.BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED='1';const k=key+'-offline-guard';
+  try{
+   await transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()}));
+   await transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},async()=>{await tx.$executeRaw`INSERT INTO "BeautyCard" ("storeId",id) VALUES (${actor.storeId},'offline-card')`;return {cardId:'offline-card'};}));
+   await expect(transaction(tx=>assertOnlineConfirmationSettled(tx,actor.storeId,{cardId:'offline-card'}))).rejects.toThrow('尚未完成的核帳確認');
+   await transaction(tx=>acknowledgeBeautyPlanIntent(tx,actor,{requestKey:k,customerId,purchaseId:'offline-card'}));
+   await expect(transaction(tx=>assertOnlineConfirmationSettled(tx,actor.storeId,{cardId:'offline-card'}))).resolves.toBeUndefined();
+  }finally{delete process.env.BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED;}
+ });
+ it('cancellation before a delayed prepare leaves a durable tombstone',async()=>{const k=key+'-cancel';expect((await transaction(tx=>cancelBeautyPlanIntent(tx,actor,{requestKey:k,customerId}))).status).toBe('CANCELLED');expect((await transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()}))).status).toBe('CANCELLED');await expect(transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},async()=>({cardId:'never'})))).rejects.toThrow('安全取消');});
+ it('atomic concurrent preparations return one original and tombstone the competing key',async()=>{
+  const keys=[key+'-atomic-one',key+'-atomic-two'];
+  const results=await Promise.all(keys.map(requestKey=>transaction(tx=>prepareBeautyPlanIntentAtomic(tx,actor,{requestKey,customerId,fingerprint:fp()}))));
+  const winner=results.find(x=>x.kind==='prepared'),other=results.find(x=>x.kind==='existing');
+  expect(winner?.intent.status).toBe('PREPARED');expect(other?.intent).toEqual(winner?.intent);
+  const loser=keys.find(k=>k!==winner?.intent.requestKey)!;
+  expect((await transaction(tx=>readBeautyPlanIntent(tx,actor,{customerId,requestKey:loser})))?.status).toBe('CANCELLED');
+  expect((await transaction(tx=>prepareBeautyPlanIntentAtomic(tx,actor,{requestKey:loser,customerId,fingerprint:fp()}))).intent.status).toBe('CANCELLED');
+  await expect(transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:loser,customerId,fingerprint:fp()},async()=>({cardId:'never-atomic'})))).rejects.toThrow('安全取消');
+  await transaction(tx=>cancelBeautyPlanIntent(tx,actor,{customerId,requestKey:winner!.intent.requestKey}));
+ });
+ it('atomic prepare respects a cancellation made before the delayed original request',async()=>{
+  const requestKey=key+'-atomic-late';await transaction(tx=>cancelBeautyPlanIntent(tx,actor,{requestKey,customerId}));
+  const result=await transaction(tx=>prepareBeautyPlanIntentAtomic(tx,actor,{requestKey,customerId,fingerprint:fp()}));
+  expect(result.intent.status).toBe('CANCELLED');
+  await expect(transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey,customerId,fingerprint:fp()},async()=>({cardId:'never-late'})))).rejects.toThrow('安全取消');
+ });
+ it('serializes competing purchase attempts from two different managers',async()=>{
+  const second={...actor,userId:'test-actor-two'},keys=[key+'-manager-one',key+'-manager-two'];
+  await transaction(tx=>tx.$executeRaw`INSERT INTO "User" (id) VALUES (${second.userId})`);
+  const results=await Promise.all([actor,second].map((manager,index)=>transaction(tx=>prepareBeautyPlanIntentAtomic(tx,manager,{requestKey:keys[index],customerId,fingerprint:fp()}))));
+  const winner=results.find(result=>result.kind==='prepared')!,loser=results.find(result=>result.kind==='existing')!;
+  expect(loser.intent).toEqual(winner.intent);
+  const losingKey=keys.find(candidate=>candidate!==winner.intent.requestKey)!;
+  expect((await transaction(tx=>readBeautyPlanIntent(tx,second,{customerId,requestKey:losingKey})))?.status).toBe('CANCELLED');
+  let created=0;
+  const checkout=(manager:typeof actor)=>transaction(tx=>commitBeautyPlanIntent(tx,manager,{requestKey:winner.intent.requestKey,customerId,fingerprint:fp()},async()=>{created++;await tx.$executeRaw`INSERT INTO "BeautyCard" ("storeId",id) VALUES (${actor.storeId},'two-manager-card')`;return {cardId:'two-manager-card'};}));
+  expect(await Promise.all([checkout(actor),checkout(second)])).toEqual([{cardId:'two-manager-card'},{cardId:'two-manager-card'}]);
+  expect(created).toBe(1);
+  await expect(transaction(tx=>commitBeautyPlanIntent(tx,second,{requestKey:losingKey,customerId,fingerprint:fp()},async()=>({cardId:'unexpected'})))).rejects.toThrow('安全取消');
+  expect((await transaction(tx=>acknowledgeBeautyPlanIntent(tx,second,{requestKey:winner.intent.requestKey,customerId,purchaseId:'two-manager-card'}))).status).toBe('ACKNOWLEDGED');
+ });
+ it('concurrent different keys for the same customer permit one prepared intent',async()=>{const results=await Promise.allSettled(['one','two'].map(s=>transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:key+s,customerId,fingerprint:fp()}))));expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(results.filter(r=>r.status==='rejected')).toHaveLength(1);const row=await transaction(tx=>readBeautyPlanIntent(tx,actor,{customerId}));expect(row?.status).toBe('PREPARED');expect(row).toBeTruthy();await transaction(tx=>cancelBeautyPlanIntent(tx,actor,{customerId,requestKey:row!.requestKey}));});
+ it('a committed sale replay or cancellation never creates a second card',async()=>{const k=key+'-commit';await transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()}));const create=async(tx:Tx)=>{await tx.$executeRaw`INSERT INTO "BeautyCard" ("storeId",id) VALUES (${actor.storeId},'card-1')`;await tx.$executeRaw`INSERT INTO "TestCard" (id) VALUES ('card-1')`;return {cardId:'card-1'};};const results=await Promise.all([transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},()=>create(tx))),transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},()=>create(tx)))]);expect(results).toEqual([{cardId:'card-1'},{cardId:'card-1'}]);expect((await transaction(tx=>cancelBeautyPlanIntent(tx,actor,{requestKey:k,customerId}))).status).toBe('COMMITTED');expect((await transaction(tx=>readBeautyPlanIntent(tx,actor,{customerId})))?.status).toBe('COMMITTED');await expect(transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:key+'-new',customerId,fingerprint:fp()}))).rejects.toThrow('未確認');await expect(transaction(tx=>acknowledgeBeautyPlanIntent(tx,actor,{requestKey:k,customerId,purchaseId:'wrong'}))).rejects.toThrow('不一致');expect((await transaction(tx=>acknowledgeBeautyPlanIntent(tx,actor,{requestKey:k,customerId,purchaseId:'card-1'}))).status).toBe('ACKNOWLEDGED');const c=await connect();const count=await c.query('SELECT count(*)::int AS n FROM "TestCard"');await c.end();expect(count.rows).toEqual([{n:1}]);});
+ it('rejects a changed input and rolls back failed writes',async()=>{const k=key+'-changed';await transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()}));await expect(transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:beautyPlanIntentFingerprint({amount:999})},async()=>({cardId:'x'})))).rejects.toThrow('資料已變更');await expect(transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},async()=>{await tx.$executeRaw`INSERT INTO "TestCard" (id) VALUES ('will-rollback')`;throw new Error('injected failure');}))).rejects.toThrow('injected failure');expect((await transaction(tx=>readBeautyPlanIntent(tx,actor,{customerId,requestKey:k})))?.status).toBe('PREPARED');const c=await connect();const rows=await c.query('SELECT id FROM "TestCard" WHERE id=$1',['will-rollback']);await c.end();expect(rows.rows).toEqual([]);});
+ it('cancellation holding the store lock rejects a simultaneous late commit',async()=>{const old=await transaction(tx=>readBeautyPlanIntent(tx,actor,{customerId}));if(old)await transaction(tx=>cancelBeautyPlanIntent(tx,actor,{customerId,requestKey:old.requestKey}));const k=key+'-race';await transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()}));let started!:()=>void,release!:()=>void;const entered=new Promise<void>(r=>{started=r}),gate=new Promise<void>(r=>{release=r});const cancelling=transaction(async tx=>{const result=await cancelBeautyPlanIntent(tx,actor,{requestKey:k,customerId});started();await gate;return result;});await entered;let workCalled=false;const committing=transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},async()=>{workCalled=true;return{cardId:'late-card'};}));release();expect((await cancelling).status).toBe('CANCELLED');await expect(committing).rejects.toThrow('安全取消');expect(workCalled).toBe(false);});
+ it('a committed transaction holding the lock wins over simultaneous cancellation',async()=>{const k=key+'-commit-race';await transaction(tx=>prepareBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()}));let started!:()=>void,release!:()=>void;const entered=new Promise<void>(r=>{started=r}),gate=new Promise<void>(r=>{release=r});const committing=transaction(tx=>commitBeautyPlanIntent(tx,actor,{requestKey:k,customerId,fingerprint:fp()},async()=>{await tx.$executeRaw`INSERT INTO "BeautyCard" ("storeId",id) VALUES (${actor.storeId},'winner-card')`;started();await gate;return{cardId:'winner-card'};}));await entered;const cancelling=transaction(tx=>cancelBeautyPlanIntent(tx,actor,{requestKey:k,customerId}));release();expect(await committing).toEqual({cardId:'winner-card'});expect(await cancelling).toEqual({requestKey:k,status:'COMMITTED',purchaseId:'winner-card'});});
+});

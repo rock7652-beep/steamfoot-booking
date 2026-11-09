@@ -6,3 +6,17 @@ export async function verifySportsProductionReadiness(query){
  if(!row||['schema_matches','ledger_ready','browser_blocked','app_can_use'].some(key=>row[key]!==true))throw new Error('運動模組資料庫尚未就緒，請聯絡管理者確認版本與權限。');
  return {applicationRole:row.application_role,ready:true};
 }
+
+// Booking reads must validate the same schema/ledger/browser boundary without
+// requiring table ownership, BYPASSRLS or scheduling write privileges.
+const bookingReadStart=sportsProductionReadinessSql.indexOf("has_schema_privilege(current_user");
+const bookingReadEnd=sportsProductionReadinessSql.indexOf(' AS app_can_use',bookingReadStart);
+if(bookingReadStart<0||bookingReadEnd<bookingReadStart)throw new Error('Sports readiness capability projection changed');
+const bookingReadCapability=`has_schema_privilege(current_user,'public','USAGE') AND
+ (SELECT bool_and(has_column_privilege(current_user,'public."SportsStagingSessionRule"',name,'SELECT'))
+ FROM unnest(ARRAY['storeId','sessionId','frequency','enrollment','planId','trialPrice','payload']) name)`;
+export const sportsBookingReadinessSql=sportsProductionReadinessSql.slice(0,bookingReadStart)+bookingReadCapability+sportsProductionReadinessSql.slice(bookingReadEnd);
+/** @param {(sql:string)=>Promise<Array<Record<string,unknown>>>} query */
+export async function verifySportsBookingReadiness(query){
+ return verifySportsProductionReadiness(()=>query(sportsBookingReadinessSql));
+}

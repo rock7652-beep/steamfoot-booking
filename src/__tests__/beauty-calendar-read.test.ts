@@ -16,7 +16,7 @@ it('retains authorized rentals when the calendar transport refreshes',async()=>{
 });
 it('requests the native padded month only through the same store guard',async()=>{
  expect((await GET(request('date=2026-10-22&calendar=month&store=test&native=1'))).status).toBe(200);
- expect(m.read).toHaveBeenCalledWith('2026-10-22','month',true,'test');m.read.mockClear();
+ expect(m.read).toHaveBeenCalledWith('2026-10-22','month',true,'test',true);m.read.mockClear();
  expect((await GET(request('date=2026-10-22&calendar=day&store=test&native=1'))).status).toBe(403);
- expect((await GET(request('date=2026-10-22&calendar=month&store=other&native=1'))).status).toBe(403);expect(m.read).toHaveBeenCalledExactlyOnceWith('2026-10-22','month',true,'other');
+ expect((await GET(request('date=2026-10-22&calendar=month&store=other&native=1'))).status).toBe(403);expect(m.read).toHaveBeenCalledExactlyOnceWith('2026-10-22','month',true,'other',true);
 });

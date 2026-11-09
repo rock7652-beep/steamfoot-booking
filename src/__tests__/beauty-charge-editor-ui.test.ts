@@ -18,11 +18,11 @@ function fill(name:string,value:string){act(()=>{Object.getOwnPropertyDescriptor
 function selectByLabel(label:string,value:string){act(()=>{const el=document.querySelector(`select[aria-label="${label}"]`) as HTMLSelectElement;el.value=value;el.dispatchEvent(new Event('change',{bubbles:true}));});}
 async function submit(){await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));}
 it('single exposes trial minutes, plan removes trial fields and restores them when switching back',()=>{mount();expect(field('trialDuration')).toBeTruthy();selectByLabel('收費類型','plan');expect(document.querySelector('[name="trialDuration"]')).toBeNull();expect(field('points').min).toBe('2');selectByLabel('收費類型','single');expect(field('trialDuration')).toBeTruthy();});
-it('preview submits only a local summary, preserving zero and inherited duration',async()=>{mount();fill('name','按摩');fill('price','1000');fill('trialPrice','0');act(()=>document.querySelector<HTMLInputElement>('[data-fee-coaches] input[type="checkbox"]')!.click());await submit();expect(document.querySelector('[role="alert"]')?.textContent).toContain('體驗 $0・60 分鐘');selectByLabel('服務項目','f');expect(document.querySelectorAll('[data-fee-coaches] input[type="checkbox"]').length).toBe(0);});
-it('an unsupported persistence port cannot be called even with valid fields',async()=>{const save=vi.fn<BeautyChargePort['save']>();mount({perChargeTechnicians:false,save});fill('name','按摩');fill('price','1000');act(()=>document.querySelector<HTMLInputElement>('[data-fee-coaches] input[type="checkbox"]')!.click());await submit();expect(save).not.toHaveBeenCalled();expect(document.querySelector('[role="alert"]')?.textContent).toContain('未儲存');});
+it('preview submits only a local summary, preserving zero and inherited duration',async()=>{mount();fill('name','按摩');fill('price','1000');fill('trialPrice','0');await submit();expect(document.querySelector('[role="alert"]')?.textContent).toContain('體驗 $0・60 分鐘');selectByLabel('服務項目','f');expect(document.querySelectorAll('[data-fee-coaches] input[type="checkbox"]').length).toBe(0);});
+it('an unsupported persistence port cannot be called even with valid fields',async()=>{const save=vi.fn<BeautyChargePort['save']>();mount({perChargeTechnicians:false,save});fill('name','按摩');fill('price','1000');await submit();expect(save).not.toHaveBeenCalled();expect(document.querySelector('[role="alert"]')?.textContent).toContain('未儲存');});
 
 const savedSingle:BeautyChargeDraft={expectedStoreId:'store',kind:'single',serviceId:'s',name:'按摩單次',price:1000,sessions:1,trialPrice:null,trialMinutes:null,technicianIds:['t']};
-it('allows explicitly removing a retired selected technician instead of trapping an invisible invalid ID',async()=>{mount(undefined,{...savedSingle,technicianIds:['t','deleted']});const label=[...document.querySelectorAll('label')].find(l=>l.textContent?.includes('已移除技師'));expect(label).toBeTruthy();act(()=>label!.querySelector<HTMLInputElement>('input')!.click());expect(document.body.textContent).not.toContain('已移除技師');await submit();expect(document.querySelector('[role="alert"]')?.textContent).toContain('僅核對');});
+it('single services follow all qualified technicians and ignore retired charge selections',async()=>{mount(undefined,{...savedSingle,technicianIds:['t','deleted']});expect(document.body.textContent).not.toContain('已移除技師');expect(document.querySelector('[data-service-qualified-technicians]')).not.toBeNull();await submit();expect(document.querySelector('[role="alert"]')?.textContent).toContain('僅核對');});
 it('locks repeated submits while a real persistence port is pending',async()=>{let release!:(value:{success:boolean})=>void;const save=vi.fn<BeautyChargePort['save']>().mockImplementation(()=>new Promise(done=>{release=done;}));mount({perChargeTechnicians:true,save},savedSingle);await submit();await submit();expect(save).toHaveBeenCalledTimes(1);await act(async()=>{release({success:true});});});
 
 it('closes an edited beauty charge without a discard prompt, but blocks closing while saving',async()=>{
@@ -58,7 +58,7 @@ it('retains the same draft after an uncertain save and prevents closing until it
 it('groups prices before costs and keeps blank inheritance distinct from an explicit zero trial fee',async()=>{
  const save=vi.fn<BeautyChargePort['save']>().mockResolvedValue({success:true});
  mount({perChargeTechnicians:true,save},{...savedSingle,storeCost:300,trialPrice:750,trialStoreCost:150});
- expect([...document.querySelectorAll('[aria-label="價格與分帳"] input')].map(n=>n.getAttribute('name'))).toEqual(['price','trialPrice','storeCost','trialStoreCost']);
+ expect([...document.querySelectorAll('[aria-label="價格與分帳"] input')].map(n=>n.getAttribute('name'))).toEqual(['price','trialPrice','trialDuration','storeCost','trialStoreCost']);
  expect(document.querySelectorAll('[name="price"]')).toHaveLength(1);
  expect(document.querySelector('[data-charge-allocation]')?.textContent).toContain('一般服務：店家 $300／所屬店長 $700');
  expect(document.querySelector('[data-charge-allocation]')?.textContent).toContain('體驗：店家 $150／所屬店長 $600');
@@ -73,4 +73,14 @@ it('does not send trial fee fields for a multi-session plan',async()=>{
  await submit();expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][0]).not.toHaveProperty('trialStoreCost');
 });
 
-it('shows a readable validation message rather than a raw JSON array when no technician is selected',async()=>{mount({perChargeTechnicians:true,save:vi.fn()});fill('name','按摩');fill('price','1000');await submit();const message=document.querySelector('[role="alert"]')?.textContent??'';expect(message).toContain('至少');expect(message).not.toContain('"code"');expect(message).not.toContain('"path"');});
+it('shows a readable validation message rather than a raw JSON array when no technician is selected',async()=>{mount({perChargeTechnicians:true,save:vi.fn()});selectByLabel('服務項目','f');fill('name','按摩');fill('price','1000');await submit();const message=document.querySelector('[role="alert"]')?.textContent??'';expect(message).toContain('至少');expect(message).not.toContain('"code"');expect(message).not.toContain('"path"');});
+
+it('keeps optional sections collapsed with summaries and preserves their saved values on a normal price edit',async()=>{
+ const save=vi.fn<BeautyChargePort['save']>().mockResolvedValue({success:true});
+ mount({perChargeTechnicians:true,save},{...savedSingle,storeCost:300,trialPrice:250,trialStoreCost:0,trialMinutes:30});
+ for(const selector of ['[data-charge-trial]','[data-charge-profit]'])expect(document.querySelector<HTMLDetailsElement>(selector)!.open).toBe(false);
+ expect(document.querySelector('[data-charge-trial] summary')?.textContent).toContain('250');expect(document.querySelector('[data-charge-profit] summary')?.textContent).toContain('體驗店家 NT$ 0');expect(document.querySelector('[data-service-qualified-technicians]')?.textContent).toContain('雅婷');
+ expect(document.querySelector('select[aria-label="收費類型"]')).toBeNull();expect(document.querySelector('select[aria-label="服務項目"]')).toBeNull();
+ fill('price','1100');await submit();expect(save).toHaveBeenCalledWith(expect.objectContaining({price:1100,storeCost:300,trialPrice:250,trialStoreCost:0,trialMinutes:30,technicianIds:['t']}));
+});
+it('uses service qualifications for plans without any duplicate technician checkboxes',async()=>{const save=vi.fn<BeautyChargePort['save']>().mockResolvedValue({success:true});mount({perChargeTechnicians:true,save},{expectedStoreId:'store',kind:'plan',serviceId:'s',name:'五次按摩',price:4500,sessions:5,validDays:90,allowShared:true,technicianIds:[]});expect(document.querySelector('[data-charge-technicians]')).toBeNull();await submit();expect(save).toHaveBeenCalledWith(expect.objectContaining({technicianIds:['t']}));});

@@ -1,0 +1,47 @@
+[
+  {
+    "stage": "access",
+    "baselineMs": 329.85,
+    "optimizedMs": 301.35
+  },
+  {
+    "stage": "profile",
+    "baselineMs": 58.25,
+    "optimizedMs": 48.25
+  },
+  {
+    "stage": "ensure_month",
+    "baselineMs": 321.25,
+    "optimizedMs": 207.3
+  },
+  {
+    "stage": "pre_calendar",
+    "baselineMs": 173.5,
+    "optimizedMs": 69.45
+  },
+  {
+    "stage": "calendar_batch",
+    "baselineMs": 93.95,
+    "optimizedMs": 107.5
+  },
+  {
+    "stage": "post_calendar",
+    "baselineMs": 99.7,
+    "optimizedMs": 124.35
+  },
+  {
+    "stage": "presentation",
+    "baselineMs": 144.5,
+    "optimizedMs": 112.4
+  },
+  {
+    "stage": "server_total",
+    "baselineMs": 1210.35,
+    "optimizedMs": 1031.85
+  },
+  {
+    "stage": "browser_elapsed",
+    "baselineMs": 2541.5,
+    "optimizedMs": 2777.5
+  }
+]

@@ -791,3 +791,5 @@
 @media(min-width:640px){.cp-member-lessons li{grid-template-columns:170px minmax(0,1fr) auto}}
 
 .cp-member-records-embedded{border-top:1px solid #e7e5e4;padding-top:8px}.cp-purchased-quantity{display:block;font-size:14px;font-weight:400;line-height:1.5}.cp-member-purchase>summary{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;min-height:44px;align-items:center;cursor:pointer}.cp-plan-overview:has(.cp-plan-summary>button:only-child){padding:0;background:transparent;border:0;box-shadow:none}.cp-plan-overview .cp-plan-summary>button:only-child{margin-left:auto}
+
+.course-portal .cp-store-name { margin: 0; color: #25483f; font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }

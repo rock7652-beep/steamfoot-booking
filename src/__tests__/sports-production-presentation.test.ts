@@ -3,6 +3,7 @@ import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 vi.mock('@/server/actions/sports-staging',()=>({loadSportsStaging:vi.fn(),saveSportsSubject:vi.fn(),saveSportsFee:vi.fn(),sportsStagingCommand:vi.fn()}));
+vi.mock('@/server/actions/course-purchase-intent',()=>({prepareCoursePurchaseIntent:vi.fn(),getCoursePurchaseIntent:vi.fn(),getPendingCoursePurchaseIntent:vi.fn(),cancelCoursePurchaseIntent:vi.fn(),acknowledgeCoursePurchaseIntent:vi.fn()}));
 import {SportsStagingWorkspace} from '@/components/admin/sports-staging-workspace';
 import type {SportsSnapshot} from '@/lib/sports-staging-types';
 const initial:SportsSnapshot={storeId:'pilot-store',date:'2026-10-18',subjects:[],fees:[],lessons:[],students:[],customers:[],coaches:[],rooms:[]};

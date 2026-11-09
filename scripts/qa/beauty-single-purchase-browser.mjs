@@ -76,7 +76,8 @@ try{
  await page.getByRole('button',{name:'收款',exact:true}).click();await page.getByRole('button',{name:'確認收款',exact:true}).waitFor();
  if((await page.evaluate(()=>window.qaCalls)).some(c=>c.name==='bookBeautyParty'))throw Error('Existing service was rebooked');
  await page.getByRole('button',{name:'取消',exact:true}).click();await page.getByRole('button',{name:'新增單次／體驗服務',exact:true}).click();
- await page.getByLabel('使用方案 1',{exact:true}).selectOption('__trial__');await page.getByText('應收 NT$ 750',{exact:false}).waitFor();await screens('trial');
+ if(await page.getByLabel('使用方案 1',{exact:true}).count())throw Error('Item scheduling unexpectedly asks for a sales package');
+ await page.getByLabel('服務類型 1',{exact:true}).selectOption('__trial__');await page.getByText('應收 NT$ 750',{exact:false}).waitFor();await screens('trial');
  await page.getByRole('button',{name:'確認預約',exact:true}).click();await page.getByRole('button',{name:'確認收款',exact:true}).waitFor();await screens('collection');
  const calls=await page.evaluate(()=>window.qaCalls),book=calls.filter(c=>c.name==='bookBeautyParty');if(book.length!==1||book[0].args[1].people[0].isTrial!==true)throw Error('Trial booking mismatch');
  if(calls.some(c=>['assignBeautyNativeCard','purchaseBeautyPlan','collectBeautyPayment'].includes(c.name)))throw Error('Unexpected financial write');

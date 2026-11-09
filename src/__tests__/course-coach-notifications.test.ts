@@ -63,8 +63,8 @@ function readyDelivery(){
  m.query.mockResolvedValue([notice]);m.send.mockResolvedValue({success:true});return {notice,target,message};
 }
 it('uses the persisted retry UUID, recipient and Flex message on retry',async()=>{
- const {message}=readyDelivery();expect((await runCoachNotifications('a')).sent).toBe(1);
- expect(m.send).toHaveBeenCalledWith('line-coach',[message],'persistent-retry-uuid');expect(m.session).not.toHaveBeenCalled();
+ const {message,notice}=readyDelivery();expect((await runCoachNotifications('a')).sent).toBe(1);
+ expect(m.send).toHaveBeenCalledWith('line-coach',[message],'persistent-retry-uuid',notice.createdAt);expect(m.session).not.toHaveBeenCalled();
 });
 it('never sends after a coach binding changes',async()=>{
  readyDelivery();m.link.mockResolvedValue({userId:'different-user'});

@@ -12,4 +12,3 @@ export default async function LiffSignedOutPage() {
   if (!store) notFound();
   return <LiffSignedOutView storeSlug={store.slug} contactUrl={store.contactUrl} />;
 }
-

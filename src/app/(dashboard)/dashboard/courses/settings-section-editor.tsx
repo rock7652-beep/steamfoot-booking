@@ -1,4 +1,5 @@
 "use client";
+import {publishStoreProfileSaved} from "@/lib/store-profile-sync";
 import styles from "@/components/settings/settings-form-layout.module.css";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -31,8 +32,8 @@ function DurationInput({ name, label, value, onChange }: { name: string; label: 
     <select aria-label={`${label}單位`} value={unit} onChange={event => { const next = Number(event.target.value); setUnit(next); setDisplay({ canonical: value, text: value === "" ? "" : String(Number(value) / next) }); }} className="min-h-10 shrink-0 rounded-lg border border-earth-300 bg-white px-3 text-sm"><option value={60}>小時</option><option value={1}>分鐘</option></select>
   </div></div>;
 }
-type Props = {savePath?:string;storeId:string;onSaved:(row:CourseSettingsSectionInput,syncWarning:boolean)=>void; initial: CourseSettingsSectionInput; onStatus: (section: CourseSettingsSectionInput["section"], dirty: boolean, pending: boolean) => void };
-export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved,savePath }: Props) {
+type Props = {personnelKind?:"beauty";savePath?:string;storeId:string;onSaved:(row:CourseSettingsSectionInput,syncWarning:boolean)=>void; initial: CourseSettingsSectionInput; onStatus: (section: CourseSettingsSectionInput["section"], dirty: boolean, pending: boolean) => void };
+export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved,savePath,personnelKind }: Props) {
   const section = initial.section;
   const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(initial).filter(([key]) => key !== "section").map(([key, value]) => [key, String(value??"")])));
   const [saved, setSaved] = useState(draft);
@@ -45,7 +46,7 @@ export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved,
   const saving = useRef(false);
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
   useEffect(() => { onStatus(section, dirty, pending||mutation.uncertain); }, [section, dirty, pending, mutation.uncertain,onStatus]);
-  const label = section === "personnel" ? "授課人員稱呼" : section === "store" ? "店家資料" : section === "booking" ? "預約截止規則" : "銀行資訊";
+  const label = section === "personnel" ? personnelKind==="beauty"?"服務人員稱呼":"授課人員稱呼" : section === "store" ? "店家資料" : section === "booking" ? "預約截止規則" : "銀行資訊";
   return <form aria-label={`編輯${label}`} className={`${styles.root} m-0`} onSubmit={event => {
     event.preventDefault();
     if (saving.current || !dirty || !event.currentTarget.reportValidity()) return;
@@ -56,12 +57,13 @@ export function CourseSettingsSectionEditor({ storeId,initial, onStatus,onSaved,
       if(!result.success){setMessage(result.error);return;}
       const confirmed=Object.fromEntries(Object.entries(result.data.values).filter(([key])=>key!=="section").map(([key,value])=>[key,String(value??"")]));
       setDraft(confirmed);setSaved(confirmed);revision.current=result.data.revision;
+      if(result.data.values.section==="store")publishStoreProfileSaved(storeId,result.data.values);
       if(result.data.values.section==="personnel") window.dispatchEvent(new CustomEvent("course-personnel-label-saved", {detail:{storeId,label:result.data.values.personnelLabel}}));
       setMessage(result.syncWarning?"已儲存；其他頁面更新失敗，請重新整理核對。":"已儲存");onSaved(result.data.values,result.syncWarning);
     }).finally(()=>{saving.current=false;});
   }}>
     <fieldset disabled={pending||mutation.uncertain} className={`${styles.courseFields} ${section === "payment" ? `${styles.bankFields} items-end` : ""}`}>
-      {section==="personnel" && <label className="min-w-0 text-sm text-earth-700">授課人員稱呼<select aria-label="授課人員稱呼" value={draft.personnelLabel} onChange={event=>{setDraft(previous=>({...previous,personnelLabel:event.target.value}));setMessage("");}} className="mt-1 min-h-10 w-full rounded-lg border border-earth-300 bg-white px-3 py-2"><option value="">沿用模組預設</option><option value="老師">老師</option><option value="教練">教練</option></select></label>}
+      {section==="personnel" && <label className="min-w-0 text-sm text-earth-700">{label}<select aria-label={label} value={draft.personnelLabel} onChange={event=>{setDraft(previous=>({...previous,personnelLabel:event.target.value}));setMessage("");}} className="mt-1 min-h-10 w-full rounded-lg border border-earth-300 bg-white px-3 py-2"><option value="">{personnelKind==="beauty"?"技師（預設）":"沿用模組預設"}</option><option value="老師">老師</option>{personnelKind!=="beauty"&&<option value="教練">教練</option>}</select></label>}
       {fields[section].map(field => section === "booking" ? <DurationInput key={field.key} name={field.key} label={field.label} value={draft[field.key]} onChange={value => { setDraft(previous => ({ ...previous, [field.key]: value })); setMessage(""); }} /> : <label key={field.key} className={`min-w-0 text-sm text-earth-700 ${field.type === "url" ? styles.fullWidth : ""}`}>
         {field.label}<input name={field.key} type={field.type ?? "text"} value={draft[field.key]} required={field.key === "name" || field.type === "number"} min={field.type === "number" ? 0 : undefined} max={field.type === "number" ? 43200 : undefined} maxLength={field.max} step={field.type === "number" ? 1 : undefined} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setMessage(""); }} className="mt-1 min-h-10 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-900" />
       </label>)}

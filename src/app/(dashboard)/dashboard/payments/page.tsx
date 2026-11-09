@@ -147,7 +147,7 @@ export default async function PendingPaymentsPage({
         <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
           {/* Desktop table */}
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-sm">
+            <table data-striped-list className="w-full text-sm">
               <thead>
                 <tr className="border-b border-earth-200 bg-earth-50">
                   <th className="px-4 py-3 text-left font-medium text-earth-500">處理狀態</th>
@@ -171,12 +171,12 @@ export default async function PendingPaymentsPage({
                   return (
                     <tr
                       key={tx.id}
-                      className={`transition-colors ${isFocused ? "bg-amber-50 ring-2 ring-inset ring-amber-300" : "hover:bg-earth-50"}`}
+                      className={`transition-colors ${isFocused ? "bg-amber-50 ring-2 ring-inset ring-amber-300" : ""}`}
                     >
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-1">
                         <StatusBadge status={tx.rowStatus} />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-1">
                         {tx.customer ? (
                           <>
                             <Link
@@ -193,16 +193,16 @@ export default async function PendingPaymentsPage({
                           <span className="text-earth-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-1">
                         <span className="text-earth-700">{planName}</span>
                         {isOnlinePurchase && (
                           <div className="mt-1 text-[11px] font-medium text-primary-600">顧客線上購買</div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-primary-700">
+                      <td className="px-4 py-1 text-right font-semibold text-primary-700">
                         NT$ {amount.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-1">
                         <span
                           className={`rounded px-2 py-0.5 text-xs font-medium ${
                             tx.paymentMethod === "UNPAID"
@@ -213,7 +213,7 @@ export default async function PendingPaymentsPage({
                           {PAYMENT_METHOD_LABEL[tx.paymentMethod] ?? tx.paymentMethod}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-earth-500">
+                      <td className="px-4 py-1 text-xs text-earth-500">
                         {tx.referenceNo || tx.bankLast5 || tx.transferLastFour || tx.customerNote ? (
                           <div className="space-y-0.5">
                             {tx.transferLastFour && (
@@ -236,10 +236,10 @@ export default async function PendingPaymentsPage({
                           <span className="text-earth-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-xs text-earth-500">
+                      <td className="px-4 py-1 text-xs text-earth-500">
                         {formatTWTime(tx.createdAt, { style: "short" })}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-1 text-center">
                         <ActionCell
                           status={tx.rowStatus}
                           customerId={tx.customer?.id ?? null}

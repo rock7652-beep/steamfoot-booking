@@ -14,6 +14,15 @@ it("starts independent reads concurrently without invoking action fallbacks",asy
  await Promise.all([first,second]);
  expect(fetcher.mock.calls[0][1]).toMatchObject({cache:"no-store",credentials:"same-origin"});
 });
+it("does not queue the learner makeup read as a server action",async()=>{
+ const fetcher=vi.fn(async(_url:string)=>new Response(JSON.stringify({success:true,data:null}),{headers:{"Content-Type":"application/json"}}));vi.stubGlobal("fetch",fetcher);const fallback=vi.fn();
+ await musicPanelRead("music-student-makeups",["learner","operational"],fallback);
+ expect(fetcher).toHaveBeenCalledOnce();expect(String(fetcher.mock.calls[0][0])).toContain("operation=music-student-makeups");expect(fallback).not.toHaveBeenCalled();
+});
+it("uses independent reads for the customer search index",async()=>{
+ const fetcher=vi.fn(async(url:string)=>{expect(url).toContain("operation=course-customer-search-index");return new Response(JSON.stringify({success:true,rows:[]}),{headers:{"Content-Type":"application/json"}});});vi.stubGlobal("fetch",fetcher);const fallback=vi.fn();
+ await musicPanelRead("course-customer-search-index",[],fallback);expect(fetcher).toHaveBeenCalledOnce();expect(fallback).not.toHaveBeenCalled();
+});
 it("keeps other environments on existing authorized readers",async()=>{
  state.preview=false;const fallback=vi.fn(async()=>({success:true}));const fetcher=vi.fn();vi.stubGlobal("fetch",fetcher);
  await musicPanelRead("course-card",[],fallback);expect(fallback).toHaveBeenCalledOnce();expect(fetcher).not.toHaveBeenCalled();

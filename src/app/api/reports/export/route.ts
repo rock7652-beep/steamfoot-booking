@@ -90,7 +90,12 @@ export async function GET(req: NextRequest) {
     const workbook = new ExcelJS.Workbook();
 
     const industry=analysisStoreId?await getStoreIndustryModule(analysisStoreId):null;
-    if (analysisStoreId && (industry === "course"||industry==="beauty")) {
+    if(analysisStoreId&&industry==='steamfoot'){
+      const report=await (await import('@/server/queries/steamfoot-revenue-report')).getSteamfootRevenueReport(analysisStoreId,{...filters,storeFilter:{...filters.storeFilter,storeId:analysisStoreId}},{customers:await checkPermission(user.role,user.staffId,'customer.read'),reader:readUser});
+      if(report.data.length>10000)return new NextResponse('單次最多匯出 10,000 筆，請縮小篩選範圍',{status:413});
+      if(reportType==='store')buildSteamfootRevenueWorkbook(workbook,report,level);
+      else await buildCoachRevenueWorkbook(workbook,filters,level,report);
+    } else if (analysisStoreId && (industry === "course"||industry==="beauty")) {
       if(industry==="beauty"){
         const scope=getManagerReadFilter(readUser.role,readUser.staffId??null,"revenueStaffId",analysisStoreId);
         if(typeof scope.revenueStaffId==="string"){
@@ -142,9 +147,24 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (e) {
-    if (e instanceof AppError && e.code === "VALIDATION") return NextResponse.json({ error: e.message }, { status: 400 });
+    if (e instanceof AppError && ["VALIDATION","FORBIDDEN"].includes(e.code)) return NextResponse.json({ error: e.message }, { status: e.code==="FORBIDDEN"?403:400 });
     console.error("Export error:", e);
     return new NextResponse("Internal server error", { status: 500 });
+  }
+}
+
+function buildSteamfootRevenueWorkbook(workbook:ExcelJS.Workbook,report:Awaited<ReturnType<typeof import('@/server/queries/steamfoot-revenue-report').getSteamfootRevenueReport>>,level:string){
+  const add=(name:string,headers:string[],rows:(string|number)[][])=>{
+    const sheet=workbook.addWorksheet(name);styleHeaderRow(sheet.addRow(headers));for(const row of rows)sheet.addRow(row);autoFitColumns(sheet);sheet.views=[{state:'frozen',ySplit:1,xSplit:0}];return sheet;
+  };
+  if(level==='summary'||level==='all'){
+    const totals=add('收入總表',['分店','收款入帳','退款／沖回','淨收款','收入筆數'],report.summary.map(s=>[s.storeName,s.totalRevenue,s.refundAmount,s.netRevenue,s.txCount]));formatMoneyColumns(totals,[2,3,4]);
+    const c=report.classification;
+    const classification=add('收入分類',['收入分類','收款金額（退款另列）'],[['體驗',c.trial],['單次',c.single],['方案／課程',c.plan],['補差額',c.supplement],['零售收入',c.retail],['其他收入',c.other],['退款／沖回',-report.kpi.refundAmount],['淨收款',report.kpi.netRevenue]]);formatMoneyColumns(classification,[2]);
+  }
+  if(level==='details'||level==='all'){
+    const sources={SYSTEM:'系統交易',CASHBOOK:'現金帳',INVENTORY:'進銷存'},kinds={INCOME:'收入',REFUND:'退款',CORRECTION:'收款更正沖回'};
+    const details=add('收退款明細',['入帳日期','來源','來源編號','異動','分類／項目','顧客','歸屬人員','收款方式','金額','備註','紀錄建立時間'],report.data.map(r=>[r.transactionDate,sources[r.receiptSource],r.sourceId,kinds[r.receiptKind],r.planName??'',r.customerName,r.coachName??'未歸屬',formatPaymentMethod(r.paymentMethod),r.netAmount,r.note??'',formatTWTime(new Date(r.sourceCreatedAt))]));formatMoneyColumns(details,[9]);
   }
 }
 
@@ -340,7 +360,7 @@ function formatStatus(status: string): string {
   const map: Record<string, string> = {
     SUCCESS: "成功",
     CANCELLED: "已取消",
-    REFUNDED: "已退款",
+    REFUNDED: "已退款", REVERSED:"收款更正沖回",
   };
   return map[status] ?? status;
 }

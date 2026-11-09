@@ -1,4 +1,5 @@
 "use client";
+import {addOnSnapshots} from "@/lib/beauty/add-ons";
 import type {BeautyPortalData} from '@/server/beauty/queries';
 import {beautyServiceTime} from '@/lib/beauty/portal-groups';
 import {toLocalDateStr} from '@/lib/date-utils';
@@ -15,6 +16,7 @@ export function BeautyWorkCard({item,now,showDate,location,grants,disabled,onCha
  return <article className="cp-card beauty-work-card">
   <div className="beauty-work-heading"><strong>{showDate&&<span>{toLocalDateStr(new Date(item.startsAt))} </span>}{beautyServiceTime(item.startsAt,item.endsAt)}</strong><span className={'beauty-work-status'+(label==='待處理'?' needs-attention':'')}>{label}</span></div>
   <h2>{item.personName||'同行者'} · {item.serviceName}</h2>
+  {addOnSnapshots.parse(item.addOnItems??[]).map(o=><p key={o.id}>＋{o.name}{o.duration>0&&<> · {o.duration} 分鐘</>}</p>)}
   {location&&<p>空間：{location}</p>}
   {item.notes&&<p className="beauty-work-note">備註：{item.notes}</p>}
   {(options.length>0||reserved&&complete)&&<div className="beauty-work-actions">

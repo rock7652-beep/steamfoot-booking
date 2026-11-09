@@ -2,7 +2,9 @@
 import {act,createElement as h} from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+vi.mock("@/server/actions/beauty-collection-intent", () => ({ prepareBeautyCollectionPurchaseIntent: vi.fn(), readBeautyCollectionPurchaseIntent: vi.fn(), cancelBeautyCollectionPurchaseIntent: vi.fn(), acknowledgeBeautyCollectionPurchaseIntent: vi.fn() }));
 const m=vi.hoisted(()=>({read:vi.fn(),collect:vi.fn()}));
+vi.mock('@/lib/beauty/collection-reader',()=>({readBeautyCollectionQuote:(ids:unknown)=>m.read(ids),readBeautyCollectionStatus:vi.fn()}));
 vi.mock('@/server/actions/beauty',()=>({readBeautyCollection:m.read,collectBeautyPayment:m.collect}));
 import {BeautyCollectionPanel} from '@/components/beauty/collection-panel';
 const charge={id:'a',revision:1,personName:'合成甲',serviceName:'合成服務',price:1000,discount:{kind:'AMOUNT' as const,value:0},reduction:0,netPrice:1000,collected:0,due:1000};
@@ -52,4 +54,14 @@ it('keeps an in-flight collection open even when close is clicked in the same ev
  expect(m.collect).toHaveBeenCalledOnce();expect(close).not.toHaveBeenCalled();
 });
 
-it('completes a free trial or already settled service without inventing a payment',async()=>{m.read.mockResolvedValue({success:true,data:[{...charge,price:0,netPrice:0,due:0}]});const saved=vi.fn();await act(async()=>root.render(h(BeautyCollectionPanel,{...props,onSaved:saved,ids:['a']})));expect(host.textContent).toContain('本次無待收款金額');const button=[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='完成')!;expect(button.disabled).toBe(false);await act(async()=>button.click());expect(saved).toHaveBeenCalledOnce();expect(m.collect).not.toHaveBeenCalled();});
+it('completes a free trial or already settled service without inventing a payment',async()=>{m.read.mockResolvedValue({success:true,data:[{...charge,price:0,netPrice:0,due:0}]});const saved=vi.fn(),close=vi.fn();await act(async()=>root.render(h(BeautyCollectionPanel,{...props,onSaved:saved,onClose:close,ids:['a']})));expect(host.textContent).toContain('本次無待收款金額');const button=[...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='完成')!;expect(button.disabled).toBe(false);await act(async()=>button.click());expect(close).toHaveBeenCalledOnce();expect(saved).not.toHaveBeenCalled();expect(m.collect).not.toHaveBeenCalled();});
+
+it('uses the exact prepared quote immediately and still sends revision/price/collected to the writer',async()=>{
+ m.read.mockReturnValue(new Promise(()=>{}));m.collect.mockResolvedValue({success:false,error:'服務已更新'});
+ await act(async()=>root.render(h(BeautyCollectionPanel,{...props,ids:['a'],initialCharges:[charge]})));
+ expect(host.textContent).not.toContain('載入收款資料');expect(m.read).toHaveBeenCalledOnce();
+ expect([...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='確認收款')!.disabled).toBe(false);
+ await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(m.collect).toHaveBeenCalledWith(expect.objectContaining({quotes:[expect.objectContaining({id:'a',revision:1,price:1000,collected:0})]}));
+ expect(host.textContent).toContain('服務已更新');
+});

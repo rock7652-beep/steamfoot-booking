@@ -2,7 +2,7 @@
 
 import { FeatureEntry, useFeaturePresentation } from "@/components/feature-presentation";
 import { FEATURES } from "@/lib/feature-flags";
-import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
+import { useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import { setCustomerLabel } from "@/server/actions/customer-labels";
 import { EMPTY_LABELS, labelColor, nextCustomerLabelRevision, newerLabelSnapshot, receiveCustomerLabelSnapshot, type LabelMetadata, type LabelSnapshot } from "@/lib/customer-labels";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -12,8 +12,9 @@ import { courseSettingsPanelHref } from "@/lib/course-settings-panels";
 import { LabelManager } from "@/app/(dashboard)/dashboard/settings/customer-labels/label-manager";
 import { DashboardLink } from "@/components/dashboard-link";
 import {readCustomerLabels} from "@/lib/customer-label-reader";
-type ContextValue = {snapshot: LabelSnapshot; register:(id:string)=>()=>void; refresh:()=>Promise<void>; seed:(snapshot:LabelSnapshot)=>void; update:(id:string,labels:string[])=>void; pendingIds: Set<string>; lock:(id:string)=>boolean; unlock:(id:string)=>void};
-const Context = createContext<ContextValue|null>(null);
+import {CustomerLabelsContext as Context} from "./customer-label-context";
+export {useSeedCustomerLabels} from "./customer-label-context";
+
 const LABEL_CACHE_MS = 60_000;
 export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children:ReactNode;initial?:LabelSnapshot}) {
   const [snapshot,setSnapshot]=useState(initial);
@@ -114,7 +115,6 @@ export function CustomerLabelsProvider({children,initial=EMPTY_LABELS}:{children
   return <Context.Provider value={{snapshot,register,refresh,seed,update,pendingIds,lock,unlock}}>{children}</Context.Provider>;
 }
 /** Supply row labels with the server-rendered list, then retain them across shared views. */
-export function useSeedCustomerLabels() { return useContext(Context)?.seed; }
 export function CustomerLabelsSeed({initial:serverInitial,children}:{initial:LabelSnapshot;children:ReactNode}) {
   const initial=receiveCustomerLabelSnapshot(serverInitial);
   const ctx=useContext(Context);
@@ -257,8 +257,9 @@ export function CustomerLabelPicker({value,onChange}:{value:string;onChange:(val
   return <select aria-label="依顧客標籤篩選" value={value} className="min-h-11 rounded border border-earth-200 bg-white px-2 text-sm" onChange={e=>onChange(e.target.value)}><option value="">全部標籤</option>{ctx.snapshot.categories.map(c=><optgroup key={c.id} label={c.name}>{ctx.snapshot.labels.filter(l=>l.categoryId===c.id).map(l=><option key={l.id} value={l.id}>{l.name}{!l.active?"（停用）":""}</option>)}</optgroup>)}</select>;
 }
 
-export function CustomerLabelFilter() {
+export function CustomerLabelFilter({label}:{label?:string}={}) {
   const ctx=useContext(Context), params=useSearchParams(), router=useRouter(), pathname=usePathname();
   if(!ctx?.snapshot.enabled)return null;
-  return <CustomerLabelPicker value={params.get("label")??""} onChange={value=>{const next=new URLSearchParams(params.toString());next.delete("page");if(value)next.set("label",value);else next.delete("label");router.replace(`${pathname}?${next}`,{scroll:false});}}/>;
+  const picker=<CustomerLabelPicker value={params.get("label")??""} onChange={value=>{const next=new URLSearchParams(params.toString());next.delete("page");if(value)next.set("label",value);else next.delete("label");router.replace(`${pathname}?${next}`,{scroll:false});}}/>;
+  return label?<div className="grid min-w-0 gap-1 text-sm text-earth-600"><span>{label}</span>{picker}</div>:picker;
 }

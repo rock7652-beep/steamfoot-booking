@@ -1,5 +1,6 @@
 generator courseClient {
   provider = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
   output   = "../generated/course-client"
 }
 
@@ -673,6 +674,10 @@ model CourseStoreNotice {
   previousStartsAt DateTime? @db.Timestamptz(3)
   affectedCount Int @default(1)
   details Json
+  publishedAt DateTime @default(now()) @db.Timestamptz(3)
+  readAt DateTime? @db.Timestamptz(3)
+  readById String?
+  readByName String?
   handledAt DateTime? @db.Timestamptz(3)
   handledById String?
   handledByName String?
@@ -681,4 +686,86 @@ model CourseStoreNotice {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
   @@unique([storeId, subjectKey])
   @@index([storeId, handledAt, startsAt])
+  @@index([storeId, publishedAt(sort: Desc), id(sort: Desc)])
+}
+
+// Electronic course agreements. Store/Customer identity FKs are owned by SQL.
+model CourseAgreementSetting {
+  storeId         String @id
+  revision        Int @default(0)
+  draft           Json?
+  activeVersionId String?
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+  activeVersion   CourseAgreementVersion? @relation("ActiveCourseAgreement", fields: [activeVersionId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+  versions        CourseAgreementVersion[] @relation("CourseAgreementVersions")
+}
+
+model CourseAgreementVersion {
+  id               String @id @default(cuid())
+  storeId          String
+  version          Int
+  settingsSnapshot Json
+  document         Json
+  documentHash     String
+  signingTokenHash String @unique
+  createdById      String
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  setting          CourseAgreementSetting @relation("CourseAgreementVersions", fields: [storeId], references: [storeId], onDelete: Restrict, onUpdate: Restrict)
+  activeFor        CourseAgreementSetting[] @relation("ActiveCourseAgreement")
+  reviews          CourseAgreementReview[]
+  signatures       CourseAgreementSignature[]
+  @@unique([id, storeId])
+  @@unique([storeId, version])
+  @@index([storeId, createdAt])
+}
+
+model CourseAgreementReview {
+  id          String @id @default(cuid())
+  storeId     String
+  versionId   String
+  tokenHash   String @unique
+  deliveredAt DateTime @default(now()) @db.Timestamptz(3)
+  expiresAt   DateTime @db.Timestamptz(3)
+  consumedAt  DateTime? @db.Timestamptz(3)
+  version     CourseAgreementVersion @relation(fields: [versionId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+  signatures  CourseAgreementSignature[]
+  @@unique([id, storeId, versionId])
+  @@index([storeId, expiresAt])
+  @@index([storeId, deliveredAt])
+}
+
+model CourseAgreementSignature {
+  id                   String @id @default(cuid())
+  storeId              String
+  versionId            String
+  reviewId             String @unique
+  customerId           String?
+  signerSnapshot       Json
+  signatureObjectKey   String
+  signatureHash        String
+  receiptTokenHash     String @unique
+  requestKey           String
+  requestHash          String?
+  asset                CourseAgreementSignatureAsset?
+  reviewAcknowledgedAt DateTime @db.Timestamptz(3)
+  electronicConsentAt  DateTime @db.Timestamptz(3)
+  signedAt             DateTime @default(now()) @db.Timestamptz(3)
+  version              CourseAgreementVersion @relation(fields: [versionId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+  review               CourseAgreementReview @relation(fields: [reviewId, storeId, versionId], references: [id, storeId, versionId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([id, storeId])
+  @@unique([storeId, requestKey])
+  @@unique([id, storeId, signatureObjectKey])
+  @@index([storeId, signedAt])
+  @@index([customerId, storeId])
+}
+
+// Small, server-rendered PNG evidence stays private and atomic with its signature.
+model CourseAgreementSignatureAsset {
+  objectKey   String @id
+  signatureId String @unique
+  storeId     String
+  content     Bytes
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  signature   CourseAgreementSignature @relation(fields: [signatureId, storeId, objectKey], references: [id, storeId, signatureObjectKey], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([signatureId, storeId, objectKey])
 }

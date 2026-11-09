@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
-import { announcementImageUrl, announcementStatus, type AnnouncementSnapshot, type ImageAnnouncement } from "@/lib/image-announcements";
+import { announcementImageUrl, announcementStatus, type AnnouncementDisplayMode, type AnnouncementSnapshot, type ImageAnnouncement } from "@/lib/image-announcements";
 
-type Draft = ImageAnnouncement & { file?: File; url: string; notice?: string };
+type Draft = Omit<ImageAnnouncement, "displayMode"> & { displayMode: AnnouncementDisplayMode; file?: File; url: string; notice?: string };
 const button = "min-h-11 min-w-11 rounded-lg border border-earth-200 px-3 text-sm disabled:opacity-40";
 async function prepareImage(file: File): Promise<{ file: File; notice: string }> {
   if (!["image/jpeg", "image/png"].includes(file.type)) throw Error("請上傳 JPG 或 PNG 圖片");
@@ -12,9 +12,7 @@ async function prepareImage(file: File): Promise<{ file: File; notice: string }>
   try {
     const { width, height } = bitmap;
     if (width * height > 50_000_000) throw Error("圖片尺寸過大，請縮小後上傳");
-    const a4 = Math.min(width, height) / Math.max(width, height);
-    const notices = [];
-    if (Math.abs(a4 - 210 / 297) > 0.035) notices.push("非 A4 比例，將保留完整圖片");
+    const notices: string[] = [];
     if (Math.min(width, height) < 800) notices.push("解析度偏低，請確認放大後文字清楚");
     let scale = Math.min(1, 2400 / Math.max(width, height));
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -31,7 +29,7 @@ async function prepareImage(file: File): Promise<{ file: File; notice: string }>
   } finally { bitmap.close(); }
 }
 export function ImageAnnouncementManager({ initial, storeId, storeSlug, canManage }: { initial: AnnouncementSnapshot; storeId: string; storeSlug: string; canManage: boolean }) {
-  const fromSnapshot = (snapshot: AnnouncementSnapshot): Draft[] => snapshot.items.map(item => ({ ...item, url: announcementImageUrl(storeSlug, item.id, true) }));
+  const fromSnapshot = (snapshot: AnnouncementSnapshot): Draft[] => snapshot.items.map(item => ({ ...item, displayMode: item.displayMode ?? "original", url: announcementImageUrl(storeSlug, item.id, true) }));
   const [saved, setSaved] = useState(initial);
   const [items, setItems] = useState<Draft[]>(() => fromSnapshot(initial));
   const [editing, setEditing] = useState<string | null>(null);
@@ -63,7 +61,7 @@ export function ImageAnnouncementManager({ initial, storeId, storeSlug, canManag
         const prepared = await prepareImage(original);
         const url = URL.createObjectURL(prepared.file); urls.current.add(url);
         const old = items.find(item => item.id === replacing);
-        added.push({ id: crypto.randomUUID(), enabled: old?.enabled ?? true, startsOn: old?.startsOn ?? "", endsOn: old?.endsOn ?? "", ...prepared, url });
+        added.push({ id: crypto.randomUUID(), enabled: old?.enabled ?? true, startsOn: old?.startsOn ?? "", endsOn: old?.endsOn ?? "", displayMode: old?.displayMode ?? "original", ...prepared, url });
       }
       changed(replacing ? items.map(item => item.id === replacing ? added[0] : item) : [...items, ...added]);
       if (replacing) setEditing(added[0].id);
@@ -75,7 +73,7 @@ export function ImageAnnouncementManager({ initial, storeId, storeSlug, canManag
     try {
       const body = new FormData();
       body.set("storeId", storeId); body.set("revision", String(saved.revision));
-      body.set("items", JSON.stringify(items.map(({ id, startsOn, endsOn, enabled }) => ({ id, startsOn, endsOn, enabled }))));
+      body.set("items", JSON.stringify(items.map(({ id, startsOn, endsOn, enabled, displayMode }) => ({ id, startsOn, endsOn, enabled, displayMode }))));
       items.forEach(item => { if (item.file) body.set(item.id, item.file); });
       const response = await fetch("/api/image-announcements", { method: "POST", body });
       const result = await response.json();
@@ -87,7 +85,7 @@ export function ImageAnnouncementManager({ initial, storeId, storeSlug, canManag
   }
   return <div className="min-w-0 space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-sm text-earth-600">最多 5 張・可拖曳排序・建議 A4 比例</p>
+      <p className="text-sm text-earth-600">最多 5 張・可拖曳排序・每張圖片可選版型</p>
       {canManage && <div className="flex flex-wrap items-center gap-2">
         <span role="status" className="text-sm text-earth-600">{pending ? "處理中…" : dirty ? "未儲存" : message}</span>
         {dirty && <button type="button" disabled={pending} className={button} onClick={() => { if (confirm("放棄尚未儲存的變更？")) { setItems(fromSnapshot(saved)); setDirty(false); setEditing(null); setError(""); } }}>取消</button>}
@@ -101,7 +99,9 @@ export function ImageAnnouncementManager({ initial, storeId, storeSlug, canManag
     <div className="grid min-w-0 grid-cols-1 items-start gap-3 md:grid-cols-2 2xl:grid-cols-3">
       {items.map((item, position) => <article key={item.id} data-image-id={item.id} className="min-w-0 overflow-hidden rounded-xl border border-earth-200 bg-white" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); if (canManage && !pending && drag.current) reorder(drag.current, item.id); drag.current = null; }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={item.url} alt={`公告圖片 ${position + 1}`} className="h-32 w-full bg-earth-50 object-contain" />
+        <div data-display-mode={item.displayMode} className={`flex w-full items-center justify-center overflow-hidden bg-earth-50 ${item.displayMode === "landscape" ? "mx-auto aspect-video max-w-[228px]" : "h-32"}`}>
+          <img src={item.url} alt={`公告圖片 ${position + 1}`} className={item.displayMode === "landscape" ? "h-full w-full object-cover" : item.displayMode === "portrait" ? "h-full max-w-1/2 object-contain" : "h-full max-w-full object-contain"} />
+        </div>
         <div className="space-y-1.5 p-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-earth-700">{announcementStatus(item)}</span>{canManage && <button type="button" disabled={pending} className={`${button} min-h-9`} onClick={() => setEditing(editing === item.id ? null : item.id)}>{editing === item.id ? "收合" : "編輯"}</button>}</div>
           {item.notice && <p className="text-sm text-amber-700">{item.notice}</p>}
@@ -112,6 +112,14 @@ export function ImageAnnouncementManager({ initial, storeId, storeSlug, canManag
           </div>}
           {editing === item.id && <fieldset disabled={pending} className="min-w-0 space-y-2 border-t border-earth-100 pt-2">
             <button type="button" className={`${button} min-h-9 w-full`} onClick={() => { replacement.current = item.id; input.current?.click(); }}>更換圖片</button>
+            <label className="block text-sm">前台版型
+              <select aria-label={`第 ${position + 1} 張圖片前台版型`} value={item.displayMode} onChange={event => patch(item.id, { displayMode: event.target.value as AnnouncementDisplayMode })} className="mt-1 block min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3">
+                <option value="original">原比例・完整顯示</option>
+                <option value="landscape">橫式橫幅・中央裁切</option>
+                <option value="portrait">直式海報・完整顯示</option>
+              </select>
+            </label>
+            <p className="text-xs text-earth-500">前台輪播高度固定；點圖片可檢視完整原圖。</p>
             <div className="grid min-w-0 grid-cols-2 gap-2">
               <label className="min-w-0 text-xs">上架日期 {!item.startsOn && <span className="text-earth-500">（立即）</span>}<input aria-label={`第 ${position + 1} 張上架日期`} type="date" value={item.startsOn} onChange={event => patch(item.id, { startsOn: event.target.value })} className="mt-1 block min-h-10 w-full min-w-0 rounded-lg border border-earth-200 px-2 text-sm" /></label>
               <label className="min-w-0 text-xs">下架日期 {!item.endsOn && <span className="text-earth-500">（不限）</span>}<input aria-label={`第 ${position + 1} 張下架日期`} type="date" min={item.startsOn} value={item.endsOn} onChange={event => patch(item.id, { endsOn: event.target.value })} className="mt-1 block min-h-10 w-full min-w-0 rounded-lg border border-earth-200 px-2 text-sm" /></label>

@@ -85,6 +85,7 @@ export const ALL_PERMISSIONS = [
   "wallet.adjust",     // 調整剩餘堂數
   // 方案
   "plans.edit",        // 編輯方案設定
+  "add_ons.manage",    // 管理附加項目（獨立於方案）
   // 營業時間
   "business_hours.view",
   "business_hours.manage",
@@ -151,6 +152,7 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
     label: "方案設定",
     codes: ["plans.edit"],
   },
+  add_ons: { label: "附加項目", codes: ["add_ons.manage"] },
   business_hours: {
     label: "營業時間",
     codes: ["business_hours.view", "business_hours.manage"],
@@ -223,6 +225,7 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "wallet.create": "指派課程方案",
   "wallet.adjust": "調整剩餘堂數",
   "plans.edit": "編輯方案設定",
+  "add_ons.manage": "管理附加項目",
   "business_hours.view": "查看營業時間",
   "business_hours.manage": "修改營業時間",
   "report.read": "查看報表",
@@ -281,6 +284,7 @@ export const DEFAULT_MANAGER_PERMISSIONS: PermissionCode[] = [
   "wallet.create",
   "wallet.adjust",
   "plans.edit",
+  "add_ons.manage",
   "business_hours.view",
   "business_hours.manage",
   "report.read",
@@ -555,7 +559,7 @@ export async function requirePermission(
   }
   const { requireStaffSession } = await import("@/lib/session");
   const { AppError } = await import("@/lib/errors");
-  const { permissionRequestSession } = await import("./permission-request-session");
+  const { permissionRequestSession,permissionRequestFeature } = await import("./permission-request-session");
   const user = await measurePermission(timing, "permission.session", () => permissionRequestSession(() => requireStaffSession()));
   const allowed = await measurePermission(timing, "permission.grant", () => checkPermission(user.role, user.staffId, permission));
   if (!allowed) throw new AppError("FORBIDDEN", "您沒有此操作的權限");
@@ -565,8 +569,8 @@ export async function requirePermission(
   const feature = coreFeatureForPermission(permission);
   if (feature) {
     const { getActiveStoreForRead } = await import("@/lib/store");
-    const storeId = explicitStoreId ?? await getActiveStoreForRead(user);
-    if (storeId) await (await import("@/lib/feature-gate")).requireStoreFeature(storeId, feature);
+    const storeId = explicitStoreId ?? await measurePermission(timing, "permission.featureStore", () => getActiveStoreForRead(user));
+    if (storeId) await measurePermission(timing, "permission.feature", () => permissionRequestFeature(storeId,feature,async () => (await import("@/lib/feature-gate")).requireStoreFeature(storeId, feature)));
   }
   if (!options.deferSubscriptionGuard && !/\.(read|view|export)$/.test(permission)) {
     const { isHqStoreView } = await import("@/lib/hq-store-view");

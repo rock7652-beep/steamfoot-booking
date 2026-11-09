@@ -1,0 +1,112 @@
+[
+  {
+    "kind": "hq",
+    "width": 360,
+    "overflow": false,
+    "fixture": "actual presentation components; static synthetic data; no authenticated runtime"
+  },
+  {
+    "kind": "mine",
+    "width": 360,
+    "overflow": false,
+    "fixture": "actual presentation components; static synthetic data; no authenticated runtime"
+  },
+  {
+    "kind": "application",
+    "width": 360,
+    "candidate": true,
+    "consent": false,
+    "overflow": false
+  },
+  {
+    "kind": "hq",
+    "width": 390,
+    "overflow": false,
+    "fixture": "actual presentation components; static synthetic data; no authenticated runtime"
+  },
+  {
+    "kind": "mine",
+    "width": 390,
+    "overflow": false,
+    "fixture": "actual presentation components; static synthetic data; no authenticated runtime"
+  },
+  {
+    "kind": "application",
+    "width": 390,
+    "candidate": true,
+    "consent": false,
+    "overflow": false
+  },
+  {
+    "kind": "hq",
+    "width": 768,
+    "overflow": false,
+    "fixture": "actual presentation components; static synthetic data; no authenticated runtime"
+  },
+  {
+    "kind": "mine",
+    "width": 768,
+    "overflow": false,
+    "fixture": "actual presentation components; static synthetic data; no authenticated runtime"
+  },
+  {
+    "kind": "application",
+    "width": 768,
+    "candidate": true,
+    "consent": false,
+    "overflow": false
+  },
+  {
+    "kind": "hq",
+    "width": 1024,
+    "overflow": false,
+    "fixture": "actual presentation components; static synthetic data; no authenticated runtime"
+  },
+  {
+    "kind": "mine",
+    "width": 1024,
+    "overflow": false,
+    "fixture": "actual presentation components; static synthetic data; no authenticated runtime"
+  },
+  {
+    "kind": "application",
+    "width": 1024,
+    "candidate": true,
+    "consent": false,
+    "overflow": false
+  },
+  {
+    "kind": "hq",
+    "width": 1366,
+    "overflow": false,
+    "fixture": "actual presentation components; static synthetic data; no authenticated runtime"
+  },
+  {
+    "kind": "mine",
+    "width": 1366,
+    "overflow": false,
+    "fixture": "actual presentation components; static synthetic data; no authenticated runtime"
+  },
+  {
+    "kind": "application",
+    "width": 1366,
+    "candidate": true,
+    "consent": false,
+    "overflow": false
+  },
+  {
+    "kind": "expired-hq",
+    "awardHeld": true,
+    "grantActionAbsent": true
+  },
+  {
+    "kind": "application-submit",
+    "confirmedPayload": true,
+    "unconfirmedBlocked": true,
+    "transport": "intercepted local request; no external delivery"
+  },
+  {
+    "kind": "availability-outage",
+    "candidateRetained": true
+  }
+]

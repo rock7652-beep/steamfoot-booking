@@ -6,7 +6,7 @@ import { logoutAction } from "@/server/actions/auth";
 import { AppLink as Link } from "@/components/app-link";
 import { MobileNav } from "./mobile-nav";
 import BuildFooter from "@/components/build-footer";
-import { LogoutButton } from "@/components/logout-button";
+import { FrontendAccountMenu } from "@/components/frontend-account-menu";
 import { getStoreContext } from "@/lib/store-context";
 import { getCustomerFacingStoreName, resolveStoreBySlug } from "@/lib/store-resolver";
 import { getStoreOperatingStatus, getStoreUnavailableMessage, isStoreCustomerPortalBlocked } from "@/lib/store-operating-status";
@@ -14,6 +14,7 @@ import { resolveCustomerCompletionStatus } from "@/server/queries/customer-compl
 import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 import { CENTRAL_MEMBER_STORE_COOKIE } from "@/lib/central-member-store";
 import { CentralMemberStoreSwitcher } from "./central-member-store-switcher";
+import { CustomerMembershipProvider } from "./customer-membership-context";
 import { decideCustomerStoreAccess } from "@/lib/customer-store-onboarding";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -223,7 +224,7 @@ export default async function CustomerLayout({
     // Income has its own server-side staff/feature/opt-in checks. Let the page
     // enforce them instead of redirecting every signed-in person to the portal.
     if (!["/book", "/book/reminders", "/book/income"].includes(pathname)) redirect(`/s/${storeCtx.storeSlug}/book`);
-    return <div className="mx-auto min-h-screen w-full max-w-[430px] bg-earth-50">{children}</div>;
+    return <CustomerMembershipProvider key={`${user.id}:${storeCtx.storeId}`} stores={membershipStores}><div className="mx-auto min-h-screen w-full max-w-[430px] bg-earth-50">{children}</div></CustomerMembershipProvider>;
   }
   if (industryModule === "beauty") {
     if (!["/beauty", "/profile", "/member-stores", "/member-link"].some(p=>pathname.startsWith(p))) redirect(`/s/${storeCtx.storeSlug}/beauty`);
@@ -324,22 +325,12 @@ export default async function CustomerLayout({
             })}
           </nav>
 
-          {/* Logout */}
-          <div className="border-t border-earth-100 px-2.5 py-3">
-            <form action={logoutAction}>
-              <input type="hidden" name="storeSlug" value={storeCtx.storeSlug} />
-              <LogoutButton
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-earth-700 hover:bg-earth-50 hover:text-earth-900 transition"
-                iconClassName="text-earth-600"
-                iconSize={18}
-              />
-            </form>
-          </div>
         </aside>}
 
         {/* Main content */}
         <main className={`flex-1 px-4 pt-4 pb-20 ${"lg:px-8 lg:py-8"}`}>
           <div className={`mx-auto ${"max-w-2xl"}`}>
+            <div className="mb-2 hidden justify-end lg:flex"><FrontendAccountMenu storeSlug={storeCtx.storeSlug} name={user.name} /></div>
             {children}
           </div>
         </main>

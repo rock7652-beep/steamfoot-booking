@@ -1,0 +1,42 @@
+[
+  {
+    "width": 360,
+    "source": "actual component SSR in static fixture",
+    "overflow": false,
+    "disabledActions": 2,
+    "keyboardTerms": true,
+    "agreedRules": true
+  },
+  {
+    "width": 390,
+    "source": "actual component SSR in static fixture",
+    "overflow": false,
+    "disabledActions": 2,
+    "keyboardTerms": true,
+    "agreedRules": true
+  },
+  {
+    "width": 768,
+    "source": "actual component SSR in static fixture",
+    "overflow": false,
+    "disabledActions": 2,
+    "keyboardTerms": true,
+    "agreedRules": true
+  },
+  {
+    "width": 1024,
+    "source": "actual component SSR in static fixture",
+    "overflow": false,
+    "disabledActions": 2,
+    "keyboardTerms": true,
+    "agreedRules": true
+  },
+  {
+    "width": 1366,
+    "source": "actual component SSR in static fixture",
+    "overflow": false,
+    "disabledActions": 2,
+    "keyboardTerms": true,
+    "agreedRules": true
+  }
+]

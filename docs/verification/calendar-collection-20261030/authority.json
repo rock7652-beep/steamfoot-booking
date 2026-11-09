@@ -1,0 +1,19 @@
+{
+  "scope": "Only the approved isolated sports and beauty QA stores; no collection or debit submitted",
+  "after": [
+    {
+      "verification": {
+        "beautyPayments": 0,
+        "courseFixtures": 3,
+        "qaDiscountAudit": 1,
+        "beautyAppointment": {
+          "debit": false,
+          "price": 750,
+          "cardId": null,
+          "status": "RESERVED",
+          "revision": 6
+        }
+      }
+    }
+  ]
+}

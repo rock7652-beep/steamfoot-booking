@@ -4,6 +4,16 @@ import { assertReviewedReleaseEnvironment } from '../../scripts/consultation-pre
 const url='postgresql://postgres.ttworfzgwejdeolegkxl:test@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true';
 const safe={SPORTS_REDESIGN_STAGING:'1',SPORTS_REDESIGN_PREVIEW:'1',VERCEL:'1',VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:SPORTS_REDESIGN_PREVIEW_BRANCH,VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:url,DIRECT_URL:url};
 describe('sports redesign remote isolation',()=>{
+ it('schedule-conflict Preview reaches the native sports runtime only for its QA store',async()=>{
+  const {sportsNativePreview}=await import('@/lib/sports-native-preview');
+  const {vi}=await import('vitest');
+  try{
+   for(const [key,value] of Object.entries({...safe,VERCEL_GIT_COMMIT_REF:'fix/schedule-conflicts-20261103'}))vi.stubEnv(key,value);
+   expect(assertReviewedReleaseEnvironment(process.env)).toBe('sports-redesign-preview');
+   expect(await sportsNativePreview('sports-live-flow-store')).toBe(true);
+   expect(await sportsNativePreview('another-store')).toBe(false);
+  }finally{vi.unstubAllEnvs();}
+ });
  it('accepts exact Preview and routes clients through the checked release mode',()=>{
   expect(()=>assertSportsRedesignPreviewEnvironment(safe)).not.toThrow();
   expect(assertReviewedReleaseEnvironment(safe)).toBe('sports-redesign-preview');
@@ -38,3 +48,15 @@ it('coach compensation Preview keeps the isolated database and explicit opt-in b
  expect(assertReviewedReleaseEnvironment(env)).toBe('sports-redesign-preview');
  for(const [key,value] of [['VERCEL_ENV','production'],['SPORTS_REDESIGN_PREVIEW',''],['SPORTS_REDESIGN_STAGING',''],['VERCEL_GIT_COMMIT_REF','other'],['WORKERS_CI_BRANCH','main'],['DATABASE_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'],['DIRECT_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres']])expect(()=>assertReviewedReleaseEnvironment({...env,[key]:value})).toThrow();
 });
+
+it('performance Preview requires the exact branch, repository, opt-ins and both isolated connections',()=>{
+ const env={...safe,VERCEL_GIT_COMMIT_REF:'perf/sports-course-loading'};
+ expect(assertReviewedReleaseEnvironment(env)).toBe('sports-redesign-preview');
+ for(const [key,value] of [['VERCEL_GIT_COMMIT_REF','perf/sports-course-loading-other'],['SPORTS_REDESIGN_PREVIEW',''],['SPORTS_REDESIGN_STAGING',''],['VERCEL_ENV','production'],['VERCEL_GIT_REPO_OWNER','other'],['DIRECT_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'],['DATABASE_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres']])expect(()=>assertSportsRedesignPreviewEnvironment({...env,[key]:value})).toThrow();
+});
+
+ it('silver lily calendar preview keeps the same database and provenance boundary',()=>{
+ const env={...safe,VERCEL_GIT_COMMIT_REF:'fix/silverlily-calendar-loading-20261031'};
+ expect(assertReviewedReleaseEnvironment(env)).toBe('sports-redesign-preview');
+ for(const [key,value] of [['SPORTS_REDESIGN_PREVIEW',''],['SPORTS_REDESIGN_STAGING',''],['VERCEL_ENV','production'],['VERCEL_GIT_COMMIT_REF','fix/silverlily-calendar-loading-20261031-other'],['DATABASE_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'],['DIRECT_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres']])expect(()=>assertReviewedReleaseEnvironment({...env,[key]:value})).toThrow();
+ });

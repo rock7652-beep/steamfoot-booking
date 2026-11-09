@@ -6,6 +6,12 @@ export function courseDisplayName(name: string) {
 }
 /** Compatibility for existing sports callers; display does not depend on the current template ID. */
 export const sportsCourseName: (name: string, templateId: string) => string = courseDisplayName;
+/** Resolve by the stored teaching-item relation, never by a learner's pricing package.
+ * Keep the historical snapshot as a fallback when that relation is unavailable.
+ */
+export function sportsTeachingName(snapshot: string, teachingItemName?: string | null) {
+  return courseDisplayName(teachingItemName ?? snapshot);
+}
 export type CourseTemplatePresentation = { id:string; name:string; displayName?:string; isActive?:boolean; currentTeaching?:boolean; musicSubjectId?:string|null; musicTrialMode?:string|null; musicPricePerLesson?:number|null; musicTermLessons?:number|null; musicTeacherShare?:number|null; durationMinutes?:number };
 export function courseTemplateLabel(template:Pick<CourseTemplatePresentation,"name"|"displayName"|"musicSubjectId">) { return courseDisplayName(template.displayName??template.name); }
 export function presentCourseTemplates<T extends CourseTemplatePresentation>(templates:T[],plans:{name:string;isActive:boolean;templateIds:string[]}[],music:boolean):Array<T & {displayName:string;currentTeaching:boolean}> {

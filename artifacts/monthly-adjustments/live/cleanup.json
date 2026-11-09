@@ -1,0 +1,7 @@
+{
+  "serverStopped": true,
+  "taskContainerRemoved": true,
+  "temporaryCredentialFilesRemoved": true,
+  "existingContainerPreserved": "steamfoot-booking-db-1",
+  "remoteChanges": false
+}

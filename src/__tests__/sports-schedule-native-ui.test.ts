@@ -11,7 +11,7 @@ import {sportsStagingCommand} from "@/server/actions/sports-staging";
 import {SportsScheduleFields,type SportsScheduleSource} from "@/app/(dashboard)/dashboard/courses/sports-schedule-fields";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 const data:SportsSnapshot={storeId:"sports-live-flow-store",date:"2026-10-18",subjects:[{id:"subject",templateId:"item-template",name:"瑜伽",category:"運動",active:true,updatedAt:"v1"}],fees:[],lessons:[],students:[],customers:[{id:"student",name:"學員",phone:"0900000000"}],coaches:[{id:"coach",name:"王教練",templates:["item-template"]}],rooms:[{id:"first",name:"第一空間",capacity:10,rental:true},{id:"selected",name:"指定空間",capacity:5,rental:true}]};
-async function mount(seed:{roomId?:string;coachId?:string;time?:string}={},waitlistProps:{waitlistEnabled?:boolean;waitlistDefaultLimit?:number}={},source?:SportsScheduleSource){
+async function mount(seed:{roomId?:string;coachId?:string;time?:string}={},waitlistProps:{waitlistEnabled?:boolean;waitlistDefaultLimit?:number;metadataPending?:boolean}={},source?:SportsScheduleSource){
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  await act(async()=>root.render(createElement(SportsScheduleFields,{source,initial:data,date:"2026-10-18",seed,...waitlistProps,requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()})));
  return {host,rerenderModes:async(schedulingModes:{selfBookingEnabled:boolean;assignedSchedulingEnabled:boolean})=>{await act(async()=>root.render(createElement(SportsScheduleFields,{source,initial:data,date:"2026-10-18",seed,...waitlistProps,schedulingModes,requestKey:"00000000-0000-4000-8000-000000000001",onGuard:vi.fn(),onCreated:vi.fn()})));},close:async()=>{await act(async()=>root.unmount());host.remove();}};
@@ -28,22 +28,22 @@ it("教練視角帶入教練，空間預設第一個；五種排課有對應選�
  const m=await mount({coachId:"coach"});
  expect((m.host.querySelector('[aria-label="排課教練"]') as HTMLInputElement).value).toBe("王教練");expect((m.host.querySelector('[aria-label="排課空間"]') as HTMLInputElement).value).toBe("第一空間");
  const button=Array.from(m.host.querySelectorAll('button')).find(b=>b.textContent==="固定隔週")!;await act(async()=>button.click());expect(button.getAttribute('aria-pressed')).toBe("true");expect(button.className).toContain("bg-violet-100");
- expect(m.host.querySelectorAll('[role="combobox"]').length).toBe(3);expect(m.host.querySelector('[aria-label="排課收費方式"]')).toBeNull();await m.close();
+ expect(m.host.querySelectorAll('[role="combobox"]').length).toBe(4);expect(m.host.querySelector('[aria-label="排課收費方式"]')).toBeNull();await m.close();
 });
 
 it("學員姓名／電話即時篩選，切換開放選課仍保留已選草稿",async()=>{
  const m=await mount();expect(m.host.querySelectorAll('input[type="checkbox"]')).toHaveLength(0);
  const initialQuery=m.host.querySelector('[aria-label="搜尋學員"]') as HTMLInputElement;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(initialQuery,"學員");initialQuery.dispatchEvent(new Event("input",{bubbles:true}));});
- const checkbox=m.host.querySelector('input[type="checkbox"]') as HTMLInputElement;
+ const checkbox=m.host.querySelector('[role="option"]') as HTMLElement;
  await act(async()=>checkbox.click());expect(m.host.textContent).toContain("已選 1 人");
  const query=m.host.querySelector('[aria-label="搜尋學員"]') as HTMLInputElement;
  const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!;
  await act(async()=>{setter.call(query,'找不到');query.dispatchEvent(new Event('input',{bubbles:true}));});
- expect(m.host.querySelectorAll('input[type="checkbox"]')).toHaveLength(0);expect(m.host.querySelector('[aria-label="移除學員 學員"]')).not.toBeNull();
- await act(async()=>{setter.call(query,'0900');query.dispatchEvent(new Event('input',{bubbles:true}));});expect(m.host.querySelectorAll('input[type="checkbox"]')).toHaveLength(1);
+ expect(m.host.querySelectorAll('input[type="checkbox"]')).toHaveLength(0);expect(m.host.querySelector('[aria-label^="移除 學員"]')).not.toBeNull();
+ await act(async()=>{setter.call(query,'0900');query.dispatchEvent(new Event('input',{bubbles:true}));});expect(m.host.querySelectorAll('[role="option"]')).toHaveLength(1);
  const radios=Array.from(m.host.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
- await act(async()=>radios[1].click());await act(async()=>radios[0].click());expect(m.host.textContent).toContain('已選 1 人');expect((m.host.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(true);
+ await act(async()=>radios[1].click());await act(async()=>radios[0].click());expect(m.host.textContent).toContain('已選 1 人');expect(m.host.querySelector('[aria-label^="移除 學員"]')).not.toBeNull();
  await m.close();
 });
 
@@ -64,7 +64,7 @@ it("submits assigned scheduling without choosing a sales package",async()=>{
  const m=await mount({coachId:"coach"});
  const query=m.host.querySelector<HTMLInputElement>('[aria-label="搜尋學員"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(query,"學員");query.dispatchEvent(new Event("input",{bubbles:true}));});
- await act(async()=>m.host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+ await act(async()=>m.host.querySelector<HTMLElement>('[role="option"]')!.click());
  await act(async()=>m.host.querySelector('form')!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
  const request=vi.mocked(sportsStagingCommand).mock.calls.at(-1)![0] as {payload:Record<string,unknown>};
  expect(request.payload).toMatchObject({subject:"subject",coach:"王教練",coachId:"coach",mode:"指定學員",students:["student"]});
@@ -91,7 +91,7 @@ it("the original complete form routes scheduling to the injected core and retain
  const m=await mount({coachId:"coach"},{},source);
  const query=m.host.querySelector('[aria-label="搜尋學員"]') as HTMLInputElement;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(query,"學員");query.dispatchEvent(new Event("input",{bubbles:true}));});
- await act(async()=>(m.host.querySelector('input[type="checkbox"]') as HTMLInputElement).click());
+ await act(async()=>(m.host.querySelector('[role="option"]') as HTMLElement).click());
  const previous=vi.mocked(sportsStagingCommand).mock.calls.length;
  await act(async()=>m.host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  expect(command).toHaveBeenCalledWith(expect.objectContaining({operation:"schedule",payload:expect.objectContaining({students:["student"],coachId:"coach",kind:"每週固定",room:"第一空間"})}));
@@ -122,4 +122,11 @@ it("關閉開放選課時移除已選模式及容量欄位，保留排課草稿"
   expect(m.host.querySelectorAll('input[name="enrollment"]')).toHaveLength(0);
   expect(Array.from(m.host.querySelectorAll('button')).find(b=>b.textContent==="新增")!.disabled).toBe(true);
  }finally{await m.close();}
+});
+
+it.each([false,true])('only enables scheduling after current metadata is confirmed; pending=%s',async metadataPending=>{
+ const m=await mount({coachId:'coach'},{metadataPending});
+ const radio=Array.from(m.host.querySelectorAll('input[type="radio"]')).find(e=>e.parentElement?.textContent==='開放選課') as HTMLInputElement;
+ await act(async()=>radio.click());
+ expect(Array.from(m.host.querySelectorAll('button')).find(b=>b.textContent==='新增')!.disabled).toBe(metadataPending);await m.close();
 });

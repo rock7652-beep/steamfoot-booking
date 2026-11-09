@@ -56,12 +56,13 @@ const page=(params="",role="ADMIN",staffId:string|null=null,cards=true)=>getCour
     expect(result.rows[1]).toMatchObject({points:70,sessions:5,lastVisitAt:null});
     expect((await page("sort=points","ADMIN",null,false)).rows.every(r=>r.points===0 && r.sessions===0)).toBe(true);
   });
-  it("retains manager visibility, explicit staff filters and Taiwan attendance month semantics",async()=>{
+  it("retains manager visibility, explicit staff filters and ignores retired URL filters",async()=>{
     vi.stubEnv("MANAGER_VISIBILITY_MODE","SELF_ONLY");
     expect((await page("","PARTNER","manager-a")).total).toBe(10);
     expect((await page("staff=manager-b","PARTNER","manager-a")).total).toBe(0);
-    expect((await page("visit=month")).rows.map(r=>r.id)).toEqual(["a-1000"]);
-    expect((await page("visit=never")).total).toBe(999);
+    expect((await page("visit=month")).total).toBe(1000);
+    expect((await page("visit=never&referral=has&status=lead")).total).toBe(1000);
+    expect((await getCourseCustomerPage("a","ADMIN",null,new URLSearchParams("staff=manager-a"),false,now,true)).total).toBe(10);
   });
   it("counts only a verified unlimited source and rejects a snapshot changed after projection",async()=>{
     const record=syntheticOpeningRecord();record.expiresAt=null;record.expiryVerification={kind:"NO_EXPIRY",evidenceKey:"synthetic-proof"};

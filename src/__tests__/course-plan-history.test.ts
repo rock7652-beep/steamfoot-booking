@@ -1,13 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ findMany: vi.fn() }));
+const m = vi.hoisted(() => ({ findMany: vi.fn(), raw:vi.fn() }));
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/course-db", () => ({ coursePrisma: { coursePointCard: m } }));
+vi.mock("@/lib/course-db", () => ({ coursePrisma: { coursePointCard: m,$queryRaw:m.raw } }));
 import { getCoursePlanHistory } from "@/server/queries/course-plan-history";
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => {vi.resetAllMocks();m.raw.mockResolvedValue([]);});
 describe("authorized plan lesson history", () => {
   it("does not query without an authorized card", async () => {
     expect(await getCoursePlanHistory("store", "member", [], new Date())).toEqual([]);
     expect(m.findMany).not.toHaveBeenCalled();
+  });
+  it('shows only this learner\'s active backfilled classes and removes reversed classes from attendance projection',async()=>{
+    m.findMany.mockResolvedValue([{id:'card',createdAt:new Date('2026-01-01'),_count:{bookings:0},bookings:[]}]);
+    const original={id:'one',cardId:'card',customerId:'member',customerName:'本人',operation:'BACKFILL',occurredOn:'2026-01-02',quantity:2,reversalOf:null};
+    m.raw.mockResolvedValue([{afterJson:{record:original}},{afterJson:{record:{...original,id:'other',customerId:'other'}}}]);
+    const [before]=await getCoursePlanHistory('store','member',['card'],new Date());
+    expect(before.lessons).toEqual([expect.objectContaining({id:'one',startsAt:'2026-01-01T16:00:00.000Z',status:'已出席（補登）',used:2})]);
+    m.raw.mockResolvedValue([{afterJson:{record:original}},{afterJson:{record:{...original,id:'reversal',operation:'REVERSE',reversalOf:'one'}}}]);
+    const [after]=await getCoursePlanHistory('store','member',['card'],new Date());expect(after.lessons).toHaveLength(0);
   });
   it("scopes history to store and member, keeps lesson time and the existing debit rules", async () => {
     const row = (status: string, absenceKind: string | null = null) => ({id:status+absenceKind,customerName:"家人",status,absenceKind,pointCost:2,session:{startsAt:new Date("2026-09-18T04:00:00Z"),nameSnapshot:"基礎伸展 · 83f866"}});

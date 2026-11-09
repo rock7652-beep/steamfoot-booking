@@ -28,6 +28,8 @@ const replySteamButlerMessageMock = vi.fn(
 const bindLineToCustomerInStoreMock = vi.fn();
 const probeStoreLineRecipientMock = vi.fn();
 const captureStoreMemberConnectionMock = vi.fn();
+const completePhoneLineRebindMock = vi.fn<(...args: unknown[]) => Promise<"not_requested" | "linked" | "conflict">>().mockResolvedValue("not_requested");
+vi.mock("@/server/services/phone-line-rebind", () => ({ completePhoneLineRebind: (...args: unknown[]) => completePhoneLineRebindMock(...args) }));
 vi.mock("@/server/services/store-member-connection", () => ({ captureStoreMemberConnection: (...args: unknown[]) => captureStoreMemberConnectionMock(...args), connectionReplyText: async (result: string) => result === "pending" ? "已收到電話，請門市核對本人後確認；尚未完成綁定。" : "資料需要確認" }));
 const captureLineRebindCandidateMock = vi.fn();
 const claimTrialNotificationSetupMock = vi.fn();
@@ -191,6 +193,16 @@ describe("LINE webhook store-aware signature and reply", () => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
+  it.each([["linked", "LINE 綁定已完成。"], ["conflict", "目前無法完成綁定，請聯繫門市確認資料。"]] as const)("uses the authorized phone rebind result %s before the old phone workflow", async (status, expected) => {
+    completePhoneLineRebindMock.mockResolvedValueOnce(status);
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const response = await POST(postReq({ destination: "D_hsinchu", events: [{ type: "message", replyToken: "phone-rebind", source: { type: "user", userId: "U-hsinchu-store" }, message: { type: "text", text: "0912345678" }, timestamp: Date.now() }] }));
+    expect(response.status).toBe(200);
+    expect(completePhoneLineRebindMock).toHaveBeenCalledWith(expect.objectContaining({ storeIds: ["store-hsinchu"], phone: "0912345678" }));
+    expect(replyMessageMock).toHaveBeenCalledWith("store-hsinchu", "phone-rebind", [{ type: "text", text: expected }]);
+    expect(mockPrisma.customer.updateMany).not.toHaveBeenCalled();
+  });
+
   it("sanitizes an invisible Digital Butler quick reply carrier and logs a safe failed reply diagnostic", async () => {
     digitalButlerHandleTextMock.mockResolvedValueOnce({
       handled: true,
@@ -253,7 +265,7 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(output).not.toContain("我想了解蒸足");
   });
 
-  it("resolves destination before signature verification and uses that store for replies", async () => {
+  it("resolves and verifies the follow store, updates friendship there and sends no welcome", async () => {
     const body = {
       destination: "D_hsinchu",
       events: [
@@ -278,11 +290,8 @@ describe("LINE webhook store-aware signature and reply", () => {
       JSON.stringify(body),
       "line-signature",
     );
-    expect(replyMessageMock).toHaveBeenCalledWith(
-      "store-hsinchu",
-      "reply-token-1",
-      expect.any(Array),
-    );
+    expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith({where:{lineUserId:'U_hsinchu_customer',storeId:'store-hsinchu',lineLinkStatus:'BLOCKED'}});
+    expect(replyMessageMock).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -313,6 +322,16 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(captureStoreMemberConnectionMock).not.toHaveBeenCalled();
     expect(mockPrisma.customer.updateMany).toHaveBeenCalledOnce();
     expect(replyMessageMock).toHaveBeenCalledWith("store-hsinchu", "reply-token-phone", [{type:"text",text:expect.stringContaining("通知設定完成")}]);
+  });
+  it('keeps verified incoming phone processing independent from the outgoing pause',async()=>{
+    vi.stubEnv('LINE_DELIVERY_RESUME_AT',new Date(Date.now()+60_000).toISOString());
+    try{
+      completePhoneLineRebindMock.mockResolvedValueOnce('linked');
+      const timestamp=Date.now(),{POST}=await import('@/app/api/line/webhook/route');
+      const response=await POST(postReq({destination:'D_hsinchu',events:[{type:'message',replyToken:'reply',source:{type:'user',userId:'U-hsinchu-store'},message:{type:'text',text:'0912345678'},timestamp}]}));
+      expect(response.status).toBe(200);
+      expect(completePhoneLineRebindMock).toHaveBeenCalledWith(expect.objectContaining({storeIds:['store-hsinchu'],phone:'0912345678',timestamp}));
+    }finally{vi.unstubAllEnvs();}
   });
 
   it.each([

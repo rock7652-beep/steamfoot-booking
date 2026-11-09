@@ -11,21 +11,28 @@ import type {Prisma} from "../../generated/course-client";
 // Transaction doubles contain only fields exercised by these lifecycle tests.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let card:any,booking:any,coupon:any;
-const m={coursePurchase:{count:vi.fn()},courseBooking:{findFirst:vi.fn(),findMany:vi.fn(),count:vi.fn(),aggregate:vi.fn(),update:vi.fn()},coursePointCard:{findMany:vi.fn(),findFirst:vi.fn(),findUnique:vi.fn(),create:vi.fn(),update:vi.fn(),updateMany:vi.fn()},coursePointEntry:{create:vi.fn(),findUnique:vi.fn()},courseSession:{findFirst:vi.fn(),update:vi.fn()},courseTemplate:{findFirst:vi.fn()},$queryRaw:vi.fn(),$executeRaw:vi.fn()};
+const m={coursePurchase:{count:vi.fn(),findMany:vi.fn()},courseBooking:{findFirst:vi.fn(),findMany:vi.fn(),count:vi.fn(),aggregate:vi.fn(),update:vi.fn()},coursePointCard:{findMany:vi.fn(),findFirst:vi.fn(),findUnique:vi.fn(),create:vi.fn(),update:vi.fn(),updateMany:vi.fn()},coursePointEntry:{create:vi.fn(),findUnique:vi.fn()},courseSession:{findFirst:vi.fn(),findMany:vi.fn(),update:vi.fn()},courseTemplate:{findFirst:vi.fn(),findMany:vi.fn()},$queryRaw:vi.fn(),$executeRaw:vi.fn()};
 const tx=m as unknown as Prisma.TransactionClient;
 const actor={storeId:"synthetic-store",userId:"synthetic-actor",name:"Synthetic"};
 beforeEach(()=>{
  vi.resetAllMocks();m.coursePointCard.findMany.mockResolvedValue([]);m.coursePurchase.count.mockResolvedValue(1);vi.stubEnv("VERCEL","1");coupon=null;
  card={id:"synthetic-card",requestKey:"native-checkout:synthetic",unit:"SESSION",remaining:8,expiresAt:new Date("2027-01-10T15:59:59.999Z"),musicActivatedAt:new Date("2026-11-02T11:00:00Z"),musicValidityDays:70,planId:"synthetic-plan",templateIds:["synthetic-template"],nameSnapshot:"Synthetic group",members:[{customerId:"synthetic-student"}]};
  booking={id:"synthetic-booking",storeId:actor.storeId,cardId:card.id,card,customerId:"synthetic-student",sessionId:"synthetic-session",session:{id:"synthetic-session",templateId:"synthetic-template",startsAt:new Date("2026-11-02T11:00:00Z"),endsAt:new Date("2026-11-02T12:00:00Z"),capacity:3,teacherAttendance:"SCHEDULED",releasedAt:null},status:"RESERVED",absenceKind:null,pointCost:1,bookingKind:"CARD",makeupForBookingId:null};
- m.$queryRaw.mockResolvedValue([{featureKey:"business.music",afterJson:{contentHash:PILOT_EVIDENCE_HASH,cardIds:[card.id]}}]);
+ m.$queryRaw.mockImplementation(async (strings)=>strings.join("").includes('PLAN_SESSION_ADJUSTMENT')?[]:[{featureKey:"business.music",afterJson:{contentHash:PILOT_EVIDENCE_HASH,cardIds:[card.id]}}]);
  m.courseBooking.findFirst.mockImplementation(async(args)=>typeof args.where.id === "string" ? booking : null);m.courseBooking.findMany.mockResolvedValue([]);m.courseBooking.count.mockResolvedValue(0);m.courseBooking.aggregate.mockResolvedValue({_sum:{pointCost:0}});
  m.courseBooking.update.mockImplementation(async({data})=>Object.assign(booking,data));
  m.coursePointCard.findFirst.mockImplementation(async()=>card);m.coursePointCard.findUnique.mockImplementation(async({where})=>where.storeId_requestKey.requestKey.startsWith("music-leave-makeup:")?coupon:null);
  m.coursePointCard.updateMany.mockImplementation(async({data})=>{card.remaining-=data.remaining.decrement;return {count:1};});
  m.coursePointCard.create.mockImplementation(async({data})=>{coupon={...data,members:[{customerId:"synthetic-student"}],closedAt:null};return coupon;});
  m.coursePointCard.update.mockImplementation(async({where,data})=>{if(where.id===card.id){if(data.remaining?.increment)card.remaining+=data.remaining.increment;}else Object.assign(coupon,data);return data;});
- m.courseTemplate.findFirst.mockResolvedValue({classType:"GROUP"});m.courseSession.findFirst.mockResolvedValue(null);
+ m.courseTemplate.findFirst.mockResolvedValue({classType:"GROUP",musicSubjectId:"synthetic-subject",musicTrialMode:null});m.courseSession.findFirst.mockResolvedValue(null);
+ // The fixture's one current paid card is also the oldest eligible item card.
+ // Include the ordinary-card reads introduced by legacy-binding reconciliation.
+ card.createdAt=new Date("2026-10-01");card.bookings=[];
+ m.coursePointCard.findMany.mockImplementation(async()=>[card]);
+ m.coursePurchase.findMany.mockResolvedValue([]);
+ m.courseSession.findMany.mockResolvedValue([]);
+ m.courseTemplate.findMany.mockResolvedValue([{id:"synthetic-template"}]);
 });
 describe("new music purchase leave policy",()=>{
  it("deducts ordinary once, issues one separate same-expiry makeup and ignores replay",async()=>{

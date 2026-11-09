@@ -22,7 +22,7 @@ describe("incomplete service reminder contract", () => {
     expect(worker).toContain('${candidate.id}`');
     expect(worker).toContain("digitalButlerExecutionLog.create");
     expect(worker).toContain("stillIncomplete");
-    expect(worker).toContain("concurrent completion, cancellation, or no-show wins");
+    expect(worker).toContain("const stillDue=await stillMatches()");
   });
 
   it("keeps the worker endpoint protected and schedules it on the verified Pro team", () => {

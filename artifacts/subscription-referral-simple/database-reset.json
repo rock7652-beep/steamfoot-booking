@@ -1,0 +1,20 @@
+{
+  "unboundMatureLead": true,
+  "currentRewards": 0,
+  "preservedRewardAudits": 4,
+  "explicitResetAudits": 4,
+  "stores": [
+    {
+      "id": "referral-qa-20261105-a",
+      "storeExpiry": "2026-11-25T03:36:54.752",
+      "subscriptionExpiry": "2026-11-25T03:36:54.752"
+    },
+    {
+      "id": "referral-qa-20261105-b",
+      "storeExpiry": "2026-11-30T03:36:54.752",
+      "subscriptionExpiry": "2026-11-30T03:36:54.752"
+    }
+  ],
+  "sourceCommit": "a29c74dd41cedb2919f3c0d32ed64d7f35a33cdd",
+  "baselineRestored": true
+}

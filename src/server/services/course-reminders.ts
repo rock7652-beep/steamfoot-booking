@@ -53,7 +53,7 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
      if(route.status==="BLOCKED") return skip(`LINE 身分或通道未確認：${route.reason}`);
      if(acceptance && (route.channel!=="STORE" || createHash("sha256").update(route.recipientLineUserId).digest("hex")!==acceptance.recipientHash)) return skip("驗收收件人或通道不匹配");
      const messages=(acceptance?buildPackageBookingTestReminderLineMessages:buildPackageBookingReminderLineMessages)(messageInput,url.toString(),booking.id);
-     const deliver=()=>route.channel==="STORE"?pushMessage(store.id,route.recipientLineUserId,messages,courseReminderRetryKey(id)):pushSteamButlerMessage(route.recipientLineUserId,messages,courseReminderRetryKey(id));
+     const deliver=()=>route.channel==="STORE"?pushMessage(store.id, route.recipientLineUserId, messages, courseReminderRetryKey(id), triggerAt):pushSteamButlerMessage(route.recipientLineUserId, messages, courseReminderRetryKey(id), triggerAt);
      const sent=acceptance?await withAcceptanceRetryKey(courseReminderRetryKey(id),deliver):await deliver();
      await tx.messageLog.update({where:{id},data:{status:sent.success?"SENT":"FAILED",lineRoute:route.channel,sentAt:sent.success?now:null,errorMessage:sent.success?null:sent.error}});
      return sent.success?"SENT" as const:"FAILED" as const;

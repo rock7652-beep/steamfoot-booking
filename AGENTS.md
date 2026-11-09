@@ -6,6 +6,27 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # 開發約定
 
+## 專案 Skills
+
+以下是本 repo 的工作流程；本檔保留永久規則，`docs` 保留各領域規範與歷史證據，不將 Skill 當成另一份業務規則或額外授權。
+
+- 接續既有開發／修復、盤點影響與交接：讀 [.agents/skills/steamfoot-task-handoff/SKILL.md](.agents/skills/steamfoot-task-handoff/SKILL.md)，先核對原作者、PR、最新決策與授權，避免重複工作。
+- 設計、修改或驗收 UI／設定／清單／面板：讀 [.agents/skills/steamfoot-ui-review/SKILL.md](.agents/skills/steamfoot-ui-review/SKILL.md)，並遵循下方 Framework 與 RWD 要求。
+- 準備交付、PR 驗收或發布：讀 [.agents/skills/steamfoot-release-check/SKILL.md](.agents/skills/steamfoot-release-check/SKILL.md)，分清測試、發布與正式驗收證據。
+
+操作體驗也是驗收條件：功能完成、測試通過或部署成功，不等於資料完整正確且可操作。依 [十個操作情境](docs/operation-experience-scenarios.md) 與 UI Skill 選測；建置成本、預覽重用與交付溝通依 [建置溝通規則](.agents/skills/steamfoot-release-check/SKILL.md#建置溝通規則)。
+
+日常開發由執行者主動選讀並套用相關規則，不要求使用者每次點名 Skill 或說齊技術名詞。使用者提出痛點與期待結果後，主動盤點影響、資料正確性、權限、必要測試、既有預覽及可能成本；先自行完成可取得資訊與已授權範圍內的必要查核。只有真正需要取捨、缺少必要資訊或超出授權時才詢問；不得因此擴大範圍或權限，未驗項目清楚標示。
+
+僅載入本次相關 Skill。即使執行器未自動列出 repo Skills，也可由以上路徑讀取；不能據此宣稱使用者桌面已同步或安裝。
+Skill 不增加 push、合併、部署、正式資料寫入或外發權限；既有通知停發不得自行恢復。涉及 Cloudflare 時按本次實際依賴核實必要性，不一律略過或一律阻擋；受阻只暫停依賴部分，且不得換路繞過權限拒絕。
+
+## 任務回覆原則
+
+- 每次任務回覆（含進度更新與交付）的最後，只列最重要的一個下一步，寫明負責者與具體行動；不附加一串可選待辦。
+- 已在授權內且助理能繼續執行的步驟，由助理承接，不丟回使用者，也不重問已確認的事項。僅在需要本人決策、補充必要資料或新授權時，清楚提出該項問題與影響範圍；不能因列為下一步就視為獲准。
+- 已完成且沒有必要後續時，以「已完成，你目前不用操作。」收尾，不硬加工作、不捏造待辦；仍有等待或阻擋時如實說明，不假稱結案。
+
 ## 日期與時區
 
 - 全系統統一 UTC+8 (Asia/Taipei)，規則文件：`docs/date-time-rules.md`

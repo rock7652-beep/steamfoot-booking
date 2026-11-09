@@ -1,3 +1,4 @@
+vi.mock("@/server/actions/customer-booking-goods",()=>({readCustomerBookingGoods:vi.fn().mockResolvedValue({success:true,data:null})}));
 import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";

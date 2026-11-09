@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 
 const m = vi.hoisted(() => ({ customer: vi.fn(), transactions: vi.fn(), cashbook: vi.fn(), permission: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: {
@@ -26,4 +27,14 @@ it("shows the newest linked cashbook income in the customer drawer", async () =>
 
   expect(result.recentConsumption).toEqual([{ id: "cashbook:cash-1", date: new Date("2026-09-22T00:00:00Z"), label: "三寶", amount: 100, payment: "現金" }]);
   expect(m.cashbook).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "store", customerId: "customer-1", type: "INCOME" }, take: 5 }));
+});
+
+it("returns plain wallet prices without changing the original Decimal or hiding wallet history", async () => {
+  m.permission.mockResolvedValue(false);
+  const wallet = { id: "wallet", purchasedPrice: new Prisma.Decimal(5000), remainingSessions: 3, status: "ACTIVE", expiryDate: new Date("2027-01-01") };
+  m.customer.mockResolvedValue({id:"customer-1",storeId:"store",mergedIntoCustomerId:null,user:null,planWallets:[wallet]});
+  const result = await getCustomerDrawerDetailForUser({role:"OWNER",staffId:"staff"} as never,"customer-1","store");
+  expect(result.planWallets[0]).toMatchObject({id:"wallet",purchasedPrice:5000,remainingSessions:3,status:"ACTIVE",expiryDate:wallet.expiryDate});
+  expect(Object.getPrototypeOf(result.planWallets[0])).toBe(Object.prototype);
+  expect(Prisma.Decimal.isDecimal(wallet.purchasedPrice)).toBe(true);
 });

@@ -1,0 +1,33 @@
+{
+  "base": "https://steamfoot-booking-odqmgpb4k-rock7652-2111s-projects.vercel.app",
+  "baseline": true,
+  "scope": "Normal-login synthetic fixture, approved isolated beauty store only. No financial writes.",
+  "checks": [
+    {
+      "step": "approved-store-normal-login"
+    },
+    {
+      "step": "changed-calendar-date-before-opening-qa-roster"
+    },
+    {
+      "step": "baseline-observation",
+      "dialogRemainedOpen": false,
+      "shellMs": 60
+    }
+  ],
+  "pageErrors": [],
+  "dialogRemainedOpen": false,
+  "requests": [
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "nextAction": true,
+      "body": "[{\"expectedStoreId\":\"beauty-hosted-20261021\",\"ids\":[\"qa1469-collection-shell-booking\"]}]"
+    },
+    {
+      "path": "/s/beauty-hosted-20261021/admin/dashboard/beauty",
+      "nextAction": true,
+      "body": "[[\"qa1469-collection-shell-booking\"]]"
+    }
+  ],
+  "success": true
+}

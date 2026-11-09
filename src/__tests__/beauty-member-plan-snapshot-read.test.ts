@@ -1,0 +1,5 @@
+import {afterEach,expect,it,vi} from 'vitest';
+import {readBeautyMemberPlanSnapshot} from '@/lib/beauty/member-plan-snapshot-read';
+afterEach(()=>vi.unstubAllGlobals());
+it('rejects a response belonging to a different member or store',async()=>{const fetch=vi.fn().mockResolvedValue({ok:true,json:async()=>({success:true,data:{storeId:'store',customerId:'other',scopeKey:'user',cards:[],purchases:[]}})});vi.stubGlobal('fetch',fetch);expect(await readBeautyMemberPlanSnapshot('shop','store','customer','user')).toEqual({success:false,denied:true});expect(fetch.mock.calls[0][1]).toMatchObject({cache:'no-store',credentials:'same-origin'});});
+it('distinguishes authorization failure from server availability',async()=>{const fetch=vi.fn().mockResolvedValueOnce({ok:false,status:403}).mockResolvedValueOnce({ok:false,status:503});vi.stubGlobal('fetch',fetch);expect(await readBeautyMemberPlanSnapshot('shop','store','customer','user')).toEqual({success:false,denied:true});expect(await readBeautyMemberPlanSnapshot('shop','store','customer','user')).toEqual({success:false,denied:false});});

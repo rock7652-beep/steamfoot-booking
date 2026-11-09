@@ -1,0 +1,3301 @@
+{
+  "base": "https://steamfoot-booking-grsjtekua-rock7652-2111s-projects.vercel.app",
+  "events": [
+    {
+      "path": "/hq/login",
+      "queryKeys": [
+        "store"
+      ],
+      "type": "Document",
+      "initiator": "other",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "text/html",
+      "cache": "HIT",
+      "matched": "/hq/login",
+      "requestId": "D1F1C7EEE5ED8E513C75952A999158C3"
+    },
+    {
+      "path": "/_next/static/chunks/0511vis6s9d6..css",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Stylesheet",
+      "initiator": "parser",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "text/css",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0511vis6s9d6..css",
+      "requestId": "934257.2"
+    },
+    {
+      "path": "/_next/static/chunks/074prxct1iqr1.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/074prxct1iqr1.js",
+      "requestId": "934257.3"
+    },
+    {
+      "path": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+      "requestId": "934257.4"
+    },
+    {
+      "path": "/_next/static/chunks/18cilrg3kkkfk.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/18cilrg3kkkfk.js",
+      "requestId": "934257.6"
+    },
+    {
+      "path": "/_next/static/chunks/0_fepd95ptoqy.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0_fepd95ptoqy.js",
+      "requestId": "934257.5"
+    },
+    {
+      "path": "/_next/static/chunks/04.i-__.as.dk.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/04.i-__.as.dk.js",
+      "requestId": "934257.7"
+    },
+    {
+      "path": "/_next/static/chunks/10787q4ojjapa.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/10787q4ojjapa.js",
+      "requestId": "934257.8"
+    },
+    {
+      "path": "/_next/static/chunks/0i.l9589uvx0j.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0i.l9589uvx0j.js",
+      "requestId": "934257.11"
+    },
+    {
+      "path": "/_next/static/chunks/07nti.tdjl619.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/07nti.tdjl619.js",
+      "requestId": "934257.12"
+    },
+    {
+      "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+      "requestId": "934257.9"
+    },
+    {
+      "path": "/_next/static/chunks/13sar8s1k4vkv.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/13sar8s1k4vkv.js",
+      "requestId": "934257.13"
+    },
+    {
+      "path": "/_next/static/chunks/0fjb2kp5wf-40.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0fjb2kp5wf-40.js",
+      "requestId": "934257.10"
+    },
+    {
+      "path": "/favicon.ico",
+      "queryKeys": [
+        "favicon.0x3dzn~oxb6tn.ico?dpl"
+      ],
+      "type": "Other",
+      "initiator": "other",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "image/vnd.microsoft.icon",
+      "cache": "HIT",
+      "matched": "/favicon.ico",
+      "requestId": "934257.30"
+    },
+    {
+      "path": "/pricing/brand/steam-butler-logo.png",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Image",
+      "initiator": "other",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "image/png",
+      "cache": "HIT",
+      "matched": "/pricing/brand/steam-butler-logo.png",
+      "requestId": "934257.31"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "queryKeys": [
+        "store",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "HIT",
+      "matched": "/hq/forgot-password.segments/_tree.segment.rsc",
+      "requestId": "934257.32"
+    },
+    {
+      "path": "/api/auth/session",
+      "queryKeys": [],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "i",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "v",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "c._getSession",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "iv",
+          "path": "/_next/static/chunks/10787q4ojjapa.js"
+        }
+      ],
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/json",
+      "cache": "MISS",
+      "matched": "/api/auth/[...nextauth]",
+      "requestId": "934257.29"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "queryKeys": [
+        "store",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "ep",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "D",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "HIT",
+      "matched": "/hq/forgot-password.segments/_head.segment.rsc",
+      "requestId": "934257.33"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "queryKeys": [
+        "store",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "ep",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "D",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "e",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "HIT",
+      "matched": "/hq/forgot-password.segments/_index.segment.rsc",
+      "requestId": "934257.34"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "queryKeys": [
+        "store",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "ep",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "D",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "e",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "HIT",
+      "matched": "/hq/forgot-password.segments/hq.segment.rsc",
+      "requestId": "934257.35"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "queryKeys": [
+        "store",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "ep",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "D",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "e",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "HIT",
+      "matched": "/hq/forgot-password.segments/hq/forgot-password.segment.rsc",
+      "requestId": "934257.36"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "queryKeys": [
+        "store",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "ep",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "D",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "e",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "HIT",
+      "matched": "/hq/forgot-password.segments/hq/forgot-password/__PAGE__.segment.rsc",
+      "requestId": "934257.38"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "queryKeys": [
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "w",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "HIT",
+      "matched": "/hq/forgot-password.segments/_tree.segment.rsc",
+      "requestId": "934257.39"
+    },
+    {
+      "path": "/api/auth/session",
+      "queryKeys": [],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "i",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "v",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "c._getSession",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "t",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        }
+      ],
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/json",
+      "cache": "MISS",
+      "matched": "/api/auth/[...nextauth]",
+      "requestId": "934257.37"
+    },
+    {
+      "path": "/_next/static/chunks/0b_vni1jd94qr.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "function": "loadChunkCached",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "function": "M",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "function": "R.L",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "function": "c",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        }
+      ],
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0b_vni1jd94qr.js",
+      "requestId": "934257.40"
+    },
+    {
+      "path": "/hq/login",
+      "queryKeys": [
+        "store"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "I",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "BYPASS",
+      "matched": "/hq/login",
+      "requestId": "934257.41"
+    },
+    {
+      "path": "/favicon.ico",
+      "queryKeys": [
+        "favicon.0x3dzn~oxb6tn.ico"
+      ],
+      "type": "Other",
+      "initiator": "other",
+      "documentPath": "/hq/login",
+      "status": 200,
+      "mime": "image/vnd.microsoft.icon",
+      "cache": "HIT",
+      "matched": "/favicon.ico",
+      "requestId": "934257.42"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard",
+      "queryKeys": [],
+      "type": "Document",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "",
+          "path": "/_next/static/chunks/07nti.tdjl619.js"
+        },
+        {
+          "function": "iv",
+          "path": "/_next/static/chunks/10787q4ojjapa.js"
+        },
+        {
+          "function": "up",
+          "path": "/_next/static/chunks/10787q4ojjapa.js"
+        },
+        {
+          "function": "ud",
+          "path": "/_next/static/chunks/10787q4ojjapa.js"
+        },
+        {
+          "function": "up",
+          "path": "/_next/static/chunks/10787q4ojjapa.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/html",
+      "cache": "MISS",
+      "matched": "/dashboard",
+      "requestId": "AE3921E81CFB8C34D6EFEBA98D38B730"
+    },
+    {
+      "path": "/_next/static/chunks/06xu45ms98-yt.css",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Stylesheet",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/css",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/06xu45ms98-yt.css",
+      "requestId": "934257.47"
+    },
+    {
+      "path": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0~k6u5_j-9bf2.js",
+      "requestId": "934257.49"
+    },
+    {
+      "path": "/_next/static/chunks/0511vis6s9d6..css",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Stylesheet",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/css",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0511vis6s9d6..css",
+      "requestId": "934257.46"
+    },
+    {
+      "path": "/_next/static/chunks/074prxct1iqr1.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/074prxct1iqr1.js",
+      "requestId": "934257.48"
+    },
+    {
+      "path": "/_next/static/chunks/18cilrg3kkkfk.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/18cilrg3kkkfk.js",
+      "requestId": "934257.51"
+    },
+    {
+      "path": "/_next/static/chunks/0_fepd95ptoqy.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0_fepd95ptoqy.js",
+      "requestId": "934257.50"
+    },
+    {
+      "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+      "requestId": "934257.54"
+    },
+    {
+      "path": "/_next/static/chunks/04.i-__.as.dk.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/04.i-__.as.dk.js",
+      "requestId": "934257.52"
+    },
+    {
+      "path": "/_next/static/chunks/0i.l9589uvx0j.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0i.l9589uvx0j.js",
+      "requestId": "934257.56"
+    },
+    {
+      "path": "/_next/static/chunks/0fjb2kp5wf-40.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0fjb2kp5wf-40.js",
+      "requestId": "934257.55"
+    },
+    {
+      "path": "/_next/static/chunks/10787q4ojjapa.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/10787q4ojjapa.js",
+      "requestId": "934257.53"
+    },
+    {
+      "path": "/_next/static/chunks/13sar8s1k4vkv.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/13sar8s1k4vkv.js",
+      "requestId": "934257.57"
+    },
+    {
+      "path": "/_next/static/chunks/0mxps0gydcc2f.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0mxps0gydcc2f.js",
+      "requestId": "934257.58"
+    },
+    {
+      "path": "/_next/static/chunks/0sb~61txgu9r-.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0sb~61txgu9r-.js",
+      "requestId": "934257.59"
+    },
+    {
+      "path": "/_next/static/chunks/0fsvlpcg96~.d.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0fsvlpcg96~.d.js",
+      "requestId": "934257.60"
+    },
+    {
+      "path": "/_next/static/chunks/0dqdludz.379z.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0dqdludz.379z.js",
+      "requestId": "934257.61"
+    },
+    {
+      "path": "/_next/static/chunks/0_owxy8c~i_0u.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0_owxy8c~i_0u.js",
+      "requestId": "934257.62"
+    },
+    {
+      "path": "/_next/static/chunks/0m6k2k3vtx2b-.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0m6k2k3vtx2b-.js",
+      "requestId": "934257.85"
+    },
+    {
+      "path": "/_next/static/chunks/15q_j0sdextf0.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/15q_j0sdextf0.js",
+      "requestId": "934257.63"
+    },
+    {
+      "path": "/api/auth/session",
+      "queryKeys": [],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "i",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "v",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "c._getSession",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "iv",
+          "path": "/_next/static/chunks/10787q4ojjapa.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/json",
+      "cache": "MISS",
+      "matched": "/api/auth/[...nextauth]",
+      "requestId": "934257.86"
+    },
+    {
+      "path": "/_next/static/chunks/0ppbv5zzprwck.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "function": "loadChunkCached",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "function": "M",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "function": "R.L",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "function": "c",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "HIT",
+      "matched": "/_next/static/chunks/0ppbv5zzprwck.js",
+      "requestId": "934257.87"
+    },
+    {
+      "path": "/pricing/brand/steam-butler-logo.png",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Image",
+      "initiator": "parser",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "image/png",
+      "cache": "HIT",
+      "matched": "/pricing/brand/steam-butler-logo.png",
+      "requestId": "934257.88"
+    },
+    {
+      "path": "/favicon.ico",
+      "queryKeys": [
+        "favicon.0x3dzn~oxb6tn.ico"
+      ],
+      "type": "Other",
+      "initiator": "other",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "image/vnd.microsoft.icon",
+      "cache": "HIT",
+      "matched": "/favicon.ico",
+      "requestId": "934257.102"
+    },
+    {
+      "path": "/api/auth/session",
+      "queryKeys": [],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "i",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "v",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "c._getSession",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        },
+        {
+          "function": "t",
+          "path": "/_next/static/chunks/0fjb2kp5wf-40.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/json",
+      "cache": "MISS",
+      "matched": "/api/auth/[...nextauth]",
+      "requestId": "934257.89"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.98"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.99"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.101"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard",
+      "queryKeys": [],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "I",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard",
+      "requestId": "934257.97"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.100"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.103"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "view",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.105"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "view",
+        "staff",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.104"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard",
+      "queryKeys": [
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "m",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "m",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "_",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard.rsc",
+      "requestId": "934257.106"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.108"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.107"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.109"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.110"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.111"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "view",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.112"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/revenue",
+      "queryKeys": [
+        "summary",
+        "dateFrom",
+        "dateTo",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/revenue.rsc",
+      "requestId": "934257.113"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "date",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.114"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses/hours",
+      "queryKeys": [
+        "setupStep",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses/hours.rsc",
+      "requestId": "934257.118"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "view",
+        "staff",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.117"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "date",
+        "action",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.116"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "date",
+        "action",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.115"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eg",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.120"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eg",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.119"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eg",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.121"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eg",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.122"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "segment",
+        "month",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eg",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.123"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "view",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eg",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.125"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "view",
+        "staff",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eg",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.124"
+    },
+    {
+      "path": "/_next/static/chunks/0u70o06n9-6fq.js",
+      "queryKeys": [
+        "dpl"
+      ],
+      "type": "Script",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "function": "loadChunkCached",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "function": "M",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "function": "R.L",
+          "path": "/_next/static/chunks/turbopack-16556fhkadl_y.js"
+        },
+        {
+          "function": "c",
+          "path": "/_next/static/chunks/0~k6u5_j-9bf2.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "application/javascript",
+      "cache": "MISS",
+      "matched": "/_next/static/chunks/0u70o06n9-6fq.js",
+      "requestId": "934257.128"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "date",
+        "action",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eg",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.130"
+    },
+    {
+      "path": "/favicon.ico",
+      "queryKeys": [
+        "favicon.0x3dzn~oxb6tn.ico"
+      ],
+      "type": "Other",
+      "initiator": "other",
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "image/vnd.microsoft.icon",
+      "cache": "HIT",
+      "matched": "/favicon.ico",
+      "requestId": "934257.131"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/revenue",
+      "queryKeys": [
+        "summary",
+        "dateFrom",
+        "dateTo",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eg",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/revenue.rsc",
+      "requestId": "934257.126"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "date",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eg",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.127"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "date",
+        "action",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eg",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.129"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses/hours",
+      "queryKeys": [
+        "setupStep",
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eg",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses/hours.rsc",
+      "requestId": "934257.132"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/revenue",
+      "queryKeys": [
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "w",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/revenue.rsc",
+      "requestId": "934257.135"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "queryKeys": [
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "w",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses.rsc",
+      "requestId": "934257.134"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "queryKeys": [
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "w",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/growth.rsc",
+      "requestId": "934257.133"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses/hours",
+      "queryKeys": [
+        "_rsc"
+      ],
+      "type": "Fetch",
+      "initiator": "script",
+      "stack": [
+        {
+          "function": "b",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eP",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "eh",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        },
+        {
+          "function": "w",
+          "path": "/_next/static/chunks/18cilrg3kkkfk.js"
+        }
+      ],
+      "documentPath": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "mime": "text/x-component",
+      "cache": "MISS",
+      "matched": "/dashboard/courses/hours.rsc",
+      "requestId": "934257.136"
+    }
+  ],
+  "signals": [
+    {
+      "path": "/hq/login",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "bodySha": "d27ad096fd3bded68dc742ad81202c34a91d370025d5bf5c36a0658170816e63",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "title": "蒸管家｜服務品牌成長系統",
+      "isRsc": false
+    },
+    {
+      "path": "/hq/forgot-password",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "6a59785f2e857ca90856bc259835375ae044cfe716c6968b4de27b1ef116aae8",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "a62001bd1402a900ea0b391ddd4a875e3502d9bc2ea5906bd95c505311233ea3",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "6ae3eb682e92d030223dd90d8a31009481d786748570833762a386dda6cf5b11",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "8f3b662efbed51d2260525a4ca849533b45255f1437f30d8d9137ec6ec476886",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "8f3b662efbed51d2260525a4ca849533b45255f1437f30d8d9137ec6ec476886",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "11de63db14b46c60d5b16ae0da78b662a5e323951365a7dcf446a8234f9e9077",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/hq/forgot-password",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "6a59785f2e857ca90856bc259835375ae044cfe716c6968b4de27b1ef116aae8",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/hq/login",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": false
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "bodySha": "576e9b89556a0047d25665495e21638f4a38126d0ef310d808b2b52353ae3015",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "title": "蒸管家｜服務品牌成長系統",
+      "isRsc": false
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "753fac56fa0fc6222a44c872086318cbb5cb42be2a528e1413269c8bce9c5baf",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "19dd628c35097843ec1465cc16cbf78186dbcb0420ccf25f5006440fd3b160b2",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "5aeaa0ce09e65e884efb180b6a68e258ca0dcfb41031abcf9a82682ab8ad6759",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "9a2e19f1fb6800e607350bcc26ec1eaf39692c26947b7daaf111bb6ba259ea43",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": false
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "f8a9d4f9e89469e4de94419c603fa4bdf3c1f78301d4a4cfc7650fad3a2607a6",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "564fd13c99628aaca537c786eecff2ac0386f0e8b9660928e282b60cc163e08d",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "1025bd6b7ad28347ad42759b27eba927b3d66afb26a62d64e823986901b0f2fb",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "6e0675491a509a015229dc87a3368a2639f492667d2df1cccd2f1881f8af5c51",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "19dd628c35097843ec1465cc16cbf78186dbcb0420ccf25f5006440fd3b160b2",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "753fac56fa0fc6222a44c872086318cbb5cb42be2a528e1413269c8bce9c5baf",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "f8a9d4f9e89469e4de94419c603fa4bdf3c1f78301d4a4cfc7650fad3a2607a6",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "5aeaa0ce09e65e884efb180b6a68e258ca0dcfb41031abcf9a82682ab8ad6759",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "1025bd6b7ad28347ad42759b27eba927b3d66afb26a62d64e823986901b0f2fb",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/revenue",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "f1fcf4292195ac1a4e3548118cf21758ffee1fcc4195e1862802ea80192787c7",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "10e1f084bb04bb156198344310493791e3933f749b34848ef881aa9570be5f46",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses/hours",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "9dc42e84ac48fc5df5b517d79ea3823745e6a1bbf53a31a14bdb8b896e9e6922",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "6e0675491a509a015229dc87a3368a2639f492667d2df1cccd2f1881f8af5c51",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "330ee9fb1b780272d49d679da84a06437aa661149bd449bd3ba244f6db3e2c0a",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "0ad74c517a7b81b4f0279276c396ba361f96b6d13398c5e3418dc199f849c6c9",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "1ee75a2d273062f18ce13a80469099696a9a3986e706d6e445bcb43a8333fa50",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "567d8a7a10edc152999e7be191689c704ff4d503c618963653134ab32b892668",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "64fe7a88cb7be750a02fd3593c3c6b8da7058a00887b10dbe9da9c0bf9c5099a",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "2264de7c164db20f89649bb73a2de171bf002e940bb4a0d4338fe94aaf1d9e7e",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "1a575243538a3794db1af77b11f276a8bbc9779df971bf93ee01e00714cfd156",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "1668c029565136a1146bcf57856cc38ad20c0ce8ac0312ecb6a77f4bdf187bb5",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "15fb70b40e55236b805de5f90b83fdf8ba8bb4c409a9dfee296e35a565b4d736",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/revenue",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "0fdc6b218e4f8d70b72b5bdb5485c0a283d0b798bdf5ad70d7304db7222fc702",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "ce0e69a9c6d0f8858cbcfdaa9f8d4dc3c0d3dbdc67df70c3455859050be0d726",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "fe746db85bf5c7b9ba2cab03b1dab4a4db21c7d009ac9c2db52da5060e02d7f0",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses/hours",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "f971e8bcbcabc5384c553c540d1a5f27e3ad486e3b3ec9a64975208333bcc2c2",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/revenue",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "e41c7c3de45cea3566ab64d8b764a85951736d6036b045fd6a789bd865683547",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "0bf607f4e520b85b06a5ea6828220d0774b369a6291a6687dcbd453f577c239c",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/growth",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "6345b41060f9fe3aed92a9c8e6fb9c6a0c1a99a5b8af889357ce838297fe7506",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    },
+    {
+      "path": "/s/qa1468-sports/admin/dashboard/courses/hours",
+      "status": 200,
+      "contentType": "text/x-component",
+      "bodySha": "0d0bf5a363570f68c672c7c2486f406375e39c92ca18da081c0d088ab7ab4ec9",
+      "immutableRefs": [],
+      "mentionsGeistPixel": false,
+      "isRsc": true,
+      "prefetch": "1"
+    }
+  ],
+  "extra": [
+    {
+      "requestId": "D1F1C7EEE5ED8E513C75952A999158C3",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.2",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.3",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.4",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.5",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.6",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.7",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.8",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.9",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.10",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.11",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.12",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.13",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.29",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.30",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.31",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.32",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.33",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.34",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.35",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.36",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.37",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.38",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.39",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.40",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "AE3921E81CFB8C34D6EFEBA98D38B730",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.42",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.43",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.46",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.47",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.48",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.49",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.50",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.51",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.52",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.53",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.54",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.55",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.56",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.57",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.58",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.59",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.60",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.61",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.62",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.63",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.85",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.86",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.87",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.88",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.89",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.97",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.98",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.99",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.102",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.100",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.101",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.103",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.104",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.105",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.106",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.107",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.108",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.109",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.110",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.111",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.112",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.113",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.114",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.115",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.116",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.117",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.118",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.119",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.120",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.121",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.122",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.123",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.124",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.125",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.126",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.127",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.128",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.129",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.130",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.131",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.132",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.133",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.134",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.135",
+      "trustedHeader": true
+    },
+    {
+      "requestId": "934257.136",
+      "trustedHeader": true
+    }
+  ],
+  "loginReply": {
+    "status": 200,
+    "contentType": "text/x-component",
+    "bytes": 7281,
+    "sha": "2f6248b388129e1fc3b9e2bcd74de01241e41e23762c130a036064782c2c7959",
+    "immutableRefs": [],
+    "mentionsGeist": false,
+    "mentionsVercelAuth": false,
+    "hasVercelDashboard": false
+  }
+}

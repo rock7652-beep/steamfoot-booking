@@ -23,7 +23,7 @@ it("times every guard while preserving the authorized result", async () => {
   const user = await requireWritablePermission("booking.update", undefined, timing);
   expect(user.storeId).toBe("store-a");
   expect(measure.mock.calls.map(([name]) => name)).toEqual([
-    "permission.session", "permission.grant", "permission.subscription", "permission.cookie", "permission.store",
+    "permission.session", "permission.grant", "permission.featureStore", "permission.feature", "permission.subscription", "permission.cookie", "permission.store",
   ]);
   expect(m.subscription).toHaveBeenCalledWith("store-a");
   expect(m.writable).toHaveBeenCalledWith({ canWrite: true });

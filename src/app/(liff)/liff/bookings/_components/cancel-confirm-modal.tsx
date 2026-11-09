@@ -6,7 +6,7 @@
  * 純 presentational：所有 state / 業務邏輯透過 props 傳入：
  *   - booking / status / errorMessage 為展示用
  *   - 3 個 callback (onConfirmCancel / onConfirmReschedule / onDismiss)
- *     由 caller (BookingsList) 持有實際 cancel / refetch / router.push 行為
+ *     由 caller (BookingsList) 持有取消或導向原預約改期頁的行為
  *
  * 無障礙：role / aria-modal / aria-labelledby 從原檔逐字保留。
  */
@@ -25,7 +25,7 @@ import { formatBookingDate, liffTypeLabel } from "../_helpers";
  *   - backdrop 點擊可關閉，但 status === "submitting" 時 lock
  *   - status 三態：idle (顯示 3 顆按鈕) / submitting (全部 disabled) /
  *     error (額外顯示 errorMessage banner，confirm 按鈕仍可重試)
- *   - 不做 success 階段：成功瞬間 caller 已 closeCancelModal + refetch（→ optional push 到 trial-booking），
+ *   - 不做 success 階段：取消成功後關閉並刷新；改期僅導向原預約改期頁，
  *     卡片會直接從 upcoming 移到 history，視覺即是 feedback
  *
  * PR-D4B-1 layout (per 拍板選項 b)：
@@ -48,7 +48,7 @@ export function CancelConfirmModal({
   errorMessage: string | null;
   /** 顧客選「取消此次預約」— D4A-2 原行為，cancel 完關 modal、不 redirect */
   onConfirmCancel: () => void;
-  /** 顧客選「改時間」— D4B-1，cancel 完 push 到 trial-booking */
+  /** 顧客選「改時間」— 保留原預約，進入改期頁 */
   onConfirmReschedule: () => void;
   onDismiss: () => void;
 }) {

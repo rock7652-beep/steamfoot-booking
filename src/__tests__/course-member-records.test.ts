@@ -1,14 +1,14 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m=vi.hoisted(()=>({orders:vi.fn(),cards:vi.fn(),bookings:vi.fn(),tuition:vi.fn(),receipts:vi.fn(),assignments:vi.fn()}));
+const m=vi.hoisted(()=>({orders:vi.fn(),cards:vi.fn(),bookings:vi.fn(),tuition:vi.fn(),receipts:vi.fn(),assignments:vi.fn(),raw:vi.fn()}));
 vi.mock("server-only",()=>({}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{coursePurchase:{findMany:m.orders},coursePointCard:{findMany:m.cards},courseBooking:{findMany:m.bookings}}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{$queryRaw:m.raw,coursePurchase:{findMany:m.orders},coursePointCard:{findMany:m.cards},courseBooking:{findMany:m.bookings}}}));
 vi.mock("@/server/services/music-tuition",()=>({readMusicTuition:m.tuition,readMusicReceipts:m.receipts}));
 vi.mock("@/server/services/music-lesson-periods",()=>({readMusicLessonAssignments:m.assignments}));
 import {getCourseMemberRecords} from "@/server/queries/course-member-records";
 const date=new Date("2026-10-24T01:00:00Z");
 const order={id:"order",cardId:"card",name:"吉他",templateIds:["t"],status:"CONFIRMED",unit:"SESSION",musicTermSizes:[4,4],price:6400,points:8,createdAt:date,confirmedAt:date,paymentMethod:"CASH",refunds:[]};
 const booking=(id:string,status:string)=>({id,cardId:"card",customerId:"child",customerName:"虛構學員",status,absenceKind:null,pointCost:1,session:{nameSnapshot:"吉他",startsAt:date,cancelledAt:null}});
-beforeEach(()=>{vi.resetAllMocks();m.orders.mockResolvedValue([order]);m.cards.mockResolvedValue([{id:"card",planId:"plan",createdAt:date,requestKey:"qa",musicTermSizes:[4,4],templateIds:["t"]}]);m.bookings.mockResolvedValue([booking("attended","ATTENDED"),booking("cancelled","CANCELLED"),booking("unknown","RESERVED")]);m.tuition.mockResolvedValue(new Map([["order",{due:6400}]]));m.receipts.mockResolvedValue([{id:"r1",purchaseId:"order",amount:3200,paidAt:date,method:"CASH"},{id:"r2",purchaseId:"order",amount:3200,paidAt:date,method:"BANK_TRANSFER"}]);m.assignments.mockResolvedValue([{bookingId:"attended",customerId:"child",period:1,ordinal:1},{bookingId:"cancelled",customerId:"child",period:2,ordinal:1}]);});
+beforeEach(()=>{vi.resetAllMocks();m.raw.mockResolvedValue([]);m.orders.mockResolvedValue([order]);m.cards.mockResolvedValue([{id:"card",planId:"plan",createdAt:date,requestKey:"qa",musicTermSizes:[4,4],templateIds:["t"]}]);m.bookings.mockResolvedValue([booking("attended","ATTENDED"),booking("cancelled","CANCELLED"),booking("unknown","RESERVED")]);m.tuition.mockResolvedValue(new Map([["order",{due:6400}]]));m.receipts.mockResolvedValue([{id:"r1",purchaseId:"order",amount:3200,paidAt:date,method:"CASH"},{id:"r2",purchaseId:"order",amount:3200,paidAt:date,method:"BANK_TRANSFER"}]);m.assignments.mockResolvedValue([{bookingId:"attended",customerId:"child",period:1,ordinal:1},{bookingId:"cancelled",customerId:"child",period:2,ordinal:1}]);});
 it("scopes purchases to the verified payer and rechecks store-scoped card membership",async()=>{
  const [r]=await getCourseMemberRecords("store","child",true);
  expect(m.orders.mock.calls[0][0].where).toEqual({storeId:"store",customerId:"child"});

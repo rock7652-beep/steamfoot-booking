@@ -1,0 +1,13 @@
+BEGIN;
+DROP POLICY IF EXISTS qa1503_notice_select ON "DigitalManagerNotice";
+DROP POLICY IF EXISTS qa1503_notice_update ON "DigitalManagerNotice";
+DROP POLICY IF EXISTS qa1503_notice_update_guard ON "DigitalManagerNotice";
+REVOKE UPDATE ON "DigitalManagerNotice" FROM steamfoot_compact_qa_20261103;
+DROP POLICY IF EXISTS qa1503_notice_select ON "CourseStoreNotice";
+DROP POLICY IF EXISTS qa1503_notice_insert ON "CourseStoreNotice";
+DROP POLICY IF EXISTS qa1503_notice_insert_guard ON "CourseStoreNotice";
+REVOKE INSERT ON "CourseStoreNotice" FROM steamfoot_compact_qa_20261103;
+DROP POLICY IF EXISTS qa1503_notice_update ON "CourseStoreNotice";
+DROP POLICY IF EXISTS qa1503_notice_update_guard ON "CourseStoreNotice";
+REVOKE UPDATE ON "CourseStoreNotice" FROM steamfoot_compact_qa_20261103;
+COMMIT;

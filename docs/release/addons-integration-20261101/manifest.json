@@ -1,0 +1,945 @@
+{
+  "main": "ec4638a0fc85ea4aa9d4263b2333a42c53901d8b",
+  "acceptedQA": "0284825d12cb2dbbfc94e6f469221e4aeb1a0198",
+  "applied": [
+    {
+      "path": "beauty-prisma/schema.prisma",
+      "method": "auto_merge_review"
+    },
+    {
+      "path": "prisma/migrations/20261031220000_add_independent_add_ons_feature/migration.sql",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "prisma/migrations/20261031230000_shared_goods_ownership/migration.sql",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "prisma/schema.prisma",
+      "method": "auto_merge_review"
+    },
+    {
+      "path": "scripts/sql/beauty-add-on-items-candidate.sql",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "scripts/sql/beauty-shared-goods-candidate.sql",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "scripts/sql/course-add-on-items-candidate.sql",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "scripts/sql/shared-add-on-items-candidate.sql",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/add-on-preview-ui.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/add-on-removal-ui.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/add-ons-activation-migration.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/add-ons-activation-ui.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/add-ons-feature-access.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/add-ons-history-access.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/add-ons-hq-action.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/add-ons-lock-copy.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-add-on-split.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-add-ons-feature-booking.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-add-ons-migration.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-add-ons.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-booking-draft-ui.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-booking-shared-goods.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-charge-runtime.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-course-catalog-ui.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-dashboard-charge-isolation.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-public-booking-ui.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-revenue-report.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-roster-attendance.test.ts",
+      "method": "manual_text_conflict"
+    },
+    {
+      "path": "src/__tests__/beauty-service-defaults.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-service-image-route.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-service-image.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-shared-goods-access.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-shared-goods-panel.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-shared-goods-sql.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-shared-goods.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/beauty-transactions.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/course-add-ons-access.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/course-add-ons-images.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/course-add-ons-mapping-access.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/course-add-ons-mapping-sql.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/course-add-ons-mapping-ui.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/course-add-ons-mapping.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/course-add-ons-subject.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/course-roster-inline-note-ui.test.ts",
+      "method": "auto_merge_review"
+    },
+    {
+      "path": "src/__tests__/course-self-booking-portal-ui.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/customer-booking-goods-ui.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/customer-booking-goods.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/hq-sidebar-render.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/image-crop.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/image-upload.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/shared-add-ons-migration.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/shared-add-ons-revenue.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/shared-add-ons-ui.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/shared-add-ons.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/shared-goods-access.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/shared-goods-availability.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/shared-goods-calculation.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/shared-goods-order.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/shared-goods-sql.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/shared-goods-ui.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/steamfoot-add-ons-access.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/steamfoot-add-ons.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/__tests__/store-feature-catalog.test.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/(customer)/book/course-portal-client.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/add-ons/page.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/bookings/booking-participant-checkout.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/music-subject-catalog.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/roster-source.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/roster.tsx",
+      "method": "auto_merge_review"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/settings-panel-content.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/settings-workspace.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/courses/shared-hub.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/revenue/_components/course-revenue-source.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/revenue/_components/course-revenue.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/(dashboard)/dashboard/settings/add-ons/page.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/(liff)/liff/trial-booking/trial-booking-form.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/api/add-ons/images/[id]/route.ts",
+      "method": "manual_add_delete"
+    },
+    {
+      "path": "src/app/api/add-ons/images/route.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/api/beauty/service-images/[id]/route.ts",
+      "method": "manual_add_delete"
+    },
+    {
+      "path": "src/app/api/beauty/service-images/route.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/hq/dashboard/stores/[storeId]/features/feature-entitlement-form.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/hq/dashboard/stores/[storeId]/features/page.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/beauty-activation.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/booking.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/catalog.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/course-booking.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/course-catalog.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/customer-booking-goods.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/fields.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/image.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/preview.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/shared-goods-choices.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/shared-goods-panel.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/steamfoot-catalog.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/add-ons/steamfoot-participant.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/admin/service-collection-fields.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/admin/service-reservation-form.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/add-on-edit-panel.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/add-on-fields.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/add-on-statistics.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/booking-form.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/booking-shared-goods.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/catalog-adapter.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/dashboard.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/member-booking-form.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/native-roster-source.tsx",
+      "method": "manual_text_conflict"
+    },
+    {
+      "path": "src/components/beauty/native-transaction-source.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/portal.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/public-booking-form.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/public-booking-preview.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/service-add-on-activation.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/service-image.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/shared-goods-panel.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/beauty/work-card.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/dashboard-layout.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/feature-gate.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/settings/settings-workspace.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/sidebar.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/components/sports-public-trial-form.tsx",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/add-ons.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/beauty-operation-guides.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/beauty/add-on-finance.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/beauty/add-ons.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/beauty/allocation.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/beauty/contracts.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/beauty/member-booking.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/course-basic-operation-guides.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/course-settings-panels.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/customer-booking-goods.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/feature-flags.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/feature-gate.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/image-crop.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/image-upload.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/module-revenue-report.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/operation-guide-daily-20261011.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/permissions.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/store-feature-catalog.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/lib/validators/booking.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/beauty-add-on-activation.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/beauty-add-ons.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/beauty-native-service.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/beauty-native-transactions.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/beauty-service-add-on-activation.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/beauty-shared-goods.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/beauty.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/booking-drawer.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/booking.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/cashbook.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/course-add-ons.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/course-members.ts",
+      "method": "manual_text_conflict"
+    },
+    {
+      "path": "src/server/actions/customer-booking-goods.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/liff-trial-booking.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/public-trial-booking.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/shared-goods.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/steamfoot-add-ons.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/actions/store-feature-entitlement.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/beauty/booking-shared-goods.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/beauty/booking.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/beauty/catalog.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/beauty/commerce.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/beauty/native-revenue.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/beauty/queries.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/beauty/roster-read.ts",
+      "method": "manual_text_conflict"
+    },
+    {
+      "path": "src/server/beauty/service-charges.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/beauty/shared-goods-catalog.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/beauty/shared-goods.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/beauty/transaction-correction.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/beauty/transaction-revisions.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/queries/beauty-revenue-report.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/queries/cashbook-revenue.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/queries/steamfoot-revenue-report.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/services/add-on-access.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/services/add-on-image.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/services/beauty-service-image.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/services/booking-submission-payload.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/services/course-add-ons.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/services/course-booking.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/services/customer-booking-goods.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/services/service-add-ons.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/services/shared-goods-availability.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/services/shared-goods-subject.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/services/sports-public-trial.ts",
+      "method": "take_qa_delta"
+    },
+    {
+      "path": "src/server/services/steamfoot-add-ons.ts",
+      "method": "take_qa_delta"
+    }
+  ],
+  "excluded": [
+    {
+      "path": "docs/release/addons-20261101/feature-split-implementation/qa-migration.review.sql",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/addons-isolated-preview-scope.mjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/addons-qa-upgrade-plan.mjs",
+      "reason": "keep main"
+    },
+    {
+      "path": "scripts/addons-release-readiness.mjs",
+      "reason": "keep main"
+    },
+    {
+      "path": "scripts/ci-migrate.mjs",
+      "reason": "keep main"
+    },
+    {
+      "path": "scripts/consultation-preview-scope.mjs",
+      "reason": "keep main"
+    },
+    {
+      "path": "scripts/course-workflow-preview-scope.mjs",
+      "reason": "keep main"
+    },
+    {
+      "path": "scripts/qa/addons-hosted/verify-login-fix.mjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/addons-hosted/verify-navigation.mjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/addons-hosted/verify-preview-removal.mjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/addons-hosted/verify-settings-ux.mjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/addons-hosted/verify-steamfoot.cjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/addons-settings-ux-preview/actions.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/addons-settings-ux-preview/fixture.tsx",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/addons-settings-ux-preview/navigation.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/addons-settings-ux-preview/verify-preview-removal.mjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/addons-settings-ux-preview/verify.mjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/beauty-addons-preview/fixture.tsx",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/beauty-addons-preview/verify.cjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/beauty-hosted-addons/verify-polish-readonly.mjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/beauty-hosted-addons/verify.mjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/beauty-polish-preview/actions.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/beauty-polish-preview/fixture.tsx",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/course-addons-preview/actions.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/course-addons-preview/fixture.tsx",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/course-addons-preview/navigation.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/course-addons-preview/verify.mjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/shared-addons-preview/actions.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/shared-addons-preview/fixture.tsx",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/shared-addons-preview/image-touch-browser.cjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/shared-addons-preview/navigation.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/qa/shared-addons-preview/verify.cjs",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/sql/addons-beauty-qa-access-20261031.sql",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/sql/addons-beauty-qa-seed-20261031.sql",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/sql/addons-qa-course-fixtures-access-20261101.sql",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/sql/addons-qa-role-20261031.sql",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/sql/addons-qa-seed-20261031.sql",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/sql/addons-qa-steam-health-summary-read-20261031.sql",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/sql/addons-qa-unknown-login-audit-20261031.sql",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "scripts/sql/addons-qa-verify-20261031.sql",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "src/__tests__/addons-course-preview-scope.test.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "src/__tests__/addons-isolated-preview-scope.test.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "src/__tests__/addons-qa-health-read-policy.test.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "src/__tests__/addons-qa-login-audit-policy.test.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "src/__tests__/addons-qa-upgrade-plan.test.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "src/__tests__/addons-qa-upgrade-transaction.test.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "src/__tests__/addons-release-readiness.test.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "src/__tests__/beauty-add-on-split-migration.test.ts",
+      "reason": "QA-only fixture/tool/test excluded"
+    },
+    {
+      "path": "src/instrumentation.ts",
+      "reason": "keep main"
+    },
+    {
+      "path": "src/lib/sports-native-preview.ts",
+      "reason": "keep main"
+    }
+  ],
+  "remotePublished": false
+}

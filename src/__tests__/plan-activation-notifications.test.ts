@@ -48,7 +48,7 @@ beforeAll(async()=>{
   const db={
     ...tx,
     $transaction:async(cb:(value:unknown)=>unknown)=>cb(m.db),
-    store:{findFirst:async({where}:{where:{id:string;industryModule:string}})=>(await pg.query('SELECT id FROM "Store" WHERE id=$1 AND "industryModule"=$2',[where.id,where.industryModule])).rows[0]??null},
+    store:{findUnique:async({where}:{where:{id:string}})=>(await pg.query('SELECT name FROM "Store" WHERE id=$1',[where.id])).rows[0]??null,findFirst:async({where}:{where:{id:string;industryModule:string}})=>(await pg.query('SELECT id FROM "Store" WHERE id=$1 AND "industryModule"=$2',[where.id,where.industryModule])).rows[0]??null},
     customer:{findFirst:async({where}:{where:{id:string;storeId:string}})=>(await pg.query('SELECT * FROM "Customer" WHERE id=$1 AND "storeId"=$2 AND "mergedIntoCustomerId" IS NULL AND "lineLinkStatus"<>\'BLOCKED\'',[where.id,where.storeId])).rows[0]??null},
     messageTemplate:{
       findUnique:async({where}:{where:{id:string}})=>(await pg.query('SELECT body FROM "MessageTemplate" WHERE id=$1',[where.id])).rows[0]??null,
@@ -171,4 +171,16 @@ describe("transactional activation outbox",()=>{
   it("captures Preview/off-period eligibility when issuing the plan",async()=>{
     m.blocked.mockReturnValue(true);await queue();m.blocked.mockReturnValue(false);await runPlanActivationNotifications("s");expect(m.push).not.toHaveBeenCalled();
   });
+});
+
+it('enqueues Beauty with a restricted transaction role that cannot read Store.name',async()=>{
+ const store=vi.spyOn(m.db.store as {findUnique:()=>Promise<unknown>},'findUnique').mockResolvedValue({name:'測試館'});
+ const setting=vi.spyOn(m.db.messageTemplate as {findUnique:()=>Promise<unknown>},'findUnique').mockResolvedValue({body:'{"enabled":false}'});
+ await pg.exec('GRANT SELECT(id,name,"storeId","mergedIntoCustomerId") ON "Customer" TO steamfoot_beauty_data_activationqa');
+ try{
+  await pg.exec('SET ROLE steamfoot_beauty_data_activationqa');
+  await expect(pg.query('SELECT name FROM "Store"')).rejects.toThrow('permission denied');
+  await queue('BEAUTY');
+  expect((await pg.query<{snapshot:{storeName:string}}>('SELECT snapshot FROM "PlanActivationNotification"')).rows[0].snapshot.storeName).toBe('測試館');
+ }finally{await pg.exec('RESET ROLE');store.mockRestore();setting.mockRestore();}
 });
