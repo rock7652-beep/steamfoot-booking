@@ -3,7 +3,7 @@
   "timezone": "Asia/Taipei",
   "branch": "feat/mixed-course-enrollment-20261109",
   "baseCommit": "236d637dd9f03f9824bdd92841457e7e9d2a86f3",
-  "deliveryState": "PR #1526 draft; latest main integrated; authenticated local browser acceptance passed; final CI and refreshed protected Preview pending; production unchanged",
+  "deliveryState": "PR #1526; latest main integrated; authenticated local acceptance passed. Live final CI/deployment conclusions are maintained in the PR description and check runs; production unchanged.",
   "behavior": {
     "modules": [
       "music",
@@ -290,7 +290,8 @@
         "requiredNextStep": "Obtain normal authenticated browser access before hosted UI acceptance."
       },
       "dataWrites": "No remote synthetic accounts, schedules, store settings, or QA role changes executed.",
-      "production": "No production deployment, database write or notification delivery."
+      "production": "No production deployment, database write or notification delivery.",
+      "followUp": "Final integrated deployment is recorded in PR #1526; this entry preserves the original protected Preview and access rejection evidence."
     },
     "authenticatedLocalBrowser": {
       "result": "passed",
@@ -308,11 +309,11 @@
             {
               "step": "actual-login",
               "pass": true,
-              "elapsedMs": 2518
+              "elapsedMs": 1692
             },
             {
               "step": "cold-calendar-data-ready",
-              "elapsedMs": 875,
+              "elapsedMs": 1136,
               "pass": true
             },
             {
@@ -341,7 +342,7 @@
             {
               "step": "authoritative-database-result",
               "pass": true,
-              "sessionId": "cmw915dcl0003l802xgiu6j04",
+              "sessionId": "cmw91d40g0003l88tk7m1j6e0",
               "capacity": 4,
               "fixedLearners": 1,
               "openSeats": 3
@@ -349,7 +350,7 @@
             {
               "step": "reload-persists-roster",
               "pass": true,
-              "elapsedMs": 747
+              "elapsedMs": 746
             },
             {
               "step": "persisted-roster-responsive",
@@ -386,11 +387,11 @@
             {
               "step": "actual-login",
               "pass": true,
-              "elapsedMs": 6217
+              "elapsedMs": 5921
             },
             {
               "step": "cold-calendar-data-ready",
-              "elapsedMs": 3109,
+              "elapsedMs": 2897,
               "pass": true
             },
             {
@@ -419,7 +420,7 @@
             {
               "step": "authoritative-database-result",
               "pass": true,
-              "sessionId": "cmw91546q0000l802x8t9cerd",
+              "sessionId": "cmw91cvqt0000l88tsq7nswje",
               "capacity": 4,
               "fixedLearners": 1,
               "openSeats": 3
@@ -427,7 +428,7 @@
             {
               "step": "reload-persists-roster",
               "pass": true,
-              "elapsedMs": 2661
+              "elapsedMs": 2354
             },
             {
               "step": "persisted-roster-responsive",
@@ -466,7 +467,7 @@
       "isolationFiles": 4,
       "isolationTests": 93,
       "note": "Overlapping test sets; do not add their counts. PostgreSQL33+4 rerun after main integration also passed.",
-      "typescript": "passed; repeat after final harness run pending",
+      "typescript": "passed on preceding integration; latest exact-head CI Typecheck is tracked in PR #1526",
       "lint": "no errors; existing unused musicStore warning only"
     },
     "cloudflare": {
@@ -478,6 +479,13 @@
       "currentReleaseRoute": "Vercel project prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR has verified production www.steamfoot.com; steamfoot.com redirects to www",
       "mergeRules": "2026-11-09 current read: main protected=false and branch rules=[]; no policy changed",
       "remoteLogs": "No callable Cloudflare tool or credential; exact remote failure stage unknown. No platform settings changed."
+    },
+    "latestCalendarIntegration": {
+      "main": "5b5b8716100ac4c998d4c294f8a7faa6d1e0895c",
+      "tests": 70,
+      "files": 4,
+      "result": "passed",
+      "authenticatedBrowserRerun": "Both music and sports passed after integrating retained-calendar snapshots; no browser errors; authoritative database and responsive roster checks passed."
     }
   },
   "limitations": [
@@ -488,20 +496,20 @@
   ],
   "changedFileSha256": {
     ".github/workflows/course-mixed-enrollment-audit.yml": "ced6b2a2bd3403b09139b6ab8db46bf164aedb07d5d36f0ae9d6e3d1c68f2557",
-    "artifacts/course-mixed-enrollment-20261109/music-mixed-form-1024.png": "d193d0e1ca2b7bce65ec580693c0064d6f15f9c8b284dd6cb56f2f408ff1d6f5",
-    "artifacts/course-mixed-enrollment-20261109/music-mixed-form-1366.png": "1842f1555fef13177102f59f12e370133fe29666e11009743ca2aeb8c4d1d958",
-    "artifacts/course-mixed-enrollment-20261109/music-mixed-form-768.png": "970a0193ca70585b043d64c9c345db1056d114081dc4f5e0cbd74b2be44fd482",
-    "artifacts/course-mixed-enrollment-20261109/music-results.json": "fe14430c7f66bcc77f057f3fd3facef5f03c682b73fd0977dbbec46d1ee9fae4",
-    "artifacts/course-mixed-enrollment-20261109/music-roster-1024.png": "d7d2a65aa852dcdad34c961a0fcf8f31c45acaee9e62dd4695fbb2bb4fd5f104",
-    "artifacts/course-mixed-enrollment-20261109/music-roster-1366.png": "1955db1fdcd1fb0c12be2f9eda033060f73c3b536d0326dfe73b95c0152106d3",
-    "artifacts/course-mixed-enrollment-20261109/music-roster-768.png": "586e3aca534b9cc03ac5c8bd4320d84039204584153d90c17b901cf040c9efe3",
-    "artifacts/course-mixed-enrollment-20261109/sports-mixed-form-1024.png": "00f10d9de3c6481af27e7a0378e849d2aeb08bbe71c617073da669425778b3c6",
-    "artifacts/course-mixed-enrollment-20261109/sports-mixed-form-1366.png": "c529d7966f8e8d0e04e6f90d08f86ccbf72f1920de071ece63dcc5c64fbc00a5",
-    "artifacts/course-mixed-enrollment-20261109/sports-mixed-form-768.png": "4fb0894d8f27284465a08a238e7fad870549ab9d8efd1570c83f05e917ebd60e",
-    "artifacts/course-mixed-enrollment-20261109/sports-results.json": "1ac4e1918117074fa519403bf67812873a309ccd70cb44b9f774e49e3465a083",
-    "artifacts/course-mixed-enrollment-20261109/sports-roster-1024.png": "ba16b5186f0ae65e9aee414bec6bf044d41a5e8baeeb8feeea8de0e318248988",
-    "artifacts/course-mixed-enrollment-20261109/sports-roster-1366.png": "c704ce82fee485171bda389ef400bdc5ea257e9cb22ef0462cdca2eacdc64c47",
-    "artifacts/course-mixed-enrollment-20261109/sports-roster-768.png": "dbca52639fef1eb478d5110c0a5a3c01d937837e6c35489b65e532912a157f80",
+    "artifacts/course-mixed-enrollment-20261109/music-mixed-form-1024.png": "f0a2cc438f65b8ef7b748acfdd4c5fd90b0fa2e2fdc6afcf6a24fc68d77328c0",
+    "artifacts/course-mixed-enrollment-20261109/music-mixed-form-1366.png": "2043d7f1b19efc5069c1dc8436dffc74eaf57fe814ad9d6251b961cb96302f6e",
+    "artifacts/course-mixed-enrollment-20261109/music-mixed-form-768.png": "505cf16e60b599a16aa389e38aa9ca5e7948ee431245d634c4f7eac1a92bc295",
+    "artifacts/course-mixed-enrollment-20261109/music-results.json": "98194d157bdfa3a185def52ec6ef06576cbc681fd7125d390ae154a94eec8e9a",
+    "artifacts/course-mixed-enrollment-20261109/music-roster-1024.png": "e28811d23b2558062eabdb7472459b327afc0537e7440d16822f8590ec9bb907",
+    "artifacts/course-mixed-enrollment-20261109/music-roster-1366.png": "99d38cdfe987f922942d01ce2163dda10dd0f71210fd6869a97651d5328274b1",
+    "artifacts/course-mixed-enrollment-20261109/music-roster-768.png": "85ae9e31f4a8b993017922a44af02767a5846ac9b84609e2f28db0629b26543d",
+    "artifacts/course-mixed-enrollment-20261109/sports-mixed-form-1024.png": "73f5cf746681713ceb0018f5fa584cd5adf95ac87ddc8f37640f758f0e9680d5",
+    "artifacts/course-mixed-enrollment-20261109/sports-mixed-form-1366.png": "f4c8dfca32b8263bc27e358a8a0d76af880b0eee33da93bca94beabcc773e9d0",
+    "artifacts/course-mixed-enrollment-20261109/sports-mixed-form-768.png": "f2be8f3d36566c9cce12023c14dfee59f73ec5c8f28de06f36a8c0d14bdc489f",
+    "artifacts/course-mixed-enrollment-20261109/sports-results.json": "4c6a25bb5e0490d77360efb45efca5e52ecce911678a63e949c9f7532da21543",
+    "artifacts/course-mixed-enrollment-20261109/sports-roster-1024.png": "dfd2c959dbcd4f99b856b4dab58c870bc899257f513fcca3a4475dd97951f57b",
+    "artifacts/course-mixed-enrollment-20261109/sports-roster-1366.png": "888708427d26b86fffbf1d13d62d3fc91e887d6597dedf84c054f17067cc0a5d",
+    "artifacts/course-mixed-enrollment-20261109/sports-roster-768.png": "907deffb5c2f3805ceaaca744447ee9917649e11a7452956c0d3c60f3091b7eb",
     "docs/course-decisions.md": "8721d1da7418cf6d4e2305bb0647f5ba6dd35ac2dae09e20e52f60acebc16783",
     "docs/verification/course-mixed-enrollment-local.md": "fbad2a50edf76ee59ecac3c1f4b52be72e9602ed4e478bfc9a04a051f1c761dc",
     "scripts/consultation-preview-scope.mjs": "767dabbf7fe5015603f04230fc884641212c73d89e23d589948554645dd74f08",
@@ -512,7 +520,7 @@
     "scripts/qa/course-mixed-enrollment-local-seed.ts": "0f17d156e6f1b24e743260957219f29564c95495357475881495b3de380dff76",
     "scripts/qa/course-mixed-enrollment-local.mjs": "2ba39cbf14886837491959f7e12c49494c6a02f05eb0e5ff6353eb062731edca",
     "scripts/sports-redesign-preview-scope.mjs": "ecb24625c8e6265b676f66cff928bc061666add80cd6a41021656d0d804dbbf5",
-    "scripts/sports-shared-card-preview-scope.mjs": "cc4ea105d8ce197fe6dd2533a1e3780c36accfefa8aa67f1538191d357e45789",
+    "scripts/sports-shared-card-preview-scope.mjs": "a108ded115c351286277e1064a52ae5fe24fbce284fff0374cba746b17e4d989",
     "src/__tests__/course-actions.test.ts": "047a93dddd4d72263ea91090579a8526cde4a5b063458e2c0aa60bab1fa90dd9",
     "src/__tests__/course-mixed-enrollment.pg.test.ts": "1670d12be52b8d226b0b33ac48a556fd03bdfb9b83578a28c3e33e750dec5429",
     "src/__tests__/course-mixed-preview-scope.test.ts": "d5c352a7a18f1da03bab81ee9bab87b165cd10caa3c125ecd77d0a6783895969",
@@ -554,5 +562,5 @@
     "production": "not authorized"
   },
   "pullRequest": "https://github.com/rock7652-beep/steamfoot-booking/pull/1526",
-  "integratedMain": "e20df39e"
+  "integratedMain": "5b5b8716100ac4c998d4c294f8a7faa6d1e0895c"
 }

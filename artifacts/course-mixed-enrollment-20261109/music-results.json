@@ -8,11 +8,11 @@
     {
       "step": "actual-login",
       "pass": true,
-      "elapsedMs": 2518
+      "elapsedMs": 1692
     },
     {
       "step": "cold-calendar-data-ready",
-      "elapsedMs": 875,
+      "elapsedMs": 1136,
       "pass": true
     },
     {
@@ -41,7 +41,7 @@
     {
       "step": "authoritative-database-result",
       "pass": true,
-      "sessionId": "cmw915dcl0003l802xgiu6j04",
+      "sessionId": "cmw91d40g0003l88tk7m1j6e0",
       "capacity": 4,
       "fixedLearners": 1,
       "openSeats": 3
@@ -49,7 +49,7 @@
     {
       "step": "reload-persists-roster",
       "pass": true,
-      "elapsedMs": 747
+      "elapsedMs": 746
     },
     {
       "step": "persisted-roster-responsive",

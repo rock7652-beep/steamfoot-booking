@@ -39,6 +39,8 @@ export function createClientReadCache<T>(
   return {
     get,
     load,
+    /** Bounded display snapshot only. Callers must revalidate; never use for transactions. */
+    snapshot(key: string): T | undefined { return entries.get(key)?.value; },
     seed(key: string, value: T) {
       // An authoritative response supersedes older speculative work for this key.
       pending.delete(key);

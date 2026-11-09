@@ -85,6 +85,7 @@ try{
   await dayWithData('2026-11').waitFor();
   await page.waitForTimeout(3600);assert.equal(requests.filter(r=>r.sync).length,0,'speculative writes');
   assert.ok(requests.some(r=>r.month==='2026-10')&&requests.some(r=>r.month==='2026-12'),'neighbors not preloaded');
+  if(process.argv.includes('--retained'))await page.evaluate(()=>{const clock=Date.now.bind(Date);Date.now=()=>clock()+120_000;});
   const start=performance.now();await page.getByRole('button',{name:'下個月',exact:true}).click();await dayWithData('2026-12').waitFor();const warmMs=Math.round(performance.now()-start);
   assert.ok(warmMs<delay,'warm navigation waited for transport');assert.equal(await page.getByLabel('課表載入',{exact:true}).count(),0);
   await page.waitForTimeout(900);if(profile==='sports')assert.ok(requests.some(r=>r.month==='2026-12'&&r.sync),'sports sync missing');

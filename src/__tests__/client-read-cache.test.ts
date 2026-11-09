@@ -107,3 +107,15 @@ it("keeps an authoritative synchronized month when an older speculative read fin
  for(let i=0;i<5;i++)cache.seed(String(i),String(i));
  expect(cache.get('2026-11')).toBeUndefined();
 });
+
+it('retains bounded display snapshots beyond freshness while invalidation detaches pending writes',async()=>{
+ vi.useFakeTimers();const old=deferred<string>();
+ const cache=createClientReadCache(()=>old.promise,{ttlMs:100,maxEntries:2});
+ cache.seed('initial','October');vi.advanceTimersByTime(120_000);
+ expect(cache.get('initial')).toBeUndefined();expect(cache.peek('initial')).toBeUndefined();
+ expect(cache.snapshot('initial')).toBe('October');
+ cache.seed('next','November');cache.seed('third','December');
+ expect(cache.snapshot('initial')).toBeUndefined();
+ const pending=cache.load('next',{revalidate:true});await Promise.resolve();cache.clear();old.resolve('late');await pending;
+ expect(cache.snapshot('next')).toBeUndefined();
+});

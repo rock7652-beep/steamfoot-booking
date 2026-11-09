@@ -7,6 +7,7 @@ export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   "feat/mixed-course-enrollment-20261109",
   "fix/calendar-customer-preload-20261109",
+  "fix/calendar-retained-months-20261109",
   "feat/record-list-density",
   "fix/monthly-adjustment-feedback-density",
   "fix/liff-health-change-range-20261104",
