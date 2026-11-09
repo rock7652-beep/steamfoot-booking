@@ -1,6 +1,6 @@
 "use server";
+import {assertMonthlyStore} from "@/lib/monthly-store-guard";
 import { canOperateCourseMonthly } from "@/lib/course-monthly-access";
-import {musicNativeWorkflowEnabled} from "@/server/services/music-native-workflow";
 import {requireMusicFinance} from "@/server/services/music-finance-access";
 import { revalidatePath } from "next/cache";
 import { courseManager, courseTransaction } from "@/server/services/course-access";
@@ -15,7 +15,7 @@ import { recordCourseProfitPayment, voidCourseProfitPayment } from "@/server/ser
 import type { PermissionCode } from "@/lib/permissions";
 async function actor(permission:PermissionCode){
  const a=await courseManager(permission);
- if(!canOperateCourseMonthly(a.user.role,musicNativeWorkflowEnabled(a.storeId)))throw new AppError("FORBIDDEN","僅店長可處理課程月結");
+ if(!canOperateCourseMonthly(a.user.role))throw new AppError("FORBIDDEN","僅總部或店長可處理課程月結");
  await requireStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR);
  await assertStoreSubscriptionWritable(a.storeId);
  return a;
@@ -23,6 +23,7 @@ async function actor(permission:PermissionCode){
 function refresh(){revalidatePath("/dashboard","layout");}
 export async function saveCourseSettlementSettings(input:unknown){try{
  const d=settlementSettingsInput.parse(input),a=await actor("staff.manage");
+ assertMonthlyStore(input,a.storeId,a.user.role);
  await requireMusicFinance(a.user,a.storeId,"teacher.settlement.confirm");
  await courseTransaction(a.storeId,async tx=>{
   const current=await readSettlementSettings(tx,a.storeId);
@@ -34,12 +35,13 @@ export async function saveCourseSettlementSettings(input:unknown){try{
 }catch(e){return handleActionError(e);}}
 export async function confirmCourseMonthlySettlement(input:unknown){try{
  const d=settlementConfirmInput.parse(input),a=await actor("report.read");
+ assertMonthlyStore(input,a.storeId,a.user.role);
  await requireMusicFinance(a.user,a.storeId,"teacher.settlement.confirm");
  await courseTransaction(a.storeId,tx=>confirmCourseMonth(tx,{storeId:a.storeId,userId:a.user.id},d));refresh();return {success:true as const};
 }catch(e){return handleActionError(e);}}
 export async function payCourseProfit(input:unknown){try{
- const a=await actor("cashbook.create");await courseTransaction(a.storeId,tx=>recordCourseProfitPayment(tx,{storeId:a.storeId,userId:a.user.id},input));refresh();return {success:true as const};
+ const a=await actor("cashbook.create");assertMonthlyStore(input,a.storeId,a.user.role);await courseTransaction(a.storeId,tx=>recordCourseProfitPayment(tx,{storeId:a.storeId,userId:a.user.id},input));refresh();return {success:true as const};
 }catch(e){return handleActionError(e);}}
 export async function correctCourseProfit(input:unknown){try{
- const a=await actor("cashbook.create");await courseTransaction(a.storeId,tx=>voidCourseProfitPayment(tx,{storeId:a.storeId,userId:a.user.id},input));refresh();return {success:true as const};
+ const a=await actor("cashbook.create");assertMonthlyStore(input,a.storeId,a.user.role);await courseTransaction(a.storeId,tx=>voidCourseProfitPayment(tx,{storeId:a.storeId,userId:a.user.id},input));refresh();return {success:true as const};
 }catch(e){return handleActionError(e);}}

@@ -45,6 +45,16 @@ it("does not signal commit when the purchase fails",async()=>{
  expect(response.headers.get("x-music-committed")).toBeNull();
  expect((await response.json()).success).toBe(false);
 });
+it("streams the confirmed receipt before waiting for the optional projection",async()=>{
+ let finish!:(value:null)=>void;mocks.snapshot.mockImplementation(()=>new Promise(r=>{finish=r;}));
+ mocks.purchase.mockResolvedValue({success:true,checkoutReceipt:{quantity:60,paid:6000}});
+ const req=request();req.headers.set("x-music-stream","2");const response=await POST(req);
+ expect(response.headers.get("x-music-committed")).toBe("1");expect(response.headers.get("content-type")).toContain("ndjson");
+ const reader=response.body!.getReader();const first=JSON.parse(new TextDecoder().decode((await reader.read()).value));
+ expect(first).toEqual({kind:"receipt",result:{success:true,checkoutReceipt:{quantity:60,paid:6000}}});
+ finish(null);expect(JSON.parse(new TextDecoder().decode((await reader.read()).value))).toEqual({kind:"snapshot",snapshot:null});
+ expect((await reader.read()).done).toBe(true);
+});
 it("starts both independent guards before waiting and never writes until both pass",async()=>{
  const finish:Record<string,(v:unknown)=>void>={};
  mocks.manager.mockImplementation((permission:string)=>new Promise(resolve=>{finish[permission]=resolve;}));

@@ -7,7 +7,7 @@ vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 import {saveCourseCompensation} from "@/server/actions/course-compensation";
 import {requireMusicFinance} from "@/server/services/music-finance-access";
 const input={templateId:"course",staffId:"teacher",rules:[{mode:"CLASS",value:600}],revision:0};
-beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"A",user:{role:"OWNER"}});m.template.mockResolvedValue({id:"course"});m.execute.mockResolvedValue(1);});
+beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"A",user:{role:"OWNER"}});m.template.mockResolvedValue({id:"course",name:"木吉他"});m.execute.mockResolvedValue(1);});
 describe("compensation settings authorization and concurrency",()=>{
  it("checks music share eligibility inside the store transaction before writing",async()=>{
   m.raw.mockResolvedValueOnce([]);
@@ -16,9 +16,9 @@ describe("compensation settings authorization and concurrency",()=>{
   expect(m.template).not.toHaveBeenCalled();expect(m.execute).not.toHaveBeenCalled();
  });
  it("saves music share with qualified teacher and matching snapshot revision",async()=>{
-  m.raw.mockResolvedValueOnce([{featureKey:"business.music"}]).mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"teacher"}]);
+  m.raw.mockResolvedValueOnce([{featureKey:"business.music"}]).mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"teacher",name:"老師甲"}]);
   expect(await saveCourseCompensation({...input,rules:[{mode:"SHARE",value:55}]})).toMatchObject({success:true});
-  expect(m.execute).toHaveBeenCalledTimes(1);
+  expect(m.execute).toHaveBeenCalledTimes(2);
  });
  it("checks the teacher finance permission before reading or writing compensation",async()=>{
   vi.mocked(requireMusicFinance).mockRejectedValueOnce(new Error("permission denied"));
@@ -26,11 +26,23 @@ describe("compensation settings authorization and concurrency",()=>{
   expect(requireMusicFinance).toHaveBeenCalledWith({role:"OWNER"},"A","teacher.compensation.manage","teacher");
   expect(m.template).not.toHaveBeenCalled();expect(m.execute).not.toHaveBeenCalled();
  });
- it("saves a fixed teacher fee without requiring course-level defaults",async()=>{m.raw.mockResolvedValueOnce([{staffId:"",rules:[{mode:"SHARE",value:40}],revision:1}]).mockResolvedValueOnce([{id:"teacher"}]);expect((await saveCourseCompensation(input)).success).toBe(true);expect(m.execute).toHaveBeenCalledTimes(1);});
+ it("saves a fixed teacher fee without requiring course-level defaults",async()=>{m.raw.mockResolvedValueOnce([{staffId:"",rules:[{mode:"SHARE",value:40}],revision:1}]).mockResolvedValueOnce([{id:"teacher",name:"老師甲"}]);expect((await saveCourseCompensation(input)).success).toBe(true);expect(m.execute).toHaveBeenCalledTimes(2);});
  it("rejects a different store's template",async()=>{m.template.mockResolvedValue(null);expect((await saveCourseCompensation(input)).success).toBe(false);expect(m.execute).not.toHaveBeenCalled();});
  it("rejects stale edits",async()=>{m.raw.mockResolvedValue([{staffId:"teacher",rules:input.rules,revision:3}]);expect((await saveCourseCompensation(input)).success).toBe(false);expect(m.execute).not.toHaveBeenCalled();});
  it("rejects nonqualified teachers",async()=>{m.raw.mockResolvedValueOnce([]).mockResolvedValueOnce([]);expect((await saveCourseCompensation(input)).success).toBe(false);expect(m.execute).not.toHaveBeenCalled();});
- it("rejects removed hourly and share modes",async()=>{m.raw.mockResolvedValueOnce([{staffId:"",rules:[{mode:"CLASS",value:600}],revision:1}]).mockResolvedValueOnce([{id:"teacher"}]);expect((await saveCourseCompensation({...input,rules:[{mode:"HOUR",value:600}]})).success).toBe(false);expect(m.execute).not.toHaveBeenCalled();});
+ it("rejects removed hourly and share modes",async()=>{m.raw.mockResolvedValueOnce([{staffId:"",rules:[{mode:"CLASS",value:600}],revision:1}]).mockResolvedValueOnce([{id:"teacher",name:"老師甲"}]);expect((await saveCourseCompensation({...input,rules:[{mode:"HOUR",value:600}]})).success).toBe(false);expect(m.execute).not.toHaveBeenCalled();});
  it("does not remove a method still selected by a teacher",async()=>{m.raw.mockResolvedValue([{staffId:"",rules:input.rules,revision:1},{staffId:"teacher",rules:input.rules,revision:1}]);expect((await saveCourseCompensation({...input,staffId:"",rules:[],revision:1})).success).toBe(false);expect(m.execute).not.toHaveBeenCalled();});
- it("rejects multiple teacher methods",async()=>{m.raw.mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"teacher"}]);expect((await saveCourseCompensation({...input,rules:[...input.rules,{mode:"CLASS",value:600}]})).success).toBe(false);expect(m.execute).not.toHaveBeenCalled();});
+ it("rejects multiple teacher methods",async()=>{m.raw.mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"teacher",name:"老師甲"}]);expect((await saveCourseCompensation({...input,rules:[...input.rules,{mode:"CLASS",value:600}]})).success).toBe(false);expect(m.execute).not.toHaveBeenCalled();});
+});
+
+it("persists the old and new fee in the same transaction with recognizable names",async()=>{
+ m.raw.mockResolvedValueOnce([{staffId:"teacher",rules:[{mode:"CLASS",value:500}],revision:2}]).mockResolvedValueOnce([{id:"teacher",name:"老師甲"}]);
+ expect((await saveCourseCompensation({...input,revision:2})).success).toBe(true);
+ const call=m.execute.mock.calls[1];
+ expect(call[0].join(" ")).toContain('INSERT INTO "AuditLog"');
+ const snapshots=call.filter(v=>typeof v==="string" && v.startsWith("{" )).map(v=>JSON.parse(v));
+ expect(snapshots).toEqual([
+ {storeId:"A",staffName:"老師甲",templateName:"木吉他",rules:[{mode:"CLASS",value:500}]},
+ {storeId:"A",staffName:"老師甲",templateName:"木吉他",rules:[{mode:"CLASS",value:600}]},
+ ]);
 });

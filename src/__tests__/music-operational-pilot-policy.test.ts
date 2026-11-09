@@ -18,7 +18,7 @@ beforeEach(()=>{
  vi.resetAllMocks();vi.stubEnv("VERCEL","1");coupon=null;
  card={id:"synthetic-card",requestKey:"yjy-pilot-card:synthetic",unit:"SESSION",remaining:8,expiresAt:new Date("2027-01-10T15:59:59.999Z"),musicActivatedAt:new Date("2026-11-02T11:00:00Z"),musicValidityDays:70,planId:"synthetic-plan",templateIds:["synthetic-template"],nameSnapshot:"Synthetic group",members:[{customerId:"synthetic-student"}]};
  booking={id:"synthetic-booking",storeId:actor.storeId,cardId:card.id,card,customerId:"synthetic-student",sessionId:"synthetic-session",session:{id:"synthetic-session",templateId:"synthetic-template",startsAt:new Date("2026-11-02T11:00:00Z"),endsAt:new Date("2026-11-02T12:00:00Z"),capacity:3,teacherAttendance:"SCHEDULED",releasedAt:null},status:"RESERVED",absenceKind:null,pointCost:1,bookingKind:"CARD",makeupForBookingId:null};
- m.$queryRaw.mockResolvedValue([{featureKey:"business.music",afterJson:{contentHash:PILOT_EVIDENCE_HASH,cardIds:[card.id]}}]);
+ m.$queryRaw.mockImplementation(async strings=>strings.join("").includes('PLAN_SESSION_ADJUSTMENT')?[]:[{featureKey:"business.music",afterJson:{contentHash:PILOT_EVIDENCE_HASH,cardIds:[card.id]}}]);
  m.courseBooking.findFirst.mockImplementation(async(args)=>typeof args.where.id === "string" ? booking : null);m.courseBooking.findMany.mockResolvedValue([]);m.courseBooking.count.mockResolvedValue(0);m.courseBooking.aggregate.mockResolvedValue({_sum:{pointCost:0}});
  m.courseBooking.update.mockImplementation(async({data})=>Object.assign(booking,data));
  m.coursePointCard.findFirst.mockImplementation(async()=>card);m.coursePointCard.findUnique.mockImplementation(async()=>coupon);

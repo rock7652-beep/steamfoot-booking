@@ -1,10 +1,13 @@
 "use client";
+import {CustomerBookingGoodsField} from "@/components/add-ons/customer-booking-goods";
+import {bookingGoodsInput,type CustomerBookingGoodsDraft} from "@/lib/customer-booking-goods";
+
 import {coursePlanModeAllowed} from "@/lib/course-scheduling-modes";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
 import {CoursePortalSheet as Sheet} from "@/components/course-portal-sheet";
 import {CoursePortalCalendar} from "@/components/course-portal-calendar";
-import {CoursePortalBrand,CoursePortalNavigation,type PortalIconName} from "@/components/course-portal-navigation";
+import {CoursePortalNavigation,type PortalIconName} from "@/components/course-portal-navigation";
 
 import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
 import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
@@ -29,8 +32,10 @@ import {
   useTransition,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { logoutAction } from "@/server/actions/auth";
-import { LogoutButton } from "@/components/logout-button";
+import { MemberPortalHeader } from "@/components/member-portal-header";
+import { FrontendAccountMenu } from "@/components/frontend-account-menu";
+import { CentralMemberStoreSwitcher } from "../central-member-store-switcher";
+import { useCustomerMembershipStores } from "../customer-membership-context";
 import {
   courseDate,
   courseMonthDays,
@@ -92,6 +97,9 @@ const time = (s: string) =>
   formatTWDateTime(new Date(s)).split(" ").slice(-1)[0];
 
 function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: FeaturePresentationState; readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule" | "shop" | "health"; initialCoach?: boolean }) {
+  const membershipStores = useCustomerMembershipStores();
+  const currentStoreSlug = serverData.prefix.split("/")[2] ?? "";
+  const canSwitchStores = !serverData.readOnly && membershipStores.length > 1 && membershipStores.some(store => store.storeSlug === currentStoreSlug);
   const personnelText = useCoursePersonnelText();
   const [confirmedBookings, setConfirmedBookings] = useState<Array<{cardId: string | null; confirmedAt: number; booking: CoursePortalData["bookings"][number]}>>([]);
   const outstanding = confirmedBookings.filter(row => serverData.serverNow < row.confirmedAt && !serverData.bookings.some(b => b.id === row.booking.id));
@@ -145,6 +153,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
     [recordFilter, setRecordFilter] = useState("all"),
     [recordEdit, setRecordEdit] = useState<string | null>(null);
   const page = requestedPage === "shared" && !sharingVisible ? "plans" : role !== "coach" && requestedPage === "bookings" ? "schedule" : requestedPage;
+  const [goods,setGoods]=useState<CustomerBookingGoodsDraft>();
   const [selectedSession, setSession] = useState<Session | null>(null),
     [cardId, setCardId] = useState(""),
     [learners, setLearners] = useState<string[]>([]),
@@ -416,6 +425,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
     (()=>{const rights=rightsFor(s,c);return rights.eligible?rights.cost:0;})();
   function book(s: Session) {
     if (!selfBookingEnabled && !s.waitlistPosition) { setError(COURSE_SELF_BOOKING_DISABLED_MESSAGE); return; }
+    setGoods(undefined);
     setSession(s);
     const options = eligible(s);
     setCardId((options.find(c => c.available >= amount(s,c)) ?? options[0])?.id ?? "");
@@ -868,18 +878,14 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
   return (
     <div className="course-portal">
       <div inert={modal}>
-        <header className="cp-top">
-          <CoursePortalBrand storeName={p.storeName}/>
-          {p.hasWork && p.memberEnabled ? (
-            <div className="cp-role-switch" role="group" aria-label="身分切換">
-              <button aria-pressed={role === "member"} onClick={() => switchRole("member")}>會員</button>
-              <button aria-pressed={role === "coach"} onClick={() => switchRole("coach")}>我的工作</button>
-            </div>
-          ) : (
-            <span>{coach ? "我的工作" : "會員專區"}</span>
-          )}
-          {coach && <details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction}>{p.incomeAvailable && <a className="cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入</a>}{refreshControl}<input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""}/><LogoutButton className="cp-menu"/></form></details>}
-        </header>
+        <MemberPortalHeader className="cp-top" padded
+          store={canSwitchStores ? <CentralMemberStoreSwitcher currentStoreName={p.storeName} currentStoreSlug={currentStoreSlug} stores={membershipStores} compact returnToLiff={params.get("memberEntry") === "liff"} disabled={pending || healthSaving} onBeforeSwitch={leaveNote} /> : <p className="cp-store-name">{p.storeName}</p>}
+          caption={p.hasWork && p.memberEnabled ? <div className="cp-role-switch" role="group" aria-label="身分切換">
+            <button aria-pressed={role === "member"} onClick={() => switchRole("member")}>會員</button>
+            <button aria-pressed={role === "coach"} onClick={() => switchRole("coach")}>我的工作</button>
+          </div> : coach ? "我的工作" : "會員中心"}
+          account={<FrontendAccountMenu storeSlug={currentStoreSlug} name={p.customerName} readOnly={!!p.readOnly} onBeforeLogout={leaveNote}>{coach && <>{p.incomeAvailable && <a href={`${p.prefix}/book/income?month=${p.month}`}>我的收入</a>}{refreshControl}</>}</FrontendAccountMenu>}
+        />
         <CoursePortalNavigation items={nav.map(([id,label,icon])=>({id,label,icon:icon as PortalIconName}))} current={!coach&&["plans","shop","orders","shared","health","store"].includes(page)?"account":page} onSelect={id=>go(id as Page)}/>
         <main className={`cp-main${coach ? " cp-coach-main" : ""}`}>
           {p.incomeAvailable && !coach && !p.hasWork && page === "account" && <a className="cp-card cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入</a>}
@@ -901,7 +907,6 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
             <>
               {!coach && <StoreImageAnnouncements storeSlug={p.prefix.split("/")[2] ?? ""} preview={!!p.readOnly} />}
               {heading(coach ? "今日工作" : "會員首頁")}
-              {!coach && <StoreImageAnnouncements storeSlug={p.prefix.split("/")[2] ?? ""} preview={!!p.readOnly} />}
               {!coach && <section className="cp-card cp-next">
                 <div>
                   <small>{coach ? "下一堂課" : "下一次上課"}</small>
@@ -1077,12 +1082,12 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                   {!memberRecords.length && identifyingPurchase && identifyingPurchase.status !== "CONFIRMED" && <p>{identifyingPurchase.status === "REFUNDED" ? "已退款登記" : identifyingPurchase.status === "VOIDED" ? "已作廢" : "待核帳"}</p>}
                   {!hasPeriodHistory && !lessons.length && <p className="cp-history-empty">尚無上課紀錄</p>}
                   {!!recent.length && <section className="cp-plan-history" aria-label={`${c.name}使用紀錄`}>
-                    <table className="cp-history-list">
+                    <table data-striped-list className="cp-history-list">
                       <caption>上課紀錄</caption>
                       <colgroup><col className="cp-history-date-column" /><col /><col className="cp-history-usage-column" /></colgroup>
                       <thead><tr><th scope="col">日期時間</th><th scope="col">課程</th><th scope="col">使用{unit(c.unit) === "堂" ? "堂數" : "點數"}</th></tr></thead>
                     {months.map(month => <tbody key={month}>
-                      <tr className="cp-history-month"><th colSpan={3} scope="rowgroup">{month.slice(0,4)} 年 {Number(month.slice(5))} 月</th></tr>
+                      <tr data-list-divider className="cp-history-month"><th colSpan={3} scope="rowgroup">{month.slice(0,4)} 年 {Number(month.slice(5))} 月</th></tr>
                         {recent.filter(lesson => courseDate(lesson.startsAt).startsWith(month)).map(lesson => {
                           const date = courseDate(lesson.startsAt);
                           const weekday = new Intl.DateTimeFormat("zh-TW", { timeZone: "Asia/Taipei", weekday: "short" }).format(new Date(lesson.startsAt)).replace("週", "");
@@ -1209,12 +1214,6 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                 ))}
             </>
           )}
-          {(page === "account") && (
-            <form onSubmit={p.readOnly ? event => event.preventDefault() : undefined} action={p.readOnly ? undefined : logoutAction} className="cp-logout">
-              <input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""} />
-              <LogoutButton className="cp-menu" />
-            </form>
-          )}
           {!coach && page === "account" && refreshControl}
         </main>
       </div>
@@ -1265,6 +1264,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                                 requestKey: key,
                               })
                             : createMemberCourseBooking({
+                                sharedGoods:bookingGoodsInput(goods,currentStoreSlug,session.id),
                                 sessionId: session.id,
                                 cardId,
                                 customerIds: companionMode ? [p.customerId] : authorizedLearners,
@@ -1295,6 +1295,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
           }
         >
           <h2>{session.name}</h2>
+          {!coach&&!p.readOnly&&selfBookingEnabled&&!waitlistMode&&!waitlistAlready&&<CustomerBookingGoodsField slug={currentStoreSlug} sessionId={session.id} draft={goods} disabled={pending} onChange={next=>{setKey(crypto.randomUUID());setGoods(next);}}/>}
           <p>
             {formatTWDateTime(new Date(session.startsAt))} · {session.coach} · {session.room}
           </p>

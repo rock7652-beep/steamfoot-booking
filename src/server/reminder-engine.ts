@@ -1,3 +1,4 @@
+import { loadSelectedBookingServices, selectedBookingServiceName } from "@/server/services/booking-service-selection";
 /**
  * 提醒引擎 — Daily next-day batch（v3）
  *
@@ -14,6 +15,7 @@
  */
 
 import { Prisma } from "@prisma/client";
+import {nextDayReminderForDate} from '@/lib/next-day-reminder-time';
 import { prisma } from "@/lib/db";
 import {
   pushMessage,
@@ -108,8 +110,7 @@ export function todayReminderTriggerAt(now: Date = new Date()): Date {
 }
 
 export function reminderTriggerAtForDate(date: string): Date {
-  // 台灣 18:00 = UTC 10:00（offset -8 小時）
-  return new Date(`${date}T10:00:00.000Z`);
+  return nextDayReminderForDate(date);
 }
 
 /**
@@ -279,6 +280,8 @@ export async function runReminders(): Promise<SendResult> {
     const bookings = await prisma.booking.findMany({
       where: {
         storeId: rule.storeId,
+        createdAt:{lte:triggerAt},
+        OR:[{customerRescheduledAt:null},{customerRescheduledAt:{lte:triggerAt}}],
         bookingDate,
         bookingStatus: { in: ["PENDING", "CONFIRMED"] },
       },
@@ -300,9 +303,16 @@ export async function runReminders(): Promise<SendResult> {
       const customer = booking.customer;
       const bookingStoreId = booking.storeId;
       const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
+      const selectedServices = await loadSelectedBookingServices(booking);
+      const serviceName = selectedBookingServiceName(selectedServices, booking.bookingType);
+      const serviceTypes = selectedServices.length
+        ? selectedServices.filter(person => person.status !== "CANCELLED").map(person => person.service)
+        : [booking.bookingType];
+      const hasTrialService = serviceTypes.includes("FIRST_TRIAL");
+      const hasPaidService = serviceTypes.some(type => type !== "FIRST_TRIAL");
       if (
-        (isLineTrialBooking && !trialBookingEnabled) ||
-        (!isLineTrialBooking && !packageBookingEnabled)
+        (hasTrialService && !trialBookingEnabled) ||
+        (hasPaidService && !packageBookingEnabled)
       ) {
         result.skipped++;
         result.details.push({
@@ -310,7 +320,7 @@ export async function runReminders(): Promise<SendResult> {
           bookingId: booking.id,
           ruleName: rule.name,
           status: "SKIPPED",
-          error: isLineTrialBooking ? "TRIAL_REMINDER_DISABLED" : "PACKAGE_REMINDER_DISABLED",
+          error: hasTrialService && !trialBookingEnabled ? "TRIAL_REMINDER_DISABLED" : "PACKAGE_REMINDER_DISABLED",
         });
         continue;
       }
@@ -564,7 +574,7 @@ export async function runReminders(): Promise<SendResult> {
         staffName: customer.assignedStaff?.displayName ?? "店長",
         bookingLink,
       };
-      const renderedBody = renderTemplate(isLineTrialBooking ? TRIAL_TEMPLATE : templateBody, vars);
+      const renderedBody = renderTemplate(isLineTrialBooking ? TRIAL_TEMPLATE.replace("體驗預約", serviceName) : templateBody, vars);
 
       // 發送 LINE push
       const card = {
@@ -572,10 +582,11 @@ export async function runReminders(): Promise<SendResult> {
         bookingDate: bookingDateStr,
         bookingTime: booking.slotTime,
         shopName: customerFacingShopName,
-        serviceName: "首次體驗",
+        serviceName,
         reminderText:
-          trialCardReminderCache.get(bookingStoreId) ??
-          DEFAULT_TRIAL_LINE_CARD_REMINDER,
+          hasTrialService
+            ? trialCardReminderCache.get(bookingStoreId) ?? DEFAULT_TRIAL_LINE_CARD_REMINDER
+            : packageCardReminderCache.get(bookingStoreId) ?? DEFAULT_PACKAGE_LINE_CARD_REMINDER,
         mapUrl: storeMapDetails?.mapUrl ?? undefined,
       };
       const flexMessages = isLineTrialBooking
@@ -585,7 +596,7 @@ export async function runReminders(): Promise<SendResult> {
             bookingDate: bookingDateStr,
             bookingTime: booking.slotTime,
             shopName: customerFacingShopName,
-            serviceName: booking.bookingType === "PACKAGE_SESSION" ? "方案預約" : "單次預約",
+            serviceName,
             serviceDuration: "45 分鐘",
             address: storeMapDetails?.address ?? undefined,
             mapUrl: storeMapDetails?.mapUrl ?? undefined,
@@ -600,12 +611,12 @@ export async function runReminders(): Promise<SendResult> {
         : [{ type: "text" as const, text: renderedBody }];
       let actualRoute = route.channel;
       let sendResult = route.channel === "STORE"
-        ? await pushMessage(bookingStoreId, route.recipientLineUserId, flexMessages)
-        : await pushSteamButlerMessage(route.recipientLineUserId, flexMessages);
+        ? await pushMessage(bookingStoreId, route.recipientLineUserId, flexMessages, undefined, triggerAt)
+        : await pushSteamButlerMessage(route.recipientLineUserId, flexMessages, undefined, triggerAt);
       if (canFallbackToTextReminder(sendResult)) {
         sendResult = route.channel === "STORE"
-          ? await pushMessage(bookingStoreId, route.recipientLineUserId, textMessages)
-          : await pushSteamButlerMessage(route.recipientLineUserId, textMessages);
+          ? await pushMessage(bookingStoreId, route.recipientLineUserId, textMessages, undefined, triggerAt)
+          : await pushSteamButlerMessage(route.recipientLineUserId, textMessages, undefined, triggerAt);
       }
       if (
         route.channel === "STORE" &&
@@ -614,15 +625,9 @@ export async function runReminders(): Promise<SendResult> {
       ) {
         const fallbackRoute = await resolveVerifiedCentralReminderLineRoute(recipient);
         if (fallbackRoute.status === "READY") {
-          sendResult = await pushSteamButlerMessage(
-            fallbackRoute.recipientLineUserId,
-            flexMessages,
-          );
+          sendResult = await pushSteamButlerMessage(fallbackRoute.recipientLineUserId, flexMessages, undefined, triggerAt);
           if (canFallbackToTextReminder(sendResult)) {
-            sendResult = await pushSteamButlerMessage(
-              fallbackRoute.recipientLineUserId,
-              textMessages,
-            );
+            sendResult = await pushSteamButlerMessage(fallbackRoute.recipientLineUserId, textMessages, undefined, triggerAt);
           }
           actualRoute = "CENTRAL";
         } else {

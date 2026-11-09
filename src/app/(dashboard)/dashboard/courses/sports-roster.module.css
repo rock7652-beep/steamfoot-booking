@@ -48,3 +48,10 @@
 @container sports-roster (max-width: 359px) {
   .row .reminders { grid-column: 1 / -1; grid-row: 3; }
 }
+
+/* A single beauty appointment already has its location and service in its summary. */
+.separateIdentity .header, .separateIdentity .row {grid-template-columns:minmax(10rem,1fr) 10rem 7rem 6rem minmax(16rem,1.5fr) 44px;min-width:820px;font-size:14px;}
+.separateIdentity .ownerInline {display:none;}
+.separateIdentity .row .identity, .separateIdentity .row .pointColumn, .separateIdentity .row .balanceColumn, .separateIdentity .row .more, .separateIdentity .row .reminders {grid-column:auto;grid-row:auto;}
+.separateIdentity .header .notesHeading {display:block;}
+.phoneColumn {white-space:nowrap;}

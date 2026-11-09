@@ -12,13 +12,13 @@ import {beautyAnalysisBounds} from '@/lib/beauty/analytics';
 import {beautyRevenueBreakdown,beautyTechnicianBreakdown} from '@/lib/beauty/revenue-breakdown';
 import {z} from 'zod';
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(s=>!Number.isNaN(Date.parse(s))&&new Date(s).toISOString().slice(0,10)===s);
-export async function readBeautyRevenueBreakdown(expectedStoreId:string,input:{from:string;to:string}){
+export async function readBeautyRevenueBreakdown(expectedStoreId:string,input:{from:string;to:string;includeTechnicians?:boolean}){
  const a=await beautyManager('report.read');await beautyManager('transaction.read');
  if(a.storeId!==expectedStoreId)throw new AppError('FORBIDDEN','店家已切換，請重新開啟營運');
  await requireStoreFeature(a.storeId,FEATURES.BASIC_REPORTS);await requireStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
  const {from,to}=z.object({from:date,to:date}).parse(input);if(from>to)throw new AppError('VALIDATION','開始日期不能晚於結束日期');beautyAnalysisBounds({startDate:from,endDate:to});
  const user=await requireSession();
- const canFees=await checkPermission(user.role,user.staffId,'teacher.compensation.read')&&await checkPermission(user.role,user.staffId,'teacher.settlement.read')&&await hasStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR);
+ const canFees=input.includeTechnicians!==false&&await checkPermission(user.role,user.staffId,'teacher.compensation.read')&&await checkPermission(user.role,user.staffId,'teacher.settlement.read')&&await hasStoreFeature(a.storeId,FEATURES.SERVICE_FEE_CALCULATOR);
  const [report,technicians]=await Promise.all([
   getBeautyRevenueReport(a.storeId,{startDate:from,endDate:to,storeFilter:{storeId:a.storeId}},{customers:false,includeFirstPurchase:false}),
   canFees?beautyPrisma.$transaction(async tx=>{

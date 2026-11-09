@@ -1,4 +1,5 @@
 "use server";
+import {calendarPhase,calendarAccessPhase,traceCourseCalendar} from "@/server/services/course-calendar-timing";
 import { courseDisplayName } from "@/lib/course-template-presentation";
 import {sportsSeriesTable} from "@/lib/sports-series-storage";
 import {z} from "zod";
@@ -13,15 +14,15 @@ import {cancelCourseWaitlistForSession} from "@/server/services/course-waitlist"
 import {reserveCourseInTransaction,settleCourseBooking} from "@/server/services/course-booking";
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(d=>!!parseTaipeiDateTime(d,"00:00"));
 async function actor(permission:Parameters<typeof courseManager>[0]){
- const a=await courseManager(permission);if(!(await sportsNativePreview(a.storeId))||!await prisma.storeFeatureEntitlement.findFirst({where:{storeId:a.storeId,featureKey:"business.fitness",status:"ENABLED"}}))throw new AppError("FORBIDDEN","此店尚未開放運動固定課");
- if(process.env.VERCEL_ENV==="production")await coursePrisma.$transaction(tx=>(import("@/server/services/sports-production-readiness")).then(m=>m.assertSportsProductionReady(tx,a.storeId)));
+ const a=await calendarPhase("access",()=>courseManager(permission,{measure:calendarAccessPhase}));if(!(await calendarPhase("sports_scope",()=>sportsNativePreview(a.storeId)))||!await calendarPhase("module_entitlement",()=>prisma.storeFeatureEntitlement.findFirst({where:{storeId:a.storeId,featureKey:"business.fitness",status:"ENABLED"}})))throw new AppError("FORBIDDEN","此店尚未開放運動固定課");
+ if(process.env.VERCEL_ENV==="production")await calendarPhase("production_readiness",()=>coursePrisma.$transaction(tx=>(import("@/server/services/sports-production-readiness")).then(m=>m.assertSportsProductionReady(tx,a.storeId))));
  return {storeId:a.storeId,userId:a.user.id,name:a.user.name??"門市人員"};
 }
-export async function syncSportsPermanentCalendar(input:unknown){try{
+export async function syncSportsPermanentCalendar(input:unknown){return traceCourseCalendar("sports_sync",async()=>{try{
  const day=date.parse(input),a=await actor("booking.create");
  const first=addTaiwanDuration(day.slice(0,7)+"-01",-6,"DAY"),last=addTaiwanDuration(addTaiwanDuration(day.slice(0,7)+"-01",1,"MONTH"),5,"DAY");
- const warning=await ensureSportsMonth(a,first,last);return {success:true as const,warning:warning??null};
- }catch(e){return handleActionError(e);}}
+ const warning=await calendarPhase("month_scope",()=>ensureSportsMonth(a,first,last));return {success:true as const,warning:warning??null};
+ }catch(e){return handleActionError(e);}});}
 export async function loadSportsSeriesPanel(sessionId:string){try{
  z.string().min(1).max(100).parse(sessionId);const a=await actor("booking.read");
  const session=await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId:a.storeId},select:{requestKey:true,templateId:true}});if(!session)throw new AppError("NOT_FOUND","課程不存在");

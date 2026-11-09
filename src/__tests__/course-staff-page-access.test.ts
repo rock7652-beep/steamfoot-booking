@@ -3,8 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
   user: vi.fn(), permission: vi.fn(), store: vi.fn(),
-  staff: vi.fn(), requireCourse: vi.fn(),
+  staff: vi.fn(), requireCourse: vi.fn(), templates:vi.fn(), native:vi.fn(), workspace:vi.fn(),
 }));
+vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:m.native}));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NOT_FOUND"); } }));
 vi.mock("@/components/ui/empty-state", () => ({ EmptyState: ({title}:{title:string}) => React.createElement("p", null, title) }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
@@ -22,7 +23,7 @@ vi.mock("@/lib/db", () => ({ prisma: {
   customer: { findMany: async () => [] },
 } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: {
-  courseTemplate: { findMany: async () => [] },
+  courseTemplate: { findMany: m.templates },
   coursePointPlan: { findMany: async () => [] },
   courseSession: { findMany: async () => [] },
 } }));
@@ -31,7 +32,7 @@ vi.mock("@/server/services/music-finance-access", () => ({ canMusicFinance: asyn
 vi.mock("@/server/services/course-display-order", () => ({ readCourseOrders: async () => ({}) }));
 vi.mock("@/server/services/course-monthly-settlement", () => ({ readSettlementSettings: async () => ({ feeEnabled: false }) }));
 vi.mock("@/components/desktop", () => ({ PageShell: "div", PageHeader: "header" }));
-vi.mock("@/app/(dashboard)/dashboard/courses/staff-workspace", () => ({ CourseStaffWorkspace: "section" }));
+vi.mock("@/app/(dashboard)/dashboard/courses/staff-workspace", () => ({ CourseStaffWorkspace: m.workspace }));
 import { CourseStaffPage } from "@/app/(dashboard)/dashboard/courses/staff-page";
 
 beforeEach(() => {
@@ -40,6 +41,7 @@ beforeEach(() => {
   m.permission.mockResolvedValue(true);
   m.store.mockResolvedValue("course-store");
   m.staff.mockResolvedValue([]);
+  m.native.mockResolvedValue(false);m.templates.mockResolvedValue([]);m.workspace.mockReturnValue(null);
 });
 describe("course staff page permission boundary", () => {
   it.each(["ADMIN", "OWNER", "MANAGER", "STAFF"])("allows %s with staff.view to read only the selected store", async role => {
@@ -60,4 +62,15 @@ describe("course staff page permission boundary", () => {
     await expect(CourseStaffPage()).rejects.toThrow("NOT_FOUND");
     expect(m.staff).not.toHaveBeenCalled();
   });
+});
+
+import {sportsTeachingTemplateId} from "@/server/services/sports-teaching-rule";
+it("uses current sports subjects and keeps historical IDs without offering them as current items",async()=>{
+ m.native.mockResolvedValue(true);
+ const current=sportsTeachingTemplateId('course-store','subject');
+ m.templates.mockResolvedValue([{id:current,name:'舞蹈（現代） · abcdef',musicSubjectId:'subject',musicSubject:{name:'舞蹈（基礎課程）',isActive:true},isActive:true},{id:'sports_rule_legacy',name:'舊芭蕾',musicSubjectId:'subject',musicSubject:{name:'舞蹈（基礎課程）',isActive:true},isActive:true},{id:sportsTeachingTemplateId('course-store','retired'),name:'舊瑜伽',musicSubjectId:'retired',musicSubject:{name:'舞蹈（小品課）',isActive:false},isActive:true}]);
+ renderToStaticMarkup(await CourseStaffPage({teachers:true}));
+ const props=m.workspace.mock.calls[0][0];
+ expect(props.templates).toEqual([expect.objectContaining({id:current,name:'舞蹈（基礎課程）',displayName:'舞蹈（基礎課程）',currentTeaching:true}),expect.objectContaining({id:'sports_rule_legacy',currentTeaching:false}),expect.objectContaining({name:'舞蹈（小品課）',currentTeaching:false})]);
+ expect(m.templates).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:'course-store'}}));
 });

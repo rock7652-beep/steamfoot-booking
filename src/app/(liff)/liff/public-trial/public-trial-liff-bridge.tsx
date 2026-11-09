@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CoursePortalBrand } from "@/components/course-portal-navigation";
 import {
   getIDToken,
   initLiff,
@@ -106,9 +107,10 @@ export function PublicTrialLiffBridge({
   }, [liffId, storeSlug, bookingPath]);
 
   return (
+    <>
+    <header className="flex items-center gap-2 border-b border-[#c2ad72] bg-white px-4 py-2"><CoursePortalBrand storeFirst storeName={storeName}/></header>
     <main className="mx-auto flex min-h-dvh max-w-md items-center px-5 py-12">
       <section className="w-full rounded-2xl border border-earth-200 bg-white p-6 text-center shadow-sm">
-        <p className="text-xs font-semibold tracking-[0.16em] text-primary-700">{storeName}</p>
         {state === "loading" ? (
           <>
             <div className="mx-auto mt-5 h-9 w-9 animate-spin rounded-full border-2 border-earth-200 border-t-primary-600" aria-hidden />
@@ -135,5 +137,6 @@ export function PublicTrialLiffBridge({
         )}
       </section>
     </main>
+    </>
   );
 }

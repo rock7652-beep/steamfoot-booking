@@ -10,7 +10,7 @@ import {
   copyFromPreviousBusinessDaySchema,
   copyToWeekDatesSchema,
 } from "@/lib/validators/duty";
-import { generateSlots } from "@/lib/slot-generator";
+import { applySlotOverrides, resolveDayRule, buildBusinessHoursMap, buildSpecialDayMap } from "@/lib/business-hours-resolver";
 import { revalidateDuty } from "@/lib/revalidation";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { resolveWriteStoreId } from "@/lib/store";
@@ -35,37 +35,12 @@ async function getBusinessSlotsForDate(dateStr: string, storeId: string, db: Pri
 
   if (course) return courseDutyIntervals(dateStr, businessHour ? [businessHour] : [], specialDay ? [specialDay] : []).map(s => s.slotTime);
 
-  // 公休 / 進修
-  if (specialDay && (specialDay.type === "closed" || specialDay.type === "training")) {
-    return [];
-  }
-  if (!specialDay && businessHour && !businessHour.isOpen) {
-    return [];
-  }
-
-  const openTime = specialDay?.type === "custom" ? specialDay.openTime : (businessHour?.openTime ?? null);
-  const closeTime = specialDay?.type === "custom" ? specialDay.closeTime : (businessHour?.closeTime ?? null);
-  const interval = (specialDay?.type === "custom" ? specialDay.slotInterval : null) ?? businessHour?.slotInterval ?? 60;
-  const capacity = (specialDay?.type === "custom" ? specialDay.defaultCapacity : null) ?? businessHour?.defaultCapacity ?? 6;
-
-  if (!openTime || !closeTime) return [];
-
-  const generated = generateSlots(openTime, closeTime, interval, capacity);
-  const slots = generated.map((s) => s.startTime);
-
-  // 加入 enabled 覆寫（強制開放的額外時段）
-  const overrideMap = new Map(slotOverrides.map((o) => [o.startTime, o]));
-  for (const [startTime, override] of overrideMap) {
-    if (override.type === "enabled" && !slots.includes(startTime)) {
-      slots.push(startTime);
-    }
-  }
-
-  // 移除 disabled 覆寫
-  const disabledSet = new Set(
-    slotOverrides.filter((o) => o.type === "disabled").map((o) => o.startTime)
-  );
-  return slots.filter((s) => !disabledSet.has(s)).sort();
+  const rule = resolveDayRule({
+    dateStr, dow,
+    businessHoursMap: buildBusinessHoursMap(businessHour ? [businessHour] : []),
+    specialDayMap: buildSpecialDayMap(specialDay ? [specialDay] : []),
+  });
+  return applySlotOverrides(rule, slotOverrides).filter((slot) => slot.isEnabled).map((slot) => slot.startTime);
 }
 
 // ============================================================

@@ -1,0 +1,102 @@
+[
+  {
+    "goods": true,
+    "width": 390,
+    "height": 844,
+    "groupInline": false,
+    "requiredOnlyOnServices": true,
+    "directRemoval": true,
+    "cancelRemovalPreserves": true,
+    "noOverflow": true
+  },
+  {
+    "goods": true,
+    "width": 560,
+    "height": 900,
+    "groupInline": true,
+    "requiredOnlyOnServices": true,
+    "directRemoval": true,
+    "cancelRemovalPreserves": true,
+    "noOverflow": true
+  },
+  {
+    "goods": true,
+    "width": 768,
+    "height": 1024,
+    "groupInline": true,
+    "requiredOnlyOnServices": true,
+    "directRemoval": true,
+    "cancelRemovalPreserves": true,
+    "noOverflow": true
+  },
+  {
+    "goods": true,
+    "width": 1024,
+    "height": 768,
+    "groupInline": true,
+    "requiredOnlyOnServices": true,
+    "directRemoval": true,
+    "cancelRemovalPreserves": true,
+    "noOverflow": true
+  },
+  {
+    "goods": true,
+    "width": 1366,
+    "height": 900,
+    "groupInline": true,
+    "requiredOnlyOnServices": true,
+    "directRemoval": true,
+    "cancelRemovalPreserves": true,
+    "noOverflow": true
+  },
+  {
+    "goods": false,
+    "width": 390,
+    "height": 844,
+    "groupInline": false,
+    "requiredOnlyOnServices": true,
+    "directRemoval": true,
+    "cancelRemovalPreserves": true,
+    "noOverflow": true
+  },
+  {
+    "goods": false,
+    "width": 560,
+    "height": 900,
+    "groupInline": true,
+    "requiredOnlyOnServices": true,
+    "directRemoval": true,
+    "cancelRemovalPreserves": true,
+    "noOverflow": true
+  },
+  {
+    "goods": false,
+    "width": 768,
+    "height": 1024,
+    "groupInline": true,
+    "requiredOnlyOnServices": true,
+    "directRemoval": true,
+    "cancelRemovalPreserves": true,
+    "noOverflow": true
+  },
+  {
+    "goods": false,
+    "width": 1024,
+    "height": 768,
+    "groupInline": true,
+    "requiredOnlyOnServices": true,
+    "directRemoval": true,
+    "cancelRemovalPreserves": true,
+    "noOverflow": true
+  },
+  {
+    "goods": false,
+    "width": 1366,
+    "height": 900,
+    "groupInline": true,
+    "requiredOnlyOnServices": true,
+    "directRemoval": true,
+    "cancelRemovalPreserves": true,
+    "noOverflow": true
+  }
+]

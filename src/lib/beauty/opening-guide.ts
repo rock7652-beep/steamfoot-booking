@@ -1,4 +1,14 @@
 import type {ChargeService,ChargeTechnician} from './charge-editor';
+export type BeautyOpeningStore={name:string;address:string;shopPhone:string};
+/** Initial setup only: optional integrations and live availability are not completion gates. */
+export function beautyOpeningSetupComplete(input:{store?:BeautyOpeningStore;hoursConfigured?:boolean;services:(ChargeService&{price:number;singlePriceConfigured?:boolean|null})[];technicians:ChargeTechnician[];locations:{isActive:boolean}[];canReadTechnicians:boolean;canReadPlans:boolean}){
+ const services=input.services.filter(s=>s.active);
+ return !!input.store?.name.trim()&&!!input.store.address.trim()&&!!input.store.shopPhone.trim()
+  &&input.hoursConfigured===true&&input.canReadPlans&&input.canReadTechnicians
+  &&input.locations.some(l=>l.isActive)&&services.length>0
+  &&services.every(s=>Number.isInteger(s.price)&&s.price>=0&&s.singlePriceConfigured!==false
+    &&input.technicians.some(t=>t.active&&t.serviceIds.includes(s.id)));
+}
 export const beautyOpeningRoutes=[
  {id:'store',label:'店家基本資料',href:'/dashboard/beauty?tab=設定&section=store'},
  {id:'hours',label:'營業與預約規則',href:'/dashboard/settings/hours'},

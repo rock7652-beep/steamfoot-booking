@@ -33,7 +33,8 @@ export async function readMyCourseIncome(month: string) {
     if (!grants.length) throw new AppError("FORBIDDEN", "查看自己的薪酬權限已關閉，請洽老闆。");
     const report = await readCourseMonthlySettlement(tx,storeId,month);
     if (!report.settings.personalIncomeEnabled) throw new AppError("FORBIDDEN", "本人收入查詢已關閉，請洽店長。");
-    return personalIncomeView(link.staffId,report.lines,report.revisions[0]);
+    const view=personalIncomeView(link.staffId,report.lines,report.revisions[0]);
+    return {...view,pending:view.pending||(view.confirmed&&report.adjustmentMonth?.locked===false)};
   }, {isolationLevel:"RepeatableRead",timeout:20000});
   // Do not return a financial payload if a grant/link changed during the query.
   const current = await personalIncomeAccess(user.id,storeId);

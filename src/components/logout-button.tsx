@@ -7,18 +7,22 @@ export function LogoutButton({
   iconClassName = "text-earth-400",
   className = "flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-earth-600 hover:bg-earth-50",
   iconSize = 14,
+  disabled = false,
+  clearStateOnClick = true,
 }: {
   iconClassName?: string;
   className?: string;
   iconSize?: number;
+  disabled?: boolean;
+  clearStateOnClick?: boolean;
 }) {
   const { pending } = useFormStatus();
 
   return (
     <button
       type="submit"
-      onClick={() => { try { clearOperationState(sessionStorage); } catch {} }}
-      disabled={pending}
+      onClick={() => { if (clearStateOnClick) { try { clearOperationState(sessionStorage); } catch {} } }}
+      disabled={pending || disabled}
       className={`${className} ${pending ? "opacity-50 pointer-events-none" : ""}`}
     >
       {pending ? (

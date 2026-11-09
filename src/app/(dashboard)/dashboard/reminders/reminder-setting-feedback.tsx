@@ -130,7 +130,6 @@ export function ReminderSettingToggle({ enabled, pending, disabled, label, onTog
           <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${enabled ? "translate-x-5" : ""}`} />
         </span>
       </button>
-      <span aria-hidden="true" className="text-earth-400 transition group-open:rotate-180">⌄</span>
     </div>
   );
 }

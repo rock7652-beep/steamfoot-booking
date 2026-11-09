@@ -51,12 +51,12 @@ export function StagnationMiniTable({ items, now = new Date() }: Props) {
           <p className="mt-0.5 text-[10px] text-earth-400">成員都在動</p>
         </div>
       ) : (
-        <table className="w-full text-sm">
+        <table data-striped-list className="w-full text-sm">
           <tbody className="divide-y divide-earth-100">
             {top5.map((c) => {
               const days = daysSinceLastAction(c.lastActionAt, now);
               return (
-                <tr key={c.customerId} className="h-10 hover:bg-earth-50">
+                <tr key={c.customerId} className="h-10 ">
                   <td className="px-3">
                     <Link
                       href={`/dashboard/customers/${c.customerId}`}

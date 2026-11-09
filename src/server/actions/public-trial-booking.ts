@@ -1,4 +1,8 @@
 "use server";
+import {addonsPrisma} from '@/lib/addons-db';
+import {AppError} from "@/lib/errors";
+import {persistCustomerBookingGoods} from "@/server/services/customer-booking-goods";
+import {customerBookingGoodsInput} from "@/lib/customer-booking-goods";
 
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -25,6 +29,7 @@ import { isStoreBookable } from "@/lib/store-operating-status";
 import { notifyManagerOfPublicTrialBooking } from "@/server/services/public-trial-manager-notification";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
+import { resolvePublicTrialLoginCustomer } from "@/server/services/public-trial-login-customer";
 import { resolvePublicTrialLineCustomer } from "@/server/services/public-trial-line-customer";
 import { normalizeTrialBookingSource } from "@/lib/trial-booking-source";
 import { prepareTrialNotificationSetup, type TrialNotificationSetup } from "@/server/services/trial-notification-binding";
@@ -42,6 +47,7 @@ const DEFAULT_STORE_SLUG: PublicTrialStoreSlug = "zhubei";
 const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶", "未命名"];
 
 const InputSchema = z.object({
+  sharedGoods:customerBookingGoodsInput.optional(),
   noticeAccepted: z.literal(true, { errorMap: () => ({ message: "請先閱讀並勾選蒸足前須知與貼心提醒。" }) }),
   name: z.string().trim().min(1, "請輸入姓名").max(50).refine(
     (name) => !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(name),
@@ -337,7 +343,12 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
 
     const trialPlan = await ensureTrialPlan(store.id, settings.trialDefaultPrice);
 
-    const lineCustomerResult = chatLink?.channel === "LINE"
+    const verifiedLoginCustomer = chatLink?.verifiedLogin
+      ? await resolvePublicTrialLoginCustomer({ entry: chatLink, name: data.name, phone: data.phone }) : null;
+    if (verifiedLoginCustomer?.status === "conflict") return { status: "invalid_input", message: "此手機或 LINE 身分已有其他會員資料，請聯繫門市協助確認。" };
+    if (verifiedLoginCustomer?.status === "unavailable") return { status: "service_unavailable" };
+    const hasMessagingEntry = chatLink?.channel === "LINE" && chatLink.notificationVerified !== false;
+    const lineCustomerResult = hasMessagingEntry && !verifiedLoginCustomer
       ? await resolvePublicTrialLineCustomer({
           storeId: store.id,
           phone: data.phone,
@@ -351,8 +362,8 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       return { status: "invalid_input", message: "LINE 身分驗證暫時無法完成，請稍後再試。" };
     }
 
-    let customerCreated = false;
-    let customer = lineCustomerResult && "customer" in lineCustomerResult
+    let customerCreated = verifiedLoginCustomer?.status === "resolved" && verifiedLoginCustomer.customerCreated;
+    let customer = verifiedLoginCustomer?.status === "resolved" ? verifiedLoginCustomer.customer : lineCustomerResult && "customer" in lineCustomerResult
       ? lineCustomerResult.customer
       : chatLink?.channel === "LINE"
         ? null
@@ -442,8 +453,12 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     }
 
     const expectedAmount = settings.trialDefaultPrice * data.people;
-    const booking = await prisma.$transaction(
+    const booking = await (data.sharedGoods?.selections.length?addonsPrisma:prisma).$transaction(
       async (tx) => {
+        if(data.sharedGoods?.selections.length){
+          await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${store.id} FOR UPDATE`;
+          if(await tx.booking.findFirst({where:{storeId:store.id,customerId:customer.id,bookingType:'FIRST_TRIAL',bookingStatus:{in:['PENDING','CONFIRMED']}},select:{id:true}}))throw new AppError('CONFLICT','已有首次體驗預約，請先確認原預約結果');
+        }
         const aggregate = await tx.booking.aggregate({
           where: {
             storeId: store.id,
@@ -493,6 +508,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
           },
           select: { id: true },
         });
+        await persistCustomerBookingGoods(tx,store.id,created.id,undefined,data.sharedGoods);
         if (chatLink) {
           const claimed = await tx.trialBookingLink.updateMany({
             where: {
@@ -563,10 +579,11 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     const linkedToEntry = chatLink?.channel === "LINE"
       && customer.lineLinkStatus === "LINKED"
       && customer.lineUserId === chatLink.chatIdentity;
-    const notificationSetup: TrialNotificationSetup | undefined = pilot ? await prepareTrialNotificationSetup({
+    const notificationSetup: TrialNotificationSetup | undefined = pilot || verifiedLoginCustomer?.status === "resolved" ? await prepareTrialNotificationSetup({
       storeId: store.id, customerId: customer.id, bookingId: booking.id,
       customerCreated,
       linked: customer.lineLinkStatus === "LINKED" && Boolean(customer.lineUserId),
+      ...(verifiedLoginCustomer?.status === "resolved" ? { loginOwnerId: verifiedLoginCustomer.ownerId } : {}),
     }) : chatLink?.channel === "LINE"
       // All stores share the same verified LINE entry flow. Do not ask a
       // successfully linked customer to send their phone again in the chat.
@@ -583,6 +600,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       notificationSetup,
     };
   } catch (error) {
+    if(error instanceof AppError)return {status:"invalid_input",message:error.message};
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return { status: "slot_full" };
     console.error("[public-trial-booking] submit failed", error);
     return { status: "service_unavailable" };

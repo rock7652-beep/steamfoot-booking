@@ -12,6 +12,10 @@ vi.mock("react", async () => ({
   useEffect: (effect: () => void | (() => void)) => { m.effect = effect; },
   useState: () => ["loading", m.state],
 }));
+vi.mock("next/image", () => ({ default: (props: Record<string, unknown>) => {
+  const imageProps = {...props}; delete imageProps.unoptimized;
+  return createElement("img", imageProps);
+} }));
 vi.mock("@/lib/liff/client", () => ({ initLiff: m.init, isInLineClient: m.inLine, getIDToken: m.token }));
 import { PublicTrialLiffBridge } from "@/app/(liff)/liff/public-trial/public-trial-liff-bridge";
 

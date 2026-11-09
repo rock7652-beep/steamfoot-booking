@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /workspace/plan-session-adjustment-20261030
+
+
+ Test Files  20 passed (20)
+      Tests  179 passed (179)
+   Start at  00:10:18
+   Duration  6.25s (transform 2.16s, setup 0ms, import 3.95s, tests 8.63s, environment 1.87s)
+

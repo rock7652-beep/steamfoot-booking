@@ -31,6 +31,23 @@ it("does not fetch financial history or show lesson data without its own permiss
  await act(async()=>root.render(createElement(MusicStudentCourses,{...props,canReadTransactions:false,canReadBookings:false})));
  expect(mock.orders.read).not.toHaveBeenCalled();expect(host.textContent).toContain("收款資料無檢視權限");expect(host.textContent).not.toContain("教師甲");expect(host.textContent).not.toContain("補登收款");
 });
+it("shows authorized course periods while purchase history is still loading",async()=>{
+ let finishOrders!:(value:unknown)=>void;mock.orders.read.mockImplementation(()=>new Promise(resolve=>{finishOrders=resolve;}));
+ await act(async()=>root.render(createElement(MusicStudentCourses,props)));
+ expect(host.textContent).toContain("教師甲");expect(host.textContent).toContain("收款紀錄讀取中");expect(host.textContent).not.toContain("尚無已購課程");expect(host.textContent).not.toContain("已收 NT$ 1,600");
+ await act(async()=>finishOrders({success:true,data:orders,hasMore:false}));
+ expect(host.textContent).not.toContain("收款紀錄讀取中");expect(host.textContent).toContain("已收 NT$ 1,600");
+});
+it("does not claim the learner has no courses while periods are pending",async()=>{
+ let finishPeriods!:(value:unknown)=>void;mock.periods.read.mockImplementation(()=>new Promise(resolve=>{finishPeriods=resolve;}));
+ await act(async()=>root.render(createElement(MusicStudentCourses,props)));
+ expect(host.textContent).toContain("讀取課程與學費");expect(host.textContent).not.toContain("尚無已購課程");
+ await act(async()=>finishPeriods({success:true,data:cards}));expect(host.textContent).toContain("教師甲");
+});
+it("retains authorized periods and shows a retry when purchase history fails",async()=>{
+ mock.orders.read.mockRejectedValue(new Error("offline"));await act(async()=>root.render(createElement(MusicStudentCourses,props)));
+ expect(host.textContent).toContain("教師甲");expect(host.querySelector('[role="alert"]')?.textContent).toContain("購課紀錄讀取失敗");expect(host.textContent).not.toContain("尚無已購課程");
+});
 it("clears a previous learner while the next request is pending and ignores late responses",async()=>{
  await act(async()=>root.render(createElement(MusicStudentCourses,props)));
  let finish!:(value:unknown)=>void;mock.periods.read.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));mock.orders.read.mockResolvedValue({success:true,data:[],hasMore:false});

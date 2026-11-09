@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const m = vi.hoisted(()=>({permission:vi.fn(),store:vi.fn(),module:vi.fn(),staff:vi.fn(),terms:vi.fn(),preview:vi.fn(),visibility:vi.fn()}));
+const m = vi.hoisted(()=>({permission:vi.fn(),store:vi.fn(),module:vi.fn(),staff:vi.fn(),terms:vi.fn(),preview:vi.fn(),visibility:vi.fn(),adjustments:vi.fn(),monthLock:vi.fn()}));
 vi.mock("@/lib/permissions",()=>({requirePermission:m.permission}));
 vi.mock("@/lib/store",()=>({getActiveStoreForRead:m.store}));
 vi.mock("@/lib/industry-module-server",()=>({requireSteamfootStore:m.module}));
@@ -7,10 +7,11 @@ vi.mock("@/lib/db",()=>({prisma:{staff:{findMany:m.staff}}}));
 vi.mock("@/lib/manager-visibility",()=>({getManagerReadFilter:m.visibility}));
 vi.mock("@/server/services/steamfoot-rent",()=>({readRentTerms:m.terms}));
 vi.mock("@/server/queries/staff-settlement",()=>({previewStaffSettlement:m.preview}));
+vi.mock("@/server/services/staff-monthly-adjustment",()=>({readMonthlyAdjustments:m.adjustments,readAdjustmentMonth:m.monthLock}));
 import { readSteamfootMonthly } from "@/server/queries/steamfoot-monthly";
 const person = (id:string,status="ACTIVE")=>({id,displayName:id,status,isOwner:false,monthlySpaceFee:5000,spaceFeeEnabled:true,user:{role:"PARTNER"}});
 beforeEach(()=>{
- vi.clearAllMocks();m.permission.mockResolvedValue({role:"OWNER",staffId:"owner"});m.store.mockResolvedValue("s");m.module.mockResolvedValue(undefined);m.visibility.mockReturnValue({storeId:"s"});
+ vi.clearAllMocks();m.adjustments.mockResolvedValue([]);m.monthLock.mockResolvedValue({locked:false,revision:0});m.permission.mockResolvedValue({role:"OWNER",staffId:"owner"});m.store.mockResolvedValue("s");m.module.mockResolvedValue(undefined);m.visibility.mockReturnValue({storeId:"s"});
  m.staff.mockResolvedValue([person("a"),person("b"),person("c","INACTIVE")]);
  m.preview.mockResolvedValue({summary:[{staffId:"a",countedAmount:12000,totalCount:4,needsReviewCount:1}],details:[{bookingId:"one",revenueStaffId:"a"},{bookingId:"house",revenueStaffId:null}]});
  m.terms.mockResolvedValue([{id:"r",staffId:"a",startMonth:"2026-07",endMonth:null,cycleMonths:6,monthlyAmount:5000,enabled:true}]);
@@ -43,4 +44,16 @@ describe("monthly service and rent separation",()=>{
  it("rejects a caller-provided foreign store",async()=>{
   await expect(readSteamfootMonthly("other","2026-09")).rejects.toThrow();expect(m.staff).not.toHaveBeenCalled();
  });
+});
+
+it("adds and subtracts adjustments without changing service or rent and retains inactive people with adjustments",async()=>{
+ m.adjustments.mockResolvedValue([{staffId:"a",direction:"ADD",amount:2000},{staffId:"a",direction:"SUBTRACT",amount:800},{staffId:"c",direction:"ADD",amount:500}]);
+ const report=await readSteamfootMonthly("s","2026-09");
+ expect(report.people.find(p=>p.id==="a")).toMatchObject({adjustments:{addition:2000,deduction:800,net:1200},summary:{countedAmount:12000},rent:{total:30000}});
+ expect(report.people.find(p=>p.id==="c")).toBeDefined();
+});
+it("does not expose other personnel adjustments under self-only scope",async()=>{
+ m.visibility.mockReturnValue({storeId:"s",staffId:"owner"});m.staff.mockResolvedValue([person("owner")]);
+ m.adjustments.mockResolvedValue([{staffId:"a",direction:"ADD",amount:2000},{staffId:"owner",direction:"SUBTRACT",amount:300}]);
+ const report=await readSteamfootMonthly("s","2026-09");expect(report.adjustments).toEqual([{staffId:"owner",direction:"SUBTRACT",amount:300}]);
 });

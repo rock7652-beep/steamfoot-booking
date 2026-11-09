@@ -16,7 +16,7 @@ export async function beautyCardSaleAttribution(tx:Pick<Prisma.TransactionClient
 
 /** Only immutable sale audit evidence; never infer historical allocation from today's plan. */
 export async function beautySaleAllocations(tx:Pick<Prisma.TransactionClient,'beautyEvent'>,storeId:string,paymentIds:string[]){
- const rows=paymentIds.length?await tx.beautyEvent.findMany({where:{storeId,status:'AUDIT',kind:{in:['ISSUE_CARD','SERVICE_SALE_ATTRIBUTION']},OR:paymentIds.map(id=>({body:{contains:JSON.stringify({paymentId:id}).slice(1,-1)}}))},select:{body:true}}):[];
+ const rows=paymentIds.length?await tx.beautyEvent.findMany({where:{storeId,status:'AUDIT',kind:{in:['ISSUE_CARD','SERVICE_SALE_ATTRIBUTION','SHARED_GOODS_SALE_ATTRIBUTION']},OR:paymentIds.map(id=>({body:{contains:JSON.stringify({paymentId:id}).slice(1,-1)}}))},select:{body:true}}):[];
  const result=new Map<string,{revenueStaffId:string|null;storeAmount:number|null;shortfall:number}>();
  for(const row of rows){try{const body=JSON.parse(row.body),allocation=body.allocation;
   if(typeof body.paymentId!=='string'||!paymentIds.includes(body.paymentId))continue;

@@ -1,0 +1,99 @@
+{
+  "base": "https://steamfoot-booking-odqmgpb4k-rock7652-2111s-projects.vercel.app",
+  "appCommit": "bc51a949ad9b04688f18bcfeb40a54dfbac4f9a1",
+  "scope": "Hosted normal-login synthetic QA in the two approved isolated stores; controlled read delays are not performance benchmarks",
+  "checks": [
+    {
+      "step": "sports-normal-login",
+      "pass": true
+    },
+    {
+      "step": "cross-month-read-failure-preserves-loading-boundary",
+      "pass": true
+    },
+    {
+      "step": "cross-month-no-partial-calendar-during-5s-controlled-read",
+      "pass": true,
+      "heldReads": 1,
+      "observedVisibleFixtureCounts": [
+        0,
+        3
+      ],
+      "note": "An authenticated action may refresh the authoritative full-month RSC before the held JSON response; a complete snapshot is valid."
+    },
+    {
+      "step": "november-4-5-12-appear-only-with-complete-month",
+      "pass": true
+    },
+    {
+      "step": "reload-uses-url-date-without-corrective-month-read",
+      "pass": true
+    },
+    {
+      "step": "explicit-october-url-overrides-retained-november",
+      "pass": true
+    },
+    {
+      "step": "calendar-responsive",
+      "pass": true,
+      "width": 1366,
+      "height": 900
+    },
+    {
+      "step": "calendar-responsive",
+      "pass": true,
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "step": "calendar-responsive",
+      "pass": true,
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "step": "beauty-normal-login",
+      "pass": true
+    },
+    {
+      "step": "beauty-roster-single-line-free-payment-summary",
+      "pass": true
+    },
+    {
+      "step": "beauty-dialog-visible-before-code-or-authoritative-read",
+      "pass": true,
+      "shellMs": 53,
+      "jsHeld": 1,
+      "quoteHeld": 0,
+      "controlledDelayMs": 5000
+    },
+    {
+      "step": "beauty-authoritative-free-quote-and-original-breakdown",
+      "pass": true
+    },
+    {
+      "step": "beauty-dialog-responsive",
+      "pass": true,
+      "width": 1366,
+      "height": 900
+    },
+    {
+      "step": "beauty-dialog-responsive",
+      "pass": true,
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "step": "beauty-dialog-responsive",
+      "pass": true,
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "step": "beauty-settled-completion-preserves-roster-without-save-or-refresh-action",
+      "pass": true
+    }
+  ],
+  "pageErrors": [],
+  "success": true
+}

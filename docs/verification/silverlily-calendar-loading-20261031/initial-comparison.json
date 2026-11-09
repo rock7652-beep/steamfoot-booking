@@ -1,0 +1,366 @@
+{
+  "scope": "isolated synthetic sports store; normal owner login; no submitted business writes",
+  "samples": [
+    {
+      "variant": "baseline",
+      "sample": 0,
+      "warmup": true,
+      "kind": "schedule",
+      "shellMs": 118,
+      "readyMs": 2424,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/schedule-options",
+          "status": 200,
+          "serverTiming": "scheduleoptions;dur=1373"
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "sample": 0,
+      "warmup": true,
+      "kind": "roster",
+      "shellMs": 69,
+      "readyMs": 1867,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+          "status": 200,
+          "serverTiming": null
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "sample": 1,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 68,
+      "readyMs": 2387,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/schedule-options",
+          "status": 200,
+          "serverTiming": "scheduleoptions;dur=1447"
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "sample": 1,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 56,
+      "readyMs": 1850,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+          "status": 200,
+          "serverTiming": null
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "sample": 2,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 44,
+      "readyMs": 2350,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/schedule-options",
+          "status": 200,
+          "serverTiming": "scheduleoptions;dur=1585"
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "sample": 2,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 57,
+      "readyMs": 1847,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+          "status": 200,
+          "serverTiming": null
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "sample": 3,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 42,
+      "readyMs": 2345,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/schedule-options",
+          "status": 200,
+          "serverTiming": "scheduleoptions;dur=1588"
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "sample": 3,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 51,
+      "readyMs": 1846,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+          "status": 200,
+          "serverTiming": null
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "sample": 4,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 65,
+      "readyMs": 2369,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/schedule-options",
+          "status": 200,
+          "serverTiming": "scheduleoptions;dur=1208"
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "sample": 4,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 60,
+      "readyMs": 1854,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+          "status": 200,
+          "serverTiming": null
+        }
+      ]
+    },
+    {
+      "variant": "optimized",
+      "sample": 0,
+      "warmup": true,
+      "kind": "schedule",
+      "shellMs": 53,
+      "readyMs": 1848,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/schedule-options",
+          "status": 200,
+          "serverTiming": "scheduleoptions;dur=1639"
+        }
+      ]
+    },
+    {
+      "variant": "optimized",
+      "sample": 0,
+      "warmup": true,
+      "kind": "roster",
+      "shellMs": 74,
+      "readyMs": 1362,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+          "status": 200,
+          "serverTiming": "sessiondetail;dur=628"
+        }
+      ]
+    },
+    {
+      "variant": "optimized",
+      "sample": 1,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 51,
+      "readyMs": 1349,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/schedule-options",
+          "status": 200,
+          "serverTiming": "scheduleoptions;dur=1566"
+        }
+      ]
+    },
+    {
+      "variant": "optimized",
+      "sample": 1,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 77,
+      "readyMs": 1879,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+          "status": 200,
+          "serverTiming": "sessiondetail;dur=615"
+        }
+      ]
+    },
+    {
+      "variant": "optimized",
+      "sample": 2,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 49,
+      "readyMs": 1851,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/schedule-options",
+          "status": 200,
+          "serverTiming": "scheduleoptions;dur=1639"
+        }
+      ]
+    },
+    {
+      "variant": "optimized",
+      "sample": 2,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 61,
+      "readyMs": 1856,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+          "status": 200,
+          "serverTiming": "sessiondetail;dur=620"
+        }
+      ]
+    },
+    {
+      "variant": "optimized",
+      "sample": 3,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 47,
+      "readyMs": 1347,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/schedule-options",
+          "status": 200,
+          "serverTiming": "scheduleoptions;dur=1495"
+        }
+      ]
+    },
+    {
+      "variant": "optimized",
+      "sample": 3,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 57,
+      "readyMs": 1860,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+          "status": 200,
+          "serverTiming": "sessiondetail;dur=621"
+        }
+      ]
+    },
+    {
+      "variant": "optimized",
+      "sample": 4,
+      "warmup": false,
+      "kind": "schedule",
+      "shellMs": 48,
+      "readyMs": 1343,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/schedule-options",
+          "status": 200,
+          "serverTiming": "scheduleoptions;dur=1655"
+        }
+      ]
+    },
+    {
+      "variant": "optimized",
+      "sample": 4,
+      "warmup": false,
+      "kind": "roster",
+      "shellMs": 60,
+      "readyMs": 1360,
+      "readsAfterClick": [
+        {
+          "path": "/s/sports-live-flow/admin/dashboard/courses/session-detail",
+          "status": 200,
+          "serverTiming": "sessiondetail;dur=615"
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "variant": "baseline",
+      "check": "normal-isolated-owner-login",
+      "pass": true
+    },
+    {
+      "variant": "optimized",
+      "check": "normal-isolated-owner-login",
+      "pass": true
+    },
+    {
+      "variant": "optimized",
+      "check": "schedule-bounds-and-draft-retention",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "variant": "optimized",
+      "check": "roster-bounds",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "variant": "optimized",
+      "check": "schedule-bounds-and-draft-retention",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "variant": "optimized",
+      "check": "roster-bounds",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "variant": "optimized",
+      "check": "schedule-bounds-and-draft-retention",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "variant": "optimized",
+      "check": "roster-bounds",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "variant": "optimized",
+      "check": "focus-does-not-refresh-server-tree",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "complete": true
+}

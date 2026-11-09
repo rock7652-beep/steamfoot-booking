@@ -33,7 +33,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     const ddl = execFileSync("node_modules/.bin/prisma", ["migrate", "diff", "--from-empty", "--to-schema-datamodel", "course-prisma/schema.prisma", "--script"], { encoding: "utf8" });
     for (const sql of ddl.split(";").map(s => s.trim()).filter(Boolean)) await db!.$executeRawUnsafe(sql);
     for (const sql of [
-      'CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text)',
+      'CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text,"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')',
       'CREATE TABLE "Customer" (id text PRIMARY KEY,"storeId" text,name text,"mergedIntoCustomerId" text)',
       'CREATE TABLE "Staff" (id text,"storeId" text,"displayName" text,PRIMARY KEY(id,"storeId"))',
       'CREATE TABLE "StoreFeatureEntitlement" ("storeId" text,"featureKey" text,status text)',
@@ -55,7 +55,7 @@ const db = url ? new PrismaClient({ datasourceUrl: url.toString() }) : null;
     vi.setSystemTime(new Date("2030-01-10T00:00:00Z"));
     const storeId = randomUUID(), customerId = randomUUID(), userId = randomUUID();
     fixtureStoreIds.add(storeId);
-    await db!.$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
+    await db!.$executeRaw`INSERT INTO "Store" (id,"industryModule") VALUES (${storeId},'COURSE')`;
     await db!.$executeRaw`INSERT INTO "Customer" VALUES (${customerId},${storeId},'驗收學員',NULL)`;
     await db!.$executeRaw`INSERT INTO "Staff" VALUES ('coach',${storeId},'驗收教師')`;
     const transact = <T>(work: (tx: Prisma.TransactionClient) => Promise<T>) => db!.$transaction(async tx => { await lockCourseStore(tx, storeId); return work(tx); });

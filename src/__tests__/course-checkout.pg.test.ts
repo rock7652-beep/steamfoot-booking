@@ -19,6 +19,7 @@ import { lockCourseStore } from "@/server/services/course-store-lock";
 
 vi.mock("@/server/services/course-access",()=>({courseTransaction:vi.fn(),courseManager:vi.fn()}));
 vi.mock("@/server/services/music-finance-access",()=>({requireMusicFinance:vi.fn()}));
+vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("@/lib/subscription-guard",()=>({assertStoreSubscriptionWritable:vi.fn()}));
 vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:async()=>({maxMonthlyBookings:null}),requireStoreFeature:vi.fn()}));
@@ -46,7 +47,11 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     await testDb().$executeRawUnsafe('ALTER TABLE "CoursePurchase" DROP COLUMN "listPrice", DROP COLUMN "discountKind", DROP COLUMN "discountValue", DROP COLUMN "paymentMethod", DROP COLUMN "transferLastFour"');
     const migration=readFileSync("prisma/migrations/20260920173000_course_assignment_checkout/migration.sql","utf8");
     for(const sql of migration.split(";").map(s=>s.trim()).filter(Boolean)) await testDb().$executeRawUnsafe(sql);
-    await testDb().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY, "industryModule" text NOT NULL)');
+    await testDb().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY, "industryModule" text NOT NULL,"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')');
+    // Checkout still enqueues the notification atomically; only external delivery is stubbed.
+    await testDb().$executeRawUnsafe(`ALTER TABLE "Store" ADD COLUMN name text NOT NULL DEFAULT 'QA store'`);
+    await testDb().$executeRawUnsafe('CREATE TABLE "MessageTemplate" (id text PRIMARY KEY,"storeId" text,body text)');
+    await testDb().$executeRawUnsafe('CREATE TABLE "PlanActivationNotification" (id text PRIMARY KEY,"storeId" text,"customerId" text,module text,"sourceId" text,"entitlementId" text,snapshot jsonb,body text,status text,"errorMessage" text,"retryKey" text,UNIQUE("storeId",module,"entitlementId"))');
     await testDb().$executeRawUnsafe('CREATE TYPE "CashbookPaymentMethod" AS ENUM (\'CASH\',\'OTHER\')');
     await testDb().$executeRawUnsafe(`CREATE TABLE "CashbookEntry" (
       id text PRIMARY KEY, "storeId" text, "entryDate" date, type text,
@@ -72,7 +77,7 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
 
   async function fixture() {
     const storeId=randomUUID(),customerId=randomUUID();
-    await testDb().$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
+    await testDb().$executeRaw`INSERT INTO "Store" (id,"industryModule") VALUES (${storeId},'COURSE')`;
     await testDb().$executeRaw`INSERT INTO "Customer" VALUES (${customerId},${storeId},NULL,'學員')`;
     await testDb().$executeRaw`INSERT INTO "User" VALUES (${storeId},'ACTIVE','OWNER')`;
     await testDb().$executeRaw`INSERT INTO "Staff" VALUES (${storeId},${storeId},${storeId},'開發人','ACTIVE')`;

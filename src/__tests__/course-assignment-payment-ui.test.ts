@@ -40,3 +40,15 @@ it("preserves music's 85 percent input when using the shared discount fields",as
  expect(host.querySelector<HTMLInputElement>('[name="discountValue"]')!.value).toBe('15');
  await change('[name="paymentMethod"]','CARD');expect(summary).toHaveBeenLastCalledWith({paid:850,valid:true});
 });
+
+it('defaults Beauty checkout to cash, verifies the drawer and allows another method',async()=>{
+ cashStatus.mockResolvedValue({success:true,status:'OPEN'});await render({defaultPaymentMethod:'CASH'});
+ expect(host.querySelector<HTMLSelectElement>('[name="paymentMethod"]')!.value).toBe('CASH');expect(cashStatus).toHaveBeenCalled();expect(summary).toHaveBeenLastCalledWith({paid:1000,valid:true});
+ await change('[name="paymentMethod"]','CARD');expect(summary).toHaveBeenLastCalledWith({paid:1000,valid:true});
+});
+it('times out a cash check, ignores the late response and supports an explicit retry',async()=>{
+ vi.useFakeTimers();let finish!:(v:unknown)=>void;cashStatus.mockImplementationOnce(()=>new Promise(r=>{finish=r}));await render({defaultPaymentMethod:'CASH'});
+ await act(async()=>vi.advanceTimersByTimeAsync(8000));expect(host.textContent).toContain('無法確認現金抽屜');expect(summary).toHaveBeenLastCalledWith({paid:1000,valid:false});
+ await act(async()=>finish({success:true,status:'OPEN'}));expect(summary).toHaveBeenLastCalledWith({paid:1000,valid:false});cashStatus.mockResolvedValue({success:true,status:'OPEN'});
+ await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==='重新確認')!.click());expect(summary).toHaveBeenLastCalledWith({paid:1000,valid:true});vi.useRealTimers();
+});

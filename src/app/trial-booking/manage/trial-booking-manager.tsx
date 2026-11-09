@@ -29,6 +29,7 @@ export function TrialBookingManager() {
     slotTime: string;
     customerRescheduleCount: number;
     bookingStatus: string;
+    serviceName?: string;
   } | null>(null);
   const slotRequestGate = useRef(createLatestRequestGate()).current;
   const [pending, setPending] = useState(false);
@@ -99,7 +100,7 @@ export function TrialBookingManager() {
   }).catch(() => setMessage("取消未完成，請再試一次；若仍無法完成，請聯絡門市。")).finally(() => setPending(false)); } }}>確認取消預約</button>;
   const rescheduleSection = <section className="mt-4 rounded-xl bg-white p-4">
     <h2 className="font-semibold">更改時間（限一次）</h2>
-    {booking && <p className="mt-2 text-sm text-earth-600">目前預約：{booking.bookingDate} {booking.slotTime}</p>}
+    {booking && <p className="mt-2 break-words text-sm text-earth-600">目前預約：{booking.bookingDate} {booking.slotTime}（{booking.serviceName ?? "預約"}）</p>}
     {booking?.customerRescheduleCount && booking.customerRescheduleCount >= 1 ? <p className="mt-3 text-sm text-earth-600">本預約已改期一次，如需調整請聯絡店家</p> : <>
     <input className="mt-3 w-full rounded border p-2" type="date" value={date} onChange={e => {
       slotRequestGate.invalidate();
@@ -121,12 +122,12 @@ export function TrialBookingManager() {
   </section>;
 
   if (cancelled) return <main className="mx-auto min-h-dvh max-w-lg bg-[#f7f2ea] p-6 text-earth-900">
-    <h1 className="text-2xl font-bold">體驗預約自助處理</h1>
+    <h1 className="text-2xl font-bold">預約自助處理</h1>
     <p className="mt-4 rounded-xl bg-white p-3 text-sm">{message || "這筆預約已取消。"}</p>
   </main>;
 
   return <main className="mx-auto min-h-dvh max-w-lg bg-[#f7f2ea] p-6 text-earth-900">
-    <h1 className="text-2xl font-bold">體驗預約自助處理</h1>
+    <h1 className="text-2xl font-bold">預約自助處理</h1>
     <p className="mt-2 text-sm text-earth-600">您可確認會到、同店改期一次，或取消預約。距離預約 12 小時內請直接聯絡門市。</p>
     {!token && <p role="alert" className="mt-4">預約連結不完整，請從 LINE 提醒卡片重新開啟。</p>}
     {message && <p role="status" aria-live="polite" className="mt-4 rounded-xl bg-white p-3 text-sm">{message}</p>}

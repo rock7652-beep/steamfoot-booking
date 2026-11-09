@@ -279,3 +279,22 @@ describe("loadMonthBusinessHoursContext — 後台與前台讀取相同資料", 
     );
   });
 });
+
+
+describe("公休日加開 — 月曆、單日與值班同源", () => {
+  it("只顯示公休日指定的加開時段，隔週仍公休", async () => {
+    const hours=[0,1,2,3,4,5,6].map(dayOfWeek=>({dayOfWeek,isOpen:false,openTime:null,closeTime:null,slotInterval:60,defaultCapacity:6}));
+    mockBusinessHoursFindMany.mockResolvedValue(hours);
+    mockBusinessHoursFindFirst.mockResolvedValue(hours[2]);
+    mockSlotOverrideFindMany.mockResolvedValue([{date:new Date("2026-11-03"),startTime:"19:30",type:"enabled",capacity:4,reason:null}]);
+    const {fetchMonthAvailability,fetchDaySlots}=await import("@/server/actions/slots");
+    const month=await fetchMonthAvailability(2026,11),day=await fetchDaySlots("2026-11-03");
+    expect(month.days["2026-11-03"]).toMatchObject({status:"custom",totalCapacity:4,slots:[{startTime:"19:30",capacity:4}]});
+    expect(month.days["2026-11-10"]).toMatchObject({status:"closed",slots:[]});
+    expect(day.slots).toMatchObject([{startTime:"19:30",capacity:4,available:4}]);
+    mockIsDutyEnabled.mockResolvedValue(true);
+    expect((await fetchDaySlots("2026-11-03")).slots).toEqual([]);
+    mockDutyFindMany.mockResolvedValue([{date:new Date("2026-11-03"),slotTime:"19:30"}]);
+    expect((await fetchDaySlots("2026-11-03")).slots).toHaveLength(1);
+  });
+});

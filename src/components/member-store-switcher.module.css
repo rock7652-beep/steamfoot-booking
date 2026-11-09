@@ -1,0 +1,21 @@
+.root { position: relative; min-width: 0; max-width: 100%; }
+.staticName.staticName { margin: 0; overflow-wrap: anywhere; color: #25483f; font-size: 18px; font-weight: 600; }
+/* Two local classes beat module-wide button defaults, regardless of CSS load order. */
+.root .trigger { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; max-width: 100%; width: auto; padding: 4px 0; border: 0; border-radius: 12px; background: transparent; color: #3f6959; font: inherit; text-align: left; touch-action: manipulation; cursor: pointer; }
+.root .trigger:disabled { opacity: .6; cursor: default; }
+.label { min-width: 0; }
+.caption { display: block; color: #8f8375; font-size: 11px; font-weight: 500; line-height: 1.5; letter-spacing: normal; }
+.value { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; line-height: 1.5; letter-spacing: .08em; }
+.arrow { flex-shrink: 0; width: 16px; height: 16px; transition: transform .15s; }
+.menu { position: absolute; right: 0; z-index: 50; width: 256px; max-width: calc(100vw - 32px); max-height: 60dvh; overflow-y: auto; margin-top: 8px; padding: 8px; border: 1px solid #e7e0d4; border-radius: 16px; background: white; box-shadow: 0 20px 25px -5px rgb(0 0 0 / .1), 0 8px 10px -6px rgb(0 0 0 / .1); text-align: left; }
+.root .title { margin: 0; padding: 4px 12px 8px; color: #8f8375; font-size: 12px; font-weight: 500; line-height: 1.5; text-align: right; }
+.root .option { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 48px; max-width: 100%; padding: 12px; border: 0; border-radius: 12px; background: transparent; color: #3f3a34; font-family: inherit; font-size: 14px; font-weight: 400; line-height: 1.5; text-align: left; touch-action: manipulation; cursor: pointer; }
+.root .option:hover, .root .option:active { background: #faf8f4; }
+.root .option:disabled { opacity: .6; cursor: default; }
+.root .option.current { opacity: 1; background: #f2f7f4; color: #2f5d50; font-weight: 600; }
+.root .option:focus-visible, .root .trigger:focus-visible { outline: 3px solid #bc983d; outline-offset: 2px; }
+.storeName { min-width: 0; overflow-wrap: anywhere; }
+.status { flex-shrink: 0; font-size: 12px; white-space: nowrap; }
+.centered .menu { right: auto; left: 50%; transform: translateX(-50%); }
+.fullWidth .trigger { width: 100%; justify-content: space-between; }
+.fullWidth .menu { left: 0; right: auto; width: 100%; }

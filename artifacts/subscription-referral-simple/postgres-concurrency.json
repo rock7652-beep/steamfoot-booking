@@ -1,0 +1,27 @@
+{
+  "postgres": 17,
+  "actualPrisma": true,
+  "network": "none",
+  "unixSocket": true,
+  "missingMonthlyEvidenceRollsBackBoth": true,
+  "twoConcurrentPairCommands": [
+    {
+      "replayed": false
+    },
+    {
+      "replayed": true
+    }
+  ],
+  "stores": [
+    {
+      "id": "a",
+      "expiry": "2026-12-20"
+    },
+    {
+      "id": "b",
+      "expiry": "2026-12-30"
+    }
+  ],
+  "auditCount": 2,
+  "sourceCommit": "a29c74dd41cedb2919f3c0d32ed64d7f35a33cdd"
+}

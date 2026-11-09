@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { DIGITAL_MANAGER_REVIEW_TARGET } from "../../scripts/digital-manager-migration-review.mjs";
 import { describe, expect, it } from "vitest";
 import {
   MESSENGER_CHECKSUM,
@@ -153,11 +154,13 @@ describe("Production migration recovery guard", () => {
       HUMAN_SUPPORT_SUMMARY_MIGRATION,
       PAYMENT_SPLIT_RLS_MIGRATION,
       TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION,
+      DIGITAL_MANAGER_REVIEW_TARGET,
     ]);
     expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_MIGRATION)).toBe(PAYMENT_SPLIT_MIGRATION);
     expect(resolveProductionMigrationTarget(HUMAN_SUPPORT_SUMMARY_MIGRATION)).toBe(HUMAN_SUPPORT_SUMMARY_MIGRATION);
     expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_RLS_MIGRATION)).toBe(PAYMENT_SPLIT_RLS_MIGRATION);
     expect(resolveProductionMigrationTarget(TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION)).toBe(TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION);
+    expect(resolveProductionMigrationTarget(DIGITAL_MANAGER_REVIEW_TARGET)).toBe(DIGITAL_MANAGER_REVIEW_TARGET);
     expect(resolveProductionMigrationTarget(SPA_MEMBER_STAFF_RELEASE_TARGET)).toBeNull();
 
     const result = spawnSync(process.execPath, [scriptPath], {

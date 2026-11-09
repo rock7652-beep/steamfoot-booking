@@ -1,4 +1,6 @@
 import {beautyReadStep} from './read-timing';
+import {beautyRequestCheck,beautyRequestStore} from './request-scope';
+import {assertBeautyIsolatedPurchaseStore} from '@/lib/beauty/isolated-purchase-scope';
 import "server-only";
 import { prisma } from "@/lib/db";
 import { beautyPrisma } from "@/lib/beauty-db";
@@ -24,6 +26,9 @@ export type BeautyActor = {
   verifiedStore?: {id:string;name:string;slug:string};
 };
 export async function requireBeauty(storeId: string, write = false) {
+  // The special hosted acceptance environment is restricted at runtime as
+  // well as at build time. Ordinary environments do not enable this marker.
+  assertBeautyIsolatedPurchaseStore(storeId);
   if (process.env.BEAUTY_MODULE_ENABLED !== "1")
     throw new AppError("FORBIDDEN", "美業模組尚未開放");
   const store = await prisma.store.findFirst({
@@ -43,18 +48,17 @@ export async function beautyManager(
   permission: PermissionCode,
   write = false,
 ): Promise<BeautyActor> {
+ return beautyRequestCheck(`manager:${permission}:${write}`,async()=>{
   const user = await requirePermission(permission, undefined, {
     deferSubscriptionGuard: true,
   });
+  const storeId = await beautyRequestStore(user,write,async()=>{
   const storeId = write
     ? await resolveWriteStoreId(user)
     : await getActiveStoreForRead(user);
   if (!storeId) throw new AppError("FORBIDDEN", "請先選擇店家");
-  await requireBeauty(storeId, write);
-  if (
-    user.role !== "ADMIN" &&
-    storeId === user.storeId &&
-    !(await prisma.staff.findFirst({
+  const checkStaff = () => user.role !== "ADMIN" && storeId === user.storeId
+    ? prisma.staff.findFirst({
       where: {
         id: user.staffId ?? "",
         storeId,
@@ -63,10 +67,21 @@ export async function beautyManager(
         user: { status: "ACTIVE" },
       },
       select: { id: true },
-    }))
-  )
-    throw new AppError("FORBIDDEN", "本店工作權限已停用");
+    }) : Promise.resolve(true);
+  // Reads may verify these independent gates together. Writes keep their
+  // existing subscription and membership ordering.
+  let staff;
+  if (write) {
+    await requireBeauty(storeId, true);
+    staff = await checkStaff();
+  } else {
+    [, staff] = await Promise.all([requireBeauty(storeId), checkStaff()]);
+  }
+  if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
+  return storeId;
+  });
   return { storeId, userId: user.id, name:user.name, manager: true };
+ });
 }
 export async function beautyMember(write = false): Promise<BeautyActor> {
   const [user,ctx]=await Promise.all([requireSession(),getStoreContext()]);
@@ -112,35 +127,7 @@ export async function beautyTransaction<T>(
     { timeout: 20000 },
   );
 }
-export async function command<T extends Prisma.InputJsonValue>(
-  tx: Prisma.TransactionClient,
-  a: BeautyActor,
-  key: string,
-  intent: unknown,
-  work: () => Promise<T>,
-): Promise<T> {
-  const actorKey = a.actorKey ?? a.userId ?? "public",
-    encoded = JSON.stringify(intent);
-  const previous = await tx.beautyCommand.findUnique({
-    where: { storeId_requestKey: { storeId: a.storeId, requestKey: key } },
-  });
-  if (previous) {
-    if (previous.actorKey !== actorKey || previous.intent !== encoded)
-      throw new AppError("CONFLICT", "操作請求已使用，請重新確認");
-    return previous.result as T;
-  }
-  const result = await work();
-  await tx.beautyCommand.create({
-    data: {
-      storeId: a.storeId,
-      requestKey: key,
-      actorKey,
-      intent: encoded,
-      result,
-    },
-  });
-  return result;
-}
+export {command} from './command';
 export async function audit(
   tx: Prisma.TransactionClient,
   a: BeautyActor,

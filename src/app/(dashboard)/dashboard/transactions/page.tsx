@@ -287,7 +287,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
       {/* 交易列表 */}
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <table data-striped-list className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-earth-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-earth-600">日期</th>
@@ -303,7 +303,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
           </thead>
           <tbody className="divide-y divide-earth-100">
             {transactions.length === 0 && (
-              <tr>
+              <tr data-list-divider>
                 <td colSpan={9} className="px-4 py-0">
                   <EmptyState
                     icon="search"
@@ -324,15 +324,15 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
               return (
                 <tr
                   key={t.id}
-                  className={`hover:bg-earth-50 ${isVoided ? "bg-earth-50/60 text-earth-400" : ""}`}
+                  className={` ${isVoided ? "bg-earth-50/60 text-earth-400" : ""}`}
                 >
-                  <td className={`px-4 py-3 ${isVoided ? "text-earth-400" : "text-earth-600"}`}>
+                  <td className={`px-4 py-1 ${isVoided ? "text-earth-400" : "text-earth-600"}`}>
                     {new Date(t.createdAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })}
                   </td>
-                  <td className={`px-4 py-3 ${isVoided ? "text-earth-500 line-through" : "text-earth-900"}`}>
+                  <td className={`px-4 py-1 ${isVoided ? "text-earth-500 line-through" : "text-earth-900"}`}>
                     {t.customer?.name ?? "未建檔同行者"}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-1">
                     <span
                       className={`rounded px-2 py-0.5 text-xs font-medium ${
                         TX_TYPE_COLOR[t.transactionType]
@@ -341,13 +341,13 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
                       {TX_TYPE_LABEL[t.transactionType]}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-1">
                     <span className={`rounded px-2 py-0.5 text-xs font-medium ${badge.color}`}>
                       {badge.text}
                     </span>
                   </td>
                   <td
-                    className={`px-4 py-3 text-right font-medium ${
+                    className={`px-4 py-1 text-right font-medium ${
                       isVoided
                         ? "text-earth-400 line-through"
                         : Number(t.amount) < 0
@@ -373,16 +373,16 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
                       </>
                     )}
                   </td>
-                  <td className={`px-4 py-3 ${isVoided ? "text-earth-400" : "text-earth-600"}`}>
+                  <td className={`px-4 py-1 ${isVoided ? "text-earth-400" : "text-earth-600"}`}>
                     {t.paymentSplits.length > 0 ? "混合付款" : PAY_METHOD_LABEL[t.paymentMethod]}
                   </td>
-                  <td className={`px-4 py-3 ${isVoided ? "text-earth-400" : "text-earth-600"}`}>
+                  <td className={`px-4 py-1 ${isVoided ? "text-earth-400" : "text-earth-600"}`}>
                     {t.revenueStaff.displayName}
                   </td>
-                  <td className="max-w-xs truncate px-4 py-3 text-earth-400">
+                  <td className="max-w-xs truncate px-4 py-1 text-earth-400">
                     {t.note ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-1 text-right">
                     <TransactionRowActions
                       transactionId={t.id}
                       staffOptions={staffOptions}

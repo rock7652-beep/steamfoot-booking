@@ -21,6 +21,10 @@ export async function reserveScheduledMusicLearner(tx:Prisma.TransactionClient,a
     const join=card.musicJoinSessionId?await tx.courseSession.findFirst({where:{id:card.musicJoinSessionId,storeId:actor.storeId},select:{startsAt:true}}):null;
     const startIssue=courseCardStartIssue(!!card.musicJoinSessionId,join?.startsAt,session.startsAt);
     if(startIssue)throw new AppError("VALIDATION",startIssue);
+    // Ordinary native packages are resolved first-purchased-first-used at attendance.
+    const {readMusicOpeningCard}=await import("@/lib/music-opening-runtime");
+    if(readMusicOpeningCard(card,actor.storeId).kind==="NATIVE"&&!card.requestKey?.startsWith("music-leave-makeup:")&&!card.requestKey?.startsWith("no-show-makeup:"))
+      return reserveCourseInTransaction(tx,actor,{...input,cardId:null,deferredPayment:true},limit);
     const termAllowed=!card.termSessionIds.length||card.termSessionIds.includes(input.sessionId)||session.templateId.startsWith("teaching:")&&!!await tx.courseSession.findFirst({where:{storeId:actor.storeId,id:{in:card.termSessionIds},requestKey:session.requestKey},select:{id:true}});
     const held=await tx.courseBooking.aggregate({where:{storeId:actor.storeId,cardId:card.id,status:"RESERVED"},_sum:{pointCost:true}});
     const first=await tx.courseBooking.findFirst({where:{storeId:actor.storeId,cardId:card.id,status:"RESERVED"},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}});

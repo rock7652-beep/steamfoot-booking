@@ -1,0 +1,20 @@
+import {chromium} from '/opt/codex/cua_node/lib/node_modules/playwright/index.mjs';
+import {mkdirSync,writeFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const out='/workspace/calendar-summary-review-20261104';mkdirSync(out,{recursive:true});
+const browser=await chromium.launch({headless:true,executablePath:'/usr/bin/chromium',args:['--no-sandbox']});
+const errors=[],cases=[];
+try{
+ const page=await browser.newPage({viewport:{width:1366,height:900},locale:'zh-TW'});page.on('pageerror',e=>errors.push(e.message));const writes=[];
+ await page.route('**/*',route=>{const r=route.request();if(r.method()!=='GET'||new URL(r.url()).hostname!=='127.0.0.1'){writes.push(r.url());return route.abort();}return route.continue();});
+ await page.goto('http://127.0.0.1:4200',{waitUntil:'networkidle'});const popup=()=>page.locator('[data-service-card-summary]');let opened=0;
+ async function inViewport(){const rect=await popup().boundingBox(),size=page.viewportSize();assert.ok(rect&&rect.x>=0&&rect.y>=0&&rect.x+rect.width<=size.width+1&&rect.y+rect.height<=size.height+1,JSON.stringify({rect,size}));}
+ for(const profile of ['MUSIC','FITNESS'])for(const mode of ['day','week']){
+  await page.getByRole('button',{name:profile,exact:true}).click();await page.getByRole('button',{name:mode,exact:true}).click();const card=page.locator('[data-calendar-session=lesson]').first();await card.scrollIntoViewIfNeeded();await page.mouse.move(0,0);
+  const before=await card.boundingBox();await card.hover();await popup().waitFor({state:'visible'});const text=await popup().innerText();assert.ok(text.includes('09:00')&&text.includes('10:00')&&text.includes('合成教室 A'));assert.ok(text.includes(profile==='MUSIC'?'合成學員王同學':'合成瑜珈團體課'));assert.ok(text.includes(profile==='MUSIC'?'合成老師':'合成教練'));assert.equal(await card.getAttribute('title'),null);assert.equal((await card.boundingBox()).height,before.height);await inViewport();await page.screenshot({path:`${out}/${profile}-${mode}.png`});
+  await page.keyboard.press('Escape');assert.equal(await popup().count(),0);await card.focus();await popup().waitFor();await page.keyboard.press('Escape');await page.mouse.move(0,0);await card.hover();await card.click();opened++;assert.equal(await popup().count(),0);assert.ok((await page.getByRole('status').innerText()).includes(String(opened)));cases.push({profile,mode,hover:true,keyboard:true,clickOnce:true});
+ }
+ for(const [name,width,height] of [['desktop',1366,900],['ipad-landscape',1024,768],['ipad-portrait',768,1024],['narrow',600,900],['mobile',390,844],['small-mobile',360,800]]){await page.setViewportSize({width,height});const edge=page.getByRole('button',{name:'月表共用小卡觸發器',exact:true});await edge.scrollIntoViewIfNeeded();await page.mouse.move(0,0);await edge.hover();await popup().waitFor();await inViewport();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:`${out}/edge-${name}.png`});await page.mouse.move(0,0);assert.equal(await popup().count(),0);cases.push({edge:name,width,height,contained:true});}
+ const touch=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});const touchPage=await touch.newPage();await touchPage.goto('http://127.0.0.1:4200',{waitUntil:'networkidle'});const touchCard=touchPage.locator('[data-calendar-session=lesson]').first();await touchCard.tap();assert.equal(await touchPage.locator('[data-service-card-summary]').count(),0);assert.ok((await touchPage.getByRole('status').innerText()).includes('1'));await touch.close();
+ assert.deepEqual(errors,[]);assert.deepEqual(writes,[]);writeFileSync(`${out}/results.json`,JSON.stringify({fixtureOnly:true,realComponents:['CourseScheduleBoard','ScheduleSummaryButton','ServiceCardSummary'],substitutes:['navigation','unavailable move helper'],cases,touch:'one tap opens existing detail action',writes,errors},null,2)+'\n');console.log(JSON.stringify({status:'passed',cases:cases.length,errors,writes}));
+}finally{await browser.close();}

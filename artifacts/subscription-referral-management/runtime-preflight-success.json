@@ -1,0 +1,133 @@
+{
+  "date": "2026-11-04",
+  "run": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/41936237193",
+  "sourceCommit": "1f81bb11bdc0e41e30ab6fc706c0a626b1ca3a76",
+  "connectionSource": "GitHub Actions Production – steamfoot-booking DATABASE_URL",
+  "result": {
+    "project": "qijlnhtpbintanzpxkvf",
+    "verified_tls": true,
+    "identity": {
+      "role": "postgres",
+      "session_role": "postgres",
+      "database": "postgres",
+      "read_only": "on",
+      "bypass_rls": true
+    },
+    "tables": [
+      {
+        "name": "ConsultationLead",
+        "present": true,
+        "rls_enabled": true,
+        "is_owner": true,
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true,
+        "needs_insert": false,
+        "needs_update": true,
+        "applicable_policy_count": 0
+      },
+      {
+        "name": "Store",
+        "present": true,
+        "rls_enabled": true,
+        "is_owner": true,
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true,
+        "needs_insert": false,
+        "needs_update": true,
+        "applicable_policy_count": 5
+      },
+      {
+        "name": "StorePlanChange",
+        "present": true,
+        "rls_enabled": true,
+        "is_owner": true,
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true,
+        "needs_insert": true,
+        "needs_update": false,
+        "applicable_policy_count": 0
+      },
+      {
+        "name": "StoreSubscription",
+        "present": true,
+        "rls_enabled": true,
+        "is_owner": true,
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true,
+        "needs_insert": false,
+        "needs_update": true,
+        "applicable_policy_count": 0
+      },
+      {
+        "name": "StoreSubscriptionReferral",
+        "present": false,
+        "rls_enabled": null,
+        "is_owner": null,
+        "can_select": false,
+        "can_insert": false,
+        "can_update": false,
+        "needs_insert": true,
+        "needs_update": true,
+        "applicable_policy_count": 0
+      },
+      {
+        "name": "StoreSubscriptionReferralCode",
+        "present": false,
+        "rls_enabled": null,
+        "is_owner": null,
+        "can_select": false,
+        "can_insert": false,
+        "can_update": false,
+        "needs_insert": true,
+        "needs_update": false,
+        "applicable_policy_count": 0
+      },
+      {
+        "name": "StoreSubscriptionReferralPayment",
+        "present": false,
+        "rls_enabled": null,
+        "is_owner": null,
+        "can_select": false,
+        "can_insert": false,
+        "can_update": false,
+        "needs_insert": true,
+        "needs_update": false,
+        "applicable_policy_count": 0
+      },
+      {
+        "name": "StoreSubscriptionReferralRefundReview",
+        "present": false,
+        "rls_enabled": null,
+        "is_owner": null,
+        "can_select": false,
+        "can_insert": false,
+        "can_update": false,
+        "needs_insert": true,
+        "needs_update": false,
+        "applicable_policy_count": 0
+      },
+      {
+        "name": "StoreSubscriptionReferralReward",
+        "present": false,
+        "rls_enabled": null,
+        "is_owner": null,
+        "can_select": false,
+        "can_insert": false,
+        "can_update": false,
+        "needs_insert": true,
+        "needs_update": true,
+        "applicable_policy_count": 0
+      }
+    ],
+    "limitation": "No writes or row-level data read. Catalog privileges do not prove RLS or column-level write behavior."
+  },
+  "limitations": [
+    "Does not establish that Vercel DATABASE_URL has the same value or role.",
+    "Catalog privileges only; no write, row-visibility or concurrency verification.",
+    "No schema installation, grants, subscription modifications, notification or billing actions performed."
+  ]
+}

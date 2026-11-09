@@ -1,0 +1,52 @@
+{
+  "deploymentId": "dpl_GkjLwPNxxPS2qh64SdFUDFVQMKcP",
+  "sourceSha": "e51ac89ec4bf78057256e85f4e177bae8ba32e04",
+  "database": "isolated-preview",
+  "rows": [
+    {
+      "store_id": "qa1476-beauty",
+      "course_bookings": 0,
+      "beauty_bookings": 0,
+      "course_receipts": 0,
+      "beauty_receipts": 5000,
+      "course_remaining": 0,
+      "beauty_remaining": 10,
+      "course_adjustments": 0,
+      "beauty_adjustments": 4,
+      "course_closed": 0,
+      "beauty_closed": 0
+    },
+    {
+      "store_id": "qa1476-music",
+      "course_bookings": 0,
+      "beauty_bookings": 0,
+      "course_receipts": 5000,
+      "beauty_receipts": 0,
+      "course_remaining": 10,
+      "beauty_remaining": 0,
+      "course_adjustments": 4,
+      "beauty_adjustments": 0,
+      "course_closed": 0,
+      "beauty_closed": 0
+    },
+    {
+      "store_id": "qa1476-sports",
+      "course_bookings": 0,
+      "beauty_bookings": 0,
+      "course_receipts": 5000,
+      "beauty_receipts": 0,
+      "course_remaining": 10,
+      "beauty_remaining": 0,
+      "course_adjustments": 4,
+      "beauty_adjustments": 0,
+      "course_closed": 0,
+      "beauty_closed": 0
+    }
+  ],
+  "cleanup": {
+    "disabledUsers": 3,
+    "disabledStaff": 3,
+    "pausedStores": 3
+  },
+  "productionTouched": false
+}

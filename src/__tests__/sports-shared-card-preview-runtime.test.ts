@@ -1,3 +1,7 @@
+// Runtime isolation is tested here; the Prisma strategy extension has its own contract tests.
+vi.mock('@/lib/explicit-relation-joins',()=>({withExplicitRelationJoins:(client:unknown)=>client}));
+// Test the existing preview isolation independently of the stronger incident stop.
+vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false, isLineDeliveryEventCurrent: () => true }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SPORTS_SHARED_CARD_PREVIEW_BRANCH } from "../../scripts/sports-shared-card-preview-scope.mjs";
 
@@ -86,6 +90,19 @@ describe.each(clients)("$name runtime database isolation", ({ name, key, load })
 });
 
 describe("sports shared-card outbound notification suppression", () => {
+  it('schedule-conflict Preview blocks LINE, email and Beauty even with sender credentials configured',async()=>{
+    vi.stubEnv('VERCEL_GIT_COMMIT_REF','fix/schedule-conflicts-20261103');
+    vi.stubEnv('BEAUTY_MODULE_ENABLED','1');vi.stubEnv('BEAUTY_NOTIFICATIONS_ENABLED','1');
+    vi.stubEnv('STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN','fixture-token');vi.stubEnv('RESEND_API_KEY','fixture-token');
+    const fetch=vi.fn();vi.stubGlobal('fetch',fetch);
+    const {pushSteamButlerMessage}=await import('@/lib/line');
+    const {sendActivationEmail}=await import('@/lib/email');
+    const {beautyNotificationDeliveryBlocked}=await import('@/lib/beauty/notification-policy');
+    expect(beautyNotificationDeliveryBlocked()).toBe(true);
+    await expect(pushSteamButlerMessage('fixture-recipient',[{type:'text',text:'test'}])).resolves.toMatchObject({success:false,errorType:'preview_blocked'});
+    await sendActivationEmail('fixture@example.test','fixture-token','Fixture');
+    expect(fetch).not.toHaveBeenCalled();expect(mocks.resend).not.toHaveBeenCalled();
+  });
   it.each(["preview", "production", "development", undefined])("blocks senders for this exact branch in %s", async (environment) => {
     vi.stubEnv("VERCEL_ENV", environment);
     vi.stubEnv("STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN", "fixture-token");

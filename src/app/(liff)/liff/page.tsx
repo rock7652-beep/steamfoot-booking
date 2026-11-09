@@ -1,11 +1,10 @@
 import { notFound } from "next/navigation";
-import { resolveCentralMemberLiffId, resolveStorePresentation, resolveStoreSlugForLiff } from "@/lib/store-resolver";
+import { resolveCentralMemberLiffId, resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import { liffMessages } from "@/lib/liff/messages";
-import { hasStoreFeature } from "@/lib/feature-gate";
-import { FEATURES } from "@/lib/feature-flags";
-import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { getIndustryModule } from "@/lib/industry-modules";
+import { readLiffPublicContext } from "@/server/queries/liff-public-context";
 import { LiffShell } from "./liff-shell";
+import { publicTrialPrimaryIntent } from "@/lib/liff/public-trial-intent";
+import PublicTrialLiffPage from "./public-trial/page";
 
 /**
  * /s/[storeSlug]/liff — LIFF MVP shell（PR-A）。
@@ -26,13 +25,21 @@ import { LiffShell } from "./liff-shell";
 
 export const dynamic = "force-dynamic";
 
-export default async function LiffEntryPage() {
+export default async function LiffEntryPage({ searchParams }: {
+  searchParams: Promise<{ "liff.state"?: string | string[] }>;
+}) {
+  const intent = publicTrialPrimaryIntent((await searchParams)["liff.state"]);
+  if (intent.kind === "invalid") notFound();
+  if (intent.kind === "trial") {
+    return PublicTrialLiffPage({ searchParams: Promise.resolve({ bookingStore: intent.bookingStore }) });
+  }
   const storeSlug = await resolveStoreSlugForLiff();
   if (!storeSlug) {
     return <NotOpenForLiff message={liffMessages.error.cannotConfirmStore} />;
   }
 
-  const presentation = await resolveStorePresentation(storeSlug);
+  const context = await readLiffPublicContext(storeSlug);
+  const presentation = context?.store;
   if (!presentation) {
     // PR-E2：店不存在 → notFound() → render (liff)/not-found.tsx
     // 視覺刻意與 NotOpenForLiff 區隔（URL 錯 ≠ LIFF 服務問題）
@@ -42,15 +49,8 @@ export default async function LiffEntryPage() {
   if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
-  const industryModule = getIndustryModule(
-    await getStoreIndustryModule(presentation.id),
-  );
-  const healthAssessmentEnabled = industryModule.features.healthAssessment
-    ? await hasStoreFeature(
-        presentation.id,
-        FEATURES.AI_HEALTH_SUMMARY,
-      ).catch(() => false)
-    : false;
+  const industryModule = context.industry;
+  const healthAssessmentEnabled = context.healthEnabled;
 
   return (
     <LiffShell

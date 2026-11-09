@@ -1,3 +1,7 @@
+// Runtime isolation is tested here; the Prisma strategy extension has its own contract tests.
+vi.mock("@/lib/explicit-relation-joins",()=>({withExplicitRelationJoins:(client:unknown)=>client}));
+// Test the existing preview isolation independently of the stronger incident stop.
+vi.mock("@/lib/line-delivery-pause", () => ({ isSystemLineDeliveryPaused: () => false, isLineDeliveryEventCurrent: () => true }));
 vi.mock("@/lib/retired-store-boundary", () => ({ retiredStoreBoundary: () => null }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
@@ -5,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { NextRequest } from "next/server";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { GUIDE_UI_PREVIEW_BRANCH, GUIDE_UI_PREVIEW_DATABASE_URL, isGuideUiPreview, isSinglePricingUiPreview } from "../../scripts/guide-ui-preview-scope.mjs";
+import { MARKETING_LOCAL_QA_DATABASE,MARKETING_LOCAL_QA_ORIGIN,MARKETING_LOCAL_QA_SECRET } from '../../scripts/marketing-publication-local-qa.mjs';
 
 vi.hoisted(async () => {
   const { AsyncLocalStorage } = await import("node:async_hooks");
@@ -436,5 +441,45 @@ describe("role-permissions crawler isolation", () => {
     const { GET: sitemap } = await import("@/app/sitemap.xml/route");
     expect(await robots(new Request("https://preview.example.test/robots.txt")).text()).toContain("Disallow: /");
     expect(await sitemap(new Request("https://preview.example.test/sitemap.xml")).text()).not.toContain("<loc>");
+  });
+});
+
+describe('local marketing publication acceptance isolation',()=>{
+  function enableLocal(){
+    for(const key of Object.keys(process.env)){
+      if(/(TOKEN|SECRET|PASSWORD|WEBHOOK|API_KEY)/.test(key)||/(?:_QA|_PREVIEW)$/.test(key)
+        ||['VERCEL','VERCEL_ENV','VERCEL_GIT_COMMIT_REF','VERCEL_GIT_REPO_OWNER','VERCEL_GIT_REPO_SLUG','WORKERS_CI_BRANCH','CF_PAGES_BRANCH'].includes(key))vi.stubEnv(key,undefined);
+    }
+    for(const [key,value] of Object.entries({MARKETING_PUBLICATION_LOCAL_QA:'1',NODE_ENV:'production',
+      AUTH_URL:MARKETING_LOCAL_QA_ORIGIN,NEXTAUTH_URL:MARKETING_LOCAL_QA_ORIGIN,AUTH_SECRET:MARKETING_LOCAL_QA_SECRET,
+      DATABASE_URL:MARKETING_LOCAL_QA_DATABASE,DIRECT_URL:MARKETING_LOCAL_QA_DATABASE,
+      SUBSCRIPTION_REFERRALS_ENABLED:'false',CONSULTATION_HQ_ENABLED:'false'}))vi.stubEnv(key,value);
+  }
+  it('allows the exact public pages and blocks all writes and private paths before auth',()=>{
+    enableLocal();
+    for(const path of ['/','/pricing','/pricing/features/beauty','/apply','/privacy','/api/subscription-referrals/availability'])expect(route(path).status).toBeLessThan(400);
+    for(const path of ['/hq/dashboard','/api/auth/session','/api/line/webhook','/_next/image','/pricing/submit'])expect(route(path).status).toBe(404);
+    for(const path of ['/apply','/pricing/submit','/api/subscription-referrals/availability'])expect(route(path,'POST').status).toBe(405);
+    expect(spies.auth).not.toHaveBeenCalled();expect(spies.send).not.toHaveBeenCalled();
+  });
+  it('never constructs or reuses real core/course/other module clients',async()=>{
+    enableLocal();vi.resetModules();
+    const cached={connected:true};normalGlobals.prisma=cached;normalGlobals.coursePrisma=cached;
+    for(const client of [(await import('@/lib/db')).prisma,(await import('@/lib/course-db')).coursePrisma]){
+      expect(Object.is(client,cached)).toBe(false);expect(()=>Reflect.get(client,'$connect')).toThrow('no database access');
+    }
+    const cachedRead=vi.fn(()=>cached),create=vi.fn(()=>cached);
+    const {guardedSportsSharedCardPreviewClient}=await import('@/lib/sports-shared-card-preview');
+    const disabled=guardedSportsSharedCardPreviewClient(cachedRead,create);
+    expect(()=>Reflect.get(disabled,'$connect')).toThrow('no database access');
+    expect(cachedRead).not.toHaveBeenCalled();expect(create).not.toHaveBeenCalled();
+    expect(spies.prisma).not.toHaveBeenCalled();expect(spies.course).not.toHaveBeenCalled();
+  });
+  it('skips migration work before clients or subprocesses',()=>{
+    enableLocal();
+    const env={...Object.fromEntries(Object.entries(process.env).filter(([,value])=>value!==undefined)),NODE_ENV:process.env.NODE_ENV};
+    const result=spawnSync(process.execPath,['scripts/ci-migrate.mjs'],{env,encoding:'utf8',timeout:15000});
+    expect(result.status).toBe(0);expect(result.stdout).toContain('database_disabled=true migrations_skipped=true');
+    expect(result.stdout).not.toMatch(/migration_deploy_started|recovery_preflight_started/);
   });
 });

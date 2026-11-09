@@ -1,0 +1,40 @@
+{
+  "sourceSha": "ae300c5090e4ae52a90c9960f072cdd105adc2b1",
+  "deploymentId": "dpl_71Fh1kF3xS6rE6rttx3VZ2j3j6eZ",
+  "state": "READY",
+  "method": "anonymous readonly GET",
+  "checks": [
+    {
+      "path": "/",
+      "status": 200,
+      "finalUrl": "https://www.steamfoot.com/",
+      "bytes": 78479,
+      "vercel": "sfo1::f4bqx-1793771665525-ccd14f722032",
+      "session": null
+    },
+    {
+      "path": "/hq/login",
+      "status": 200,
+      "finalUrl": "https://www.steamfoot.com/hq/login",
+      "bytes": 12012,
+      "vercel": "cle1::wzztr-1793771667074-a7d6ae38fa12",
+      "session": null
+    },
+    {
+      "path": "/api/auth/session",
+      "status": 200,
+      "finalUrl": "https://www.steamfoot.com/api/auth/session",
+      "bytes": 4,
+      "vercel": "cle1::hnd1::g6kdk-1793771668583-b86c1e0552da",
+      "session": null
+    },
+    {
+      "path": "/dashboard/service-fee-calculator",
+      "status": 200,
+      "finalUrl": "https://www.steamfoot.com/hq/login",
+      "bytes": 12012,
+      "vercel": "sfo1::b9v25-1793771670838-5f2396683819",
+      "session": null
+    }
+  ]
+}

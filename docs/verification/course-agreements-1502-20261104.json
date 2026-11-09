@@ -1,0 +1,78 @@
+{
+  "applicationSource": "7926ec402acf7f75091063c84043a6a0454b299d",
+  "deployment": "dpl_2siHbgN3s7UD7h11G8p16FpUw6qf",
+  "production": false,
+  "hosted": {
+    "deployment": "dpl_2siHbgN3s7UD7h11G8p16FpUw6qf",
+    "source": "7926ec40",
+    "realBackend": true,
+    "production": false,
+    "complete": true,
+    "checks": [
+      "server draft saved and fixed deadline rendered",
+      "published immutable version",
+      "QR and signing link use same Preview origin",
+      "minor + guardian signed against real database",
+      "public receipt works without owner login and PDF is private/no-store",
+      "learner signed PDF downloaded",
+      "guardian search returns signed learner",
+      "owner PDF downloaded",
+      "owner detail retains guardian and original clauses",
+      "paused link offers no signing form",
+      "prior receipt survives pause"
+    ],
+    "errors": []
+  },
+  "logicalRestore": {
+    "synthetic": true,
+    "cloudRestore": false,
+    "engine": "PGlite PostgreSQL",
+    "counts": {
+      "settings": 1,
+      "versions": 1,
+      "reviews": 2,
+      "signatures": 1,
+      "assets": 1
+    },
+    "documentAndSignerRestored": true,
+    "signatureHashVerified": true,
+    "immutableEvidenceRetained": true
+  },
+  "browserViewportSizes": [
+    [
+      1366,
+      900
+    ],
+    [
+      1024,
+      768
+    ],
+    [
+      768,
+      1024
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "physicalDeviceTested": false,
+  "pdf": {
+    "pages": 2,
+    "ownerAndLearnerTextIdentical": true,
+    "embeddedChineseFont": true,
+    "guardianSignature": true,
+    "timezone": "Asia/Taipei"
+  },
+  "additionalChecks": {
+    "wrongStorePdfRefused": true,
+    "anonymousOwnerPdfStatus": 401,
+    "taiwanDayFilter": true,
+    "streamedNotFoundHasNoSigningForm": true
+  },
+  "limitations": [
+    "Synthetic accounts in isolated DB; no production business writes in these UI tests.",
+    "Logical restore in local PGlite is not a managed-cloud physical restore or PITR test.",
+    "Temporary Vercel links and credentials are intentionally omitted."
+  ]
+}

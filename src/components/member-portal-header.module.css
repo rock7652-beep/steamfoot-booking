@@ -1,0 +1,4 @@
+.header.header { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 0; border: 0; background: transparent; }
+.header.padded { padding: 8px 16px; }
+.identity { min-width: 0; flex: 1; text-align: right; }
+.caption { display: flex; justify-content: flex-end; margin-top: 2px; color: #8f8375; font-size: 14px; line-height: 1.5; }

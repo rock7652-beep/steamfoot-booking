@@ -4,6 +4,7 @@ import { encryptDigitalButlerValue, hashDigitalButlerSensitiveValue } from "@/li
 import { getUserProfile } from "@/lib/line";
 import type { DigitalButlerInboundTextMessage } from "@/server/services/digital-butler-channel";
 import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-notifications";
+import {recordDigitalManagerNotice,resolveDigitalManagerNotice} from "@/server/services/digital-manager-notices";
 
 export const HUMAN_SUPPORT_COMPLETION_ACTION_KEY = "__human_support_handoff__";
 
@@ -165,32 +166,46 @@ export interface HumanSupportReminderResult {
   failed: number;
 }
 
+/** Prioritize unrecorded store reminders without changing the existing LINE retry scan. */
+export async function getUnrecordedHumanSupportCandidates(now:Date){
+ const threshold=new Date(now.getTime()-30*60*1000);
+ return prisma.$queryRaw<Array<{id:string;storeId:string;createdAt:Date;store:{slug:string}}>>`
+ SELECT l.id,l."storeId",l."createdAt",jsonb_build_object('slug',s.slug) AS store
+ FROM public."DigitalButlerLead" l JOIN public."Store" s ON s.id=l."storeId"
+ WHERE l."completionActionKey"=${HUMAN_SUPPORT_COMPLETION_ACTION_KEY} AND l.status::text='NEW' AND l."assignedStaffId" IS NULL AND l."createdAt"<=${threshold}
+ AND NOT EXISTS(SELECT 1 FROM public."DigitalManagerNotice" n WHERE n."storeId"=l."storeId" AND n."eventKey"='human-support-final-reminder:'||l.id)
+ ORDER BY l."createdAt",l.id LIMIT 200`;
+}
+
 export async function runHumanSupportFinalReminders(now = new Date()): Promise<HumanSupportReminderResult> {
   const threshold = new Date(now.getTime() - 30 * 60 * 1000);
-  const candidates = await prisma.digitalButlerLead.findMany({
+  const existingQuery = prisma.digitalButlerLead.findMany({
     where: {
       completionActionKey: HUMAN_SUPPORT_COMPLETION_ACTION_KEY,
       status: "NEW",
       assignedStaffId: null,
       createdAt: { lte: threshold },
     },
-    select: { id: true, storeId: true, store: { select: { slug: true } } },
+    select: { id: true, storeId: true, createdAt:true, store: { select: { slug: true } } },
     take: 200,
     orderBy: { createdAt: "asc" },
   });
+  let existingCandidates:Awaited<typeof existingQuery>=[];
+  let existingFailed=false;
+  try{existingCandidates=await existingQuery;}catch{existingFailed=true;console.error('[HumanSupportReminder] LINE candidate query failed');}
+  let unrecorded:typeof existingCandidates=[];
+  let unrecordedFailed=false;
+  try{unrecorded=await getUnrecordedHumanSupportCandidates(now);}catch{unrecordedFailed=true;console.error('[HumanSupportReminder] unrecorded candidate query failed');}
+  const key=(item:{storeId:string;id:string})=>JSON.stringify([item.storeId,item.id]);
+  const lineCandidates=new Set(existingCandidates.map(key));
+  const candidates=[...new Map([...unrecorded,...existingCandidates].map(item=>[key(item),item])).values()];
 
-  const result: HumanSupportReminderResult = { scanned: candidates.length, sent: 0, skipped: 0, failed: 0 };
+  const result: HumanSupportReminderResult = { scanned: candidates.length, sent: 0, skipped: 0, failed: (unrecordedFailed?1:0)+(existingFailed?1:0) };
 
   for (const candidate of candidates) {
     const eventKey = `human-support-final-reminder:${candidate.id}`;
     let claimId: string | null = null;
     try {
-      claimId = await claimNotification(candidate.storeId, eventKey, "HUMAN_SUPPORT_FINAL_REMINDER");
-      if (!claimId) {
-        result.skipped += 1;
-        continue;
-      }
-
       const stillWaiting = await prisma.digitalButlerLead.findFirst({
         where: {
           id: candidate.id,
@@ -203,12 +218,21 @@ export async function runHumanSupportFinalReminders(now = new Date()): Promise<H
       });
       if (!stillWaiting) {
         result.skipped += 1;
-        await releaseClaim(claimId);
         continue;
       }
+      await recordDigitalManagerNotice(prisma,{storeId:candidate.storeId,eventKey,eventType:"HUMAN_SUPPORT_FINAL_REMINDER",targetId:candidate.id});
+      // Assignment may have completed before this reminder was inserted.
+      const stillUnassigned=await prisma.digitalButlerLead.findFirst({where:{id:candidate.id,storeId:candidate.storeId,completionActionKey:HUMAN_SUPPORT_COMPLETION_ACTION_KEY,status:"NEW",assignedStaffId:null},select:{id:true}});
+      if(!stillUnassigned){await resolveDigitalManagerNotice(prisma,{storeId:candidate.storeId,eventKey,actorUserId:'system',actorName:'系統'});result.skipped+=1;continue;}
+      if(!lineCandidates.has(key(candidate))){result.skipped+=1;continue;}
+      claimId = await claimNotification(candidate.storeId, eventKey, "HUMAN_SUPPORT_FINAL_REMINDER");
+      if (!claimId) { result.skipped += 1; continue; }
+      const latest=await prisma.digitalButlerLead.findFirst({where:{id:candidate.id,storeId:candidate.storeId,completionActionKey:HUMAN_SUPPORT_COMPLETION_ACTION_KEY,status:"NEW",assignedStaffId:null},select:{id:true}});
+      if(!latest){await resolveDigitalManagerNotice(prisma,{storeId:candidate.storeId,eventKey,actorUserId:'system',actorName:'系統'});result.skipped+=1;await releaseClaim(claimId);continue;}
 
       const delivery = await notifyStoreManagerOnLine({
         type: "HUMAN_SUPPORT_FINAL_REMINDER",
+        eventCreatedAt:new Date(candidate.createdAt.getTime()+30*60_000),
         eventKey,
         storeId: candidate.storeId,
         storeSlug: candidate.store.slug,

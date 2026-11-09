@@ -1,3 +1,4 @@
+import {isLineDeliveryEventCurrent} from "@/lib/line-delivery-pause";
 import {getCoursePersonnelText} from "@/server/services/course-personnel-label";
 import { courseDisplayName } from "@/lib/course-template-presentation";
 import 'server-only';
@@ -16,6 +17,7 @@ import { resolveCentralMemberCustomerForStore } from './central-member-resolver'
 import { resolveCentralLineRecipientForCustomer } from './central-line-recipient-loader';
 import { resolveVerifiedReminderLineRoute } from './verified-reminder-line-route';
 import { deriveCourseBaseUrl } from './course-delivery-links';
+import {isPersonnelReminderBatch} from '@/lib/reminder-schedule';
 
 type Snapshot={id:string;coachId:string;startsAt:string;endsAt:string;roomId:string;cancelledAt:string|null;teacherAttendance:string;nameSnapshot:string};
 type BookingSnapshot={sessionId:string;status:string;customerName:string;session:Snapshot};
@@ -37,7 +39,7 @@ function sameTarget(a:Target,b:Target){return a.userId===b.userId&&a.customerId=
 
 export async function enqueueCoachDigests(now=new Date()) {
  // Runs at 21:00 Taipei; reject an accidental early invocation.
- if(formatTWDateTime(now).slice(11)<'21:00'||formatTWDateTime(now).slice(11)>'21:10')return 0;
+ if(!isPersonnelReminderBatch(now))return 0;
  const date=addTaiwanDuration(toLocalDateStr(now),1,'DAY'),range=dayRange(date);
  const rows=await coursePrisma.courseSession.findMany({where:{cancelledAt:null,releasedAt:null,teacherAttendance:{notIn:['LEAVE','NO_SHOW']},startsAt:{gte:range.start,lte:range.end}},select:{storeId:true,coachId:true,id:true}});
  const groups=new Map<string,typeof rows>();for(const row of rows){const key=`${row.storeId}:${row.coachId}`;groups.set(key,[...(groups.get(key)??[]),row]);}
@@ -102,12 +104,15 @@ export async function runCoachNotifications(storeId?:string) {
   const finish=async(status:string,error:string|null)=>{await prisma.$executeRaw`UPDATE "CourseCoachNotification" SET status=${status},"errorMessage"=${error},"leaseUntil"=NOW()+interval '5 minutes',"sentAt"=CASE WHEN ${status}='SENT' THEN NOW() ELSE "sentAt" END WHERE id=${notice.id} AND status<>'SENT'`;};
   try {
    if(!await coachNoticeEnabled(notice.storeId,notice.kind)||!await hasStoreFeature(notice.storeId,FEATURES.LINE_REMINDER)){await finish('SKIPPED','通知開關已關閉或提醒功能未開通');counts.skipped++;continue;}
+   if(!isLineDeliveryEventCurrent(notice.createdAt)){await finish("SKIPPED","停發期間的舊通知不補發");counts.skipped++;continue;}
    if(isPreviewExternalIntegrationBlocked()){await finish('SKIPPED','隔離預覽不向外發送 LINE');counts.skipped++;continue;}
    if(Date.now()-(notice.firstAttemptAt??notice.createdAt).getTime()>23*3600000){await finish('BLOCKED','已超過安全重試期限');counts.skipped++;continue;}
+   const store=await prisma.store.findUniqueOrThrow({where:{id:notice.storeId},select:{name:true,slug:true,industryModule:true,operatingStatus:true,isDemo:true}});
+   if(store.industryModule!=='COURSE'||store.isDemo||!['ACTIVE','TRIAL'].includes(store.operatingStatus)){await finish('SKIPPED','非啟用中的正式課程店家');counts.skipped++;continue;}
    target=await targetFor(notice.storeId,notice.staffId);
    if(!target){await finish('SKIPPED','授課人員未完成可用 LINE 綁定或已停用');counts.skipped++;continue;}
    if(notice.recipient&&!sameTarget(notice.recipient,target)){await finish('BLOCKED','通知對象綁定已變更');counts.skipped++;continue;}
-   const store=await prisma.store.findUniqueOrThrow({where:{id:notice.storeId},select:{name:true,slug:true}});
+
    const message=notice.message??await render(notice,store.slug,store.name);
    if(!message){await finish('SKIPPED','目前沒有需要通知的有效異動');counts.skipped++;continue;}
    const limits=await getStoreForPlanByStoreId(notice.storeId),range=monthRange(toLocalMonthStr());
@@ -124,7 +129,7 @@ export async function runCoachNotifications(storeId?:string) {
    if(!live||!sameTarget(live,target)||!await coachNoticeEnabled(notice.storeId,notice.kind)){
     await finish('BLOCKED','發送前通知開關或綁定已變更');await prisma.messageLog.update({where:{id:notice.id},data:{status:'SKIPPED',errorMessage:'開關或綁定已變更'}});counts.skipped++;continue;
    }
-   const result=target.channel==='STORE'?await pushMessage(notice.storeId,target.recipient,[message],notice.retryKey):await pushSteamButlerMessage(target.recipient,[message],notice.retryKey);
+   const result=target.channel==='STORE'?await pushMessage(notice.storeId, target.recipient, [message], notice.retryKey, notice.createdAt):await pushSteamButlerMessage(target.recipient, [message], notice.retryKey, notice.createdAt);
    const status=result.success?'SENT':result.httpStatus&&result.httpStatus>=400&&result.httpStatus<500&&result.httpStatus!==429?'BLOCKED':'FAILED';
    await finish(status,result.success?null:'LINE 未確認送達');
    await prisma.messageLog.updateMany({where:{id:notice.id,status:{not:'SENT'}},data:{status:result.success?'SENT':'FAILED',sentAt:result.success?new Date():null,lineRoute:target.channel,errorMessage:result.success?null:'授課人員通知未確認送達'}});

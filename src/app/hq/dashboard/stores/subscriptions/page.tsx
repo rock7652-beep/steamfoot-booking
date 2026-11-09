@@ -137,6 +137,7 @@ export default async function StoreSubscriptionsListPage({
         }
       />
 
+      {process.env.SUBSCRIPTION_REFERRALS_ENABLED === "true" && <Link href="/hq/dashboard/stores/referrals" className="inline-flex min-h-11 items-center text-base font-medium underline underline-offset-4">推薦活動核對與發放 →</Link>}
       <section className="rounded-lg border border-earth-100 bg-earth-50/40 px-4 py-2.5 text-[12px] leading-relaxed text-earth-600">
         到期日當天仍可使用；次日起後台為唯讀，停止新增預約。
         轉正式請編輯目前訂閱，選擇購買方案及「使用中」，確認有效期限後儲存。
@@ -173,7 +174,7 @@ export default async function StoreSubscriptionsListPage({
       </div>
 
       <section className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-        <table className="admin-list-table w-full min-w-[1020px] text-[13px]">
+        <table data-striped-list className="admin-list-table w-full min-w-[1020px] text-[13px]">
           <thead>
             <tr className="border-b border-earth-100 text-left text-[11px] text-earth-500">
               <th className="px-4 py-2.5 font-medium">店家</th>
@@ -196,57 +197,57 @@ export default async function StoreSubscriptionsListPage({
                 key={store.id}
                 className="border-b border-earth-50 last:border-0 align-top"
               >
-                <td className="px-4 py-3">
+                <td className="px-4 py-1">
                   <div className="font-medium text-earth-900">{store.name}</div>
                   <div className="text-[11px] text-earth-400">{store.slug}</div>
                 </td>
-                <td className="px-3 py-3 text-earth-700">
+                <td className="px-3 py-1 text-earth-700">
                   {PLAN_LABELS[store.plan] ?? store.plan}
                 </td>
                 {sub ? (
                   <>
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-1">
                       <span
                         className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${stateBadgeCls(lc.state)}`}
                       >
                         {effectiveStateLabel(lc.state)}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-earth-700">
+                    <td className="px-3 py-1 text-earth-700">
                       {BILLING_STATUS_LABELS[sub.billingStatus] ??
                         sub.billingStatus}
                     </td>
-                    <td className="px-3 py-3 text-earth-700">
+                    <td className="px-3 py-1 text-earth-700">
                       {sub.paymentMethod
                         ? PAYMENT_METHOD_LABELS[sub.paymentMethod] ??
                           sub.paymentMethod
                         : "—"}
                     </td>
-                    <td className="px-3 py-3 text-earth-700">
+                    <td className="px-3 py-1 text-earth-700">
                       {sub.billingCycle
                         ? CYCLE_LABELS[sub.billingCycle] ?? sub.billingCycle
                         : "—"}
                     </td>
-                    <td className="px-3 py-3 tabular-nums text-earth-700">
+                    <td className="px-3 py-1 tabular-nums text-earth-700">
                       {fmtDate(sub.startedAt)}
                     </td>
-                    <td className="px-3 py-3 tabular-nums text-earth-700">
+                    <td className="px-3 py-1 tabular-nums text-earth-700">
                       {fmtDate(sub.expiresAt)}
                     </td>
                     <td
-                      className={`px-3 py-3 tabular-nums ${lc.isSuspended ? "text-red-600" : lc.isExpired ? "text-orange-600" : "text-earth-700"}`}
+                      className={`px-3 py-1 tabular-nums ${lc.isSuspended ? "text-red-600" : lc.isExpired ? "text-orange-600" : "text-earth-700"}`}
                     >
                       {remainingText(lc)}
                     </td>
-                    <td className="px-3 py-3 text-right tabular-nums text-earth-700">
+                    <td className="px-3 py-1 text-right tabular-nums text-earth-700">
                       {sub.priceAmount != null
                         ? `NT$${sub.priceAmount.toLocaleString()}`
                         : "—"}
                     </td>
-                    <td className="max-w-[160px] truncate px-3 py-3 text-earth-500">
+                    <td className="max-w-[160px] truncate px-3 py-1 text-earth-500">
                       {sub.note ?? "—"}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-1 text-right">
                       <Link
                         href={`/hq/dashboard/stores/subscriptions/${store.id}`}
                         className="rounded-lg border border-earth-200 px-2.5 py-1 text-[12px] font-medium text-earth-700 hover:bg-earth-50"
@@ -258,12 +259,12 @@ export default async function StoreSubscriptionsListPage({
                 ) : (
                   <>
                     <td
-                      className="px-3 py-3 text-[12px] text-earth-400"
+                      className="px-3 py-1 text-[12px] text-earth-400"
                       colSpan={9}
                     >
                       尚未建立訂閱
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-1">
                       <div className="flex justify-end gap-1.5">
                         <Link
                           href={`/hq/dashboard/stores/subscriptions/${store.id}/trial`}

@@ -1,0 +1,23 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+vi.mock('server-only',()=>({}));
+const m=vi.hoisted(()=>({manager:vi.fn(),member:vi.fn(),native:vi.fn(),correct:vi.fn(),settle:vi.fn(),transaction:vi.fn(),audit:vi.fn(),booking:vi.fn()}));
+vi.mock('@/lib/auth',()=>({auth:vi.fn()}));
+vi.mock('@/lib/db',()=>({prisma:{}}));
+vi.mock('@/lib/course-db',()=>({coursePrisma:{}}));
+vi.mock('next/server',()=>({after:vi.fn()}));
+vi.mock('next/cache',()=>({revalidatePath:vi.fn(),unstable_cache:(f:unknown)=>f}));
+vi.mock('@/lib/sports-native-preview',()=>({sportsNativePreview:m.native}));
+vi.mock('@/server/services/course-access',()=>({courseManager:m.manager,courseMember:m.member,courseAccount:vi.fn(),courseTransaction:m.transaction}));
+vi.mock('@/server/services/course-booking',()=>({correctCourseAttendance:m.correct,settleCourseBooking:m.settle}));
+vi.mock('@/server/services/course-low-balance-schedule',()=>({scheduleCourseLowBalanceCheck:vi.fn()}));
+vi.mock('@/server/services/operation-audit-outbox',()=>({enqueueOperationAudit:m.audit}));
+import {updateCourseBookingStatus} from '@/server/actions/course-members';
+beforeEach(()=>{vi.clearAllMocks();m.manager.mockResolvedValue({storeId:'store',user:{id:'manager',name:'店長'}});m.member.mockResolvedValue({storeId:'store',user:{id:'member'},customer:{id:'customer',name:'學員'}});m.native.mockResolvedValue(true);m.correct.mockResolvedValue({sessionId:'session'});m.settle.mockResolvedValue({sessionId:'session'});m.booking.mockResolvedValue({bookingKind:'CARD'});m.transaction.mockImplementation(async(_store,work,audit)=>{const tx={courseBooking:{findFirst:m.booking}};const result=await work(tx);await audit?.(result,tx);return result;});});
+it.each([['STUDENT_LEAVE','CANCELLED',{waiveAbsence:true}],['NO_SHOW','NO_SHOW',{}]] as const)('corrects confirmed attendance to %s atomically using the existing ledger',async(status,target,options)=>{
+ expect(await updateCourseBookingStatus({bookingId:'booking',status,expectedStatus:'ATTENDED'})).toEqual({success:true});
+ expect(m.manager).toHaveBeenCalledWith('booking.update');expect(m.correct).toHaveBeenCalledWith(expect.anything(),{storeId:'store',userId:'manager',name:'店長'},'booking',target,'ATTENDED',options);expect(m.settle).not.toHaveBeenCalled();expect(m.audit).toHaveBeenCalledOnce();
+});
+it('keeps first-click check-in on normal settlement',async()=>{expect(await updateCourseBookingStatus({bookingId:'booking',status:'ATTENDED'})).toEqual({success:true});expect(m.correct).not.toHaveBeenCalled();expect(m.settle).toHaveBeenCalledOnce();});
+it('does not report success or enqueue an audit when a stale correction is rejected',async()=>{m.correct.mockRejectedValue(new Error('另一位人員已更新點名'));expect(await updateCourseBookingStatus({bookingId:'booking',status:'STUDENT_LEAVE',expectedStatus:'ATTENDED'})).toMatchObject({success:false});expect(m.settle).not.toHaveBeenCalled();expect(m.audit).not.toHaveBeenCalled();});
+it('does not allow a member to use manager corrections',async()=>{expect(await updateCourseBookingStatus({bookingId:'booking',member:true,status:'NO_SHOW',expectedStatus:'ATTENDED'})).toMatchObject({success:false});expect(m.correct).not.toHaveBeenCalled();});
+it('retains trial cancellation permission before refunding an attended trial',async()=>{m.booking.mockResolvedValue({bookingKind:'TRIAL'});m.manager.mockImplementation(async permission=>{if(permission==='trial.cancel')throw Error('denied');return {storeId:'store',user:{id:'manager'}};});expect(await updateCourseBookingStatus({bookingId:'booking',status:'STUDENT_LEAVE',expectedStatus:'ATTENDED'})).toMatchObject({success:false});expect(m.correct).not.toHaveBeenCalled();});

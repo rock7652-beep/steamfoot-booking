@@ -90,3 +90,16 @@ it("compact schedule search picks an independent learner by phone or name and cl
  await type("林小一");
  expect(host.textContent).toContain("林小一");expect(host.textContent).not.toContain("林小二");
 });
+
+it('keeps floating calendar search results selectable outside a scrolling toolbar',async()=>{
+ const onChange=vi.fn();
+ await act(async()=>root.render(React.createElement('div',{style:{height:44,overflow:'auto'}},React.createElement(CourseCustomerPicker,{name:'learner',compact:true,floating:true,choices:[{id:'fixture',name:'合成學員',phone:'0900000000',lineName:null}],onChange}))));
+ const input=host.querySelector<HTMLInputElement>('input[aria-label]')!;
+ await act(async()=>input.focus());await type('合成');
+ const panel=document.querySelector<HTMLElement>('[aria-label="學員搜尋結果"]')!;
+ expect(panel).toBeTruthy();expect(host.contains(panel)).toBe(false);expect(panel.style.visibility).toBe('visible');
+ const option=panel.querySelector<HTMLButtonElement>('button')!;
+ await act(async()=>option.focus());expect(document.querySelector('[aria-label="學員搜尋結果"]')).toBeTruthy();
+ await act(async()=>option.click());expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({id:'fixture',name:'合成學員',phone:'0900000000'})]);
+ expect(document.querySelector('[aria-label="學員搜尋結果"]')).toBeNull();
+});

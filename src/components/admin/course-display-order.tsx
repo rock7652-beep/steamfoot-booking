@@ -4,7 +4,7 @@ import {toast} from "sonner";
 import {saveCourseDisplayOrder} from "@/server/actions/course-display-order";
 import {emptyCourseOrder,moveCourseRow,orderCourseRows,type CourseOrderWriter,type CourseOrderKind,type CourseOrderSnapshot} from "@/lib/course-display-order";
 
-export function useCourseDisplayOrder<T extends {id:string}>(kind:CourseOrderKind,source:T[],initial:CourseOrderSnapshot=emptyCourseOrder,enabled=true,group:(row:T)=>boolean=()=>true,write:CourseOrderWriter=saveCourseDisplayOrder) {
+export function useCourseDisplayOrder<T extends {id:string}>(kind:CourseOrderKind,source:T[],initial:CourseOrderSnapshot=emptyCourseOrder,enabled=true,group:(row:T)=>boolean|string=()=>true,write:CourseOrderWriter=saveCourseDisplayOrder) {
   const [saved,setSaved]=useState(initial);
   const [pendingId,setPendingId]=useState<string|null>(null);
   const [error,setError]=useState<{id:string;message:string;retry?:()=>void}|null>(null);

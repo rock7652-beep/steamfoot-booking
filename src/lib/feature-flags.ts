@@ -30,6 +30,8 @@ export const FEATURES = {
   TRANSACTION: "transaction",
   TRANSACTION_MANAGEMENT: "transaction_management",
   PLAN_MANAGEMENT: "plan_management",
+  ADD_ONS: "add_ons",
+  BEAUTY_SERVICE_ADD_ONS: "beauty_service_add_ons",
   CASHBOOK: "cashbook",
   CASH_DRAWER: "cash_drawer",
   RECONCILIATION: "reconciliation",
@@ -78,7 +80,7 @@ export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
 
 export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
   // Full trial includes expansion features; role permissions still apply.
-  EXPERIENCE: Object.values(FEATURES).filter(feature => feature !== FEATURES.SHARED_CARD && feature !== FEATURES.STORE_OPERATION_AUDIT),
+  EXPERIENCE: Object.values(FEATURES).filter(feature => feature !== FEATURES.SHARED_CARD && feature !== FEATURES.STORE_OPERATION_AUDIT && feature !== FEATURES.ADD_ONS && feature !== FEATURES.BEAUTY_SERVICE_ADD_ONS),
   BASIC: [
     "line_reminder",
     "device_preview",

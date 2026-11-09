@@ -26,5 +26,6 @@ export async function selectCentralMemberStoreAction(formData: FormData): Promis
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });
-  redirect(`/s/${membership.storeSlug}/book?storeSwitched=1`);
+  const entry = formData.get("memberEntry") === "liff" ? "liff" : "book";
+  redirect(`/s/${membership.storeSlug}/${entry}?storeSwitched=1`);
 }

@@ -41,7 +41,12 @@ export async function readAppointmentCharge(tx:ChargeTx,storeId:string,id:string
  if(item.cardId){const card=await tx.beautyCard.findFirst({where:{id:item.cardId,storeId}});if(!card)throw new AppError('CONFLICT','原預約方案待核對');chargeId=`plan:${card.planId}`;if(row.chargeRuleSnapshot!==null)serviceIds=card.serviceIds;}
  try{return {item,snapshot:snapshotStoredChargeRule(storedColumn(row.chargeRuleSnapshot,row.ruleIsNull),{storeId,chargeId,revision:0,serviceIds},storeId,'snapshot')};}catch{throw new AppError('CONFLICT','原預約收費規則待核對');}
 }
-export function chargeAllowedIds(snapshot:unknown,storeId:string,serviceId:string){try{return resolveChargeTechnicians(storedChargeRule.parse(snapshot).rule,storeId,serviceId);}catch{throw new AppError('CONFLICT','收費方式不適用此服務或規則損壞');}}
+export function chargeAllowedIds(snapshot:unknown,storeId:string,serviceId:string):readonly string[]|undefined{try{
+ const {rule}=storedChargeRule.parse(snapshot);resolveChargeTechnicians(rule,storeId,serviceId);
+ // Service qualifications own provider eligibility. Validate the historical
+ // snapshot's store/service scope without retaining duplicate provider lists.
+ return undefined;
+}catch{throw new AppError('CONFLICT','收費方式不適用此服務或規則損壞');}}
 export async function writeCardCharge(tx:ChargeTx,storeId:string,id:string,snapshot:unknown){const value=storedChargeRule.parse(snapshot);const count=await tx.$executeRaw`UPDATE "BeautyCard" SET "chargeRuleSnapshot"=${JSON.stringify(value)}::jsonb WHERE "storeId"=${storeId} AND id=${id}`;if(count!==1)throw new AppError('CONFLICT','方案快照未儲存');}
 export async function writeAppointmentCharge(tx:ChargeTx,storeId:string,id:string,snapshot:unknown){const value=storedChargeRule.parse(snapshot);const count=await tx.$executeRaw`UPDATE "BeautyAppointment" SET "chargeRuleSnapshot"=${JSON.stringify(value)}::jsonb WHERE "storeId"=${storeId} AND id=${id}`;if(count!==1)throw new AppError('CONFLICT','預約快照未儲存');}
 /** Preserve an existing restriction when unrelated catalog fields advance the row revision. */

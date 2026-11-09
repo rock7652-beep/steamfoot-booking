@@ -1,4 +1,5 @@
 "use client";
+import { normalizeCourseCustomerFilters } from "@/lib/course-customer-filters";
 import {useMusicCustomerPage} from "@/components/admin/use-music-customer-page";
 import { musicNoteDisplay } from "@/lib/music-display";
 
@@ -14,9 +15,10 @@ import type { CourseCardView } from "./member-workspace";
 import { ExclusiveMenu } from "@/components/admin/exclusive-menu";
 import { DashboardLink } from "@/components/dashboard-link";
 
-export function CourseCustomerList({ assignCustomers=bulkAssignCourseCustomers, rows, cards, customerPage:sourceCustomerPage, canReadCards, onView, onViewPlans, onEdit, onCreate, onAssign, onPurchase, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false, sportsNative = false, basePath="/dashboard/courses?view=customers", sessionUnitLabel="堂", sessionBalances=[] }: {
+export function CourseCustomerList({ beautyMode:explicitBeautyMode=false, assignCustomers=bulkAssignCourseCustomers, rows, cards, customerPage:sourceCustomerPage, canReadCards, onView, onViewPlans, onEdit, onCreate, onAssign, onPurchase, canAssignManager = false, assignmentStaff = [], canMerge = false, canExport = false, music = false, sportsNative = false, basePath="/dashboard/courses?view=customers", sessionUnitLabel="堂", sessionBalances=[],balanceOverrides={} }: {
+  beautyMode?:boolean;
   assignCustomers?:typeof bulkAssignCourseCustomers;
-  basePath?:string; sessionUnitLabel?:string; sessionBalances?:{customerId:string;available:number}[];
+  balanceOverrides?:Record<string,number>;basePath?:string; sessionUnitLabel?:string; sessionBalances?:{customerId:string;available:number}[];
   customerPage?: CourseCustomerPage;
   rows: CustomerRow[]; cards: CourseCardView[]; canReadCards: boolean;
   onViewPlans?:(id:string)=>void;onEdit?:(id:string)=>void;
@@ -24,6 +26,8 @@ export function CourseCustomerList({ assignCustomers=bulkAssignCourseCustomers, 
   canAssignManager?: boolean; assignmentStaff?: Array<{ id: string; displayName: string }>;
   canMerge?: boolean; canExport?: boolean; music?: boolean; sportsNative?: boolean;
 }) {
+  // The existing source basePath identifies Beauty presentation; authorization remains server-side.
+  const beautyMode=explicitBeautyMode||basePath.split("?")[0]==="/dashboard/beauty";
   const params = useSearchParams();
   const pathname = usePathname();
   const cohortSuffix=music&&params.get("dataScope")==="legacy"?"&dataScope=legacy":"";
@@ -48,7 +52,10 @@ export function CourseCustomerList({ assignCustomers=bulkAssignCourseCustomers, 
   }
   for(const item of sessionBalances){sessionOwners.add(item.customerId);sessions.set(item.customerId,(sessions.get(item.customerId)??0)+item.available);}
   for (const row of customerPage?.rows ?? []) { points.set(row.id,row.points); sessions.set(row.id,row.sessions); if(row.hasPoints)pointOwners.add(row.id); if(row.hasSessions)sessionOwners.add(row.id); }
-  const filtered = customerPage ? customerPage.rows.flatMap(item => { const row=rows.find(r=>r.id===item.id); return row ? [row] : []; }) : filterCourseCustomers(rows, new URLSearchParams(params.toString()), sessionBalances.length ? sessions : points);
+  for(const [id,available] of Object.entries(balanceOverrides)){sessionOwners.add(id);sessions.set(id,available);}
+  const filterParams=normalizeCourseCustomerFilters(new URLSearchParams(params.toString()));
+  if(beautyMode){filterParams.delete("visit");filterParams.delete("referral");if(!["linked","unlinked"].includes(filterParams.get("status")??""))filterParams.delete("status");}
+  const filtered = customerPage ? customerPage.rows.flatMap(item => { const row=rows.find(r=>r.id===item.id); return row ? [row] : []; }) : filterCourseCustomers(rows, filterParams, beautyMode||sessionBalances.length||Object.keys(balanceOverrides).length ? sessions : points);
   const total = customerPage?.total ?? filtered.length;
   const pageCount = Math.max(1, Math.ceil(total / 20));
   const requestedPage = Number(params.get("page"));
@@ -60,9 +67,9 @@ export function CourseCustomerList({ assignCustomers=bulkAssignCourseCustomers, 
   const staff = [...new Map(rows.flatMap(row => row.assignedStaff ? [[row.assignedStaff.id, row.assignedStaff] as const] : [])).values()];
   const pageRows = customerPage ? filtered : filtered.slice((page - 1) * 20, page * 20);
   return <section className={`space-y-3 ${selectedIds.size ? "pb-40" : ""}`}>
-    <CustomersToolbar labelsInMore={sportsNative} musicMode={music} staffOptions={music ? [] : assignmentStaff.length ? assignmentStaff : staff} basePath={listBasePath} courseMode trailing={canMerge || canExport || (sportsNative&&onPurchase) ? <ExclusiveMenu label={sportsNative?"顧客管理更多操作":"更多"} triggerText={sportsNative?"⋯":undefined}>{sportsNative&&onPurchase&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm text-primary-700" onClick={onPurchase}>購買方案</button>}{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
+    <CustomersToolbar beautyMode={beautyMode} labelsInMore={sportsNative} musicMode={music} staffOptions={assignmentStaff.length ? assignmentStaff : staff} basePath={listBasePath} courseMode trailing={canMerge || canExport || (sportsNative&&onPurchase) ? <ExclusiveMenu label={sportsNative?"顧客管理更多操作":"更多"} triggerText={sportsNative?"⋯":undefined}>{sportsNative&&onPurchase&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm text-primary-700" onClick={onPurchase}>購買方案</button>}{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
-    <CustomersTable compactActions={music} onEdit={onEdit ? row=>onEdit(row.id) : undefined} renderNote={music ? row => <button type="button" className="min-h-11 max-w-64 text-left text-sm text-earth-600" onClick={()=>onView(row.id)} aria-label={`${row.name} 備註與資料來源`}><span className="line-clamp-1">{musicNoteDisplay(row.serviceNote) || "—"}</span></button> : undefined} assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
+    <CustomersTable compactActions={music} onEdit={onEdit ? row=>onEdit(row.id) : undefined} renderNote={music ? row => musicNoteDisplay(row.serviceNote) ? <button type="button" className="min-h-11 max-w-64 text-left text-sm text-earth-600" onClick={()=>onView(row.id)} aria-label={`${row.name} 備註與資料來源`}><span className="line-clamp-1">{musicNoteDisplay(row.serviceNote) || "—"}</span></button> : null : undefined} assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
       selectionEnabled={canAssignManager && !music} selectedIds={selectedIds}
       onToggleRow={id => { const next = new Set(selectedIds); if (next.has(id)) next.delete(id); else next.add(id); setSelected(next); }}
       onToggleAll={() => { const ids = pageRows.filter(row => !isInactiveRow(row)).map(row => row.id); const next=new Set(selectedIds); if(ids.every(id=>next.has(id)))ids.forEach(id=>next.delete(id));else ids.forEach(id=>next.add(id));setSelected(next); }}

@@ -1,3 +1,4 @@
+import { OperationTiming } from "@/lib/operation-timing";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 /**
  * POST /api/liff/exchange — LIFF idToken → NextAuth session bootstrap (PR-B)
@@ -26,8 +27,10 @@ import { signIn } from "@/lib/auth";
 import { LineIdentityReviewError } from "@/server/services/line-identity-review";
 import { createLiffReviewDiagnostic } from "@/server/services/liff-review-diagnostic";
 import { canOnboardCentralLineAccountToCourse } from "@/server/services/course-line-onboarding";
+import { canOnboardVerifiedBeautyMember } from "@/server/services/beauty-line-onboarding";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
+import { activateVerifiedNotificationMember } from "@/server/services/verified-notification-first-login";
 import {
   LiffIdTokenError,
   verifyLiffIdToken,
@@ -78,6 +81,15 @@ function json(body: ResponseBody, status: number): Response {
 }
 
 export async function POST(req: Request): Promise<Response> {
+  const timing = new OperationTiming("liff.exchange");
+  try {
+    const response = await exchange(req, timing);
+    response.headers.set("Server-Timing", timing.serverTiming());
+    return response;
+  } finally { timing.finish(); }
+}
+
+async function exchange(req: Request, timing: OperationTiming): Promise<Response> {
   // ── 1. Parse + validate body ──
   let parsed: z.infer<typeof BodySchema>;
   try {
@@ -104,7 +116,7 @@ export async function POST(req: Request): Promise<Response> {
   // ── 3. Verify idToken ──
   let verified;
   try {
-    verified = await verifyLiffIdToken(idToken, expectedChannelId);
+    verified = await timing.measure("line_verify", () => verifyLiffIdToken(idToken, expectedChannelId));
   } catch (err) {
     if (err instanceof LiffIdTokenError) {
       const code =
@@ -137,7 +149,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // ── 4. Resolve store ──
-  const store = await resolveStoreBySlug(storeSlug);
+  const store = await timing.measure("store", () => resolveStoreBySlug(storeSlug));
   if (!store || (context.config && (store.id !== context.config.storeId || store.slug !== context.config.slug))) {
     logLineBindEvent({
       path: "liff-exchange",
@@ -155,22 +167,34 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
-  try { await assertStoreLiffContext(store, context); }
+  try { await timing.measure("store_config", () => assertStoreLiffContext(store, context)); }
   catch { return json({ status: "error", code: "MISSING_CHANNEL_CONFIG", message: "本店 LINE 設定尚未確認" }, 503); }
 
   // ── 5. Customer lookup ──
   let customer;
   try {
-    customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true, identityProvider: context.identityProvider });
+    customer = await timing.measure("membership", () => resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true, identityProvider: context.identityProvider }));
+    if (!customer && !context.config && context.identityProvider === "line" &&
+        await getStoreIndustryModule(store.id) === "steamfoot") {
+      const activation = await activateVerifiedNotificationMember({ storeId: store.id, lineUserId: verified.lineUserId });
+      if (activation === "unavailable") throw new Error("FIRST_LOGIN_ACTIVATION_UNAVAILABLE");
+      if (activation === "activated") {
+        // Re-resolve the committed ownership before Credentials verifies the
+        // token again. Activation alone never counts as a created session.
+        customer = await timing.measure("membership", () => resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true, identityProvider: context.identityProvider }));
+        if (!customer) throw new Error("FIRST_LOGIN_OWNERSHIP_UNAVAILABLE");
+      }
+    }
   } catch (error) {
     if (error instanceof LineIdentityReviewError) {
       if (error.reason === "store_membership_unconfirmed") {
         // No session or membership is granted here. The legacy store form may
         // collect a staff-reviewed recovery request for the verified subject.
         try {
-          if (!context.config && await getStoreIndustryModule(store.id) === "steamfoot") return json({ status: "need_onboarding", storeSlug: store.slug,
+          const industry = await getStoreIndustryModule(store.id);
+          if (!context.config && industry === "steamfoot") return json({ status: "need_onboarding", storeSlug: store.slug,
             lineUserId: verified.lineUserId, displayName: verified.displayName ?? null }, 200);
-          if (await canOnboardCentralLineAccountToCourse({
+          if (industry === "course" && await canOnboardCentralLineAccountToCourse({
             storeId: store.id, lineUserId: verified.lineUserId,
             identityProvider: context.identityProvider,
           })) {
@@ -178,6 +202,11 @@ export async function POST(req: Request): Promise<Response> {
               lineUserId: verified.lineUserId,
               displayName: verified.displayName ?? null }, 200);
           }
+          if (industry === "beauty" && context.config && await canOnboardVerifiedBeautyMember({
+            storeId: store.id, lineUserId: verified.lineUserId,
+            identityProvider: context.identityProvider,
+          })) return json({ status: "need_onboarding", storeSlug: store.slug,
+            lineUserId: verified.lineUserId, displayName: verified.displayName ?? null }, 200);
         } catch {
           // A lookup outage must not turn a real membership conflict into onboarding.
           return json({ status: "error", code: "INTERNAL", message: "identity lookup unavailable" }, 503);
@@ -227,11 +256,11 @@ export async function POST(req: Request): Promise<Response> {
   // ── 6. Mint session via Credentials provider ──
   // authorize() 會 *再做一次* verify + Customer 查詢，這是 NextAuth 端的安全邊界。
   try {
-    await signIn("liff-token", {
+    await timing.measure("session_mint", () => signIn("liff-token", {
       idToken,
       storeSlug: store.slug,
       redirect: false,
-    });
+    }));
   } catch (err) {
     // authorize() 返回 null 會被 NextAuth 包成 CredentialsSignin AuthError
     logLineBindEvent({

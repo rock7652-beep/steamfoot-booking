@@ -23,3 +23,13 @@ it("does not retain failures into another request or confuse actor/store keys", 
  expect(await withReadRequestMemo(()=>memoizeReadRequest("user",error))).toBe("new session");
  await withReadRequestMemo(async()=>{expect(await memoizeReadRequest("store:a",async()=>"a")).toBe("a");expect(await memoizeReadRequest("store:b",async()=>"b")).toBe("b");});
 });
+
+import {rememberVerifiedStaffRead,verifiedStaffRead} from "@/server/services/read-request-memo";
+it("retains verified scalars only in its own read, never ordinary writes or overlapping requests",async()=>{
+ const staff={userId:"u",role:"OWNER",staffId:"staff",storeId:"s",industryModule:"COURSE"};
+ rememberVerifiedStaffRead(staff);expect(verifiedStaffRead()).toBeUndefined();
+ const gate=deferred();
+ const a=withReadRequestMemo(async()=>{rememberVerifiedStaffRead(staff);staff.storeId="changed";await gate.promise;expect(verifiedStaffRead()?.storeId).toBe("s");});
+ await withReadRequestMemo(async()=>{expect(verifiedStaffRead()).toBeUndefined();gate.resolve();});await a;
+ expect(verifiedStaffRead()).toBeUndefined();
+});

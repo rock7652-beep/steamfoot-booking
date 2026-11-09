@@ -1,3 +1,5 @@
+import {resolveBookingLineEntry} from "@/server/services/booking-line-entry";
+import {PublicBookingLinkRow} from "@/components/settings/public-booking-link-row";
 import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { getStoreForPlanByStoreId } from "@/lib/store-plan";
@@ -111,8 +113,9 @@ export default async function StoreDetailPage({ params }: PageProps) {
         {/* URLs — 前台 */}
         {!retired && <>
         <Section title="前台網址">
+          <PublicBookingLinkRow href={resolveBookingLineEntry(summary.store.slug)?.url??null}/>
           <InfoRow label="顧客登入" value={summary.urls.storefront} link />
-          <InfoRow label="預約頁" value={summary.urls.booking} link />
+          <InfoRow label="會員預約頁" value={summary.urls.booking} link />
           <InfoRow label="註冊頁" value={summary.urls.register} link />
         </Section>
 

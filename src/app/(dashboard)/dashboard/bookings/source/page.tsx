@@ -74,7 +74,7 @@ export default async function TrialSourceBookingsPage({ searchParams }: Props) {
         <section className="mt-4 rounded-xl border border-earth-200 bg-white p-3">
           <p className="mb-3 text-xs text-earth-500">本期共 {total} 組；按預約建立日期篩選。點一筆預約可開啟原本的預約明細。</p>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table data-striped-list className="w-full min-w-[640px] text-left text-sm">
               <thead className="border-b border-earth-100 text-xs text-earth-500"><tr>
                 <th className="py-2 pr-3">建立時間</th><th className="px-3 py-2">體驗日期</th>
                 <th className="px-3 py-2">顧客</th><th className="px-3 py-2">狀態</th>
@@ -83,12 +83,12 @@ export default async function TrialSourceBookingsPage({ searchParams }: Props) {
               <tbody>
                 {bookings.map((booking) => (
                   <tr key={booking.id} className="border-b border-earth-50">
-                    <td className="py-2 pr-3">{formatTWTime(booking.createdAt)}</td>
-                    <td className="px-3 py-2">{booking.bookingDate.toISOString().slice(0, 10)}</td>
-                    <td className="px-3 py-2">{booking.customer.name}</td>
-                    <td className="px-3 py-2">{STATUS_LABEL[booking.bookingStatus] ?? booking.bookingStatus}</td>
-                    <td className="px-3 py-2 text-right">{booking.people}／{booking.bookingStatus === "COMPLETED" ? booking.attendedPeople ?? booking.people : 0}</td>
-                    <td className="pl-3 py-2 text-right"><DashboardLink href={`/dashboard/bookings?bookingId=${booking.id}`} className="text-primary-700">查看預約 →</DashboardLink></td>
+                    <td className="py-1 pr-3">{formatTWTime(booking.createdAt)}</td>
+                    <td className="px-3 py-1">{booking.bookingDate.toISOString().slice(0, 10)}</td>
+                    <td className="px-3 py-1">{booking.customer.name}</td>
+                    <td className="px-3 py-1">{STATUS_LABEL[booking.bookingStatus] ?? booking.bookingStatus}</td>
+                    <td className="px-3 py-1 text-right">{booking.people}／{booking.bookingStatus === "COMPLETED" ? booking.attendedPeople ?? booking.people : 0}</td>
+                    <td className="pl-3 py-1 text-right"><DashboardLink href={`/dashboard/bookings?bookingId=${booking.id}`} className="text-primary-700">查看預約 →</DashboardLink></td>
                   </tr>
                 ))}
               </tbody>

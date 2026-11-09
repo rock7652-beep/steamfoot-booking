@@ -1,3 +1,4 @@
+import {prefetchInitialStoreNoticeSummary} from '@/server/services/initial-store-notice-summary';
 import { CoursePersonnelLabelProvider } from "@/components/course-personnel-label";
 import { readCoursePersonnelLabel } from "@/server/services/course-personnel-label";
 import {BeautySetupNavigation} from '@/components/beauty/setup-navigation';
@@ -37,9 +38,7 @@ import { SubscriptionStatusBanner } from "@/components/subscription-status-banne
 import { trialRetentionMessage } from "@/lib/trial-retention";
 import { StoreOperatingStatusBanner } from "@/components/store-operating-status-banner";
 import { ViewModeBanner } from "@/components/view-mode-banner";
-import {readSteamfootNoticeEnabled} from "@/server/services/steamfoot-store-notices";
 import { prisma } from "@/lib/db";
-import { coursePrisma } from "@/lib/course-db";
 import { computeLifecycle } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { FEATURES } from "@/lib/feature-flags";
@@ -139,43 +138,42 @@ async function readDashboardLayout({
       if (!await prisma.staff.findFirst({where:{id:user.staffId ?? "",storeId:activeStoreId!,userId:user.id,status:"ACTIVE"}})) notFound();
     }
     const requestedPath = (await headers()).get("x-next-pathname") ?? "";
-    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:image-announcements\/?$|work-orders(?:\/|$)|inventory(?:\/|$)|image-announcements\/?$|courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/(?:duty|trial|referral-share|digital-butler)\/?$|staff(?:\/[^/]+\/edit)?\/?$|teachers\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth(?:\/consumption)?\/?$|digital-butler\/leads\/?$|reconciliation\/?$|store-revenue\/?$|service-fee-calculator\/?$|guide\/?$|frontend-preview\/?$|device-preview\/?$|operation-audits\/?$)/.test(requestedPath)) {
+    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:add-ons\/?$|settings\/add-ons\/?$|image-announcements\/?$|work-orders(?:\/|$)|inventory(?:\/|$)|image-announcements\/?$|courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/(?:duty|trial|referral-share|digital-butler)\/?$|staff(?:\/[^/]+\/edit)?\/?$|teachers\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth(?:\/consumption)?\/?$|digital-butler\/leads\/?$|reconciliation\/?$|store-revenue\/?$|service-fee-calculator\/?$|guide\/?$|frontend-preview\/?$|device-preview\/?$|operation-audits\/?$)/.test(requestedPath)) {
       redirect("/dashboard/courses");
     }
   }
-  const trialStatus = hqPlatform ? undefined : industryModule === "course"
-    ? await settingsStep("read_trial", async () => (await import("@/lib/shop-config")).getTrialStatus(activeStoreId ?? undefined))
-    : await settingsStep("read_trial", () => getCachedTrialStatus(activeStoreId ?? undefined));
-
   // ADMIN 看到的 plan：切到特定店時用該店 plan，全部分店時解鎖全部功能（ALLIANCE）
   // OWNER/PARTNER：用自己店的 plan
   // 走 unstable_cache（60s TTL, tag: "store-plan"）— 之前直接呼叫
   // getStorePlanById 是同步阻塞，每次切頁都打一次 prisma，現在多人切頁
   // 共享 cache。Mutation 路徑已透過 revalidation.ts 失效對應 tag。
   const effectiveStoreId = hqPlatform ? undefined : activeStoreId ?? undefined;
-  // Resolve only the switch alongside the server layout; counts and snapshots stay lazy.
+  // Prefetch only a bounded authorized count; notification details remain lazy.
   const noticeEnabledPromise=(async()=>{
-  if(!hqPlatform && effectiveStoreId && permissions.includes("booking.read")) {
-    try {
-      return industryModule==="course"
-        ? (await coursePrisma.courseBookingRule.findUnique({where:{storeId:effectiveStoreId},select:{backendNoticesEnabled:true}}))?.backendNoticesEnabled!==false
-        : industryModule==="beauty" && process.env.BEAUTY_MODULE_ENABLED==="1" ? (await (await import("@/lib/beauty-db")).beautyPrisma.beautySetting.findUnique({where:{storeId:effectiveStoreId},select:{backendNoticesEnabled:true}}))?.backendNoticesEnabled!==false : industryModule==="steamfoot" && await readSteamfootNoticeEnabled(prisma,effectiveStoreId);
-    } catch { /* The authenticated background summary retries without blocking the dashboard. */ }
-  }
-  return false;
+  return !hqPlatform && !!effectiveStoreId && permissions.includes("booking.read") &&
+    (industryModule==="course" || industryModule==="steamfoot" || (industryModule==="beauty" && process.env.BEAUTY_MODULE_ENABLED==="1"));
   })();
-  const pricingPlan = isAdmin && (hqPlatform || !activeStoreId)
-    ? ("ALLIANCE" as const)
-    : effectiveStoreId
-      ? await settingsStep("read_plan", () => getCachedStorePlan(effectiveStoreId))
-      : ("EXPERIENCE" as const);
-  const featureStates = effectiveStoreId
-    ? await settingsStep("read_features", () => getStoreFeaturePresentations(effectiveStoreId))
-    // HQ opens a store selector; page and iframe enforce the selected store's grant.
-    : {
-      [FEATURES.BASIC_REPORTS]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
-      [FEATURES.FRONTEND_PREVIEW]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
-    };
+  const initialNoticeSummaryReaderPromise=noticeEnabledPromise.then(enabled=>enabled&&effectiveStoreId?prefetchInitialStoreNoticeSummary(industryModule,effectiveStoreId):async()=>null);
+  // These reads depend on the already authorized store and module, but not on
+  // one another. Keep their existing gates and failure behavior while avoiding
+  // three consecutive round trips before the dashboard can render.
+  const [trialStatus, pricingPlan, featureStates] = await Promise.all([
+    hqPlatform ? undefined : industryModule === "course"
+      ? settingsStep("read_trial", async () => (await import("@/lib/shop-config")).getTrialStatus(activeStoreId ?? undefined))
+      : settingsStep("read_trial", () => getCachedTrialStatus(activeStoreId ?? undefined)),
+    isAdmin && (hqPlatform || !activeStoreId)
+      ? ("ALLIANCE" as const)
+      : effectiveStoreId
+        ? settingsStep("read_plan", () => getCachedStorePlan(effectiveStoreId))
+        : ("EXPERIENCE" as const),
+    effectiveStoreId
+      ? settingsStep("read_features", () => getStoreFeaturePresentations(effectiveStoreId))
+      // HQ opens a store selector; page and iframe enforce the selected store's grant.
+      : {
+        [FEATURES.BASIC_REPORTS]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
+        [FEATURES.FRONTEND_PREVIEW]: isAdmin ? "ENABLED" as const : "LOCKED" as const,
+      },
+  ]);
   const effectiveFeatures = Object.fromEntries(Object.entries(featureStates).map(([feature, state]) => [feature, state === "ENABLED"]));
 
 
@@ -257,11 +255,13 @@ async function readDashboardLayout({
     <OperationScope key={operationScope} scope={operationScope}>
     <FeaturePresentationProvider states={featureStates}>
     <OperationAuditAccessProvider allowed={canViewAudit} hq={auditScope?.hq ?? false}>
-    <CoursePersonnelLabelProvider key={effectiveStoreId??"hq"} storeId={effectiveStoreId??""} label={industryModule==="course" && effectiveStoreId ? await readCoursePersonnelLabel(effectiveStoreId) : null}>
+    <CoursePersonnelLabelProvider key={effectiveStoreId??"hq"} storeId={effectiveStoreId??""} label={industryModule==="course" && effectiveStoreId ? await readCoursePersonnelLabel(effectiveStoreId) : industryModule==="beauty"&&effectiveStoreId ? ((await readCoursePersonnelLabel(effectiveStoreId))==="老師"?"老師":null) : null}>
     <DashboardShell
+      steamfootAddOnsEnabled={(industryModule==='steamfoot'&&process.env.STEAMFOOT_ADD_ONS_ENABLED==='1'&&process.env.BOOKING_PARTICIPANTS_ENABLED==='true')||(industryModule==='course'&&process.env.COURSE_ADD_ONS_ENABLED==='1')||(industryModule==='beauty'&&process.env.BEAUTY_MODULE_ENABLED==='1')}
       canViewAudit={canViewAudit}
       courseNoticeStoreId={effectiveStoreId}
       noticeInitiallyEnabled={noticeInitiallyEnabled}
+      initialNoticeSummary={await (await initialNoticeSummaryReaderPromise)()}
       cashDrawerStoreId={effectiveStoreId && permissions.includes("cashDrawer.read") && effectiveFeatures[FEATURES.CASH_DRAWER] && await canReadInventoryFinance(effectiveStoreId, user) ? effectiveStoreId : undefined}
       operationGuidePreview={isOperationGuidePreview()}
       hqOperationGuide={isAdmin && !effectiveStoreId && await checkPermission(user.role, user.staffId, "audit.read")}

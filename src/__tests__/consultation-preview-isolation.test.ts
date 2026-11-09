@@ -8,6 +8,8 @@ import {
   isConsultationMockedUnitTest,
   isIsolatedConsultationDatabaseUrl,
   PRICING_PLAN_CLARITY_PREVIEW_BRANCH,
+  NEW_MEMBER_PURCHASE_LOGIN_PREVIEW_BRANCH,
+  COURSE_REMINDER_ACTIVE_PREVIEW_BRANCH,
 } from "../../scripts/consultation-preview-scope.mjs";
 import { SPORTS_SHARED_CARD_PREVIEW_BRANCH } from "../../scripts/sports-shared-card-preview-scope.mjs";
 
@@ -148,12 +150,17 @@ describe("release-bound consultation Preview preflight", () => {
   });
 
   it("keeps the build command and preflights before every migration and Next config path", () => {
-    expect(JSON.parse(readFileSync("package.json", "utf8")).scripts.build).toBe("node scripts/music-release-preflight.mjs && node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build");
+    expect(JSON.parse(readFileSync("package.json", "utf8")).scripts.build).toBe("node scripts/music-release-preflight.mjs && node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/digital-manager-build-readiness.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build");
     const source = readFileSync("scripts/ci-migrate.mjs", "utf8");
     const check = source.indexOf("assertReviewedReleaseEnvironment(process.env)");
     expect(check).toBeGreaterThan(-1);
     expect(check).toBeLessThan(source.indexOf("execFileSync(\"npx\""));
-    expect(check).toBeLessThan(source.indexOf("new PrismaClient("));
+    // The preceding loopback-only rehearsal has its own fail-closed scope guard.
+    const localGuard=source.indexOf("assertDigitalManagerLocalEnvironment(process.env)");
+    expect(localGuard).toBeGreaterThan(-1);
+    expect(localGuard).toBeLessThan(source.indexOf("new PrismaClient("));
+    expect(localGuard).toBeLessThan(source.indexOf("execFileSync('npx'"));
+    expect(check).toBeLessThan(source.indexOf("new PrismaClient(",check));
     expect(source.indexOf("process.exit(0)", check)).toBeLessThan(source.indexOf("execFileSync(\"npx\""));
     const config = readFileSync("next.config.ts", "utf8");
     expect(config.indexOf("isGuideUiPreview();")).toBeLessThan(config.indexOf("assertReviewedReleaseEnvironment(process.env)"));
@@ -233,3 +240,17 @@ describe("composed consultation and shared-card release modes", () => {
     expect(() => assertReviewedReleaseEnvironment({ ...preview, VERCEL_GIT_REPO_OWNER: "other" })).toThrow();
   });
  });
+
+it("allows the exact new-member checkout review branch only with both isolated connections", () => {
+  const env = { ...valid, VERCEL_GIT_COMMIT_REF: NEW_MEMBER_PURCHASE_LOGIN_PREVIEW_BRANCH };
+  expect(assertReviewedReleaseEnvironment(env)).toBe("module-roster-preview");
+  expect(() => assertReviewedReleaseEnvironment({ ...env, DATABASE_URL: direct.replace("ttworfzgwejdeolegkxl", "qijlnhtpbintanzpxkvf") })).toThrow();
+  expect(() => assertReviewedReleaseEnvironment({ ...env, DIRECT_URL: direct.replace("ttworfzgwejdeolegkxl", "qijlnhtpbintanzpxkvf") })).toThrow();
+  expect(() => assertReviewedReleaseEnvironment({ ...env, VERCEL_ENV: "production" })).toThrow();
+});
+
+it("requires the exact reminder branch and both isolated connections",()=>{
+ const env={...valid,VERCEL_GIT_COMMIT_REF:COURSE_REMINDER_ACTIVE_PREVIEW_BRANCH};
+ expect(assertReviewedReleaseEnvironment(env)).toBe("module-roster-preview");
+ for(const patch of [{VERCEL_ENV:"production"},{VERCEL_GIT_COMMIT_REF:env.VERCEL_GIT_COMMIT_REF+"-other"},{DATABASE_URL:direct.replace("ttworfzgwejdeolegkxl","other")},{DIRECT_URL:direct.replace("ttworfzgwejdeolegkxl","other")}])expect(()=>assertReviewedReleaseEnvironment({...env,...patch})).toThrow();
+});

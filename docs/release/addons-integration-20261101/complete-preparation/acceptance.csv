@@ -1,0 +1,23 @@
+case,area,pass_condition,local_evidence,isolated_cloud_status,source_sha,deployment,evidence,owner
+ENV,隔離與版本,project/host/current_user/SHA 相符，通知停發且無正式 secret,未執行，需雲端環境,PENDING,,,,assistant
+DDL,schema／重跑,七表七欄、FK/unique/RLS/trigger 完整；重跑無資料改寫,本機聯合演練通過,PENDING,,,,assistant
+GRANT,權限名單,只初始化核准在職職員，拒絕跨店／不存在／停職，既有拒絕保留,本機通過,PENDING,,,,assistant
+HQ,HQ 三狀態,加做與商品獨立 ENABLED/HIDDEN/LOCKED，直連頁面／API 同步拒絕,相關單元通過,PENDING,,,,assistant
+TOGGLE,門市四組合,兩個獨立開關四組合，另一功能不受影響，歷史仍可讀,相關單元通過,PENDING,,,,assistant
+BEAUTY,每人服務,兩人各選主服務／加做，摘要、技師與床位時間逐人一致,相關單元通過,PENDING,,,,assistant
+SLOTS,時段重查,加做改變時長後清掉舊時段，重查技師／資源，不送舊選擇,相關單元通過,PENDING,,,,assistant
+GOODS,單選／複選／取消,單選限一種而非一份，複選多品，可清空，1份不顯×1,相關單元通過,PENDING,,,,assistant
+QTY,數量／免費,2份與免費品計件正確，0/負數/小數/超上限拒絕,相關單元通過,PENDING,,,,assistant
+REQUIRED,加做必選,每位顧客各自符合必選／單選／複選，不混用商品可不選規則,相關單元通過,PENDING,,,,assistant
+COURSE,教學項目對應,運動／音樂對應 A 教學項目，不誤套每個 A1/A2/A3 排課或停用項目,相關單元通過,PENDING,,,,assistant
+STEAM,其他模組零時間,蒸足／運動／音樂商品增加時間為0，價格可0，排程不延長,相關單元通過,PENDING,,,,assistant
+IMAGE,圖片壓縮與操作,大圖自動壓縮，桌機拖移與手機雙指可縮放／向下移；套用重開一致,本機演算法通過；實體手機未驗,PENDING,,,,assistant
+PUBLIC,圖片用途與隔店,作品公開GET符合設計；外店圖片掛入／管理拒絕,管理權限相關單元通過,PENDING,,,,assistant
+UI,密度／取消／草稿,名稱金額時間同列、啟用同行、直接移除、取消保留與未存提醒,既有10組合成畫面通過,PENDING,,,,assistant
+PAY,收款／方案,方案不多扣堂，附加獨立金額快照，應收與帳本一致,相關單元／SQL通過,PENDING,,,,assistant
+REFUND,部分退款／取消,部分退、不超原額、取消後仍可依原權限退款；不得改原款,相關單元／SQL通過,PENDING,,,,assistant
+HISTORY,移除／停用後歷史,停新選購不破壞舊訂單名稱數量價格及原收退款紀錄,相關單元通過,PENDING,,,,assistant
+RACE,重複／多人操作,相同requestKey冪等、revision衝突保留草稿，無雙收或串店人,相關單元通過；真Postgres並行未驗,PENDING,,,,assistant
+TENANT,實際身分跨店,OWNER/STAFF/無權STAFF/顧客對 A/B 店操作正確拒絕，不只mock,本機授權案例通過；真runtime未驗,PENDING,,,,assistant
+MAIN,主線回歸,班表預覽、切日月、平行讀取、請求快取與運動資格保留,相關單元通過,PENDING,,,,assistant
+CLEANUP,驗收清理,合成資料還原、舊資料對帳、臨時連結撤銷，無通知外發,未執行，尚無雲端變更,PENDING,,,,assistant

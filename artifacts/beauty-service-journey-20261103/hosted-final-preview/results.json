@@ -1,0 +1,185 @@
+{
+  "deployment": "dpl_HxYMWbwzSPA9Bc4ANGoa52Yg55LX",
+  "sha": "3e5e7df1f7841a2379b8c33b42bf155bb6aa9bc8",
+  "realOwnerLogin": true,
+  "submissions": 0,
+  "results": [
+    {
+      "width": 1366,
+      "height": 900,
+      "boxes": [
+        {
+          "label": "QA1503 加做1\n＋$200\n增加 10 分鐘",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "QA1503 B服務30 分鐘",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "QA1503 加做2\n＋$300\n增加 10 分鐘",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "測試做臉60 分鐘",
+          "checked": false,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "分別安排技師",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        }
+      ],
+      "overflow": false,
+      "actionReachable": true,
+      "draftPreserved": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "boxes": [
+        {
+          "label": "QA1503 加做1\n＋$200\n增加 10 分鐘",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "QA1503 B服務30 分鐘",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "QA1503 加做2\n＋$300\n增加 10 分鐘",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "測試做臉60 分鐘",
+          "checked": false,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "分別安排技師",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        }
+      ],
+      "overflow": false,
+      "actionReachable": true,
+      "draftPreserved": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "boxes": [
+        {
+          "label": "QA1503 加做1\n＋$200\n增加 10 分鐘",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "QA1503 B服務30 分鐘",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "QA1503 加做2\n＋$300\n增加 10 分鐘",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "測試做臉60 分鐘",
+          "checked": false,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "分別安排技師",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        }
+      ],
+      "overflow": false,
+      "actionReachable": true,
+      "draftPreserved": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "boxes": [
+        {
+          "label": "QA1503 加做1\n＋$200\n增加 10 分鐘",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "QA1503 B服務30 分鐘",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "QA1503 加做2\n＋$300\n增加 10 分鐘",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "測試做臉60 分鐘",
+          "checked": false,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        },
+        {
+          "label": "分別安排技師",
+          "checked": true,
+          "width": 20,
+          "height": 20,
+          "appearance": "auto"
+        }
+      ],
+      "overflow": false,
+      "actionReachable": true,
+      "draftPreserved": true
+    }
+  ],
+  "errors": []
+}

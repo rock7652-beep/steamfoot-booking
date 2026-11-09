@@ -1,4 +1,6 @@
 import "server-only";
+import {courseCalendarRead} from "./course-calendar-read-scope";
+import {coursePrisma} from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "../../../generated/course-client";
 import { resolveCourseSharedCardState, type CourseSharedCardSnapshot } from "@/lib/course-shared-card-policy";
@@ -34,5 +36,6 @@ export async function getCourseSharedCardStateInTransaction(tx: Reader, storeId:
 }
 
 export async function getCourseSharedCardState(storeId: string) {
-  return getCourseSharedCardStateInTransaction(prisma, storeId);
+  const calendar=courseCalendarRead(coursePrisma,storeId);
+  return calendar?calendar.once("shared-card-state",()=>getCourseSharedCardStateInTransaction(prisma,storeId)):getCourseSharedCardStateInTransaction(prisma, storeId);
 }

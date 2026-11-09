@@ -18,12 +18,18 @@ import { LineIdentityReviewError } from "@/server/services/line-identity-review"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockModule = vi.fn();
+const mockNotificationActivation = vi.hoisted(() => vi.fn(async () => "not_applicable"));
+vi.mock("@/server/services/verified-notification-first-login", () => ({ activateVerifiedNotificationMember: mockNotificationActivation }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: (...args: unknown[]) => mockModule(...args) }));
 const mockSignIn = vi.fn();
 const mockVerify = vi.fn();
 const mockResolveStoreBySlug = vi.fn();
 const mockResolveCustomer = vi.fn();
 const mockCanOnboardCourse = vi.fn();
+const mockCanOnboardBeauty = vi.fn();
+vi.mock("@/server/services/beauty-line-onboarding", () => ({
+  canOnboardVerifiedBeautyMember: (...args: unknown[]) => mockCanOnboardBeauty(...args),
+}));
 vi.mock("@/lib/auth", () => ({ signIn: (...args: unknown[]) => mockSignIn(...args) }));
 vi.mock("@/server/services/verified-line-customer", () => ({
   resolveVerifiedLineCustomer: (...args: unknown[]) => mockResolveCustomer(...args),
@@ -74,6 +80,36 @@ function verifiedOk(overrides: Partial<{ displayName: string | null; pictureUrl:
 }
 
 describe("POST /api/liff/exchange", () => {
+  it("creates a session for the verified new trial member without onboarding or staff approval", async () => {
+    mockModule.mockResolvedValue("steamfoot");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockResolveCustomer.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "original-trial", userId: "new-user", name: "顧客" });
+    mockNotificationActivation.mockResolvedValueOnce("activated");
+    const response = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
+    expect(await response.json()).toMatchObject({ status: "session_created", customerId: "original-trial" });
+    expect(mockNotificationActivation).toHaveBeenCalledWith({ storeId: STORE.id, lineUserId: LINE_USER_ID });
+    expect(mockSignIn).toHaveBeenCalledWith("liff-token", { idToken: "tok", storeSlug: "zhubei", redirect: false });
+  });
+  it.each(["unavailable", "activated"])("does not mint a session when first-login persistence cannot be confirmed: %s", async activation => {
+    mockModule.mockResolvedValue("steamfoot");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockResolveCustomer.mockResolvedValue(null);
+    mockNotificationActivation.mockResolvedValueOnce(activation);
+    const response = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
+    expect(response.status).toBe(503);
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
+  it("retains onboarding when the verified LINE subject does not match the notification recipient", async () => {
+    mockModule.mockResolvedValue("steamfoot");
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockResolveCustomer.mockResolvedValue(null);
+    mockNotificationActivation.mockResolvedValueOnce("not_applicable");
+    expect(await (await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }))).json()).toMatchObject({ status: "need_onboarding" });
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
   it("allows a steamfoot membership review form without minting a session", async () => {
     mockModule.mockResolvedValue("steamfoot");
     mockVerify.mockResolvedValueOnce(verifiedOk());
@@ -85,6 +121,7 @@ describe("POST /api/liff/exchange", () => {
     expect(mockSignIn).not.toHaveBeenCalled();
   });
   beforeEach(() => {
+    mockNotificationActivation.mockReset().mockResolvedValue("not_applicable");
     vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", CHANNEL);
     mockSignIn.mockReset();
     mockModule.mockReset().mockResolvedValue("course");
@@ -92,6 +129,7 @@ describe("POST /api/liff/exchange", () => {
     mockResolveStoreBySlug.mockReset();
     mockResolveCustomer.mockReset();
     mockCanOnboardCourse.mockReset();
+    mockCanOnboardBeauty.mockReset();
   });
 
   afterEach(() => {
@@ -147,6 +185,28 @@ describe("POST /api/liff/exchange", () => {
     });
     expect(mockSignIn).not.toHaveBeenCalled();
   });
+  it.each([true, false])("offers configured beauty onboarding only when eligible: %s", async eligible => {
+    vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([{
+      storeId: "beauty-store", slug: "beauty", providerId: "901", loginChannelId: "902",
+      messagingProviderId: "901", messagingChannelId: "903", liffId: "902-beauty",
+      basicId: "@beauty", destination: "U" + "a".repeat(32),
+      accessTokenEnv: "TEST_TOKEN", channelSecretEnv: "TEST_SECRET",
+    }]));
+    vi.stubEnv("STORE_LINE_ADDITIONAL_CONFIG_JSON", "");
+    mockModule.mockResolvedValue("beauty");
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce({ id: "beauty-store", slug: "beauty" });
+    mockResolveCustomer.mockRejectedValueOnce(new LineIdentityReviewError("store_membership_unconfirmed"));
+    mockCanOnboardBeauty.mockResolvedValueOnce(eligible);
+    const response = await POST(postReq({ idToken: "tok", storeSlug: "beauty" }));
+    expect(response.status).toBe(eligible ? 200 : 409);
+    expect(await response.json()).toMatchObject(eligible ? { status: "need_onboarding" } : { code: "IDENTITY_REVIEW_REQUIRED" });
+    expect(mockCanOnboardBeauty).toHaveBeenCalledWith({
+      storeId: "beauty-store", lineUserId: LINE_USER_ID, identityProvider: "line-provider:901",
+    });
+    expect(mockVerify).toHaveBeenCalledWith("tok", "902");
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
   it("keeps conflicting course memberships in staff review", async () => {
     mockVerify.mockResolvedValueOnce(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValueOnce({ id: "course-store", slug: "course" });
@@ -180,6 +240,9 @@ describe("POST /api/liff/exchange", () => {
 
     const res = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
     expect(res.status).toBe(200);
+    expect(res.headers.get("Server-Timing")).toMatch(/line_verify;dur=\d+/);
+    expect(res.headers.get("Server-Timing")).toMatch(/session_mint;dur=\d+/);
+    expect(res.headers.get("Server-Timing")).not.toMatch(/cust-1|user-1|Alice|tok/);
     const body = await res.json();
     expect(body).toMatchObject({
       status: "session_created",

@@ -1,0 +1,31 @@
+{
+  "sourceCommit": "9beba3298dadd1be2dbb8050450c4fdab17269f4",
+  "realOwnerLogin": true,
+  "displayedUrl": "https://steamfoot-referral-qa-20261105-7eiw4d6np.vercel.app/apply?ref=SB-TESTABCD",
+  "lineShareText": "推薦你使用蒸管家：https://steamfoot-referral-qa-20261105-7eiw4d6np.vercel.app/apply?ref=SB-TESTABCD",
+  "clipboardMatches": true,
+  "referralFormReceivesCode": true,
+  "confirmationUnchecked": true,
+  "noExternalMessagesSent": true,
+  "dimensions": [
+    {
+      "width": 390,
+      "body": 390,
+      "document": 390,
+      "horizontalOverflow": false
+    },
+    {
+      "width": 768,
+      "body": 768,
+      "document": 768,
+      "horizontalOverflow": false
+    },
+    {
+      "width": 1366,
+      "body": 1366,
+      "document": 1366,
+      "horizontalOverflow": false
+    }
+  ],
+  "errors": []
+}

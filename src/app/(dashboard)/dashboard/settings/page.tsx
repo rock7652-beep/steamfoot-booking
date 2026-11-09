@@ -1,5 +1,5 @@
-import { SteamfootNoticeSetting } from "@/components/admin/steamfoot-notice-setting";
-import { readSteamfootNoticeEnabled } from "@/server/services/steamfoot-store-notices";
+import {resolveBookingLineEntry} from "@/server/services/booking-line-entry";
+import {PublicBookingLinkRow} from "@/components/settings/public-booking-link-row";
 import { CustomerLabelsSettings } from "@/components/customer-labels";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
@@ -125,7 +125,6 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
     checkPermission(user.role, user.staffId, "customer.read"),
   ]);
 
-  const steamfootNoticesEnabled = industry === "steamfoot" && canBooking ? await readSteamfootNoticeEnabled(prisma, activeStoreId) : true;
 
   const planInfo = PRICING_PLAN_INFO[plan];
   const planLabel = planInfo?.label ?? plan;
@@ -151,7 +150,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
   // Feature availability never grants a staff permission required by the destination page.
   const commonNotificationRows = (
     <>
-      {industry === "steamfoot" && canBooking && <SteamfootNoticeSetting key={`${activeStoreId}:${steamfootNoticesEnabled}`} storeId={activeStoreId} initialEnabled={steamfootNoticesEnabled} canEdit={canHours && (user.role === "ADMIN" || user.storeId === activeStoreId)}/>}
+      {industry === "steamfoot" && canBooking && <p className="px-4 py-3 text-sm text-earth-600">門市小鈴噹持續接收營運通知；提示音可在小鈴噹內調整。</p>}
       <CustomerLabelsSettings />
       {canHours ? (
         <FeatureEntry feature={FEATURES.LINE_REMINDER} label="提醒管理">
@@ -197,6 +196,7 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
           label: "收款與體驗",
           content: (
             <>
+              <PublicBookingLinkRow href={store?.slug?resolveBookingLineEntry(store.slug)?.url??null:null}/>
               <SettingsListRow title="銀行轉帳資訊" summary={bankLine} href="/dashboard/settings/payment" action="修改" />
               {canManageTrial ? <SettingsListRow title="體驗設定" summary={trialLine} href="/dashboard/settings/trial" action="修改" /> : null}
             </>

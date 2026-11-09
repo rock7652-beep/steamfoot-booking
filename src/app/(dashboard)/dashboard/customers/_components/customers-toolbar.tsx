@@ -1,4 +1,5 @@
 "use client";
+import { normalizeCourseCustomerFilters } from "@/lib/course-customer-filters";
 import { CustomerLabelFilter } from "@/components/customer-labels";
 
 import { CustomerInstantSearch } from "@/components/customer-instant-search";
@@ -24,6 +25,7 @@ interface StaffOption {
 }
 
 interface Props {
+  beautyMode?: boolean;
   staffOptions: StaffOption[];
   /** 語意 basePath（例：`/dashboard/customers`）— 僅供「清除篩選」Link 使用，DashboardLink 會自動 prefix */
   basePath: string;
@@ -63,24 +65,23 @@ const SORT_OPTIONS: Array<{ value: string; label: string }> = [
 
 const FILTER_KEYS = ["label", "search", "status", "visit", "referral", "staff"] as const;
 
-export function CustomersToolbar({ staffOptions, basePath, courseMode = false, musicMode = false, instantStoreId, trailing, labelsInMore = false }: Props) {
+export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, courseMode = false, musicMode = false, instantStoreId, trailing }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname(); // 真實 pathname，含 /hq 或 /s/{slug}/admin 前綴
   const [isPending, startTransition] = useTransition();
   const [composing, setComposing] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const serverCurrent = useMemo(
     () => ({
       search: searchParams.get("search") ?? "",
-      status: searchParams.get("status") ?? "",
-      visit: searchParams.get("visit") ?? "",
-      referral: searchParams.get("referral") ?? "",
+      status: (beautyMode||courseMode)&&!["linked","unlinked"].includes(searchParams.get("status")??"")?"":searchParams.get("status") ?? "",
+      visit: (beautyMode||courseMode)?"":searchParams.get("visit") ?? "",
+      referral: (beautyMode||courseMode)?"":searchParams.get("referral") ?? "",
       staff: searchParams.get("staff") ?? "",
       sort: searchParams.get("sort") ?? "recent",
     }),
-    [searchParams]
+    [searchParams, beautyMode, courseMode]
   );
 
   const [filterDraft,setFilterDraft]=useState<typeof serverCurrent|null>(null);
@@ -103,7 +104,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
   // latest input while the previous server-rendered list is still pending.
   useEffect(() => {
     if (composing || isPending || instantQuery === current.search) return;
-    const params = new URLSearchParams(latestParams.current.toString());
+    const params = courseMode ? normalizeCourseCustomerFilters(latestParams.current) : new URLSearchParams(latestParams.current.toString());
     if (instantQuery) params.set("search", instantQuery);
     else params.delete("search");
     params.delete("page");
@@ -131,22 +132,15 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
     const v = searchParams.get(k);
     return !!v && v !== "";
   });
-  const advancedActiveCount = [current.status, current.visit, current.referral, current.staff, current.sort === "recent" ? "" : current.sort].filter(Boolean).length;
   const courseLabel = (label: string) => label.replaceAll("來店", "上課").replace("點數多寡", musicMode ? "可用堂數" : "可用點數");
-  const activeFilterLabels = [
-    STATUS_OPTIONS.find((option) => option.value === current.status)?.label,
-    VISIT_OPTIONS.find((option) => option.value === current.visit)?.label,
-    REFERRAL_OPTIONS.find((option) => option.value === current.referral)?.label,
-    staffOptions.find((option) => option.id === current.staff)?.displayName,
-    current.sort !== "recent" ? SORT_OPTIONS.find((option) => option.value === current.sort)?.label : undefined,
-  ].filter((label): label is string => !!label && !label.startsWith("全部")).map(courseLabel);
 
   const pushParams = (mutate: (p: URLSearchParams) => void) => {
-    const params = new URLSearchParams(latestParams.current.toString());
+    const params = courseMode ? normalizeCourseCustomerFilters(latestParams.current) : new URLSearchParams(latestParams.current.toString());
     if (instantStoreId || courseMode) {
       if (instantQuery) params.set("search", instantQuery);
       else params.delete("search");
     }
+    if(beautyMode){params.delete("visit");params.delete("referral");if(!["linked","unlinked"].includes(params.get("status")??""))params.delete("status");}
     mutate(params);
     // 任何篩選/排序變更都重置分頁
     params.delete("page");
@@ -170,104 +164,67 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, m
     setParam("search", instantStoreId ? instantQuery : searchDraft.trim());
   };
 
+  const clearSearchDraft = () => {
+    latestParams.current = new URLSearchParams(new URL(basePath, window.location.origin).search);
+    lastListRequest.current = null;
+    setDraft({source:"",value:""});
+  };
+
   const selectClass =
     `${courseMode ? "min-h-11 min-w-0 flex-1 sm:flex-none " : ""}rounded-md border border-earth-300 bg-white px-2 py-1.5 text-xs text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300 disabled:opacity-60`;
 
-  if (courseMode) {
-    return (
-      <div className="space-y-2 border-b border-earth-200 pb-3">
+  if (beautyMode) {
+    const field = "min-h-11 min-w-0 rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700";
+    return <div className="border-b border-earth-200 pb-3">
       {isPending && <NavigationNotice />}
-        <div className="flex flex-wrap items-center gap-2">
-          {!labelsInMore && <CustomerLabelFilter />}
-          <form onSubmit={onSearchSubmit} className="flex min-w-0 flex-1 items-center gap-2">
-            <input
-              name="search"
-              aria-label="搜尋姓名、電話或 LINE 名稱"
-              onCompositionStart={() => setComposing(true)}
-              onCompositionEnd={() => setComposing(false)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && (composing || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)) event.preventDefault();
-              }}
-              value={searchDraft}
-              onChange={(e) => setDraft({source:current.search,value:e.target.value})}
-              placeholder="輸入姓名、電話或 LINE 名稱"
-              className="min-h-11 min-w-0 flex-1 rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-800 placeholder:text-earth-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300"
-            />
-          </form>
-          <button
-            type="button"
-            aria-expanded={filtersOpen}
-            aria-controls="course-customer-filters"
-            onClick={() => setFiltersOpen((open) => !open)}
-            className="min-h-11 shrink-0 rounded-md border border-earth-300 bg-white px-4 text-sm font-medium text-earth-700 hover:border-primary-400 hover:text-primary-700"
-          >
-            篩選{advancedActiveCount > 0 ? `（${advancedActiveCount}）` : ""}
-          </button>
-          {trailing}
-        </div>
-
-        {!filtersOpen && activeFilterLabels.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-1.5" aria-label="目前篩選條件">
-            {activeFilterLabels.map((label) => (
-              <span key={label} className="rounded-full bg-primary-50 px-2.5 py-1 text-xs text-primary-700">{label}</span>
-            ))}
-            <Link href={basePath} className="ml-1 text-xs text-earth-500 underline-offset-2 hover:text-earth-700 hover:underline">
-              清除
-            </Link>
-          </div>
-        ) : null}
-
-        {filtersOpen ? (
-          <div id="course-customer-filters" className="rounded-lg border border-earth-200 bg-earth-50/50 p-3">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">{labelsInMore&&<CustomerLabelFilter/>}
-              <label className="space-y-1 text-sm text-earth-600">
-                <span>顧客狀態</span>
-                <select value={current.status} onChange={(e) => setParam("status", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
-                  {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
-                </select>
-              </label>
-              <label className="space-y-1 text-sm text-earth-600">
-                <span>上課狀態</span>
-                <select value={current.visit} onChange={(e) => setParam("visit", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
-                  {VISIT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
-                </select>
-              </label>
-              <label className="space-y-1 text-sm text-earth-600">
-                <span>推薦紀錄</span>
-                <select value={current.referral} onChange={(e) => setParam("referral", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
-                  {REFERRAL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </label>
-              {staffOptions.length > 0 ? (
-                <label className="space-y-1 text-sm text-earth-600">
-                  <span>所屬店長</span>
-                  <select value={current.staff} onChange={(e) => setParam("staff", e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
-                    <option value="">{courseMode ? "全部所屬店長" : "全部店長"}</option>
-                    {staffOptions.map((staff) => <option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
-                  </select>
-                </label>
-              ) : null}
-              <label className="space-y-1 text-sm text-earth-600">
-                <span>排序方式</span>
-                <select value={current.sort} onChange={(e) => setParam("sort", e.target.value === "recent" ? "" : e.target.value)}  className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
-                  {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
-                </select>
-              </label>
-            </div>
-            <div className="mt-3 flex items-center justify-end gap-3">
-              {hasActiveFilters || advancedActiveCount > 0 ? (
-                <Link href={basePath} className="inline-flex min-h-11 items-center px-2 text-sm text-earth-500 underline-offset-2 hover:text-earth-700 hover:underline">
-                  清除全部
-                </Link>
-              ) : null}
-              <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-md border border-earth-300 bg-white px-4 text-sm text-earth-700 hover:border-primary-400">
-                收合
-              </button>
-            </div>
-          </div>
-        ) : null}
+      <div className="flex min-w-0 flex-wrap items-center gap-2" aria-label="顧客搜尋與篩選">
+        <form onSubmit={onSearchSubmit} className="min-w-0 basis-56 flex-1">
+          <input aria-label="搜尋姓名、電話或 LINE 名稱" placeholder="姓名、電話或 LINE 名稱" value={searchDraft}
+            onCompositionStart={()=>setComposing(true)} onCompositionEnd={()=>setComposing(false)}
+            onKeyDown={event=>{if(event.key==="Enter"&&(composing||event.nativeEvent.isComposing))event.preventDefault();}}
+            onChange={event=>setDraft({source:current.search,value:event.target.value})} className={`${field} w-full`}/>
+        </form>
+        <div className="min-w-0 max-w-40 [&_select]:w-full [&_select]:min-w-0"><CustomerLabelFilter/></div>
+        <select aria-label="LINE 綁定" value={current.status} onChange={event=>setParam("status",event.target.value)} className={`${field} max-w-48`}>
+          <option value="">LINE：全部</option><option value="linked">LINE：已綁定</option><option value="unlinked">LINE：未綁定</option>
+        </select>
+        <select aria-label="所屬店長" value={current.staff} onChange={event=>setParam("staff",event.target.value)} className={`${field} max-w-48`}>
+          <option value="">全部所屬店長</option>{staffOptions.map(staff=><option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
+        </select>
+        <select aria-label="排序方式" value={current.sort} onChange={event=>setParam("sort",event.target.value==="recent"?"":event.target.value)} className={`${field} max-w-48`}>
+          <option value="recent">排序：最近來店</option><option value="created">排序：建立時間</option><option value="points">排序：可用次數</option>
+        </select>
+        {hasActiveFilters&&<Link href={basePath} onClick={clearSearchDraft} className="inline-flex min-h-11 shrink-0 items-center text-sm text-earth-600">清除篩選</Link>}
+        {trailing}
       </div>
-    );
+    </div>;
+  }
+
+  if (courseMode) {
+    const field = "min-h-11 min-w-0 rounded-md border border-earth-300 bg-white px-2 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300";
+    return <div className="border-b border-earth-200 pb-3">
+      {isPending && <NavigationNotice />}
+      <div className="flex min-w-0 flex-wrap items-center gap-2" aria-label="顧客搜尋與篩選">
+        <form onSubmit={onSearchSubmit} className="flex min-w-40 basis-40 flex-1 items-center gap-1">
+          <input name="search" aria-label="搜尋姓名、電話或 LINE 名稱" placeholder="姓名、電話或 LINE 名稱" value={searchDraft}
+            onCompositionStart={()=>setComposing(true)} onCompositionEnd={()=>setComposing(false)}
+            onKeyDown={event=>{if(event.key==="Enter"&&(composing||event.nativeEvent.isComposing||event.nativeEvent.keyCode===229))event.preventDefault();}}
+            onChange={event=>setDraft({source:current.search,value:event.target.value})} className={`${field} w-full flex-1`}/>
+          {(hasActiveFilters||current.sort!=="recent")&&<Link href={basePath} onClick={clearSearchDraft} aria-label="清除篩選" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center text-sm text-earth-600">清除</Link>}
+        </form>
+        <div className="w-40 min-w-0 empty:hidden [&_select]:w-full [&_select]:min-w-0"><CustomerLabelFilter/></div>
+        <select aria-label="LINE 綁定" value={current.status} onChange={event=>setParam("status",event.target.value)} className={`${field} w-36`}>
+          <option value="">LINE：全部</option><option value="linked">LINE：已綁定</option><option value="unlinked">LINE：未綁定</option>
+        </select>
+        <select aria-label="所屬店長" value={current.staff} onChange={event=>setParam("staff",event.target.value)} className={`${field} w-36`}>
+          <option value="">全部所屬店長</option>{staffOptions.map(staff=><option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
+        </select>
+        <select aria-label="排序方式" value={current.sort} onChange={event=>setParam("sort",event.target.value==="recent"?"":event.target.value)} className={`${field} w-36`}>
+          {SORT_OPTIONS.map(option=><option key={option.value} value={option.value}>排序：{courseLabel(option.label)}</option>)}
+        </select>
+        {trailing}
+      </div>
+    </div>;
   }
 
   return (

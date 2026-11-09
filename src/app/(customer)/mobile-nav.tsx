@@ -5,8 +5,7 @@ import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
 import { useState } from "react";
 import { AppLink as Link } from "@/components/app-link";
-import { logoutAction } from "@/server/actions/auth";
-import { LogoutButton } from "@/components/logout-button";
+import { FrontendAccountMenu } from "@/components/frontend-account-menu";
 import {
   CentralMemberStoreSwitcher,
   type CustomerStoreOption,
@@ -119,8 +118,9 @@ export function MobileNav({
             currentStoreSlug={storeSlug}
             stores={stores}
             compact
+            align="center"
           />
-          <span className="text-sm text-earth-700 max-w-[88px] truncate">{userName}</span>
+          <FrontendAccountMenu storeSlug={storeSlug} name={userName} />
         </div>
       </header>
 
@@ -180,16 +180,6 @@ export function MobileNav({
           })}
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 border-t border-earth-200 px-3 py-4">
-          <form action={logoutAction}>
-            <input type="hidden" name="storeSlug" value={storeSlug} />
-            <LogoutButton
-              className="flex w-full min-h-[48px] items-center gap-3 rounded-lg px-4 py-3 text-base text-earth-700 hover:bg-earth-50 hover:text-earth-900 transition"
-              iconClassName="text-earth-600"
-              iconSize={20}
-            />
-          </form>
-        </div>
       </nav>
     </>
   );

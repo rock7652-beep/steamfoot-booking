@@ -25,7 +25,7 @@ const db=url?new PrismaClient({datasourceUrl:url.toString()}):null;
   const migration=readFileSync("supabase/migrations/20260928101128_course_student_makeup_link.sql","utf8").replaceAll('public.',`"${schema}".`);
   for(const sql of migration.split(";").map(s=>s.trim()).filter(Boolean))await db!.$executeRawUnsafe(sql);
   for(const sql of [
-   'CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text)',
+   'CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text,"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')',
    'CREATE TABLE "Staff" (id text PRIMARY KEY,"storeId" text,"displayName" text)',
       'CREATE TABLE "Customer" (id text PRIMARY KEY,"storeId" text,name text,"mergedIntoCustomerId" text)',
    'CREATE TABLE "StoreFeatureEntitlement" ("storeId" text,"featureKey" text,status text)',
@@ -37,7 +37,7 @@ const db=url?new PrismaClient({datasourceUrl:url.toString()}):null;
  async function fixture(){
   vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2030-01-10T00:00:00Z"));
   const storeId=randomUUID(),customerId=randomUUID(); fixtureStoreIds.add(storeId);
-  await db!.$executeRaw`INSERT INTO "Store" VALUES (${storeId},'COURSE')`;
+  await db!.$executeRaw`INSERT INTO "Store" (id,"industryModule") VALUES (${storeId},'COURSE')`;
   await db!.$executeRaw`INSERT INTO "Customer" VALUES (${customerId},${storeId},'驗收學員',NULL)`;
   await db!.$executeRaw`INSERT INTO "StoreFeatureEntitlement" VALUES (${storeId},'business.music','ENABLED')`;
   const room=await db!.courseRoom.create({data:{storeId,name:"驗收教室"}});

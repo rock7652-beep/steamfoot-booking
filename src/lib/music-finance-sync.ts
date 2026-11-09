@@ -6,31 +6,39 @@ export function isMusicPreviewPage() {
     window.location.pathname.startsWith("/s/lubymusic/admin/");
 }
 export type MusicFinanceChange = "purchase" | "receipt" | "general";
-function publishSignal(name: string, token: string) {
+export type MusicFinanceContext = { calendarRefreshOwned: true };
+// Local-event metadata only: another tab must still invalidate its own page.
+const CALENDAR_REFRESH_OWNED = Symbol("local-calendar-refresh-owned");
+type FinanceEvent = CustomEvent<string> & { [CALENDAR_REFRESH_OWNED]?: true };
+function publishSignal(name: string, token: string, context?: MusicFinanceContext) {
   if (!isMusicPreviewPage()) return;
   try { localStorage.setItem(name, token); } catch { /* Storage may be disabled. */ }
-  window.dispatchEvent(new CustomEvent(name, { detail: token }));
+  const event = new CustomEvent(name, { detail: token }) as FinanceEvent;
+  if (context?.calendarRefreshOwned) event[CALENDAR_REFRESH_OWNED] = true;
+  window.dispatchEvent(event);
   try { const channel = new BroadcastChannel(name); channel.postMessage(token); channel.close(); } catch { /* storage events remain available */ }
 }
-export function publishMusicFinanceChange(kind: MusicFinanceChange = "general", token = `${kind}:${crypto.randomUUID()}`) {
-  publishSignal(MUSIC_FINANCE_SIGNAL, token);
+export function publishMusicFinanceChange(kind: MusicFinanceChange = "general", token = `${kind}:${crypto.randomUUID()}`, context?: MusicFinanceContext) {
+  publishSignal(MUSIC_FINANCE_SIGNAL, token, context);
 }
 /** Sent only after the server confirms commit, before optional student projections finish. */
 export function publishMusicRevenueCommit(token: string) {
   publishSignal(MUSIC_REVENUE_COMMIT_SIGNAL, token);
 }
-export function subscribeMusicFinanceChange(refresh: (kind: MusicFinanceChange) => void, includeRevenueCommit = false) {
+export function subscribeMusicFinanceChange(refresh: (kind: MusicFinanceChange, context?: MusicFinanceContext) => void, includeRevenueCommit = false) {
   const names = includeRevenueCommit ? [MUSIC_FINANCE_SIGNAL, MUSIC_REVENUE_COMMIT_SIGNAL] : [MUSIC_FINANCE_SIGNAL];
   const seen = new Set<string>();
   for (const name of names) { try { const token = localStorage.getItem(name); if (token) seen.add(token); } catch {} }
-  const accept = (token: unknown) => {
+  const accept = (token: unknown, calendarRefreshOwned = false) => {
     if (typeof token !== "string" || token.length > 100 || !token || seen.has(token)) return;
     seen.add(token);
     if (seen.size > 128) seen.delete(seen.values().next().value!);
-    refresh(token.startsWith("purchase:") ? "purchase" : token.startsWith("receipt:") ? "receipt" : "general");
+    const kind = token.startsWith("purchase:") ? "purchase" : token.startsWith("receipt:") ? "receipt" : "general";
+    if (calendarRefreshOwned) refresh(kind, { calendarRefreshOwned: true });
+    else refresh(kind);
   };
   const storage = (event: StorageEvent) => { if (names.includes(event.key ?? "")) accept(event.newValue); };
-  const local = (event: Event) => accept((event as CustomEvent).detail);
+  const local = (event: Event) => accept((event as FinanceEvent).detail, (event as FinanceEvent)[CALENDAR_REFRESH_OWNED] === true);
   const resume = () => {
     for (const name of names) { try { accept(localStorage.getItem(name)); } catch {} }
   };

@@ -19,12 +19,12 @@ import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { FEATURES } from "@/lib/feature-flags";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 
-function render(module: "steamfoot" | "course" | "spa" | "beauty", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : [], hiddenInventory = false, canOpenCourseSettings = isOwner, auditGranted = false) {
+function render(module: "steamfoot" | "course" | "spa" | "beauty", selected: string | null, path = "/hq/dashboard", musicEnabled = false, isOwner = true, permissions: string[] = isOwner ? [...ALL_PERMISSIONS] : [], hiddenInventory = false, canOpenCourseSettings = isOwner, auditGranted = false, steamfootAddOnsEnabled = false) {
   context.path = path;
   context.search = "";
   return renderToStaticMarkup(createElement(DashboardShell, {
     industryModule: module, industryModuleId: module, musicEnabled, isOwner,
-    canOpenCourseSettings,
+    canOpenCourseSettings, steamfootAddOnsEnabled,
     courseNoticeStoreId: selected,
     canViewAudit: auditGranted || (path.startsWith("/hq") && !selected),
     operationGuidePreview: true,
@@ -104,8 +104,13 @@ describe("actual HQ shell rendering", () => {
       expect(html).not.toContain("收款與營收");
       expect(html).not.toContain("進銷存");
     } else {
-      expect(html.indexOf("顧客經營")).toBeLessThan(html.indexOf("進銷存"));
-      expect(html.indexOf("進銷存")).toBeLessThan(html.indexOf("營運</span>"));
+      expect(html.indexOf("顧客經營")).toBeLessThan(html.indexOf("營運</span>"));
+      if (module === "course") {
+        expect(html.indexOf("營運</span>")).toBeLessThan(html.indexOf("分析</span>"));
+        expect(html.indexOf("分析</span>")).toBeLessThan(html.indexOf("進銷存"));
+      } else {
+        expect(html.indexOf("進銷存")).toBeLessThan(html.indexOf("營運</span>"));
+      }
     }
     expect(html.indexOf(music ? "收費方式" : "方案管理")).toBeLessThan(html.indexOf("人員管理"));
     expect(html).not.toContain("數位管家名單</span>");
@@ -220,4 +225,14 @@ it('beauty exposes shared work orders and inventory while respecting hidden enti
  const enabled=render('beauty','a','/s/a/admin/dashboard/beauty');expect(enabled).toContain('工單');expect(enabled).toContain('進銷存');
  expect(render('beauty','a','/s/a/admin/dashboard/beauty',false,false,['booking.read'])).not.toContain('>進銷存<');
  const hidden=render('beauty','a','/s/a/admin/dashboard/beauty',false,true,[...ALL_PERMISSIONS],true);expect(hidden).not.toContain('>進銷存<');
+});
+
+it('shows Steamfoot add-ons beside plan management only with rollout, module and edit permission',()=>{
+ const enabled=render('steamfoot','a','/s/a/admin/dashboard',false,true,[...ALL_PERMISSIONS],false,true,false,true);
+ expect(enabled).toContain('/s/a/admin/dashboard/add-ons');
+ expect(enabled.indexOf('/s/a/admin/dashboard/plans')).toBeLessThan(enabled.indexOf('/s/a/admin/dashboard/add-ons'));
+ expect(render('steamfoot','a','/s/a/admin/dashboard')).not.toContain('/dashboard/add-ons');
+ expect(render('steamfoot','a','/s/a/admin/dashboard',false,false,['booking.read'],false,false,false,true)).not.toContain('/dashboard/add-ons');
+ expect(render('course','a','/s/a/admin/dashboard',false,true,[...ALL_PERMISSIONS],false,true,false,true)).toContain('/dashboard/add-ons');
+ expect(render('beauty','a','/s/a/admin/dashboard',false,true,[...ALL_PERMISSIONS],false,true,false,true)).toContain('/dashboard/add-ons');
 });

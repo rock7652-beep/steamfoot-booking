@@ -1,0 +1,90 @@
+{
+  "scope": "Actual remote Preview, dedicated synthetic tenant only",
+  "commit": "c78865ba0328f563e8f59e6cc3f254f676824be4",
+  "results": [
+    {
+      "phase": "read",
+      "pass": true
+    },
+    {
+      "phase": "receipt1",
+      "pass": true
+    },
+    {
+      "phase": "receipt2",
+      "pass": true
+    },
+    {
+      "phase": "refund",
+      "pass": true
+    },
+    {
+      "phase": "monthly",
+      "pass": true
+    },
+    {
+      "phase": "export",
+      "pass": true
+    },
+    {
+      "phase": "periods",
+      "pass": true
+    },
+    {
+      "phase": "responsive",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "setupAttempts": [
+    {
+      "phase": "read",
+      "message": "locator.fill: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByLabel('Email', { exact: true })\u001b[22m\n"
+    },
+    {
+      "phase": "read",
+      "message": "Cannot read properties of null (reading 'user')"
+    },
+    {
+      "phase": "receipt1",
+      "message": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').last() to be hidden\u001b[22m\n\u001b[2m    6 × locator resolved to visible <aside tabindex=\"-1\" role=\"dialog\" aria-modal=\"true\" data-fit-content=\"true\" aria-labelledby=\"_r_a_\" class=\"right-sheet-module__2vBPGq__panel right-sheet-module__2vBPGq__centered right-sheet-module__2vBPGq__mobileScrollable flex flex-col  bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 visible\">…</aside>\u001b[22m\n\u001b[2m    176 × locator resolved to visible <aside tabindex=\"-1\" role=\"dialog\" aria-modal=\"true\" data-fixed-height=\"true\" aria-labelledby=\"course-member-sheet\" class=\"right-sheet-module__2vBPGq__panel right-sheet-module__2vBPGq__centered right-sheet-module__2vBPGq__mobileScrollable flex flex-col  bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 visible\">…</aside>\u001b[22m\n"
+    },
+    {
+      "phase": "refund",
+      "message": "locator.click: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: '登錄退款', exact: true })\u001b[22m\n"
+    },
+    {
+      "phase": "monthly",
+      "message": "locator.waitFor: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: '重新確認', exact: true }) to be visible\u001b[22m\n"
+    },
+    {
+      "phase": "monthly",
+      "message": "locator.waitFor: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('status').filter({ hasText: '已儲存' }) to be visible\u001b[22m\n"
+    },
+    {
+      "phase": "periods",
+      "message": "Expected values to be strictly equal:\n\n9200 !== 3200\n"
+    }
+  ],
+  "priorFailures": [
+    {
+      "phase": "read",
+      "message": "locator.waitFor: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: '補登收款', exact: true }).first() to be visible\u001b[22m\n"
+    }
+  ],
+  "databaseConfirmedWrites": {
+    "receipt1": true,
+    "monthlyConfirmation": true,
+    "monthlyFee": true
+  },
+  "sheets": [
+    "方案分次收款",
+    "體驗收款",
+    "購買登錄",
+    "退款發生"
+  ],
+  "complete": true,
+  "productionMutatedByThisTask": false,
+  "physicalIPad": false,
+  "priorSessionRevoked": true
+}

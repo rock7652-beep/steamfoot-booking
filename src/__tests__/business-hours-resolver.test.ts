@@ -17,6 +17,7 @@ import {
   buildSpecialDayMap,
   enumerateMonthDates,
   resolveDayRule,
+  resolveSlotDayRule,
   type BusinessHoursRow,
   type SpecialDayRow,
   type SlotOverrideRow,
@@ -228,7 +229,7 @@ describe("applySlotOverrides — 套用 SlotOverride", () => {
     expect(late!.override).toBe("enabled");
   });
 
-  it("公休日不會生成任何時段（即使有 enabled override）", () => {
+  it("公休日只開放明確加開的時段，不生成原本的營業時段", () => {
     const closedRule = resolveDayRule({
       dateStr: "2026-05-05",
       dow: 2,
@@ -236,7 +237,27 @@ describe("applySlotOverrides — 套用 SlotOverride", () => {
       businessHoursMap: buildBusinessHoursMap([bh(2, true, "10:00", "13:00")]),
     });
     const slots = applySlotOverrides(closedRule, [override("2026-05-05", "12:00", "enabled")]);
-    expect(slots).toEqual([]);
+    expect(slots.map(s => [s.startTime, s.isEnabled, s.inRange])).toEqual([["12:00", true, false]]);
+    expect(applySlotOverrides(closedRule, [])).toEqual([]);
+  });
+
+  it("加開後單日狀態為自訂，關閉最後一個時段恢復公休；原規則不變", () => {
+    const rule=resolveDayRule({dateStr:"2026-11-03",dow:2,specialDayMap:new Map(),businessHoursMap:buildBusinessHoursMap([bh(2,false)])});
+    const enabled=[override("2026-11-03","19:30","enabled",{capacity:4})];
+    const effective=resolveSlotDayRule(rule,enabled);
+    expect(effective).toMatchObject({closed:false,status:"custom",openTime:"19:30",closeTime:"20:30",periods:[]});
+    expect(applySlotOverrides(effective,enabled).map(s=>[s.startTime,s.capacity])).toEqual([["19:30",4]]);
+    expect(rule).toMatchObject({closed:true,status:"closed",periods:[]});
+    const disabled=[override("2026-11-03","19:30","disabled")];
+    expect(resolveSlotDayRule(rule,disabled)).toEqual(rule);
+    expect(applySlotOverrides(rule,disabled)).toMatchObject([{startTime:"19:30",isEnabled:false,inRange:false}]);
+  });
+
+  it.each(["training","none"])("%s 不會因為舊加開資料而開放", (type) => {
+    const rule=resolveDayRule({dateStr:"2026-11-03",dow:2,specialDayMap:type==="training"?buildSpecialDayMap([specialDay("2026-11-03","training")]):new Map(),businessHoursMap:new Map()});
+    const overrides=[override("2026-11-03","19:30","enabled")];
+    expect(resolveSlotDayRule(rule,overrides).closed).toBe(true);
+    expect(applySlotOverrides(rule,overrides)).toEqual([]);
   });
 
   it("結果按 startTime 升序排列", () => {

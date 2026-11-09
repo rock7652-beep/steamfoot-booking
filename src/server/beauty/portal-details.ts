@@ -5,12 +5,14 @@ import type {BeautyActor} from './access';
 import {AppError} from '@/lib/errors';
 import {monthRange,toLocalMonthStr} from '@/lib/date-utils';
 import {publicReceipt} from './booking';
+import {beautySessionAdjustmentRecords} from './session-adjustment';
 export async function beautyCardHistoryForActor(a:BeautyActor,cardId:string){
  z.string().min(1).max(100).parse(cardId);
  const card=await beautyPrisma.beautyCard.findFirst({where:{id:cardId,storeId:a.storeId,memberIds:{has:a.customerId!}},select:{id:true}});
  if(!card)throw new AppError('FORBIDDEN','無法查看此方案');
  const rows=await beautyPrisma.beautyLedger.findMany({where:{storeId:a.storeId,cardId:card.id},select:{id:true,kind:true,delta:true,createdAt:true},orderBy:{createdAt:'desc'},take:100});
- return rows.map(l=>({...l,createdAt:l.createdAt.toISOString()}));
+ const manual=rows.some(r=>r.id.startsWith('plan-session-adjustment:'))?await beautySessionAdjustmentRecords(beautyPrisma,a.storeId,[card.id]):[];
+ return rows.map(l=>{const record=manual.find(r=>r.id===l.id);return {...l,createdAt:l.createdAt.toISOString(),...(record?{adjustment:{operation:record.operation,occurredOn:record.occurredOn,reversed:manual.some(r=>r.reversalOf===record.id)}}:{adjustment:undefined})};});
 }
 export async function beautyOwnIncomeForActor(a:BeautyActor,month=toLocalMonthStr()){
  z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/).parse(month);

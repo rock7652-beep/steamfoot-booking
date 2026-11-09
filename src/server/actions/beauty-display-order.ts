@@ -18,6 +18,7 @@ export async function saveBeautyDisplayOrder(input:unknown){
   const revision=await beautyTransaction(a,async tx=>{
    const rows=d.kind==='staff'?[...await tx.beautyTechnician.findMany({where:{storeId:a.storeId},select:{id:true},orderBy:{id:'asc'}}),...await prisma.staff.findMany({where:{storeId:a.storeId},select:{id:true},orderBy:{id:'asc'}})]:d.kind==="room"?await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "CourseRoom" WHERE "storeId"=${a.storeId}`:d.kind==='plan'?await tx.beautyPlan.findMany({where:{storeId:a.storeId},select:{id:true},orderBy:{id:'asc'}}):await tx.beautyService.findMany({where:{storeId:a.storeId},select:{id:true},orderBy:{id:"asc"}});
    const knownIds=rows.map(r=>d.kind==='plan'?'plan:'+r.id:r.id);
+   if(d.kind==='plan'){const services=await tx.beautyService.findMany({where:{storeId:a.storeId},select:{id:true},orderBy:{id:'asc'}});knownIds.push(...services.map(s=>'service:'+s.id));}
    const known=new Set(knownIds);
    if(d.ids.some(id=>!known.has(id)))throw new AppError("FORBIDDEN","排序只能包含本店現有項目，請重新整理");
    const [previous]=await tx.$queryRaw<CourseOrderSnapshot[]>`SELECT ids,revision FROM "CourseDisplayOrder" WHERE "storeId"=${a.storeId} AND kind=${d.kind} FOR UPDATE`;

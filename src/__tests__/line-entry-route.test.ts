@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
   resolve: vi.fn(),
+  entry: vi.fn(),
   createMany: vi.fn(),
   customerFindFirst: vi.fn(),
   customerFindUnique: vi.fn(),
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/server/queries/line-referral-entry", () => ({
   resolveLineReferralEntry: mocks.resolve,
 }));
+vi.mock("@/server/services/booking-line-entry", () => ({resolveBookingLineEntry: mocks.entry}));
 vi.mock("@/lib/db", () => ({
   prisma: {
     referralEvent: { createMany: mocks.createMany },
@@ -29,6 +31,7 @@ import { bindReferralToCustomer } from "@/server/services/referral-binding";
 describe("GET /line-entry", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.entry.mockImplementation((slug: string) => slug === "taichung" ? {storeId: null, url: "https://liff.line.me/2010761154-mupiLvI6"} : null);
     mocks.resolve.mockResolvedValue({
       status: "READY",
       storeId: "store-t",
@@ -85,6 +88,7 @@ describe("GET /line-entry", () => {
     );
 
     expect(response.status).toBe(307);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("location")).toBe("https://lin.ee/taichung");
     const cookies = response.headers.getSetCookie().join("\n");
     expect(cookies).toContain("pending-ref=customer-t");
@@ -104,6 +108,7 @@ describe("GET /line-entry", () => {
     );
 
     expect(response.status).toBe(307);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("location")).toBe(
       "https://liff.line.me/2010761154-mupiLvI6",
     );
@@ -132,6 +137,7 @@ describe("GET /line-entry", () => {
     );
 
     expect(response.status).toBe(307);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("location")).toBe("https://lin.ee/taichung");
     expect(response.headers.getSetCookie().join("\n")).toContain(
       "pending-ref=customer-t",
@@ -157,11 +163,24 @@ describe("GET /line-entry", () => {
 });
 
 
-it("課程分享保留推薦來源、只記錄點擊，留在隔離同店入口", async () => {
+it("課程公開體驗分享保留推薦來源、只記錄點擊並進入同店 LIFF", async () => {
   vi.clearAllMocks();
+  mocks.entry.mockReturnValue({storeId: "course", url: "https://liff.line.me/902-course/public-trial?bookingStore=course-test"});
   mocks.resolve.mockResolvedValue({ status: "READY", storeId: "course", referrerId: "course-referrer", lineOfficialUrl: "", coursePath: "/s/course-test/book" });
   const response = await GET(new NextRequest("https://preview.example.test/line-entry?ref=ABC234&destination=public-trial", { headers: { "x-store-slug": "course-test" } }));
-  expect(response.headers.get("location")).toBe("https://preview.example.test/s/course-test/book");
+  expect(response.headers.get("location")).toBe("https://liff.line.me/902-course/public-trial?bookingStore=course-test");
   expect(response.headers.getSetCookie().join(";")).toContain("pending-ref=course-referrer");
   expect(mocks.createMany).toHaveBeenCalledWith({ data: [{ storeId: "course", referrerId: "course-referrer", type: "LINK_CLICK", source: "course-member-share" }] });
+});
+
+
+it.each([null, {storeId: "another-store", url: "https://liff.line.me/902-other"}])("rejects missing or mismatched trial configuration without losing users into another entry", async entry => {
+  vi.clearAllMocks();
+  mocks.entry.mockReturnValue(entry);
+  mocks.resolve.mockResolvedValue({status:"READY",storeId:"course",referrerId:"ref",coursePath:"/s/course-test/book",lineOfficialUrl:"https://lin.ee/other"});
+  const response = await GET(new NextRequest("https://example.test/line-entry?ref=ABC234&destination=public-trial", {headers:{"x-store-slug":"course-test"}}));
+  expect(response.status).toBe(400);
+  expect(response.headers.get("location")).toBeNull();
+  expect(response.headers.getSetCookie()).toHaveLength(0);
+  expect(mocks.createMany).not.toHaveBeenCalled();
 });

@@ -4,7 +4,7 @@ import { jsx } from "react/jsx-runtime";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { LabelSnapshot } from "@/lib/customer-labels";
-const mocks = vi.hoisted(() => ({ month: vi.fn(), slots: vi.fn(), detail: vi.fn(), labels: vi.fn(), write: vi.fn() }));
+const mocks = vi.hoisted(() => ({ month: vi.fn(), slots: vi.fn(), detail: vi.fn(), labels: vi.fn(), write: vi.fn(), slotSaved: null as null | (() => Promise<void>) }));
 vi.mock("@/lib/booking-month-read", () => ({ readBookingMonth: mocks.month }));
 vi.mock("@/lib/booking-client-transport", () => ({ readBookingSlots: mocks.slots, readBookingDetail: mocks.detail, updateBookingStatus: mocks.write }));
 vi.mock("@/server/actions/booking", () => ({ markCompletedBatch: mocks.write }));
@@ -14,7 +14,7 @@ vi.mock("next/link", () => ({ default: ({ href, children, prefetch: _prefetch, s
 vi.mock("@/app/(dashboard)/dashboard/_components/trial-booking-drawer", () => ({ TrialBookingDrawer: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/steam-booking-drawer", () => ({ SteamBookingDrawer: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/bookings/booking-detail-drawer", () => ({ BookingDetailDrawer: ({ open, bookingId, onUpdated, onClose }: { open: boolean; bookingId: string; onUpdated: (id: string, status: null) => void; onClose: () => void }) => open ? React.createElement("button", { "data-fixture-payment": true, onClick: () => { onUpdated(bookingId, null); onClose(); } }, "合成逐人收款成功") : null }));
-vi.mock("@/app/(dashboard)/dashboard/bookings/day-slot-manager", () => ({ DaySlotManager: () => null }));
+vi.mock("@/app/(dashboard)/dashboard/bookings/day-slot-manager", () => ({ DaySlotManager: ({onSaved}:{onSaved:()=>Promise<void>}) => { mocks.slotSaved=onSaved; return null; } }));
 import { OperationScope } from "@/components/operations/operation-scope";
 import { CustomerLabelsProvider } from "@/components/customer-labels";
 import { BookingMonthWorkspace } from "@/app/(dashboard)/dashboard/bookings/booking-month-workspace";
@@ -48,8 +48,8 @@ beforeEach(() => {
   host = document.createElement("div"); document.body.append(host); root = createRoot(host, { onCaughtError: () => {} });
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
-async function openDay(rows = monthData()) {
-  await act(async () => root.render(jsx(TestBoundary, { children: jsx(OperationScope, { scope: "synthetic-matrix", children: jsx(CustomerLabelsProvider, { initial: { ...labels, assignments: {} }, children: jsx(BookingMonthWorkspace, { year: 2026, month: 9, storeId: "staging-store", monthData: rows, monthSchedule: {}, customerLabels: labels, servicePlans: [] }) }) }) })));
+async function openDay(rows = monthData(), schedule: BookingsManagerProps["monthSchedule"] = {}) {
+  await act(async () => root.render(jsx(TestBoundary, { children: jsx(OperationScope, { scope: "synthetic-matrix", children: jsx(CustomerLabelsProvider, { initial: { ...labels, assignments: {} }, children: jsx(BookingMonthWorkspace, { year: 2026, month: 9, storeId: "staging-store", monthData: rows, monthSchedule: schedule, customerLabels: labels, servicePlans: [], canManageHours: true }) }) }) })));
   const day = host.querySelector<HTMLElement>(`[role="button"][aria-label="${date} 的預約"]`)!;
   expect(day).not.toBeNull();
   await act(async () => day.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
@@ -218,4 +218,24 @@ it("restores the retained day roster after a synthetic history Back between mont
     expect(host.querySelectorAll("[data-batch]")).toHaveLength(5);
     expect(caught).toEqual([]); expect(mocks.write).not.toHaveBeenCalled();
   } finally { window.removeEventListener("popstate", pop); }
+});
+
+it("updates the retained closed-day calendar and roster after slot changes without reloading", async () => {
+  const rows=monthData("",0);
+  const closed={status:"closed" as const,openTime:null,closeTime:null,slotCount:0,overrideCount:0};
+  await openDay(rows,{[date]:closed});
+  expect(host.textContent).toContain("公休 — 不可預約");
+  mocks.slots.mockResolvedValue({slots:[{startTime:"19:30",capacity:4,bookedCount:0,available:4,isEnabled:true,isPast:false}]});
+  mocks.month.mockResolvedValue({monthData:rows,monthSchedule:{[date]:{...closed,status:"custom",slotCount:1,overrideCount:1}},slots:null,customerLabels:labels});
+  await act(async()=>mocks.slotSaved!());
+  expect(host.textContent).toContain("可預約 — 尚無預約");
+  expect(host.querySelector(`[aria-label="${date} 的預約"]`)?.textContent).not.toContain("公休");
+  expect(host.textContent).toContain("9/24（週四） 當日預約");
+  mocks.slots.mockResolvedValue({slots:[]});
+  mocks.month.mockResolvedValue({monthData:rows,monthSchedule:{[date]:closed},slots:null,customerLabels:labels});
+  await act(async()=>mocks.slotSaved!());
+  expect(host.textContent).toContain("公休 — 不可預約");
+  expect(host.querySelector(`[aria-label="${date} 的預約"]`)?.textContent).toContain("公休");
+  expect(mocks.write).not.toHaveBeenCalled();
+  expect(caught).toEqual([]);
 });

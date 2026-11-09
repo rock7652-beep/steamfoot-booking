@@ -123,3 +123,63 @@
   min-height: 44px;
   padding-inline: 8px;
 }
+
+/* Keep primary actions at the right edge while dates scroll independently. */
+.calendarHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.calendarNavigation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.calendarNavigation > * { flex-shrink: 0; }
+.calendarActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.calendarHeader :is(button, a, input[type="date"]) { min-height: 44px; }
+.calendarNavigation input[type="date"] { width: 144px; }
+
+/* Legends remain visible, with only the control area scrolling when needed. */
+.calendarToolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  gap: 8px;
+  overflow-x: auto;
+}
+.calendarToolbarControls {
+  display: flex;
+  flex: 1 1 0%;
+  align-items: center;
+  gap: 8px;
+  min-width: 88px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.calendarToolbarControls > * { flex-shrink: 0; }
+.calendarLegend { flex: 0 0 auto; margin-left: auto; }
+.calendarLegend > div { flex-wrap: nowrap; column-gap: 8px; }
+.calendarLegend .legendFull {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+}
+.calendarLegend .legendShort { display: none; }

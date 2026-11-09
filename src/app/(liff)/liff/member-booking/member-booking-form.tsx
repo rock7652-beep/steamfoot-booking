@@ -96,6 +96,7 @@ type State =
       slotTime: string;
       people: number;
       usedMakeupCount: number;
+      planSessionCount: number;
     }
   | {
       kind: "blocked";
@@ -125,6 +126,8 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-NoShow-2：有效補課券（最早到期優先）。people=N 時券 >= N 即自動使用 N 張。
   const [makeupCredits, setMakeupCredits] = useState<LiffMakeupCreditRow[]>([]);
+  const [planWallets, setPlanWallets] = useState<LiffWalletRow[]>([]);
+  const [preferredWalletId, setPreferredWalletId] = useState("");
   // 預約人數（1~4）。
   const [people, setPeople] = useState(bookingNextPeople ?? 1);
   const [upcomingBookings, setUpcomingBookings] = useState<
@@ -211,6 +214,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
         }
 
         const active: LiffWalletRow[] = walletResult.active;
+        setPlanWallets(active.filter(wallet => wallet.availableToBook > 0));
         const credits = walletResult.makeupCredits;
         setMakeupCredits(credits);
         const totalAvailable = active.reduce(
@@ -331,6 +335,16 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   async function handleSubmit() {
     if (!selectedDate || !selectedSlot) return;
     if (state.kind !== "ready" && state.kind !== "blocked") return;
+    if (preferredWalletUnavailable) return;
+    if (makeupCount > 0) {
+      const usage = planSessionCount > 0
+        ? `，另使用 ${planSessionCount} 堂方案`
+        : "，不扣方案堂數";
+      const confirmed = window.confirm(
+        `本次優先使用 ${makeupCount} 張補課券${usage}。\n${selectedDate} ${selectedSlot}・${people} 人\n確認預約？`,
+      );
+      if (!confirmed) return;
+    }
     const walletCarry: WalletSummary =
       state.kind === "ready" ? state.wallet : state.wallet;
     setState({ kind: "submitting", wallet: walletCarry });
@@ -341,6 +355,9 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
         bookingDate: selectedDate,
         slotTime: selectedSlot,
         people,
+        ...(planSessionCount > 0 && preferredWalletId
+          ? { customerPlanWalletId: preferredWalletId }
+          : {}),
         requestKey: requestKey.current(),
       });
     } catch (err) {
@@ -357,8 +374,9 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           bookingDate: result.bookingDate,
           slotTime: result.slotTime,
           people,
-          // 補課券是 server 自選 N 張（= people）；result.usedMakeup 為真才顯示。
-          usedMakeupCount: result.usedMakeup ? people : 0,
+          // 僅依後端已保存的扣抵紀錄顯示結果。
+          usedMakeupCount: result.usedMakeupCount,
+          planSessionCount: result.planSessionCount,
         });
         return;
       case "invalid_input":
@@ -419,6 +437,16 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
         return;
       case "wallet_expired":
         setState({ kind: "no_wallet", reason: "expired" });
+        return;
+      case "wallet_unavailable":
+        setState({
+          kind: "blocked",
+          wallet: walletCarry,
+          message: liffMessages.memberBooking.preferredWalletRefresh,
+          showRetry: true,
+          showContactStore: false,
+          showDismiss: false,
+        });
         return;
       case "insufficient_sessions":
         setState({ kind: "no_wallet", reason: "insufficient" });
@@ -535,6 +563,11 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   );
   const makeupCount = Math.min(makeupCredits.length, people);
   const planSessionCount = people - makeupCount;
+  const preferredWallet = planWallets.find(wallet => wallet.id === preferredWalletId);
+  const walletCoversDate = (wallet: LiffWalletRow) =>
+    !selectedDate || !wallet.expiryDate || wallet.expiryDate >= selectedDate;
+  const preferredWalletUnavailable = planSessionCount > 0 && !!preferredWalletId &&
+    (!preferredWallet || !walletCoversDate(preferredWallet));
   const deductionSummary = [
     planSessionCount > 0 ? `使用 ${planSessionCount} 堂` : null,
     makeupCount > 0 ? `補課 ${makeupCount} 張` : null,
@@ -543,6 +576,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     state.kind === "submitting" ||
     !selectedDate ||
     !selectedSlot ||
+    preferredWalletUnavailable ||
     cannotCoverPeople;
 
   return (
@@ -615,6 +649,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           bookingDate={state.bookingDate}
           slotTime={state.slotTime}
           usedMakeupCount={state.usedMakeupCount}
+          planSessionCount={state.planSessionCount}
           onBookNext={() => handleBookNext(state.people)}
         />
       )}
@@ -668,33 +703,42 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
             </span>
           </div>
 
-          {/* 補課券：券 >= people → 自動使用 N 張；不足 → 提示改人數/用方案 */}
-          {makeupCredits.length >= people && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <p className="text-sm font-semibold text-amber-900">
-                {liffMessages.memberBooking.makeupHint.replace(
-                  "{count}",
-                  String(people),
-                )}
-              </p>
-              {makeupCredits[0].expiredAt && (
-                <p className="mt-0.5 text-xs text-amber-700">
-                  {liffMessages.memberBooking.makeupHintExpiry.replace(
-                    "{date}",
-                    makeupCredits[0].expiredAt.split("-").join("/"),
-                  )}
-                </p>
-              )}
+          {makeupCount > 0 && (
+            <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-base text-amber-900">
+              <p className="font-semibold">本次優先使用 {makeupCount} 張補課券</p>
+              <p>{planSessionCount > 0 ? `另使用 ${planSessionCount} 堂方案，補課部分不扣方案堂數。` : "本次不扣方案堂數。"}</p>
+              {makeupCredits[0]?.expiredAt && <p className="mt-1">最早到期：{makeupCredits[0].expiredAt.replaceAll("-", "/")}</p>}
             </div>
           )}
-          {makeupCredits.length > 0 && makeupCredits.length < people && (
-            <div className="rounded-xl border border-earth-200 bg-earth-50 px-4 py-3">
-              <p className="text-xs text-earth-700">
-                {liffMessages.memberBooking.makeupInsufficient
-                  .replace("{need}", String(people))
-                  .replace("{have}", String(makeupCredits.length))}
-              </p>
-            </div>
+
+          {planSessionCount > 0 && planWallets.length > 1 && (
+            <label className="block rounded-xl border border-earth-200 bg-white px-4 py-3 text-base text-earth-800">
+              <span className="font-semibold">{liffMessages.memberBooking.preferredWalletLabel}</span>
+              <select
+                className="mt-2 min-h-12 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-3 text-base"
+                value={preferredWalletId}
+                onChange={event => setPreferredWalletId(event.target.value)}
+                disabled={state.kind === "submitting"}
+                aria-describedby={preferredWallet ? "preferred-wallet-details" : undefined}
+              >
+                <option value="">{liffMessages.memberBooking.preferredWalletAuto}</option>
+                {planWallets.map(wallet => (
+                  <option key={wallet.id} value={wallet.id} disabled={!walletCoversDate(wallet)}>
+                    {wallet.planName}
+                  </option>
+                ))}
+              </select>
+              {preferredWallet && (
+                <p id="preferred-wallet-details" className="mt-2 font-medium">
+                  可用 {preferredWallet.availableToBook} 堂 · {preferredWallet.expiryDate ? `${preferredWallet.expiryDate.replaceAll("-", "/")} 到期` : "無期限"}
+                </p>
+              )}
+            </label>
+          )}
+          {preferredWalletUnavailable && (
+            <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-base text-red-800">
+              {liffMessages.memberBooking.preferredWalletUnavailable}
+            </p>
           )}
 
           <section aria-labelledby="member-booking-date-heading">
@@ -754,6 +798,9 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
             <div className="rounded-xl border border-earth-200 bg-white px-4 py-3 text-sm text-earth-800">
               <span className="font-semibold">預約確認：</span>
               {selectedDate.replaceAll("-", "/")}・{selectedSlot}・{people} 人・{deductionSummary}
+              {planSessionCount > 0 && preferredWallet && (
+                <p className="mt-1">優先使用：{preferredWallet.planName}（{preferredWallet.expiryDate ? `${preferredWallet.expiryDate.replaceAll("-", "/")} 到期` : "無期限"}）</p>
+              )}
             </div>
           )}
 
@@ -769,7 +816,9 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
                 ? "請選擇日期"
                 : !selectedSlot
                   ? "請選擇時段"
-                : liffMessages.memberBooking.submit}
+                : makeupCount > 0
+                  ? "確認補課優先預約"
+                  : liffMessages.memberBooking.submit}
           </button>
         </>
       )}

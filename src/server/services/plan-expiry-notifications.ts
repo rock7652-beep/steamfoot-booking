@@ -181,8 +181,8 @@ export async function runPlanExpiryNotifications(now = new Date()) {
       }
 
       const result = route.channel === "STORE"
-        ? await pushMessage(wallet.storeId, route.recipientLineUserId, messages)
-        : await pushSteamButlerMessage(route.recipientLineUserId, messages);
+        ? await pushMessage(wallet.storeId, route.recipientLineUserId, messages, undefined, now)
+        : await pushSteamButlerMessage(route.recipientLineUserId, messages, undefined, now);
       await prisma.messageLog.update({
         where: { id: notificationId },
         data: {

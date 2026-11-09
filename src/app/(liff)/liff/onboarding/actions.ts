@@ -1,6 +1,7 @@
 "use server";
 
 import { activateUnlinkedStoreMember } from "@/server/services/precreated-first-line-login";
+import { activateVerifiedNotificationMember } from "@/server/services/verified-notification-first-login";
 import { requestLiffLoginRecovery } from "@/server/services/liff-login-recovery";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 
@@ -33,6 +34,7 @@ import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-
 import { assertStoreLiffContext, resolveStoreLiffContext } from "@/server/services/store-liff-context";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { onboardCourseLineMember } from "@/server/services/course-line-onboarding";
+import { onboardVerifiedBeautyMember } from "@/server/services/beauty-line-onboarding";
 import { storePhoneNeedsConfirmation, completeAuthorizedFirstStoreLogin } from "@/server/services/store-member-connection";
 
 const InputSchema = z.object({
@@ -104,7 +106,14 @@ export async function submitOnboarding(
   }
 
   try { await assertStoreLiffContext(store, context); } catch { return { status: "service_unavailable" }; }
-  if (await getStoreIndustryModule(store.id) === "course") {
+  const industry = await getStoreIndustryModule(store.id);
+  if (industry === "beauty" && context.config) {
+    return onboardVerifiedBeautyMember({
+      storeId: store.id, lineUserId: verified.lineUserId,
+      lineName: verified.displayName, name, phone, identityProvider: context.identityProvider,
+    });
+  }
+  if (industry === "course") {
     const result = await onboardCourseLineMember({
       storeId: store.id, lineUserId: verified.lineUserId,
       lineName: verified.displayName, name, phone, identityProvider: context.identityProvider,
@@ -140,6 +149,11 @@ export async function submitOnboarding(
   try {
     const member = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true });
     if (member) return { status: "ok" };
+    // An already-open form must use the same exact LINE proof as exchange,
+    // without depending on a second spelling of the customer's name.
+    const notificationActivation = await activateVerifiedNotificationMember({ storeId: store.id, lineUserId: verified.lineUserId });
+    if (notificationActivation === "activated") return { status: "ok" };
+    if (notificationActivation === "unavailable") return { status: "service_unavailable" };
     if (await storePhoneNeedsConfirmation(store.id, phone)) {
       if (await completeAuthorizedFirstStoreLogin({ storeId: store.id, phone, candidateLineUserId: verified.lineUserId })) return { status: "ok" };
       const activation = await activateUnlinkedStoreMember({ storeId: store.id, lineUserId: verified.lineUserId, name, phone });

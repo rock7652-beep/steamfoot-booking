@@ -1,4 +1,5 @@
 "use client";
+import {OperationsControls} from "@/components/operations/workspace-frame";
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import styles from "@/components/admin/commerce-layout.module.css";
@@ -30,9 +31,9 @@ export function CashbookRecordFilters({ month, kind, keyword }: { month: string;
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   return <div className={styles.filters} aria-label="現金帳紀錄篩選">
-    <label className={`${styles.filterField} text-sm text-earth-600`}>月份
+    <OperationsControls><label className={`${styles.filterField} text-sm text-earth-600`}>月份
       <input type="month" value={month} onChange={(event) => replace({ month: event.target.value }, true)} className="mt-1 block min-h-11 rounded-lg border border-earth-300 bg-white px-3 text-sm focus:outline-none" />
-    </label>
+    </label></OperationsControls>
     <label className={`${styles.filterField} text-sm text-earth-600`}>收支類型
       <select value={kind} onChange={(event) => {
         const next = event.target.value as RecordKind;

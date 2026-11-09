@@ -1,8 +1,10 @@
-import { parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
+import { formatTWDateTime, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
+import {resolveAddOns,addOnTotals} from "./add-ons";
 import {serviceDuration} from "./service-duration";
 import { rate, type Rate } from "./contracts";
 export type Range = { start: number; end: number };
 export type Service = {
+  addOnGroups?: unknown;
   defaultRate?:unknown;
   id: string;
   name: string;
@@ -30,6 +32,9 @@ export type Occupancy = Range & {
   status: string;
 };
 export type Person = {
+  startOffsetMinutes?:number;
+  technicianGroup?:string;
+  addOnIds?: string[];
   /** Trusted server-resolved per-charge restriction; absent preserves legacy allocation. */
   allowedTechnicianIds?: readonly string[];
   isTrial?:boolean;
@@ -39,6 +44,7 @@ export type Person = {
   specifiedLocationId?: string | null;
 };
 export type Assignment = {
+  startsAt?:Date;
   technicianId: string;
   locationId: string;
   serviceId: string;
@@ -83,6 +89,7 @@ export function availableTechnician(
 /** Backtracking across the party avoids assigning the sole facial specialist
  * to a massage first. Candidate order implements daily workload + fixed order. */
 export function allocateParty(input: {
+  onUnavailable?:(reason:string)=>void;
   date: string;
   startsAt: Date;
   people: Person[];
@@ -93,13 +100,16 @@ export function allocateParty(input: {
   hours: Period[];
 }): Assignment[] | null {
   if (
-    input.people.length > input.locationIds.length ||
-    input.people.length > input.technicians.filter((t) => t.active).length
+    !input.people.some(p=>p.startOffsetMinutes) && (input.people.length > input.locationIds.length ||
+    input.people.length > input.technicians.filter((t) => t.active).length)
   )
-    return null;
+    {input.onUnavailable?.('可用技師或位置數不足，無法同時安排本次顧客');return null;}
   const start = input.startsAt.getTime();
   const day = input.date;
   const occupied = input.occupied.filter((o) => o.status !== "CANCELLED");
+  const occupiedTimes = (rows: typeof occupied) => [...new Set(rows
+    .sort((a,b)=>a.start-b.start)
+    .map(o=>`${formatTWDateTime(new Date(o.start))}–${formatTWDateTime(new Date(o.end))}`))].join("；");
   const workload = (id: string) =>
     occupied
       .filter(
@@ -114,11 +124,12 @@ export function allocateParty(input: {
       a.id.localeCompare(b.id),
   );
   const choices = input.people.map((p) => {
+    const start=input.startsAt.getTime()+(p.startOffsetMinutes??0)*60000;
     const s = input.services.find((s) => s.id === p.serviceId && s.active);
     if (!s) return null;
-    const duration=serviceDuration(s,p.isTrial);
+    const duration=serviceDuration(s,p.isTrial)+addOnTotals(resolveAddOns(s.addOnGroups,p.addOnIds)).duration;
     const end = start + (duration + s.buffer) * 60000;
-    if (!containsPeriod(day, start, end, input.hours)) return null;
+    if (!containsPeriod(day, start, end, input.hours)){input.onUnavailable?.('服務與整理時間超出營業時段，請調整開始時間');return null;}
     const techs = ordered.filter(
       (t) =>
         (!p.specifiedTechnicianId || t.id === p.specifiedTechnicianId) &&
@@ -139,17 +150,50 @@ export function allocateParty(input: {
             (o) => o.locationId === id && overlaps({ start, end }, o),
           ),
       );
-    return { s, duration, end, techs, rooms };
+    if(!techs.length){
+      const qualified=ordered.filter(t=>t.active&&(!p.specifiedTechnicianId||t.id===p.specifiedTechnicianId)&&(p.allowedTechnicianIds===undefined||p.allowedTechnicianIds.includes(t.id))&&t.serviceIds.includes(s.id)&&(p.preference==='ANY'||t.gender===p.preference)&&rate.safeParse((t.rates as Record<string,unknown>)[s.id]??s.defaultRate).success);
+      const times=occupiedTimes(occupied.filter(o=>overlaps({start,end},o)&&qualified.some(t=>t.id===o.technicianId&&availableTechnician(t,day,start,end))));
+      input.onUnavailable?.(!qualified.length?'目前沒有符合服務資格及計酬設定的技師，請到服務項目或技師管理核對':!qualified.some(t=>availableTechnician(t,day,start,end))?'此時段合格技師未排班，排班須涵蓋服務與整理時間':`此時段合格技師已有預約或整理時間（占用：${times}），請改選技師或時間`);
+    }else if(!rooms.length){
+      const times=occupiedTimes(occupied.filter(o=>overlaps({start,end},o)&&input.locationIds.includes(o.locationId)&&(!p.specifiedLocationId||o.locationId===p.specifiedLocationId)));
+      input.onUnavailable?.(`${p.specifiedLocationId?'指定位置在服務或整理時間內已被占用，請換位置或時間':'服務與整理時間內沒有可用位置，請調整時間'}${times?`（占用：${times}，含整理或租借緩衝時間）`:''}`);
+    }
+    return { s, duration, start, end, techs, rooms };
   });
   if (choices.some((c) => !c || !c.techs.length || !c.rooms.length))
     return null;
   const valid = choices as NonNullable<(typeof choices)[number]>[];
+  if(input.people.some(p=>p.startOffsetMinutes)){
+    const match=(candidates:string[][],groups?:Array<string|undefined>):string[]|null=>{
+      // Technician and room constraints are independent. Intersect a default
+      // same-technician journey up front rather than multiplying both searches.
+      const choices=candidates.map((ids,i)=>groups?.[i]?ids.filter(id=>candidates.every((other,j)=>groups[j]!==groups[i]||other.includes(id))):ids);
+      if(choices.some(ids=>!ids.length))return null;
+      const chosen:string[]=[];
+      const search=(i:number):boolean=>{
+        if(i===valid.length)return true;
+        const previous=groups?.[i]?groups.findIndex((group,j)=>j<i&&group===groups[i]):-1;
+        for(const id of choices[i]){
+          if(previous>=0&&chosen[previous]!==id)continue;
+          if(chosen.some((v,j)=>v===id&&overlaps({start:valid[i].start,end:valid[i].end},{start:valid[j].start,end:valid[j].end})))continue;
+          chosen.push(id);if(search(i+1))return true;chosen.pop();
+        }
+        return false;
+      };
+      return search(0)?chosen:null;
+    };
+    const roomIds=match(valid.map(c=>c.rooms));
+    const techIds=roomIds?match(valid.map(c=>c.techs.map(t=>t.id)),input.people.map(p=>p.technicianGroup)):null;
+    if(!techIds||!roomIds){input.onUnavailable?.('無法安排完整服務行程，請調整時間或分別安排技師');return null;}
+    return valid.map((c,i)=>({startsAt:new Date(c.start),technicianId:techIds[i],locationId:roomIds[i],serviceId:c.s.id,endsAt:new Date(c.start+c.duration*60000),occupiedEndsAt:new Date(c.end),rate:rate.parse((c.techs.find(t=>t.id===techIds[i])!.rates as Record<string,unknown>)[c.s.id]??c.s.defaultRate)}));
+  }
+
   // All attendees start together. Technician and space matching are independent;
   // test remaining perfect matching before choosing each preferred candidate.
   // This preserves deterministic workload order without factorial party search.
   const techIds = preferredMatching(valid.map((c) => c.techs.map((t) => t.id)));
   const roomIds = preferredMatching(valid.map((c) => c.rooms));
-  if (!techIds || !roomIds) return null;
+  if (!techIds || !roomIds){input.onUnavailable?.('無法同時分配不重複的技師與位置，請調整本次安排');return null;}
   return valid.map((c, i) => ({
     technicianId: techIds[i],
     locationId: roomIds[i],

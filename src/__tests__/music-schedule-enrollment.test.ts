@@ -11,7 +11,7 @@ let tx:ReturnType<typeof fixture>;
 function fixture(){return {courseSession:{findFirst:vi.fn().mockResolvedValue({templateId:"guitar",startsAt:new Date("2099-10-08T10:00:00Z")})},coursePointCard:{update:vi.fn(),findFirst:vi.fn().mockResolvedValue({id:"card",unit:"SESSION",closedAt:null,templateIds:["guitar"],members:[{customerId:"a"}],termSessionIds:[],remaining:4,expiresAt:new Date("2099-12-31"),musicValidityDays:null})},courseBooking:{aggregate:vi.fn().mockResolvedValue({_sum:{pointCost:3}}),findFirst:vi.fn().mockResolvedValue(null),findMany:vi.fn(),update:vi.fn()},courseScheduleSeries:{findUnique:vi.fn().mockResolvedValue(null),update:vi.fn()},coursePointEntry:{create:vi.fn()}};}
 const db=()=>tx as unknown as Prisma.TransactionClient;
 beforeEach(()=>{vi.resetAllMocks();tx=fixture();});
-it("uses the person's own paid plan when a lesson is covered",async()=>{await reserveScheduledMusicLearner(db(),actor,input,null);expect(reserve).toHaveBeenCalledWith(db(),actor,expect.objectContaining({customerId:"a",cardId:"card",deferredPayment:false}),null);});
+it("uses the person's own paid plan when a lesson is covered",async()=>{await reserveScheduledMusicLearner(db(),actor,input,null);expect(reserve).toHaveBeenCalledWith(db(),actor,expect.objectContaining({customerId:"a",cardId:null,deferredPayment:true}),null);});
 it("keeps a future lesson after the paid period runs out without treating it as a trial",async()=>{tx.courseBooking.aggregate.mockResolvedValue({_sum:{pointCost:4}});await reserveScheduledMusicLearner(db(),actor,input,null);expect(reserve).toHaveBeenCalledWith(db(),actor,expect.objectContaining({customerId:"a",cardId:null,deferredPayment:true}),null);});
 it("allows no-plan scheduling and preserves the original request key",async()=>{await reserveScheduledMusicLearner(db(),actor,{...input,cardId:null},100);expect(reserve).toHaveBeenCalledWith(db(),actor,{...input,cardId:null,deferredPayment:true},100);});
 it("rejects another person's plan instead of silently treating it as unpaid",async()=>{tx.coursePointCard.findFirst.mockResolvedValue({...await tx.coursePointCard.findFirst(),members:[{customerId:"b"}]});await expect(reserveScheduledMusicLearner(db(),actor,input,null)).rejects.toThrow("個人方案");expect(reserve).not.toHaveBeenCalled();});
@@ -53,7 +53,7 @@ it("continues an ongoing lesson as unpaid after its personal plan has been close
 it("extends a paid group's reserved dates only within the same teaching series",async()=>{
  tx.courseSession.findFirst.mockResolvedValueOnce({templateId:"teaching:guitar",requestKey:"series",startsAt:new Date("2099-10-08T10:00:00Z")}).mockResolvedValueOnce({id:"first-paid-date"});
  tx.coursePointCard.findFirst.mockResolvedValue({...await tx.coursePointCard.findFirst(),templateIds:["teaching:guitar"],termSessionIds:["first-paid-date"]});
- await reserveScheduledMusicLearner(db(),actor,input,null);expect(tx.coursePointCard.update).toHaveBeenCalledWith({where:{id:"card"},data:{termSessionIds:["first-paid-date","lesson"]}});expect(reserve.mock.calls[0][2]).toMatchObject({cardId:"card",deferredPayment:false});
+ await reserveScheduledMusicLearner(db(),actor,input,null);expect(tx.coursePointCard.update).not.toHaveBeenCalled();expect(reserve.mock.calls[0][2]).toMatchObject({cardId:null,deferredPayment:true});
 });
 
 it.each(["2099-10-07T12:00:00Z","2099-10-08T09:59:59Z"])("rejects a selected card before its start instead of creating unpaid: %s",async startsAt=>{
@@ -65,7 +65,7 @@ it.each(["2099-10-07T12:00:00Z","2099-10-08T09:59:59Z"])("rejects a selected car
 it("allows the exact card start instant",async()=>{
  tx.coursePointCard.findFirst.mockResolvedValue({...await tx.coursePointCard.findFirst(),musicJoinSessionId:"join"});
  tx.courseSession.findFirst.mockResolvedValueOnce({templateId:"guitar",startsAt:new Date("2099-10-08T10:00:00Z")}).mockResolvedValueOnce({startsAt:new Date("2099-10-08T10:00:00Z")});
- await reserveScheduledMusicLearner(db(),actor,input,null);expect(reserve.mock.calls[0][2]).toMatchObject({cardId:"card",deferredPayment:false});
+ await reserveScheduledMusicLearner(db(),actor,input,null);expect(reserve.mock.calls[0][2]).toMatchObject({cardId:null,deferredPayment:true});
 });
 it("fails clearly when the linked start session cannot be found in this store",async()=>{
  tx.coursePointCard.findFirst.mockResolvedValue({...await tx.coursePointCard.findFirst(),musicJoinSessionId:"join"});

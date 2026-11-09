@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { coursePersonnelText, type CoursePersonnelLabel } from "@/lib/course-personnel-label";
+import { beautyPersonnelText,coursePersonnelText, type CoursePersonnelLabel } from "@/lib/course-personnel-label";
 const Context = createContext<{ storeId: string; label: CoursePersonnelLabel | null }>({ storeId: "", label: null });
 export function CoursePersonnelLabelProvider({storeId, label, children}: {storeId: string; label: CoursePersonnelLabel | null; children?: ReactNode}) {
   const [confirmed, setConfirmed] = useState({storeId, source: label, label});
@@ -22,3 +22,11 @@ export function useCoursePersonnelText() {
   return useCallback((text: string) => coursePersonnelText(text, label), [label]);
 }
 export function CoursePersonnelText({text}: {text: string}) {const t = useCoursePersonnelText(); return t(text);}
+
+/** Beauty uses the same store-scoped presentation preference; null keeps 技師. */
+export function useBeautyPersonnelText() {
+ const {label}=useContext(Context);
+ return useCallback((text:string)=>beautyPersonnelText(text,label),[label]);
+}
+
+export function BeautyPersonnelText({text}:{text:string}){const t=useBeautyPersonnelText();return t(text);}

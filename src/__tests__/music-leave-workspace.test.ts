@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ bookings: vi.fn(), coupons: vi.fn(), sessions: vi.fn(), cards: vi.fn() }));
-vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBooking: { findMany: m.bookings }, coursePointCard: { findMany: m.coupons }, courseSession: { findMany: m.sessions } } }));
+vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseTemplate:{findFirst:async()=>null},courseBooking: { findMany: m.bookings }, coursePointCard: { findMany: m.coupons }, courseSession: { findMany: m.sessions } } }));
 vi.mock("@/server/queries/course-members", () => ({ getCourseCards: m.cards }));
 import { getMusicLeaveWorkspace } from "@/server/queries/music-leave-workspace";
 const leaf = { id: "leave", customerId: "student", cardId: "ordinary", card: { id: "ordinary", requestKey: "yjy-pilot-card:test" }, session: { id: "original", startsAt: new Date("2026-10-01T02:00Z"), templateId: "guitar", nameSnapshot: "Guitar", template: { classType: "PRIVATE" } } };

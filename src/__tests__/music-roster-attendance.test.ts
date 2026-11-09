@@ -1,5 +1,6 @@
 import {beforeEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({manager:vi.fn(),transaction:vi.fn(),music:vi.fn(),booking:vi.fn(),correct:vi.fn(),audit:vi.fn(),refresh:vi.fn()}));
+const m=vi.hoisted(()=>({after:vi.fn(),manager:vi.fn(),transaction:vi.fn(),music:vi.fn(),booking:vi.fn(),correct:vi.fn(),audit:vi.fn(),refresh:vi.fn()}));
+vi.mock('next/server',()=>({after:m.after}));
 vi.mock("server-only",()=>({}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:m.transaction}));
 vi.mock("@/server/services/course-business-profile",()=>({isMusicCourseStore:m.music}));
@@ -13,3 +14,8 @@ it.each(["RESERVED","NO_SHOW"])("corrects attended to %s without recreating the 
 it("rejects stale status before any ledger or audit write",async()=>{expect((await correctMusicRosterAttendance({bookingId:"lesson",expectedStatus:"NO_SHOW",target:"WAIVED"})).success).toBe(false);expect(m.correct).not.toHaveBeenCalled();expect(m.audit).not.toHaveBeenCalled();});
 it("blocks nonmusic and opening makeup corrections",async()=>{m.music.mockResolvedValueOnce(false);expect((await correctMusicRosterAttendance({bookingId:"lesson",expectedStatus:"ATTENDED",target:"WAIVED"})).success).toBe(false);m.booking.mockResolvedValueOnce({status:"ATTENDED",bookingKind:"OPENING_MAKEUP"});expect((await correctMusicRosterAttendance({bookingId:"lesson",expectedStatus:"ATTENDED",target:"WAIVED"})).success).toBe(false);expect(m.correct).not.toHaveBeenCalled();});
 it("restores a released leave before charging, all under one transaction",async()=>{m.booking.mockResolvedValue({status:"CANCELLED",absenceKind:"STUDENT_LEAVE",bookingKind:"CARD"});expect((await correctMusicRosterAttendance({bookingId:"lesson",expectedStatus:"CANCELLED",target:"NO_SHOW"})).success).toBe(true);expect(m.transaction).toHaveBeenCalledOnce();expect(m.correct.mock.calls.map(c=>c.slice(2,5))).toEqual([["lesson","RESERVED","CANCELLED"],["lesson","NO_SHOW","RESERVED"]]);});
+it('invalidates only after a confirmed correction without blocking its response on a route render',async()=>{
+ expect(await correctMusicRosterAttendance({bookingId:'lesson',expectedStatus:'ATTENDED',target:'RESERVED'})).toMatchObject({success:true});
+ expect(m.refresh).not.toHaveBeenCalled();expect(m.after).toHaveBeenCalledOnce();
+ m.after.mock.calls[0][0]();expect(m.refresh.mock.calls.map(call=>call[0])).toEqual(['/dashboard/courses','/book']);
+});

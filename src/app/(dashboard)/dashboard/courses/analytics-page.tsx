@@ -14,7 +14,7 @@ import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-serv
 import { courseAnalysisRange } from "@/lib/course-analytics";
 import { getCourseBusinessAnalytics } from "@/server/queries/course-business-analytics";
 import { resolveBusinessScope } from "@/lib/course-business-analytics";
-import { BusinessAnalyticsView } from "./business-analytics-view";
+import { BusinessAnalyticsViewEntry as BusinessAnalyticsView } from "./non-calendar-view-entries";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { DashboardLink } from "@/components/dashboard-link";
 import { UpgradeNoticePage } from "@/components/upgrade-notice";

@@ -82,6 +82,7 @@ export type SportsSnapshot = {
     name: string;
     fee: string;
     sportsMode?:string;
+    assignedEligible?:boolean;
     subject?:string;
     cardId: string;
     available: number;

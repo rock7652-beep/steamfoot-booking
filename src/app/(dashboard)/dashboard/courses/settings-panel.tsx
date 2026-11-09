@@ -50,8 +50,10 @@ export function CourseSettingsPanel({ panel, children,workspaceHref="/dashboard/
     const localPath = url.pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)|^\/hq(?=\/dashboard)/, "");
     if (url.origin === window.location.origin) {
       if ((localPath === "/dashboard/courses" && url.searchParams.get("view") === "settings") || localPath === "/dashboard/settings" || localPath === "/dashboard") { request(closeHref); return; }
-      const mapped = courseSettingsPanelHref(localPath + url.search);
-      if (mapped !== localPath + url.search) {
+      const panelPath = workspaceHref === "/dashboard/beauty" && localPath === "/dashboard/beauty/reminders"
+        ? COURSE_SETTINGS_PANELS.reminders.href : localPath;
+      const mapped = courseSettingsPanelHref(panelPath + url.search);
+      if (mapped !== panelPath + url.search) {
         const params = new URLSearchParams(searchString); params.delete("panelQuery");
         new URLSearchParams(mapped.split("?")[1]).forEach((value, key) => params.set(key, value));
         if(workspaceHref!=="/dashboard/courses"){params.delete("view");params.set("tab","設定");}

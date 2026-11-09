@@ -65,7 +65,7 @@ export async function listNotificationCenterLogs(
 /** Shared filter semantics for module-specific notification sources. */
 export function notificationCenterWhere(params: Record<string, string | undefined>) {
   const conditions: Prisma.Sql[] = [];
-  if (params.audience && ["manager", "customer"].includes(params.audience))
+  if (params.audience && ["manager", "customer", "personnel"].includes(params.audience))
     conditions.push(Prisma.sql`audience=${params.audience}`);
   if (
     params.status &&

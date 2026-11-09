@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { AppError } from "@/lib/errors";
 import { assertMusicOpeningPreviewEnvironment } from "../../../scripts/music-opening-preview-scope.mjs";
+import { SCHEDULE_CONFLICT_PREVIEW_BRANCH, assertSportsSharedCardPreviewEnvironment } from "../../../scripts/sports-shared-card-preview-scope.mjs";
 import type { Prisma } from "../../../generated/course-client";
 import { z } from "zod";
 import { musicOpeningMakeupHash } from "@/lib/music-opening-makeup";
@@ -11,6 +12,13 @@ export const PILOT_RECEIPT_ID="yjy-operational-import:20261014";
 function fail(message:string):never {throw new AppError("VALIDATION",message);}
 export async function isMusicPilotCard(tx:Prisma.TransactionClient,storeId:string,card:{id:string;requestKey?:string}|null|undefined){
   if(!card?.requestKey?.startsWith("yjy-pilot-card:"))return false;
+  // This review tests native scheduling, not the historical import pilot.
+  // Deny that capability without crashing read-only calendar/card queries.
+  if(process.env.VERCEL_GIT_COMMIT_REF===SCHEDULE_CONFLICT_PREVIEW_BRANCH)return false;
+  if(process.env.VERCEL_GIT_COMMIT_REF==='feat/record-list-density'){
+    assertSportsSharedCardPreviewEnvironment(process.env);
+    return false;
+  }
   if(process.env.VERCEL!=="1")fail("僅開放隔離測試站");assertMusicOpeningPreviewEnvironment(process.env);
   const receipts=await tx.$queryRaw<Array<{afterJson:{contentHash:string;cardIds:string[]}}>>`SELECT "afterJson" FROM "AuditLog" WHERE id=${PILOT_RECEIPT_ID} AND "storeId"=${storeId} AND action='SOURCE_OPERATIONS_IMPORT'`;
   return receipts.length===1&&receipts[0].afterJson.contentHash===PILOT_EVIDENCE_HASH&&receipts[0].afterJson.cardIds.includes(card.id);

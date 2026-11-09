@@ -1,4 +1,5 @@
 "use client";
+import {useBeautyPersonnelText} from "@/components/course-personnel-label";
 import {CourseStaffBasicFields,CourseStaffPersonalFields,CourseStaffServiceRow} from "@/app/(dashboard)/dashboard/courses/staff-editor-fields";
 import {CourseStaffAssignments} from "@/components/admin/course-staff-assignments";
 import {usePathname} from "next/navigation";
@@ -60,6 +61,8 @@ export function BeautyCatalogEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+ const beautyText=useBeautyPersonnelText();
+
   const [draft,setConfirmedDraft]=useState(initialDraft);
   const [saveNotice,setSaveNotice]=useState("");
   const pathname=usePathname();
@@ -96,7 +99,7 @@ export function BeautyCatalogEditor({
     service: "服務項目",
     pricing: draft.pricingType==='single'?"單次收費":draft.pricingType==='trial'?"體驗收費":"單次／體驗收費",
     plan: "收費方式",
-    technician: "技師管理",
+    technician: beautyText("技師管理"),
     location: "位置管理",
     settings: "設定",
   }[kind];
@@ -109,7 +112,7 @@ export function BeautyCatalogEditor({
       onClose();
   }
   return (
-    <CourseStaffEditorFrame titleId="beauty-editor-title" title={<>{readOnly?'查看':draft.id?'編輯':'新增'}{kind==='technician'?'技師':title}{draft.id&&draft.name&&<span>・{draft.name}</span>}</>}
+    <CourseStaffEditorFrame titleId="beauty-editor-title" title={<>{readOnly?'查看':draft.id?'編輯':'新增'}{kind==='technician'?beautyText('技師'):title}{draft.id&&draft.name&&<span>・{draft.name}</span>}</>}
       onClose={close} locked={pending} width={kind==='technician'?920:640} fixedHeight={kind==='technician'}
       items={kind==='technician'?[["basic","基本資料"],["services","服務設定"],["work","LINE 與權限"],...(draft.id?[["schedule","服務明細"]]:[]),["availability","服務時間"]]:[]}
       value={techTab} onTabChange={setTechTab}>
@@ -150,11 +153,11 @@ export function BeautyCatalogEditor({
                   ...data.policy,
                   revision: data.policy.revision,
                   selfBooking: bool("selfBooking"),
-                  notifications: bool("notifications"),
+                  notifications: false,
                   selfCancel: bool("selfCancel"),
                   selfReschedule: bool("selfReschedule"),
-                  cancelDeduct: bool("cancelDeduct"),
-                  noShowDeduct: bool("noShowDeduct"),
+                  cancelDeduct: false,
+                  noShowDeduct: false,
                   leadMinutes: num("leadMinutes"),
                   cancelLeadMinutes: num("cancelLeadMinutes"),
                   bookableDays: num("bookableDays"),
@@ -694,14 +697,11 @@ export function BeautyCatalogEditor({
           {kind === "settings" && (
             <>
               {[
-                ["notifications", "LINE 服務通知與前一天提醒"],
                 ["selfBooking", "顧客自行預約"],
                 ["selfCancel", "顧客自行取消"],
                 ["selfReschedule", "顧客自行改期"],
-                ["cancelDeduct", "取消扣次（未勾選不扣次）"],
-                ["noShowDeduct", "未到扣次（未勾選不扣次）"],
               ].map(([key, label]) => (
-                <label key={key} className={(key==='notifications'?settingsSection==='notifications':settingsSection==='booking')?"flex min-h-11 gap-2 items-center":"hidden"}>
+                <label key={key} className={settingsSection==='booking'?"flex min-h-11 gap-2 items-center":"hidden"}>
                   <input
                     type="checkbox"
                     name={key}

@@ -16,7 +16,7 @@ function ReadState({error,retry}:{error?:string;retry:()=>void}){return error?<p
 export function BeautyCardHistory({cardId,scope,slug,load=readBeautyCardHistory}:{load?:typeof readBeautyCardHistory;cardId:string;scope:string;slug:string}){
  const r=useDetail('beauty-card-history',load,scope,[cardId,slug]);
  if(!r.value?.success)return <ReadState error={r.error??(r.value&&!r.value.success?r.value.error:undefined)} retry={r.retry}/>;
- return r.value.data.length?<ul>{r.value.data.map(l=><li key={l.id}>{formatTWDateTime(new Date(l.createdAt))} · {l.kind==='GRANT'?'方案啟用':l.kind==='RESERVE'?'預約保留':'服務扣次／更正'} · {l.delta>0?'+':''}{l.delta} 次</li>)}</ul>:<p>尚無使用紀錄。</p>;
+ return r.value.data.length?<ul>{r.value.data.map(l=><li key={l.id}>{formatTWDateTime(new Date(l.createdAt))} · {l.adjustment?.operation==='BACKFILL'?'補登已上課':l.adjustment?.operation==='VOID'?'註銷堂數':l.adjustment?.operation==='REVERSE'?'更正返還':l.kind==='GRANT'?'方案啟用':l.kind==='RESERVE'?'預約保留':'服務扣次／更正'} · {l.delta>0?'+':''}{l.delta} 次{l.adjustment?.reversed?'（已更正）':''}{l.adjustment?.occurredOn&&<p>實際上課日期：{l.adjustment.occurredOn}</p>}</li>)}</ul>:<p>尚無使用紀錄。</p>;
 }
 export function BeautyOwnIncome({scope,allowed,month,onMonth,slug,load=readBeautyOwnIncome}:{load?:typeof readBeautyOwnIncome;scope:string;allowed:boolean;month:string;slug:string;onMonth:(month:string)=>void}){
  return <><div className="beauty-income-toolbar"><label>月份<input aria-label="收入月份" type="month" value={month} onChange={e=>{if(e.target.value)onMonth(e.target.value);}}/></label></div>{allowed?<IncomeDetails load={load} key={month} month={month} scope={scope} slug={slug}/>:<p>本人收入尚未開放，請洽店長。</p>}</>;

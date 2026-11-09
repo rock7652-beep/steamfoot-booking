@@ -1,0 +1,26 @@
+[
+  {
+    "kind": "member",
+    "width": 390,
+    "height": 844,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "desk",
+    "width": 390,
+    "height": 844,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  },
+  {
+    "kind": "payment",
+    "width": 390,
+    "height": 844,
+    "overflow": false,
+    "errors": [],
+    "submitted": true
+  }
+]

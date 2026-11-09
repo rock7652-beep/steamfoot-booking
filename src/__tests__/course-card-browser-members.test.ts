@@ -83,3 +83,12 @@ it.each(["NO_EXPIRY","UNKNOWN"])("labels %s without treating a missing date as u
     expect(host.textContent).not.toContain("2099");
   }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it('uses a confirmed purchase projection once and never displays it for a different learner',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ mocks.browse.mockResolvedValue({success:true,rows:[],hasMore:false,totals:[]});
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ const snapshot={customerId:'customer-a',revision:1,result:{success:true as const,rows:[],hasMore:false,totals:[]}};
+ const render=async(customerId:string)=>act(async()=>{root.render(createElement(CourseCardBrowser,{customerId,revision:1,snapshot,state:{search:'',history:false,page:0},onChange:vi.fn(),onSelect:vi.fn()}));await Promise.resolve();});
+ try{await render('customer-a');expect(mocks.browse).not.toHaveBeenCalled();await render('customer-b');await act(async()=>{await new Promise(r=>setTimeout(r,30));});expect(mocks.browse).toHaveBeenCalledWith(expect.objectContaining({customerId:'customer-b'}));}finally{await act(async()=>root.unmount());host.remove();}
+});

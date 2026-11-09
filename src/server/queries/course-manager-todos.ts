@@ -19,12 +19,10 @@ export async function getCourseManagerTodoCounts(storeId: string, now: Date) {
 }
 
 /** Preserve the mature one-hour post-service grace period, using the actual class end. */
-export async function getIncompleteCourseCandidates(now: Date) {
-  // Match the course activation guard before feature checks: an unactivated store
-  // must not abort reminders for all activated music/fitness stores.
+export async function getIncompleteCourseCandidates(now: Date, options: {includeWithoutLine?:boolean} = {}) {
   const candidates = await prisma.store.findMany({ where: { industryModule: "COURSE", isDemo: false, featureEntitlements: { some: { featureKey: { in: ["business.fitness", "business.music"] }, status: "ENABLED" } }, operatingStatus: { in: ["ACTIVE", "TRIAL"] } }, select: { id: true, slug: true } });
-  const eligible = await Promise.all(candidates.map(store => hasStoreFeature(store.id, FEATURES.LINE_REMINDER)));
-  const stores = candidates.filter((_, index) => eligible[index]);
+  const eligible = options.includeWithoutLine ? null : await Promise.all(candidates.map(store => hasStoreFeature(store.id, FEATURES.LINE_REMINDER)));
+  const stores = candidates.filter((_, index) => !eligible || eligible[index]);
   if (!stores.length) return [];
   const today = dayRange(toLocalDateStr(now)).start;
   const earliest = new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000);
@@ -37,6 +35,6 @@ export async function getIncompleteCourseCandidates(now: Date) {
   return bookings.map(booking => ({ ...booking, storeSlug: stores.find(store => store.id === booking.storeId)!.slug }));
 }
 
-export async function isCourseBookingStillIncomplete(storeId: string, id: string, now: Date) {
-  return coursePrisma.courseBooking.findFirst({ where: { id, storeId, status: "RESERVED", session: { storeId, cancelledAt: null, endsAt: { lte: new Date(now.getTime() - 60 * 60 * 1000) } } }, select: { id: true } });
+export async function isCourseBookingStillIncomplete(storeId: string, id: string, now: Date, expected?: {sessionId:string;endsAt:Date}) {
+  return coursePrisma.courseBooking.findFirst({ where: { id, storeId, status: "RESERVED", ...(expected?{sessionId:expected.sessionId}:{}), session: { storeId, cancelledAt: null, endsAt: expected?{equals:expected.endsAt,lte:new Date(now.getTime() - 60 * 60 * 1000)}:{lte:new Date(now.getTime() - 60 * 60 * 1000)} } }, select: { id: true } });
 }

@@ -165,7 +165,7 @@ export function BonusRulesManager({ initialRules }: Props) {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table data-striped-list className="w-full text-left text-sm">
                   <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
                     <tr>
                       <th className="px-3 py-2">名稱</th>
@@ -187,7 +187,7 @@ export function BonusRulesManager({ initialRules }: Props) {
                       return (
                         <tr
                           key={r.id}
-                          className={`h-12 transition hover:bg-primary-50/40 ${
+                          className={`h-12 transition  ${
                             !r.isActive ? "opacity-60" : ""
                           } ${isPending ? "opacity-40" : ""}`}
                         >

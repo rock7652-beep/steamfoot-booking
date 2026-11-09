@@ -37,21 +37,24 @@ export function CourseSetupGuide({ storeId, steps: sourceSteps, preference, logi
   }, [storeId, sourceSteps]);
   const completed = steps.every(s => s.done), count = steps.filter(s => s.done).length;
   const pathname = usePathname(), router = useRouter(), params = useSearchParams();
+  // Calendar readers own focus/date synchronization; the guide must not also
+  // refresh the server tree underneath the calendar or an open roster.
+  const view = params.get("view");
+  const ownsRefresh = localSections && (view === "settings" || (pathname.endsWith("/dashboard/courses") && (!view || view === "schedule")));
   const route = `${pathname}?${params.toString()}`, lastRoute = useRef(route);
   useEffect(() => {
     if (lastRoute.current !== route) {
       lastRoute.current = route;
-      if(localSections&&params.get("view")==="settings")return;
+      if(ownsRefresh)return;
       router.refresh();
     }
-  }, [route, router, localSections, params]);
+  }, [route, router, ownsRefresh]);
   useEffect(() => {
-    // Settings already keep confirmed local state; focus must not refresh an editor.
-    if (manual || (localSections && params.get("view") === "settings")) return;
+    if (manual || ownsRefresh) return;
     const refresh = () => router.refresh();
     window.addEventListener("focus", refresh);
     return () => window.removeEventListener("focus", refresh);
-  }, [manual, router, localSections, params]);
+  }, [manual, router, ownsRefresh]);
   const preferenceKey = `${preference.mode}:${preference.login ?? ""}`;
   const [reminderOverride, setReminder] = useState<(Preference & { source: string }) | null>(null);
   const reminder = reminderOverride?.source === preferenceKey ? reminderOverride : preference;

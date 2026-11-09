@@ -103,6 +103,34 @@ body {
   vertical-align: middle;
 }
 
+/* Record lists opt in explicitly. Utilities for selected, inactive or warning
+   rows win over these low-specificity defaults; calendars/cards never opt in. */
+@layer components {
+  :root {
+    --list-row-white: #ffffff;
+    --list-row-tint: #f5f3ee;
+    --list-row-hover: #ece8df;
+  }
+  :where(table[data-striped-list] > tbody > tr:not([hidden]):not([data-list-divider])),
+  :where(.admin-striped-row:not([hidden])) {
+    background-color: var(--list-row-white);
+  }
+  :where(table[data-striped-list] > tbody > tr:nth-child(even of :not([hidden]):not([data-list-divider]))),
+  :where(.admin-striped-row:nth-child(even of .admin-striped-row:not([hidden]))) {
+    background-color: var(--list-row-tint);
+  }
+  @media (hover: hover) {
+    :where(table[data-striped-list] > tbody > tr:not([hidden]):not([data-list-divider]):hover),
+    :where(.admin-striped-row:not([hidden]):hover) {
+      background-color: var(--list-row-hover);
+    }
+  }
+  :where(table[data-striped-list] > tbody > tr[aria-selected="true"]),
+  :where(.admin-striped-row[aria-selected="true"]) {
+    background-color: var(--color-primary-100);
+  }
+}
+
 /* Shared premium surfaces for the manager dashboard. */
 .steamfoot-brand-card {
   background: var(--brand-card);
@@ -228,7 +256,7 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
 /* Course management uses the existing Steamfoot palette and list hierarchy. */
 .course-workspace table thead { background: var(--color-primary-50); color: var(--color-primary-900); }
 .course-workspace table th { font-weight: 600; border-bottom: 2px solid var(--color-gold-300); }
-.course-workspace table tbody tr:hover { background: var(--color-earth-50); }
+.course-workspace table:not([data-striped-list]) tbody tr:hover { background: var(--color-earth-50); }
 .course-workspace h1, .course-workspace h2 { color: var(--color-primary-900); }
 .course-workspace button { touch-action: manipulation; }
 .course-workspace input:focus, .course-workspace select:focus, .course-workspace textarea:focus { outline: 2px solid var(--color-primary-300); outline-offset: 1px; }

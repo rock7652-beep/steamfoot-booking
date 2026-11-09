@@ -1,17 +1,19 @@
 "use client";
+import {useMonthlyStore} from "@/components/operations/monthly-store-context";
 import { useRef,useState } from 'react';
 import { previewCourseMonthlyNotifications,notifyCourseMonthlyPerson } from '@/server/actions/course-monthly-notification';
 import type { NoticeSummary,NoticeStatus } from '@/lib/course-monthly-notification';
 const labels:Record<NoticeStatus,string>={READY:'可通知',SENT:'已通知',FAILED:'可重試',BUSY:'處理中',UNBOUND:'未完成綁定',BLOCKED:'需核對'};
 const button='min-h-11 rounded-lg border border-earth-200 px-4 py-2 text-sm disabled:opacity-50';
 export function CourseMonthlyNotifications({month,revision,enabled,confirmed}:{month:string;revision:number;enabled:boolean;confirmed:boolean}){
+ const monthlyStore=useMonthlyStore();
  const [open,setOpen]=useState(false);
  const [summary,setSummary]=useState<NoticeSummary|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const lock=useRef(false);
  const blocked=!enabled?'請在設定開放本人收入查詢。':!confirmed?'請先確認月結。':null;
  async function preview(){
   if(lock.current)return;lock.current=true;setBusy(true);setMessage('');
-  try{const r=await previewCourseMonthlyNotifications({month,revision});if(r.success)setSummary(r.data);else setMessage(r.error??'讀取失敗，請重試。');}catch{setMessage('連線未完成，請重試。');}finally{lock.current=false;setBusy(false);}
+  try{const r=await previewCourseMonthlyNotifications({expectedStoreId:monthlyStore?.storeId,month,revision});if(r.success)setSummary(r.data);else setMessage(r.error??'讀取失敗，請重試。');}catch{setMessage('連線未完成，請重試。');}finally{lock.current=false;setBusy(false);}
  }
  async function send(){
   if(lock.current||!summary||summary.preview||summary.reason)return;
@@ -19,12 +21,12 @@ export function CourseMonthlyNotifications({month,revision,enabled,confirmed}:{m
   try{
    // One person per authenticated action; every call rechecks the current month and binding.
    for(const row of summary.rows.filter(r=>r.status==='READY'||r.status==='FAILED')){
-    const r=await notifyCourseMonthlyPerson({month,revision,staffId:row.staffId});
+    const r=await notifyCourseMonthlyPerson({expectedStoreId:monthlyStore?.storeId,month,revision,staffId:row.staffId});
     if(r.success&&r.data?.status==='SENT'){sent++;setSummary(s=>s?{...s,rows:s.rows.map(p=>p.staffId===row.staffId?{...p,status:'SENT',reason:''}:p)}:s);}
     else failed++;
    }
    setMessage(`本次已通知 ${sent} 人${failed?`，${failed} 人未完成，請查看下方狀態。`:'。'}`);
-   const r=await previewCourseMonthlyNotifications({month,revision});if(r.success&&r.data)setSummary(r.data as NoticeSummary);
+   const r=await previewCourseMonthlyNotifications({expectedStoreId:monthlyStore?.storeId,month,revision});if(r.success&&r.data)setSummary(r.data as NoticeSummary);
   }catch{setMessage('連線中斷，已完成的通知會保留。請重新查看通知狀態後重試。');}
   finally{lock.current=false;setBusy(false);}
  }

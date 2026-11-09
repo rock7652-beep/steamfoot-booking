@@ -1,0 +1,14 @@
+.root { position: relative; flex-shrink: 0; min-width: 0; color: #315b49; }
+.root > .trigger { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-height: 44px; min-width: 44px; padding: 4px 8px; cursor: pointer; list-style: none; border-radius: 8px; font-size: 14px; }
+.root > .trigger::-webkit-details-marker { display: none; }
+.trigger:focus-visible { outline: 2px solid #315b49; outline-offset: 2px; }
+.name { max-width: 5rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.panel { position: absolute; z-index: 60; top: calc(100% + 4px); right: 0; width: 240px; max-width: calc(100vw - 32px); max-height: 70dvh; overflow: auto; overscroll-behavior: contain; padding: 4px; border: 1px solid #dce3d7; border-radius: 12px; background: white; box-shadow: 0 8px 24px #2444371a; color: #344735; }
+.identity { margin: 0; padding: 10px 12px; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
+.actions > * { max-width: 100%; }
+.actions a, .actions button { display: flex; align-items: center; min-height: 44px; padding: 10px 12px; font-size: 14px; }
+.logout { margin: 0; border-top: 1px solid #e5e9e1; }
+.logout > .logoutButton { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; margin: 0; padding: 12px; border: 0; border-radius: 8px; background: white; text-align: left; font-size: 14px; color: #52624d; }
+.logout > .logoutButton:hover { background: #f5f7f2; }
+.logoutButton:focus-visible { outline: 2px solid #315b49; outline-offset: -2px; }
+@media (max-width: 420px) { .name { display: none; } }

@@ -12,7 +12,7 @@ vi.mock("@/lib/store-plan", () => ({ getCurrentStorePlan: async () => "BASIC" })
 vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature, isStoreFeatureEnabledForRead: m.feature }));
 vi.mock("@/lib/runtime-env", () => ({ isPreviewExternalIntegrationBlocked: () => true }));
 vi.mock("@/lib/db", () => ({ prisma: { trialCareSetting: { findUnique: async () => null }, trialCareLog: { findMany: async () => [] }, store: { findUniqueOrThrow: async () => ({ name: "店家", shopConfig: null }) } } }));
-vi.mock("next/navigation", () => ({ redirect: () => { throw Error("REDIRECT"); } }));
+vi.mock("next/navigation", () => ({ redirect: () => { throw Error("REDIRECT"); }, useRouter:()=>({push:vi.fn(),refresh:vi.fn()}) }));
 vi.mock("@/components/desktop", () => ({ PageShell: ({ children }: { children: ReactNode }) => createElement("main", null, children), PageHeader: () => null }));
 vi.mock("@/components/feature-gate", () => ({ FeatureGate: ({ children }: { children: ReactNode }) => children }));
 vi.mock("@/components/dashboard-link", () => ({ DashboardLink: ({ children }: { children: ReactNode }) => createElement("span", null, children) }));

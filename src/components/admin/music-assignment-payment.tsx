@@ -2,7 +2,8 @@
 import {useCallback,useEffect,useState,type ReactNode} from "react";
 import {CourseAssignmentPayment,type AssignmentSummary} from "./course-assignment-payment";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
-import {loadMusicPeriods} from "@/server/actions/music-periods";
+import type {loadMusicPeriods} from "@/server/actions/music-periods";
+import {readMusicPeriods} from "@/lib/music-period-read-client";
 import {musicPeriodLabel} from "@/lib/music-purchase-periods";
 import {loadMusicJoinOptions} from "@/server/actions/course-members";
 import {musicCheckoutQuote} from "@/lib/music-course-products";
@@ -11,7 +12,7 @@ import {formatTWDateTime} from "@/lib/date-utils";
 type MusicPlan={id:string;validDays:number;points:number;price:number;storeCost?:number;musicTerms?:number|null;musicTermSizes?:number[];musicBonusLessons?:number;templateIds?:string[]};
 const field="min-h-11 w-full min-w-0 max-w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
 export function MusicAssignmentPayment({plan,canDiscount,onSummary,split=false,customerId,planField}:{planField?:ReactNode;customerId?:string;split?:boolean;plan:MusicPlan;canDiscount:boolean;onSummary:(value:AssignmentSummary)=>void}) {
- const periodsReader=usePanelReader("music-periods",loadMusicPeriods);
+ const periodsReader=usePanelReader("music-periods",readMusicPeriods);
  const [periodHistory,setPeriodHistory]=useState<{customerId:string;cards:Extract<Awaited<ReturnType<typeof loadMusicPeriods>>,{success:true}>["data"]}|null>(null);
  useEffect(()=>{let active=true;if(!customerId)return;
   periodsReader.invalidate(customerId);
@@ -52,7 +53,7 @@ export function MusicAssignmentPayment({plan,canDiscount,onSummary,split=false,c
 
   </dl>:<p role="alert" className="text-red-700">請核對購買期數、堂數與有效天數。</p>}
   <div className="grid min-w-0 grid-cols-2 gap-2"><details className="min-w-0 open:col-span-2"><summary className="min-h-11 cursor-pointer py-2.5 text-sm">查看各期堂數</summary>
-    {quote&&<div className="max-h-60 overflow-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">期別</th><th className="p-2">堂數</th><th className="p-2">期限</th></tr></thead><tbody>{quote.musicTermSizes.map((count,i)=><tr key={i} className="border-t border-earth-200"><td className="p-2">{musicPeriodLabel(i+1,customerId?nextPeriod:1,customerId?1:undefined)}</td><td className="p-2">{count} 堂</td><td className="p-2">堂數共用</td></tr>)}</tbody></table></div>}
+    {quote&&<div className="max-h-60 overflow-auto"><table data-striped-list className="w-full text-left text-sm"><thead><tr><th className="p-2">期別</th><th className="p-2">堂數</th><th className="p-2">期限</th></tr></thead><tbody>{quote.musicTermSizes.map((count,i)=><tr key={i} className="border-t border-earth-200"><td className="px-2 py-1">{musicPeriodLabel(i+1,customerId?nextPeriod:1,customerId?1:undefined)}</td><td className="px-2 py-1">{count} 堂</td><td className="px-2 py-1">堂數共用</td></tr>)}</tbody></table></div>}
   </details>
   <details className="min-w-0 open:col-span-2" open={advanced} onToggle={e=>setAdvanced(e.currentTarget.open)}><summary className="min-h-11 cursor-pointer py-2.5 text-sm">其他調整{Number(manual)>0?` · 贈 ${manual} 堂`:""}{validity?` · ${validity} 天`:""}{join?" · 插班":""}</summary>
     <div className="space-y-3">

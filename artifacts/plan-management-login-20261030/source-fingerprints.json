@@ -1,0 +1,12 @@
+{
+  "baseCommit": "84488e9ca0a10f93e592c1ff634a38619bc5e3a1",
+  "sourceSha256": {
+    "src/app/(dashboard)/dashboard/customers/[id]/page.tsx": "855b156b938f6fa08940bd11387d3e9307fb6bfe4716648e1be6dcacac912ab9",
+    "src/server/queries/customer.ts": "25de6fdd4746801a0cf6081a89e27f9919b17e08df5915d5b34b771e331207ee",
+    "src/components/admin/plan-management-controls.tsx": "e987844ed9d8cd5a68d417dceafc8dca15bc0e02bc8f132ad2d8b5c3d9e7e177",
+    "src/server/actions/course-card-management.ts": "3ba63f96e3b59b30f826963d9ea60184793cd9b4c79bb37934a361424c94381b",
+    "src/server/actions/steam-wallet-management.ts": "32315f79c0100280a6cc182b7e0ac04716037867b493c94e151c79686b98c3fd",
+    "src/server/actions/beauty-card-management.ts": "dd0ea993aadfd6d6873ecbec75d646bb2c61dbd2d47e8293675dcfca343e3ffc"
+  },
+  "environment": "isolated local full application; synthetic data only"
+}

@@ -1,0 +1,108 @@
+import {PGlite} from '@electric-sql/pglite';
+import {readFileSync} from 'node:fs';
+import {expect,it} from 'vitest';
+import {verifyDigitalManagerPolicyBoundary} from '../../scripts/digital-manager-migration-review.mjs';
+
+const review=readFileSync('prisma/reconciliation/20261030_digital_manager_migration_review.sql','utf8');
+const sources=['digital-manager-notice-candidate','steamfoot-digital-manager-booking-candidate','steamfoot-digital-manager-payment-candidate','digital-manager-lead-candidate','digital-manager-vip-candidate','digital-manager-incomplete-resolution-candidate'];
+const baseline=`CREATE ROLE anon; CREATE ROLE authenticated;
+ CREATE TYPE "IndustryModule" AS ENUM ('BEAUTY','STEAMFOOT','SPA','COURSE'); CREATE TABLE "Store"(id text PRIMARY KEY,"industryModule" "IndustryModule");
+ CREATE TABLE "Customer"(id text PRIMARY KEY,"storeId" text,name text);
+ CREATE TABLE "Staff"(id text PRIMARY KEY,"storeId" text,"displayName" text);
+ CREATE TABLE "ServicePlan"(id text PRIMARY KEY,"storeId" text,name text);
+ CREATE TABLE "Booking"(id text PRIMARY KEY,"storeId" text,"customerId" text,"bookingDate" date,"slotTime" text,people int,"bookingStatus" text,"serviceStaffId" text,"servicePlanId" text,"bookingType" text,"bookedByType" text,notes text);
+ CREATE TABLE "Transaction"(id text PRIMARY KEY,"storeId" text,"planId" text,"transactionType" text,"paymentStatus" text,status text);
+ CREATE TABLE "DigitalButlerLead"(id text PRIMARY KEY,"storeId" text,"completionActionKey" text,status text,"assignedStaffId" text,"phoneCiphertext" bytea,"phoneIv" bytea,"phoneAuthTag" bytea);
+ CREATE TABLE "SessionBalanceNotification"(id text PRIMARY KEY,"storeId" text,"customerId" text,"responseAction" text);
+ CREATE TABLE "CourseBooking"(id text PRIMARY KEY,"storeId" text,status text,"sessionId" text);
+ CREATE TABLE "CourseSession"(id text PRIMARY KEY,"storeId" text,"startsAt" timestamptz,"endsAt" timestamptz,"cancelledAt" timestamptz);`;
+
+it('keeps the reviewed bundle identical to all six tested source scripts',()=>{
+ for(const source of sources) expect(review).toContain(readFileSync(`scripts/sql/${source}.sql`,'utf8').trim());
+ const scoped=readFileSync('prisma/reconciliation/20261030_digital_manager_scoped_with_beauty_review.sql','utf8');
+ const beauty=readFileSync('scripts/sql/digital-manager-beauty-access-candidate.sql','utf8').replace('\nBEGIN;\n','\n').replace(/\nCOMMIT;\s*$/,'');
+ expect(scoped).toContain(review.replace(/\nCOMMIT;\s*$/,''));expect(scoped).toContain(beauty);
+});
+it('keeps the rollback review tied to the prior booking function and preserves tables and records',()=>{
+ const original=readFileSync('prisma/migrations/20261021040000_steamfoot_store_notices/migration.sql','utf8');
+ const match=original.match(/CREATE FUNCTION public\.record_steamfoot_store_notice\(\) RETURNS trigger[\s\S]*?\$notice\$;/);
+ expect(match).not.toBeNull();
+ const rollback=readFileSync('prisma/reconciliation/20261030_digital_manager_rollback_review.sql','utf8');
+ expect(rollback).toContain(match![0].replace('CREATE FUNCTION','CREATE OR REPLACE FUNCTION'));
+ expect(rollback).toContain('unexpected notification trigger state');
+ expect(rollback).not.toMatch(/\b(DROP TABLE|TRUNCATE|DELETE FROM|DROP SCHEMA)\b/i);
+});
+it('installs the complete bundle against the existing booking trigger and is repeatable',async()=>{
+ const db=new PGlite();
+ try {
+  await db.exec(baseline);
+  await db.exec(readFileSync('prisma/migrations/20261021040000_steamfoot_store_notices/migration.sql','utf8'));
+  await db.exec(review); await db.exec(review);
+  const result=await db.query<{count:number}>(`SELECT count(*)::int AS count FROM pg_trigger WHERE NOT tgisinternal AND tgname IN ('steamfoot_plan_payment_notice','digital_manager_lead_notice','digital_manager_vip_notice','steamfoot_incomplete_notice_resolution','course_incomplete_notice_resolution','course_session_incomplete_notice_resolution')`);
+  expect(result.rows[0].count).toBe(6);
+ } finally {await db.close();}
+},30000);
+it('rolls back all new objects if a required table is missing',async()=>{
+ const db=new PGlite();
+ try {
+  await db.exec(baseline); await db.exec('DROP TABLE "CourseSession"');
+  await expect(db.exec(review)).rejects.toThrow(); await db.exec('ROLLBACK');
+  expect((await db.query<{name:string|null}>(`SELECT to_regclass('public."DigitalManagerNotice"')::text AS name`)).rows[0].name).toBeNull();
+ } finally {await db.close();}
+},30000);
+it('rolls back the combined review if the dedicated Beauty role is absent',async()=>{
+ const db=new PGlite();
+ try {
+  await db.exec(baseline);
+  await db.exec(readFileSync('prisma/migrations/20261021040000_steamfoot_store_notices/migration.sql','utf8'));
+  const before=(await db.query<{definition:string}>(`SELECT pg_get_functiondef('public.record_steamfoot_store_notice()'::regprocedure) AS definition`)).rows[0].definition;
+  await expect(db.exec(readFileSync('prisma/reconciliation/20261030_digital_manager_scoped_with_beauty_review.sql','utf8'))).rejects.toThrow();
+  await db.exec('ROLLBACK');
+  expect((await db.query<{name:string|null}>(`SELECT to_regclass('public."DigitalManagerNotice"')::text AS name`)).rows[0].name).toBeNull();
+  expect((await db.query<{definition:string}>(`SELECT pg_get_functiondef('public.record_steamfoot_store_notice()'::regprocedure) AS definition`)).rows[0].definition).toBe(before);
+ } finally {await db.close();}
+},30000);
+it.each([true,false])('checks policy boundaries against the actual IndustryModule enum (%s)',async actualEnum=>{
+ const db=new PGlite();
+ try{
+  await db.exec(actualEnum?baseline:baseline.replace('"industryModule" "IndustryModule"','"industryModule" text'));
+  await db.exec(readFileSync('prisma/migrations/20261021040000_steamfoot_store_notices/migration.sql','utf8'));
+  await db.exec(`CREATE ROLE steamfoot_beauty_prod_20261025 LOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT;
+   GRANT SELECT (id,"industryModule") ON "Store" TO steamfoot_beauty_prod_20261025;
+   ALTER TABLE "Store" ENABLE ROW LEVEL SECURITY;
+   CREATE POLICY beauty_test_read ON "Store" FOR SELECT TO steamfoot_beauty_prod_20261025 USING (true);`);
+  await db.exec(readFileSync('prisma/reconciliation/20261030_digital_manager_scoped_with_beauty_review.sql','utf8'));
+  const client={$queryRawUnsafe:async(sql:string,...args:unknown[])=>(await db.query(sql,args)).rows};
+  if(!actualEnum){await expect(verifyDigitalManagerPolicyBoundary(client)).rejects.toThrow('industry_type_rejected');return;}
+  await expect(verifyDigitalManagerPolicyBoundary(client)).resolves.toBeUndefined();
+  await db.exec('ALTER POLICY beauty_digital_manager_read ON "DigitalManagerNotice" USING (true)');
+  await expect(verifyDigitalManagerPolicyBoundary(client)).rejects.toThrow('policies_rejected');
+ }finally{await db.close();}
+},30000);
+it('accepts only the reviewed new policy when explicitly selecting the new action-policy version',async()=>{
+ const db=new PGlite();
+ try{
+  await db.exec(baseline);
+  await db.exec(readFileSync('prisma/migrations/20261021040000_steamfoot_store_notices/migration.sql','utf8'));
+  await db.exec(`CREATE ROLE steamfoot_beauty_prod_20261025 LOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT; GRANT SELECT(id,"industryModule") ON "Store" TO steamfoot_beauty_prod_20261025;`);
+  await db.exec(readFileSync('prisma/reconciliation/20261030_digital_manager_scoped_with_beauty_review.sql','utf8'));
+  await db.exec(`CREATE TABLE "CourseStoreNotice"(id text PRIMARY KEY,"storeId" text,"subjectKey" text,kind text);
+   ALTER TABLE "Booking" ADD COLUMN "updatedAt" timestamptz, ADD COLUMN "expectedAmount" int;
+   ALTER TABLE "CourseBooking" ADD COLUMN notes text,ADD COLUMN "customerName" text;
+   ALTER TABLE "DigitalButlerLead" ADD COLUMN "submittedAnswers" jsonb;
+   ALTER TABLE "Transaction" ADD COLUMN "bookingId" text,ADD COLUMN "unregisteredParticipantId" text;
+   CREATE TABLE "BookingParticipant"("storeId" text,"completedAt" timestamptz,status text,"expectedAmount" int);
+   CREATE TABLE "CourseTrialPayment"("storeId" text,"bookingId" text,status text,"voidedAt" timestamptz);
+   CREATE TABLE "CoursePurchase"("storeId" text,"confirmedAt" timestamptz,status text,"voidedAt" timestamptz);
+   CREATE TABLE "BeautyPayment"("storeId" text,"appointmentId" text,kind text);
+   CREATE TABLE "BeautyAppointment"("storeId" text,"endsAt" timestamptz,status text,"cardId" text);
+   SELECT set_config('beauty_migration.app_role','steamfoot_beauty_prod_20261025',false);`);
+  const client={$queryRawUnsafe:async(sql:string,...args:unknown[])=>(await db.query(sql,args)).rows};
+  await expect(verifyDigitalManagerPolicyBoundary(client)).resolves.toBeUndefined();
+  await db.exec(readFileSync('scripts/sql/store-notice-action-policy.sql','utf8'));
+  await expect(verifyDigitalManagerPolicyBoundary(client)).rejects.toThrow('policies_rejected');
+  await expect(verifyDigitalManagerPolicyBoundary(client,{actionPolicy:true})).resolves.toBeUndefined();
+  await db.exec('ALTER POLICY beauty_digital_manager_read ON "DigitalManagerNotice" USING(true)');
+  await expect(verifyDigitalManagerPolicyBoundary(client,{actionPolicy:true})).rejects.toThrow('policies_rejected');
+ }finally{await db.close();}
+},30000);

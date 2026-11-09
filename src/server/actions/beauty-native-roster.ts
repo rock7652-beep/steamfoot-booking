@@ -1,4 +1,5 @@
 "use server";
+import {recordBeautyStoreNotice} from '@/server/beauty/store-notices';
 import {withReadRequestMemo} from "@/server/services/read-request-memo";
 import {beautyRosterContext,beautyRosterWhere,beautyRosterVersion,loadBeautyRoster} from '@/server/beauty/roster-read';
 import {traceBeautyRead,beautyReadStep} from '@/server/beauty/read-timing';
@@ -30,13 +31,14 @@ export async function saveBeautyNativeRosterNote(input:unknown){
    if(current.notes===d.note)return {success:true as const,revision:current.revision};
    if(current.notes!==d.expectedNote)return {success:false as const,error:'本次備註已被更新，請確認最新內容後再儲存',currentValue:current.notes};
    await tx.beautyAppointment.update({where:{id:current.id},data:{notes:d.note,revision:{increment:1}}});
+   await recordBeautyStoreNotice(tx,a,undefined,current,'UPDATE');
    await audit(tx,a,'BOOKING_NOTE',JSON.stringify({before:current.notes,after:d.note}),current.id);
    return {success:true as const,revision:current.revision+1};
   });
  }catch(error){const failure=handleActionError(error);return {success:false as const,error:failure.success?'儲存失敗':failure.error};}
 }
 
-/** Refresh only the open roster and affected business day, never the dashboard catalogs. */
+/** Refresh the open roster and affected day after a committed mutation. Catalogs remain untouched. */
 export async function readBeautyRosterOperation(input:unknown){
  try{
   const d=z.object({sessionId:z.string().min(1).max(200),date:z.string().regex(/^20\d{2}-\d{2}-\d{2}$/)}).parse(input);

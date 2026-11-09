@@ -35,7 +35,8 @@
     "CG01",
     "A17",
     "F13",
-    "C177"
+    "C177",
+    "PLAN-SESSION-ADJUST"
   ],
   "cumulativeDraftUpdatedGuideIds": [
     "A03",
@@ -206,9 +207,10 @@
     "BEAUTY01",
     "BEAUTY02",
     "BEAUTY03",
-    "BEAUTY04"
+    "BEAUTY04",
+    "PLAN-SESSION-ADJUST"
   ],
-  "articleCount": 202,
+  "articleCount": 203,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -555,8 +557,8 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 93,
-  "totalInteractionPendingCount": 93,
+  "backendInteractionPendingCount": 94,
+  "totalInteractionPendingCount": 94,
   "reviewedMainCommitCount": 237,
   "reviewedStandaloneCommits": [
     "1e133b93",
@@ -1066,5 +1068,16 @@
     "status": "source-reviewed",
     "authenticatedAcceptance": "pending",
     "note": "新增 LINE 額度 Email 通知文章；正式寄信網域已由功能 PR 驗證，但指南驗收仍不得寄測試信或以送信紀錄替代登入後操作。"
-  }
+  },
+  "catalogAmendments": [
+    {
+      "dateTaipei": "2026-10-31",
+      "sourceMainCommit": "2d9a4354b9d1f1036427581a74daacbc86b97246",
+      "guideIds": [
+        "PLAN-SESSION-ADJUST"
+      ],
+      "status": "source-reviewed-awaiting-hosted-acceptance",
+      "note": "新增調整堂數後台指南；保留上一輪完整 main 盤點時間、範圍及既有驗收狀態。"
+    }
+  ]
 }

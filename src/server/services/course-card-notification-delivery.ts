@@ -1,3 +1,4 @@
+import {isLineDeliveryEventCurrent,lineDeliveryResumeAt} from "@/lib/line-delivery-pause";
 import type { Prisma } from "@prisma/client";
 import { monthRange,toLocalMonthStr } from "@/lib/date-utils";
 import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
@@ -9,7 +10,7 @@ import { resolveVerifiedReminderLineRoute } from "./verified-reminder-line-route
 
 /** Shared channel, preview, quota and identity policy for course card notifications. Caller holds store lock. */
 export async function deliverCourseCardNotification(tx:Prisma.TransactionClient,input:{
-  id:string;storeId:string;person:{id:string;lineUserId:string|null;lineLinkStatus:string};messages:LineMessage[];retryKey:string;now:Date;transactionScoped?:boolean;
+  id:string;storeId:string;person:{id:string;lineUserId:string|null;lineLinkStatus:string};messages:LineMessage[];retryKey:string;now:Date;eventCreatedAt?:Date;transactionScoped?:boolean;
 }) {
   const {id,storeId,person,messages,retryKey,now}=input;
   const skip=async(reason:string)=>{await tx.messageLog.update({where:{id},data:{status:"SKIPPED",errorMessage:reason}});return "SKIPPED" as const;};
@@ -20,7 +21,9 @@ export async function deliverCourseCardNotification(tx:Prisma.TransactionClient,
   const recipient=await (input.transactionScoped?resolveCentralLineRecipientForCustomer(person.id,storeId,tx):resolveCentralLineRecipientForCustomer(person.id,storeId));
   const route=input.transactionScoped?await resolveVerifiedReminderLineRoute(storeId,person.lineLinkStatus==="LINKED"?person.lineUserId:null,recipient,person.id,tx):await resolveVerifiedReminderLineRoute(storeId,person.lineLinkStatus==="LINKED"?person.lineUserId:null,recipient,person.id);
   if(route.status==="BLOCKED") return skip(`LINE 身分未確認：${route.reason}`);
-  const result=route.channel==="STORE"?await pushMessage(storeId,route.recipientLineUserId,messages,retryKey):await pushSteamButlerMessage(route.recipientLineUserId,messages,retryKey);
+  const eventCreatedAt=input.eventCreatedAt??(lineDeliveryResumeAt()?(await tx.messageLog.findUnique({where:{id},select:{createdAt:true}}))?.createdAt:now);
+  if(!isLineDeliveryEventCurrent(eventCreatedAt))return skip("停發期間的舊通知不補發");
+  const result=route.channel==="STORE"?await pushMessage(storeId, route.recipientLineUserId, messages, retryKey, eventCreatedAt):await pushSteamButlerMessage(route.recipientLineUserId, messages, retryKey, eventCreatedAt);
   const uncertain=input.transactionScoped&&!result.success&&!result.httpStatus&&result.errorType!=="line_api_rejected";
   await tx.messageLog.update({where:{id},data:{status:result.success?"SENT":uncertain?"PENDING":"FAILED",lineRoute:route.channel,sentAt:result.success?now:null,errorMessage:result.success?null:result.error}});
   return result.success?"SENT" as const:"FAILED" as const;

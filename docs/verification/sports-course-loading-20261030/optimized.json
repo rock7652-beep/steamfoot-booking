@@ -1,0 +1,176 @@
+{
+  "variant": "optimized",
+  "origin": "https://steamfoot-booking-p5qyiqifq-rock7652-2111s-projects.vercel.app",
+  "fixtureStore": "sports-live-flow-store",
+  "data": "isolated synthetic fixtures",
+  "measurements": [
+    {
+      "view": "catalog",
+      "sample": 0,
+      "warmup": true,
+      "elapsedMs": 4878,
+      "ttfbMs": 2447,
+      "transferBytes": 18113,
+      "documentBytes": 101319
+    },
+    {
+      "view": "catalog",
+      "sample": 1,
+      "warmup": false,
+      "elapsedMs": 2747,
+      "ttfbMs": 731,
+      "transferBytes": 18050,
+      "documentBytes": 101319
+    },
+    {
+      "view": "catalog",
+      "sample": 2,
+      "warmup": false,
+      "elapsedMs": 2801,
+      "ttfbMs": 583,
+      "transferBytes": 18078,
+      "documentBytes": 101319
+    },
+    {
+      "view": "catalog",
+      "sample": 3,
+      "warmup": false,
+      "elapsedMs": 1860,
+      "ttfbMs": 564,
+      "transferBytes": 18061,
+      "documentBytes": 101319
+    },
+    {
+      "view": "schedule",
+      "sample": 0,
+      "warmup": true,
+      "elapsedMs": 2775,
+      "ttfbMs": 726,
+      "transferBytes": 26656,
+      "documentBytes": 234617
+    },
+    {
+      "view": "schedule",
+      "sample": 1,
+      "warmup": false,
+      "elapsedMs": 2647,
+      "ttfbMs": 578,
+      "transferBytes": 26748,
+      "documentBytes": 234617
+    },
+    {
+      "view": "schedule",
+      "sample": 2,
+      "warmup": false,
+      "elapsedMs": 2572,
+      "ttfbMs": 675,
+      "transferBytes": 26707,
+      "documentBytes": 234617
+    },
+    {
+      "view": "schedule",
+      "sample": 3,
+      "warmup": false,
+      "elapsedMs": 2474,
+      "ttfbMs": 438,
+      "transferBytes": 26704,
+      "documentBytes": 234617
+    }
+  ],
+  "checks": [
+    {
+      "step": "normal-isolated-owner-login",
+      "pass": true
+    },
+    {
+      "step": "no-eager-schedule-options-request",
+      "pass": true
+    },
+    {
+      "step": "dialog-visible-before-response",
+      "pass": true,
+      "ms": 117
+    },
+    {
+      "step": "single-intent-and-open-request",
+      "pass": true,
+      "count": 1
+    },
+    {
+      "step": "responsive-draft-preserved",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "step": "responsive-draft-preserved",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "step": "responsive-draft-preserved",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "step": "responsive-draft-preserved",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "step": "closing-focus-does-not-preload",
+      "pass": true
+    },
+    {
+      "step": "in-dialog-read-failure-retry",
+      "pass": true
+    },
+    {
+      "step": "responsive-teaching-catalog",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "step": "responsive-teaching-catalog",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "step": "responsive-teaching-catalog",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "step": "responsive-teaching-catalog",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "step": "foreign-store-read-denied",
+      "pass": true,
+      "status": 200
+    }
+  ],
+  "pageErrors": [],
+  "optionsRequests": [
+    {
+      "status": 200,
+      "serverTiming": "scheduleoptions;dur=1583"
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200,
+      "serverTiming": "scheduleoptions;dur=1247"
+    }
+  ],
+  "success": true
+}

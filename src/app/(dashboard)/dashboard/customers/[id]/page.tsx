@@ -34,6 +34,7 @@ import { AssignPlanForm } from "./assign-plan-form";
 import { TransferCustomerForm } from "./transfer-customer-form";
 import { CreateBookingForm } from "./create-booking-form";
 import { AdjustWalletForm } from "./adjust-wallet-form";
+import {SteamPlanClose} from "@/components/admin/steam-plan-close";
 import { ExtendWalletExpiryForm } from "./extend-wallet-expiry-form";
 import { BackfillUsedSessionsForm } from "./backfill-used-sessions-form";
 import { MigratePaperPlanDialog } from "./migrate-paper-plan-dialog";
@@ -242,16 +243,20 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const canEdit = user.role !== "CUSTOMER" && !isViewMode;
   const canRunLineRebindDryRun = Boolean(getLineConfigForStore(effectiveStoreId).expectedBasicId);
   const [canManageLineRebind, activeLineRebindRequest] = await Promise.all([
-    checkPermission(user.role, user.staffId, "customer.identity.rebind").catch(() => false),
+    (user.role === "OWNER" || user.role === "ADMIN") && !isViewMode
+      ? checkPermission(user.role, user.staffId, "customer.identity.rebind").catch(() => false)
+      : Promise.resolve(false),
     prisma.lineRebindRequest.findFirst({
       where: {
         customerId: id,
         storeId: effectiveStoreId,
         status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] },
+        OR: [{ untilUsed: true }, { expiresAt: { gt: new Date() } }],
       },
       select: {
         id: true,
         status: true,
+        reason: true,
         capturedAt: true,
         expiresAt: true,
         untilUsed: true,
@@ -688,7 +693,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     <EmptyRow title="尚無預約紀錄" dense />
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className={simplified ? "block w-full text-left text-base sm:table [&_thead]:hidden sm:[&_thead]:table-header-group [&_tbody]:block sm:[&_tbody]:table-row-group [&_tr]:flex [&_tr]:h-auto [&_tr]:flex-wrap [&_tr]:gap-y-2 [&_tr]:py-3 sm:[&_tr]:table-row [&_td]:py-1 [&_td]:text-base sm:[&_td]:text-sm [&_td]:whitespace-normal [&_td_span]:whitespace-nowrap" : "w-full text-left text-sm"}>
+                      <table data-striped-list className={simplified ? "block w-full text-left text-base sm:table [&_thead]:hidden sm:[&_thead]:table-header-group [&_tbody]:block sm:[&_tbody]:table-row-group [&_tr]:flex [&_tr]:h-auto [&_tr]:flex-wrap [&_tr]:gap-y-2 [&_tr]:py-3 sm:[&_tr]:table-row [&_td]:py-1 [&_td]:text-base sm:[&_td]:text-sm [&_td]:whitespace-normal [&_td_span]:whitespace-nowrap" : "w-full text-left text-sm"}>
                         <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
                           <tr>
                             <th className="px-3 py-2">日期</th>
@@ -700,7 +705,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                         </thead>
                         <tbody className="divide-y divide-earth-100">
                           {recentHistory.map((b) => (
-                            <tr key={b.id} className="h-11 hover:bg-primary-50/40">
+                            <tr key={b.id} className="h-11 ">
                               <td className="px-3 text-sm tabular-nums text-earth-800">
                                 {formatTWTime(b.bookingDate, { dateOnly: true })}
                               </td>
@@ -752,7 +757,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     <EmptyRow title="尚無消費紀錄" dense />
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className={simplified ? "block w-full text-left text-base sm:table [&_thead]:hidden sm:[&_thead]:table-header-group [&_tbody]:block sm:[&_tbody]:table-row-group [&_tr]:flex [&_tr]:h-auto [&_tr]:flex-wrap [&_tr]:gap-y-2 [&_tr]:py-3 sm:[&_tr]:table-row [&_td]:py-1 [&_td]:text-base sm:[&_td]:text-sm [&_td]:whitespace-normal [&_td_span]:whitespace-nowrap" : "w-full text-left text-sm"}>
+                      <table data-striped-list className={simplified ? "block w-full text-left text-base sm:table [&_thead]:hidden sm:[&_thead]:table-header-group [&_tbody]:block sm:[&_tbody]:table-row-group [&_tr]:flex [&_tr]:h-auto [&_tr]:flex-wrap [&_tr]:gap-y-2 [&_tr]:py-3 sm:[&_tr]:table-row [&_td]:py-1 [&_td]:text-base sm:[&_td]:text-sm [&_td]:whitespace-normal [&_td_span]:whitespace-nowrap" : "w-full text-left text-sm"}>
                         <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
                           <tr>
                             <th className="px-3 py-2">日期</th>
@@ -888,7 +893,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               <div className="mt-3 border-t border-earth-100 pt-3">
                 {!simplified && <p className="mb-2 text-[11px] font-semibold text-earth-600">LINE 綁定操作</p>}
                 <CustomerDetailSection enabled={simplified} title="管理 LINE 綁定">
-                <StoreMemberConnectionPanel customerId={customer.id} />
+                <StoreMemberConnectionPanel customerId={customer.id} pendingOnly />
                 <LineBindingSection
                   customerId={id}
                   lineLinkStatus={customer.lineLinkStatus}
@@ -903,6 +908,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   activeLineRebindRequest={activeLineRebindRequest ? {
                     id: activeLineRebindRequest.id,
                     status: activeLineRebindRequest.status,
+                    phoneRebindFailed: activeLineRebindRequest.reason === "OA_PHONE_REBIND_FAILED",
                     capturedAt: activeLineRebindRequest.capturedAt?.toISOString() ?? null,
                     expiresAt: activeLineRebindRequest.expiresAt.toISOString(),
                     untilUsed: activeLineRebindRequest.untilUsed,
@@ -1248,6 +1254,7 @@ function WalletItem({
   simplified = false,
 }: {
   w: {
+    storeId:string;
     id: string;
     plan: { name: string };
     status: string;
@@ -1358,6 +1365,7 @@ function WalletItem({
                   expired={w.status === "EXPIRED"}
                 />
               )}
+            {canAdjustWallet&&!readOnly&&<SteamPlanClose wallet={{id:w.id,storeId:w.storeId,remainingSessions:w.remainingSessions,expiryDate:w.expiryDate,status:w.status}}/>}
             {hasSessions && (
               <div className="border-t border-earth-100 pt-2">
                 <p className="mb-1.5 text-[11px] font-semibold text-earth-600">

@@ -7,10 +7,23 @@ vi.mock("@/lib/permissions",()=>({checkPermission:m.permission}));
 vi.mock("@/server/services/operation-audit-outbox",()=>({enqueueOperationAudit:vi.fn()}));
 import {loadCourseStoreNoticeTarget} from "@/server/actions/course-store-notices";
 beforeEach(()=>{vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"s",user:{role:"STAFF",staffId:"u"}});m.rule.mockResolvedValue({backendNoticesEnabled:true});m.notice.mockResolvedValue({subjectKey:"session:lesson"});m.session.mockResolvedValue({id:"lesson",nameSnapshot:"現行課程 · 83f866",startsAt:new Date("2026-10-13T02:00:00Z"),capacity:4,coachId:"t",roomId:"r",cancelledAt:null,template:{classType:"GROUP"},room:{name:"教室"}});m.coach.mockResolvedValue([{displayName:"老師",phone:null}]);m.permission.mockResolvedValue(false);});
-it("checks permission, requested store and enabled setting before reading any target",async()=>{
+it("checks permission and requested store regardless of the legacy setting",async()=>{
  m.manager.mockRejectedValueOnce(new Error("forbidden"));expect(await loadCourseStoreNoticeTarget({storeId:"s",id:"n"})).toMatchObject({success:false});expect(m.notice).not.toHaveBeenCalled();
  expect(await loadCourseStoreNoticeTarget({storeId:"other",id:"n"})).toMatchObject({success:false});expect(m.notice).not.toHaveBeenCalled();
- m.rule.mockResolvedValue({backendNoticesEnabled:false});expect(await loadCourseStoreNoticeTarget({storeId:"s",id:"n"})).toMatchObject({success:false});expect(m.notice).not.toHaveBeenCalled();
+ m.rule.mockResolvedValue({backendNoticesEnabled:false});expect(await loadCourseStoreNoticeTarget({storeId:"s",id:"n"})).toMatchObject({success:true});expect(m.notice).toHaveBeenCalled();
+});
+it("resolves an incomplete reminder through the saved same-store booking",async()=>{
+ m.coach.mockResolvedValueOnce([{targetId:'booking'}]).mockResolvedValueOnce([{displayName:'老師',phone:null}]);m.booking.mockResolvedValue({sessionId:'lesson'});
+ expect(await loadCourseStoreNoticeTarget({storeId:'s',id:'digital:notice'})).toMatchObject({success:true,data:{id:'lesson'}});
+ expect(m.coach.mock.calls[0][0].join('')).toContain('"storeId"=');expect(m.booking).toHaveBeenCalledWith({where:{id:'booking',storeId:'s'},select:{sessionId:true}});
+});
+it('requires finance permission before opening a receivable lesson roster',async()=>{
+ m.coach.mockResolvedValueOnce([{targetId:'trial',eventType:'OUTSTANDING_PAYMENT'}]);
+ expect(await loadCourseStoreNoticeTarget({storeId:'s',id:'digital:debt'})).toMatchObject({success:false});
+ expect(m.booking).not.toHaveBeenCalled();
+ m.permission.mockResolvedValue(true);m.coach.mockResolvedValueOnce([{targetId:'trial',eventType:'OUTSTANDING_PAYMENT'}]).mockResolvedValueOnce([{displayName:'老師'}]);m.booking.mockResolvedValue({sessionId:'lesson'});
+ expect(await loadCourseStoreNoticeTarget({storeId:'s',id:'digital:debt'})).toMatchObject({success:true,data:{id:'lesson'}});
+ expect(m.booking).toHaveBeenCalledWith({where:{id:'trial',storeId:'s'},select:{sessionId:true}});
 });
 it("resolves a saved session subject in the authorized store and returns actual permissions",async()=>{
  expect(await loadCourseStoreNoticeTarget({storeId:"s",id:"n",sessionId:"foreign"})).toMatchObject({success:true,storeId:"s",data:{id:"lesson",courseName:"現行課程",canEdit:false,canCreate:false,musicLayout:false}});

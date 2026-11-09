@@ -1,0 +1,1087 @@
+{
+  "origin": "https://steamfoot-booking-akchjnk4s-rock7652-2111s-projects.vercel.app",
+  "variant": "optimized",
+  "data": "isolated sports QA fixtures",
+  "measurements": [
+    {
+      "sample": 0,
+      "warmup": true,
+      "cache": {
+        "served": 20,
+        "disk": 0,
+        "paths": [
+          "/_next/static/chunks/09oyyey-vvvv-.css",
+          "/_next/static/chunks/06xu45ms98-yt.css",
+          "/_next/static/chunks/074prxct1iqr1.js",
+          "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "/_next/static/chunks/0_fepd95ptoqy.js",
+          "/_next/static/chunks/18cilrg3kkkfk.js",
+          "/_next/static/chunks/04.i-__.as.dk.js",
+          "/_next/static/chunks/10787q4ojjapa.js",
+          "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+          "/_next/static/chunks/0fjb2kp5wf-40.js",
+          "/_next/static/chunks/0i.l9589uvx0j.js",
+          "/_next/static/chunks/13sar8s1k4vkv.js",
+          "/_next/static/chunks/0mxps0gydcc2f.js",
+          "/_next/static/chunks/0sb~61txgu9r-.js",
+          "/_next/static/chunks/0zjywwbyop.0h.js",
+          "/_next/static/chunks/0pxez_qy3orq2.js",
+          "/_next/static/chunks/0_owxy8c~i_0u.js",
+          "/_next/static/chunks/15q_j0sdextf0.js",
+          "/_next/static/chunks/0ppbv5zzprwck.js"
+        ]
+      },
+      "elapsedMs": 2828,
+      "browserTiming": {
+        "requestToFirstByteMs": 710,
+        "responseTransferWindowMs": 1087,
+        "navigationToResponseEndMs": 1800,
+        "navigationToDomContentLoadedMs": 1805,
+        "navigationToLoadMs": 2698,
+        "transferBytes": 27614,
+        "resourceCount": 40
+      },
+      "server": {
+        "totalMs": 885.3,
+        "phases": [
+          {
+            "name": "access",
+            "startMs": 0,
+            "durationMs": 233.3
+          },
+          {
+            "name": "profile",
+            "startMs": 233.3,
+            "durationMs": 17.8
+          },
+          {
+            "name": "ensure_month",
+            "startMs": 251.1,
+            "durationMs": 196.7
+          },
+          {
+            "name": "pre_calendar",
+            "startMs": 447.8,
+            "durationMs": 73.6
+          },
+          {
+            "name": "calendar_batch",
+            "startMs": 521.5,
+            "durationMs": 108.2
+          },
+          {
+            "name": "post_calendar",
+            "startMs": 629.7,
+            "durationMs": 237.9
+          },
+          {
+            "name": "presentation",
+            "startMs": 867.6,
+            "durationMs": 17.6
+          }
+        ],
+        "reads": [
+          {
+            "name": "ensure_month",
+            "startMs": 254.6,
+            "durationMs": 193.2,
+            "ok": true
+          },
+          {
+            "name": "rentals",
+            "startMs": 448,
+            "durationMs": 17.4,
+            "ok": true
+          },
+          {
+            "name": "rental_customers",
+            "startMs": 465.5,
+            "durationMs": 35.3,
+            "ok": true
+          },
+          {
+            "name": "cancelled_bookings",
+            "startMs": 500.8,
+            "durationMs": 20.6,
+            "ok": true
+          },
+          {
+            "name": "rooms",
+            "startMs": 521.5,
+            "durationMs": 28.2,
+            "ok": true
+          },
+          {
+            "name": "availability",
+            "startMs": 522.5,
+            "durationMs": 28.9,
+            "ok": true
+          },
+          {
+            "name": "availability_exceptions",
+            "startMs": 522.6,
+            "durationMs": 45.4,
+            "ok": true
+          },
+          {
+            "name": "sessions",
+            "startMs": 521.9,
+            "durationMs": 58.9,
+            "ok": true
+          },
+          {
+            "name": "business_hours",
+            "startMs": 522.2,
+            "durationMs": 69.8,
+            "ok": true
+          },
+          {
+            "name": "special_days",
+            "startMs": 522.2,
+            "durationMs": 82.9,
+            "ok": true
+          },
+          {
+            "name": "templates",
+            "startMs": 521.8,
+            "durationMs": 89.2,
+            "ok": true
+          },
+          {
+            "name": "coaches",
+            "startMs": 522.1,
+            "durationMs": 107.6,
+            "ok": true
+          },
+          {
+            "name": "roster_customers",
+            "startMs": 629.7,
+            "durationMs": 35.4,
+            "ok": true
+          },
+          {
+            "name": "waitlist_feature",
+            "startMs": 666.4,
+            "durationMs": 0.9,
+            "ok": true
+          },
+          {
+            "name": "waitlist_setting",
+            "startMs": 667.3,
+            "durationMs": 17.5,
+            "ok": true
+          },
+          {
+            "name": "plans",
+            "startMs": 665.4,
+            "durationMs": 36.3,
+            "ok": true
+          },
+          {
+            "name": "scheduling_modes",
+            "startMs": 665.5,
+            "durationMs": 53.1,
+            "ok": true
+          },
+          {
+            "name": "display_orders",
+            "startMs": 684.7,
+            "durationMs": 50.7,
+            "ok": true
+          },
+          {
+            "name": "sports_rules",
+            "startMs": 735.7,
+            "durationMs": 131.9,
+            "ok": true
+          },
+          {
+            "name": "labels",
+            "startMs": 665.3,
+            "durationMs": 219.8,
+            "ok": true
+          }
+        ]
+      }
+    },
+    {
+      "sample": 1,
+      "warmup": false,
+      "cache": {
+        "served": 37,
+        "disk": 0,
+        "paths": [
+          "/_next/static/chunks/09oyyey-vvvv-.css",
+          "/_next/static/chunks/06xu45ms98-yt.css",
+          "/_next/static/chunks/074prxct1iqr1.js",
+          "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "/_next/static/chunks/0_fepd95ptoqy.js",
+          "/_next/static/chunks/18cilrg3kkkfk.js",
+          "/_next/static/chunks/04.i-__.as.dk.js",
+          "/_next/static/chunks/10787q4ojjapa.js",
+          "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+          "/_next/static/chunks/0fjb2kp5wf-40.js",
+          "/_next/static/chunks/0i.l9589uvx0j.js",
+          "/_next/static/chunks/13sar8s1k4vkv.js",
+          "/_next/static/chunks/0mxps0gydcc2f.js",
+          "/_next/static/chunks/0sb~61txgu9r-.js",
+          "/_next/static/chunks/0zjywwbyop.0h.js",
+          "/_next/static/chunks/0pxez_qy3orq2.js",
+          "/_next/static/chunks/0_owxy8c~i_0u.js",
+          "/_next/static/chunks/15q_j0sdextf0.js",
+          "/_next/static/chunks/0mgo13ra8q0ca.js",
+          "/_next/static/chunks/0h4d47alki~gj.js",
+          "/_next/static/chunks/02dglw3op3se0.js",
+          "/_next/static/chunks/179zjm-80gl~9.js",
+          "/_next/static/chunks/0vwu29n58__sc.js",
+          "/_next/static/chunks/15h4jnxrhh5ac.js",
+          "/_next/static/chunks/0e1wo~_.ci2po.js",
+          "/_next/static/chunks/0q_~olnb0vvd0.js",
+          "/_next/static/chunks/05vv~..7xpowf.js",
+          "/_next/static/chunks/17-dfcujqv~b6.js",
+          "/_next/static/chunks/0jx8kt228022x.js",
+          "/_next/static/chunks/16g~9x2e58sv~.js",
+          "/_next/static/chunks/0ma.pru5ez5ee.js",
+          "/_next/static/chunks/0s.y6-sgn8kar.js",
+          "/_next/static/chunks/0fdtuaxbdg.kv.js",
+          "/_next/static/chunks/0ijkceeurjp6~.js",
+          "/_next/static/chunks/0tnqfchl9m3kt.js",
+          "/_next/static/chunks/0ppbv5zzprwck.js"
+        ]
+      },
+      "elapsedMs": 2053,
+      "browserTiming": {
+        "requestToFirstByteMs": 747,
+        "responseTransferWindowMs": 1066,
+        "navigationToResponseEndMs": 1819,
+        "navigationToDomContentLoadedMs": 1827,
+        "navigationToLoadMs": 1828,
+        "transferBytes": 27685,
+        "resourceCount": 40
+      },
+      "server": {
+        "totalMs": 956.3,
+        "phases": [
+          {
+            "name": "access",
+            "startMs": 0,
+            "durationMs": 241.7
+          },
+          {
+            "name": "profile",
+            "startMs": 241.7,
+            "durationMs": 51.4
+          },
+          {
+            "name": "ensure_month",
+            "startMs": 293.1,
+            "durationMs": 162
+          },
+          {
+            "name": "pre_calendar",
+            "startMs": 455.1,
+            "durationMs": 53.2
+          },
+          {
+            "name": "calendar_batch",
+            "startMs": 508.3,
+            "durationMs": 87.9
+          },
+          {
+            "name": "post_calendar",
+            "startMs": 596.2,
+            "durationMs": 162.3
+          },
+          {
+            "name": "presentation",
+            "startMs": 758.4,
+            "durationMs": 197.7
+          }
+        ],
+        "reads": [
+          {
+            "name": "ensure_month",
+            "startMs": 296.4,
+            "durationMs": 158.7,
+            "ok": true
+          },
+          {
+            "name": "rentals",
+            "startMs": 455.5,
+            "durationMs": 16.9,
+            "ok": true
+          },
+          {
+            "name": "rental_customers",
+            "startMs": 472.4,
+            "durationMs": 18.2,
+            "ok": true
+          },
+          {
+            "name": "cancelled_bookings",
+            "startMs": 490.6,
+            "durationMs": 17.7,
+            "ok": true
+          },
+          {
+            "name": "rooms",
+            "startMs": 508.3,
+            "durationMs": 24.7,
+            "ok": true
+          },
+          {
+            "name": "coaches",
+            "startMs": 509.1,
+            "durationMs": 28.4,
+            "ok": true
+          },
+          {
+            "name": "availability",
+            "startMs": 509.5,
+            "durationMs": 42.3,
+            "ok": true
+          },
+          {
+            "name": "templates",
+            "startMs": 508.7,
+            "durationMs": 47.4,
+            "ok": true
+          },
+          {
+            "name": "business_hours",
+            "startMs": 509.2,
+            "durationMs": 57.7,
+            "ok": true
+          },
+          {
+            "name": "availability_exceptions",
+            "startMs": 509.5,
+            "durationMs": 71.7,
+            "ok": true
+          },
+          {
+            "name": "sessions",
+            "startMs": 508.9,
+            "durationMs": 75.4,
+            "ok": true
+          },
+          {
+            "name": "special_days",
+            "startMs": 509.4,
+            "durationMs": 86.8,
+            "ok": true
+          },
+          {
+            "name": "roster_customers",
+            "startMs": 596.2,
+            "durationMs": 31,
+            "ok": true
+          },
+          {
+            "name": "waitlist_feature",
+            "startMs": 628.5,
+            "durationMs": 0.9,
+            "ok": true
+          },
+          {
+            "name": "plans",
+            "startMs": 627.5,
+            "durationMs": 18.4,
+            "ok": true
+          },
+          {
+            "name": "scheduling_modes",
+            "startMs": 627.7,
+            "durationMs": 32.9,
+            "ok": true
+          },
+          {
+            "name": "waitlist_setting",
+            "startMs": 629.4,
+            "durationMs": 46.3,
+            "ok": true
+          },
+          {
+            "name": "display_orders",
+            "startMs": 675.7,
+            "durationMs": 15,
+            "ok": true
+          },
+          {
+            "name": "sports_rules",
+            "startMs": 691,
+            "durationMs": 67.4,
+            "ok": true
+          },
+          {
+            "name": "labels",
+            "startMs": 627.4,
+            "durationMs": 328.7,
+            "ok": true
+          }
+        ]
+      }
+    },
+    {
+      "sample": 2,
+      "warmup": false,
+      "cache": {
+        "served": 37,
+        "disk": 0,
+        "paths": [
+          "/_next/static/chunks/09oyyey-vvvv-.css",
+          "/_next/static/chunks/06xu45ms98-yt.css",
+          "/_next/static/chunks/074prxct1iqr1.js",
+          "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "/_next/static/chunks/0_fepd95ptoqy.js",
+          "/_next/static/chunks/18cilrg3kkkfk.js",
+          "/_next/static/chunks/04.i-__.as.dk.js",
+          "/_next/static/chunks/10787q4ojjapa.js",
+          "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+          "/_next/static/chunks/0fjb2kp5wf-40.js",
+          "/_next/static/chunks/0i.l9589uvx0j.js",
+          "/_next/static/chunks/13sar8s1k4vkv.js",
+          "/_next/static/chunks/0mxps0gydcc2f.js",
+          "/_next/static/chunks/0sb~61txgu9r-.js",
+          "/_next/static/chunks/0zjywwbyop.0h.js",
+          "/_next/static/chunks/0pxez_qy3orq2.js",
+          "/_next/static/chunks/0_owxy8c~i_0u.js",
+          "/_next/static/chunks/15q_j0sdextf0.js",
+          "/_next/static/chunks/0mgo13ra8q0ca.js",
+          "/_next/static/chunks/0h4d47alki~gj.js",
+          "/_next/static/chunks/02dglw3op3se0.js",
+          "/_next/static/chunks/179zjm-80gl~9.js",
+          "/_next/static/chunks/0vwu29n58__sc.js",
+          "/_next/static/chunks/15h4jnxrhh5ac.js",
+          "/_next/static/chunks/0e1wo~_.ci2po.js",
+          "/_next/static/chunks/0q_~olnb0vvd0.js",
+          "/_next/static/chunks/05vv~..7xpowf.js",
+          "/_next/static/chunks/17-dfcujqv~b6.js",
+          "/_next/static/chunks/0jx8kt228022x.js",
+          "/_next/static/chunks/16g~9x2e58sv~.js",
+          "/_next/static/chunks/0ma.pru5ez5ee.js",
+          "/_next/static/chunks/0s.y6-sgn8kar.js",
+          "/_next/static/chunks/0fdtuaxbdg.kv.js",
+          "/_next/static/chunks/0ijkceeurjp6~.js",
+          "/_next/static/chunks/0tnqfchl9m3kt.js",
+          "/_next/static/chunks/0ppbv5zzprwck.js"
+        ]
+      },
+      "elapsedMs": 2083,
+      "browserTiming": {
+        "requestToFirstByteMs": 737,
+        "responseTransferWindowMs": 1179,
+        "navigationToResponseEndMs": 1920,
+        "navigationToDomContentLoadedMs": 1922,
+        "navigationToLoadMs": 2036,
+        "transferBytes": 27579,
+        "resourceCount": 39
+      },
+      "server": {
+        "totalMs": 933.3,
+        "phases": [
+          {
+            "name": "access",
+            "startMs": 0,
+            "durationMs": 199.9
+          },
+          {
+            "name": "profile",
+            "startMs": 199.9,
+            "durationMs": 31.9
+          },
+          {
+            "name": "ensure_month",
+            "startMs": 231.7,
+            "durationMs": 160.6
+          },
+          {
+            "name": "pre_calendar",
+            "startMs": 392.3,
+            "durationMs": 64.9
+          },
+          {
+            "name": "calendar_batch",
+            "startMs": 457.2,
+            "durationMs": 137.2
+          },
+          {
+            "name": "post_calendar",
+            "startMs": 594.4,
+            "durationMs": 141.4
+          },
+          {
+            "name": "presentation",
+            "startMs": 735.8,
+            "durationMs": 197.4
+          }
+        ],
+        "reads": [
+          {
+            "name": "ensure_month",
+            "startMs": 231.8,
+            "durationMs": 160.5,
+            "ok": true
+          },
+          {
+            "name": "rentals",
+            "startMs": 392.4,
+            "durationMs": 15.6,
+            "ok": true
+          },
+          {
+            "name": "rental_customers",
+            "startMs": 408.1,
+            "durationMs": 31.1,
+            "ok": true
+          },
+          {
+            "name": "cancelled_bookings",
+            "startMs": 439.2,
+            "durationMs": 18,
+            "ok": true
+          },
+          {
+            "name": "rooms",
+            "startMs": 457.2,
+            "durationMs": 24.1,
+            "ok": true
+          },
+          {
+            "name": "templates",
+            "startMs": 457.3,
+            "durationMs": 46.5,
+            "ok": true
+          },
+          {
+            "name": "sessions",
+            "startMs": 457.4,
+            "durationMs": 74.3,
+            "ok": true
+          },
+          {
+            "name": "availability",
+            "startMs": 457.5,
+            "durationMs": 74.3,
+            "ok": true
+          },
+          {
+            "name": "business_hours",
+            "startMs": 457.5,
+            "durationMs": 90.1,
+            "ok": true
+          },
+          {
+            "name": "availability_exceptions",
+            "startMs": 457.5,
+            "durationMs": 104.8,
+            "ok": true
+          },
+          {
+            "name": "special_days",
+            "startMs": 457.5,
+            "durationMs": 120.4,
+            "ok": true
+          },
+          {
+            "name": "coaches",
+            "startMs": 457.4,
+            "durationMs": 136.9,
+            "ok": true
+          },
+          {
+            "name": "roster_customers",
+            "startMs": 594.4,
+            "durationMs": 62.7,
+            "ok": true
+          },
+          {
+            "name": "waitlist_feature",
+            "startMs": 657.5,
+            "durationMs": 0.8,
+            "ok": true
+          },
+          {
+            "name": "plans",
+            "startMs": 657.1,
+            "durationMs": 16.4,
+            "ok": true
+          },
+          {
+            "name": "scheduling_modes",
+            "startMs": 657.2,
+            "durationMs": 30.7,
+            "ok": true
+          },
+          {
+            "name": "waitlist_setting",
+            "startMs": 658.3,
+            "durationMs": 45.3,
+            "ok": true
+          },
+          {
+            "name": "display_orders",
+            "startMs": 703.6,
+            "durationMs": 14.8,
+            "ok": true
+          },
+          {
+            "name": "sports_rules",
+            "startMs": 718.4,
+            "durationMs": 17.4,
+            "ok": true
+          },
+          {
+            "name": "labels",
+            "startMs": 657.1,
+            "durationMs": 276.1,
+            "ok": true
+          }
+        ]
+      }
+    },
+    {
+      "sample": 3,
+      "warmup": false,
+      "cache": {
+        "served": 37,
+        "disk": 0,
+        "paths": [
+          "/_next/static/chunks/09oyyey-vvvv-.css",
+          "/_next/static/chunks/06xu45ms98-yt.css",
+          "/_next/static/chunks/074prxct1iqr1.js",
+          "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "/_next/static/chunks/0_fepd95ptoqy.js",
+          "/_next/static/chunks/18cilrg3kkkfk.js",
+          "/_next/static/chunks/04.i-__.as.dk.js",
+          "/_next/static/chunks/10787q4ojjapa.js",
+          "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+          "/_next/static/chunks/0fjb2kp5wf-40.js",
+          "/_next/static/chunks/0i.l9589uvx0j.js",
+          "/_next/static/chunks/13sar8s1k4vkv.js",
+          "/_next/static/chunks/0mxps0gydcc2f.js",
+          "/_next/static/chunks/0sb~61txgu9r-.js",
+          "/_next/static/chunks/0zjywwbyop.0h.js",
+          "/_next/static/chunks/0pxez_qy3orq2.js",
+          "/_next/static/chunks/0_owxy8c~i_0u.js",
+          "/_next/static/chunks/15q_j0sdextf0.js",
+          "/_next/static/chunks/0mgo13ra8q0ca.js",
+          "/_next/static/chunks/0h4d47alki~gj.js",
+          "/_next/static/chunks/02dglw3op3se0.js",
+          "/_next/static/chunks/179zjm-80gl~9.js",
+          "/_next/static/chunks/0vwu29n58__sc.js",
+          "/_next/static/chunks/15h4jnxrhh5ac.js",
+          "/_next/static/chunks/0e1wo~_.ci2po.js",
+          "/_next/static/chunks/0q_~olnb0vvd0.js",
+          "/_next/static/chunks/05vv~..7xpowf.js",
+          "/_next/static/chunks/17-dfcujqv~b6.js",
+          "/_next/static/chunks/0jx8kt228022x.js",
+          "/_next/static/chunks/16g~9x2e58sv~.js",
+          "/_next/static/chunks/0ma.pru5ez5ee.js",
+          "/_next/static/chunks/0s.y6-sgn8kar.js",
+          "/_next/static/chunks/0fdtuaxbdg.kv.js",
+          "/_next/static/chunks/0ijkceeurjp6~.js",
+          "/_next/static/chunks/0tnqfchl9m3kt.js",
+          "/_next/static/chunks/0ppbv5zzprwck.js"
+        ]
+      },
+      "elapsedMs": 1740,
+      "browserTiming": {
+        "requestToFirstByteMs": 567,
+        "responseTransferWindowMs": 949,
+        "navigationToResponseEndMs": 1519,
+        "navigationToDomContentLoadedMs": 1523,
+        "navigationToLoadMs": 1616,
+        "transferBytes": 27680,
+        "resourceCount": 39
+      },
+      "server": {
+        "totalMs": 899.6,
+        "phases": [
+          {
+            "name": "access",
+            "startMs": 0,
+            "durationMs": 252
+          },
+          {
+            "name": "profile",
+            "startMs": 252,
+            "durationMs": 35
+          },
+          {
+            "name": "ensure_month",
+            "startMs": 287,
+            "durationMs": 163.4
+          },
+          {
+            "name": "pre_calendar",
+            "startMs": 450.4,
+            "durationMs": 64.8
+          },
+          {
+            "name": "calendar_batch",
+            "startMs": 515.2,
+            "durationMs": 89.8
+          },
+          {
+            "name": "post_calendar",
+            "startMs": 605,
+            "durationMs": 229
+          },
+          {
+            "name": "presentation",
+            "startMs": 833.9,
+            "durationMs": 65.7
+          }
+        ],
+        "reads": [
+          {
+            "name": "ensure_month",
+            "startMs": 287,
+            "durationMs": 163.3,
+            "ok": true
+          },
+          {
+            "name": "rentals",
+            "startMs": 450.5,
+            "durationMs": 20.8,
+            "ok": true
+          },
+          {
+            "name": "rental_customers",
+            "startMs": 471.3,
+            "durationMs": 27,
+            "ok": true
+          },
+          {
+            "name": "cancelled_bookings",
+            "startMs": 498.2,
+            "durationMs": 16.9,
+            "ok": true
+          },
+          {
+            "name": "rooms",
+            "startMs": 515.2,
+            "durationMs": 24.7,
+            "ok": true
+          },
+          {
+            "name": "coaches",
+            "startMs": 515.4,
+            "durationMs": 30.2,
+            "ok": true
+          },
+          {
+            "name": "availability",
+            "startMs": 515.4,
+            "durationMs": 44.4,
+            "ok": true
+          },
+          {
+            "name": "sessions",
+            "startMs": 515.3,
+            "durationMs": 51.5,
+            "ok": true
+          },
+          {
+            "name": "business_hours",
+            "startMs": 515.4,
+            "durationMs": 59.7,
+            "ok": true
+          },
+          {
+            "name": "templates",
+            "startMs": 515.3,
+            "durationMs": 72.6,
+            "ok": true
+          },
+          {
+            "name": "availability_exceptions",
+            "startMs": 515.4,
+            "durationMs": 74.3,
+            "ok": true
+          },
+          {
+            "name": "special_days",
+            "startMs": 515.4,
+            "durationMs": 89.5,
+            "ok": true
+          },
+          {
+            "name": "roster_customers",
+            "startMs": 605,
+            "durationMs": 31.6,
+            "ok": true
+          },
+          {
+            "name": "waitlist_feature",
+            "startMs": 637,
+            "durationMs": 0.8,
+            "ok": true
+          },
+          {
+            "name": "plans",
+            "startMs": 636.7,
+            "durationMs": 16.6,
+            "ok": true
+          },
+          {
+            "name": "scheduling_modes",
+            "startMs": 636.7,
+            "durationMs": 31,
+            "ok": true
+          },
+          {
+            "name": "waitlist_setting",
+            "startMs": 637.8,
+            "durationMs": 43.9,
+            "ok": true
+          },
+          {
+            "name": "display_orders",
+            "startMs": 681.7,
+            "durationMs": 15.7,
+            "ok": true
+          },
+          {
+            "name": "sports_rules",
+            "startMs": 697.4,
+            "durationMs": 136.5,
+            "ok": true
+          },
+          {
+            "name": "labels",
+            "startMs": 636.7,
+            "durationMs": 262.9,
+            "ok": true
+          }
+        ]
+      }
+    },
+    {
+      "sample": 4,
+      "warmup": false,
+      "cache": {
+        "served": 37,
+        "disk": 0,
+        "paths": [
+          "/_next/static/chunks/09oyyey-vvvv-.css",
+          "/_next/static/chunks/06xu45ms98-yt.css",
+          "/_next/static/chunks/074prxct1iqr1.js",
+          "/_next/static/chunks/0~k6u5_j-9bf2.js",
+          "/_next/static/chunks/0_fepd95ptoqy.js",
+          "/_next/static/chunks/18cilrg3kkkfk.js",
+          "/_next/static/chunks/04.i-__.as.dk.js",
+          "/_next/static/chunks/10787q4ojjapa.js",
+          "/_next/static/chunks/turbopack-16556fhkadl_y.js",
+          "/_next/static/chunks/0fjb2kp5wf-40.js",
+          "/_next/static/chunks/0i.l9589uvx0j.js",
+          "/_next/static/chunks/13sar8s1k4vkv.js",
+          "/_next/static/chunks/0mxps0gydcc2f.js",
+          "/_next/static/chunks/0sb~61txgu9r-.js",
+          "/_next/static/chunks/0zjywwbyop.0h.js",
+          "/_next/static/chunks/0pxez_qy3orq2.js",
+          "/_next/static/chunks/0_owxy8c~i_0u.js",
+          "/_next/static/chunks/15q_j0sdextf0.js",
+          "/_next/static/chunks/0mgo13ra8q0ca.js",
+          "/_next/static/chunks/0h4d47alki~gj.js",
+          "/_next/static/chunks/02dglw3op3se0.js",
+          "/_next/static/chunks/179zjm-80gl~9.js",
+          "/_next/static/chunks/0vwu29n58__sc.js",
+          "/_next/static/chunks/15h4jnxrhh5ac.js",
+          "/_next/static/chunks/0e1wo~_.ci2po.js",
+          "/_next/static/chunks/0q_~olnb0vvd0.js",
+          "/_next/static/chunks/05vv~..7xpowf.js",
+          "/_next/static/chunks/17-dfcujqv~b6.js",
+          "/_next/static/chunks/0jx8kt228022x.js",
+          "/_next/static/chunks/16g~9x2e58sv~.js",
+          "/_next/static/chunks/0ma.pru5ez5ee.js",
+          "/_next/static/chunks/0s.y6-sgn8kar.js",
+          "/_next/static/chunks/0fdtuaxbdg.kv.js",
+          "/_next/static/chunks/0ijkceeurjp6~.js",
+          "/_next/static/chunks/0tnqfchl9m3kt.js",
+          "/_next/static/chunks/0ppbv5zzprwck.js"
+        ]
+      },
+      "elapsedMs": 1897,
+      "browserTiming": {
+        "requestToFirstByteMs": 607,
+        "responseTransferWindowMs": 1058,
+        "navigationToResponseEndMs": 1669,
+        "navigationToDomContentLoadedMs": 1672,
+        "navigationToLoadMs": 1673,
+        "transferBytes": 27690,
+        "resourceCount": 41
+      },
+      "server": {
+        "totalMs": 1024.6,
+        "phases": [
+          {
+            "name": "access",
+            "startMs": 0,
+            "durationMs": 215.7
+          },
+          {
+            "name": "profile",
+            "startMs": 215.7,
+            "durationMs": 31.5
+          },
+          {
+            "name": "ensure_month",
+            "startMs": 247.2,
+            "durationMs": 165.6
+          },
+          {
+            "name": "pre_calendar",
+            "startMs": 412.8,
+            "durationMs": 62.2
+          },
+          {
+            "name": "calendar_batch",
+            "startMs": 475,
+            "durationMs": 117.6
+          },
+          {
+            "name": "post_calendar",
+            "startMs": 592.7,
+            "durationMs": 120.8
+          },
+          {
+            "name": "presentation",
+            "startMs": 713.5,
+            "durationMs": 311
+          }
+        ],
+        "reads": [
+          {
+            "name": "ensure_month",
+            "startMs": 247.3,
+            "durationMs": 165.5,
+            "ok": true
+          },
+          {
+            "name": "rentals",
+            "startMs": 412.9,
+            "durationMs": 16.1,
+            "ok": true
+          },
+          {
+            "name": "rental_customers",
+            "startMs": 429.1,
+            "durationMs": 29.2,
+            "ok": true
+          },
+          {
+            "name": "cancelled_bookings",
+            "startMs": 458.2,
+            "durationMs": 16.8,
+            "ok": true
+          },
+          {
+            "name": "rooms",
+            "startMs": 475.1,
+            "durationMs": 25.1,
+            "ok": true
+          },
+          {
+            "name": "sessions",
+            "startMs": 475.2,
+            "durationMs": 53.4,
+            "ok": true
+          },
+          {
+            "name": "coaches",
+            "startMs": 475.2,
+            "durationMs": 56,
+            "ok": true
+          },
+          {
+            "name": "business_hours",
+            "startMs": 475.2,
+            "durationMs": 71.4,
+            "ok": true
+          },
+          {
+            "name": "templates",
+            "startMs": 475.1,
+            "durationMs": 75.8,
+            "ok": true
+          },
+          {
+            "name": "special_days",
+            "startMs": 475.2,
+            "durationMs": 86.2,
+            "ok": true
+          },
+          {
+            "name": "availability",
+            "startMs": 475.2,
+            "durationMs": 101.3,
+            "ok": true
+          },
+          {
+            "name": "availability_exceptions",
+            "startMs": 475.3,
+            "durationMs": 117.4,
+            "ok": true
+          },
+          {
+            "name": "roster_customers",
+            "startMs": 592.7,
+            "durationMs": 45,
+            "ok": true
+          },
+          {
+            "name": "waitlist_feature",
+            "startMs": 638,
+            "durationMs": 0.6,
+            "ok": true
+          },
+          {
+            "name": "plans",
+            "startMs": 637.8,
+            "durationMs": 16.1,
+            "ok": true
+          },
+          {
+            "name": "scheduling_modes",
+            "startMs": 637.8,
+            "durationMs": 30.4,
+            "ok": true
+          },
+          {
+            "name": "waitlist_setting",
+            "startMs": 638.7,
+            "durationMs": 44.4,
+            "ok": true
+          },
+          {
+            "name": "display_orders",
+            "startMs": 683.1,
+            "durationMs": 14.7,
+            "ok": true
+          },
+          {
+            "name": "sports_rules",
+            "startMs": 697.8,
+            "durationMs": 15.7,
+            "ok": true
+          },
+          {
+            "name": "labels",
+            "startMs": 637.8,
+            "durationMs": 386.8,
+            "ok": true
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [],
+  "httpCacheMode": true,
+  "calendar": {
+    "visibleCardCount": 36,
+    "digest": "ec296daef272f0a1635b44cf1e4ee30cb1bd5e1b1c5dbda9ac758c9d945f9840"
+  },
+  "success": true
+}

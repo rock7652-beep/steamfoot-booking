@@ -1,6 +1,6 @@
 "use client";
 import {useCourseDraftGuard} from "@/components/admin/use-course-draft-guard";
-import { useEffect,useRef,useState,useTransition,useCallback,useId,type ReactNode } from "react";
+import { useEffect,useRef,useState,useTransition,useCallback,useId,type ComponentProps,type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { createRentalCustomer,saveCourseRental,getCourseRental,cancelCourseRental,saveRentalPayment,listRoomRentals } from "@/server/actions/course-rental";
 import type {RentalModule} from "@/server/services/rental-module";
@@ -13,7 +13,9 @@ export type RentalRoom={id:string;name:string;isActive:boolean;rentalEnabled?:bo
 export type RentalCustomer={id:string;name:string;phone:string};
 const NO_CUSTOMERS:RentalCustomer[]=[];
 type Seed={date?:string;time?:string;roomId?:string;durationMinutes?:number};
-export function RentalPanel({module="course",id,rooms,seed,permissions,customers=NO_CUSTOMERS,onDone,onGuard,onSaved,allowWeekly:weeklyRequested=false,typeControl,active=true,onPositionChange,onCancel}:{module?:RentalModule;onCancel?:()=>void;typeControl?:ReactNode;active?:boolean;onPositionChange?:(position:{date:string;time:string;roomId?:string;durationMinutes:number})=>void;allowWeekly?:boolean;id?:string;rooms:RentalRoom[];seed:Seed;permissions:RentalPermissions;customers?:RentalCustomer[];onDone?:()=>void;onSaved?:(sessions?:unknown[])=>void;onGuard?:(pending:boolean,dirty:boolean)=>void}) {
+export function RentalPanel(props:ComponentProps<typeof RentalDraft>){return <RentalDraft key={JSON.stringify([props.module??'course',props.id??'new'])} {...props}/>;}
+function RentalDraft({module="course",id,initialDetail,rooms,seed,permissions,customers=NO_CUSTOMERS,onDone,onGuard,onSaved,allowWeekly:weeklyRequested=false,typeControl,active=true,onPositionChange,onCancel}:{initialDetail?:RentalDetail;module?:RentalModule;onCancel?:()=>void;typeControl?:ReactNode;active?:boolean;onPositionChange?:(position:{date:string;time:string;roomId?:string;durationMinutes:number})=>void;allowWeekly?:boolean;id?:string;rooms:RentalRoom[];seed:Seed;permissions:RentalPermissions;customers?:RentalCustomer[];onDone?:()=>void;onSaved?:(sessions?:unknown[])=>void;onGuard?:(pending:boolean,dirty:boolean)=>void}) {
+  const prepared=initialDetail?.id===id?initialDetail:undefined;
   // Course defaults may be 50 minutes; rentals keep their existing half-hour unit.
   const seedDuration=seed.durationMinutes==null?60:Math.ceil(seed.durationMinutes/30)*30;
   const scrollArea=useRef<HTMLDivElement>(null);
@@ -21,24 +23,24 @@ export function RentalPanel({module="course",id,rooms,seed,permissions,customers
   const allowWeekly=module==="course"&&weeklyRequested;
   const formId=useId();
   const [repeatWeeks,setRepeatWeeks]=useState(1);
-  const [date,setDate]=useState(seed.date??toLocalDateStr());
-  const [time,setTime]=useState(seed.time??"18:00");
+  const [date,setDate]=useState(prepared?toLocalDateStr(new Date(prepared.startsAt)):seed.date??toLocalDateStr());
+  const [time,setTime]=useState(prepared?formatTWDateTime(new Date(prepared.startsAt)).slice(11):seed.time??"18:00");
   const [paymentMethod,setPaymentMethod]=useState("");
   const [paidAmount,setPaidAmount]=useState<number|null>(null);
   const submitLock=useRef(false);
   const [dirty,setDirty]=useState(false);
   const [collectAfterSave,setCollectAfterSave]=useState(false);
-  const router=useRouter();const [record,setRecord]=useState<RentalDetail|null>(null);const [mode,setMode]=useState<"edit"|"detail"|"payment">(id?"detail":"edit");
-  const [error,setError]=useState("");const [pending,start]=useTransition();const [loaded,setLoaded]=useState(!id);
-  const [roomId,setRoomId]=useState(seed.roomId??rooms.find(r=>r.rentalEnabled&&r.isActive)?.id??"");
-  const [duration,setDuration]=useState(seedDuration);const [amount,setAmount]=useState(rentalPrice(rooms.find(r=>r.id===roomId)?.rentalHourlyRate??0,duration));
-  const [query,setQuery]=useState("");const [customer,setCustomer]=useState<{id:string;name:string;phone:string}|null>(null);
+  const router=useRouter();const [record,setRecord]=useState<RentalDetail|null>(prepared??null);const [mode,setMode]=useState<"edit"|"detail"|"payment">(id?"detail":"edit");
+  const [error,setError]=useState("");const [pending,start]=useTransition();const [loaded,setLoaded]=useState(!id||!!prepared);
+  const [roomId,setRoomId]=useState(prepared?.roomId??seed.roomId??rooms.find(r=>r.rentalEnabled&&r.isActive)?.id??"");
+  const [duration,setDuration]=useState(prepared?(Date.parse(prepared.endsAt)-Date.parse(prepared.startsAt))/60000:seedDuration);const [amount,setAmount]=useState(prepared?.amount??rentalPrice(rooms.find(r=>r.id===roomId)?.rentalHourlyRate??0,duration));
+  const [query,setQuery]=useState("");const [customer,setCustomer]=useState<{id:string;name:string;phone:string}|null>(prepared?.customerId?{id:prepared.customerId,name:prepared.customerName,phone:prepared.customerPhone}:null);
   const [newCustomer,setNewCustomer]=useState(false);const [customerNotice,setCustomerNotice]=useState("");const [voidOnly,setVoidOnly]=useState(false);
   const [requestKey]=useState(()=>crypto.randomUUID());const paymentKey=useRef(crypto.randomUUID());
   useCourseDraftGuard(active&&dirty&&!(allowWeekly&&!record),active&&pending);
   useEffect(()=>{onGuard?.(pending,dirty);return()=>onGuard?.(false,false);},[pending,dirty,onGuard]);
   function apply(r:RentalDetail){setDirty(false);setRecord(r);setRoomId(r.roomId);setDuration((Date.parse(r.endsAt)-Date.parse(r.startsAt))/60000);setAmount(r.amount);setDate(toLocalDateStr(new Date(r.startsAt)));setTime(formatTWDateTime(new Date(r.startsAt)).slice(11));if(r.customerId)setCustomer({id:r.customerId,name:r.customerName,phone:r.customerPhone});setLoaded(true);}
-  useEffect(()=>{if(!id)return;let active=true;(module==='beauty'?getCourseRental(id,module):getCourseRental(id)).then(r=>{if(active)apply(r);}).catch(()=>{if(active){setLoaded(true);setError("租借讀取失敗，請關閉後重試");}});return()=>{active=false;};},[id,module]);
+  useEffect(()=>{if(!id||prepared)return;let active=true;(module==='beauty'?getCourseRental(id,module):getCourseRental(id)).then(r=>{if(active)apply(r);}).catch(()=>{if(active){setLoaded(true);setError("租借讀取失敗，請關閉後重試");}});return()=>{active=false;};},[id,module,prepared]);
   useEffect(()=>{if(active&&!record&&onPositionChange)onPositionChange({date,time,roomId,durationMinutes:duration});},[active,record,date,time,roomId,duration,onPositionChange]);
   useEffect(()=>{if(active||record)return;if(seed.date)setDate(seed.date);if(seed.time!==undefined)setTime(seed.time);if(seed.roomId)setRoomId(seed.roomId);if(seed.durationMinutes)setDuration(seedDuration);if(!dirty)setAmount(rentalPrice(rooms.find(room=>room.id===(seed.roomId??roomId))?.rentalHourlyRate??0,seed.durationMinutes==null?duration:seedDuration));},[active,record,seed.date,seed.time,seed.roomId,seed.durationMinutes,seedDuration,dirty,rooms,roomId,duration]);
   const normalizedQuery=query.trim().toLocaleLowerCase();
@@ -53,7 +55,7 @@ export function RentalPanel({module="course",id,rooms,seed,permissions,customers
   return <div data-course-entry className="flex flex-1 min-h-0 w-full min-w-0 flex-col gap-3 text-sm">
     {error&&<p role="alert" className="whitespace-pre-line text-red-700">{error}</p>}
     {mode==="detail"&&record&&<div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"><div className="flex min-w-0 flex-wrap items-center gap-2"><strong className="text-base text-primary-900">{record.customerName}</strong><a className={`${button} text-primary-700`} href={`tel:${record.customerPhone}`}>{record.customerPhone}</a></div><div className="ml-auto flex items-center gap-1"><span className="whitespace-nowrap tabular-nums">{record.payment?`已收 $${record.payment.amount.toLocaleString()}`:`應收 $${record.amount.toLocaleString()}・未收`}</span>{(record.payment?permissions.correct:permissions.collect)&&(!record.cancelledAt||record.payment)&&<button type="button" className={`${button} text-primary-700`} aria-label={record.payment?"更正租借收款":"收取租借費用"} onClick={()=>{paymentKey.current=crypto.randomUUID();setVoidOnly(!!record.cancelledAt);setMode("payment");setError("");}}>{record.payment?"✎":"收款"}</button>}</div></div>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"><div className="flex min-w-0 flex-wrap items-center gap-2"><strong className="text-base text-primary-900">{record.customerName}</strong><a className={`${button} text-primary-700`} href={`tel:${record.customerPhone}`}>{record.customerPhone}</a></div><div className="ml-auto flex items-center gap-1"><span className="whitespace-nowrap tabular-nums">{record.payment?`已收 $${record.payment.amount.toLocaleString()}`:record.amount===0?"免費租借・免收款":`應收 $${record.amount.toLocaleString()}・未收`}</span>{(record.payment?permissions.correct:permissions.collect&&record.amount>0)&&(!record.cancelledAt||record.payment)&&<button type="button" className={`${button} text-primary-700`} aria-label={record.payment?"更正租借收款":"收取租借費用"} onClick={()=>{paymentKey.current=crypto.randomUUID();setVoidOnly(!!record.cancelledAt);setMode("payment");setError("");}}>{record.payment?"✎":"收款"}</button>}</div></div>
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 min-[420px]:grid-cols-[1fr_auto]"><div><dt className="text-xs text-earth-500">時段</dt><dd className="mt-1 tabular-nums">{formatTWDateTime(new Date(record.startsAt))}–{formatTWDateTime(new Date(record.endsAt)).slice(11)}</dd></div><div><dt className="text-xs text-earth-500">空間</dt><dd className="mt-1">{room?.name??"未指定"}</dd></div></dl>
       {record.payment&&record.payment.amount!==record.amount&&<p className="text-amber-700">應收 ${record.amount} · 已收 ${record.payment.amount} · 差額 ${record.amount-record.payment.amount}</p>}
       {record.cancelledAt&&<p className="text-earth-600">已取消 · 空間已釋出{record.payment?"，原收款保留，請核對退款或作廢。":""}</p>}
@@ -98,12 +100,12 @@ export function RentalHistory({module="course",roomId,rooms,permissions,customer
    {permissions.create&&rooms.some(r=>r.id===roomId&&r.isActive&&r.rentalEnabled)&&<button type="button" className={button} onClick={()=>setSelected("new")}>新增租借</button>}
    {error&&<p role="alert">{error}</p>}
    {rows.length===0?<p>尚無租借紀錄</p>:<div className="overflow-x-auto rounded-xl border border-earth-200">
-     <table className="w-full text-left text-sm" aria-label="租借紀錄"><thead className="bg-primary-50 text-primary-900"><tr>{["日期","時段","顧客","收款"].map(title=><th key={title} className="whitespace-nowrap px-3 py-2 font-medium">{title}</th>)}</tr></thead>
+     <table data-striped-list className="w-full text-left text-sm" aria-label="租借紀錄"><thead className="bg-primary-50 text-primary-900"><tr>{["日期","時段","顧客","收款"].map(title=><th key={title} className="whitespace-nowrap px-3 py-2 font-medium">{title}</th>)}</tr></thead>
        <tbody className="divide-y divide-earth-100">{rows.map(r=><tr key={r.id}>
-         <td className="whitespace-nowrap px-3 py-2 tabular-nums">{toLocalDateStr(new Date(r.startsAt))}</td>
-         <td className="whitespace-nowrap px-3 py-2 tabular-nums">{formatTWDateTime(new Date(r.startsAt)).slice(11)}–{formatTWDateTime(new Date(r.endsAt)).slice(11)}</td>
+         <td className="whitespace-nowrap px-3 py-1 tabular-nums">{toLocalDateStr(new Date(r.startsAt))}</td>
+         <td className="whitespace-nowrap px-3 py-1 tabular-nums">{formatTWDateTime(new Date(r.startsAt)).slice(11)}–{formatTWDateTime(new Date(r.endsAt)).slice(11)}</td>
          <td className="px-3"><button type="button" className="min-h-11 text-left text-primary-700 hover:underline" onClick={()=>setSelected(r.id)} aria-label={`查看 ${r.name} 的租借`}>{r.name}</button></td>
-         <td className="whitespace-nowrap px-3 py-2 tabular-nums">{r.cancelled&&<span className="mr-2 text-earth-500">已取消</span>}{r.paid===null?"未收":`已收 $${r.paid.toLocaleString()}`}</td>
+         <td className="whitespace-nowrap px-3 py-1 tabular-nums">{r.cancelled&&<span className="mr-2 text-earth-500">已取消</span>}{r.paid===null?"未收":`已收 $${r.paid.toLocaleString()}`}</td>
        </tr>)}</tbody>
      </table>
    </div>}

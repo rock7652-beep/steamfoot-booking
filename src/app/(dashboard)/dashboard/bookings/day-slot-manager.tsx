@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { RightSheet } from "@/components/admin/right-sheet";
 import { toast } from "sonner";
 import {
   applyDaySlotOverrides,
@@ -19,6 +20,8 @@ type ChangeAction = "disable" | "enable" | "remove" | "capacity";
 
 interface Props {
   date: string;
+  hideCapacity?: boolean;
+  expectedStoreId?: string;
   bookedPeopleBySlot: ReadonlyMap<string, number>;
   onSaved: () => Promise<void> | void;
 }
@@ -27,10 +30,18 @@ interface Props {
  * 預約管理的單日時段草稿。寫入沿用 settings 的 SlotOverride；不建立第二套
  * 時段資料，且只有按「儲存」才會影響顧客端可預約狀態。
  */
-export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
+export function DaySlotManager({ date, hideCapacity=false, expectedStoreId, bookedPeopleBySlot, onSaved }: Props) {
+  const generation=useRef(0);
   const [open, setOpen] = useState(false);
+  const [managerDate, setManagerDate] = useState(date);
+  const [previewSelection, setPreviewSelection] = useState<{sourceDate: string; date: string} | null>(null);
+  const [previewWriteDate, setPreviewWriteDate] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [writeRestriction, setWriteRestriction] = useState<string | null>(null);
+  const [hoursRevision, setHoursRevision] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [dayClosed, setDayClosed] = useState(true);
+  const [closedDayException, setClosedDayException] = useState(false);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [changes, setChanges] = useState<Map<string, ChangeAction>>(new Map());
   const [capacityChanges, setCapacityChanges] = useState<Map<string, number>>(new Map());
@@ -38,24 +49,36 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
   const [newTime, setNewTime] = useState("19:30");
   const [pending, startTransition] = useTransition();
 
-  async function openManager() {
+  async function openManager(targetDate = date) {
+    const attempt=++generation.current;
     setOpen(true);
+    setManagerDate(targetDate);
+    setPreviewWriteDate(null);
     setLoading(true);
+    setLoadError("");
+    setWriteRestriction(null);
+    setHoursRevision(undefined);
     setDayClosed(true);
+    setClosedDayException(false);
     setSlots([]);
     setChanges(new Map());
     setCapacityChanges(new Map());
     try {
-      const detail = await getDaySlotDetails(date);
+      const detail = await getDaySlotDetails(targetDate, expectedStoreId);
+      if(attempt!==generation.current)return;
       setSlots(detail.slots);
+      setWriteRestriction(detail.writeRestriction ?? null);
+      setPreviewWriteDate(detail.previewWriteDate ?? null);
+      setHoursRevision(detail.hoursRevision);
       setDefaultCapacity(Math.max(1, detail.defaultCapacity || 6));
-      setDayClosed(detail.status === "closed" || detail.status === "training");
+      setDayClosed(detail.status === "training" || (detail.status === "closed" && !detail.canAddSlotsOnClosedDay));
+      setClosedDayException(detail.canAddSlotsOnClosedDay);
       setChanges(new Map());
       setCapacityChanges(new Map());
     } catch {
-      toast.error("載入時段失敗");
+      if(attempt===generation.current)setLoadError("載入時段失敗，請重試");
     } finally {
-      setLoading(false);
+      if(attempt===generation.current)setLoading(false);
     }
   }
 
@@ -111,7 +134,8 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
   }
 
   function addSlot() {
-    if (dayClosed || pending || !/^\d{2}:\d{2}$/.test(newTime)) return;
+    if (dayClosed || pending || !/^([01]\d|2[0-3]):[0-5]\d$/.test(newTime)) return;
+    if(hideCapacity&&!/:(00|30)$/.test(newTime)){toast.error("請選擇整點或半點時段");return;}
     const existing = slots.find((slot) => slot.startTime === newTime);
     if (!existing) {
       setSlots((previous) => [...previous, {
@@ -121,7 +145,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
         inRange: false,
         override: null,
       }].sort((a, b) => a.startTime.localeCompare(b.startTime)));
-      setCapacityChanges((previous) => new Map(previous).set(newTime, defaultCapacity));
+      if (!hideCapacity) setCapacityChanges((previous) => new Map(previous).set(newTime, defaultCapacity));
     }
     setChange(newTime, "enable");
   }
@@ -129,32 +153,38 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
   function requestClose() {
     if (pending) return;
     if (!changedCount) {
-      setOpen(false);
+      ++generation.current;setOpen(false);
       return;
     }
-    if (window.confirm("尚有未儲存的時段調整，要捨棄嗎？")) setOpen(false);
+    if (window.confirm("尚有未儲存的時段調整，要捨棄嗎？")) {++generation.current;setOpen(false);}
   }
 
   function save() {
-    if (!changedCount) return;
+    if (!changedCount || loading || loadError || writeRestriction || pending) return;
     startTransition(async () => {
       const changedTimes = new Set([...changes.keys(), ...capacityChanges.keys()]);
-      const result = await applyDaySlotOverrides({
-        date,
+      let result;
+      try { result = await applyDaySlotOverrides({
+        date: managerDate, expectedStoreId, expectedHoursRevision: hoursRevision,
         changes: [...changedTimes].map((startTime) => ({
           startTime,
           action: changes.get(startTime) ?? "capacity",
           capacity: capacityChanges.get(startTime),
         })),
-      });
+      }); } catch { toast.error("儲存結果未確認，請重新讀取核對；草稿已保留"); return; }
       if (!result.success) {
         toast.error(result.error ?? "儲存時段失敗，草稿已保留");
         return;
       }
-      await onSaved();
+      let refreshed = true;
+      try { await onSaved(); } catch { refreshed = false; }
       setChanges(new Map());
       setCapacityChanges(new Map());
       setOpen(false);
+      if (!refreshed) {
+        toast.warning("時段已儲存，畫面更新失敗，請按「更新」重新確認");
+        return;
+      }
       toast.success(
         result.data.bookedPeopleKept > 0
           ? `已儲存 ${result.data.changed} 個時段；既有 ${result.data.bookedPeopleKept} 人預約已保留`
@@ -167,38 +197,44 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
     <>
       <button
         type="button"
-        onClick={() => void openManager()}
+        onClick={() => void openManager(previewSelection?.sourceDate === date ? previewSelection.date : date)}
         className="inline-flex min-h-11 min-w-32 items-center justify-center rounded-lg border border-earth-200 bg-white px-3 text-sm font-medium text-primary-700 hover:bg-primary-50"
       >
         管理時段
       </button>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/30 p-0 sm:items-center sm:justify-center sm:p-4" role="dialog" aria-modal="true" aria-label="管理當日時段">
-          <section className="max-h-[90dvh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-xl sm:max-w-xl sm:rounded-2xl">
+        <RightSheet open presentation="centered" fitContent width={600} closeOnEscape={!pending} onClose={requestClose} labelledById="day-slot-title">
+          <section className="w-full min-w-0 bg-white p-4">
             <header className="flex items-start justify-between gap-3 border-b border-earth-100 pb-3">
               <div>
-                <h3 className="text-base font-bold text-earth-900">管理時段</h3>
-                <p className="mt-0.5 text-xs text-earth-500">只影響 {date}；不會修改每週固定服務時間。</p>
+                <h3 id="day-slot-title" className="text-base font-bold text-earth-900">管理時段</h3>
+                <p className="mt-0.5 text-xs text-earth-500">只影響 {managerDate}；不會修改每週固定服務時間。</p>
               </div>
               <button type="button" onClick={requestClose} className="rounded p-1 text-earth-500 hover:bg-earth-100" aria-label="關閉">✕</button>
             </header>
 
-            {loading ? <p className="py-8 text-center text-sm text-earth-400">載入時段中…</p> : (
+            {loadError ? <div role="alert" className="py-4 text-sm text-red-700">{loadError}<button type="button" className="ml-3 min-h-11 underline" onClick={()=>void openManager(managerDate)}>重試</button></div> : loading ? <p className="py-8 text-center text-sm text-earth-400">載入時段中…</p> : (
               <>
+                {writeRestriction ? <div className="mt-4 space-y-3 rounded-lg bg-primary-50 p-4">
+                  <p role="status" className="text-sm text-earth-700">此預覽使用固定測試日期，點一下即可開始，不必手動調整班表日期。</p>
+                  {previewWriteDate ? <button type="button" className="min-h-11 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700" onClick={()=>{setPreviewSelection({sourceDate:date,date:previewWriteDate});void openManager(previewWriteDate);}}>前往可測試日期</button> : <p className="text-sm text-amber-800">{writeRestriction}</p>}
+                </div> : <>
+
+                {closedDayException && <p className="mt-3 text-sm text-amber-800">此日原為公休，可直接加開當日時段；只開放你新增的時間，其餘仍維持公休。</p>}
                 {dayClosed && <p className="mt-3 text-sm text-amber-800">此日為全天休息，請先在服務時間設定開放當日，再新增或重新開放時段。</p>}
                 <div className="mt-4 flex flex-wrap items-end gap-2 rounded-lg bg-primary-50 p-3">
                   <label className="text-xs font-medium text-earth-700">新增當日時段
-                    <input aria-label="新增時段時間" type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} className="ml-2 rounded border border-earth-300 bg-white px-2 py-1 text-sm" />
+                    <input aria-label="新增時段時間" type="time" step={hideCapacity?1800:60} value={newTime} onChange={(event) => setNewTime(event.target.value)} className="ml-2 rounded border border-earth-300 bg-white px-2 py-1 text-sm" />
                   </label>
-                  <button type="button" onClick={addSlot} disabled={dayClosed || pending} className="rounded border border-primary-300 bg-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100">加入草稿</button>
+                  <button type="button" onClick={addSlot} disabled={dayClosed || !!writeRestriction || pending} className="rounded border border-primary-300 bg-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100">加入草稿</button>
                 </div>
 
-                <p className="mt-3 text-xs text-earth-500">可直接調整當日時段與名額；名額 0 會保留時段並在顧客端顯示已額滿。關閉時段才會停止顯示可預約狀態；已有預約會保留。</p>
+                <p className="mt-3 text-xs text-earth-500">{hideCapacity?"點選時段切換開放／關閉；臨時加開每格 30 分鐘，服務需能完整安排於連續開放時間內。既有預約保留。":"可直接調整當日時段與名額；名額 0 會保留時段並在顧客端顯示已額滿。關閉時段才會停止顯示可預約狀態；已有預約會保留。"}</p>
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {previewSlots.map((slot) => {
                     const people = bookedPeopleBySlot.get(slot.startTime) ?? 0;
                     const isChanged = changes.has(slot.startTime) || capacityChanges.has(slot.startTime);
-                    const isFull = slot.isOpen && people >= slot.capacity;
+                    const isFull = !hideCapacity && slot.isOpen && people >= slot.capacity;
                     return (
                       <div
                         key={slot.startTime}
@@ -214,8 +250,8 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
                           <button
                             type="button"
                             onClick={() => toggle(slot)}
-                            disabled={dayClosed || pending}
-                            className="min-w-0 flex-1 text-left disabled:opacity-50"
+                            disabled={dayClosed || !!writeRestriction || pending}
+                            className="min-h-11 min-w-0 flex-1 text-left text-sm disabled:opacity-50"
                           >
                             <span className="flex items-center gap-1.5 font-semibold">
                               <span>{slot.startTime}</span>
@@ -234,12 +270,12 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
                               )}
                             </span>
                           </button>
-                          <span className="shrink-0 text-[11px] text-earth-500">
+                          {!hideCapacity&&<span className="shrink-0 text-[11px] text-earth-500">
                             已約 {people} / 名額 {slot.capacity}
-                          </span>
+                          </span>}
                         </div>
 
-                        <div className="mt-1.5 flex items-center justify-end gap-1">
+                        {!hideCapacity&&<div className="mt-1.5 flex items-center justify-end gap-1">
                           <button
                             type="button"
                             aria-label={`${slot.startTime} 名額減少`}
@@ -268,22 +304,23 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
                           >
                             ＋
                           </button>
-                        </div>
+                        </div>}
                       </div>
                     );
                   })}
                 </div>
                 {bookedPeopleKept > 0 && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">此次關閉的時段仍有 {bookedPeopleKept} 人預約；儲存後會保留，不會取消或異動帳務。</p>}
                 {changedCount > 0 && <p className="mt-3 text-xs font-medium text-amber-700">尚未儲存：{changedCount} 個時段調整</p>}
+                </>}
               </>
             )}
 
             <footer className="mt-4 flex gap-2 border-t border-earth-100 pt-3">
               <button type="button" onClick={requestClose} className="flex-1 rounded-lg border border-earth-300 py-2 text-sm text-earth-700 hover:bg-earth-50">取消</button>
-              <button type="button" disabled={!changedCount || pending || loading} onClick={save} className="flex-1 rounded-lg bg-primary-600 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50">{pending ? "儲存中…" : "確認並儲存"}</button>
+              {!writeRestriction&&<button type="button" disabled={!changedCount || pending || loading || !!writeRestriction} onClick={save} className="flex-1 rounded-lg bg-primary-600 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50">{pending ? "儲存中…" : "確認並儲存"}</button>}
             </footer>
           </section>
-        </div>
+        </RightSheet>
       )}
     </>
   );

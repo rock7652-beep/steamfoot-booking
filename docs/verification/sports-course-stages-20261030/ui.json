@@ -1,0 +1,103 @@
+{
+  "variant": "optimized",
+  "origin": "https://steamfoot-booking-opd9gqiyx-rock7652-2111s-projects.vercel.app",
+  "fixtureStore": "sports-live-flow-store",
+  "data": "isolated synthetic fixtures",
+  "measurements": [],
+  "checks": [
+    {
+      "step": "normal-isolated-owner-login",
+      "pass": true
+    },
+    {
+      "step": "no-eager-schedule-options-request",
+      "pass": true
+    },
+    {
+      "step": "dialog-visible-before-response",
+      "pass": true,
+      "ms": 220
+    },
+    {
+      "step": "single-intent-and-open-request",
+      "pass": true,
+      "count": 1
+    },
+    {
+      "step": "responsive-draft-preserved",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "step": "responsive-draft-preserved",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "step": "responsive-draft-preserved",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "step": "responsive-draft-preserved",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "step": "closing-focus-does-not-preload",
+      "pass": true
+    },
+    {
+      "step": "in-dialog-read-failure-retry",
+      "pass": true
+    },
+    {
+      "step": "responsive-teaching-catalog",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "step": "responsive-teaching-catalog",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "step": "responsive-teaching-catalog",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "step": "responsive-teaching-catalog",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "step": "foreign-store-read-denied",
+      "pass": true,
+      "status": 200
+    }
+  ],
+  "pageErrors": [],
+  "optionsRequests": [
+    {
+      "status": 200,
+      "serverTiming": "scheduleoptions;dur=1829"
+    },
+    {
+      "status": 200
+    },
+    {
+      "status": 200,
+      "serverTiming": "scheduleoptions;dur=1475"
+    }
+  ],
+  "success": true
+}

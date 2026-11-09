@@ -7,6 +7,7 @@ it("records successful and failed spans without payloads or raw errors", async (
   expect(await timer.measure("read", async () => "private payload")).toBe("private payload");
   await expect(timer.measure("write", async () => { throw new Error("secret"); })).rejects.toThrow("secret");
   timer.finish();
+  expect(timer.serverTiming()).toMatch(/^total;dur=\d+, read;dur=\d+, write;dur=\d+$/);
   const output = JSON.stringify(log.mock.calls);
   expect(output).not.toContain("private payload"); expect(output).not.toContain("secret");
   const result = JSON.parse(log.mock.calls[0][1]);

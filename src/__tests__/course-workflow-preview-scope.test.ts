@@ -9,3 +9,11 @@ it('enables only the existing sports fixture on this exact isolated review',()=>
 it.each([{VERCEL_ENV:'production'},{VERCEL_GIT_COMMIT_REF:'main'},{VERCEL:'0'},{VERCEL_GIT_REPO_OWNER:'other'},{WORKERS_CI_BRANCH:'main'},{CF_PAGES_BRANCH:'main'},{DATABASE_URL:'postgresql://synthetic@localhost/postgres'},{DIRECT_URL:'postgresql://synthetic@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'}])('does not expand access for %j',overrides=>{
  expect(courseWorkflowSportsPreview('sports-live-flow-store',{...env,...overrides})).toBe(false);
 });
+const bellEnv={...env,VERCEL_GIT_COMMIT_REF:'feat/store-manager-bell-20261030'};
+it('allows the digital manager native sports fixture only in its isolated Preview',()=>{
+ expect(courseWorkflowSportsPreview('dm-bell-sports',bellEnv)).toBe(true);
+ for(const id of ['staging-store','dm-bell-music','dm-bell-beauty','sports-live-flow-store','other'])expect(courseWorkflowSportsPreview(id,bellEnv)).toBe(false);
+});
+it.each([{VERCEL_ENV:'production'},{VERCEL_ENV:'development'},{VERCEL_GIT_COMMIT_REF:'main'},{VERCEL:'0'},{VERCEL_GIT_REPO_OWNER:'other'},{VERCEL_GIT_REPO_SLUG:'other'},{WORKERS_CI_BRANCH:'main'},{CF_PAGES_BRANCH:'main'},{DATABASE_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co:5432/postgres'},{DIRECT_URL:'postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co:5432/postgres'},{DATABASE_URL:bellEnv.DATABASE_URL+'?options=role%3Dpostgres'},{DIRECT_URL:bellEnv.DIRECT_URL+'?schema=private'}])('rejects unsafe digital manager Preview configuration %j',overrides=>{
+ expect(courseWorkflowSportsPreview('dm-bell-sports',{...bellEnv,...overrides})).toBe(false);
+});

@@ -7,6 +7,7 @@ import { LiffMemberFrame } from "@/components/liff-member-frame";
 import { ProfileReadyView } from "@/app/(liff)/liff/profile/profile-view";
 import type { LiffCustomerProfile } from "@/server/actions/liff-customer-profile";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
+import { FrontendAccountMenu } from "@/components/frontend-account-menu";
 import { useState } from "react";
 import { WelcomeBack } from "@/app/(liff)/liff/liff-shell";
 import { ReadyView } from "@/app/(liff)/liff/bookings/_components/ready-view";
@@ -23,9 +24,9 @@ export function PreviewMemberScreen({ bookings, wallets, moduleId, name, storeNa
   if (bookings.status !== "ok" || wallets.status !== "ok") return <p role="alert" className="p-5">目前無法讀取資料，請重新整理。</p>;
   const links = { bookings: `${href}&view=bookings`, wallets: `${href}&view=wallets`, profile: `${href}&view=profile`, health: `${href}&view=health` };
   return <LiffMemberFrame preview>
-    <LiffBrandHeader home={view === "home"} />
+    <LiffBrandHeader home={view === "home"} storeSlug={storeSlug} name={name} readOnly />
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 pb-4 pt-3">
-    {view === "home" && <header className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold tracking-[0.12em] text-primary-700">{storeName}</p><p className="mt-0.5 text-sm text-earth-500">會員專區</p></div><SteamButlerLogo compact /></header>}
+    {view === "home" && <header className="flex items-center justify-between gap-3"><SteamButlerLogo className="w-20" /><div className="min-w-0 flex-1 text-right"><p className="break-words text-sm font-semibold text-primary-700">{storeName}</p><p className="mt-0.5 text-sm text-earth-500">會員專區</p></div><FrontendAccountMenu storeSlug={storeSlug} name={name} readOnly /></header>}
     {view === "health" && healthSummary ? <HealthPreviewView storeSlug={storeSlug} storeName={storeName} summary={healthSummary} /> : view === "profile" ? <ProfileReadyView profile={profile} /> :
     view === "bookings" ? <ReadyView upcoming={bookings.upcoming} history={bookings.history} tab={tab} onTabChange={setTab} storeName={storeName} storeSlug={storeSlug} onRequestCancel={() => window.alert("預覽中不會儲存")} contactUrl="" storeAddress="" storeMapUrl="" bookingHref="/preview-unavailable" />
       : view === "wallets" ? <WalletReadyView {...wallets} readOnly consumption={[]} storeSlug={storeSlug} contactUrl="" dataSource={moduleId} />

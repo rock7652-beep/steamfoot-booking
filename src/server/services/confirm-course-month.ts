@@ -1,3 +1,4 @@
+import { setAdjustmentMonthLock } from "./staff-monthly-adjustment";
 import "server-only";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
@@ -10,9 +11,10 @@ export async function confirmCourseMonth(tx: Prisma.TransactionClient, actor: {s
   const report=await readCourseMonthlySettlement(tx,actor.storeId,d.month);
   if(report.fingerprint!==d.fingerprint)throw new AppError("CONFLICT","明細已變更，請重新整理核對");
   const last=report.revisions[0];
-  if(last?.fingerprint===report.fingerprint)return;
+  if(last?.fingerprint===report.fingerprint){await setAdjustmentMonthLock(tx,actor.storeId,d.month,true);return;}
   if((last?.revision??0)!==d.revision)throw new AppError("CONFLICT","已有新版月結，請重新整理");
   if(!report.lines.length)throw new AppError("BUSINESS_RULE","本月沒有結算項目");
   if(report.lines.some(l=>l.issue||l.amount===null))throw new AppError("BUSINESS_RULE","仍有待核對明細，不能確認月結");
+  await setAdjustmentMonthLock(tx,actor.storeId,d.month,true);
   await tx.$executeRaw`INSERT INTO "CourseMonthlySettlement" (id,"storeId",month,revision,fingerprint,snapshot,"actorUserId",reason) VALUES (${crypto.randomUUID()},${actor.storeId},${d.month},${d.revision+1},${d.fingerprint},${JSON.stringify(report.lines)}::jsonb,${actor.userId},${d.reason})`;
 }

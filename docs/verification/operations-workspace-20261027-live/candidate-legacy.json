@@ -1,0 +1,16 @@
+{
+  "complete": true,
+  "scope": "real local login, actual Next routes, disposable PostgreSQL; no production data",
+  "realDatabase": true,
+  "physicalIPad": false,
+  "results": [
+    {
+      "store": "sports",
+      "step": "actual-login",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "externalRequestsBlocked": 0,
+  "integrationBase": "5025db445c353807e6493e21383eb900df975f8b"
+}

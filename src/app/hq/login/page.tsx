@@ -4,12 +4,12 @@ import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
 
 import { Suspense } from "react";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { hqLoginAction } from "@/server/actions/auth";
+import { hqLoginAction, type LoginState } from "@/server/actions/auth";
 
-const initialState = { error: null as string | null };
+const initialState: LoginState = { error: null };
 
 const URL_ERROR_MESSAGES: Record<string, string> = {
   "missing-store": "您的登入資訊缺少店舖資料，請重新登入。",
@@ -28,6 +28,11 @@ export default function HqLoginPage() {
 
 function HqLoginForm() {
   const [state, action, pending] = useActionState(hqLoginAction, initialState);
+  const destination = state.redirectTo;
+  useEffect(() => {
+    if (!destination || !destination.startsWith("/") || destination.startsWith("//") || destination.includes("\\")) return;
+    window.location.assign(destination);
+  }, [destination]);
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
   const urlErrorMessage = urlError ? URL_ERROR_MESSAGES[urlError] : null;
@@ -49,6 +54,7 @@ function HqLoginForm() {
         )}
 
         <form action={action} className="space-y-4">
+          {searchParams.get("intent") === "subscription-referral" && <input type="hidden" name="intent" value="subscription-referral" />}
           {/* 保留 store context，讓 OWNER/STAFF 登入後導向該店後台 */}
           {storeSlug && <input type="hidden" name="storeSlug" value={storeSlug} />}
           <div>
@@ -89,10 +95,10 @@ function HqLoginForm() {
 
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || !!destination}
             className="w-full rounded-xl bg-[#123E32] px-4 py-3 text-base font-medium text-white hover:bg-[#245A49] disabled:opacity-60"
           >
-            {pending ? "登入中…" : "登入"}
+            {pending || destination ? "登入中…" : "登入"}
           </button>
         </form>
         {storeSlug && (

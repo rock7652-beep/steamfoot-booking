@@ -1,8 +1,15 @@
+import {assertSubscriptionReferralQa,referralQaRoute} from "../scripts/subscription-referral-qa-scope.mjs";
+import { courseAgreementPublicBoundary } from '@/lib/course-agreement-public-boundary';
+import {digitalManagerCronPreviewPathAllowed} from "../scripts/digital-manager-cron-preview-scope.mjs";
+import {calendarProxyReadOperation,traceCalendarProxyRead} from "@/lib/calendar-proxy-read-timing";
+import {measureMusicRead} from "@/lib/music-read-timing";
 import { isRetiredModuleRoute } from "@/lib/retired-module-routes";
+import { legacyOperationsDestination } from "@/lib/operations-navigation";
 import { beautySandboxRewriteUrl } from "../scripts/beauty-sandbox-qa-scope.mjs";
 import { retiredStoreBoundary } from "@/lib/retired-store-boundary";
 
 import { isGuideUiPreview, isTrialUiPreview, isHqUsageUiPreview, isSinglePricingUiPreview, isMarketingStickyUiPreview, isSpaRetirementUiPreview } from "../scripts/guide-ui-preview-scope.mjs";
+import { isMarketingPublicationLocalQa, isMarketingPublicationLocalQaPath } from "../scripts/marketing-publication-local-qa.mjs";
 import { findPublicGuide, guidePath } from "@/lib/public-guides";
 import { isCanonicalMarketingRequest, MARKETING_SITEMAP_PATHS } from "@/lib/marketing-seo";
 import { blocksFrontendPreviewWrite } from "@/lib/frontend-preview";
@@ -62,6 +69,12 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
   // Preview pages expose GET-only projections; reject every Server Action/form/API write.
   if (blocksFrontendPreviewWrite(req.method, pathname, req.headers.get("referer"))) {
     return NextResponse.json({ error: "預覽中不會儲存" }, { status: 403 });
+  }
+  // Resolve old finance entrypoints at the network boundary, before rendering
+  // a redirecting App Router page. The destination retains normal authorization.
+  if(req.method==="GET"||req.method==="HEAD"){
+    const destination=legacyOperationsDestination(pathname,req.nextUrl.searchParams);
+    if(destination)return NextResponse.redirect(new URL(destination,req.url));
   }
   // Public, demonstration-only onboarding guides on isolated previews.
   // Keep the exception confined to these static files, never store/admin routes.
@@ -490,6 +503,7 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
   // Beauty public trial is narrowly scoped; its page and actions validate module/store.
   if (pathname === "/booking-line") return withDomainCookie(routePassThrough(req), domainStoreId);
   if (/^\/beauty-trial\/[a-z0-9-]+\/?$/.test(pathname)) return withDomainCookie(routePassThrough(req), domainStoreId);
+  if (/^\/sports-trial\/[a-z0-9-]+\/?$/.test(pathname)) return withDomainCookie(routePassThrough(req), domainStoreId);
 
   // /pricing → keep as-is (public)
   if (pathname === "/pricing" || pathname.startsWith("/pricing/")) {
@@ -559,6 +573,12 @@ function withDomainCookie(response: NextResponse, storeId: string | undefined): 
   return response;
 }
 
+// Keep document-navigation renewal unchanged. Rewriting an identical context
+// cookie during an Action makes Next treat even a pure read as route invalidation.
+function shouldSetStoreContextCookie(req: NextRequest, name: string, value: string): boolean {
+  return req.method !== "POST" || !req.headers.has("next-action") || req.cookies.get(name)?.value !== value;
+}
+
 /**
  * Store-scoped rewrite: 把 /s/[slug]/... 改寫成內部路徑，
  * 注入 store context 供 Server Components / Server Actions 讀取。
@@ -568,6 +588,7 @@ function withDomainCookie(response: NextResponse, storeId: string | undefined): 
  * 的 `headers()` 才能讀到。原本只寫 response.headers 等於對 server 不存在，
  * 導致 PR-E2 strict gate 收到 null slug → 全部 LIFF page 顯示「無法確認分店」。
  */
+
 function storeRewrite(
   req: NextRequest,
   internalPath: string,
@@ -594,7 +615,7 @@ function storeRewrite(
   // B7-4.5: 僅注入 store-slug cookie，storeId 由 page-level DB resolver 提供
   // 註：PR-E2 後 LIFF resolveStoreSlugForLiff 已不讀此 cookie；保留是給其他路徑
   //     （legacy customer / auth）用，並維持既有行為。
-  response.cookies.set("store-slug", slug, {
+  if (shouldSetStoreContextCookie(req, "store-slug", slug)) response.cookies.set("store-slug", slug, {
     path: "/",
     httpOnly: false,
     sameSite: "lax",
@@ -604,7 +625,7 @@ function storeRewrite(
   // 真正生效的是上方 request.headers，這裡只是觀察用。
   response.headers.set("x-next-pathname", req.nextUrl.pathname);
   response.headers.set("x-store-slug", slug);
-  if (domainStoreId) {
+  if (domainStoreId && shouldSetStoreContextCookie(req, "domain-store-id", domainStoreId)) {
     response.cookies.set("domain-store-id", domainStoreId, {
       path: "/",
       httpOnly: true,
@@ -629,7 +650,7 @@ function hqRewrite(
   url.search = req.nextUrl.search;
   const requestHeaders = nonStoreRequestHeaders(req);
   const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
-  response.cookies.set("store-slug", "__hq__", {
+  if (shouldSetStoreContextCookie(req, "store-slug", "__hq__")) response.cookies.set("store-slug", "__hq__", {
     path: "/",
     httpOnly: false,
     sameSite: "lax",
@@ -637,7 +658,7 @@ function hqRewrite(
   });
   // HQ 不設 store-id cookie（ADMIN 用 active-store-id 切換）
   response.headers.set("x-next-pathname", req.nextUrl.pathname);
-  if (domainStoreId) {
+  if (domainStoreId && shouldSetStoreContextCookie(req, "domain-store-id", domainStoreId)) {
     response.cookies.set("domain-store-id", domainStoreId, {
       path: "/",
       httpOnly: true,
@@ -652,7 +673,29 @@ function hqRewrite(
 // excluded from proxy. Normal deployments retain the old exclusions verbatim.
 const legacyProxyExclusion = /^\/(?:robots\.txt$|sitemap\.xml$|api\/line\/webhook|api\/cron|_next\/static|_next\/image|favicon\.ico)/;
 export function proxy(...args: Parameters<typeof authenticatedProxy>) {
+  const operation=calendarProxyReadOperation(args[0].method,args[0].nextUrl);
+  return operation?traceCalendarProxyRead(operation,()=>dispatchProxy(...args)):dispatchProxy(...args);
+}
+function dispatchProxy(...args: Parameters<typeof authenticatedProxy>) {
+  if(assertSubscriptionReferralQa()){
+    const req=args[0];const target=referralQaRoute(req.nextUrl.pathname);
+    const headers={"X-Robots-Tag":"noindex, nofollow","Cache-Control":"no-store"};
+    if(!target)return new NextResponse("Not available in referral QA",{status:404,headers});
+    const writable=["/hq/login","/api/auth/","/pricing/submit","/referral-test","/hq/dashboard/stores/referrals","/dashboard/settings/subscription-referrals"];
+    const alias=/^\/s\/referral-qa-20261105-[abc]\/admin\/dashboard\/settings\/subscription-referrals$/.test(req.nextUrl.pathname);
+    if(!["GET","HEAD"].includes(req.method)&&!alias&&!writable.some(p=>p.endsWith("/")?req.nextUrl.pathname.startsWith(p):req.nextUrl.pathname===p))return new NextResponse("Method not allowed",{status:405,headers});
+    const url=req.nextUrl.clone();url.pathname=target.destination;
+    const requestHeaders=nonStoreRequestHeaders(req);
+    if(target.storeSlug)requestHeaders.set("x-store-slug",target.storeSlug);
+    const response=target.redirect?NextResponse.redirect(url):target.destination!==req.nextUrl.pathname?NextResponse.rewrite(url,{request:{headers:requestHeaders}}):routePassThrough(req);
+    Object.entries(headers).forEach(([k,v])=>response.headers.set(k,v));return response;
+  }
+
   const [req] = args;
+  // Public capability services resolve their store without a session fallback.
+  const agreementResponse = courseAgreementPublicBoundary(req, ((process.env.COURSE_AGREEMENTS_ENABLED === '1' && process.env.COURSE_AGREEMENTS_PUBLIC_ENABLED === '1') || (process.env.BEAUTY_MODULE_ENABLED === '1' && process.env.BEAUTY_AGREEMENTS_ENABLED === '1' && process.env.BEAUTY_AGREEMENTS_PUBLIC_ENABLED === '1')), isGuideUiPreview());
+  if (agreementResponse) return agreementResponse;
+  if ((req.nextUrl.pathname.startsWith("/api/cron/") || req.nextUrl.pathname === "/api/health/reminders-cron") && !digitalManagerCronPreviewPathAllowed(req.nextUrl.pathname)) return NextResponse.json({error:"Unauthorized"},{status:401});
   if (req.nextUrl.pathname === "/beauty-public-preview" || req.nextUrl.pathname.startsWith("/beauty-public-preview/")) {
     const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" };
     if (req.nextUrl.pathname !== "/beauty-public-preview" || process.env.VERCEL_ENV !== "preview" ||
@@ -696,17 +739,20 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
       return new NextResponse("Read-only guide preview", { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
     const path = req.nextUrl.pathname;
 
-    if (isMarketingStickyUiPreview()) {
+    if (isMarketingStickyUiPreview() || isMarketingPublicationLocalQa()) {
       const pages = ["/", "/pricing", "/pricing/business", "/pricing/cases", "/cases", "/apply", "/pricing/apply.html", "/pricing/features", "/pricing/features/slots", "/pricing/features/fitness", "/pricing/features/music", "/guides", "/pricing/guides"];
       const publicArticle = /^\/(?:pricing\/)?guides\/[a-z0-9-]+\/?$/.test(path);
       const asset = path.startsWith("/_next/static/") || /^\/pricing\/(?:brand|images|business-assets)\/[a-zA-Z0-9/_-]+\.(?:png|jpg|jpeg|webp|svg)$/.test(path);
-      if (!pages.includes(path) && !publicArticle && !asset)
+      const allowed = isMarketingPublicationLocalQa() ? isMarketingPublicationLocalQaPath(path) : pages.includes(path) || publicArticle || asset;
+      if (!allowed)
         return new NextResponse("Not available in marketing preview", { status: 404, headers });
       const marketing = marketingRoute(path);
       if (!marketing) return NextResponse.next({ headers });
       if (marketing.kind === "not-found") return new NextResponse("Not found", { status: 404, headers });
       const url = req.nextUrl.clone();
       url.pathname = marketing.destination;
+      // Next start normalizes request URLs to localhost; keep local rewrites internal.
+      if (isMarketingPublicationLocalQa()) url.host = req.headers.get("host") ?? url.host;
       const response = marketing.kind === "redirect" ? NextResponse.redirect(url, 308) : NextResponse.rewrite(url);
       Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
       return response;
@@ -756,9 +802,11 @@ export function proxy(...args: Parameters<typeof authenticatedProxy>) {
   if (legacyProxyExclusion.test(req.nextUrl.pathname)) return NextResponse.next();
   const host = req.headers.get("host")?.split(":")[0] ?? "";
   const retirement = retiredStoreBoundary(req, DOMAIN_STORE_MAP[host]);
+  const profiling=calendarProxyReadOperation(req.method,req.nextUrl);
+  const authenticate=()=>profiling?measureMusicRead("proxy.authentication",async()=>authenticatedProxy(...args)):authenticatedProxy(...args);
   return retirement
-    ? retirement.then(response => response ?? authenticatedProxy(...args))
-    : authenticatedProxy(...args);
+    ? (profiling?measureMusicRead("proxy.retiredStore",()=>retirement):retirement).then(response => response ?? authenticate())
+    : authenticate();
 }
 
 // Match the existing application region in vercel.json. This proxy also runs

@@ -1,4 +1,5 @@
 import { getConfiguredStoreLine } from "./store-line-config";
+import { resolveLoginAcceptanceLiffId } from "./liff/member-login-acceptance-preview";
 import { cache } from "react";
 import { STORE_LOCATION_DEFAULTS } from "@/lib/store-location-defaults";
 import { AppError } from "@/lib/errors";
@@ -289,6 +290,8 @@ export const resolveStorePresentation = cache(
 export const resolveCentralMemberLiffId = cache(async (
   storeSlug?: string,
 ): Promise<string | null> => {
+  const acceptanceLiffId = resolveLoginAcceptanceLiffId(storeSlug, "member");
+  if (acceptanceLiffId) return acceptanceLiffId;
   const explicit = storeSlug ? getConfiguredStoreLine(storeSlug) : null;
   if (explicit) {
     const store = await resolveStoreBySlug(storeSlug!);

@@ -162,7 +162,7 @@ export function GrowthTopCandidatesTable({ candidates, isOwner = false }: Props)
         <EmptyState filter={filter} hasAny={candidates.length > 0} />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table data-striped-list className="w-full text-left text-sm">
             <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
               <tr>
                 <th className="w-8 px-3 py-2 text-center">#</th>
@@ -178,7 +178,7 @@ export function GrowthTopCandidatesTable({ candidates, isOwner = false }: Props)
             </thead>
             <tbody className="divide-y divide-earth-100">
               {top10.map((c, i) => (
-                <tr key={c.customerId} className="h-11 hover:bg-primary-50/40">
+                <tr key={c.customerId} className="h-11 ">
                   <td className="px-3 text-center text-[11px] tabular-nums text-earth-400">
                     {i + 1}
                   </td>
