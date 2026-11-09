@@ -15,20 +15,24 @@ export async function readCourseCompensation(input:unknown){try{
  return {success:true as const,defaults:rows.find(r=>!r.staffId)?.rules??[],rules:rows.find(r=>r.staffId===d.staffId)?.rules??[],revision:rows.find(r=>r.staffId===d.staffId)?.revision??0};
 }catch(e){const failure=handleActionError(e);return {success:false as const,error:!failure.success?failure.error:"操作失敗"};}}
 export async function saveCourseCompensation(input:unknown){try{
- const d=scope.extend({staffId:z.string().min(1).max(180),rules:compensationRules,revision:z.number().int().min(0)}).parse(input),{storeId}=await actor(d.staffId,true);
+ const d=scope.extend({staffId:z.string().min(1).max(180),rules:compensationRules,revision:z.number().int().min(0)}).parse(input),{storeId,user}=await actor(d.staffId,true);
  if(d.rules.length!==1||!(["CLASS","SHARE"].includes(d.rules[0].mode)))throw new AppError("VALIDATION","僅支援每堂固定或音樂課按比例計酬");
  await courseTransaction(storeId,async tx=>{
   if (d.rules[0].mode === "SHARE" && !await isMusicCourseStore(tx, storeId))
     throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
-  const template=await tx.courseTemplate.findFirst({where:{storeId,id:d.templateId},select:{id:true}});if(!template)throw new AppError("FORBIDDEN","找不到本店課程");
+  const template=await tx.courseTemplate.findFirst({where:{storeId,id:d.templateId},select:{id:true,name:true}});if(!template)throw new AppError("FORBIDDEN","找不到本店課程");
   const rows=await tx.$queryRaw<Array<{staffId:string;rules:CompensationRule[];revision:number}>>`SELECT "staffId",rules,revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "templateId"=${d.templateId} FOR UPDATE`;
   if((rows.find(r=>r.staffId===d.staffId)?.revision??0)!==d.revision)throw new AppError("CONFLICT","設定已更新，請重新開啟核對");
+  let staffName: string | undefined;
   if(d.staffId){
-   const staff=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "Staff" WHERE id=${d.staffId} AND "storeId"=${storeId} AND "courseCoachEnabled"=true AND ${d.templateId}=ANY("courseQualifiedTemplateIds")`;
+   const staff=await tx.$queryRaw<Array<{id:string;name:string}>>`SELECT s.id,COALESCE(s."displayName",u.name) AS name FROM "Staff" s JOIN "User" u ON u.id=s."userId" WHERE s.id=${d.staffId} AND s."storeId"=${storeId} AND s."courseCoachEnabled"=true AND ${d.templateId}=ANY(s."courseQualifiedTemplateIds")`;
    if(!staff.length)throw new AppError("FORBIDDEN","請先儲存這位授課人員的授課資格");
+   staffName=staff[0].name;
    if(d.rules.length!==1)throw new AppError("VALIDATION","授課人員每個授課項目請選一種計酬方式");
 
   }else if(rows.some(r=>r.staffId&&r.rules.some(rule=>!d.rules.some(v=>v.mode===rule.mode))))throw new AppError("CONFLICT","有授課人員正在使用要移除的計酬方式，請先調整授課人員設定");
   await tx.$executeRaw`INSERT INTO "CourseCompensation" ("storeId","templateId","staffId",rules,revision) VALUES (${storeId},${d.templateId},${d.staffId},${JSON.stringify(d.rules)}::jsonb,1) ON CONFLICT ("storeId","templateId","staffId") DO UPDATE SET rules=EXCLUDED.rules,revision="CourseCompensation".revision+1,"updatedAt"=NOW()`;
+  const context={storeId,staffName,templateName:template.name};
+  await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseCompensation',${d.staffId},'UPDATE',${JSON.stringify({...context,rules:rows.find(r=>r.staffId===d.staffId)?.rules??[]})}::jsonb,${JSON.stringify({...context,rules:d.rules})}::jsonb,now())`;
  });revalidatePath("/dashboard","layout");return {success:true as const};
 }catch(e){const failure=handleActionError(e);return {success:false as const,error:!failure.success?failure.error:"操作失敗"};}}

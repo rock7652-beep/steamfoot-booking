@@ -1,3 +1,4 @@
+import {calendarMonthReadActive} from "@/server/services/calendar-month-read-scope";
 import {courseCalendarRead} from '@/server/services/course-calendar-read-scope';
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {isReadRequestMemoActive} from "@/server/services/read-request-memo";
@@ -131,7 +132,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   } as const satisfies Prisma.CourseBookingSelect;
   const where={storeId,sessionId};
   const orderBy:Prisma.CourseBookingOrderByWithRelationInput[]=[{createdAt:"asc"},{id:"asc"}];
-  const allRows=calendar?await calendar.once('roster-bookings',()=>coursePrisma.courseBooking.findMany({where:{storeId,sessionId:{in:[...calendar.sessionIds]}},select:{...selectHead,sessionId:true,...selectTail},orderBy})):undefined;
+  const allRows=calendar?await calendar.once('roster-bookings',()=>coursePrisma.courseBooking.findMany({...(calendarMonthReadActive()?{relationLoadStrategy:'join' as const}:{}),where:{storeId,sessionId:{in:[...calendar.sessionIds]}},select:{...selectHead,sessionId:true,...selectTail},orderBy})):undefined;
   const bookings=await (async()=>{
     if(!scoped)return coursePrisma.courseBooking.findMany({where,select:{...selectHead,session:{select:ROSTER_SESSION_SELECT},...selectTail},orderBy});
     const rows=allRows?allRows.filter(row=>row.sessionId===sessionId).map(({sessionId: _sessionId,...row})=>{void _sessionId;return row;}):await coursePrisma.courseBooking.findMany({where,select:{...selectHead,...selectTail},orderBy});

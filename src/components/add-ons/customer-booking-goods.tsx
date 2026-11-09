@@ -1,0 +1,16 @@
+'use client';
+import {useEffect,useState} from 'react';
+import {readCustomerBookingGoods} from '@/server/actions/customer-booking-goods';
+import {usePanelReader} from '@/components/operations/panel-read-cache';
+import {resolveSharedGoods,addOnTotals} from '@/lib/add-ons';
+import {goodsScope,type CustomerBookingGoodsDraft,type CustomerBookingGoodsCatalog} from '@/lib/customer-booking-goods';
+import {SharedGoodsChoices} from './shared-goods-choices';
+export function CustomerBookingGoodsSummary({draft}:{draft?:CustomerBookingGoodsDraft}){return draft?.items.length?<section aria-label="商品摘要" className="space-y-2 border-t border-earth-200 pt-3"><h3 className="font-semibold">加購商品</h3>{draft.items.map(i=><div key={i.id} className="flex justify-between gap-3"><span className="min-w-0 break-words">{i.name}{i.quantity>1?` × ${i.quantity}`:''}</span><span className="shrink-0">{i.price?`NT$${(i.price*i.quantity).toLocaleString('zh-TW')}`:'免費'}</span></div>)}<p>商品小計 NT${draft.total.toLocaleString('zh-TW')}</p></section>:null;}
+export function CustomerBookingGoodsField({slug,sessionId,draft,onChange,disabled=false}:{slug:string;sessionId?:string;draft?:CustomerBookingGoodsDraft;onChange:(draft:CustomerBookingGoodsDraft|undefined)=>void;disabled?:boolean}){
+ const scope=goodsScope(slug,sessionId),reader=usePanelReader('customer-booking-goods',readCustomerBookingGoods,scope,0);
+ const [loaded,setLoaded]=useState<{scope:string;catalog:CustomerBookingGoodsCatalog|null}|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
+ useEffect(()=>{let active=true;void reader.read({slug,...(sessionId?{sessionId}:{})}).then(r=>{if(!active)return;if(r.success){setLoaded({scope,catalog:r.data});setError('');}else setError(r.error);}).catch(()=>{if(active)setError('商品暫時無法讀取，可重試或不選購。');});return()=>{active=false;};},[reader,slug,sessionId,scope,retry]);
+ const current=draft?.scope===scope?draft:undefined,catalog=loaded?.scope===scope?loaded.catalog:null;
+ if(loaded?.scope===scope&&!catalog&&!current&&!error)return null;
+ return <section aria-label="加購商品選購" className="min-w-0 space-y-3 rounded-xl border border-earth-200 bg-white p-4"><h3 className="font-semibold">加購商品（選填）</h3>{loaded?.scope!==scope&&!error&&<p role="status">商品讀取中…</p>}{catalog&&current&&catalog.revision!==current.input.revision&&<p role="alert" className="text-amber-800">商品內容或價格已更新，請重新選購。</p>}{catalog&&<><p className="text-earth-600">整組預約共用，請選實際需要的數量。</p><fieldset disabled={disabled}><SharedGoodsChoices groups={catalog.groups} selections={current?.input.selections??[]} onChange={selections=>{try{const items=resolveSharedGoods(catalog.groups,selections);onChange({scope,input:{revision:catalog.revision,selections},items,total:addOnTotals(items).price});setError('');}catch(e){setError(e instanceof Error?e.message:'請核對商品數量');}}}/></fieldset></>}{error&&<div role="alert"><p>{error}</p><button type="button" disabled={disabled} className="min-h-11 px-3 text-primary-800" onClick={()=>{setError('');reader.clear();setRetry(n=>n+1);}}>重試讀取商品</button></div>}{!catalog&&current&&<p>商品已變更，請重試或取消選購。</p>}{current&&<><CustomerBookingGoodsSummary draft={current}/><button type="button" className="min-h-11 px-3 text-primary-800" disabled={disabled} onClick={()=>onChange(undefined)}>取消商品選購</button></>}</section>;
+}

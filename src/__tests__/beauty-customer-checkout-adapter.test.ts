@@ -23,7 +23,7 @@ it('translates the shared checkout cost field while preserving the authoritative
 });
 it('only enables the beauty plan recovery when the server-provided flag is on and the store is writable',()=>{
  const data={storeId:'beauty',customers:[],services:[],plans:[],cards:[],assignmentStaff:[],manage:{},access:{financeAccess:true},date:'2026-10-26'} as unknown as BeautyDashboardData;
- renderToStaticMarkup(h(BeautyNativeCustomerWorkspace,{data}));expect(m.provider).toMatchObject({enabled:false,storeId:'beauty',family:'beauty-plan'});
+ renderToStaticMarkup(h(BeautyNativeCustomerWorkspace,{data}));expect(m.provider).toMatchObject({enabled:false,storeId:'beauty',family:'beauty-plan'});expect(m.source?.automaticPurchaseCompletion).toBe(true);
  renderToStaticMarkup(h(BeautyNativeCustomerWorkspace,{data,planPurchaseRecoveryEnabled:true}));expect(m.provider).toMatchObject({enabled:true});
  renderToStaticMarkup(h(BeautyNativeCustomerWorkspace,{data,planPurchaseRecoveryEnabled:true,readOnly:true}));expect(m.provider).toMatchObject({enabled:false});
 });

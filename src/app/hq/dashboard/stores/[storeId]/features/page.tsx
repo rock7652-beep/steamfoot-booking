@@ -10,6 +10,7 @@ import { isSingleStoreTrial } from "@/lib/single-store-trial";
 import type { FeatureKey } from "@/lib/feature-flags";
 import {
   MANAGEABLE_STORE_FEATURES,
+  getManageableStoreFeatures,
   STORE_FEATURE_CATEGORIES,
   getStoreFeatureCategory,
   getStoreFeatureLabel,
@@ -22,12 +23,14 @@ import { prisma } from "@/lib/db";
 import { FeatureEntitlementList } from "./feature-entitlement-list";
 import { DigitalButlerActivationForm } from "./digital-butler-activation-form";
 import { RetiredStoreSettingsNotice } from "@/components/retired-store-settings-notice";
+import { readHqBeautyAddOnsReleaseEvidence } from "@/server/services/hq-addons-release-evidence";
 
 interface PageProps {
   params: Promise<{ storeId: string }>;
+  searchParams?: Promise<{ releaseEvidence?: string | string[] }>;
 }
 
-export default async function StoreFeatureSettingsPage({ params }: PageProps) {
+export default async function StoreFeatureSettingsPage({ params, searchParams }: PageProps) {
   const user = await getCurrentUser();
   if (!user || user.role !== "ADMIN" || !(await checkPermission(user.role, user.staffId, "staff.manage"))) redirect("/hq/login");
 
@@ -67,10 +70,15 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
     return <RetiredStoreSettingsNotice storeId={store.id} />;
   }
 
+  // Opt-in, HQ-authorized release evidence; no change to ordinary page reads.
+  const releaseEvidence = store.industryModule === "BEAUTY" &&
+    (await searchParams)?.releaseEvidence === "1"
+    ? await readHqBeautyAddOnsReleaseEvidence() : null;
+
   const supportsSharedCard = store.industryModule === "COURSE" && !store.featureEntitlements.some(e => e.featureKey === "business.music" && e.status === "ENABLED");
   const sharedCardSnapshot = supportsSharedCard ? await readCourseSharedCardSnapshot(prisma, store.id) : null;
   const sharedCardState = resolveCourseSharedCardState(sharedCardSnapshot);
-  const manageableFeatures = MANAGEABLE_STORE_FEATURES.filter(feature => feature.key !== "shared_card" || supportsSharedCard);
+  const manageableFeatures = getManageableStoreFeatures(store.industryModule,supportsSharedCard);
 
   // Match the same gate used by the store dashboard, including the full single-store trial.
   const featureAccess = new Map(await Promise.all(
@@ -99,6 +107,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
 
   return (
     <PageShell className="box-border flex w-full min-w-0 flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
+      {releaseEvidence && <script id="beauty-addons-release-evidence" type="application/json">{JSON.stringify(releaseEvidence)}</script>}
       <PageHeader
         title={`功能設定 · ${store.name}`}
         subtitle={`${store.slug} · ${PRICING_PLAN_INFO[store.plan].label}（${store.plan}）`}
@@ -154,8 +163,9 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
 
       <FeatureEntitlementList storeId={store.id} categories={[...STORE_FEATURE_CATEGORIES]} rows={manageableFeatures.map(feature => {
                   const entitlement = entitlements.get(feature.key) ?? null;
-                  const trialAllowed = fullSingleStoreAccess && feature.key !== "shared_card" && feature.key !== "store_operation_audit";
-                  const baseAllowed = feature.key === "shared_card" ? false : trialAllowed || hasFeature(store.plan, feature.key);
+                  const independentBeautyFeature=feature.key==="beauty_service_add_ons"||(store.industryModule==="BEAUTY"&&feature.key==="add_ons");
+                  const trialAllowed = fullSingleStoreAccess && feature.key !== "shared_card" && feature.key !== "store_operation_audit" && !independentBeautyFeature;
+                  const baseAllowed = feature.key==="shared_card"||independentBeautyFeature ? false : trialAllowed || hasFeature(store.plan, feature.key);
                   const ordinaryState = resolveStoreFeatureDisplayState(
                     store.plan,
                     feature.key,
@@ -177,8 +187,8 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                   const requiresLineSetup = feature.key === "line_reminder" || feature.key === "digital_butler" || feature.key === "member_portal";
 
         return {
-          key: feature.key, label: getStoreFeatureLabel(feature.key), category: getStoreFeatureCategory(feature),
-          description: feature.description, baseAllowed, ...state, requiresLineSetup,
+          key: feature.key, label: store.industryModule==="BEAUTY"&&feature.key==="add_ons"?"加購商品":getStoreFeatureLabel(feature.key), category: getStoreFeatureCategory(feature),
+          description: store.industryModule==="BEAUTY"&&feature.key==="add_ons"?"整筆預約選實際商品數量，不增加服務時間；關閉保留既有訂單與收退款。":feature.description, baseAllowed, ...state, requiresLineSetup,
           override: entitlement?.status ?? "INHERIT", source: entitlement?.source ?? "MANUAL",
           startsAt: entitlement?.startsAt ? toLocalDateStr(entitlement.startsAt) : "",
           expiresAt: entitlement?.expiresAt ? toLocalDateStr(entitlement.expiresAt) : "", note: entitlement?.note ?? "",

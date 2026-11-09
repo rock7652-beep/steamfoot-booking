@@ -11,7 +11,7 @@ import {
   validateTimeRange,
   type BusinessPeriodInput,
 } from "@/lib/slot-generator";
-import { toLocalDateStr } from "@/lib/date-utils";
+import { dayRange, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { revalidateBusinessHours, revalidateSpecialDays } from "@/lib/revalidation";
 import { getCachedMonthScheduleSummary } from "@/lib/query-cache";
 import {
@@ -20,6 +20,7 @@ import {
 } from "@/lib/business-hours-resolver";
 import type { ActionResult } from "@/types";
 import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
+import {readServiceHoursState,serviceHoursRevision} from "@/server/services/service-hours-state";
 import {loadServiceHoursForSettings} from "@/server/services/service-hours-read";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
@@ -168,11 +169,20 @@ export async function getMonthScheduleSummary(year: number, month: number) {
 }
 
 /** 取得某天的可預約時段（與前台同源 resolver；額外帶後台需要的欄位） */
-export async function getDaySlotDetails(dateStr:string){
+// The isolated review deployment permits slot writes only on its approved fixture date.
+function previewSlotWriteRestriction(storeId: string, date: string): string | null {
+  if (process.env.COMPACT_OPERATIONS_PREVIEW !== "1" || process.env.VERCEL_ENV !== "preview") return null;
+  return storeId === "addons-qa-beauty" && date === "2030-11-03"
+    ? null : "此隔離測試站僅開放美業 2030/11/03 儲存時段調整；請關閉視窗並切換至該日期。";
+}
+
+export async function getDaySlotDetails(dateStr:string,expectedStoreId?:string){
  const user=await requirePermission("business_hours.view"),storeId=await resolveReadStoreId(user);
  if(!storeId)throw new AppError("UNAUTHORIZED","請先切換到指定門市");
+ if(expectedStoreId&&expectedStoreId!==storeId)throw new AppError("CONFLICT","門市已切換，請重新開啟管理時段");
  if(!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)||new Date(dateStr+"T00:00:00Z").toISOString().slice(0,10)!==dateStr)throw new AppError("VALIDATION","日期格式不正確");
- return (await loadServiceHoursForSettings(storeId,dateStr)).day;
+ const writeRestriction = previewSlotWriteRestriction(storeId, dateStr);
+ return {...(await loadServiceHoursForSettings(storeId,dateStr)).day, writeRestriction, previewWriteDate: writeRestriction && storeId === "addons-qa-beauty" ? "2030-11-03" : null};
 }
 
 /** 判斷指定日期是否營業，回傳 { open, openTime, closeTime, reason }（共用 resolver） */
@@ -984,6 +994,8 @@ export async function getDaySlotOverrides(dateStr: string) {
  */
 export async function applyDaySlotOverrides(input: {
   date: string;
+  expectedStoreId?: string;
+  expectedHoursRevision?: string;
   changes: Array<{
     startTime: string;
     action: "disable" | "enable" | "remove" | "capacity";
@@ -996,9 +1008,12 @@ export async function applyDaySlotOverrides(input: {
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
+    if(input.expectedStoreId&&input.expectedStoreId!==storeId)throw new AppError("CONFLICT","門市已切換，請重新開啟管理時段");
+    const writeRestriction = previewSlotWriteRestriction(storeId, input.date);
+    if (writeRestriction) throw new AppError("VALIDATION", writeRestriction);
     const industry = await getStoreIndustryModule(storeId);
     if (industry === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
+    if (!parseTaipeiDateTime(input.date,"00:00")) {
       throw new AppError("VALIDATION", "日期格式不正確");
     }
     if (input.changes.length < 1 || input.changes.length > 48) {
@@ -1019,17 +1034,14 @@ export async function applyDaySlotOverrides(input: {
     }
 
     const dateObj = new Date(input.date + "T00:00:00Z");
-    const booked = await prisma.booking.groupBy({
+
+    const booked = industry==="beauty"?[]:await prisma.booking.groupBy({
       by: ["slotTime"],
-      where: {
-        storeId,
-        bookingDate: dateObj,
-        slotTime: { in: [...times] },
-        bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-      },
-      _sum: { people: true },
+      where: {storeId,bookingDate:dateObj,slotTime:{in:[...times]},bookingStatus:{in:["PENDING","CONFIRMED"]}},
+      _sum:{people:true},
     });
     const bookedByTime = new Map(booked.map((row) => [row.slotTime, row._sum.people ?? 0]));
+    let beautyPeopleKept=0;
     const existingOverrides = new Map(
       context.slotOverrides.map((override) => [override.startTime, override]),
     );
@@ -1045,6 +1057,18 @@ export async function applyDaySlotOverrides(input: {
     }
 
     await prisma.$transaction(async (tx) => {
+      if(industry==="beauty")await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
+      if(input.expectedHoursRevision||industry==="beauty")await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`business-hours:${storeId}`},0))`;
+      if(input.expectedHoursRevision&&serviceHoursRevision(await readServiceHoursState(tx,storeId))!==input.expectedHoursRevision)throw new AppError("CONFLICT","營業資料已更新，請重新開啟核對；本次修改尚未儲存");
+      if(industry==="beauty"){
+        const beautyBookings=await tx.$queryRaw<Array<{id:string;startsAt:Date;occupiedEndsAt:Date}>>`SELECT id,"startsAt","occupiedEndsAt" FROM "BeautyAppointment" WHERE "storeId"=${storeId} AND status='RESERVED' AND "startsAt"<=${dayRange(input.date).end} AND "occupiedEndsAt">=${dayRange(input.date).start}`;
+        beautyPeopleKept=new Set(beautyBookings.filter(booking=>input.changes.some(change=>{
+          if(change.action!=="disable")return false;
+          const start=parseTaipeiDateTime(input.date,change.startTime)!;
+          const interval=baseRule.periods.find(period=>change.startTime>=period.openTime&&change.startTime<period.closeTime)?.slotInterval??30;
+          return booking.startsAt.getTime()<start.getTime()+interval*60000&&booking.occupiedEndsAt>start;
+        })).map(booking=>booking.id)).size;
+      }
       for (const change of input.changes) {
         if (change.action === "remove") {
           await tx.slotOverride.deleteMany({
@@ -1087,7 +1111,7 @@ export async function applyDaySlotOverrides(input: {
       success: true,
       data: {
         changed: input.changes.length,
-        bookedPeopleKept: input.changes
+        bookedPeopleKept: industry==="beauty"?beautyPeopleKept:input.changes
           .filter((change) => change.action === "disable")
           .reduce((total, change) => total + (bookedByTime.get(change.startTime) ?? 0), 0),
       },

@@ -130,8 +130,8 @@ export function StoreNoticeBell({storeId,namespace,initialEnabled=false,initialS
      {error&&<div role="alert" className="flex items-center justify-between px-3 py-2 text-sm text-red-700">{error}<button className="min-h-11 px-2" onClick={()=>void load()}>重試</button></div>}
      {loading&&!items.length&&<p className="p-3 text-sm text-earth-500" role="status">讀取中…</p>}
      {!loading&&!items.length&&!error&&<p className="p-3 text-sm text-earth-500">{handled?"尚無歷史訊息":"目前沒有最新消息"}</p>}
-     {items.map(n=><div key={n.id} className="border-b border-earth-100 text-sm">
-      <div className="flex items-center gap-1 px-2 py-1 hover:bg-earth-50">
+     {items.map(n=><div key={n.id} className="admin-striped-row border-b border-earth-100 text-sm">
+      <div className="flex items-center gap-1 px-2 py-1">
        <button type="button" className={`${rosterStatusButtonClassName} ${n.handledAt?"text-primary-700":"text-earth-400"}`} disabled={!canHandle||!!pending} aria-label={`${n.handledAt?"標為未讀":"標為已讀"}：${n.customerName}`} aria-pressed={!!n.handledAt} onClick={()=>void toggle(n)}><svg className="h-5 w-5" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.8" stroke="currentColor" strokeWidth={n.handledAt?2.4:1.8}/></svg></button>
        <button className="min-h-11 min-w-0 flex-1 text-left" aria-expanded={expanded===n.id} onClick={()=>setExpanded(expanded===n.id?null:n.id)}>
         <span className="flex flex-wrap items-center gap-x-2"><strong className="break-words text-earth-900">{n.customerName}</strong><span className="text-primary-700">{labels[n.kind]??STORE_NOTICE_LABELS[n.kind]}</span>{<span className="text-earth-600">{noticeTime(n.publishedAt??n.createdAt)}</span>}{n.affectedCount>1&&<span className="text-earth-500">{n.affectedCount} 人</span>}</span>

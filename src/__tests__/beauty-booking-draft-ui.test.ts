@@ -13,6 +13,8 @@ vi.mock('@/lib/beauty/portal-detail-read',()=>({readBeautyCardHistory:vi.fn(),re
 vi.mock('@/server/actions/auth',()=>({logoutAction:vi.fn()}));
 vi.mock('@/components/image-announcements/carousel',()=>({StoreImageAnnouncements:()=>h('div',{'data-testid':'announcements'})}));
 vi.mock('@/components/beauty/reschedule-panel',()=>({BeautyReschedulePanel:({onSaved}:{onSaved:()=>void})=>h('button',{onClick:onSaved},'模擬改期成功')}));
+import {BeautyBookingGoods} from '@/components/beauty/booking-shared-goods';
+import {BeautyMemberBookingForm} from '@/components/beauty/member-booking-form';
 import {BeautyBookingForm} from '@/components/beauty/booking-form';
 import {BeautyPortal} from '@/components/beauty/portal';
 import type {BeautyPortalData} from '@/server/beauty/queries';
@@ -24,6 +26,17 @@ function field(host:HTMLElement,name:string){const label=[...host.querySelectorA
 function set(el:HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement,value:string){act(()=>{const proto=el.tagName==='SELECT'?HTMLSelectElement.prototype:el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value')!.set!.call(el,value);el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}));});}
 const catalog={services:[{id:'service',name:'做臉',duration:60,price:1000,trialPrice:500}],techs:[]};
 const data={...catalog,store:{id:'store',slug:'test',name:'測試店'},canWork:true,work:false,customer:{id:'person',name:'顧客',phone:'0900000000'},cards:[],members:[],items:[],plans:[],purchases:[],grants:[],income:[],bank:null,policy:{selfBooking:true,selfCancel:true,selfReschedule:true}} as unknown as BeautyPortalData;
+it('summarizes the sole selected plan while retaining an explicit change to single payment',async()=>{
+ const card={id:'card',name:'五次方案',remaining:5,held:0,expiresAt:'2090-01-01T00:00:00Z',closed:false,memberIds:['person'],serviceIds:['service']};
+ const host=mount(h(BeautyMemberBookingForm,{slug:'test',catalog,customer:{id:'person'},cards:[card]}));
+ const select=host.querySelector<HTMLSelectElement>('[aria-label="方案 1"]')!;
+ const details=select.closest('details')!;
+ expect(details.open).toBe(false);expect(details.querySelector('summary')?.textContent).toContain('五次方案 · 使用 1 次');
+ act(()=>details.querySelector('summary')!.click());expect(details.open).toBe(true);
+ set(select,'');expect(host.querySelector<HTMLSelectElement>('[aria-label="方案 1"]')!.closest('details')).toBeNull();
+ await act(async()=>button(host,'查詢可用時段').click());
+ expect(m.slots.mock.calls.at(-1)?.[2].people[0].cardId).toBeNull();expect(m.book).not.toHaveBeenCalled();
+});
 beforeEach(()=>{vi.clearAllMocks();vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-21T02:00:00Z'));vi.spyOn(window,'scrollTo').mockImplementation(()=>{});m.role.mockImplementation(async(work:boolean)=>({success:true,data:{...data,work}}));m.records.mockResolvedValue({success:true,data:{items:[],hasMore:false}});m.plan.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});m.book.mockResolvedValue({success:true,data:{groupId:'new-group',ids:['one','two']}});m.slots.mockResolvedValue({success:true,data:{slots:['09:00','10:00']}});});
 afterEach(()=>{for(const {root,host}of roots.splice(0)){act(()=>root.unmount());host.remove();}vi.restoreAllMocks();vi.unstubAllGlobals();vi.useRealTimers();});
 it('starts on the selected calendar date, validates a seeded time against fresh slots',async()=>{
@@ -171,3 +184,7 @@ it('carries merchant trial price and duration through the existing member confir
 it('shows used trial eligibility without removing other service choices or forcing anonymous companion details',()=>{
  const host=mount(h(BeautyBookingForm,{catalog:{...catalog,trialUsedServiceIds:['service']},mode:'member',slug:'test',customer:data.customer}));const trial=[...field(host,'方案').querySelectorAll('option')].find(o=>o.value==='__trial__');expect(trial?.disabled).toBe(true);expect(trial?.textContent).toContain('已使用');
 });
+
+it('keeps one shared goods cart for two member bookings paid by a shared plan, preserving the chosen time',async()=>{const goods={revision:3,groups:[{id:'drinks',title:'飲品',kind:'SHARED_GOODS' as const,subjectIds:['service'],required:false,multiple:true,options:[{id:'tea',name:'茶',price:80,duration:0,active:true}]}]};const host=mount(h(BeautyMemberBookingForm,{catalog:{...catalog,sharedGoodsCatalog:goods},slug:'test',customer:{id:'person'},cards:[{id:'card',name:'共用方案',remaining:5,held:0,expiresAt:'2099-12-31T00:00:00Z',closed:false,memberIds:['person'],serviceIds:['service'],allowShared:true}]}));set(host.querySelector('[aria-label="預約人數"]') as HTMLSelectElement,'2');await act(async()=>button(host,'查詢可用時段').click());act(()=>button(host,'09:00').click());act(()=>host.querySelector<HTMLInputElement>('[aria-label="共同商品選購"] input')!.click());act(()=>host.querySelector<HTMLButtonElement>('[aria-label="增加茶"]')!.click());expect(button(host,'09:00').getAttribute('aria-pressed')).toBe('true');act(()=>button(host,'下一步').click());expect([...host.querySelectorAll('[aria-label="預約摘要"] article')].filter(row=>row.textContent?.includes('共用方案 · 使用 1 次'))).toHaveLength(2);expect(host.textContent).toContain('NT$ 160');expect(host.textContent).toContain('茶 × 2');act(()=>button(host,'返回修改').click());expect(host.querySelector('output')!.textContent).toBe('2');act(()=>button(host,'下一步').click());await act(async()=>button(host,'確認預約').click());expect(m.book.mock.calls[0][1]).toMatchObject({people:[{cardId:'card'},{cardId:'card'}],sharedGoods:{revision:3,selections:[{id:'tea',quantity:2}]}});expect(host.textContent).toContain('預約成功');});
+
+it('lets customers clear retained goods when the catalog closes instead of crashing or blocking the form permanently',()=>{const clear=vi.fn(),host=mount(h(BeautyBookingGoods,{catalog:null,selections:[{id:'retired',quantity:2}],onChange:clear}));expect(host.querySelector('[role="alert"]')?.textContent).toContain('商品已更新');act(()=>button(host,'取消商品選購').click());expect(clear).toHaveBeenCalledExactlyOnceWith([]);});

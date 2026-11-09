@@ -1,0 +1,162 @@
+{
+  "environment": "actual Next production build; synthetic local-only no-DB profile; campaign disabled",
+  "limitations": "No authenticated live store/HQ business or billing acceptance; no production release",
+  "results": [
+    {
+      "width": 360,
+      "path": "/",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 360,
+      "path": "/pricing",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 360,
+      "path": "/pricing/features",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 360,
+      "path": "/pricing/features/beauty",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 360,
+      "path": "/apply?ref=SB-ABCDEFGH",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "path": "/",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "path": "/pricing",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "path": "/pricing/features",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "path": "/pricing/features/beauty",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "path": "/apply?ref=SB-ABCDEFGH",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "path": "/",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "path": "/pricing",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "path": "/pricing/features",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "path": "/pricing/features/beauty",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "path": "/apply?ref=SB-ABCDEFGH",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "path": "/",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "path": "/pricing",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "path": "/pricing/features",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "path": "/pricing/features/beauty",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "path": "/apply?ref=SB-ABCDEFGH",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 1366,
+      "path": "/",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 1366,
+      "path": "/pricing",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 1366,
+      "path": "/pricing/features",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 1366,
+      "path": "/pricing/features/beauty",
+      "status": 200,
+      "overflow": false
+    },
+    {
+      "width": 1366,
+      "path": "/apply?ref=SB-ABCDEFGH",
+      "status": 200,
+      "overflow": false
+    }
+  ],
+  "errors": [],
+  "privateRoutesBlocked": true,
+  "writesBlocked": true,
+  "availability": {
+    "enabled": false
+  }
+}

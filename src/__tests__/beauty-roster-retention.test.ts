@@ -2,7 +2,10 @@
 import {act,createElement as h,useState} from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+vi.mock('@/server/actions/beauty-service-add-on-activation',()=>({saveBeautyServiceAddOnActivation:vi.fn()}));
 vi.mock('@/server/actions/beauty-collection-intent',()=>({prepareBeautyCollectionPurchaseIntent:vi.fn(),readBeautyCollectionPurchaseIntent:vi.fn(),cancelBeautyCollectionPurchaseIntent:vi.fn(),acknowledgeBeautyCollectionPurchaseIntent:vi.fn()}));
+vi.mock('@/server/actions/course-display-order',()=>({saveCourseDisplayOrder:vi.fn()}));
+vi.mock('@/app/(dashboard)/dashboard/courses/rental-panel',()=>({RentalPanel:()=>null}));
 const m=vi.hoisted(()=>({refund:vi.fn(),status:vi.fn(),move:vi.fn(),collect:vi.fn(),collectionRead:vi.fn(),push:vi.fn(),refresh:vi.fn(),rosterRefresh:vi.fn(),params:new URLSearchParams(),read:vi.fn(),rosterProps:null as Record<string,unknown>|null}));
 vi.mock('next/dynamic',async()=>{const React=await import('react');return {default:(loader:()=>Promise<{default:React.ComponentType<Record<string,unknown>>}>)=>{const C=React.lazy(async()=>{const loaded=await loader();return {default:typeof loaded==='function'?loaded:loaded.default};});return (props:Record<string,unknown>)=>h(React.Suspense,{fallback:null},h(C,props));}};});
 vi.mock('@/app/(dashboard)/dashboard/courses/sports-move-confirm',()=>({SportsMoveConfirm:()=>null}));
@@ -53,4 +56,20 @@ it.each(['開顧客','開購買方案'])('retains the actual dashboard roster mo
  expect(host.querySelector('[data-native-roster-port]')).toBe(original);expect(m.rosterProps).toMatchObject({suspended:true});expect(original.closest('[data-right-sheet]')?.getAttribute('aria-hidden')).toBe('true');
  await act(async()=>button('返回原名單').click());
  expect(host.querySelector('[data-native-roster-port]')).toBe(original);expect(original.textContent).toContain('保留的搜尋與篩選');expect(original.scrollTop).toBe(180);expect(m.rosterProps).toMatchObject({suspended:false});expect(original.closest('[data-right-sheet]')?.getAttribute('aria-hidden')).toBe('false');expect(m.refresh).not.toHaveBeenCalled();expect(m.push).not.toHaveBeenCalled();
+});
+
+it.each(['success','failed','unknown'])('shows immediate feedback and prevents duplicate attendance until authority settles: %s',async outcome=>{
+ await open();let resolve!:(v:unknown)=>void;m.status.mockReturnValue(new Promise(r=>{resolve=r;}));
+ const attendance=m.rosterProps!.onAttendance as (id:string,revision:number,choice:string)=>void;
+ await act(async()=>{attendance('a',7,'ATTENDED');attendance('a',7,'ATTENDED');});
+ expect(m.status).toHaveBeenCalledOnce();expect(m.rosterProps).toMatchObject({pendingId:'a',busy:true});
+ expect(document.querySelector('[role=status]')?.textContent).toContain('正在更新服務狀態與堂數');
+ expect(m.rosterProps?.snapshot).toBeUndefined();
+ const roster={roster:nativeRows(),session:{startsAt:item.startsAt},cards:[],trial:null,canPurchase:false};
+ await act(async()=>resolve(outcome==='failed'?{success:false,error:'版本衝突'}:{success:true,refresh:outcome==='unknown'?{success:false,error:'讀取失敗'}:{success:true,data:{roster,calendar:{date:data.date,calendar:'day',calendarDays:{},items:[{...item,status:'COMPLETED',revision:8}]}}}}));
+ expect(m.rosterProps?.pendingId).toBeNull();
+ expect(host.textContent).not.toContain('正在更新服務狀態與堂數');
+ if(outcome==='success')expect(m.rosterProps?.snapshot).toMatchObject({sessionId:'booking:a',data:roster});
+ else expect(host.textContent).toContain(outcome==='failed'?'版本衝突':'最新狀態尚未核對');
+ expect(m.refresh).not.toHaveBeenCalled();
 });

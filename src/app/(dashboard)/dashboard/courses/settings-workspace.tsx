@@ -46,6 +46,9 @@ export type CourseSettingsWorkspaceProps = {
   panelContent?: ReactNode;
   storeId: string; name: string; planLabel: string; address: string; mapUrl: string; lineOfficialUrl: string;
   bankName: string; bankCode: string; bankAccountNumber: string; bookingLeadMinutes: number; cancellationLeadMinutes: number;
+  canAddOns?:boolean;
+  canAgreements?: boolean;
+  canAgreementRecords?: boolean;
   canEdit: boolean; canPayment: boolean; canStaff: boolean; canPlans: boolean;
   canTrial?: boolean; canHours?: boolean; canDutyRead?: boolean; canDutyManage?: boolean; canReminders?: boolean; canCare?: boolean;
   // Destination permissions only; HQ feature presentation comes from the shared provider.
@@ -198,7 +201,7 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
     const params = new URLSearchParams(search.toString()); if(props.moduleContent||props.source)params.set("tab", "設定");else params.set("view", "settings"); params.set("section", section);
     window.history.replaceState(null, "", pathname + "?" + params.toString());
   }
-  const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor savePath={props.source?.storeSavePath??props.moduleContent?.storeSavePath} storeId={props.storeId} initial={initial} onStatus={onStatus} onSaved={onSaved} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
+  const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor personnelKind={props.source?.personnelKind} savePath={props.source?.storeSavePath??props.moduleContent?.storeSavePath} storeId={props.storeId} initial={initial} onStatus={onStatus} onSaved={onSaved} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
   return <SettingsHrefContext.Provider value={props.source?.href??courseSettingsPanelHref}><SettingsPanelContext.Provider value={context}><SettingsWorkspaceFrame
     nav={<>
       <label className="block text-sm md:hidden">設定分類<select value={active} onChange={event => select(courseSettingsSection(event.target.value))} className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3">{COURSE_SETTINGS_SECTIONS.map(section => <option key={section.id} value={section.id}>{section.label}{sectionDirty(section.id) ? " · 未儲存" : ""}</option>)}</select></label>
@@ -212,7 +215,9 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
   >
       <section hidden={active !== "store"} aria-label="店家資料">
         <Row title="店家資料" summary={props.name + (props.address ? "・地址已設定" : "・地址未設定") + `・Google Maps：${storeMapHref ? "已設定" : "未設定"}`} controls={storeMapHref ? <a href={storeMapHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 min-w-24 items-center justify-center whitespace-nowrap rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50 focus:outline-none focus:ring-2 focus:ring-primary-200">開啟地圖</a> : undefined} expanded={expandedRow === "store"} onEdit={props.canEdit ? () => openRow("store") : undefined}>{!props.canEdit && <InfoList density="compact" items={[{ label: "店家名稱", value: props.name }, { label: "電話", value: props.shopPhone || "尚未填寫" }, { label: "地址", value: props.address || "尚未填寫" }, { label: "地圖", value: props.mapUrl ? "已設定" : "尚未設定" }, { label: "官方 LINE ID", value: props.lineOfficialId || "尚未填寫" }, { label: "官方 LINE", value: props.lineOfficialUrl ? "已設定" : "尚未設定" }]} />} {props.canEdit && editor({ section: "store", name: props.name, shopPhone: props.shopPhone ?? "", lineOfficialId: props.lineOfficialId ?? "", address: props.address, mapUrl: props.mapUrl, lineOfficialUrl: props.lineOfficialUrl }, true)}</Row>
-        {!props.source&&!props.moduleContent&&<Row title="授課人員稱呼" summary={personnel.label??(props.music?personnelText("教師（模組預設）"):personnelText("教練（模組預設）"))} expanded={expandedRow==="personnel"} onEdit={props.canEdit?()=>openRow("personnel"):undefined}>{editor({section:"personnel",personnelLabel:personnel.label},props.canEdit)}</Row>}
+        {props.canAgreements && <Row title={props.source?"服務共同約定":"課程共同約定"} summary="設定店家規則・預覽與啟用約定書" href="/dashboard/courses/agreements" action="管理" />}
+        {props.canAgreementRecords && <Row title="簽署紀錄" summary="查看已簽約定書・下載 PDF" href={`/dashboard/courses/agreements/records?storeId=${encodeURIComponent(props.storeId)}`} action="查看" />}
+        {((!props.source&&!props.moduleContent)||props.source?.personnelKind==="beauty")&&<Row title={props.source?.personnelKind==="beauty"?"服務人員稱呼":"授課人員稱呼"} summary={personnel.label??(props.source?.personnelKind==="beauty"?"技師（預設）":props.music?personnelText("教師（模組預設）"):personnelText("教練（模組預設）"))} expanded={expandedRow==="personnel"} onEdit={props.canEdit?()=>openRow("personnel"):undefined}>{editor({section:"personnel",personnelLabel:personnel.label},props.canEdit)}</Row>}
       </section>
       <section hidden={active !== "booking"} aria-label="營業與預約"><SectionGuard section="booking" context={context}>{props.moduleContent ? props.moduleContent.sections.booking : <>
         {props.source?<CourseSelfBookingSettings immediate={!!props.source} savePath={props.source?.selfBookingSavePath} title={props.source?.selfBookingTitle} storeId={props.storeId} music={props.music} key={props.storeId} initialEnabled={props.selfBookingEnabled ?? true} initialRevision={props.selfBookingRevision ?? 0} canEdit={props.canEdit} expanded={expandedRow === "self-booking"} onEdit={() => openRow("self-booking")} onClose={() => setExpandedRow(current => current === "self-booking" ? null : current)} /> : <CourseSchedulingModeSettings key={props.storeId} storeId={props.storeId} open={props.selfBookingEnabled??true} assigned={props.assignedSchedulingEnabled??true} revision={props.selfBookingRevision??0} canEdit={props.canEdit}/>}
@@ -240,6 +245,7 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
         {!props.source&&<Row title="值班聯動" summary={props.dutyEnabled ? "已啟用・排課需符合值班" : "未啟用"} href={props.canDutyManage ? "/dashboard/settings/duty" : undefined} action="值班設定" controls={props.canDutyManage ? <DutySchedulingToggle key={props.storeId} storeId={props.storeId} onSaved={enabled=>confirmedDuty.confirm({id:"duty",enabled})} enabled={props.dutyEnabled ?? false} course compact /> : undefined} />}
        </>}</SectionGuard></section>
       <section hidden={active !== "payment"} aria-label="收款與體驗"><SectionGuard section="payment" context={context}>{props.moduleContent ? props.moduleContent.sections.payment : <>
+        {!props.source&&props.canAddOns&&<Row title="附加項目" summary="加購與免費項目・另外計費" href="/dashboard/add-ons"/>}
         {props.canPayment ? <Row title="銀行轉帳資訊" summary={props.bankAccountNumber ? `${props.bankName || "銀行帳戶"}・末四碼 ${props.bankAccountNumber.slice(-4)}` : "未設定"} expanded={expandedRow === "payment-bank"} onEdit={() => openRow("payment-bank")}>
           {editor({ section: "payment", bankName: props.bankName, bankCode: props.bankCode, bankAccountNumber: props.bankAccountNumber }, true)}
           <p className="mt-2 text-sm text-earth-500">付款聯繫：{props.lineOfficialUrl ? "沿用店家官方 LINE" : "尚未設定官方 LINE"} <button type="button" className="min-h-10 px-2 text-primary-700 underline" onClick={() => select("store")}>前往店家資料</button></p>

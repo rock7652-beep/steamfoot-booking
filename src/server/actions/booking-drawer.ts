@@ -45,6 +45,7 @@ async function findCollectedSingleTransaction(
 
 export interface BookingDrawerPayload {
   participantCheckout?: {
+    addOns?: {storeId:string;canView:boolean;canEdit:boolean;canCollect:boolean;canRefund:boolean;sharedGoods?:boolean};
     canCollect: boolean; canResolve: boolean; canCollectUnregistered?: boolean;
     canSell: boolean; canDiscount: boolean;
     plans: Array<{ id: string; name: string; category: string; price: number; sessionCount: number; validityDays: number | null }>;
@@ -365,7 +366,9 @@ async function fetchBookingDetailMeasured(
       }, select: { id: true, customerId: true, expiryDate: true, plan: { select: { name: true } },
         _count: { select: { sessions: { where: { status: "AVAILABLE" } } } } },
         orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }] });
-      participantCheckout = { slots: slots.map(person => ({ ...person,
+      const canViewAddOns=process.env.STEAMFOOT_ADD_ONS_ENABLED==='1'&&await checkPermission(user.role,user.staffId,'transaction.read');
+      const addOns=process.env.STEAMFOOT_ADD_ONS_ENABLED==='1'?{storeId:booking.storeId,sharedGoods:canViewAddOns&&await (await import('@/server/services/shared-goods-availability')).sharedGoodsAvailable(booking.storeId,'STEAMFOOT',booking.id),canView:canViewAddOns,canEdit:!isViewMode&&canEditBookingNote,canCollect:!isViewMode&&await checkPermission(user.role,user.staffId,'transaction.create'),canRefund:!isViewMode&&await checkPermission(user.role,user.staffId,'transaction.refund')}:undefined;
+      participantCheckout = { ...(addOns?{addOns}:{}),slots: slots.map(person => ({ ...person,
         wallets: ownWallets.filter(wallet => wallet.customerId === person.customerId && wallet._count.sessions > 0)
           .map(wallet => ({ id: wallet.id, name: wallet.plan.name, available: wallet._count.sessions, expiryDate: wallet.expiryDate?.toISOString().slice(0, 10) ?? null })),
       })),

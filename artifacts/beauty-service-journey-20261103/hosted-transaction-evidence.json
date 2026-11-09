@@ -1,0 +1,141 @@
+[
+  {
+    "evidence": {
+      "cards": [
+        {
+          "id": "qa1503-20261103-cardA",
+          "held": 0,
+          "remaining": 4
+        },
+        {
+          "id": "qa1503-20261103-cardB",
+          "held": 0,
+          "remaining": 4
+        }
+      ],
+      "cashbook": [
+        {
+          "id": "beauty:cmw0snl4h0000ju07uonv0x2v",
+          "type": "INCOME",
+          "amount": 200,
+          "method": "CASH"
+        },
+        {
+          "id": "beauty:cmw0snl7g0001ju074hdb3d85",
+          "type": "INCOME",
+          "amount": 50,
+          "method": "CASH"
+        },
+        {
+          "id": "beauty:cmw0snl8o0002ju079f1ipthe",
+          "type": "INCOME",
+          "amount": 250,
+          "method": "OTHER"
+        }
+      ],
+      "payments": [
+        {
+          "id": "cmw0snl4h0000ju07uonv0x2v",
+          "kind": "SALE",
+          "amount": 200,
+          "method": "CASH",
+          "appointmentId": "cmw0shjsj0002l0083wg2jazv"
+        },
+        {
+          "id": "cmw0snl7g0001ju074hdb3d85",
+          "kind": "SALE",
+          "amount": 50,
+          "method": "CASH",
+          "appointmentId": "cmw0shjub0006l008am4t0jh7"
+        },
+        {
+          "id": "cmw0snl8o0002ju079f1ipthe",
+          "kind": "SALE",
+          "amount": 250,
+          "method": "CARD",
+          "appointmentId": "cmw0shjub0006l008am4t0jh7"
+        }
+      ],
+      "appointments": [
+        {
+          "id": "cmw0shjsj0002l0083wg2jazv",
+          "debit": true,
+          "addOns": [
+            {
+              "id": "qa1503-20261103-1",
+              "name": "QA1503 加做1",
+              "price": 200,
+              "groupId": "qa1503-20261103-g1",
+              "duration": 10,
+              "quantity": 1,
+              "groupTitle": "加做"
+            }
+          ],
+          "cardId": "qa1503-20261103-cardA",
+          "endsAt": "2026-11-10T06:40:00+00:00",
+          "status": "COMPLETED",
+          "groupId": "cmw0shjrk0000l008e1sav7xd",
+          "startsAt": "2026-11-10T06:00:00+00:00",
+          "serviceId": "qa1503-20261103-A",
+          "locationId": "qa1503-20261103-room",
+          "technicianId": "qa1503-20261103-techA",
+          "occupiedEndsAt": "2026-11-10T06:45:00+00:00"
+        },
+        {
+          "id": "cmw0shjub0006l008am4t0jh7",
+          "debit": true,
+          "addOns": [
+            {
+              "id": "qa1503-20261103-2",
+              "name": "QA1503 加做2",
+              "price": 300,
+              "groupId": "qa1503-20261103-g2",
+              "duration": 10,
+              "quantity": 1,
+              "groupTitle": "加做"
+            }
+          ],
+          "cardId": "qa1503-20261103-cardB",
+          "endsAt": "2026-11-10T07:25:00+00:00",
+          "status": "COMPLETED",
+          "groupId": "cmw0shjrk0000l008e1sav7xd",
+          "startsAt": "2026-11-10T06:45:00+00:00",
+          "serviceId": "qa1503-20261103-B",
+          "locationId": "qa1503-20261103-room",
+          "technicianId": "qa1503-20261103-techB",
+          "occupiedEndsAt": "2026-11-10T07:30:00+00:00"
+        },
+        {
+          "id": "cmw0t60c90009ju072efyj5th",
+          "debit": false,
+          "addOns": [],
+          "cardId": "qa1503-20261103-cardA",
+          "endsAt": "2026-11-11T06:30:00+00:00",
+          "status": "CANCELLED",
+          "groupId": "cmw0t60bs0007ju07fenjswjh",
+          "startsAt": "2026-11-11T06:00:00+00:00",
+          "serviceId": "qa1503-20261103-A",
+          "locationId": "qa1503-20261103-room",
+          "technicianId": "qa1503-20261103-techA",
+          "occupiedEndsAt": "2026-11-11T06:35:00+00:00"
+        },
+        {
+          "id": "cmw0t60dn000dju07sjbc3i3t",
+          "debit": false,
+          "addOns": [],
+          "cardId": "qa1503-20261103-cardB",
+          "endsAt": "2026-11-11T07:05:00+00:00",
+          "status": "CANCELLED",
+          "groupId": "cmw0t60bs0007ju07fenjswjh",
+          "startsAt": "2026-11-11T06:35:00+00:00",
+          "serviceId": "qa1503-20261103-B",
+          "locationId": "qa1503-20261103-room",
+          "technicianId": "qa1503-20261103-techA",
+          "occupiedEndsAt": "2026-11-11T07:10:00+00:00"
+        }
+      ],
+      "outboundEvents": 0,
+      "collectionCommands": 1
+    }
+  }
+]

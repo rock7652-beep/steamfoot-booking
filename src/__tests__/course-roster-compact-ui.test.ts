@@ -728,6 +728,20 @@ it.each([false,true])('shows the calendar names without financial or attendance 
  await act(async()=>root.unmount());host.remove();
 });
 
+it.each([false,true])('renders the calendar-preloaded full roster on first render without an opening request; music=%s',async musicLayout=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.load.mockClear();
+ const fetch=vi.fn().mockRejectedValue(new Error('opening must not fetch'));vi.stubGlobal('fetch',fetch);
+ const data=preparedRoster();
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'prepared',capacity:2,canCreate:true,canEdit:true,sportsNative:!musicLayout,musicLayout,initialSnapshot:{sessionId:'prepared',data},previewBookings:[{id:'outdated',customerName:'不應使用姓名摘要',status:'RESERVED'}]})));
+  expect(host.querySelector('[data-roster-ready="true"]')).not.toBeNull();expect(host.textContent).toContain('課表已讀好的備註');expect(host.textContent).toContain('已預讀學員');expect(host.querySelector('a[href="tel:0912000000"]')).not.toBeNull();expect(host.textContent).not.toContain('核對中');expect(host.textContent).not.toContain('不應使用姓名摘要');
+  expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).not.toBeNull();expect(m.load).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled();
+ }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
+});
+
+it('keeps a cancelled single beauty appointment visible after removing its list filters',async()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const data=preparedRoster('cancelled-single');data.roster[0].status='CANCELLED';const source:import('@/app/(dashboard)/dashboard/courses/roster-source').CourseRosterSource={compactSingle:true,read:async()=>({success:true,data}),note:vi.fn(),actions:()=>[],labels:{list:'預約名單',pending:'待服務',attended:'已完成',unit:'次'}};const host=document.createElement('div');document.body.append(host);const root=createRoot(host);try{await act(async()=>root.render(createElement(CourseRoster,{source,sportsNative:true,initialSnapshot:{sessionId:'single-beauty',data},sessionId:'single-beauty',capacity:0,canCreate:false,canEdit:true})));expect(host.textContent).toContain('已預讀學員');expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeNull();expect(host.textContent).not.toContain('尚未加入學員');}finally{await act(async()=>root.unmount());host.remove();}});
+
 it('records an unbound music leave without first marking attendance or inventing the resulting debit',async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.status.mockReset();m.correction.mockClear();
  vi.stubGlobal('requestAnimationFrame',(callback:FrameRequestCallback)=>{callback(0);return 1;});
@@ -793,17 +807,5 @@ it('cancels music leave confirmation without a write and retains the original ba
   await open();await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('[role="dialog"][aria-label="學員請假"] button')].find(b=>b.textContent==='確認請假')!.click());
   expect(m.status).toHaveBeenCalledTimes(1);expect(host.textContent).toContain('名單已更新，請重新核對');
   expect(host.textContent?.replace(/\s/g,'')).toContain('本期剩餘8堂');expect(host.textContent).not.toContain('已記錄 已預讀學員 請假');
- }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
-});
-
-it.each([false,true])('renders the calendar-preloaded full roster on first render without an opening request; music=%s',async musicLayout=>{
- Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});m.load.mockClear();
- const fetch=vi.fn().mockRejectedValue(new Error('opening must not fetch'));vi.stubGlobal('fetch',fetch);
- const data=preparedRoster();
- const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
- try{
-  await act(async()=>root.render(createElement(CourseRoster,{sessionId:'prepared',capacity:2,canCreate:true,canEdit:true,sportsNative:!musicLayout,musicLayout,initialSnapshot:{sessionId:'prepared',data},previewBookings:[{id:'outdated',customerName:'不應使用姓名摘要',status:'RESERVED'}]})));
-  expect(host.querySelector('[data-roster-ready="true"]')).not.toBeNull();expect(host.textContent).toContain('課表已讀好的備註');expect(host.textContent).toContain('已預讀學員');expect(host.querySelector('a[href="tel:0912000000"]')).not.toBeNull();expect(host.textContent).not.toContain('核對中');expect(host.textContent).not.toContain('不應使用姓名摘要');
-  expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).not.toBeNull();expect(m.load).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled();
  }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
 });

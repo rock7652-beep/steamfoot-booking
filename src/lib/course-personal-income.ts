@@ -3,13 +3,15 @@ import type { SettlementLine } from "./course-monthly-settlement";
 type Revision = { revision: number; createdAt: Date; snapshot: SettlementLine[] };
 
 /** Keep outstanding and excess payments separate; one item must not hide another. */
-export function summarizePersonalIncome(lines: {amount: number | null; paid: number | null}[]) {
+export function summarizePersonalIncome(lines: {amount: number | null; paid: number | null; kind?: string}[]) {
   const known = lines.every(line => line.amount !== null && line.paid !== null);
+  const adjusted=lines.some(l=>l.kind==="ADJUSTMENT");
+  const net=known?lines.reduce((n,l)=>n+l.amount!-l.paid!,0):0;
   return {
     total: lines.every(line => line.amount !== null) ? lines.reduce((n,line)=>n+line.amount!,0) : null,
     paid: lines.every(line => line.paid !== null) ? lines.reduce((n,line)=>n+line.paid!,0) : null,
-    remaining: known ? lines.reduce((n,line)=>n+Math.max(0,line.amount!-line.paid!),0) : null,
-    overpaid: known ? lines.reduce((n,line)=>n+Math.max(0,line.paid!-line.amount!),0) : null,
+    remaining: adjusted ? (known?Math.max(0,net):null) : known ? lines.reduce((n,line)=>n+Math.max(0,line.amount!-line.paid!),0) : null,
+    overpaid: adjusted ? (known?Math.max(0,-net):null) : known ? lines.reduce((n,line)=>n+Math.max(0,line.paid!-line.amount!),0) : null,
   };
 }
 

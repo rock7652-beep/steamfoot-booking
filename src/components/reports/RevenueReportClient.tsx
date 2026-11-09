@@ -1,4 +1,5 @@
 "use client";
+import {OperationsControls} from "@/components/operations/workspace-frame";
 import {useSearchParams} from "next/navigation";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
@@ -357,9 +358,9 @@ export function RevenueReportClient({
   return (
     <div className="space-y-6">
       {/* ===== Filters ===== */}
-      <div className={`${toolbar.container} rounded-xl bg-white p-3 border border-earth-200 space-y-2`}>
+      <div className={`${toolbar.container} space-y-2`}>
         {/* Period pills */}
-        <div className="flex flex-wrap items-center gap-2">
+        <OperationsControls><div className="flex flex-wrap items-center gap-2">
           {(["today", "month", "custom"] as const).map((t) => (
             <button
               key={t}
@@ -376,8 +377,7 @@ export function RevenueReportClient({
           ))}
         </div>
 
-        {/* Date + Filters */}
-        <div className={toolbar.toolbar}>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <div>
             <label className="block text-xs text-earth-500 mb-0.5">開始日期</label>
             <input
@@ -397,6 +397,8 @@ export function RevenueReportClient({
             />
           </div>
 
+        </div></OperationsControls>
+        <div className={toolbar.toolbar}>
           {isAdmin && stores.length > 1 && (
             <div>
               <label className="block text-xs text-earth-500 mb-0.5">分店</label>
@@ -567,7 +569,7 @@ export function RevenueReportClient({
           )}
           {mode === "store" && storeSummary.length > 0 && (
             <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-              <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
+              <table data-striped-list className="min-w-full text-sm [&_td]:whitespace-nowrap">
                 <thead className="bg-earth-50">
                   <tr>
                     {(courseMode ? ["分店名稱", "收款登錄", "退款／沖銷", "淨收入", "收款紀錄數", "付款顧客數", "平均客單價"] : steamfootMode?["分店名稱","收款入帳","退款／沖回","淨收款","收入筆數","客戶數","平均客單價","體驗","方案","單次","補差額","零售收入","其他收入"]:["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"]).map((h) => (
@@ -577,18 +579,18 @@ export function RevenueReportClient({
                 </thead>
                 <tbody className="divide-y divide-earth-100">
                   {storeSummary.map((s) => (
-                    <tr key={s.storeId} className="hover:bg-earth-50">
-                      <td className="px-3 py-2 font-medium">{s.storeName}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.totalRevenue)}</td>
-                      <td className="px-3 py-2 text-right text-red-600">{fmtMoney(s.refundAmount)}</td>
-                      <td className="px-3 py-2 text-right font-medium text-green-700">{fmtMoney(s.netRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{s.txCount}</td>
-                      <td className="px-3 py-2 text-right">{s.customerCount}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.avgPerCustomer)}</td>
-                      {!courseMode && <><td className="px-3 py-2 text-right">{fmtMoney(s.trialRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.packageRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.singleRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(steamfootMode?s.supplementRevenue??0:s.otherRevenue)}</td>{steamfootMode&&<><td className="px-3 py-2 text-right">{fmtMoney(s.retailRevenue??0)}</td><td className="px-3 py-2 text-right">{fmtMoney(s.otherIncomeRevenue??0)}</td></>}</>}
+                    <tr key={s.storeId} className="">
+                      <td className="px-3 py-1 font-medium">{s.storeName}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(s.totalRevenue)}</td>
+                      <td className="px-3 py-1 text-right text-red-600">{fmtMoney(s.refundAmount)}</td>
+                      <td className="px-3 py-1 text-right font-medium text-green-700">{fmtMoney(s.netRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{s.txCount}</td>
+                      <td className="px-3 py-1 text-right">{s.customerCount}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(s.avgPerCustomer)}</td>
+                      {!courseMode && <><td className="px-3 py-1 text-right">{fmtMoney(s.trialRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(s.packageRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(s.singleRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(steamfootMode?s.supplementRevenue??0:s.otherRevenue)}</td>{steamfootMode&&<><td className="px-3 py-1 text-right">{fmtMoney(s.retailRevenue??0)}</td><td className="px-3 py-1 text-right">{fmtMoney(s.otherIncomeRevenue??0)}</td></>}</>}
                     </tr>
                   ))}
                 </tbody>
@@ -599,7 +601,6 @@ export function RevenueReportClient({
           {mode === "store" && (
             <section className="mt-4 rounded-xl border border-earth-200 bg-white p-4">
               <h3 className="text-sm font-semibold text-earth-800">{courseMode ? "收款方式" : "付款方式拆分"}</h3>
-              <p className="mt-1 text-xs text-earth-500">{courseMode ? "方案核帳及體驗收款；混合付款依明細分攤，退款／沖銷另列於上方摘要。" : "混合付款依各付款明細金額分攤；單一付款歷史交易沿用原付款方式。"}</p>
               {paymentMethodSummary.length === 0 ? (
                 <p className="mt-3 text-sm text-earth-400">本期尚無付款資料</p>
               ) : (
@@ -615,7 +616,7 @@ export function RevenueReportClient({
           )}
           {mode === "coach" && coachSummary.length > 0 && (
             <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-              <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
+              <table data-striped-list className="min-w-full text-sm [&_td]:whitespace-nowrap">
                 <thead className="bg-earth-50">
                   <tr>
                     {[serviceMode?"所屬店長":personnelText("教練姓名"), serviceMode?"角色":personnelText("教練角色"), "分店", "歸屬總收入", "退款", "淨收入", "筆數", "客戶數", "平均單筆", "新客收入", "舊客收入", "體驗", "正式方案", "票券", "商品"].map((h) => (
@@ -625,22 +626,22 @@ export function RevenueReportClient({
                 </thead>
                 <tbody className="divide-y divide-earth-100">
                   {coachSummary.map((c) => (
-                    <tr key={c.coachId} className="hover:bg-earth-50">
-                      <td className="px-3 py-2 font-medium">{c.coachName}</td>
-                      <td className="px-3 py-2">{fmtRole(c.coachRole)}</td>
-                      <td className="px-3 py-2">{c.storeName}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.totalRevenue)}</td>
-                      <td className="px-3 py-2 text-right text-red-600">{fmtMoney(c.refundAmount)}</td>
-                      <td className="px-3 py-2 text-right font-medium text-green-700">{fmtMoney(c.netRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{c.txCount}</td>
-                      <td className="px-3 py-2 text-right">{c.customerCount}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.avgPerTx)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.newCustomerRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.existingCustomerRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.trialRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.packageRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.singleRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(c.otherRevenue)}</td>
+                    <tr key={c.coachId} className="">
+                      <td className="px-3 py-1 font-medium">{c.coachName}</td>
+                      <td className="px-3 py-1">{fmtRole(c.coachRole)}</td>
+                      <td className="px-3 py-1">{c.storeName}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.totalRevenue)}</td>
+                      <td className="px-3 py-1 text-right text-red-600">{fmtMoney(c.refundAmount)}</td>
+                      <td className="px-3 py-1 text-right font-medium text-green-700">{fmtMoney(c.netRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{c.txCount}</td>
+                      <td className="px-3 py-1 text-right">{c.customerCount}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.avgPerTx)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.newCustomerRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.existingCustomerRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.trialRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.packageRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.singleRevenue)}</td>
+                      <td className="px-3 py-1 text-right">{fmtMoney(c.otherRevenue)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -659,7 +660,7 @@ export function RevenueReportClient({
           {details.length > 0 && (
             <>
               <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-                <table className="min-w-full text-sm [&_td]:whitespace-nowrap">
+                <table data-striped-list className="min-w-full text-sm [&_td]:whitespace-nowrap">
                   <thead className="bg-earth-50">
                     <tr>
                       {(mode === "store"
@@ -672,54 +673,54 @@ export function RevenueReportClient({
                   </thead>
                   <tbody className="divide-y divide-earth-100">
                     {details.map((d) => (
-                      <tr key={d.id} className="hover:bg-earth-50">
+                      <tr key={d.id} className="">
                         {mode === "store" ? (
                           <>
-                            <td className="px-3 py-2 whitespace-nowrap">{fmtDate(d.transactionDate)}</td>
-                            {!courseMode && <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{d.transactionNo ?? "-"}</td>}
-                            <td className="px-3 py-2">{d.storeName}</td>
-                            <td className="px-3 py-2">{d.customerName}</td>
-                            <td className="px-3 py-2 text-xs">{d.customerPhone}</td>
-                            <td className="px-3 py-2">{d.planName ?? "-"}</td>
-                            <td className="px-3 py-2">{fmtPlanType(d.planType)}</td>
-                            {!courseMode && <><td className="px-3 py-2 text-right">{fmtMoney(d.grossAmount)}</td>
-                            <td className="px-3 py-2 text-right">{fmtMoney(d.discountAmount)}</td></>}
-                            <td className="px-3 py-2 text-right font-medium">{fmtMoney(d.netAmount)}</td>
-                            <td className="px-3 py-2">{fmtPayment(d.paymentMethod)}</td>
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-1 whitespace-nowrap">{fmtDate(d.transactionDate)}</td>
+                            {!courseMode && <td className="px-3 py-1 whitespace-nowrap text-xs text-earth-500">{d.transactionNo ?? "-"}</td>}
+                            <td className="px-3 py-1">{d.storeName}</td>
+                            <td className="px-3 py-1">{d.customerName}</td>
+                            <td className="px-3 py-1 text-xs">{d.customerPhone}</td>
+                            <td className="px-3 py-1">{d.planName ?? "-"}</td>
+                            <td className="px-3 py-1">{fmtPlanType(d.planType)}</td>
+                            {!courseMode && <><td className="px-3 py-1 text-right">{fmtMoney(d.grossAmount)}</td>
+                            <td className="px-3 py-1 text-right">{fmtMoney(d.discountAmount)}</td></>}
+                            <td className="px-3 py-1 text-right font-medium">{fmtMoney(d.netAmount)}</td>
+                            <td className="px-3 py-1">{fmtPayment(d.paymentMethod)}</td>
+                            <td className="px-3 py-1">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                                 d.status === "SUCCESS" ? "bg-green-100 text-green-700" :
                                 d.status === "REFUNDED" ? "bg-red-100 text-red-700" :
                                 "bg-earth-100 text-earth-600"
                               }`}>{fmtStatus(d.status)}</span>
                             </td>
-                            <td className="px-3 py-2 text-xs text-earth-500 max-w-[120px] truncate">{d.note ?? "-"}</td>
-                            <td className="px-3 py-2 text-xs">{d.createdByName ?? "-"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{courseMode ? toLocalDateStr(new Date(d.createdAt)) : fmtDate(d.createdAt)}</td>
+                            <td className="px-3 py-1 text-xs text-earth-500 max-w-[120px] truncate">{d.note ?? "-"}</td>
+                            <td className="px-3 py-1 text-xs">{d.createdByName ?? "-"}</td>
+                            <td className="px-3 py-1 whitespace-nowrap text-xs text-earth-500">{courseMode ? toLocalDateStr(new Date(d.createdAt)) : fmtDate(d.createdAt)}</td>
                           </>
                         ) : (
                           <>
-                            <td className="px-3 py-2 whitespace-nowrap">{fmtDate(d.transactionDate)}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{d.transactionNo ?? "-"}</td>
-                            <td className="px-3 py-2">{d.storeName}</td>
-                            <td className="px-3 py-2">{d.coachName ?? "-"}</td>
-                            <td className="px-3 py-2">{fmtRole(d.coachRole)}</td>
-                            <td className="px-3 py-2">{d.customerName}</td>
-                            <td className="px-3 py-2 text-xs">{d.customerPhone}</td>
-                            <td className="px-3 py-2">{d.planName ?? "-"}</td>
-                            <td className="px-3 py-2">{fmtPlanType(d.planType)}</td>
-                            <td className="px-3 py-2 text-right font-medium">{fmtMoney(d.netAmount)}</td>
-                            <td className="px-3 py-2">{fmtPayment(d.paymentMethod)}</td>
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-1 whitespace-nowrap">{fmtDate(d.transactionDate)}</td>
+                            <td className="px-3 py-1 whitespace-nowrap text-xs text-earth-500">{d.transactionNo ?? "-"}</td>
+                            <td className="px-3 py-1">{d.storeName}</td>
+                            <td className="px-3 py-1">{d.coachName ?? "-"}</td>
+                            <td className="px-3 py-1">{fmtRole(d.coachRole)}</td>
+                            <td className="px-3 py-1">{d.customerName}</td>
+                            <td className="px-3 py-1 text-xs">{d.customerPhone}</td>
+                            <td className="px-3 py-1">{d.planName ?? "-"}</td>
+                            <td className="px-3 py-1">{fmtPlanType(d.planType)}</td>
+                            <td className="px-3 py-1 text-right font-medium">{fmtMoney(d.netAmount)}</td>
+                            <td className="px-3 py-1">{fmtPayment(d.paymentMethod)}</td>
+                            <td className="px-3 py-1">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                                 d.status === "SUCCESS" ? "bg-green-100 text-green-700" :
                                 d.status === "REFUNDED" ? "bg-red-100 text-red-700" :
                                 "bg-earth-100 text-earth-600"
                               }`}>{fmtStatus(d.status)}</span>
                             </td>
-                            <td className="px-3 py-2 text-center">{d.isFirstPurchase ? "✓" : ""}</td>
-                            <td className="px-3 py-2 text-xs text-earth-500 max-w-[120px] truncate">{d.note ?? "-"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{fmtDate(d.createdAt)}</td>
+                            <td className="px-3 py-1 text-center">{d.isFirstPurchase ? "✓" : ""}</td>
+                            <td className="px-3 py-1 text-xs text-earth-500 max-w-[120px] truncate">{d.note ?? "-"}</td>
+                            <td className="px-3 py-1 whitespace-nowrap text-xs text-earth-500">{fmtDate(d.createdAt)}</td>
                           </>
                         )}
                       </tr>

@@ -1,3 +1,5 @@
+vi.mock('@/server/services/add-on-access',()=>({isBeautyServiceAddOnsEnabled:async()=>true}));
+vi.mock('@/server/beauty/shared-goods-catalog',()=>({readBeautyGoodsCatalog:async()=>({enabled:true,revision:3,groups:[{id:'drinks',title:'飲品',kind:'SHARED_GOODS',subjectIds:['s'],required:false,multiple:true,options:[{id:'tea',name:'茶',price:80,duration:0,active:true}]}]})}));
 vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
 vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
@@ -19,12 +21,12 @@ function fixture(){const hours=[{dayOfWeek:new Date(date+'T00:00Z').getUTCDay(),
  return {tx,raw,write,card,setService:(value:unknown)=>{serviceRule=value;},setCard:(value:unknown)=>{cardRule=value;},setApp:(value:unknown)=>{appRule=value;},setConfigured:(value:boolean|null)=>{configured=value;}};}
 const request={date,time:'10:00',people:[person]};
 beforeEach(()=>{vi.stubEnv('BEAUTY_CHARGE_RULES_ENABLED','1');vi.stubEnv('BEAUTY_CHARGE_RULES_STORE_IDS','store');vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2099-10-19T02:00Z'));});afterEach(()=>{vi.unstubAllEnvs();vi.useRealTimers();});
-it('actual findAllocation filters a single charge and blocks a disallowed specified technician',async()=>{const f=fixture();expect((await findAllocation(f.tx,actor,request)).result[0].technicianId).toBe('b');await expect(findAllocation(f.tx,actor,{...request,people:[{...person,specifiedTechnicianId:'a'}]})).rejects.toThrow();});
+it.each([false,true])('general and trial use all service-qualified technicians: trial=%s',async isTrial=>{const f=fixture();expect((await findAllocation(f.tx,actor,{...request,people:[{...person,isTrial}]})).result[0].technicianId).toBe('a');expect((await findAllocation(f.tx,actor,{...request,people:[{...person,isTrial,specifiedTechnicianId:'a'}]})).result[0].technicianId).toBe('a');});
 it('rejects unconfigured zero/default prices and corrupted restrictions without fallback',async()=>{const f=fixture();f.setConfigured(false);await expect(findAllocation(f.tx,actor,request)).rejects.toThrow('收費設定');f.setConfigured(true);f.setService({version:2});await expect(findAllocation(f.tx,actor,request)).rejects.toThrow('規則');});
 it('a disabled or unlisted feature does not read any new columns',async()=>{const f=fixture();vi.stubEnv('BEAUTY_CHARGE_RULES_STORE_IDS','other');expect((await findAllocation(f.tx,actor,request)).result[0].technicianId).toBe('a');expect(f.raw.mock.calls.some(([parts])=>parts.join('').includes('"chargeTechnicianRule"'))).toBe(false);});
-it('uses the purchased card snapshot instead of current plan/service restrictions, preserving old null cards',async()=>{const f=fixture();f.setService(snapshot('service:s',['a']));expect((await findAllocation(f.tx,actor,{...request,people:[{...person,cardId:'c'}]})).result[0].technicianId).toBe('b');expect(f.raw.mock.calls.some(([parts])=>parts.join('').includes('"BeautyPlan"'))).toBe(false);f.setCard(null);expect((await findAllocation(f.tx,actor,{...request,people:[{...person,cardId:'c'}]})).result[0].technicianId).toBe('a');});
-it('rescheduling reads the original appointment rule and preserves its old duration',async()=>{const f=fixture();f.setService(snapshot('service:s',['a']));expect((await findAllocation(f.tx,actor,request,['old'],undefined,undefined,false,{serviceId:'s',duration:45,buffer:15})).result[0]).toMatchObject({technicianId:'b',endsAt:new Date(date+'T10:45:00+08:00')});f.setApp(null);expect((await findAllocation(f.tx,actor,request,['old'])).result[0].technicianId).toBe('a');});
-it('actual booking stores the same rule snapshot after choosing an allowed technician',async()=>{const f=fixture();await reserveParty(f.tx,actor,{...request,requestKey:'11111111-1111-4111-8111-111111111111',policyRevision:0,isTrial:false,contactName:'顧客',phone:'0900000000'} as BookingPartyInput);expect(f.tx.beautyAppointment.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({technicianId:'b'})}));const call=f.write.mock.calls.find(([parts])=>parts.join('').includes('"chargeRuleSnapshot"'));expect(call).toBeDefined();expect(JSON.parse(call![1])).toMatchObject(snapshot());});
+it('validates purchased card service scope while following current qualified providers',async()=>{const f=fixture();f.setService(snapshot('service:s',['a']));expect((await findAllocation(f.tx,actor,{...request,people:[{...person,cardId:'c'}]})).result[0].technicianId).toBe('a');expect(f.raw.mock.calls.some(([parts])=>parts.join('').includes('"BeautyPlan"'))).toBe(false);f.setCard(null);expect((await findAllocation(f.tx,actor,{...request,people:[{...person,cardId:'c'}]})).result[0].technicianId).toBe('a');});
+it('rescheduling reads the original appointment rule and preserves its old duration',async()=>{const f=fixture();f.setService(snapshot('service:s',['a']));expect((await findAllocation(f.tx,actor,request,['old'],undefined,undefined,false,{serviceId:'s',duration:45,buffer:15})).result[0]).toMatchObject({technicianId:'a',endsAt:new Date(date+'T10:45:00+08:00')});f.setApp(null);expect((await findAllocation(f.tx,actor,request,['old'])).result[0].technicianId).toBe('a');});
+it('actual booking stores the same rule snapshot after choosing an allowed technician',async()=>{const f=fixture();await reserveParty(f.tx,actor,{...request,requestKey:'11111111-1111-4111-8111-111111111111',policyRevision:0,isTrial:false,contactName:'顧客',phone:'0900000000'} as BookingPartyInput);expect(f.tx.beautyAppointment.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({technicianId:'a'})}));const call=f.write.mock.calls.find(([parts])=>parts.join('').includes('"chargeRuleSnapshot"'));expect(call).toBeDefined();expect(JSON.parse(call![1])).toMatchObject(snapshot());});
 it('card snapshot helpers copy the historical value and fail on a lost write',async()=>{const f=fixture();const value=await readCardCharge(f.tx,'store',f.card);await writeCardCharge(f.tx,'store','new-card',value);expect(f.write.mock.calls[0][0].join('')).toContain('"BeautyCard"');f.write.mockResolvedValueOnce(0);await expect(writeCardCharge(f.tx,'store','missing',value)).rejects.toThrow('未儲存');});
 it('unrelated catalog changes preserve restrictions while advancing their revision',async()=>{const f=fixture();f.raw.mockResolvedValueOnce([{id:'s',revision:1,chargeTechnicianRule:snapshot()}]);await maintainCatalogCharge(f.tx,'store','service',{id:'s',revision:1},false);expect(f.write.mock.calls[0][0].join('')).toContain('"chargeTechnicianRule"');expect(JSON.parse(f.write.mock.calls[0][1]).rule.revision).toBe(1);});
 it('reads audited reminder-only drift consistently in the catalog and booking paths without writing or changing card snapshots',async()=>{
@@ -67,4 +69,46 @@ it.each([{trial:false,override:150,expected:300},{trial:true,override:150,expect
  const finance=vi.mocked(audit).mock.calls.find(c=>c[2]==='SERVICE_FINANCE_RULE')!;
  expect(JSON.parse(finance[3]!)).toEqual({storeCost:expected});
  expect(f.tx.beautyAppointment.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({isTrial:trial,price:trial?500:1000})}));
+});
+
+it('reserves the service and one group-owned goods order together, without changing service price or duration',async()=>{const f=fixture(),create=vi.fn().mockResolvedValue({id:'goods'});Object.assign(f.tx,{beautySharedGoodsOrder:{create}});await reserveParty(f.tx,actor,{...request,requestKey:crypto.randomUUID(),policyRevision:0,isTrial:false,contactName:'顧客',phone:'0900000000',sharedGoods:{revision:3,selections:[{id:'tea',quantity:2}]}} as BookingPartyInput);expect(create).toHaveBeenCalledExactlyOnceWith({data:expect.objectContaining({storeId:'store',groupId:'g',total:160})});expect(f.tx.beautyAppointment.create).toHaveBeenCalledWith({data:expect.objectContaining({price:1000,duration:60,addOnItems:[]})});expect(f.tx).not.toHaveProperty('beautyPayment');});
+it('a stale goods revision rejects before creating a group or service booking',async()=>{const f=fixture();await expect(reserveParty(f.tx,actor,{...request,requestKey:crypto.randomUUID(),sharedGoods:{revision:2,selections:[{id:'tea',quantity:2}]}} as BookingPartyInput)).rejects.toThrow('價格已更新');expect(f.tx.beautyGroup.create).not.toHaveBeenCalled();expect(f.tx.beautyAppointment.create).not.toHaveBeenCalled();});
+
+it('books one person with another qualified technician when the former charge-selected technician is occupied',async()=>{
+ const f=fixture();vi.mocked(f.tx.beautyAppointment.findMany).mockResolvedValue([{id:'busy',customerId:'another',technicianId:'b',locationId:'other-room',startsAt:new Date(date+'T09:00:00+08:00'),occupiedEndsAt:new Date(date+'T13:00:00+08:00'),duration:60,status:'RESERVED'}] as never);
+ for(const isTrial of [false,true])expect((await findAllocation(f.tx,actor,{...request,people:[{...person,isTrial}]})).result[0].technicianId).toBe('a');
+ expect((await findAllocation(f.tx,actor,{...request,people:[{...person,cardId:'c'}]})).result[0].technicianId).toBe('a');
+});
+
+it('returns committed manager calendar cards with actual allocation and no financial rate',async()=>{
+ const f=fixture();const result=await reserveParty(f.tx,actor,{...request,requestKey:'11111111-1111-4111-8111-111111111111',policyRevision:0,isTrial:false,contactName:'顧客',phone:'0900000000'} as BookingPartyInput);
+ expect(result).toMatchObject({ids:['new'],sessions:[{id:'new',nameSnapshot:'按摩',coachId:'a',roomId:'r',service:{personName:'顧客',status:'RESERVED',buffer:15}}]});
+ expect(result.sessions?.[0]).not.toHaveProperty('rate');expect(f.tx.beautyAppointment.create).toHaveBeenCalledOnce();
+});
+it('reserves a two-plan journey as sequential appointments in one group and revalidates the later card before writing',async()=>{
+ const f=fixture();vi.stubEnv('BEAUTY_CHARGE_RULES_ENABLED','0');
+ const services=[{...svc,buffer:15},{...svc,id:'second',name:'第二服務',duration:40,buffer:5}];
+ vi.mocked(f.tx.beautyService.findMany).mockResolvedValue(services as never);
+ vi.mocked(f.tx.beautyTechnician.findMany).mockResolvedValue([{...tech('a'),serviceIds:['s','second'],rates:{s:{mode:'FIXED',value:300},second:{mode:'FIXED',value:100}}}] as never);
+ vi.mocked(f.tx.beautyCard.findFirst).mockImplementation((input=>Promise.resolve({...f.card,id:input?.where?.id,serviceIds:input?.where?.id==='card-A'?['s']:['second']})) as typeof f.tx.beautyCard.findFirst);
+ Object.assign(f.tx,{beautyLedger:{create:vi.fn()}});
+ let created=0;vi.mocked(f.tx.beautyAppointment.create).mockImplementation((({data})=>Promise.resolve({id:`created-${++created}`,...data})) as typeof f.tx.beautyAppointment.create);
+ const d={...request,requestKey:crypto.randomUUID(),policyRevision:0,isTrial:false,contactName:'顧客',phone:'0900000000',people:[{...person,cardId:'card-A',additionalServices:[{serviceId:'second',serviceRevision:0,cardId:'card-B',specifiedTechnicianId:null}]}]} as BookingPartyInput;
+ const result=await reserveParty(f.tx,actor,d);expect(result.ids).toEqual(['created-1','created-2']);
+ const rows=vi.mocked(f.tx.beautyAppointment.create).mock.calls.map(([input])=>input.data);
+ expect(rows.map(r=>r.cardId)).toEqual(['card-A','card-B']);expect(rows.map(r=>r.customerId)).toEqual(['customer','customer']);expect(rows.map(r=>r.groupId)).toEqual(['g','g']);
+ expect(rows[0].startsAt).toEqual(new Date(date+'T10:00:00+08:00'));expect(rows[1].startsAt).toEqual(new Date(date+'T11:15:00+08:00'));expect(rows[1].duration).toBe(40);expect(f.tx.beautyLedger.create).toHaveBeenCalledTimes(2);expect(f.tx.beautyCard).not.toHaveProperty('update');
+ vi.mocked(f.tx.beautyAppointment.create).mockClear();vi.mocked(f.tx.beautyGroup.create).mockClear();
+ vi.mocked(f.tx.beautyCard.findFirst).mockImplementation((input=>Promise.resolve({...f.card,id:input?.where?.id,serviceIds:['s','second'],expiresAt:new Date(date+'T10:30:00+08:00')})) as typeof f.tx.beautyCard.findFirst);
+ await expect(reserveParty(f.tx,actor,{...d,requestKey:crypto.randomUUID()})).rejects.toThrow('不適用');expect(f.tx.beautyAppointment.create).not.toHaveBeenCalled();expect(f.tx.beautyGroup.create).not.toHaveBeenCalled();
+});
+it('shares journey card availability only within one slot scan and reloads it for a new scan',async()=>{
+ const f=fixture();vi.stubEnv('BEAUTY_CHARGE_RULES_ENABLED','0');
+ vi.mocked(f.tx.beautyService.findMany).mockResolvedValue([svc,{...svc,id:'second',duration:40}] as never);
+ vi.mocked(f.tx.beautyTechnician.findMany).mockResolvedValue([{...tech('a'),serviceIds:['s','second'],rates:{s:{mode:'FIXED',value:300},second:{mode:'FIXED',value:100}}}] as never);
+ vi.mocked(f.tx.beautyCard.findFirst).mockImplementation((input=>Promise.resolve({...f.card,id:input?.where?.id,serviceIds:['s','second']})) as typeof f.tx.beautyCard.findFirst);
+ const intent={...request,people:[{...person,cardId:'A',additionalServices:[{serviceId:'second',serviceRevision:0,cardId:'B',specifiedTechnicianId:null}]}]};
+ const loaded=await loadAvailability(f.tx,actor,date);await findAllocation(f.tx,actor,intent,[],undefined,loaded);await findAllocation(f.tx,actor,{...intent,time:'10:30'},[],undefined,loaded);
+ expect(f.tx.beautyCard.findFirst).toHaveBeenCalledTimes(2);expect(f.tx.beautyAppointment.count).toHaveBeenCalledTimes(2);
+ await findAllocation(f.tx,actor,intent);expect(f.tx.beautyCard.findFirst).toHaveBeenCalledTimes(4);expect(f.tx.beautyAppointment.count).toHaveBeenCalledTimes(4);
 });

@@ -43,12 +43,12 @@ export function beautyNativeScheduleSource(data:BeautyDashboardData):{initial:Sp
 }
 
 /** Data and request lifetime only; the shared scheduling form selects its service mode. */
-export function BeautyNativeScheduleFields({data,date,seed,onGuard,onCreated}:{data:BeautyDashboardData;date:string;seed:{time?:string;coachId?:string;roomId?:string;customerId?:string};onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void}){
+export function BeautyNativeScheduleFields({data,date,seed,onGuard,onCreated}:{data:BeautyDashboardData;date:string;seed:{serviceId?:string;isTrial?:boolean;time?:string;coachId?:string;roomId?:string;customerId?:string};onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void}){
  const [requestKey]=useState(()=>crypto.randomUUID());
  return <SportsScheduleFields {...beautyNativeScheduleSource(data)} date={date} seed={seed} requestKey={requestKey} onGuard={onGuard} onCreated={onCreated}/>;
 }
 
 
-export function BeautyNativeScheduleDialog({data,date,seed,onGuard,onCreated,onClose,busy}:{data:BeautyDashboardData;date:string;seed:{time?:string;coachId?:string;roomId?:string;customerId?:string};onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void;onClose:()=>void;busy:boolean}){
+export function BeautyNativeScheduleDialog({data,date,seed,onGuard,onCreated,onClose,busy}:{data:BeautyDashboardData;date:string;seed:{serviceId?:string;isTrial?:boolean;time?:string;coachId?:string;roomId?:string;customerId?:string};onGuard:(dirty:boolean,pending:boolean)=>void;onCreated:(date:string)=>void;onClose:()=>void;busy:boolean}){
  return <SportsScheduleDialog fitContent title="新增預約" busy={busy} onClose={onClose}><BeautyNativeScheduleFields data={data} date={date} seed={seed} onGuard={onGuard} onCreated={onCreated}/></SportsScheduleDialog>;
 }

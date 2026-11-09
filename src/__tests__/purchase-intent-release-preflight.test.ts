@@ -1,5 +1,6 @@
 import {describe,expect,it,vi} from 'vitest';
-import {BEAUTY_BASE_TABLES,BEAUTY_INTENT_COLUMNS,validateBeautySchema,purchaseIntentAccessPreflight} from '../../scripts/purchase-intent-release-preflight.mjs';
+import {PGlite} from '@electric-sql/pglite';
+import {BEAUTY_BASE_TABLES,BEAUTY_INTENT_COLUMNS,validateBeautySchema,purchaseIntentAccessPreflight,inactiveBeautyAdditionsPreflight} from '../../scripts/purchase-intent-release-preflight.mjs';
 const base=BEAUTY_BASE_TABLES.map((relname:string)=>({relname,relrowsecurity:true}));
 const installed=[...base,...Object.keys(BEAUTY_INTENT_COLUMNS).map(relname=>({relname,relrowsecurity:true}))];
 describe('read-only purchase intent release gates',()=>{
@@ -40,4 +41,41 @@ describe('read-only purchase intent release gates',()=>{
   await expect(purchaseIntentAccessPreflight(client({destructive:true}),'course')).resolves.toMatchObject({tablesChecked:1});
   await expect(purchaseIntentAccessPreflight(client({browser_access:true}),'course')).rejects.toThrow('runtime privileges');
  });
+});
+
+const additions=['BeautyServiceImage','BeautySharedGoodsOrder'].map(relname=>({relname,relrowsecurity:true}));
+it('permits only the exact complete additive tables alongside the required schema',()=>{
+ expect(validateBeautySchema([...installed,...additions],{}).schemaTables).toBe(21);
+ expect(()=>validateBeautySchema([...installed,additions[0]],{})).toThrow('incomplete');
+ expect(()=>validateBeautySchema([...installed,...additions,{relname:'BeautyOther',relrowsecurity:true}],{})).toThrow('schema/RLS');
+ expect(()=>validateBeautySchema([...installed,...additions.map(r=>({...r,relrowsecurity:false}))],{})).toThrow('schema/RLS');
+});
+function additiveClient(patch:Record<string,unknown>={},access:Record<string,unknown>={}){return {query:vi.fn(async(sql:string)=>({rows:sql.includes('aclexplode')?[{relrowsecurity:true,browser_access:false,...access}]:[{enabled:false,services_used:false,appointments_used:false,images_used:false,goods_used:false,...patch}]}))};}
+it('checks unused closed additions using only read queries and skips absent additions',async()=>{
+ const db=additiveClient();await inactiveBeautyAdditionsPreflight(db,installed);expect(db.query).not.toHaveBeenCalled();
+ await inactiveBeautyAdditionsPreflight(db,[...installed,...additions]);expect(db.query).toHaveBeenCalledTimes(3);
+ expect(db.query.mock.calls.every(([sql])=>sql.startsWith('SELECT'))).toBe(true);
+});
+it.each(['enabled','services_used','appointments_used','images_used','goods_used'])('rejects active or used additive data: %s',async key=>{await expect(inactiveBeautyAdditionsPreflight(additiveClient({[key]:true}),[...installed,...additions])).rejects.toThrow('compatible application');});
+it.each([{relrowsecurity:false},{browser_access:true},{browser_access:null}])('retains strict additive access boundaries %j',async access=>{await expect(inactiveBeautyAdditionsPreflight(additiveClient({},access),[...installed,...additions])).rejects.toThrow('privileges');});
+it('propagates missing columns and permission errors instead of allowing an unverified release',async()=>{const db=additiveClient();db.query.mockRejectedValueOnce(Error('permission denied'));await expect(inactiveBeautyAdditionsPreflight(db,[...installed,...additions])).rejects.toThrow('permission denied');});
+
+it('accepts real ordinary duration snapshots while rejecting extensions, add-ons and images',async()=>{
+ const db=new PGlite();
+ try{
+  await db.exec(`CREATE TABLE "BeautySetting"("serviceAddOnsEnabled" boolean);
+   CREATE TABLE "BeautyService"("addOnGroups" jsonb,"imageId" text);
+   CREATE TABLE "BeautyAppointment"("addOnItems" jsonb,"serviceImageId" text,"baseServiceDuration" integer,duration integer);
+   CREATE TABLE "BeautyServiceImage"(id text); ALTER TABLE "BeautyServiceImage" ENABLE ROW LEVEL SECURITY;
+   CREATE TABLE "BeautySharedGoodsOrder"(id text); ALTER TABLE "BeautySharedGoodsOrder" ENABLE ROW LEVEL SECURITY;
+   INSERT INTO "BeautyAppointment" VALUES('[]',NULL,60,60),('[]',NULL,30,30);`);
+  const client={query:(sql:string,params?:string[])=>db.query(sql,params)};
+  await expect(inactiveBeautyAdditionsPreflight(client,[...installed,...additions])).resolves.toBeUndefined();
+  await db.exec(`UPDATE "BeautyAppointment" SET duration=75 WHERE "baseServiceDuration"=60;`);
+  await expect(inactiveBeautyAdditionsPreflight(client,[...installed,...additions])).rejects.toThrow('compatible application');
+  await db.exec(`UPDATE "BeautyAppointment" SET duration="baseServiceDuration","addOnItems"='[{"id":"head"}]';`);
+  await expect(inactiveBeautyAdditionsPreflight(client,[...installed,...additions])).rejects.toThrow('compatible application');
+  await db.exec(`UPDATE "BeautyAppointment" SET "addOnItems"='[]',"serviceImageId"='image';`);
+  await expect(inactiveBeautyAdditionsPreflight(client,[...installed,...additions])).rejects.toThrow('compatible application');
+ }finally{await db.close();}
 });

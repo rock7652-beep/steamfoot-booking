@@ -693,7 +693,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     <EmptyRow title="尚無預約紀錄" dense />
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className={simplified ? "block w-full text-left text-base sm:table [&_thead]:hidden sm:[&_thead]:table-header-group [&_tbody]:block sm:[&_tbody]:table-row-group [&_tr]:flex [&_tr]:h-auto [&_tr]:flex-wrap [&_tr]:gap-y-2 [&_tr]:py-3 sm:[&_tr]:table-row [&_td]:py-1 [&_td]:text-base sm:[&_td]:text-sm [&_td]:whitespace-normal [&_td_span]:whitespace-nowrap" : "w-full text-left text-sm"}>
+                      <table data-striped-list className={simplified ? "block w-full text-left text-base sm:table [&_thead]:hidden sm:[&_thead]:table-header-group [&_tbody]:block sm:[&_tbody]:table-row-group [&_tr]:flex [&_tr]:h-auto [&_tr]:flex-wrap [&_tr]:gap-y-2 [&_tr]:py-3 sm:[&_tr]:table-row [&_td]:py-1 [&_td]:text-base sm:[&_td]:text-sm [&_td]:whitespace-normal [&_td_span]:whitespace-nowrap" : "w-full text-left text-sm"}>
                         <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
                           <tr>
                             <th className="px-3 py-2">日期</th>
@@ -705,7 +705,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                         </thead>
                         <tbody className="divide-y divide-earth-100">
                           {recentHistory.map((b) => (
-                            <tr key={b.id} className="h-11 hover:bg-primary-50/40">
+                            <tr key={b.id} className="h-11 ">
                               <td className="px-3 text-sm tabular-nums text-earth-800">
                                 {formatTWTime(b.bookingDate, { dateOnly: true })}
                               </td>
@@ -757,7 +757,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     <EmptyRow title="尚無消費紀錄" dense />
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className={simplified ? "block w-full text-left text-base sm:table [&_thead]:hidden sm:[&_thead]:table-header-group [&_tbody]:block sm:[&_tbody]:table-row-group [&_tr]:flex [&_tr]:h-auto [&_tr]:flex-wrap [&_tr]:gap-y-2 [&_tr]:py-3 sm:[&_tr]:table-row [&_td]:py-1 [&_td]:text-base sm:[&_td]:text-sm [&_td]:whitespace-normal [&_td_span]:whitespace-nowrap" : "w-full text-left text-sm"}>
+                      <table data-striped-list className={simplified ? "block w-full text-left text-base sm:table [&_thead]:hidden sm:[&_thead]:table-header-group [&_tbody]:block sm:[&_tbody]:table-row-group [&_tr]:flex [&_tr]:h-auto [&_tr]:flex-wrap [&_tr]:gap-y-2 [&_tr]:py-3 sm:[&_tr]:table-row [&_td]:py-1 [&_td]:text-base sm:[&_td]:text-sm [&_td]:whitespace-normal [&_td_span]:whitespace-nowrap" : "w-full text-left text-sm"}>
                         <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
                           <tr>
                             <th className="px-3 py-2">日期</th>

@@ -1,3 +1,5 @@
+vi.mock('@/server/beauty/booking-shared-goods',()=>({prepareBeautyBookingGoods:vi.fn().mockResolvedValue(null),persistBeautyBookingGoods:vi.fn()}));
+vi.mock('@/server/services/add-on-access',()=>({isBeautyServiceAddOnsEnabled:vi.fn().mockResolvedValue(false)}));
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 vi.mock("@/lib/beauty-db", () => ({ beautyPrisma: {} }));
@@ -9,7 +11,7 @@ import {
 } from "@/server/beauty/booking";
 const date = "2099-10-20";
 const actor = { storeId: "s", userId: "u", manager: true };
-function transaction(interval = 15) {
+function transaction(interval = 15, slotOverrides?:Array<{date:Date;startTime:string;type:string;capacity:null;reason:null}>) {
   const hour = {
     dayOfWeek: new Date(date + "T00:00Z").getUTCDay(),
     isOpen: true,
@@ -62,7 +64,7 @@ function transaction(interval = 15) {
           : query.includes('"BusinessHours"')
             ? [hour]
             : query.includes('"SlotOverride"')
-              ? [
+              ? slotOverrides ?? [
                   {
                     date: new Date(date + "T00:00Z"),
                     startTime: "09:20",
@@ -158,4 +160,21 @@ it('pins a manager preview without changing the original preference, and refuses
  loaded.occupied.push({id:'new',technicianId:'t2',locationId:'r2',startsAt:new Date('2099-10-20T02:00Z'),occupiedEndsAt:new Date('2099-10-20T03:30Z'),duration:60,status:'RESERVED'} as typeof loaded.occupied[number]);
  await expect(findAllocation(tx,actor,d,[],undefined,loaded)).rejects.toThrow('無法安排');
  await expect(findAllocation(tx,{...actor,manager:false,customerId:'member'},d,[],undefined,loaded)).rejects.toThrow('位置由店家安排');
+});
+
+it("temporary adjacent slots are bookable only when the full service and cleanup fit",async()=>{
+ const tx=transaction(30,["12:00","12:30","13:00","13:30"].map(startTime=>({date:new Date(date+"T00:00Z"),startTime,type:"enabled",capacity:null,reason:null})));
+ const loaded=await loadAvailability(tx,actor,date);
+ const people=[{serviceId:"svc",preference:"FEMALE",specifiedTechnicianId:null}] as Parameters<typeof findAllocation>[2]["people"];
+ expect(loaded.slots).toContain("12:30");
+ await expect(findAllocation(tx,actor,{date,time:"12:30",people},[],undefined,loaded)).resolves.toHaveProperty("result");
+ await expect(findAllocation(tx,actor,{date,time:"13:00",people},[],undefined,loaded)).rejects.toThrow();
+});
+it("a closed middle slot blocks a new service crossing it, while preserving the loaded appointments",async()=>{
+ const tx=transaction(30,[{date:new Date(date+"T00:00Z"),startTime:"10:05",type:"disabled",capacity:null,reason:null}]);
+ const loaded=await loadAvailability(tx,actor,date);
+ const people=[{serviceId:"svc",preference:"FEMALE",specifiedTechnicianId:null}] as Parameters<typeof findAllocation>[2]["people"];
+ await expect(findAllocation(tx,actor,{date,time:"09:35",people},[],undefined,loaded)).rejects.toThrow();
+ await expect(findAllocation(tx,actor,{date,time:"10:35",people},[],undefined,loaded)).resolves.toHaveProperty("result");
+ expect(loaded.occupied).toEqual([]);
 });

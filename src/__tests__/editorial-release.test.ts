@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, symlinkSync, unlinkSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawnSync, execFileSync } from "node:child_process";
 import articles from "@/content/editorial-guides.json";
 import { isEditorialUiPreview } from "../../scripts/editorial-preview-scope.mjs";
@@ -43,11 +43,17 @@ describe("fixed editorial release boundary",()=>{
   expect(()=>validateEditorialChange({...change,before:[other]})).toThrow(/unrelated/);
   expect(()=>validateEditorialChange({...change,branch:"content/anything"})).toThrow(/exact/);
   expect(()=>validateEditorialChange({...change,repository:"other/repo"})).toThrow(/exact/);
-  expect(()=>validateEditorialChange({...change,bootstrap:true})).toThrow(/bootstrap/);
+  expect(()=>validateEditorialChange({...change,bootstrap:true})).toThrow(/retired/);
  });
- it("allows bootstrap only at the fixed original base and still rejects unrelated files",()=>{
-  expect(validateEditorialChange({...change,bootstrap:true,base:"7ddfeed6b8b0611b1669df067c4580e5b9481323",files:[...change.files,"vercel.json"]}).mode).toBe("one-time-bootstrap-review");
-  expect(()=>validateEditorialChange({...change,bootstrap:true,base:"7ddfeed6b8b0611b1669df067c4580e5b9481323",files:[...change.files,"src/lib/auth.ts"]})).toThrow(/outside/);
+ it.each([
+  {bootstrap:true,base:"7ddfeed6b8b0611b1669df067c4580e5b9481323"},
+  {inlineLinksReview:true,base:"8d717d5dc45da6fbd4e2984afea48165140281b3"},
+ ])("rejects retired exceptions even at their original bases",exception=>{
+  expect(()=>validateEditorialChange({...change,...exception})).toThrow(/retired/);
+ });
+ it.each(["--bootstrap","--inline-links-review"])("rejects retired CLI flag %s",flag=>{
+  const result=spawnSync(process.execPath,["scripts/editorial-release-preflight.mjs",flag],{encoding:"utf8"});
+  expect(result.status).toBe(1);expect(result.stderr).toContain("unknown argument");
  });
  it("checks real git ancestry, a clean exact head and rejects symlink content",()=>{
   const cwd=mkdtempSync(join(tmpdir(),"editorial-git-test-"));
@@ -69,12 +75,54 @@ describe("fixed editorial release boundary",()=>{
    expect(()=>verifyEditorialGit({...args,head:git("rev-parse","HEAD")},cwd)).toThrow(/symlinks/);
   } finally { rmSync(cwd,{recursive:true,force:true}); }
  });
- it("limits the explicit inline-link maintenance review to its base, slug and file allowlist",()=>{
-  const referral=articles.find(a=>a.id==="fitness-studio-member-referral-handoff")!;
-  const review={...change,base:"8d717d5dc45da6fbd4e2984afea48165140281b3",slug:referral.id,after:[referral],inlineLinksReview:true,files:[...change.files,"scripts/editorial-content.mjs"]};
-  expect(validateEditorialChange(review).mode).toBe("one-time-inline-links-review");
-  for(const fields of [{base},{slug:articles[0].id},{bootstrap:true},{files:[...review.files,"src/lib/auth.ts"]},{inlineLinksReview:false}])
-   expect(()=>validateEditorialChange({...review,...fields})).toThrow();
+ it("loads the complete policy import closure from base",()=>{
+  const workflow=readFileSync(".github/workflows/editorial-review.yml","utf8");
+  const files=workflow.match(/for file in (.+); do/)![1].split(" ");
+  const visited=new Set<string>();
+  const visit=(file:string)=>{
+   if(visited.has(file))return;visited.add(file);
+   const source=readFileSync(join("scripts",file),"utf8");
+   for(const match of source.matchAll(/from ["']\.\/([^"']+)["']/g))visit(match[1]);
+  };
+  visit("editorial-release-preflight.mjs");
+  expect(files.sort()).toEqual([...visited].sort());
+  expect(workflow).not.toMatch(/bootstrap|inline-links-review|cp scripts\//);
+ });
+ it.each([
+  "valid", "candidate-preflight", "candidate-content", "candidate-scope", "outside-file",
+  "missing-editorial-release-preflight.mjs", "missing-editorial-content.mjs", "missing-editorial-preview-scope.mjs", "missing-content",
+ ])("executes the workflow scope block safely: %s",scenario=>{
+  const cwd=mkdtempSync(join(tmpdir(),"editorial-policy-test-"));
+  const git=(...args:string[])=>execFileSync("git",args,{cwd,encoding:"utf8"}).trim();
+  const policy=["editorial-release-preflight.mjs","editorial-content.mjs","editorial-preview-scope.mjs"];
+  const write=(path:string,value:string)=>{mkdirSync(dirname(join(cwd,path)),{recursive:true});writeFileSync(join(cwd,path),value);};
+  const workflow=readFileSync(".github/workflows/editorial-review.yml","utf8");
+  const block=workflow.split("        run: |\n")[1].split("      - uses:")[0].split("\n").map(line=>line.replace(/^          /,"")).join("\n");
+  try {
+   git("init","-q");git("config","user.name","Editorial test");git("config","user.email","test@example.invalid");
+   for(const file of policy)if(scenario!==`missing-${file}`)write(`scripts/${file}`,readFileSync(`scripts/${file}`,"utf8"));
+   if(scenario!=="missing-content")write("src/content/editorial-guides.json","[]");
+   write("src/lib/public-guides.ts",'const legacy = [{"id":"legacy-only"}];');
+   git("add",".");git("commit","-qm","trusted base");const actualBase=git("rev-parse","HEAD");
+   write("src/content/editorial-guides.json",JSON.stringify([articles[0]]));
+   const replacements:Record<string,string>={"candidate-preflight":policy[0],"candidate-content":policy[1],"candidate-scope":policy[2]};
+   if(replacements[scenario])write(`scripts/${replacements[scenario]}`,'throw new Error("CANDIDATE_POLICY_EXECUTED");');
+   // Missing trusted files must never fall back to even a harmless candidate file.
+   for(const file of policy)if(scenario===`missing-${file}`)write(`scripts/${file}`,'throw new Error("CANDIDATE_POLICY_EXECUTED");');
+   if(scenario==="outside-file"||replacements[scenario])write("outside.txt","safe fixture only");
+   git("add",".");git("commit","-qm","candidate data");const actualHead=git("rev-parse","HEAD");
+   const result=spawnSync("bash",["-c",block],{cwd,encoding:"utf8",timeout:15000,env:{...process.env,PATH:`${dirname(process.execPath)}:${process.env.PATH}`,BASE_SHA:actualBase,HEAD_SHA:actualHead,HEAD_BRANCH:change.branch,HEAD_REPOSITORY:change.repository}});
+   expect(result.error).toBeUndefined();
+   expect(result.stderr).not.toContain("CANDIDATE_POLICY_EXECUTED");
+   if(scenario==="valid"){
+    expect(result.status,result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({base:actualBase,head:actualHead,mode:"article-only"});
+   }else{
+    expect(result.status).not.toBe(0);
+    if(scenario.startsWith("candidate-")||scenario==="outside-file")expect(result.stderr).toContain("outside the article data scope");
+    else expect(result.stderr).toMatch(/fatal: path .+ (?:does not exist|exists on disk, but not in)/);
+   }
+  }finally{rmSync(cwd,{recursive:true,force:true});}
  });
  it("supports plain body paragraphs and safe inline links, rejecting executable shapes and schemes",()=>{
   const make=(paragraph:unknown)=>[{...articles[0],sections:[{heading:"Body",paragraphs:[paragraph]}]}];

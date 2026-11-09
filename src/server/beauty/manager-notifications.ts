@@ -51,7 +51,7 @@ export async function notifyBeautyBookingManagers(storeId:string,groupId:string,
       if (!source.userId || !group.customerId || !await prisma.customer.findFirst({where:{id:group.customerId,storeId,userId:source.userId,mergedIntoCustomerId:null},select:{id:true}})) return;
     }
     await deliverManagerNotification({storeId,eventCreatedAt:group.createdAt,eventKey:`beauty-booking-created:${group.id}`,type:trial?"PUBLIC_TRIAL_BOOKING_CREATED":"SAME_DAY_BOOKING_CREATED",sameDayTrial:trial&&sameDay,
-      messages:[{type:"text",text:[trial?"新體驗預約":"今日新增預約",store.name,`預約人：${group.contactName}`,`人數：${group.items.length} 位`,...group.items.map(b=>`${b.personName}｜${b.serviceName}｜${formatTWDateTime(b.startsAt)}–${formatTWDateTime(b.endsAt).slice(11)}`),`查看預約：${managerUrl(store.slug,group.startsAt)}`].join("\n")}],
+      messages:[{type:"text",text:[trial?"新體驗預約":"今日新增預約",store.name,`預約人：${group.contactName}`,`人數：${new Set(group.items.map((item,index)=>item.customerId??`slot:${index}`)).size} 位${new Set(group.items.map(item=>+item.startsAt)).size>1?` · ${group.items.length} 段服務`:""}`,...group.items.map(b=>`${b.personName}｜${b.serviceName}｜${formatTWDateTime(b.startsAt)}–${formatTWDateTime(b.endsAt).slice(11)}`),`查看預約：${managerUrl(store.slug,group.startsAt)}`].join("\n")}],
       beforeDeliver:async()=>fresh(group.createdAt,new Date())&&await beautyPrisma.beautyAppointment.count({where:{storeId,groupId,status:"RESERVED",startsAt:{gt:new Date()}}})===group.items.length,
     });
   } catch { console.error("[Beauty manager notification] booking observer failed",{storeId}); }

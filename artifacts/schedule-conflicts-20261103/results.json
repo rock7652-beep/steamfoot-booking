@@ -1,0 +1,71 @@
+{
+  "scope": "Real React components, mocked isolated ports; no database/auth/notifications or hosted end-to-end verification",
+  "results": [
+    {
+      "module": "sports",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "overflow": false,
+      "conflictVisible": true,
+      "draftPreserved": true,
+      "retrySucceeded": true
+    },
+    {
+      "module": "beauty",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "overflow": false,
+      "conflictVisible": true,
+      "draftPreserved": true,
+      "retrySucceeded": true
+    },
+    {
+      "module": "sports",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "overflow": false,
+      "conflictVisible": true,
+      "draftPreserved": true,
+      "retrySucceeded": true
+    },
+    {
+      "module": "beauty",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "overflow": false,
+      "conflictVisible": true,
+      "draftPreserved": true,
+      "retrySucceeded": true
+    },
+    {
+      "module": "sports",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "overflow": false,
+      "conflictVisible": true,
+      "draftPreserved": true,
+      "retrySucceeded": true
+    },
+    {
+      "module": "beauty",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "overflow": false,
+      "conflictVisible": true,
+      "draftPreserved": true,
+      "retrySucceeded": true
+    }
+  ]
+}

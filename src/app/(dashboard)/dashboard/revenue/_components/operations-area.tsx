@@ -1,3 +1,4 @@
+import {OperationsFrame} from "@/components/operations/workspace-frame";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -30,10 +31,10 @@ export async function OperationsAreaContent({ area, query }: { area: Exclude<Ope
     if(area!=="exports"||getEffectiveActorRole(user)!=="ADMIN")return <PageShell><PageHeader title="營運"/><p>請先選擇店家。</p></PageShell>;
     const [report,customerExport,reportExport]=await Promise.all((["report.read","customer.export","report.export"] as const).map(p=>checkPermission(user.role,user.staffId,p)));
     const data=query.reportView==="data"||!report;
-    return <PageShell compact><PageHeader compact title="營運"/><OperationsTabs active="exports" query={query}/><nav className="flex flex-wrap gap-2" aria-label="報表匯出內容">
+    return <PageShell compact><OperationsFrame tabs={<OperationsTabs active="exports" query={query}/>}><nav className="flex flex-wrap gap-2" aria-label="報表匯出內容">
       {report&&<Link className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={`${operationsHref("exports",{...query,reportView:"overview"})}`}>收入總覽與報表</Link>}
       {(customerExport||reportExport)&&<Link className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={`${operationsHref("exports",{...query,reportView:"data"})}`}>資料匯出</Link>}
-    </nav>{data?(customerExport||reportExport?<DataExportWorkspace query={query}/>:<p role="alert">目前沒有匯出權限。</p>):<StoreRevenueWorkspace searchParams={Promise.resolve(query)}/>}</PageShell>;
+    </nav>{data?(customerExport||reportExport?<DataExportWorkspace query={query}/>:<p role="alert">目前沒有匯出權限。</p>):<StoreRevenueWorkspace searchParams={Promise.resolve(query)}/>}</OperationsFrame></PageShell>;
   }
   const industry = await getStoreIndustryModule(storeId);
   const readOnly = !!view?.isViewMode || isReadOnlyStoreTarget(user, storeId);
@@ -63,5 +64,5 @@ export async function OperationsAreaContent({ area, query }: { area: Exclude<Ope
       {(customerExport || reportExport) && !readOnly && <Link aria-current={data?"page":undefined} className="flex min-h-11 items-center rounded-lg border px-3 text-sm" href={`${operationsHref("exports",{...query,reportView:"data"})}`}>資料匯出</Link>}
     </nav>{data ? readOnly ? <p>目前為唯讀檢視，無法匯出資料。</p> : customerExport || reportExport ? <DataExportWorkspace query={query}/> : <p role="alert">目前沒有資料匯出權限。</p> : <StoreRevenueWorkspace searchParams={Promise.resolve(query)}/>}</>;
   }
-  return <PageShell compact><PageHeader compact title="營運"/><OperationsTabs active={area} query={query} beautyLedger={industry==="beauty"}/>{content}</PageShell>;
+  return <PageShell compact><OperationsFrame tabs={<OperationsTabs active={area} query={query} beautyLedger={industry==="beauty"}/>}>{content}</OperationsFrame></PageShell>;
 }

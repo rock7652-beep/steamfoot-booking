@@ -76,3 +76,22 @@ it("separates unpaid and overpaid amounts from confirmation",async()=>{
  const summary=host.querySelector('[aria-label="付款登錄狀態"]')!.textContent;
  expect(summary).toContain("已登錄付款 NT$ 600");expect(summary).toContain("未付 NT$ 500");expect(summary).toContain("溢付 NT$ 100");expect(host.textContent).toContain("月結已確認");
 });
+
+it("shows adjustments in unified details and nets them into total, without presenting deductions as overpayment",async()=>{
+ const base={date:"2026-11-04T00:00:00+08:00",staffId:"s1",name:"王老師",paid:0,issue:null,payments:[]};
+ await act(async()=>root.render(createElement(CourseMonthlyReport,{showPaymentStatus:true,lines:[
+ {...base,kind:"FEE",id:"fee",label:"授課費",amount:30000},
+ {...base,kind:"ADJUSTMENT",id:"add",label:"教學獎勵",amount:2000},
+ {...base,kind:"ADJUSTMENT",id:"sub",label:"出勤時數調整",amount:-800},
+ ]})));
+ expect(host.textContent).toContain("原應付金額 NT$ 30,000");
+ expect(host.textContent).toContain("加項合計 +NT$ 2,000");expect(host.textContent).toContain("減項合計 −NT$ 800");
+ expect(host.textContent).toContain("NT$ 31,200");expect(host.textContent).toContain("教學獎勵");expect(host.textContent).toContain("出勤時數調整");
+ const payment=host.querySelector('[aria-label="付款登錄狀態"]')!.textContent;
+ expect(payment).toContain("未付 NT$ 31,200");expect(payment).not.toContain("溢付");
+});
+it("beauty details retain signed adjustment reasons and do not show deductions as an individual overpayment",async()=>{
+ const base={date:"2026-11-04T00:00:00+08:00",staffId:"tech",name:"林技師",paid:0,issue:null,payments:[]};
+ await act(async()=>root.render(createElement(CourseMonthlyReport,{detailsOnly:true,feeLabel:"技師拆帳",showPaymentStatus:true,lines:[{...base,kind:"FEE",id:"service",label:"服務",amount:30000},{...base,kind:"ADJUSTMENT",id:"sub",label:"出勤時數調整",amount:-800}]})));
+ expect(host.textContent).toContain("NT$ 29,200");expect(host.querySelector('[aria-label="月結逐筆明細"] tr[data-monthly-line="ADJUSTMENT:sub"]')?.textContent).toContain("−NT$ 800");expect(host.textContent).toContain("出勤時數調整");expect(host.textContent).not.toContain("溢付");
+});

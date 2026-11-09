@@ -48,3 +48,14 @@ it('retains service input after a rejected save and prevents readonly creation',
  const {close}=await render();try{await act(async()=>button('做臉').click());save.mockResolvedValue({success:false,error:'服務已更新'});await act(async()=>document.querySelector('form#course-edit-form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));expect(document.body.textContent).toContain('服務已更新');expect(document.querySelector('form#course-edit-form')).toBeTruthy();}finally{await close();}
  const second=await render({canCreate:false,canEdit:false});try{expect(document.body.textContent).not.toContain('新增服務項目');await act(async()=>button('做臉').click());expect(document.querySelector('form#course-edit-form')).toBeNull();expect(save).not.toHaveBeenCalled();}finally{await second.close();}
 });
+
+it('keeps an unsaved Beauty service editor open when closing is declined',async()=>{
+ const {MusicSubjectCatalog}=await import('@/app/(dashboard)/dashboard/courses/music-subject-catalog');
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host),confirm=vi.spyOn(window,'confirm').mockReturnValue(false);
+ const catalog={label:'服務項目',fields:(_row:unknown,onDirty?:()=>void)=>createElement('input',{type:'checkbox','aria-label':'測試草稿',onChange:onDirty}),feeHref:()=>'',save:vi.fn(),status:vi.fn(),order:vi.fn()} as unknown as import('@/app/(dashboard)/dashboard/courses/music-subject-catalog').SubjectCatalogPort;
+ try{await act(async()=>root.render(createElement(MusicSubjectCatalog,{storeId:'store',subjects:[],canCreate:true,canEdit:true,initialCreate:true,catalog})));
+ await act(async()=>(host.querySelector('[aria-label="測試草稿"]') as HTMLInputElement).click());
+ const close=[...host.querySelectorAll('button')].find(b=>b.textContent==='關閉')!;await act(async()=>close.click());expect(confirm).toHaveBeenCalledWith('尚有未儲存的修改，要放棄並關閉嗎？');expect(host.querySelector('#music-subject-form')).not.toBeNull();
+ confirm.mockReturnValue(true);await act(async()=>close.click());expect(host.querySelector('#music-subject-form')).toBeNull();
+ }finally{confirm.mockRestore();await act(async()=>root.unmount());host.remove();}
+});

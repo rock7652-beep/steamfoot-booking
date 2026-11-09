@@ -8,7 +8,7 @@ const source = readFileSync(
 
 describe("public trial manager notification call contract", () => {
   it("calls the manager notification only after the booking transaction commits", () => {
-    const transactionIndex = source.indexOf("const booking = await prisma.$transaction");
+    const transactionIndex = source.indexOf("const booking = await (data.sharedGoods?.selections.length?addonsPrisma:prisma).$transaction");
     const slotFullIndex = source.indexOf('if (!booking) return { status: "slot_full" };');
     const notificationIndex = source.indexOf("await notifyManagerOfPublicTrialBooking({");
     const successReturnIndex = source.indexOf('status: "ok"', notificationIndex);

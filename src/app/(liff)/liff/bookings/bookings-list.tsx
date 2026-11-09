@@ -1,150 +1,8 @@
 "use client";
 
-/**
- * LIFF My Bookings List (PR-D2 + PR-D4A-2 + PR-D4B-1)
- *
- * 流程：
- *   1. mount → initLiff → isInLineClient → ready
- *   2. ready → call fetchLiffBookings → 顯示 upcoming + history tabs
- *   3. 點 upcoming card「取消此次預約」→ confirm modal → cancelLiffBooking
- *      → 成功 → refetchBookings 替換 state（card 從 upcoming 移到 history）
- *   4. (PR-D4B-1) modal 內第 3 顆 primary 按鈕「改時間」：
- *      → await cancelLiffBooking → await refetchBookings →
- *      router.push("/s/{slug}/liff/trial-booking")
- *      → 顧客在新流程裡選新時段（reuse PR-D1B trial-booking page，零改動）
- *      → 顧客體感 = 「我在改時間」；架構 = cancel + create chained
- *
- * 範圍（per PR-D2 + PR-D4A-2 + PR-D4B-1 拍板）：
- *   ✅ upcoming / history 兩 tab (D2)
- *   ✅ status badge（reuse STATUS_LABEL / STATUS_COLOR）(D2)
- *   ✅ type badge（LIFF-specific：體驗預約 / 課程 / 單次 / 補課）(D2)
- *   ✅ 「需改時間請聯絡店家」hint —— 營運訊號收集器 (D2，D4A-2 保留)
- *   ✅ 「取消此次預約」按鈕 + inline confirm modal (D4A-2)
- *   ✅ < 12h cutoff → 按鈕 disabled + 子文（client-derive，mirror server 規則）(D4A-2)
- *   ✅ Modal 內「改時間」primary 按鈕：cancel + redirect trial-booking (D4B-1)
- *   ❌ 金額 / 付款狀態 / refund / push reminder
- *   ❌ 真正的 atomic reschedule semantics（不動 schema / server action）
- *   ❌ PACKAGE_SESSION / SINGLE 自助改時間（LIFF 沒 create flow，需另外設計）
- *
- * Mobile-first：max-w-md。文案一律 `liffMessages.bookings.*` / `liffMessages.cancelBooking.*`，不寫 inline 中文。
- *
- * 檔案結構 (P1-5a 拆分後)：
- *   bookings-list.tsx                              ← main orchestrator (此檔)
- *   _helpers.ts                                    ← 5 純函數
- *   _components/boundary-blocks.tsx                ← Loading / InfoBlock
- *   _components/booking-card.tsx                   ← BookingCard + 3 icons
- *   _components/cancel-confirm-modal.tsx           ← CancelConfirmModal
- *   _components/ready-view.tsx                     ← ReadyView / Tabs / EmptyState + Tab type
- */
+/** LINE booking list. Reschedule edits the original reservation through the
+ * authorized customer flow; cancellation remains a separate action. */
 
-/**
- * LIFF My Bookings List (PR-D2 + PR-D4A-2 + PR-D4B-1)
- *
- * 流程：
- *   1. mount → initLiff → isInLineClient → ready
- *   2. ready → call fetchLiffBookings → 顯示 upcoming + history tabs
- *   3. 點 upcoming card「取消此次預約」→ confirm modal → cancelLiffBooking
- *      → 成功 → refetchBookings 替換 state（card 從 upcoming 移到 history）
- *   4. (PR-D4B-1) modal 內第 3 顆 primary 按鈕「改時間」：
- *      → await cancelLiffBooking → await refetchBookings →
- *      router.push("/s/{slug}/liff/trial-booking")
- *      → 顧客在新流程裡選新時段（reuse PR-D1B trial-booking page，零改動）
- *      → 顧客體感 = 「我在改時間」；架構 = cancel + create chained
- *
- * 範圍（per PR-D2 + PR-D4A-2 + PR-D4B-1 拍板）：
- *   ✅ upcoming / history 兩 tab (D2)
- *   ✅ status badge（reuse STATUS_LABEL / STATUS_COLOR）(D2)
- *   ✅ type badge（LIFF-specific：體驗預約 / 課程 / 單次 / 補課）(D2)
- *   ✅ 「需改時間請聯絡店家」hint —— 營運訊號收集器 (D2，D4A-2 保留)
- *   ✅ 「取消此次預約」按鈕 + inline confirm modal (D4A-2)
- *   ✅ < 12h cutoff → 按鈕 disabled + 子文（client-derive，mirror server 規則）(D4A-2)
- *   ✅ Modal 內「改時間」primary 按鈕：cancel + redirect trial-booking (D4B-1)
- *   ❌ 金額 / 付款狀態 / refund / push reminder
- *   ❌ 真正的 atomic reschedule semantics（不動 schema / server action）
- *   ❌ PACKAGE_SESSION / SINGLE 自助改時間（LIFF 沒 create flow，需另外設計）
- *
- * Mobile-first：max-w-md。文案一律 `liffMessages.bookings.*` / `liffMessages.cancelBooking.*`，不寫 inline 中文。
- *
- * 檔案結構 (P1-5a 拆分後)：
- *   bookings-list.tsx                              ← main orchestrator (此檔)
- *   _helpers.ts                                    ← 5 純函數
- *   _components/boundary-blocks.tsx                ← Loading / InfoBlock
- *   _components/booking-card.tsx                   ← BookingCard + 3 icons
- *   _components/cancel-confirm-modal.tsx           ← CancelConfirmModal
- *   _components/ready-view.tsx                     ← ReadyView / Tabs / EmptyState + Tab type
- */
-/**
- * LIFF My Bookings List (PR-D2 + PR-D4A-2 + PR-D4B-1)
- *
- * 流程：
- *   1. mount → initLiff → isInLineClient → ready
- *   2. ready → call fetchLiffBookings → 顯示 upcoming + history tabs
- *   3. 點 upcoming card「取消此次預約」→ confirm modal → cancelLiffBooking
- *      → 成功 → refetchBookings 替換 state（card 從 upcoming 移到 history）
- *   4. (PR-D4B-1) modal 內第 3 顆 primary 按鈕「改時間」：
- *      → await cancelLiffBooking → await refetchBookings →
- *      router.push("/s/{slug}/liff/trial-booking")
- *      → 顧客在新流程裡選新時段（reuse PR-D1B trial-booking page，零改動）
- *      → 顧客體感 = 「我在改時間」；架構 = cancel + create chained
- *
- * 範圍（per PR-D2 + PR-D4A-2 + PR-D4B-1 拍板）：
- *   ✅ upcoming / history 兩 tab (D2)
- *   ✅ status badge（reuse STATUS_LABEL / STATUS_COLOR）(D2)
- *   ✅ type badge（LIFF-specific：體驗預約 / 課程 / 單次 / 補課）(D2)
- *   ✅ 「需改時間請聯絡店家」hint —— 營運訊號收集器 (D2，D4A-2 保留)
- *   ✅ 「取消此次預約」按鈕 + inline confirm modal (D4A-2)
- *   ✅ < 12h cutoff → 按鈕 disabled + 子文（client-derive，mirror server 規則）(D4A-2)
- *   ✅ Modal 內「改時間」primary 按鈕：cancel + redirect trial-booking (D4B-1)
- *   ❌ 金額 / 付款狀態 / refund / push reminder
- *   ❌ 真正的 atomic reschedule semantics（不動 schema / server action）
- *   ❌ PACKAGE_SESSION / SINGLE 自助改時間（LIFF 沒 create flow，需另外設計）
- *
- * Mobile-first：max-w-md。文案一律 `liffMessages.bookings.*` / `liffMessages.cancelBooking.*`，不寫 inline 中文。
- *
- * 檔案結構 (P1-5a 拆分後)：
- *   bookings-list.tsx                              ← main orchestrator (此檔)
- *   _helpers.ts                                    ← 5 純函數
- *   _components/boundary-blocks.tsx                ← Loading / InfoBlock
- *   _components/booking-card.tsx                   ← BookingCard + 3 icons
- *   _components/cancel-confirm-modal.tsx           ← CancelConfirmModal
- *   _components/ready-view.tsx                     ← ReadyView / Tabs / EmptyState + Tab type
- */
-/**
- * LIFF My Bookings List (PR-D2 + PR-D4A-2 + PR-D4B-1)
- *
- * 流程：
- *   1. mount → initLiff → isInLineClient → ready
- *   2. ready → call fetchLiffBookings → 顯示 upcoming + history tabs
- *   3. 點 upcoming card「取消此次預約」→ confirm modal → cancelLiffBooking
- *      → 成功 → refetchBookings 替換 state（card 從 upcoming 移到 history）
- *   4. (PR-D4B-1) modal 內第 3 顆 primary 按鈕「改時間」：
- *      → await cancelLiffBooking → await refetchBookings →
- *      router.push("/s/{slug}/liff/trial-booking")
- *      → 顧客在新流程裡選新時段（reuse PR-D1B trial-booking page，零改動）
- *      → 顧客體感 = 「我在改時間」；架構 = cancel + create chained
- *
- * 範圍（per PR-D2 + PR-D4A-2 + PR-D4B-1 拍板）：
- *   ✅ upcoming / history 兩 tab (D2)
- *   ✅ status badge（reuse STATUS_LABEL / STATUS_COLOR）(D2)
- *   ✅ type badge（LIFF-specific：體驗預約 / 課程 / 單次 / 補課）(D2)
- *   ✅ 「需改時間請聯絡店家」hint —— 營運訊號收集器 (D2，D4A-2 保留)
- *   ✅ 「取消此次預約」按鈕 + inline confirm modal (D4A-2)
- *   ✅ < 12h cutoff → 按鈕 disabled + 子文（client-derive，mirror server 規則）(D4A-2)
- *   ✅ Modal 內「改時間」primary 按鈕：cancel + redirect trial-booking (D4B-1)
- *   ❌ 金額 / 付款狀態 / refund / push reminder
- *   ❌ 真正的 atomic reschedule semantics（不動 schema / server action）
- *   ❌ PACKAGE_SESSION / SINGLE 自助改時間（LIFF 沒 create flow，需另外設計）
- *
- * Mobile-first：max-w-md。文案一律 `liffMessages.bookings.*` / `liffMessages.cancelBooking.*`，不寫 inline 中文。
- *
- * 檔案結構 (P1-5a 拆分後)：
- *   bookings-list.tsx                              ← main orchestrator (此檔)
- *   _helpers.ts                                    ← 5 純函數
- *   _components/boundary-blocks.tsx                ← Loading / InfoBlock
- *   _components/booking-card.tsx                   ← BookingCard + 3 icons
- *   _components/cancel-confirm-modal.tsx           ← CancelConfirmModal
- *   _components/ready-view.tsx                     ← ReadyView / Tabs / EmptyState + Tab type
- */
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -197,7 +55,7 @@ export function BookingsList({
   dataSource,
   allowBrowserSession = false,
 }: Props) {
-  const router = useRouter(); // PR-D4B-1：reschedule 成功後 push 到 trial-booking
+  const router = useRouter();
   const [state, setState] = useState<State>({ kind: "initializing" });
   const [tab, setTab] = useState<Tab>("upcoming");
 
@@ -299,47 +157,13 @@ export function BookingsList({
     }
   }
 
-  /**
-   * PR-D4B-1:「改時間」flow（per 拍板 navigation 選項 α：先 refetch 再 push）。
-   *
-   * 顧客體感 = 「我在改時間」；架構 = cancel + create chained。
-   *
-   * Order matters：
-   *   1. setSubmitting → 鎖住 modal，避免雙擊
-   *   2. cancelLiffBooking → 完全 reuse D4A-1，0 新 server semantics
-   *   3. refetchBookings → 確保返回時 list 是對的（card 已從 upcoming 移到 history）
-   *   4. router.push("/s/{slug}/liff/trial-booking") → reuse PR-D1B 既有頁面，零改動
-   *   5. modal close 在 push 前做（讓 modal 不殘留）
-   *
-   * 失敗復原：與 handleConfirmCancel 同 — error 顯在 modal，原 booking 已 CANCELLED
-   * 視同單純取消（per audit §3：等同 single cancel，狀態一致）。
-   */
-  async function handleConfirmReschedule() {
+  function handleConfirmReschedule() {
     if (!cancelTarget) return;
-    setCancelStatus("submitting");
+    const bookingId = cancelTarget.id;
+    setCancelTarget(null);
+    setCancelStatus("idle");
     setCancelError(null);
-    try {
-
-      const r = await cancelLiffBooking({ bookingId: cancelTarget.id });
-      if (r.status === "ok") {
-        await refetchBookings();
-        setCancelTarget(null);
-        setCancelStatus("idle");
-        setCancelError(null);
-        router.push(`/s/${storeSlug}/liff/trial-booking`);
-        return;
-      }
-      if (r.status === "profile_incomplete") {
-        await redirectToCompletedProfile(`/s/${storeSlug}/liff/bookings`);
-        return;
-      }
-      setCancelStatus("error");
-      setCancelError(mapCancelStatusToMessage(r.status));
-    } catch (err) {
-      console.warn("[liff-my-bookings] reschedule cancel threw", err);
-      setCancelStatus("error");
-      setCancelError(liffMessages.cancelBooking.errorServiceUnavailable);
-    }
+    router.push(`/s/${storeSlug}/my-bookings/${encodeURIComponent(bookingId)}/reschedule`);
   }
 
   useEffect(() => {

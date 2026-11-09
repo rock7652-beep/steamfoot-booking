@@ -1,9 +1,15 @@
 import { isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 
 export const SPORTS_SHARED_CARD_PREVIEW_BRANCH = "feat/sports-shared-card-controls-20261007";
+export const CALENDAR_PHASE_PREVIEW_BRANCH = "chore/calendar-phase-timing-20261103";
+export const SCHEDULE_CONFLICT_PREVIEW_BRANCH = "fix/schedule-conflicts-20261103";
 export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-photo-20261016";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   "fix/music-leave-entitlement-20261102",
+  "feat/record-list-density",
+  "fix/monthly-adjustment-feedback-density",
+  "fix/liff-health-change-range-20261104",
+  SCHEDULE_CONFLICT_PREVIEW_BRANCH, CALENDAR_PHASE_PREVIEW_BRANCH,
   "feat/closed-day-slot-additions-20261101",
   "fix/silverlily-calendar-loading-20261031",
   "fix/plan-card-management-20261029",

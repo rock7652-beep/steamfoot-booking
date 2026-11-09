@@ -1,7 +1,7 @@
 .list { container-type:inline-size; min-width:0; overflow:clip; border:1px solid #e5e1d9; border-radius:12px; background:white; }
-.row { min-width:0; background:white; }
+.row { min-width:0;  }
 .row + .row { border-top:1px solid #eeeae3; }
-.summary { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px 16px; padding:14px 16px; list-style:none; }
+.summary { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px 16px; padding:4px 12px; list-style:none; }
 details.row > .summary { cursor:pointer; }
 .summary::-webkit-details-marker { display:none; }
 .summary:focus-visible { outline:2px solid #45685a; outline-offset:-3px; border-radius:8px; }

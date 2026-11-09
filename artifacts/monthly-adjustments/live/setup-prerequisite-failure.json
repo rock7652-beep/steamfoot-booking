@@ -1,0 +1,21 @@
+{
+  "error": "locator.waitFor: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('region', { name: '獎勵與調整' }).or(locator('section[aria-label=\"獎勵與調整\"]')).getByRole('button', { name: '＋新增調整' }) to be visible\u001b[22m\n",
+  "actionErrors": [
+    "$undefined",
+    "$undefined",
+    "$undefined",
+    "$38a",
+    "$undefined",
+    "$undefined",
+    "$undefined",
+    "$394",
+    "$undefined",
+    "$undefined",
+    "$undefined",
+    "$394"
+  ],
+  "completed": [
+    "steam",
+    "fitness"
+  ]
+}

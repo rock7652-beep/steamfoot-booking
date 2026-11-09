@@ -24,13 +24,15 @@ export function SuccessCard({
   bookingDate,
   slotTime,
   usedMakeupCount = 0,
+  planSessionCount = 0,
   onBookNext,
 }: {
   storeSlug: string;
   bookingDate: string;
   slotTime: string;
-  /** PR-NoShow-2b：本次使用的補課券張數（>0 才顯示「不扣堂」提示）。 */
+  /** PR-NoShow-2b：後端確認使用的補課券張數。 */
   usedMakeupCount?: number;
+  planSessionCount?: number;
   onBookNext: () => void;
 }) {
   const m = liffMessages.memberBooking;
@@ -57,7 +59,7 @@ export function SuccessCard({
         </div>
         {usedMakeupCount > 0 && (
           <p className="mt-3 text-sm font-medium text-amber-700">
-            {m.successMakeupUsed.replace("{count}", String(usedMakeupCount))}
+            已使用 {usedMakeupCount} 張補課券。{planSessionCount > 0 ? `另保留 ${planSessionCount} 堂方案，完成服務後核銷。` : "本次不扣方案堂數。"}
           </p>
         )}
         <p className="mt-4 text-xs text-green-800/80">

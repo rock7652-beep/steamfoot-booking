@@ -1,3 +1,4 @@
+import {addonsCoursePrisma} from '@/lib/addons-course-db';
 import "server-only";
 import {memoizeReadRequest,verifiedStaffRead} from "./read-request-memo";
 import {measureMusicRead} from "@/lib/music-read-timing";
@@ -18,23 +19,24 @@ import type { Prisma } from "../../../generated/course-client";
 import { lockCourseStore } from "./course-store-lock";
 import { settingsStep } from "./settings-timing";
 
-export async function courseManager(permission: PermissionCode) {
-  return musicCheckoutPermission(permission, () => checkCourseManager(permission));
+export async function courseManager(permission: PermissionCode, timing?: ReadTiming) {
+  return musicCheckoutPermission(permission, () => checkCourseManager(permission,timing));
 }
 
-async function checkCourseManager(permission: PermissionCode) {
+async function checkCourseManager(permission: PermissionCode, timing?: ReadTiming) {
+  const measure=<T>(name:string,work:()=>Promise<T>)=>timing?timing.measure(name,work):work();
   const startedAt = Date.now();
   // Store resolution checks the subscription for the authorized target store.
-  const permissionTiming={measure:<T>(name:string,work:()=>Promise<T>)=>measureMusicCheckout(`${permission}.${name}`,work)};
-  const user = await measureMusicCheckout(`permission.${permission}`,()=>requirePermission(permission, permissionTiming, { deferSubscriptionGuard: true }));
+  const permissionTiming={measure:<T>(name:string,work:()=>Promise<T>)=>measure(name,()=>measureMusicCheckout(`${permission}.${name}`,work))};
+  const user = await measure("permission",()=>measureMusicCheckout(`permission.${permission}`,()=>requirePermission(permission, permissionTiming, { deferSubscriptionGuard: true })));
   const permissionMs = Date.now() - startedAt;
-  const storeId = await musicCheckoutWriteStore(user,()=>resolveWriteStoreId(user));
+  const storeId = await measure("store.resolve",()=>musicCheckoutWriteStore(user,()=>resolveWriteStoreId(user)));
   const storeMs = Date.now() - startedAt - permissionMs;
   const [, staff] = await Promise.all([
-    measureMusicCheckout(`${permission}.module`,()=>requireCourseStore(storeId)),
-    measureMusicCheckout(`${permission}.membership`,async()=>user.role === "ADMIN"
+    measure("store.module",()=>measureMusicCheckout(`${permission}.module`,()=>requireCourseStore(storeId))),
+    measure("store.membership",()=>measureMusicCheckout(`${permission}.membership`,async()=>user.role === "ADMIN"
       ? true
-      : await readCourseStaffMembership(user,storeId)),
+      : await readCourseStaffMembership(user,storeId))),
   ]);
   if (!staff) throw new AppError("FORBIDDEN", "本店工作權限已停用");
   if (permission === "booking.read" || permission === "booking.update") {
@@ -129,8 +131,9 @@ export async function courseTransaction<T>(
   storeId: string,
   work: (tx: Prisma.TransactionClient) => Promise<T>,
   audit?: (result: T, tx: Prisma.TransactionClient) => Promise<unknown>,
+  sharedGoods = false,
 ) {
-  const result=await measureMusicCheckout("transaction.total",()=>coursePrisma.$transaction(
+  const result=await measureMusicCheckout("transaction.total",()=>(sharedGoods?addonsCoursePrisma:coursePrisma).$transaction(
     async (tx) => {
       await settingsStep("db_lock", () => lockCourseStore(tx, storeId));
       const value = await settingsStep("db_work", () => work(tx));

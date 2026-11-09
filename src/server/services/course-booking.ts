@@ -1,3 +1,5 @@
+import {persistCustomerBookingGoods,type BookingGoodsTx} from "./customer-booking-goods";
+import type {CustomerBookingGoodsInput} from "@/lib/customer-booking-goods";
 import {assertCourseSchedulingMode} from "./course-scheduling-modes";
 import {courseChargeSettings,courseChargeSnapshot} from "@/lib/course-charge-settings";
 import { resolveSportsEntitlement, sportsEntitlementSnapshot, type SportsEntitlementFields } from "@/lib/sports-entitlement";
@@ -123,6 +125,7 @@ export async function reserveCourseMembers(
     cardId: string;
     customerIds: string[];
     companionNames?: string[];
+    sharedGoods?:CustomerBookingGoodsInput;
     requestKey: string;
     notes?: string;
     makeupForBookingId?: string | null;
@@ -139,9 +142,10 @@ export async function reserveCourseMembers(
     return fail("請選擇 1 至 20 位不重複的上課人");
   const limits = await getStoreLimitsByStoreId(actor.storeId);
   const batchKey = createHash("sha256")
-    .update(JSON.stringify(input.companionNames?.length ? [input.requestKey, customers, input.companionNames] : [input.requestKey, customers]))
+    .update(JSON.stringify(input.sharedGoods?.selections.length?[input.requestKey,customers,input.companionNames??[],input.sharedGoods]:input.companionNames?.length ? [input.requestKey, customers, input.companionNames] : [input.requestKey, customers]))
     .digest("hex");
   return courseTransaction(actor.storeId, async (tx) => {
+    const prior=input.sharedGoods?.selections.length?await tx.courseBooking.findUnique({where:{storeId_requestKey:{storeId:actor.storeId,requestKey:`${batchKey}:${customers[0]}`}}}):null;
     const bookings = [];
     const companionNames = input.companionNames ?? [];
     if (companionNames.length && (!actor.customerId || customers.length !== 1 || customers[0] !== actor.customerId || companionNames.length > 2))
@@ -175,8 +179,9 @@ export async function reserveCourseMembers(
         requestKey: `${batchKey}:companion:${index + 1}`, notes: input.notes,
       }, limits.maxMonthlyBookings));
     }
+    if(!prior)await persistCustomerBookingGoods(tx as unknown as BookingGoodsTx,actor.storeId,input.sessionId,bookings[0]?.id,input.sharedGoods);
     return bookings;
-  });
+  },undefined,!!input.sharedGoods?.selections.length);
 }
 
 export async function reserveTrialCourse(actor: CourseActor, input: { sessionId: string; customerId: string|null; requestKey: string; notes?: string; allowOverCapacity?:boolean; trialPrice: number;customerName?:string }) {
@@ -466,7 +471,7 @@ export async function reserveCourseInTransaction(
       actorUserId: actor.userId,
     },
   });
-  await enqueueOperationAudit({ actorUserId: actor.userId, actorNameSnapshot: actor.name, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "建立課程預約" }, tx, input.requestKey);
+  await enqueueOperationAudit({ actorUserId: actor.userId, actorNameSnapshot: actor.name, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: `建立課程預約：${booking.customerName} · ${session.nameSnapshot}`, after: {customerName:booking.customerName,nameSnapshot:session.nameSnapshot,startsAt:session.startsAt.toISOString()} }, tx, input.requestKey);
   if(!options.memberReschedule && actor.customerId)await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${booking.id}`,kind:"BOOKING",customerName:booking.customerName,courseName:session.nameSnapshot,coachId:session.coachId,startsAt:session.startsAt});
   return booking;
 }
@@ -494,9 +499,7 @@ export async function settleCourseBooking(
     if(!booking?.cardId) return fail("學員尚未有可扣抵方案");
   }
 
-  // Paid automatic music lessons may still be unbound at leave settlement.
-  // Reuse item/expiry/availability selection before applying music leave policy.
-  // Do not bind a previously settled unpaid leave on retry after a later sale.
+  // Bind eligible paid music lessons before leave; settled unpaid leaves are not rebound on retry.
   if(!actor.customerId&&booking.bookingKind==="UNPAID"&&!booking.cardId&&(target==="ATTENDED"||target==="NO_SHOW"||(target==="STUDENT_LEAVE"&&booking.status==="RESERVED"))&&await isMusicCourseStore(tx,actor.storeId)){
     const {bindMusicAttendanceCard}=await import("./music-item-cards");
     await bindMusicAttendanceCard(tx,actor,bookingId);
@@ -582,9 +585,6 @@ export async function settleCourseBooking(
     data: { status: target === "STUDENT_LEAVE" ? "CANCELLED" : target, absenceKind: target === "STUDENT_LEAVE" ? (musicGroupLeave ? "GROUP_LEAVE_FORFEITED" : "STUDENT_LEAVE") : null },
   });
   if(!options.suppressNotice && (target === "STUDENT_LEAVE" || target === "CANCELLED"))await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${booking.id}`,kind:target==="STUDENT_LEAVE"?"LEAVE":"CANCEL",customerName:booking.customerName,courseName:booking.session.nameSnapshot,coachId:booking.session.coachId,startsAt:booking.session.startsAt,details:{absenceKind:target==="STUDENT_LEAVE"?(musicGroupLeave?"GROUP_LEAVE_FORFEITED":"STUDENT_LEAVE"):null}});
-  // A separate makeup's leave preserves its credit but frees this attempt's
-  // allocation, so the same source lesson may be booked again. The ordinary
-  // source allocation stays occupied; no second right or debit is created.
   if(nativeMakeupLeave)await releaseMusicLesson(tx,actor.storeId,booking.id);
   if(pilotLeave)await issueMusicPilotLeaveMakeup(tx,actor,booking);
   if(nativeLeave)await issueNativeMusicMakeup(tx,actor,booking);
@@ -682,8 +682,6 @@ export async function correctCourseAttendance(
   if (b.card?.closedAt) return fail("此方案已退款或結清，無法更正出席額度");
   if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
   const nativeMakeupCancellation = target === "CANCELLED" && await isNativeMusicMakeup(tx,actor.storeId,b.card);
-  // Replaying the same makeup leave must not reactivate its old allocation via
-  // the booking trigger after the right has already been reserved elsewhere.
   if(nativeMakeupCancellation && b.status === "CANCELLED" && b.absenceKind === absenceKind)return b;
   if(pilotLeave)await closeUnusedMusicPilotMakeup(tx,actor.storeId,b.id);
   if(nativeLeave)await closeNativeMusicMakeup(tx,actor.storeId,b.id);

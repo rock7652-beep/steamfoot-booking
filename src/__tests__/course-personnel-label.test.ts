@@ -36,9 +36,9 @@ describe("reminder recipient tab terminology",()=>{
   expect(html).toContain(`href="/dashboard/courses/reminders?tab=coach">${expected}</a>`);
   expect(html).not.toContain("工作人員通知");
  });
- it("keeps technicians distinct from the course-store terminology",()=>{
+ it("uses the Beauty store choice without changing the technician tab key",()=>{
   const html=renderToStaticMarkup(createElement(CoursePersonnelLabelProvider,{storeId:"store-b",label:"老師"},createElement(ReminderTabs,{active:"technician",explicit:true,storeId:"store-b",baseHref:"/dashboard/beauty/reminders",beauty:true})));
-  expect(html).toContain('href="/dashboard/beauty/reminders?tab=technician">技師通知</a>');expect(html).not.toContain("老師通知");
+  expect(html).toContain('href="/dashboard/beauty/reminders?tab=technician">老師通知</a>');expect(html).not.toContain("技師通知");
  });
  it("does not add a personnel tab to stores without one",()=>{
   const html=renderToStaticMarkup(createElement(ReminderTabs,{active:"customer",explicit:true,storeId:"steam"}));expect(html).not.toContain("tab=coach");expect(html).not.toContain("tab=technician");

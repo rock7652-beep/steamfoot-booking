@@ -21,7 +21,7 @@ export const dailyOperationGuides20260926: OperationGuide[] = [
     path: "營運 → 月結管理 → 選月份", keywords: "蒸足 月結管理 服務收入 空間租金 租期 本期 不扣抵 舊版月結",
     steps: ["由有月結功能及報表權限的店長／總部管理員，從營運點「月結管理」。", "選月份，核對人員、本月服務收入及空間租金約定，再展開明細查日期、顧客、服務人員與方案。", "待核對項目先查原因；需要原本店舖月結時，使用底部「舊版店舖月結與紀錄」。"],
     important: "租金與服務收入不相減，也不合計成應付；這張表不代表已收租金或已付人員收入。",
-    details: ["服務收入沿用已完成服務與收益歸屬規則，方案依實收與堂數核對；不是把當月收款交易直接當服務收入。", "例如半年租期每月 5,000 元，同一期內各月份都顯示該期 30,000 元，不是每月新增一筆 30,000 元應收。", "尚未建立租期會提示待設定，系統不猜測舊每月租金的起始日；人員停用也不等於取消既有租金約定。", "歸店家或未指定人員的服務另列；新月結不自動收付款或發送通知，跨店檢視不可修改租金。"],
+    details: ["服務收入沿用已完成服務與收益歸屬規則，方案依實收與堂數核對；不是把當月收款交易直接當服務收入。", "例如半年租期每月 5,000 元，同一期內各月份都顯示該期 30,000 元，不是每月新增一筆 30,000 元應收。", "尚未建立租期會提示待設定，系統不猜測舊每月租金的起始日；人員停用也不等於取消既有租金約定。", "歸店家或未指定人員的服務另列；新月結不自動收付款或發送通知，跨店檢視不可修改租金。", "在獎勵與調整點新增調整，選人員、加項／減項，填金額及自訂事由；以歸屬月份計入月結。明細可搜尋、編輯、刪除，不設狀態欄；儲存確認後立即同步明細與合計。", "本月收入與調整分列原收入、加項、減項及總額，不自動扣抵租金。完成月結會鎖定調整明細；需修改時先重新開啟，再完成月結。已發薪差額建議放下個月調整。"],
     success: "收入可對回服務，租金可對回完整租期，不重複累加同一期金額。",
     modules: ["steamfoot"], permission: "report.read", feature: "service_fee_calculator", kind: "explanation", verification: "source-reviewed",
     sources: ["src/app/(dashboard)/dashboard/revenue/page.tsx", "src/app/(dashboard)/dashboard/service-fee-calculator/steamfoot-monthly.tsx", "src/server/queries/steamfoot-monthly.ts", "src/server/queries/staff-settlement.ts", "src/lib/steamfoot-rent.ts"],

@@ -1,4 +1,6 @@
 "use client";
+import dynamic from "next/dynamic";
+const SteamfootParticipantAddOns=dynamic(()=>import("@/components/add-ons/steamfoot-participant").then(m=>m.SteamfootParticipantAddOns));
 import { useEffect, useRef, useState } from "react";
 import { useRetainedState } from "@/components/operations/operation-scope";
 import { changeBookingParticipantService, completeBookingParticipantPlan, collectBookingParticipantTrial, resolveBookingParticipant, removeBookingParticipant, restoreBookingParticipant } from "@/server/actions/booking-participants";
@@ -164,6 +166,7 @@ function ParticipantRow({ bookingId, slot, checkout, readOnly, blocked, onUpdate
     {!readOnly && checkout.canResolve && isPlan && status === "PENDING" && amount == null && <button type="button" disabled={blocked || saving}
       onClick={() => void run(() => changeBookingParticipantService({ bookingId, position: slot.position, revision: slot.revision, operation: "selectPlan", walletId: null }), "PENDING", null, () => setSelection(null))}
       className="mt-2 min-h-11 px-3 text-base text-earth-600 disabled:opacity-50">改回體驗</button>}
+    {checkout.addOns?.canView&&slot.id&&<SteamfootParticipantAddOns key={checkout.addOns.storeId+':'+slot.id} sharedGoods={checkout.addOns.sharedGoods} storeId={checkout.addOns.storeId} bookingId={bookingId} participantId={slot.id} blocked={blocked||saving} canEdit={!readOnly&&checkout.addOns.canEdit} canCollect={!readOnly&&checkout.addOns.canCollect} canRefund={!readOnly&&checkout.addOns.canRefund} onBusy={onBusy} onUpdated={onUpdated}/>}
     {message && <p role="alert" className="mt-2 text-sm text-amber-800">{message}</p>}
     {canSell && slot.customerId && <div className="mt-2">
       {selling && <div className="mt-2 rounded-lg border border-earth-200 p-3">

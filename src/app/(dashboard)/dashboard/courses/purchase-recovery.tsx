@@ -37,7 +37,7 @@ function boundedRequest<T>(request: () => Promise<T>): Promise<T> {
   });
 }
 
-export function useCoursePurchaseRecovery(customerId: string | undefined, active: boolean) {
+export function useCoursePurchaseRecovery(customerId: string | undefined, active: boolean, automaticCompletion=false) {
   const scope = useContext(PurchaseIntentScope);
   const enabled = scope.enabled && active;
   const scopeKey = JSON.stringify([enabled, scope.family ?? "course", scope.storeId, customerId ?? ""]);
@@ -144,6 +144,13 @@ export function useCoursePurchaseRecovery(customerId: string | undefined, active
     catch { result = { success: false, error: CHECKOUT_OUTCOME_UNCONFIRMED }; }
     if (!sameScope()) return { success: false, discarded: true };
     if (result.success) {
+      if(automaticCompletion){
+        setConfirmedScope(scopeKey);
+        // The committed result is authoritative. Acknowledge this exact key in
+        // the background; failure retains its durable blocker for recovery.
+        void controller.current?.acknowledge("COMMITTED");
+        return sameScope()?result:{success:false,discarded:true};
+      }
       // Keep the server blocker until the operator sees and acknowledges the
       // completed purchase. A lost response must never release another device.
       setConfirmedScope(scopeKey);
@@ -166,13 +173,14 @@ export function useCoursePurchaseRecovery(customerId: string | undefined, active
     if (!sameScope()) return { success: false, discarded: true };
     if (state?.kind === "intent" && state.intent.status === "COMMITTED") {
       setConfirmedScope(scopeKey);
+      if(automaticCompletion)void controller.current?.acknowledge("COMMITTED");
       return { success: true };
     }
     // Even a readable business error does not establish whether a late request
     // can still commit. Preserve the useful error without implying rollback.
     const detail = result.error?.trim();
     return { success: false, error: detail && detail !== CHECKOUT_OUTCOME_UNCONFIRMED ? `${detail} ${CHECKOUT_OUTCOME_UNCONFIRMED}` : CHECKOUT_OUTCOME_UNCONFIRMED };
-  }, [enabled, inspect, prepare, scope.family, scope.storeId, scope.transport, scopeKey, setState]);
+  }, [automaticCompletion,enabled, inspect, prepare, scope.family, scope.storeId, scope.transport, scopeKey, setState]);
   const blocked = enabled && (!customerId || busy || confirmed || view.kind === "checking" || view.kind === "uncertain" || (view.kind === "intent" && view.intent.status !== "PREPARED"));
 
   const finishAcknowledgement = useCallback(async (status: "COMMITTED" | "CANCELLED") => {
@@ -183,10 +191,11 @@ export function useCoursePurchaseRecovery(customerId: string | undefined, active
   return { enabled, view, busy, blocked, confirmed, submit, inspect, cancel, acknowledge: finishAcknowledgement };
 }
 
-export function CoursePurchaseRecoveryNotice({ recovery, disabled, onCommitted }: {
-  recovery: ReturnType<typeof useCoursePurchaseRecovery>; disabled: boolean; onCommitted: () => void;
+export function CoursePurchaseRecoveryNotice({ recovery, disabled, onCommitted, automaticCompletion=false }: {
+  automaticCompletion?:boolean;recovery: ReturnType<typeof useCoursePurchaseRecovery>; disabled: boolean; onCommitted: () => void;
 }) {
   if (!recovery.enabled || recovery.view.kind === "inactive" || recovery.view.kind === "none-known") return null;
+  if(automaticCompletion&&(recovery.view.kind==="checking"||recovery.view.kind==="intent"&&(recovery.view.intent.status==="COMMITTED"||disabled&&recovery.view.intent.status==="PREPARED")))return null;
   if (recovery.view.kind === "checking") return <p role="status" className="rounded-lg bg-earth-50 p-3 text-sm">正在確認購買狀態…</p>;
   const state = recovery.view;
   const pending = disabled || recovery.busy;

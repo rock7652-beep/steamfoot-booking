@@ -17,7 +17,7 @@ vi.mock("@/server/actions/course-card-reservations",()=>({loadCourseCardReservat
 vi.mock("@/server/actions/course-browse",()=>({browseCourseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),searchCourseCustomers:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),loadCourseCustomerSearchIndex:vi.fn().mockResolvedValue({success:true,rows:[],complete:true})}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
 vi.mock("@/server/actions/course-checkout-status",()=>({getCourseCheckoutCashStatus:vi.fn().mockResolvedValue({success:true,status:"OPEN"})}));
-const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn(),courseAssign:vi.fn()}));
+const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn(),courseAssign:vi.fn(),sportsSave:vi.fn()}));
 vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh,replace:vi.fn()}),useSearchParams:()=>new URLSearchParams("customerId=person")}));
 vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({children,width,fitContent,maxHeight}:{children:unknown;width:number;fitContent:boolean;maxHeight?:number})=>createElement("aside",{"data-width":width,"data-max-height":maxHeight,"data-fit-content":String(fitContent)},children as never)}));
 vi.mock("@/components/customer-attribution-form",()=>({CustomerAttributionForm:()=>null}));
@@ -29,7 +29,7 @@ vi.mock("@/app/(dashboard)/dashboard/courses/customer-purchases",()=>({CourseCus
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-bookings",()=>({CourseCustomerBookings:()=>null}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-list",()=>({CourseCustomerList:()=>null}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-health",()=>({CourseCustomerHealth:()=>null}));
-vi.mock("@/server/actions/sports-staging",()=>({saveSportsFee:vi.fn()}));
+vi.mock("@/server/actions/sports-staging",()=>({saveSportsFee:m.sportsSave}));
 import {CourseMemberWorkspace} from "@/app/(dashboard)/dashboard/courses/member-workspace";
 import {CoursePurchaseIntentProvider} from "@/app/(dashboard)/dashboard/courses/purchase-recovery";
 let host:HTMLDivElement,root:Root;
@@ -123,6 +123,25 @@ it("combines purchase and shared-card filters immediately without changing purch
  await filter("購買方式篩選","customer");expect(names()).toEqual(["公開共卡"]);
  await filter("共卡篩選","disabled");expect(names()).toEqual(["舊方案"]);
  expect(plans[0]).toMatchObject({customerPurchasable:true});
+});
+
+it('closes a saved sports fee and immediately shows its confirmed name and purchase mode',async()=>{
+ const plan={id:'fee',name:'原收費名稱',points:10,price:5800,storeCost:0,validDays:90,isActive:true,unit:'SESSION',templateIds:['template'],sportsMode:'LEGACY',chargeSettings:null,customerPurchasable:true,allowShared:false};
+ const sportsData={storeId:'store',date:'2026-11-06',subjects:[],coaches:[],rooms:[],lessons:[],students:[],customers:[],fees:[{id:plan.id,subject:'subject',name:plan.name,unit:'堂數',amount:10,price:5800,days:90,cost:1,shared:false,templateId:'template',snapshot:JSON.stringify(plan)}]};
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,view:'plans',people:[],sportsNative:true,previewStoreId:'store',sportsData,plans:[plan]})));
+ await act(async()=>host.querySelector<HTMLButtonElement>('[data-plan-name="原收費名稱"]')!.click());
+ const input=host.querySelector<HTMLInputElement>('input[name="name"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'更新後收費名稱');input.dispatchEvent(new Event('input',{bubbles:true}));host.querySelector<HTMLInputElement>('input[name="purchaseMode"][value="backend"]')!.click();});
+ m.sportsSave.mockResolvedValue({success:true,data:{...plan,name:'更新後收費名稱',customerPurchasable:false}});
+ await act(async()=>host.querySelector<HTMLFormElement>('#course-member-form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(m.sportsSave).toHaveBeenCalledWith(expect.objectContaining({name:'更新後收費名稱',customerPurchasable:false}));
+ expect(host.querySelector('aside')).toBeNull();
+ expect(host.querySelector('[data-plan-name="原收費名稱"]')).toBeNull();
+ const row=host.querySelector<HTMLButtonElement>('[data-plan-name="更新後收費名稱"]')!;
+ expect(row.closest('tr')!.textContent).toContain('僅後台指派');
+ await act(async()=>row.click());
+ expect(host.querySelector<HTMLInputElement>('input[name="name"]')!.value).toBe('更新後收費名稱');
+ expect(host.querySelector<HTMLInputElement>('input[name="purchaseMode"][value="backend"]')!.checked).toBe(true);
 });
 
 it("keeps exactly one music summary when entering and leaving checkout repeatedly",async()=>{

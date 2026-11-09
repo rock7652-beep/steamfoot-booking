@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from "reac
 import { usePathname, useRouter } from "next/navigation";
 
 /** GET filters only. Collect the entire draft so rapid changes cannot lose fields. */
-export function InstantFilterForm({children,className}:{children:ReactNode;className?:string}) {
+export function InstantFilterForm({children,className,id}:{children:ReactNode;className?:string;id?:string}) {
   const router=useRouter(),pathname=usePathname();
   const timer=useRef<ReturnType<typeof setTimeout>|null>(null),composing=useRef(false);
   const [pending,start]=useTransition(),[error,setError]=useState("");
@@ -22,7 +22,7 @@ export function InstantFilterForm({children,className}:{children:ReactNode;class
       start(()=>router.replace(`${pathname}${params.size?`?${params}`:""}`,{scroll:false}));
     },delay);
   }
-  return <form className={className} onSubmit={e=>{e.preventDefault();apply(e.currentTarget);}}
+  return <form id={id} className={className} onSubmit={e=>{e.preventDefault();apply(e.currentTarget);}}
     onCompositionStart={()=>{composing.current=true;if(timer.current)clearTimeout(timer.current);}}
     onCompositionEnd={e=>{composing.current=false;apply(e.currentTarget,250);}}
     onChange={e=>{const field=e.target as unknown as HTMLInputElement;apply(e.currentTarget,field.tagName==="SELECT"||field.type==="date"?0:250);}}>

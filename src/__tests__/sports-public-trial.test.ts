@@ -12,7 +12,7 @@ vi.mock("@/server/services/trial-booking-chat-link", () => ({ resolveTrialBookin
 vi.mock("@/server/services/verified-line-customer", () => ({ resolveVerifiedLineCustomer: m.member }));
 vi.mock("@/server/services/course-line-onboarding", () => ({ onboardCourseLineMember: m.onboard }));
 vi.mock("@/server/services/sports-staging-schedule", () => ({ readSportsSessionRule: m.rule }));
-vi.mock("@/server/services/sports-production-readiness", () => ({ assertSportsProductionReady: vi.fn() }));
+vi.mock("@/server/services/sports-production-readiness", () => ({ assertSportsProductionReady: vi.fn(), assertSportsBookingReadReady: vi.fn() }));
 vi.mock("@/server/services/course-booking", () => ({ reserveCourseInTransaction: m.reserve }));
 vi.mock("@/server/services/course-access", () => ({ courseTransaction: async (_: string, work: (tx: unknown) => Promise<unknown>) => work({ courseBooking: { findUnique: m.previous }, courseSession: { findFirst: m.session }, $queryRaw: m.raw, $executeRaw: m.execute }) }));
 import { readSportsPublicTrial, submitSportsPublicTrial } from "@/server/services/sports-public-trial";

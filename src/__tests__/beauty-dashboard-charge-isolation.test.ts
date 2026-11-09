@@ -13,6 +13,9 @@ vi.mock('@/server/beauty/commerce',()=>({settlement:m.report}));
 vi.mock('@/server/beauty/calendar-rosters',()=>({preloadBeautyCalendarRosters:m.rosters}));
 vi.mock('@/server/beauty/health',()=>({beautyHealthEnabled:async()=>false}));
 vi.mock('@/server/beauty/service-charges',()=>({serviceCharges:async()=>[],servicePaymentLabel:vi.fn()}));
+vi.mock('@/server/services/add-on-access',()=>({isBeautyServiceAddOnsEnabled:async()=>false}));
+vi.mock('@/server/beauty/booking-shared-goods',()=>({publicBeautyGoodsCatalog:async()=>null}));
+vi.mock('@/server/beauty/shared-goods-catalog',()=>({readBeautyGoodsCatalog:async()=>({revision:0,enabled:false,groups:[]})}));
 import {beautyDashboard} from '@/server/beauty/queries';
 beforeEach(()=>{vi.clearAllMocks();m.manager.mockResolvedValue({storeId:'store'});m.payments.mockResolvedValue([]);m.purchases.mockResolvedValue([]);m.report.mockResolvedValue(null);m.feature.mockResolvedValue(true);m.rosters.mockResolvedValue({storeId:'store',details:{}});m.can.mockResolvedValue(true);m.catalog.mockRejectedValue(Error('收費規則版本不符'));});
 it('loads settings and other non-charge pages without the unrelated failing charge catalog, retaining the opening-check capability',async()=>{

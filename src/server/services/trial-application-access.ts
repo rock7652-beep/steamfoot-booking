@@ -1,7 +1,9 @@
+import {assertSubscriptionReferralQa} from "../../../scripts/subscription-referral-qa-scope.mjs";
 import { isPreview } from "@/lib/runtime-env";
 // Preview may inherit production credentials. Only the existing isolated test
 // project is permitted; never trust a caller-supplied environment label.
 export function trialApplicationDatabaseAllowed() {
+  if(assertSubscriptionReferralQa())return true;
   if (!isPreview()) return true;
   try {
     const u = new URL(process.env.DATABASE_URL ?? "");

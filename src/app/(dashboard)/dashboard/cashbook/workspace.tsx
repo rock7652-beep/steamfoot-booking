@@ -144,12 +144,12 @@ export default async function CashbookPage({ searchParams }: PageProps) {
 
   return (
     <FeatureGate plan={plan} feature={FEATURES.CASHBOOK} enabled={await hasCurrentStoreFeature(FEATURES.CASHBOOK)}>
-      <PageShell>
+      <PageShell compact>
         <FormErrorToast />
 
         <PageHeader
           title="現金帳"
-          subtitle="完整收支與歷史紀錄；開閉店點錢請使用頂欄現金抽屜"
+          compact
           actions={
             isViewMode ? (
               <span className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
@@ -167,16 +167,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
         />
 
         {/* 下方：月度現金帳紀錄（與 workspace 視覺分隔） */}
-        <section id="cashbook-records" className="space-y-4 border-t border-earth-200 pt-6">
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold text-earth-900">現金帳紀錄</h2>
-            <p className="text-xs text-earth-500">
-              這裡是所有現金帳紀錄，包含現金與其他付款。只有
-              <span className="font-medium text-sky-700">「現金」</span>
-              會影響現金抽屜金額。
-            </p>
-          </div>
-
+        <section id="cashbook-records" className="space-y-2">
           <CashbookRecordFilters month={month} kind={selectedKind} keyword={keyword} />
 
           {(hasDateRange || categoryGroup) && (
@@ -222,7 +213,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
           }
           {/* 明細列表 */}
           <div className="max-w-full overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm" role="region" aria-label="現金帳明細，可橫向捲動" tabIndex={0}>
-            <table className="w-full min-w-[1050px] divide-y divide-gray-200 text-sm [&_th]:whitespace-nowrap [&_td]:align-top">
+            <table data-striped-list className="w-full min-w-[1050px] divide-y divide-gray-200 text-sm [&_th]:whitespace-nowrap [&_td]:align-top">
               <thead className="bg-earth-50">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium text-earth-600">日期</th>
@@ -237,7 +228,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
               </thead>
               <tbody className="divide-y divide-earth-100">
                 {entries.length === 0 && (
-                  <tr>
+                  <tr data-list-divider>
                     <td colSpan={8} className="px-4 py-0">
                       <EmptyState
                         icon="empty"
@@ -248,11 +239,11 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                   </tr>
                 )}
                 {entries.map((e) => (
-                  <tr key={e.id} className="hover:bg-earth-50">
-                    <td className="px-3 py-2 text-earth-600">
+                  <tr key={e.id} className="">
+                    <td className="px-3 py-1 text-earth-600">
                       {new Date(e.entryDate).toLocaleDateString("zh-TW")}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-1">
                       <span
                         className={`rounded px-2 py-0.5 text-xs font-medium ${
                           ENTRY_TYPE_COLOR[e.type]
@@ -261,7 +252,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         {ENTRY_TYPE_LABEL[e.type]}
                       </span>
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-1">
                       <span
                         className={`rounded px-2 py-0.5 text-xs font-medium ${
                           PAYMENT_METHOD_COLOR[e.paymentMethod]
@@ -270,19 +261,19 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         {PAYMENT_METHOD_LABEL[e.paymentMethod]}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-earth-600"><span>{e.category ?? "—"}</span>{e.category?.startsWith("零售-")&&!e.id.startsWith("inventory:")&&<span className="ml-2 text-sm text-earth-500">手動記帳</span>}{e.customer && <Link href={`/dashboard/customers/${e.customer.id}`} className="mt-0.5 block text-xs text-primary-700 hover:underline">{e.customer.name}</Link>}</td>
+                    <td className="px-3 py-1 text-earth-600"><span>{e.category ?? "—"}</span>{e.category?.startsWith("零售-")&&!e.id.startsWith("inventory:")&&<span className="ml-2 text-sm text-earth-500">手動記帳</span>}{e.customer && <Link href={`/dashboard/customers/${e.customer.id}`} className="mt-0.5 block text-xs text-primary-700 hover:underline">{e.customer.name}</Link>}</td>
                     <td
-                      className={`whitespace-nowrap px-3 py-2 text-right font-medium ${
+                      className={`whitespace-nowrap px-3 py-1 text-right font-medium ${
                         e.type === "INCOME" ? "text-green-700" : "text-red-700"
                       }`}
                     >
                       NT$ {Number(e.amount).toLocaleString()}
                     </td>
-                    <td className="px-3 py-2 text-earth-600">
+                    <td className="px-3 py-1 text-earth-600">
                       {e.staff?.displayName ?? (isCourse ? e.createdBy?.name : null) ?? "未指定"}
                     </td>
-                    <td className="w-64 max-w-64 px-3 py-2 text-earth-600">{e.note?<details className="w-56"><summary className="flex min-h-11 cursor-pointer items-center gap-2"><span className="min-w-0 flex-1 truncate">{e.note}</span><span className="shrink-0 text-primary-700">展開</span></summary><p className="whitespace-pre-wrap break-words pb-2">{e.note}</p></details>:"—"}</td>
-                    <td className="px-3 py-2">
+                    <td className="w-64 max-w-64 px-3 py-1 text-earth-600">{e.note?<details className="w-56"><summary className="flex min-h-11 cursor-pointer items-center gap-2"><span className="min-w-0 flex-1 truncate">{e.note}</span><span className="shrink-0 text-primary-700">展開</span></summary><p className="whitespace-pre-wrap break-words pb-2">{e.note}</p></details>:"—"}</td>
+                    <td className="px-3 py-1">
                       {isViewMode ? (
                         <span className="text-earth-400">僅可查看</span>
                       ) : (

@@ -1,4 +1,6 @@
 "use server";
+import { setAdjustmentMonthLock } from "@/server/services/staff-monthly-adjustment";
+import {beautyReadTransaction} from '@/server/beauty/read-transaction';
 import {beautyChargeRulesEnabled,readCatalogCharge} from '@/server/beauty/charge-runtime';
 import {beautyPlanPurchaseIntentsEnabled} from '@/server/beauty/plan-checkout-input';
 import {beautyMemberPurchaseIntentsEnabled,beautyMemberPurchaseFingerprint,commitBeautyMemberPurchaseIntent} from '@/server/beauty/member-purchase-intent';
@@ -446,9 +448,9 @@ async function readBeautyCollectionCore(ids:unknown){
  return result(async()=>{
   const a=await beautyManager("transaction.create");await requirePermission("booking.read");await requireStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
   const wanted=z.array(key).min(1).max(12).refine(a=>new Set(a).size===a.length).parse(ids);
-  return beautyTransaction(a,async tx=>{
+  return beautyReadTransaction(async tx=>{
    const rows=await tx.beautyAppointment.findMany({where:{storeId:a.storeId,id:{in:wanted}}});
-   if(rows.length!==wanted.length||rows.some(b=>b.cardId||b.status==='CANCELLED'))throw new AppError('CONFLICT','服務已更新或不適用收款，請重新開啟');
+   if(rows.length!==wanted.length||rows.some(b=>b.status==='CANCELLED'||b.cardId&&(!Array.isArray(b.addOnItems)||!b.addOnItems.some(item=>item&&typeof item==='object'&&!Array.isArray(item)&&typeof item.price==='number'&&item.price>0))))throw new AppError('CONFLICT','服務已更新或不適用收款，請重新開啟');
    return serviceCharges(tx,a.storeId,wanted.map(id=>rows.find(b=>b.id===id)!));
   });
  });
@@ -488,13 +490,16 @@ export async function confirmBeautySettlement(input: unknown) {
         requestKey: z.string().uuid(),
         month: z.string(),
         fingerprint: z.string(),
+        expectedLockRevision: z.number().int().nonnegative().optional(),
       })
       .parse(input);
     return beautyTransaction(a, (tx) =>
       command(tx, a, d.requestKey, d, async () => {
         const report = await settlement(tx, a.storeId, d.month);
+        if(d.expectedLockRevision!==undefined&&report.adjustmentMonth.revision!==d.expectedLockRevision)throw new AppError("CONFLICT","月結已變更，請重新核對");
         if (report.fingerprint !== d.fingerprint)
           throw new AppError("CONFLICT", "月結已變更，請重新核對");
+        await setAdjustmentMonthLock(tx,a.storeId,d.month,true);
         await tx.beautySettlement.create({
           data: {
             storeId: a.storeId,

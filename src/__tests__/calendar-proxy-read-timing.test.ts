@@ -3,6 +3,9 @@ import {calendarProxyReadOperation,traceCalendarProxyRead} from '@/lib/calendar-
 import {measureMusicRead} from '@/lib/music-read-timing';
 afterEach(()=>vi.restoreAllMocks());
 it.each([
+ ['POST','/s/store/admin/dashboard/courses/calendar-sync','sports-month-sync'],
+ ['POST','/hq/dashboard/courses/calendar-read','course-month-read'],
+ ['GET','/hq/dashboard/courses/calendar-sync',null],
  ['POST','/s/store/admin/dashboard/courses/session-detail','sports-roster'],
  ['POST','/hq/dashboard/courses/session-detail','sports-roster'],
  ['GET','/s/store/admin/dashboard/courses/schedule-options','sports-options'],
@@ -10,7 +13,7 @@ it.each([
  ['GET','/api/beauty/roster?scope=booking:private','beauty-roster'],
  ['POST','/api/beauty/roster',null],['GET','/s/store/admin/dashboard/courses',null],
  ['GET','/hq/dashboard/music-read?operation=purchases',null],['POST','/api/course/checkout',null],
-])('profiles only known read operations: %s %s',(method,path,operation)=>{
+])('profiles only known calendar operations: %s %s',(method,path,operation)=>{
  expect(calendarProxyReadOperation(method,new URL(path,'https://qa.test'))).toBe(operation);
 });
 it('preserves the response and only attaches numeric timings',async()=>{

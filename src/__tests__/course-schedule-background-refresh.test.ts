@@ -7,14 +7,16 @@ vi.mock("@/server/actions/course-members", () => ({ updateCourseRosterBatch: vi.
 vi.mock("@/server/actions/sports-staging", () => ({ recordSportsAttendance: vi.fn(), cancelSportsLesson: vi.fn(), moveSportsLesson: vi.fn() }));
 vi.mock("@/server/actions/sports-series", () => ({ syncSportsPermanentCalendar: vi.fn() }));
 // @vitest-environment jsdom
+import layoutStyles from "@/app/(dashboard)/dashboard/courses/schedule-layout.module.css";
+import {mkdirSync,writeFileSync} from "node:fs";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { CourseWorkspace, type CourseCalendarSource } from "@/app/(dashboard)/dashboard/courses/workspace";
 
-const m = vi.hoisted(() => ({ query: "", nativeRead: vi.fn(), detail:vi.fn(), roster:vi.fn(), router: { refresh: vi.fn(),replace:vi.fn() } }));
+const m = vi.hoisted(() => ({ query: "", nativeRead: vi.fn(), nativeSync:vi.fn(), detail:vi.fn(), roster:vi.fn(), router: { refresh: vi.fn(),replace:vi.fn() } }));
 vi.mock("@/lib/course-session-detail-client",()=>({readCourseSessionDetailClient:m.detail}));
-vi.mock("@/lib/sports-calendar-client",()=>({readSportsCalendar:m.nativeRead}));
+vi.mock("@/lib/sports-calendar-client",()=>({readSportsCalendar:m.nativeRead,readMusicCalendar:m.nativeRead,syncSportsCalendar:m.nativeSync}));
 vi.mock("next/navigation", () => ({
   useRouter: () => m.router,
   usePathname: () => "/s/sports-test/admin/dashboard/courses",
@@ -172,15 +174,46 @@ it.each([false,true])('opens with prepared data and keeps its refresh completion
  }finally{window.history.replaceState(null,'',original);vi.unstubAllEnvs();}
 });
 
-it('music date navigation stays responsive and hides unmatched month data until the route commits',async()=>{
- let finish!:()=>void;const route=new Promise<void>(resolve=>{finish=resolve;});m.router.replace.mockReturnValue(route);
- await render('MUSIC');const date=()=>host.querySelector<HTMLInputElement>('[aria-label="課表日期"]')!;
- const choose=async(value:string)=>act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(date(),value);date().dispatchEvent(new Event('change',{bubbles:true}));date().dispatchEvent(new Event('input',{bubbles:true}));});
- await choose('2026-11-17');expect(date().disabled).toBe(false);expect(date().value).toBe('2026-11-17');expect(host.querySelector('[aria-label="課表載入"]')).not.toBeNull();
- await choose('2026-12-17');expect(date().disabled).toBe(false);expect(m.router.replace.mock.calls.at(-1)![0]).toContain('date=2026-12-17');
- // Returning to the already loaded month still dispatches a navigation to supersede the pending route.
- await choose('2026-10-17');expect(m.router.replace.mock.calls.at(-1)![0]).toContain('date=2026-10-17');
- await act(async()=>finish());m.router.replace.mockReset();
+it('music date navigation uses month JSON reads and ignores responses after returning to the loaded month',async()=>{
+ const original=window.location.href,replace=window.history.replaceState.bind(window.history);
+ vi.spyOn(window.history,'replaceState').mockImplementation((data,title,url)=>{replace(data,title,url);m.query=new URL(window.location.href).searchParams.toString();});
+ let finishNovember!:(value:unknown)=>void,finishDecember!:(value:unknown)=>void;
+ m.nativeRead.mockReturnValueOnce(new Promise(resolve=>{finishNovember=resolve;})).mockReturnValueOnce(new Promise(resolve=>{finishDecember=resolve;}));
+ try{
+  await render('MUSIC');const date=()=>host.querySelector<HTMLInputElement>('[aria-label="課表日期"]')!;
+  const choose=async(value:string)=>{await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(date(),value);date().dispatchEvent(new Event('change',{bubbles:true}));date().dispatchEvent(new Event('input',{bubbles:true}));});await render('MUSIC');};
+  await choose('2026-11-17');expect(date().disabled).toBe(false);expect(date().value).toBe('2026-11-17');expect(host.querySelector('[aria-label="課表載入"]')).not.toBeNull();
+  await act(async()=>window.dispatchEvent(new Event('focus')));expect(m.router.refresh).not.toHaveBeenCalled();
+  await choose('2026-12-17');expect(date().disabled).toBe(false);expect(m.nativeRead.mock.calls.map(call=>call[0])).toEqual(['2026-11-17','2026-12-17']);
+  await choose('2026-10-17');expect(host.querySelector('[aria-label="課表載入"]')).toBeNull();
+  await act(async()=>{for(const [resolve,month]of [[finishDecember,'2026-12'],[finishNovember,'2026-11']] as const)resolve({success:true,data:{month,sessions:[],calendarDays:{},cancelledBookings:[],staffAvailabilityExceptions:[]}});});
+  expect(date().value).toBe('2026-10-17');expect(host.querySelector('[aria-label="課表載入"]')).toBeNull();expect(m.router.replace).not.toHaveBeenCalled();expect(m.router.refresh).not.toHaveBeenCalled();
+ }finally{replace(null,'',original);}
+});
+
+it.each([['month','下個月'],['week','下一週'],['day','後一天']])('music %s crossing a month reads the complete new month without page navigation',async(mode,label)=>{
+ const original=window.location.href,replace=window.history.replaceState.bind(window.history);
+ m.query=`date=2026-10-31&scheduleView=${mode}`;
+ replace(null,'','/s/music-test/admin/dashboard/courses?'+m.query);
+ vi.spyOn(window.history,'replaceState').mockImplementation((data,title,url)=>{replace(data,title,url);m.query=new URL(window.location.href).searchParams.toString();});
+ m.nativeRead.mockResolvedValue({success:true,data:{month:'2026-11',sessions:[],calendarDays:{},cancelledBookings:[],staffAvailabilityExceptions:[],rosterSnapshots:{storeId:'store-a',details:{}}}});
+ try{
+  await render('MUSIC');await act(async()=>host.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());await render('MUSIC');
+  expect(m.nativeRead).toHaveBeenCalledOnce();expect(m.nativeRead.mock.calls[0][0]).toMatch(/^2026-11-/);expect(m.router.replace).not.toHaveBeenCalled();expect(m.router.refresh).not.toHaveBeenCalled();expect(host.querySelector('[aria-label="課表載入"]')).toBeNull();
+  const directory=process.env.CALENDAR_NAVIGATION_PREVIEW_DIR;
+  if(directory){mkdirSync(directory,{recursive:true});writeFileSync(`${directory}/layout-classnames.json`,JSON.stringify(layoutStyles));writeFileSync(`${directory}/music-${mode}.html`,`<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="styles.css"><body>${host.innerHTML}</body></html>`);}
+ }finally{replace(null,'',original);}
+});
+
+it('does not accept another store month after the active store changes during a read',async()=>{
+ const original=window.location.href,replace=window.history.replaceState.bind(window.history);
+ vi.spyOn(window.history,'replaceState').mockImplementation((data,title,url)=>{replace(data,title,url);m.query=new URL(window.location.href).searchParams.toString();});
+ m.nativeRead.mockResolvedValue({success:true,data:{storeId:'other-store',month:'2026-11',sessions:[],calendarDays:{},cancelledBookings:[],staffAvailabilityExceptions:[]}});
+ try{
+  await render('MUSIC');const input=host.querySelector<HTMLInputElement>('[aria-label="課表日期"]')!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'2026-11-01');input.dispatchEvent(new Event('change',{bubbles:true}));input.dispatchEvent(new Event('input',{bubbles:true}));});await render('MUSIC');
+  expect(host.querySelector('[aria-label="課表載入"]')).not.toBeNull();expect(host.querySelector('[role="alert"]')?.textContent).toContain('課表讀取失敗');
+ }finally{replace(null,'',original);}
 });
 
 it('blocks a late parent after a cleared note and requests one fresh calendar without losing its owner',async()=>{
@@ -200,4 +233,51 @@ it('blocks a late parent after a cleared note and requests one fresh calendar wi
   await act(async()=>root.render(createElement(CourseWorkspace,{...input,rosterSnapshots:{...initial,details:{session:empty}}})));
   expect(host.querySelector('[data-calendar-rosters-ready="true"]')).not.toBeNull();expect(m.roster.mock.lastCall?.[0].initialSnapshot.data.session.teacherNote).toBe('');expect(m.router.refresh).toHaveBeenCalledOnce();
  }finally{window.history.replaceState(null,'',original);vi.unstubAllEnvs();}
+});
+
+it.each([['month','下個月'],['week','下一週'],['day','後一天']])('sports %s crossing a month consumes one sync-and-read response',async(mode,label)=>{
+ const original=window.location.href,replace=window.history.replaceState.bind(window.history);
+ m.query=`date=2026-10-31&scheduleView=${mode}`;replace(null,'','/s/sports-test/admin/dashboard/courses?'+m.query);
+ vi.spyOn(window.history,'replaceState').mockImplementation((data,title,url)=>{replace(data,title,url);m.query=new URL(window.location.href).searchParams.toString();});
+ try{
+ let finish!:(value:unknown)=>void;
+ m.nativeSync.mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+ await act(async()=>root.render(createElement(CourseWorkspace,{...props,selectedDate:'2026-10-31',sportsNative:true,businessProfile:'FITNESS'})));
+ await act(async()=>host.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());
+ expect(m.nativeSync).toHaveBeenCalledOnce();expect(m.nativeSync.mock.calls[0][0]).toMatch(/^2026-11-/);
+ expect(m.nativeRead).not.toHaveBeenCalled();expect(host.querySelector('[aria-label="課表載入"]')).not.toBeNull();
+ await act(async()=>finish({success:true,warning:'部分固定課需核對',data:{storeId:'store-a',month:'2026-11',sessions:[],calendarDays:{},cancelledBookings:[],staffAvailabilityExceptions:[],rosterSnapshots:{storeId:'store-a',details:{}}}}));
+ expect(host.querySelector('[aria-label="課表載入"]')).toBeNull();expect(host.querySelector('[data-calendar-rosters-ready="true"]')).not.toBeNull();
+ expect(host.textContent).toContain('部分固定課需核對');expect(m.nativeRead).not.toHaveBeenCalled();expect(m.router.refresh).not.toHaveBeenCalled();expect(m.router.replace).not.toHaveBeenCalled();
+ }finally{replace(null,'',original);}
+});
+
+it('ignores a late combined sports response after a newer month has completed',async()=>{
+ const original=window.location.href,replace=window.history.replaceState.bind(window.history);
+ m.query='date=2026-10-31&scheduleView=month';replace(null,'','/s/sports-test/admin/dashboard/courses?'+m.query);
+ vi.spyOn(window.history,'replaceState').mockImplementation((data,title,url)=>{replace(data,title,url);m.query=new URL(window.location.href).searchParams.toString();});
+ let november!:(value:unknown)=>void,december!:(value:unknown)=>void;
+ m.nativeSync.mockReturnValueOnce(new Promise(resolve=>{november=resolve;})).mockReturnValueOnce(new Promise(resolve=>{december=resolve;}));
+ try{
+  await act(async()=>root.render(createElement(CourseWorkspace,{...props,selectedDate:'2026-10-31',sportsNative:true,businessProfile:'FITNESS'})));
+  await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="下個月"]')!.click());
+  await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="下個月"]')!.click());
+  expect(m.nativeSync.mock.calls.map(call=>call[0])).toEqual(['2026-11-01','2026-12-01']);
+  await act(async()=>december({success:true,data:{storeId:'store-a',month:'2026-12',sessions:[],calendarDays:{},cancelledBookings:[],staffAvailabilityExceptions:[],rosterSnapshots:{storeId:'store-a',details:{}}}}));
+  await act(async()=>november({success:false,error:'較舊的同步失敗'}));
+  expect(host.querySelector<HTMLInputElement>('[aria-label="課表日期"]')!.value).toBe('2026-12-01');
+  expect(host.querySelector('[data-calendar-rosters-ready="true"]')).not.toBeNull();expect(host.textContent).not.toContain('較舊的同步失敗');expect(m.nativeRead).not.toHaveBeenCalled();
+ }finally{replace(null,'',original);}
+});
+it.each([{success:false,error:'固定課同步失敗'},{success:true,data:{storeId:'other-store',month:'2026-11',sessions:[]}}])('keeps sports loading blocked when the combined response is rejected: %j',async result=>{
+ const original=window.location.href,replace=window.history.replaceState.bind(window.history);
+ m.query='date=2026-10-31&scheduleView=month';replace(null,'','/s/sports-test/admin/dashboard/courses?'+m.query);
+ vi.spyOn(window.history,'replaceState').mockImplementation((data,title,url)=>{replace(data,title,url);m.query=new URL(window.location.href).searchParams.toString();});
+ m.nativeSync.mockReset().mockResolvedValue(result);
+ try{
+  await act(async()=>root.render(createElement(CourseWorkspace,{...props,selectedDate:'2026-10-31',sportsNative:true,businessProfile:'FITNESS'})));
+  await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="下個月"]')!.click());
+  expect(host.querySelector<HTMLInputElement>('[aria-label="課表日期"]')!.value).toBe('2026-11-01');
+  expect(host.querySelector('[aria-label="課表載入"] [role="alert"]')).not.toBeNull();expect(m.nativeRead).not.toHaveBeenCalled();
+ }finally{replace(null,'',original);}
 });

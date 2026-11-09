@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "tsx scripts/store-line-additions-preflight.ts",
+    "prebuild": "node scripts/referral-production-release-review.mjs --configuration-only && tsx scripts/store-line-additions-preflight.ts",
     "build": "node scripts/music-release-preflight.mjs && node scripts/store-notices-preview-preflight.mjs && node scripts/ci-migrate.mjs && node scripts/digital-manager-build-readiness.mjs && node scripts/booking-unregistered-payment-readiness.mjs && npm run generate:clients && next build",
     "generate:clients": "prisma generate && prisma generate --schema course-prisma/schema.prisma && prisma generate --schema beauty-prisma/schema.prisma",
     "start": "next start",
@@ -18,7 +18,8 @@
     "preflight:digital-butler": "tsx scripts/digital-butler-production-preflight.ts",
     "upgrade:zhubei-messenger-flow": "tsx scripts/upgrade-zhubei-messenger-digital-butler-flow.ts",
     "audit:messenger-production": "tsx scripts/messenger-production-audit.ts",
-    "postinstall": "npm run generate:clients"
+    "postinstall": "npm run generate:clients",
+    "postbuild": "node scripts/production-postgres-packaging.mjs --if-production && node scripts/referral-production-release-review.mjs --read-only"
   },
   "prisma": {
     "schema": "prisma",
@@ -33,6 +34,7 @@
     "exceljs": "^4.4.0",
     "next": "16.2.2",
     "next-auth": "^5.0.0-beta.28",
+    "pdfkit": "0.20.2",
     "pg": "8.23.1",
     "prisma": "^6.19.2",
     "qrcode": "^1.5.4",
@@ -50,6 +52,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
+    "@types/pdfkit": "0.17.7",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",

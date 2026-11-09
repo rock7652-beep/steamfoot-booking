@@ -1,14 +1,16 @@
 vi.mock("@/server/services/course-calendar-rosters",()=>({preloadCourseCalendarRosters:m.preload}));
 import {beforeEach,it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({scope:vi.fn(),sessions:vi.fn(),sessionQuery:vi.fn(),entitlement:vi.fn(),preload:vi.fn(),actor:vi.fn()}));
+const m=vi.hoisted(()=>({scope:vi.fn(),sessions:vi.fn(),sessionQuery:vi.fn(),entitlement:vi.fn(),preload:vi.fn(),actor:vi.fn(),groups:vi.fn(),labels:vi.fn(),permission:vi.fn(),hours:vi.fn()}));
+vi.mock("@/server/services/customer-label-snapshot",()=>({customerLabelSnapshot:m.labels}));
+vi.mock("@/lib/permissions",()=>({checkPermission:m.permission}));
 vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:m.scope}));
 vi.mock("@/server/services/course-access",()=>({courseManagerRead:m.actor}));
 vi.mock("@/lib/feature-gate",()=>({requireStoreFeature:async()=>{}}));
-vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:m.entitlement},businessHours:{findMany:async()=>[]},specialBusinessDay:{findMany:async()=>[]},customer:{findMany:async()=>[{id:"member",assignedStaffId:"coach"}]},$queryRaw:async()=>[]}}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:async()=>({selfBookingEnabled:false,assignedSchedulingEnabled:true})},courseSession:{findMany:m.sessions},courseRental:{findMany:async()=>[]},$queryRaw:async()=>[{sessionId:"session",frequency:"BIWEEKLY"}]}}));
-import {loadSportsCalendar} from "@/server/actions/sports-calendar";
+vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:m.entitlement},businessHours:{findMany:m.hours},specialBusinessDay:{findMany:async()=>[]},customer:{findMany:async()=>[{id:"member",assignedStaffId:"coach"}]},$queryRaw:async()=>[]}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:async()=>({selfBookingEnabled:false,assignedSchedulingEnabled:true})},courseSession:{findMany:m.sessions,groupBy:m.groups},courseRental:{findMany:async()=>[]},$queryRaw:async()=>[{sessionId:"session",frequency:"BIWEEKLY"}]}}));
+import {loadSportsCalendar,loadMusicCalendar} from "@/server/actions/sports-calendar";
 const session={id:"session",nameSnapshot:"運動",templateId:"template",startsAt:new Date("2026-11-09T01:00:00Z"),endsAt:new Date("2026-11-09T02:00:00Z"),coachId:"coach",roomId:"room",capacity:8,pointCost:2,isTrial:false,requestKey:"key",teacherAttendance:"SCHEDULED",releasedAt:null,rescheduledFromStartsAt:null,rescheduledFromEndsAt:null,rescheduledAt:null,rescheduledFromRoomId:null,rescheduledFromCoachId:null,rescheduleKind:null,bookings:[{id:"booking",customerId:"member",customerName:"驗收",status:"RESERVED",absenceKind:null,bookingKind:"STANDARD",checkedInAt:null,notes:"",cardId:"private-card-id"}]};
-beforeEach(()=>{vi.clearAllMocks();m.actor.mockResolvedValue({storeId:"sports-live-flow-store",isChildStoreView:false});m.preload.mockImplementation(async(storeId:string)=>({storeId,details:{}}));m.scope.mockReturnValue(true);m.sessions.mockResolvedValue([session]);m.entitlement.mockResolvedValue({id:"entitlement"});});
+beforeEach(()=>{vi.clearAllMocks();m.hours.mockResolvedValue([]);m.groups.mockResolvedValue([]);m.labels.mockResolvedValue({storeId:"sports-live-flow-store",enabled:true,assignments:{member:["label"]}});m.permission.mockResolvedValue(true);m.actor.mockResolvedValue({user:{id:"owner",role:"OWNER",staffId:"staff"},storeId:"sports-live-flow-store",isChildStoreView:false});m.preload.mockImplementation(async(storeId:string)=>({storeId,details:{}}));m.scope.mockReturnValue(true);m.sessions.mockResolvedValue([session]);m.entitlement.mockResolvedValue({id:"entitlement"});});
 it("loads the requested month through store-scoped reads, without leaking unrelated booking fields",async()=>{
  const r=await loadSportsCalendar("2026-11-09");expect(r.success).toBe(true);if(!r.success)return;
  expect(r.data.month).toBe("2026-11");expect(r.data.schedulingModes).toEqual({selfBookingEnabled:false,assignedSchedulingEnabled:true});expect(r.data.sessions[0]).toMatchObject({isFixed:true,isBiweekly:true,bookings:[{assignedCoachId:"coach",status:"RESERVED"}]});expect(JSON.stringify(r.data)).not.toContain("private-card-id");
@@ -26,3 +28,55 @@ it.each([false,true])("shows the teaching item for existing classes, trial=%s, w
 });
 
 it("preserves child-store calendar reads without entering writable-store detail authorization",async()=>{m.actor.mockResolvedValue({storeId:"sports-live-flow-store",isChildStoreView:true});const r=await loadSportsCalendar("2026-11-09");expect(r.success).toBe(true);expect(m.preload).not.toHaveBeenCalled();if(r.success)expect(r.data.rosterSnapshots).toBeUndefined();});
+
+it.each([['SINGLE','WEEKLY',false,false],['FIXED','BIWEEKLY',true,true],['LEGACY','WEEKLY',true,false]] as const)("music %s uses the same schedule presentation without sports sync",async(scheduleType,scheduleFrequency,isFixed,isBiweekly)=>{
+ m.sessions.mockResolvedValue([{...session,scheduleType,scheduleFrequency,template:{musicScheduleMode:'FIXED'}}]);
+ const result=await loadMusicCalendar('2026-11-09');expect(result.success).toBe(true);if(!result.success)return;
+ expect(result.data.sessions[0]).toMatchObject({isFixed,isBiweekly,sportsPalette:false});
+ expect(result.data.labelSnapshot?.assignments).toEqual({member:['label']});
+ expect(m.scope).not.toHaveBeenCalled();expect(m.entitlement).toHaveBeenCalledWith({where:{storeId:'sports-live-flow-store',featureKey:'business.music',status:'ENABLED'}});
+ expect(m.preload).toHaveBeenCalledWith('sports-live-flow-store',['session']);
+ expect(JSON.stringify(result.data)).not.toContain('private-card-id');
+});
+
+it('music never returns a partial month while complete rosters are still loading',async()=>{
+ let release!:(value:unknown)=>void;const roster=new Promise(resolve=>{release=resolve;});m.preload.mockReturnValue(roster);
+ let complete=false;const read=loadMusicCalendar('2026-11-09').then(value=>{complete=true;return value;});
+ await vi.waitFor(()=>expect(m.labels).toHaveBeenCalled());expect(complete).toBe(false);
+ release({storeId:'sports-live-flow-store',details:{session:{roster:[]}}});
+ const result=await read;expect(result.success).toBe(true);if(result.success)expect(result.data.rosterSnapshots?.details.session).toEqual({roster:[]});
+});
+
+it('music child-store readers omit writable roster details',async()=>{
+ m.actor.mockResolvedValue({user:{id:'owner',role:'OWNER',staffId:'staff'},storeId:'child',isChildStoreView:true});
+ const result=await loadMusicCalendar('2026-11-09');expect(result.success).toBe(true);expect(m.preload).not.toHaveBeenCalled();
+});
+
+it('does not read calendar rows when the music module entitlement is absent',async()=>{
+ m.entitlement.mockResolvedValue(null);expect((await loadMusicCalendar('2026-11-09')).success).toBe(false);expect(m.sessions).not.toHaveBeenCalled();
+});
+
+it('preserves the music business-hours setup guard instead of returning incomplete roster data',async()=>{
+ m.hours.mockResolvedValue([{segments:null}]);expect((await loadMusicCalendar('2026-11-09')).success).toBe(false);expect(m.preload).not.toHaveBeenCalled();
+});
+
+it("records month phase/count diagnostics without including customer or booking values",async()=>{
+ const log=vi.spyOn(console,"info").mockImplementation(()=>{});
+ try{
+  const result=await loadSportsCalendar("2026-11-09");expect(result.success).toBe(true);
+  const row=log.mock.calls.find(call=>call[0]==="[COURSE_CALENDAR_PHASE_PERF]");expect(row).toBeDefined();
+  const trace=JSON.parse(row![1]);expect(trace).toMatchObject({operation:"month_fitness",ok:true,counts:{sessions:1,rentals:0,customers:1}});
+  expect(trace.spans.map((s:{name:string})=>s.name)).toEqual(expect.arrayContaining(["access","sports_scope","module_entitlement","booking_feature","month_batch","sessions","rentals","rules","hours","special_days","availability_exceptions","scheduling_modes","customers","rosters","month_details","presentation","calendar_days"]));
+  expect(JSON.stringify(trace)).not.toMatch(/private-card-id|驗收|sports-live-flow-store|2026-11-09/);
+ }finally{log.mockRestore();}
+});
+it("records a failed authorization outcome without beginning month data queries",async()=>{
+ const log=vi.spyOn(console,"info").mockImplementation(()=>{});
+ try{
+  m.actor.mockRejectedValue(new Error("private identity"));
+  expect((await loadSportsCalendar("2026-11-09")).success).toBe(false);expect(m.sessions).not.toHaveBeenCalled();
+  const row=log.mock.calls.find(call=>call[0]==="[COURSE_CALENDAR_PHASE_PERF]");
+  const trace=JSON.parse(row![1]);expect(trace).toMatchObject({operation:"month_fitness",ok:false,spans:[{name:"access",ok:false}]});
+  expect(JSON.stringify(trace)).not.toContain("private identity");
+ }finally{log.mockRestore();}
+});

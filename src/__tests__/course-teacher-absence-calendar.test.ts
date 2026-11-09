@@ -23,8 +23,12 @@ it.each(["ATTENDED","NO_SHOW"])("retains a one-student %s class in day and week 
  try {
  for(const mode of ["day","week"] as const){
  await act(async()=>root.render(createElement(CourseScheduleBoard,{businessProfile:"FITNESS",mode,selectedDate:"2026-10-07",today:"2026-10-06",sessions:[{id:"session",templateId:"template",nameSnapshot:"單人紀錄測試",startsAt:"2026-10-07T02:00:00Z",endsAt:"2026-10-07T03:00:00Z",coachId:"coach",roomId:"room",capacity:1,pointCost:1,bookings:[{customerId:"student",customerName:"學員",status,bookingKind:"CARD"}]}],rooms:[{id:"room",name:"A教室",isActive:true}],coaches:[{id:"coach",displayName:"教練",status:"ACTIVE",courseCoachEnabled:true}],templates:[{id:"template",name:"單人紀錄測試",classType:"PRIVATE"}],storePeriods:[{openTime:"09:00",closeTime:"12:00"}],staffAvailability:[],staffAvailabilityExceptions:[],onOpenEmpty:vi.fn(),onSelectDate:vi.fn(),onOpenSession:open})));
- const card=[...host.querySelectorAll('button')].find(b=>b.title.includes('學員')&&b.title.includes('10:00'));
+ const card=host.querySelector<HTMLButtonElement>('[data-calendar-session="session"]');
  expect(card).toBeTruthy();expect(card!.disabled).toBe(false);
+ await act(async()=>card!.focus());
+ const summary=document.querySelector('[data-service-card-summary]');
+ expect(summary?.textContent).toContain('學員');expect(summary?.textContent).toContain('10:00');
+ expect(card!.hasAttribute('title')).toBe(false);
  await act(async()=>card!.click());expect(open).toHaveBeenCalledWith('session','2026-10-07');
  }
  }finally{await act(async()=>root.unmount());host.remove();}

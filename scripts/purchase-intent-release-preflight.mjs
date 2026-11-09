@@ -11,12 +11,15 @@ export const BEAUTY_INTENT_COLUMNS = {
  BeautyCollectionIntentItem: ['storeId','requestKey','appointmentId','active'],
  BeautyMemberPurchaseIntent: ['storeId','customerId','actorUserId','requestKey','status','fingerprint','purchaseId','createdAt','updatedAt'],
 };
+export const BEAUTY_INACTIVE_ADDITIONS = ['BeautyServiceImage','BeautySharedGoodsOrder'];
 export function validateBeautySchema(rows, env) {
  const required = new Set(BEAUTY_BASE_TABLES), intents = Object.keys(BEAUTY_INTENT_COLUMNS);
- const approved = new Set([...required, ...intents]);
+ const approved = new Set([...required, ...intents, ...BEAUTY_INACTIVE_ADDITIONS]);
  const names = new Set(rows.map(row => row.relname));
  if (names.size !== rows.length || rows.some(row => !approved.has(row.relname) || row.relrowsecurity !== true) ||
      [...required].some(name => !names.has(name))) throw Error('Beauty schema/RLS not ready');
+ const additions=BEAUTY_INACTIVE_ADDITIONS.filter(name=>names.has(name)).length;
+ if(additions!==0&&additions!==BEAUTY_INACTIVE_ADDITIONS.length)throw Error('Beauty additive schema incomplete');
  const installed = intents.filter(name => names.has(name)).length;
  const enabled = ['BEAUTY_PLAN_PURCHASE_INTENTS_ENABLED','BEAUTY_MEMBER_PURCHASE_INTENTS_ENABLED','BEAUTY_COLLECTION_INTENTS_ENABLED'].some(key => env[key] === '1');
  if ((installed !== 0 && installed !== intents.length) || (enabled && installed !== intents.length)) throw Error('Beauty intent schema not ready');
@@ -45,4 +48,25 @@ export async function purchaseIntentAccessPreflight(client, family) {
   await client.query(`SELECT ${fields.map(field => `"${field}"`).join(',')} FROM public."${table}" LIMIT 0`);
  }
  return {tablesChecked: Object.keys(columns).length, readonly: true};
+}
+
+/** Compatibility for an installed, closed and unused additive schema only.
+ * No rollout, grants, writes, data removal or automatic migration. */
+export async function inactiveBeautyAdditionsPreflight(client,rows){
+ if(!rows.some(row=>BEAUTY_INACTIVE_ADDITIONS.includes(row.relname)))return;
+ for(const table of BEAUTY_INACTIVE_ADDITIONS){
+  const result=await client.query(`SELECT c.relrowsecurity,
+   EXISTS(SELECT 1 FROM aclexplode(COALESCE(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee=0 OR a.grantee IN (SELECT oid FROM pg_roles WHERE rolname IN ('anon','authenticated'))) AS browser_access
+   FROM pg_class c WHERE c.oid=to_regclass($1)`,[`public."${table}"`]);
+  if(result.rows.length!==1||result.rows[0].relrowsecurity!==true||result.rows[0].browser_access!==false)throw Error('Beauty additive privileges not verified');
+ }
+ // Ordinary bookings also save their unextended base duration. That snapshot
+ // alone is not additive usage; a changed duration still requires review.
+ const result=await client.query(`SELECT
+  EXISTS(SELECT 1 FROM "BeautySetting" WHERE "serviceAddOnsEnabled") AS enabled,
+  EXISTS(SELECT 1 FROM "BeautyService" WHERE "addOnGroups"<>'[]'::jsonb OR "imageId" IS NOT NULL) AS services_used,
+  EXISTS(SELECT 1 FROM "BeautyAppointment" WHERE "addOnItems"<>'[]'::jsonb OR "serviceImageId" IS NOT NULL OR ("baseServiceDuration" IS NOT NULL AND "baseServiceDuration"<>duration)) AS appointments_used,
+  EXISTS(SELECT 1 FROM "BeautyServiceImage") AS images_used,
+  EXISTS(SELECT 1 FROM "BeautySharedGoodsOrder") AS goods_used`);
+ if(result.rows.length!==1||['enabled','services_used','appointments_used','images_used','goods_used'].some(key=>result.rows[0][key]!==false))throw Error('Beauty additive features require their compatible application release');
 }

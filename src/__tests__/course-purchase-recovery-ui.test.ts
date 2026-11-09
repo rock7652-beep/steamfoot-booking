@@ -22,11 +22,11 @@ const api = {
 } satisfies PurchaseIntentTransport<{customerId:string;requestKey:string;amount:number}>;
 const send = vi.fn();
 const received = vi.fn();
-function Body({ customerId }: { customerId: string }) {
-  const recovery = useCoursePurchaseRecovery(customerId, true);
+function Body({ customerId,automatic=false }: { customerId: string;automatic?:boolean }) {
+  const recovery = useCoursePurchaseRecovery(customerId, true,automatic);
   const [error, setError] = useState("");
   return createElement("div", null,
-    createElement(CoursePurchaseRecoveryNotice, { recovery, disabled: false, onCommitted: () => {} }),
+    createElement(CoursePurchaseRecoveryNotice, { automaticCompletion:automatic,recovery, disabled: false, onCommitted: () => {} }),
     createElement("p", { role: "alert" }, error),
     createElement("button", { disabled: recovery.blocked, onClick: () => void recovery.submit({ customerId, requestKey: "unused", amount: 1000 }, send).then(result => { received(result); setError(result.error ?? ""); }) }, "購買"),
   );
@@ -250,4 +250,29 @@ it("uses an injected atomic prepare and does not send checkout for another devic
  await act(async()=>button("購買").click());
  expect(atomic).toHaveBeenCalledOnce();expect(api.getPending).toHaveBeenCalledOnce();
  expect(send).not.toHaveBeenCalled();expect(host.textContent).toContain("待確認購買");
+});
+
+
+it('automatically acknowledges an exact successful Beauty purchase without another confirmation click',async()=>{
+ send.mockImplementation(async()=>{api.get.mockResolvedValue({success:true,data:committed});return {success:true};});
+ await act(async()=>root.render(createElement(CoursePurchaseIntentProvider,{enabled:true,storeId:'test-store',family:'beauty-plan',transport:api},createElement(Body,{customerId:'student-a',automatic:true}))));
+ await act(async()=>button('購買').click());
+ expect(received).toHaveBeenCalledWith(expect.objectContaining({success:true}));expect(send).toHaveBeenCalledOnce();
+ expect(api.acknowledge).toHaveBeenCalledWith('student-a',key);expect(sessionStorage.length).toBe(0);
+ expect(host.textContent).not.toContain('確認完成並繼續購買');
+});
+it('retains the exact durable key if automatic completion acknowledgement fails',async()=>{
+ api.acknowledge.mockResolvedValue({success:false,error:'offline'});
+ send.mockImplementation(async()=>{api.get.mockResolvedValue({success:true,data:committed});return {success:true};});
+ await act(async()=>root.render(createElement(CoursePurchaseIntentProvider,{enabled:true,storeId:'test-store',family:'beauty-plan',transport:api},createElement(Body,{customerId:'student-a',automatic:true}))));
+ await act(async()=>button('購買').click());
+ expect(received).toHaveBeenCalledWith(expect.objectContaining({success:true}));expect(sessionStorage.length).toBe(1);expect(send).toHaveBeenCalledOnce();expect(button('購買').disabled).toBe(true);
+});
+
+it('keeps normal Beauty checkout phases quiet but retains unresolved purchase recovery',async()=>{
+ const recovery={enabled:true,view:{kind:'intent',intent:prepared},busy:false,confirmed:false} as ReturnType<typeof useCoursePurchaseRecovery>;
+ await act(async()=>root.render(createElement(CoursePurchaseRecoveryNotice,{recovery,disabled:true,automaticCompletion:true,onCommitted:()=>{}})));
+ expect(host.textContent).toBe('');
+ await act(async()=>root.render(createElement(CoursePurchaseRecoveryNotice,{recovery,disabled:false,automaticCompletion:true,onCommitted:()=>{}})));
+ expect(host.textContent).toContain('待確認購買');
 });

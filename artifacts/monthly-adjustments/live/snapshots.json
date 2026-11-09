@@ -1,0 +1,48 @@
+{
+  "checks": [
+    {
+      "kind": "fitness",
+      "revision": 2,
+      "total": 31300,
+      "signedAdjustmentsFrozen": true
+    },
+    {
+      "kind": "music",
+      "revision": 2,
+      "total": 31300,
+      "signedAdjustmentsFrozen": true
+    },
+    {
+      "kind": "beauty",
+      "total": 31300,
+      "signedAdjustmentsFrozen": true
+    }
+  ],
+  "roles": {
+    "current_user": "beauty_shared_pages_app",
+    "rolsuper": false,
+    "rolbypassrls": false
+  },
+  "locks": [
+    {
+      "storeId": "monthly-live-beauty",
+      "month": "2026-11",
+      "locked": true
+    },
+    {
+      "storeId": "monthly-live-fitness",
+      "month": "2026-11",
+      "locked": true
+    },
+    {
+      "storeId": "monthly-live-music",
+      "month": "2026-11",
+      "locked": true
+    },
+    {
+      "storeId": "monthly-live-steam",
+      "month": "2026-11",
+      "locked": true
+    }
+  ]
+}

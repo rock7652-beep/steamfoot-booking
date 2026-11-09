@@ -1,6 +1,12 @@
 import 'server-only';
+import {requireBeautyServiceAddOnManagement} from '@/server/services/add-on-access';
+import {isDeepStrictEqual} from 'node:util';
+import {requirePermission} from '@/lib/permissions';
 import {beautyChargeRulesEnabled,beautyChargeEditingEnabled,maintainCatalogCharge,initializeEmptyBeautyOpening} from './charge-runtime';
-import {Prisma} from '../../../generated/beauty-client';
+import type {Prisma} from '../../../generated/beauty-client';
+import {loadBeautyPrismaRuntime} from '@/lib/generated-prisma-runtime';
+// JSON null sentinels must come from the same runtime as beautyPrisma.
+const {Prisma:runtimePrisma}=loadBeautyPrismaRuntime();
 import {AppError} from '@/lib/errors';
 import {toLocalDateStr} from '@/lib/date-utils';
 import {serviceInput,technicianInput,planInput,rate} from '@/lib/beauty/contracts';
@@ -11,8 +17,13 @@ export async function persistBeautyCatalog(tx:Prisma.TransactionClient,a:BeautyA
       let record:unknown;
       if (kind === "service") {
         const { id, revision, ...d } = serviceInput.parse(input);
+        const previous=id?await tx.beautyService.findFirst({where:{id,storeId:a.storeId}}):null;
+        if(!isDeepStrictEqual(d.addOnGroups??[],previous?.addOnGroups??[])){await requirePermission('add_ons.manage');await requireBeautyServiceAddOnManagement(a.storeId,tx);}
+        if(d.addOnGroups?.some(g=>g.kind==='SHARED_GOODS'))throw new AppError('VALIDATION','共同商品不可設在個人加做，請保留逐人服務設定');
+        const images=[d.imageId,...(d.addOnGroups??[]).flatMap(g=>g.options.map(o=>o.imageId))].filter((value):value is string=>!!value);
+        if(images.length&&(await tx.beautyServiceImage.count({where:{storeId:a.storeId,id:{in:[...new Set(images)]}}}))!==new Set(images).size)throw new AppError('FORBIDDEN','圖片不屬於本店');
         const {defaultRate,...fields}=d;
-        const values={...fields,...(defaultRate===undefined?{}:{defaultRate:defaultRate??Prisma.DbNull})};
+        const values={...fields,...(defaultRate===undefined?{}:{defaultRate:defaultRate??runtimePrisma.DbNull})};
         if (id) {
           const prior = await tx.beautyService.findFirst({
             where: { storeId: a.storeId, id, revision },
@@ -69,11 +80,8 @@ export async function persistBeautyCatalog(tx:Prisma.TransactionClient,a:BeautyA
           })) !== new Set(d.serviceIds).size
         )
           throw new AppError("FORBIDDEN", "包含非本店服務");
-        const missing=d.serviceIds.filter(id=>!d.rates[id]);
-        if(missing.length){
-          const defaults=await tx.beautyService.findMany({where:{storeId:a.storeId,id:{in:missing}},select:{id:true,defaultRate:true}});
-          if(missing.some(id=>!rate.safeParse(defaults.find(s=>s.id===id)?.defaultRate).success))throw new AppError('VALIDATION','每項可服務項目須設定計酬，或沿用已設定的服務預設');
-        }
+        // Qualification and pay are separate settings. An unpaid/unconfigured
+        // qualification may be saved; allocation still requires a valid rate.
         if (
           d.userId &&
           !(await tx.$queryRaw<

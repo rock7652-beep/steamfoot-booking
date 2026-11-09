@@ -102,6 +102,7 @@ interface UpgradePromptProps {
 export function UpgradePrompt({ open, onClose, targetPlan, featureLabel, feature }: UpgradePromptProps) {
   const titleId = useId();
   if (!open) return null;
+  if (feature === "add_ons") return <ModalPanel open={open} onClose={onClose} labelledById={titleId} width={384}><div className="space-y-4 p-6"><h3 id={titleId} className="text-lg font-semibold text-earth-900">附加項目尚未開通</h3><p className="text-base leading-relaxed text-earth-600">請聯絡總部確認開通。既有預約與款項紀錄保留。</p><button type="button" className="min-h-11 w-full rounded-lg border border-earth-200 px-4 py-2 text-earth-700" onClick={onClose}>關閉</button></div></ModalPanel>;
   const info = PRICING_PLAN_INFO[targetPlan];
   const addon = getPaidAddon(feature);
 

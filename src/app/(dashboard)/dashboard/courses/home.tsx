@@ -1,3 +1,4 @@
+import {CourseHomeBookingActions} from "@/components/course-home-booking-actions";
 import { ModuleHomePanel } from "@/components/admin/module-home-panel";
 import { CourseTodoList } from "./todo-list";
 export { CourseTodoList } from "./todo-list";
@@ -111,7 +112,7 @@ export async function CourseHome({ user, storeId, source }: {
     const revenueHref = href(`/dashboard/revenue?summary=receipts&dateFrom=${date}&dateTo=${date}`);
     const scheduleHref = href(`/dashboard/courses?date=${date}`);
     return <PageShell compact><HomePosition>
-    <PageHeader title="首頁" subtitle={`${date} · 今日工作`} actions={<div className="flex flex-wrap gap-2">{access.create && <><Link className={`${linkStyle} bg-primary-700 !text-white`} href={`${scheduleHref}&action=booking`}>{source?.service?"替顧客預約":"替學員預約"}</Link><Link className={`${linkStyle} border border-earth-200`} href={`${scheduleHref}&action=schedule`}>{source?.service?"新增預約":"新增排課"}</Link></>}</div>}/>
+    <PageHeader title="首頁" subtitle={`${date} · 今日工作`} actions={access.create ? <CourseHomeBookingActions scheduleHref={scheduleHref} service={!!source?.service}/> : undefined}/>
     <div className="@container space-y-2">
 
       {access.bookings && <Stream title="今日摘要" id="today" infoText={source?.statistics?.today} load={async () => { const row = await reads.today(storeId, date); return <><HomeClockRefresh nextAt={Math.min(row.nextEnd?.getTime() ?? Infinity, dayRange(date).end.getTime() + 1)}/><div className="flex flex-wrap items-center gap-x-5 gap-y-1">{[[source?.service?"今日服務":"今日課程", row.sessions, source?.service?"次":"堂"], ["今日完成", row.ended, source?.service?"次":"堂"], ["今日預約", row.bookings, "人次"], ["今日完成", row.attended, "人次"]].map(([label, value, unit]) => <Link key={`${label}-${unit}`} href={`${scheduleHref}&action=booking`} className="inline-flex min-h-11 items-baseline gap-2 py-2 text-sm"><span className="text-earth-600">{label}</span><strong className="text-lg tabular-nums text-primary-900">{value}</strong><span>{unit}</span></Link>)}<div className="ml-auto flex items-center gap-1"><Link href={scheduleHref} className={linkStyle}>{source?.service?"查看班表 →":"查看課表 →"}</Link><StatisticInfo id="today" title="今日摘要" text={source?.statistics?.today}/></div></div></>; }}/>}

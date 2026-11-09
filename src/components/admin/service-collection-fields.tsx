@@ -18,6 +18,7 @@ export function ServiceCollectionFields({charge,canDiscount,onValue,compact=fals
  useEffect(()=>onValue({id:charge.id,amount,valid,discount:{kind,value:discountValue}}),[charge.id,amount,valid,kind,discountValue,onValue]);
  return <section className="space-y-2 border-b border-earth-100 pb-3" aria-label={`${charge.personName}收款`}>
   <p className="font-medium">{charge.personName} · {charge.serviceName}</p>
+  {charge.items&&charge.items.length>0&&<div className="space-y-1"><p>主服務：{charge.baseCovered?'方案扣次':`$${charge.basePrice?.toLocaleString()}`}</p>{charge.items.map(item=><p key={item.id}>＋{item.name} · {item.price?`$${item.price.toLocaleString()}`:'免費'}</p>)}<p>附加項目抽成尚未計算。</p></div>}
   <CourseDiscountFields compact={compact} price={charge.price} canDiscount={canDiscount} offer={offer} value={value} onOfferChange={setOffer} onValueChange={setValue} total={total} totalLabel="應收"/>
   <dl className="flex flex-wrap justify-between gap-2 text-sm"><div>已收款 NT$ {charge.collected.toLocaleString()}</div><div>未收 NT$ {remaining===null?'—':remaining.toLocaleString()}</div></dl>
   {!canDiscount&&charge.reduction>0&&<p className="text-sm text-earth-600">已套用原優惠 NT$ {charge.reduction.toLocaleString()}</p>}

@@ -1,4 +1,5 @@
 import {assertMusicOpeningPreviewEnvironment,isMusicOpeningDatabase} from './music-opening-preview-scope.mjs';
+import {SCHEDULE_CONFLICT_PREVIEW_BRANCH} from './sports-shared-card-preview-scope.mjs';
 export const MUSIC_RELEASE_BRANCH='release/music-production-20261023';
 const PRODUCTION_REF='qijlnhtpbintanzpxkvf';
 function isProductionConnection(value){
@@ -27,7 +28,7 @@ export function assertMusicNativeReleaseEnvironment(env){
 export function musicNativeWorkflowEnabled(storeId,env=process.env){
  if(!storeId)return false;
  // Exact integration Preview capability; this never authorizes a production release or importer.
- if(storeId==='store-lubymusic'&&env.VERCEL==='1'&&env.VERCEL_ENV==='preview'&&['review/plan-management-sports-performance','fix/silverlily-calendar-loading-20261031','fix/music-leave-entitlement-20261102'].includes(env.VERCEL_GIT_COMMIT_REF)&&env.VERCEL_GIT_REPO_OWNER==='rock7652-beep'&&env.VERCEL_GIT_REPO_SLUG==='steamfoot-booking'&&!env.WORKERS_CI_BRANCH&&!env.CF_PAGES_BRANCH&&[env.DATABASE_URL,env.DIRECT_URL].every(isMusicOpeningDatabase))return true;
+ if(storeId==='store-lubymusic'&&env.VERCEL==='1'&&env.VERCEL_ENV==='preview'&&['fix/music-leave-entitlement-20261102',SCHEDULE_CONFLICT_PREVIEW_BRANCH,'review/plan-management-sports-performance','fix/silverlily-calendar-loading-20261031'].includes(env.VERCEL_GIT_COMMIT_REF)&&env.VERCEL_GIT_REPO_OWNER==='rock7652-beep'&&env.VERCEL_GIT_REPO_SLUG==='steamfoot-booking'&&!env.WORKERS_CI_BRANCH&&!env.CF_PAGES_BRANCH&&[env.DATABASE_URL,env.DIRECT_URL].every(isMusicOpeningDatabase))return true;
  if(storeId==='store-lubymusic'&&env.VERCEL==='1'){
   try{assertMusicOpeningPreviewEnvironment(env);return true;}catch{}
  }

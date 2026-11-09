@@ -15,9 +15,12 @@ function setup(query = "") {
   w.scrollTo = vi.fn();
   w.alert = vi.fn();
   w.AbortSignal.timeout = () => undefined;
-  const fetch = vi.fn(async (_url: string, init: { body: string }) => ({
-    ok: true, status: 200, json: async () => ({ ok: true, saved: true, requestId: JSON.parse(init.body).requestId }),
-  }));
+  const fetch = vi.fn(async (url: string, init?: { body?: string; method?: string }) => {
+    if (url === "/api/subscription-referrals/availability")
+      return { ok: true, status: 200, json: async () => ({ enabled: false }) };
+    return { ok: true, status: 200, json: async () => ({ ok: true, saved: true, requestId: JSON.parse(init!.body!).requestId }) };
+  });
+  const submissions = () => fetch.mock.calls.filter(([url, init]) => url === "/pricing/submit" && init?.method === "POST");
   w.fetch = fetch;
   w.eval(w.document.querySelector("script").textContent);
   const doc = w.document as Document;
@@ -26,7 +29,7 @@ function setup(query = "") {
     field.value = value;
     field.dispatchEvent(new w.Event("change", { bubbles: true }));
   };
-  return { doc, fill, fetch, w };
+  return { doc, fill, fetch, submissions, w };
 }
 describe("store needs form interactions", () => {
   it.each(["", "?intent=trial&utm_source=website"])("retains all public links in the actual submit payload at /apply%s", async (query) => {
@@ -48,9 +51,9 @@ describe("store needs form interactions", () => {
     r.doc.querySelector<HTMLInputElement>('[name="needs"]')!.click();
     r.doc.querySelector<HTMLButtonElement>("#submitBtn")!.click();
     r.doc.querySelector<HTMLButtonElement>("#submitBtn")!.click();
-    await vi.waitFor(() => expect(r.fetch).toHaveBeenCalledTimes(1));
-    const sent = JSON.parse(r.fetch.mock.calls[0][1].body);
-    expect(r.fetch.mock.calls[0][0]).toBe("/pricing/submit");
+    await vi.waitFor(() => expect(r.submissions()).toHaveLength(1));
+    const sent = JSON.parse(r.submissions()[0][1]!.body!);
+    expect(r.fetch.mock.calls.filter(([url]) => url === "/api/subscription-referrals/availability")).toHaveLength(1);
     expect(payloadSchema.parse(sent)).toMatchObject({ ...links, pageUrl: "https://www.steamfoot.com/apply" + query });
     await vi.waitFor(() => expect(r.doc.getElementById("successView")!.classList.contains("show")).toBe(true));
   });
@@ -77,8 +80,8 @@ describe("store needs form interactions", () => {
     for (const [name, value] of Object.entries({ storeName: "TEST 勿聯絡", contactName: "測試", staffCount: "只有我", storeCount: "籌備中，尚未開店", bookingMode: "不確定，希望協助判斷", phone: "TEST", contactWay: "希望電話聯繫" })) r.fill(name, value);
     r.doc.querySelector<HTMLInputElement>('[name="needs"]')!.click();
     r.doc.querySelector<HTMLButtonElement>("#submitBtn")!.click();
-    await vi.waitFor(() => expect(r.fetch).toHaveBeenCalledTimes(1));
-    const data = JSON.parse(r.fetch.mock.calls[0][1].body);
+    await vi.waitFor(() => expect(r.submissions()).toHaveLength(1));
+    const data = JSON.parse(r.submissions()[0][1]!.body!);
     expect(data).not.toHaveProperty("courseFormat");
     expect(data.storeCount).toBe("籌備中，尚未開店");
     await vi.waitFor(() => expect(r.doc.getElementById("successView")!.classList.contains("show")).toBe(true));

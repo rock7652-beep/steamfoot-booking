@@ -4,11 +4,12 @@ import {readCourseDetailMusicStore} from '@/server/queries/course-detail-music-s
 import {withReadRequestMemo,isReadRequestMemoActive} from '@/server/services/read-request-memo';
 import {withPermissionRequestSession} from '@/lib/permission-request-session';
 import {measureMusicRead} from "@/lib/music-read-timing";
+import {customerBookingGoodsInput} from "@/lib/customer-booking-goods";
 import {measureMusicCheckout,withCourseCheckoutRequest,musicCheckoutShouldDeferSnapshot} from "@/server/services/music-checkout-request";
 import {readPurchasedCourseRoster,readPurchasedCourseCards,readCommittedCourseRoster} from '@/server/queries/course-purchase-roster';
 import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
 
-import {Prisma as CoursePrismaValue} from "../../../generated/course-client";
+import {loadCoursePrismaRuntime} from "@/lib/generated-prisma-runtime";
 import {assertChargeProviders} from "@/server/services/course-charge";
 import {requireStoreFeature} from "@/lib/feature-gate";
 import {FEATURES} from "@/lib/feature-flags";
@@ -117,6 +118,7 @@ async function refreshUnlessMusicRoster(storeId: string) {
   if (!music) refresh();
 }
 const bookingInput = z.object({
+  sharedGoods:customerBookingGoodsInput.optional(),
   bookingKind: z.never().optional(),
   musicOpeningMakeupEntitlementId: z.never().optional(),
   makeupForBookingId: id.nullable().optional(),
@@ -291,8 +293,10 @@ export async function saveCoursePointPlan(input: unknown) {
       throw new AppError("CONFLICT","方案已有更新，輸入已保留。請核對目前資料後再編輯。");
     }
     if (planId) {
+      // SQL-null enums must come from the same external runtime as coursePrisma.
+      // A bundled enum from another runtime serializes as JSON {} and falsely conflicts.
       const result = await tx.coursePointPlan.updateMany({
-        where: { id: planId, storeId, ...(expected ? {...expected,chargeSettings:expected.chargeSettings===null?{equals:CoursePrismaValue.DbNull}:{equals:expected.chargeSettings},musicTermSizes:{equals:expected.musicTermSizes},templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
+        where: { id: planId, storeId, ...(expected ? {...expected,chargeSettings:expected.chargeSettings===null?{equals:loadCoursePrismaRuntime().Prisma.DbNull}:{equals:expected.chargeSettings},musicTermSizes:{equals:expected.musicTermSizes},templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
         data:{...data,chargeSettings:data.chargeSettings??undefined},
       });
       if (!result.count) throw new AppError(expected?"CONFLICT":"NOT_FOUND", expected?"方案已有更新，輸入已保留。請核對目前資料後再編輯。":"找不到本店方案");
@@ -617,9 +621,6 @@ export async function updateCourseBookingStatus(input: unknown) {
 
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
     if(!(await (await import("@/lib/sports-native-preview")).sportsNativePreview(actor.storeId))){
-      // The roster consumes an independently authorized post-commit snapshot.
-      // Invalidate other views after responding, without attaching a full
-      // dashboard render to this single-row leave transaction.
       if (!data.member && data.returnRoster && data.status === "STUDENT_LEAVE") after(refresh);
       else if (!data.member && (data.status === "ATTENDED" || data.status === "NO_SHOW")) await refreshUnlessMusicRoster(actor.storeId);
       else refresh();

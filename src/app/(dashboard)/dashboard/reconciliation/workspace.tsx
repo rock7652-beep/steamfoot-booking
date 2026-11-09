@@ -289,7 +289,7 @@ function CheckDetailCard({ check }: CheckCardProps) {
       {/* 第二層：來源比對表 */}
       {Object.keys(sources).length > 0 && (
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-xs">
+          <table data-striped-list className="w-full text-xs">
             <thead>
               <tr className="border-b border-earth-200">
                 <th className="pb-1.5 text-left font-medium text-earth-500">資料來源</th>

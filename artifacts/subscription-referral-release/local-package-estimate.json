@@ -1,0 +1,17 @@
+{
+  "tracedBytes": 267311006,
+  "unusedEngineBytes": 23968832,
+  "conservativeBytes": 243344222,
+  "unusedEngines": [
+    "node_modules/@prisma/client/runtime/query_engine_bg.cockroachdb.wasm-base64.js",
+    "node_modules/@prisma/client/runtime/query_engine_bg.cockroachdb.wasm-base64.mjs",
+    "node_modules/@prisma/client/runtime/query_engine_bg.mysql.wasm-base64.js",
+    "node_modules/@prisma/client/runtime/query_engine_bg.mysql.wasm-base64.mjs",
+    "node_modules/@prisma/client/runtime/query_engine_bg.sqlite.wasm-base64.js",
+    "node_modules/@prisma/client/runtime/query_engine_bg.sqlite.wasm-base64.mjs",
+    "node_modules/@prisma/client/runtime/query_engine_bg.sqlserver.wasm-base64.js",
+    "node_modules/@prisma/client/runtime/query_engine_bg.sqlserver.wasm-base64.mjs"
+  ],
+  "withinSafetyBudget": true,
+  "filesModified": false
+}

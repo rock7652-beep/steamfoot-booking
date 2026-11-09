@@ -11,7 +11,7 @@
  *
  *   ── delegate happy path ──
  *   6. success：createBooking 呼叫帶正確 args（canonical customerId / PACKAGE_SESSION /
- *      無 customerPlanWalletId / 無 servicePlanId / 無 isMakeup）
+ *      未選方案時不傳 customerPlanWalletId；指定時僅傳優先方案，不傳 servicePlanId / isMakeup）
  *
  *   ── error mapping (PACKAGE_SESSION 專屬) ──
  *   7. createBooking BUSINESS_RULE 「沒有可使用的方案」 → no_wallet_available
@@ -27,7 +27,7 @@
  *   ── 防誤觸副作用 ──
  *   14. 不呼叫 Transaction / payment / wallet purchase services
  *       (driven by inputs：嚴格 verify createBooking 沒收到 expectedAmount /
- *       customerPlanWalletId / isMakeup 等可能觸發財務 side effect 的欄位)
+ *       isMakeup 等會改變交易意圖的欄位)
  *
  * Mock 範圍：
  *   - @/lib/session (requireSession)
@@ -101,7 +101,7 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
     mockGetCustomerBookingEligibility.mockResolvedValue({
       status: "ok", customerId: CANONICAL_CUSTOMER_ID, storeId: CUSTOMER_USER.storeId,
     });
-    mockBookingFindFirst.mockResolvedValue({ isMakeup: false });
+    mockBookingFindFirst.mockResolvedValue({ isMakeup: false, people: 1, makeupCreditId: null, _count: { makeupCreditLinks: 0 } });
   });
 
   afterEach(() => {
@@ -156,6 +156,12 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
   // ────────────────────────────────────────────────────────
 
   describe("invalid_input 分支", () => {
+    it.each(["", " ", "x".repeat(192)])("rejects malformed preferred wallet before creating a booking", async customerPlanWalletId => {
+      expect(await submitLiffMemberBooking({ ...VALID_INPUT, customerPlanWalletId })).toEqual({
+        status: "invalid_input", field: "customerPlanWalletId",
+      });
+      expect(mockCreateBooking).not.toHaveBeenCalled();
+    });
     it("5a. 無效 bookingDate → invalid_input (field=bookingDate)", async () => {
       const r = await submitLiffMemberBooking({
         bookingDate: "2026/06/15", // wrong format
@@ -198,6 +204,8 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
         bookingDate: "2026-06-15",
         slotTime: "10:00",
         usedMakeup: false,
+        usedMakeupCount: 0,
+        planSessionCount: 1,
       });
     });
 
@@ -206,7 +214,7 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
         success: true,
         data: { bookingId: "book-makeup-001" },
       });
-      mockBookingFindFirst.mockResolvedValue({ isMakeup: true });
+      mockBookingFindFirst.mockResolvedValue({ isMakeup: true, people: 1, makeupCreditId: "mc-1", _count: { makeupCreditLinks: 1 } });
 
       const r = await submitLiffMemberBooking(VALID_INPUT);
 
@@ -223,6 +231,8 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
         bookingDate: "2026-06-15",
         slotTime: "10:00",
         usedMakeup: true,
+        usedMakeupCount: 1,
+        planSessionCount: 0,
       });
     });
 
@@ -232,7 +242,7 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
         success: true,
         data: { bookingId: "book-makeup-replay" },
       });
-      mockBookingFindFirst.mockResolvedValue({ isMakeup: true });
+      mockBookingFindFirst.mockResolvedValue({ isMakeup: true, people: 1, makeupCreditId: "mc-1", _count: { makeupCreditLinks: 1 } });
 
       const first = await submitLiffMemberBooking({ ...VALID_INPUT, requestKey });
       const replay = await submitLiffMemberBooking({ ...VALID_INPUT, requestKey });
@@ -241,13 +251,35 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
         status: "ok",
         bookingId: "book-makeup-replay",
         usedMakeup: true,
+        usedMakeupCount: 1,
+        planSessionCount: 0,
       });
       expect(replay).toEqual(first);
       expect(mockCreateBooking).toHaveBeenCalledTimes(2);
       expect(mockBookingFindFirst).toHaveBeenCalledTimes(2);
     });
 
-    it("6a. createBooking called with PACKAGE_SESSION + canonical customerId + zero wallet/staff/payment fields", async () => {
+    it("mixed booking reports persisted credit count instead of total people", async () => {
+      setupHappyPathPreconditions();
+      mockCreateBooking.mockResolvedValue({ success: true, data: { bookingId: "mixed" } });
+      mockBookingFindFirst.mockResolvedValue({ isMakeup: true, people: 3, makeupCreditId: "mc-1", _count: { makeupCreditLinks: 1 } });
+      expect(await submitLiffMemberBooking({ ...VALID_INPUT, people: 3 })).toMatchObject({ status: "ok", usedMakeupCount: 1, planSessionCount: 2 });
+    });
+
+    it("forwards the chosen wallet as a preference while keeping canonical customer and store identity", async () => {
+      mockCreateBooking.mockResolvedValue({ success: true, data: { bookingId: "preferred" } });
+      await submitLiffMemberBooking({
+        ...VALID_INPUT, customerPlanWalletId: "wallet-chosen", requestKey: "liff_preference_0123456789",
+        customerId: "foreign-customer", storeId: "foreign-store", servicePlanId: "foreign-plan",
+      } as Parameters<typeof submitLiffMemberBooking>[0]);
+      expect(mockCreateBooking).toHaveBeenCalledWith({
+        customerId: CANONICAL_CUSTOMER_ID, bookingDate: VALID_INPUT.bookingDate,
+        slotTime: VALID_INPUT.slotTime, bookingType: "PACKAGE_SESSION", people: 1,
+        customerPlanWalletId: "wallet-chosen",
+      }, { requestKey: "liff_preference_0123456789", source: "liff-member" });
+    });
+
+    it("6a. without a preference, delegates to automatic selection without staff/payment fields", async () => {
       mockCreateBooking.mockResolvedValue({
         success: true,
         data: { bookingId: "book-mem-001" },
@@ -279,7 +311,7 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
       );
     });
 
-    it("14. 嚴格驗證不傳任何 wallet / payment / makeup 欄位", async () => {
+    it("14. 未選方案時不傳 wallet，也不傳 payment / makeup 欄位", async () => {
       mockCreateBooking.mockResolvedValue({
         success: true,
         data: { bookingId: "book-mem-001" },
@@ -291,7 +323,7 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
       // PACKAGE_SESSION 必要欄位 ✓
       expect(call.bookingType).toBe("PACKAGE_SESSION");
       expect(call.customerId).toBe(CANONICAL_CUSTOMER_ID);
-      // 不可傳的欄位 — 確保沒副作用 / 沒繞過 FEFO
+      // 未選方案沿用 FEFO；付款與補課券不可由 client 指定。
       expect(call.customerPlanWalletId).toBeUndefined();
       expect(call.servicePlanId).toBeUndefined();
       expect(call.isMakeup).toBeUndefined();
@@ -330,6 +362,17 @@ describe("submitLiffMemberBooking action (PR-G2)", () => {
     });
 
     // ── PACKAGE_SESSION 專屬 errors (booking.ts:247-307) ──
+
+    it.each([
+      "所選方案有效期限至 2026-06-01，無法預約 2026-06-15",
+      "所選方案在預約日期不可使用，請改選其他有效方案",
+      "指定的方案不屬於該顧客",
+      "STORE_CONSISTENCY_MISMATCH: CustomerPlanWallet 店別不一致，請重新整理後再試",
+    ])("selected wallet rejected by core remains actionable (%s)", async error => {
+      mockCreateBooking.mockResolvedValue({ success: false, error });
+      expect(await submitLiffMemberBooking({ ...VALID_INPUT, customerPlanWalletId: "invalid-wallet" })).toEqual({ status: "wallet_unavailable" });
+      expect(mockBookingFindFirst).not.toHaveBeenCalled();
+    });
 
     it.each([
       "目前沒有可使用的方案，請先購買課程方案或聯繫店家協助",

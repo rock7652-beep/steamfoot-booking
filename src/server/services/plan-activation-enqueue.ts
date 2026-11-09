@@ -16,9 +16,17 @@ export async function enqueuePlanActivation(tx: Tx, value: {
 }) {
   const {storeId,customerId,module,sourceId,entitlementId}=value;
   // Beauty may use an isolated database; its customer-facing preferences live in the main database.
-  const enabled = module === "BEAUTY" ? await getPlanActivationEnabled(storeId) :
-    planActivationEnabled((await tx.$queryRaw<Array<{body:string}>>`SELECT body FROM "MessageTemplate" WHERE id=${planActivationSettingId(storeId)} AND "storeId"=${storeId} FOR SHARE`)[0]?.body);
-  const [person] = await tx.$queryRaw<Array<{customerName:string;storeName:string}>>`SELECT c.name AS "customerName",s.name AS "storeName" FROM "Customer" c JOIN "Store" s ON s.id=c."storeId" WHERE c.id=${customerId} AND c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL`;
+  // Dedicated Beauty transactions cannot read Store.name. Display metadata
+  // uses the existing authorized main connection; both lookups are read-only.
+  const [enabled,beautyStore]=await Promise.all([
+    module === "BEAUTY" ? getPlanActivationEnabled(storeId) :
+      tx.$queryRaw<Array<{body:string}>>`SELECT body FROM "MessageTemplate" WHERE id=${planActivationSettingId(storeId)} AND "storeId"=${storeId} FOR SHARE`.then(rows=>planActivationEnabled(rows[0]?.body)),
+    module === "BEAUTY" ? prisma.store.findUnique({where:{id:storeId},select:{name:true}}) : null,
+  ]);
+  const [customer] = module === "BEAUTY"
+    ? await tx.$queryRaw<Array<{customerName:string}>>`SELECT name AS "customerName" FROM "Customer" WHERE id=${customerId} AND "storeId"=${storeId} AND "mergedIntoCustomerId" IS NULL`
+    : await tx.$queryRaw<Array<{customerName:string;storeName:string}>>`SELECT c.name AS "customerName",s.name AS "storeName" FROM "Customer" c JOIN "Store" s ON s.id=c."storeId" WHERE c.id=${customerId} AND c."storeId"=${storeId} AND c."mergedIntoCustomerId" IS NULL`;
+  const person = module === "BEAUTY" ? customer && beautyStore ? {...customer,storeName:beautyStore.name} : null : customer as {customerName:string;storeName:string}|undefined;
   if (!person) throw new Error("Plan activation customer does not belong to store");
   const snapshot:PlanActivationSnapshot={...person,planName:value.planName,quantity:value.quantity,unit:value.unit,expiresDate:value.expiresDate};
   const reason=!enabled?"方案開通時通知未開啟，不補發":isPreviewExternalIntegrationBlocked()?"隔離預覽不向外發送 LINE":module==="BEAUTY"&&(process.env.BEAUTY_MODULE_ENABLED!=="1"||process.env.BEAUTY_NOTIFICATIONS_ENABLED!=="1")?"美業通知未開啟，不補發":null;

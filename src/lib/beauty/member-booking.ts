@@ -1,10 +1,15 @@
 import { z } from 'zod';
+import {journeyFields,journeyIssue} from './service-journey';
+import {selectedAddOnIds} from './add-ons';
 import { partyInput, key } from './contracts';
 import { parseTaipeiDateTime } from '@/lib/date-utils';
 
 /** Member identity is resolved on the server, never accepted from the form. */
-export const memberPartyInput = partyInput.innerType().pick({requestKey:true,policyRevision:true,date:true,time:true}).extend({
-  people:z.array(z.object({serviceId:key,serviceRevision:z.number().int().nonnegative().default(0),specifiedTechnicianId:key.nullable().default(null),cardId:key.nullable().default(null),isTrial:z.boolean().default(false),notes:z.string().max(1000).default('')}).refine(p=>!p.isTrial||!p.cardId,'體驗不使用一般方案')).min(1).max(12),
+export const memberPartyInput = partyInput.innerType().pick({sharedGoods:true,requestKey:true,policyRevision:true,date:true,time:true}).extend({
+  people:z.array(z.object({...journeyFields,addOnIds:selectedAddOnIds,serviceId:key,serviceRevision:z.number().int().nonnegative().default(0),specifiedTechnicianId:key.nullable().default(null),cardId:key.nullable().default(null),isTrial:z.boolean().default(false),notes:z.string().max(1000).default('')}).refine(p=>!p.isTrial||!p.cardId,'體驗不使用一般方案')).min(1).max(12),
+}).superRefine((d,c)=>{
+ if(d.people.reduce((n,p)=>n+1+(p.additionalServices?.length??0),0)>12)c.addIssue({code:'custom',message:'每筆預約最多安排 12 段服務'});
+ d.people.forEach((p,i)=>{const issue=journeyIssue({...p,pendingIdentity:i>0});if(issue)c.addIssue({code:'custom',path:['people',i,'additionalServices'],message:issue});});
 }).refine(d=>!!parseTaipeiDateTime(d.date,d.time)&&/:(00|30)$/.test(d.time),'請選擇半小時的預約時段');
 export type MemberPartyInput=z.infer<typeof memberPartyInput>;
 export type MemberBookingCard={id:string;name:string;remaining:number;held:number;expiresAt:string;closed:boolean;memberIds:string[];serviceIds:string[];allowShared?:boolean};

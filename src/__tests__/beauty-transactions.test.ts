@@ -92,7 +92,7 @@ beforeEach(() => {
       create: vi.fn().mockResolvedValue({ id: "p", amount: 500, note: "合成" }),
     },
     $executeRaw: vi.fn(),
-    $queryRaw: vi.fn(),
+    $queryRaw: vi.fn().mockResolvedValue([]),
   } as unknown as Tx;
 });
 describe("beauty customer occupancy", () => {
@@ -644,4 +644,39 @@ it.each(['CANCELLED','NO_SHOW'])('preserves historical %s deductions on an uncha
  vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status,debit:true,noShowDeduct:true} as never);
  await transition(tx,a,{id:'b',revision:0,target:status,reason:'歷史操作重送'});
  expect(tx.beautyCard.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();expect(tx.beautyAppointment.update).not.toHaveBeenCalled();
+});
+
+it('collects only addon money on a package appointment without charging the base service again',async()=>{
+ vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,addOnItems:[{id:'tea',name:'養生茶',price:80,duration:0,groupId:'g',groupTitle:'額外加做',quantity:1}]} as never);
+ vi.mocked(tx.beautyPayment.create).mockResolvedValue({id:'addon-sale',amount:80} as never);
+ await collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[80],method:'OTHER',note:'飲品'});
+ expect(tx.beautyPayment.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({appointmentId:'b',amount:80,kind:'SALE'})}));
+ expect(tx.beautyLedger.create).not.toHaveBeenCalled();
+ await expect(collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[81],method:'OTHER',note:''})).rejects.toThrow('超過');
+});
+it('keeps addon receipts and added minutes out of base service commission',async()=>{
+ vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,cardId:null,status:'COMPLETED',duration:80,baseServiceDuration:60,addOnItems:[{id:'head',name:'頭部按摩',price:300,duration:20,groupId:'g',groupTitle:'額外加做',quantity:1}]} as never);
+ vi.mocked(tx.beautyPayment.create).mockResolvedValue({id:'sale',amount:1300} as never);
+ await collect(tx,a,{requestKey:crypto.randomUUID(),ids:['b'],amounts:[1300],method:'OTHER',note:''});
+ expect(tx.beautyAppointment.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({fee:500})}));
+});
+
+it.each(['LEAVE','NO_SHOW'])('does not complete, debit, or accrue pay while the technician is %s',async status=>{
+ vi.mocked(tx.$queryRaw).mockResolvedValue([{appointmentId:'b',kind:'TECHNICIAN_SERVICE',body:JSON.stringify({technicianId:'t',status,note:'',reason:'原因'})}]);
+ await expect(transition(tx,a,{id:'b',revision:0,target:'COMPLETED',reason:''})).rejects.toThrow('尚未扣次或計酬');
+ expect(tx.beautyAppointment.update).not.toHaveBeenCalled();expect(tx.beautyCard.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();
+});
+
+it.each(["NO_SHOW","CANCELLED"])("does not bypass technician absence by transitioning from %s",async prior=>{vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,status:prior,debit:false} as never);vi.mocked(tx.$queryRaw).mockResolvedValue([{appointmentId:"b",kind:"TECHNICIAN_SERVICE",body:JSON.stringify({technicianId:"t",status:"LEAVE",note:"",reason:"原因"})}]);await expect(transition(tx,a,{id:"b",revision:0,target:"COMPLETED",reason:""})).rejects.toThrow("尚未扣次或計酬");expect(tx.beautyAppointment.update).not.toHaveBeenCalled();expect(tx.beautyCard.update).not.toHaveBeenCalled();expect(tx.beautyLedger.create).not.toHaveBeenCalled();});
+it('collects an add-on with mixed methods under one replay key and preserves per-method payment records',async()=>{
+ vi.mocked(tx.beautyAppointment.findFirst).mockResolvedValue({...b,addOnItems:[{id:'extra',groupId:'g',groupTitle:'加做',name:'頭部放鬆',price:500,duration:20,quantity:1}]} as never);
+ vi.mocked(tx.beautyPayment.create).mockImplementation((({data})=>Promise.resolve({...data,id:crypto.randomUUID()})) as typeof tx.beautyPayment.create);
+ vi.mocked(tx.$queryRaw).mockResolvedValue([{id:'drawer'}] as never);
+ const input={requestKey:crypto.randomUUID(),ids:['b'],amounts:[500],method:'CASH' as const,note:'混合',splits:[{method:'CASH' as const,amount:200},{method:'CARD' as const,amount:300}]};
+ await collect(tx,a,input);
+ expect(vi.mocked(tx.beautyPayment.create).mock.calls.map(([q])=>({method:q.data.method,amount:q.data.amount}))).toEqual([{method:'CASH',amount:200},{method:'CARD',amount:300}]);
+ expect(tx.beautyCommand.create).toHaveBeenCalledOnce();expect(tx.beautyAppointment.update).toHaveBeenCalledOnce();expect(tx.beautyCard.update).not.toHaveBeenCalled();
+ const saved=vi.mocked(tx.beautyCommand.create).mock.calls[0][0].data;
+ vi.mocked(tx.beautyCommand.findUnique).mockResolvedValue(saved as never);
+ await collect(tx,a,input);expect(tx.beautyPayment.create).toHaveBeenCalledTimes(2);
 });

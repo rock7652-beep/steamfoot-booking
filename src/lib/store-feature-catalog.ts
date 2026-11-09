@@ -46,6 +46,8 @@ export type StoreFeatureDisplayState = {
 };
 
 export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
+  {key:FEATURES.BEAUTY_SERVICE_ADD_ONS,label:"加做服務",module:"營運",description:"僅美業。總部獨立開通，門市另可啟用；每位顧客各選加做，可增加金額與時間。關閉保留原預約、款項及退款。"},
+  { key: FEATURES.ADD_ONS, label: "附加項目", module: "營運", description: "需總部獨立開通，門市另可決定是否啟用。隱藏、鎖定或停用停止新增選購；保留設定、既有訂單與原權限下的收退款。非美業附加項目不增加時間。" },
   { key: FEATURES.STORE_OPERATION_AUDIT, label: "門市操作紀錄", module: "營運", description: "預設隱藏，須總部獨立開通。僅本店有效 OWNER 可查看門市業務操作；不含登入、安全、總部事件或完整私人備註。關閉、隱藏或到期不停止記錄，不刪除歷史。總部切店同樣依此開關。" },
   { key: FEATURES.SHARED_CARD, label: "運動共卡", module: "營運", description: "僅運動課程。啟用後仍須逐方案允許共卡；鎖定或隱藏停止新增成員及同行，既有成員使用、取消、點名、更正、退款與紀錄保留在原方案。未覆寫時需總部開通；舊店先經核准初始化明確授權，資格不隨方案開關改變。限時覆寫未開始或到期會停止新增共享，不自動回復。" },
   { key: FEATURES.WORK_ORDERS, label: "工單管理", module: "營運", description: "獨立管理鋼琴調音、管樂與弦樂器維修保養、吉他維修保養，以及其他施工與服務案件。預設未付款，處理進度與付款分開；支援顧客／店家雙聯列印；加入商品材料及扣庫存須搭配已開通的進銷存及相應人員權限，收款紀錄共用。各付費方案皆額外加購 NT$800／月；HQ 可獨立開通、關閉或隱藏，不依進銷存開關。關閉或加購到期保留資料。" },
@@ -173,7 +175,7 @@ export function resolveStoreFeatureDisplayState(
       statusClass: resolution.enabled
         ? "bg-green-50 text-green-700"
         : "bg-earth-100 text-earth-500",
-      sourceLabel: resolution.enabled ? PRICING_PLAN_INFO[plan].label : "跟隨方案",
+      sourceLabel: feature===FEATURES.BEAUTY_SERVICE_ADD_ONS?"需總部獨立開通":resolution.enabled ? PRICING_PLAN_INFO[plan].label : "跟隨方案",
     };
   }
 
@@ -210,4 +212,9 @@ export function resolveStoreFeatureDisplayState(
     statusClass: "bg-green-50 text-green-700",
     sourceLabel: getStoreFeatureSourceLabel(entitlement!.source),
   };
+}
+
+/** Applicability is separate from entitlement state; Beauty controls never appear on other modules. */
+export function getManageableStoreFeatures(industry:string,supportsSharedCard:boolean){
+ return MANAGEABLE_STORE_FEATURES.filter(feature=>(feature.key!==FEATURES.SHARED_CARD||supportsSharedCard)&&(feature.key!==FEATURES.BEAUTY_SERVICE_ADD_ONS||industry==='BEAUTY'));
 }

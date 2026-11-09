@@ -85,6 +85,7 @@ export const ALL_PERMISSIONS = [
   "wallet.adjust",     // 調整剩餘堂數
   // 方案
   "plans.edit",        // 編輯方案設定
+  "add_ons.manage",    // 管理附加項目（獨立於方案）
   // 營業時間
   "business_hours.view",
   "business_hours.manage",
@@ -151,6 +152,7 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
     label: "方案設定",
     codes: ["plans.edit"],
   },
+  add_ons: { label: "附加項目", codes: ["add_ons.manage"] },
   business_hours: {
     label: "營業時間",
     codes: ["business_hours.view", "business_hours.manage"],
@@ -223,6 +225,7 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "wallet.create": "指派課程方案",
   "wallet.adjust": "調整剩餘堂數",
   "plans.edit": "編輯方案設定",
+  "add_ons.manage": "管理附加項目",
   "business_hours.view": "查看營業時間",
   "business_hours.manage": "修改營業時間",
   "report.read": "查看報表",
@@ -281,6 +284,7 @@ export const DEFAULT_MANAGER_PERMISSIONS: PermissionCode[] = [
   "wallet.create",
   "wallet.adjust",
   "plans.edit",
+  "add_ons.manage",
   "business_hours.view",
   "business_hours.manage",
   "report.read",

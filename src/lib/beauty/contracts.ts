@@ -1,7 +1,13 @@
 import { z } from "zod";
+import {beautyPaymentSplits} from "./payment-splits";
+import {sharedGoodsSelection} from "@/lib/add-ons";
+export const bookingSharedGoods=z.object({revision:z.number().int().nonnegative(),selections:sharedGoodsSelection});
+import {addOnGroups, selectedAddOnIds} from "./add-ons";
 import { normalizePhone } from "@/lib/normalize";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
-export const key = z.string().min(1).max(100);
+export {key} from './contracts-key';
+import {key} from './contracts-key';
+import {journeyFields,journeyIssue} from './service-journey';
 export const money = z.number().int().min(0).max(10000000);
 export const gender = z.enum(["FEMALE", "MALE"]);
 export const preference = z.enum(["FEMALE", "MALE", "ANY"], {
@@ -22,6 +28,8 @@ export const period = z
   .object({ start: clock, end: clock })
   .refine((p) => p.end > p.start, "結束時間須晚於開始時間");
 export const serviceInput = z.object({
+  addOnGroups: addOnGroups.optional(),
+  imageId: key.nullable().optional(),
   defaultRate:rate.nullable().optional(),
   id: key.optional(),
   revision: z.number().int().nonnegative().default(0),
@@ -98,6 +106,8 @@ const phone = z
   .transform(normalizePhone)
   .pipe(z.string().regex(/^09\d{8}$/, "請填寫有效手機"));
 export const personInput = z.object({
+  ...journeyFields,
+  addOnIds: selectedAddOnIds,
   name: z.string().trim().min(1).max(80),
   phone: z.union([phone,z.literal("")]),
   pendingIdentity: z.boolean().optional(),
@@ -113,6 +123,7 @@ export const personInput = z.object({
 });
 export const partyInput = z
   .object({
+    sharedGoods:bookingSharedGoods.optional(),
     requestKey: z.string().uuid(),
     policyRevision: z.number().int().nonnegative().default(0),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -126,12 +137,14 @@ export const partyInput = z
   .superRefine((v, c) => {
     if (!parseTaipeiDateTime(v.date, v.time))
       c.addIssue({ code: "custom", message: "日期時間無效" });
+    if(v.people.reduce((n,p)=>n+1+(p.additionalServices?.length??0),0)>12)c.addIssue({code:"custom",message:"每筆預約最多安排 12 段服務"});
     const selected=new Set<string>();
     v.people.forEach((p,i)=>{
+      const issue=journeyIssue({...p,isTrial:p.isTrial??v.isTrial});if(issue)c.addIssue({code:"custom",path:["people",i,"additionalServices"],message:issue});
       if(p.customerId){if(selected.has(p.customerId))c.addIssue({code:"custom",path:["people",i,"customerId"],message:"同一位顧客不可重複加入本次預約"});selected.add(p.customerId);}
       if(p.pendingIdentity?(i===0||!!p.customerId||!!p.phone):!p.phone)c.addIssue({code:"custom",path:["people",i],message:"請核對顧客資料或選擇同行者資料後補"});
     });
-    if(v.expectedArrangement&&v.expectedArrangement.length!==v.people.length)c.addIssue({code:"custom",message:"安排人數已變更，請重新核對"});
+    if(v.expectedArrangement&&v.expectedArrangement.length!==v.people.reduce((n,p)=>n+1+(p.additionalServices?.length??0),0))c.addIssue({code:"custom",message:"安排人數已變更，請重新核對"});
   });
 export type PartyInput = z.infer<typeof partyInput>;
 /** Public availability needs trial eligibility, never a name, contact or member entitlement. */
@@ -141,6 +154,7 @@ export const publicTrialAvailabilityInput = z.object({
   isTrial: z.literal(true),
   people: z.array(z.object({
     phone,
+    addOnIds: selectedAddOnIds,
     serviceId: key,
     serviceRevision: z.number().int().nonnegative().default(0),
     preference,
@@ -160,6 +174,7 @@ export const paymentInput = z
   .object({
     requestKey: z.string().uuid(),
     ids: z.array(key).min(1).max(12),
+    splits:beautyPaymentSplits.optional(),
     method: z.enum(["CASH", "BANK_TRANSFER", "CARD", "OTHER"]),
     amounts: z.array(money).min(1).max(12),
     note: z.string().max(500).default(""),
@@ -167,7 +182,7 @@ export const paymentInput = z
   })
   .refine(
     (v) =>
-      v.ids.length === v.amounts.length && new Set(v.ids).size === v.ids.length && (!v.quotes||(v.quotes.length===v.ids.length&&v.quotes.every((q,i)=>q.id===v.ids[i]))),
+      (!v.splits||v.splits.reduce((n,s)=>n+s.amount,0)===v.amounts.reduce((n,a)=>n+a,0)) && v.ids.length === v.amounts.length && new Set(v.ids).size === v.ids.length && (!v.quotes||(v.quotes.length===v.ids.length&&v.quotes.every((q,i)=>q.id===v.ids[i]))),
     "請逐人核對金額",
   );
 export const cardInput = z.object({

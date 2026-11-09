@@ -53,7 +53,7 @@ export function MusicAssignmentPayment({plan,canDiscount,onSummary,split=false,c
 
   </dl>:<p role="alert" className="text-red-700">請核對購買期數、堂數與有效天數。</p>}
   <div className="grid min-w-0 grid-cols-2 gap-2"><details className="min-w-0 open:col-span-2"><summary className="min-h-11 cursor-pointer py-2.5 text-sm">查看各期堂數</summary>
-    {quote&&<div className="max-h-60 overflow-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">期別</th><th className="p-2">堂數</th><th className="p-2">期限</th></tr></thead><tbody>{quote.musicTermSizes.map((count,i)=><tr key={i} className="border-t border-earth-200"><td className="p-2">{musicPeriodLabel(i+1,customerId?nextPeriod:1,customerId?1:undefined)}</td><td className="p-2">{count} 堂</td><td className="p-2">堂數共用</td></tr>)}</tbody></table></div>}
+    {quote&&<div className="max-h-60 overflow-auto"><table data-striped-list className="w-full text-left text-sm"><thead><tr><th className="p-2">期別</th><th className="p-2">堂數</th><th className="p-2">期限</th></tr></thead><tbody>{quote.musicTermSizes.map((count,i)=><tr key={i} className="border-t border-earth-200"><td className="px-2 py-1">{musicPeriodLabel(i+1,customerId?nextPeriod:1,customerId?1:undefined)}</td><td className="px-2 py-1">{count} 堂</td><td className="px-2 py-1">堂數共用</td></tr>)}</tbody></table></div>}
   </details>
   <details className="min-w-0 open:col-span-2" open={advanced} onToggle={e=>setAdvanced(e.currentTarget.open)}><summary className="min-h-11 cursor-pointer py-2.5 text-sm">其他調整{Number(manual)>0?` · 贈 ${manual} 堂`:""}{validity?` · ${validity} 天`:""}{join?" · 插班":""}</summary>
     <div className="space-y-3">

@@ -1,17 +1,20 @@
 "use client";
+import {useBeautyPersonnelText} from "@/components/course-personnel-label";
 import {BeautyMoveDialog} from "./move-dialog";
 import {SportsMoveConfirm} from '@/app/(dashboard)/dashboard/courses/sports-move-confirm';
 import type {CourseMoveClipboard} from '@/app/(dashboard)/dashboard/courses/course-schedule-board';
 import {readBeautyNativeCalendar} from '@/lib/beauty/native-calendar';
 import {readBeautyMoveResult,readBeautyRosterOperation,updateBeautyRosterAttendance,cancelBeautyRosterAppointment} from '@/server/actions/beauty-native-roster';
-import {toLocalDateStr} from '@/lib/date-utils';
+import {toLocalDateStr,formatTWDateTime} from '@/lib/date-utils';
 import type {CourseRosterData} from '@/app/(dashboard)/dashboard/courses/roster-source';
 import type {BeautyCalendarData} from '@/lib/beauty/calendar-read';
 import {useCourseDraftGuard} from "@/components/admin/use-course-draft-guard";
 import {RosterToolbar} from '@/components/admin/roster-primitives';
 import dynamic from "next/dynamic";
+const BeautyAddOnStatistics=dynamic(()=>import('./add-on-statistics').then(m=>m.BeautyAddOnStatistics));
 const BeautyNativeRoster=dynamic(()=>import("./native-roster-source").then(m=>m.BeautyNativeRoster));
-const RentalPanel=dynamic(()=>import("@/app/(dashboard)/dashboard/courses/rental-panel").then(m=>m.RentalPanel));
+const loadRentalPanel=()=>import("@/app/(dashboard)/dashboard/courses/rental-panel").then(m=>m.RentalPanel);
+const RentalPanel=dynamic(loadRentalPanel);
 import {BeautyScheduleWorkspace} from './schedule-workspace';
 import {BeautyOpeningGuide} from './opening-guide';
 import {BeautyManagementList} from './management-list';
@@ -43,7 +46,7 @@ export function BeautyDashboard({
   readOnly = false,
   planPurchaseRecoveryEnabled = false,
   collectionRecoveryEnabled = false,
-  cashbookShortcut,homeContent,settingsContent,analyticsContent,careContent,operationsContent,initialCustomerId,initialAppointmentId,initialBooking=false,
+  cashbookShortcut,homeContent,settingsContent,analyticsContent,careContent,operationsContent,initialCustomerId,initialAppointmentId,initialBooking=false,openingStore,
 }: {
   data: BeautyDashboardData;
   tab: BeautyTab;
@@ -51,8 +54,10 @@ export function BeautyDashboard({
   readOnly?: boolean;
   planPurchaseRecoveryEnabled?: boolean;
   collectionRecoveryEnabled?: boolean;
+  openingStore?:{name:string;address:string;shopPhone:string};
   cashbookShortcut?:ReactNode;homeContent?:ReactNode;settingsContent?:ReactNode;analyticsContent?:ReactNode;careContent?:ReactNode;operationsContent?:ReactNode;initialCustomerId?:string;initialAppointmentId?:string;initialBooking?:boolean;
 }) {
+  useEffect(()=>{if(tab==='班表')void loadRentalPanel().catch(()=>undefined);},[tab]);
   const [calendarState,setCalendarState]=useState<{base:BeautyDashboardData;value:BeautyCalendarData}|null>(null);
   const data=calendarState?.base===incoming?{...incoming,...calendarState.value}:incoming;
   const [invalidatedRosterSnapshots,setInvalidatedRosterSnapshots]=useState<BeautyDashboardData["rosterSnapshots"]>();
@@ -80,12 +85,13 @@ export function BeautyDashboard({
     if(cut&&cut.clipboard.sessionId!==id&&!window.confirm('改為剪下這筆預約？原本預約不會變動。'))return;
     setCut({revision:b.revision,requestKey:crypto.randomUUID(),clipboard:{sessionId:b.id,startsAt:b.startsAt,templateId:b.serviceId,roomId:b.locationId,coachId:b.technicianId,durationMinutes:(+new Date(b.endsAt)-+new Date(b.startsAt))/60000,scope:'SINGLE',label:`${b.personName} · ${b.serviceName}`}});setSelectedId(null);setListOpen(false);setMoneyPanel(null);
   }
-  const [rental,setRental]=useState<{id?:string}|null>(null);
+  const [rental,setRental]=useState<{id?:string;initialDetail?:import('@/lib/course-rental').RentalDetail}|null>(null);
   const [rentalGuard,setRentalGuard]=useState({pending:false,dirty:false});
   const onRentalGuard=useCallback((pending:boolean,dirty:boolean)=>setRentalGuard(current=>current.pending===pending&&current.dirty===dirty?current:{pending,dirty}),[]);
   const closeRental=()=>{if(rentalGuard.pending)return;setRental(null);};
   const [listOpen,setListOpen]=useState(false);
   const params=useSearchParams();
+ const beautyText=useBeautyPersonnelText();
   const router = useRouter(),
     [pending, start] = useTransition(),
     [error, setError] = useState(""),
@@ -110,7 +116,7 @@ export function BeautyDashboard({
   const [pendingId,setPendingId]=useState<string|null>(null),[syncNeeded,setSyncNeeded]=useState(false);
   useCourseDraftGuard(false,identityBusy||collectionBusy||!!pendingId||(pending&&!!(moneyPanel||statusDraft)));
   const updateBookingGuard=useCallback((dirty:boolean,pending:boolean)=>setBookingState(old=>old.dirty===dirty&&old.pending===pending?old:{dirty,pending}),[setBookingState]);
-  function closeBooking(){if(bookingState.pending)return;setBooking(false);setBookingState({dirty:false,pending:false});}
+  function closeBooking(){if(bookingState.pending)return;setBooking(false);setBookingSeed({});setBookingState({dirty:false,pending:false});}
   function closeMoney(){if(pending||identityBusy||collectionBusy)return;setMoneyPanel(null);}
   function setMoneyPanel(v: typeof moneyPanel) {
     setError("");
@@ -123,7 +129,12 @@ export function BeautyDashboard({
   const [detailId, setDetailId] = useState<string | null>(initialBooking || tab==='顧客管理' ? null : initialCustomerId??null);
   const [rosterBusy,setRosterBusy]=useState(false);
 
-  const [bookingSeed]=useState<{date?:string;time?:string;technicianId?:string;locationId?:string}>({});
+  const [bookingSeed,setBookingSeed]=useState<{serviceId?:string;isTrial?:boolean;date?:string;time?:string;technicianId?:string;locationId?:string;customerId?:string}>({});
+  function copyBooking(id:string){
+    const item=data.items.find(row=>row.id===id);if(!item||!item.customerId||readOnly||!data.access.writeAccess||pending||rosterBusy||pendingId||collectionBusy)return;
+    setBookingSeed({serviceId:item.serviceId,isTrial:item.isTrial,date:toLocalDateStr(new Date(item.startsAt)),time:formatTWDateTime(new Date(item.startsAt)).split(" ").at(-1),technicianId:item.technicianId,locationId:item.locationId,customerId:item.customerId});
+    closeRoster();setBooking(true);
+  }
   const requestedBookingId=params.get('bookingId');
   const [selection,setSelection]=useState<{param:string|null;id:string|null}>(()=>({param:requestedBookingId,id:initialAppointmentId&&data.items.some(row=>row.id===initialAppointmentId)?initialAppointmentId:null}));
   if(selection.param!==requestedBookingId){setSelection({param:requestedBookingId,id:requestedBookingId});updateMoneyPanel(null);}
@@ -142,7 +153,7 @@ export function BeautyDashboard({
     setRosterSnapshot({sessionId:scope,data:result.data.roster});setSyncNeeded(false);setError('');
     const fresh=result.data.calendar;
     if(fresh.calendar==='month'){setCalendarState({base:incoming,value:fresh});return;}
-    setCalendarState(old=>{const current=old?.base===incoming?old.value:incoming;return {base:incoming,value:{date:current.date,calendar:current.calendar,calendarDays:{...current.calendarDays,...fresh.calendarDays},items:[...current.items.filter(b=>toLocalDateStr(new Date(b.startsAt))!==fresh.date),...fresh.items],rentals:current.rentals}};});
+    setCalendarState(old=>{const current=old?.base===incoming?old.value:incoming;return {base:incoming,value:{date:current.date,calendar:current.calendar,calendarDays:{...current.calendarDays,...fresh.calendarDays},items:[...current.items.filter(b=>toLocalDateStr(new Date(b.startsAt))!==fresh.date),...fresh.items],rentals:current.rentals,rentalDetails:current.rentalDetails}};});
   }
   async function rosterOperation(id:string,work:()=>ReturnType<typeof updateBeautyRosterAttendance>){
     if(mutationLock.current||pendingId||pending||syncNeeded)return;
@@ -210,26 +221,26 @@ export function BeautyDashboard({
       )}
       {calendarSync?.base===incoming&&<div role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"><span>{calendarSync.pending?'已儲存，正在更新班表…':calendarSync.error}</span>{!calendarSync.pending&&<button type="button" className={button} onClick={()=>void syncCalendar(calendarSync.date)}>重新讀取班表</button>}</div>}
       {!['首頁','班表','顧客管理','顧客經營','營運','分析','位置管理','服務項目','收費方式','技師管理','設定'].includes(tab)&&<RosterToolbar label={tab+'搜尋與篩選'}><input className={field+' max-w-72'} aria-label="搜尋" placeholder="搜尋姓名、手機或服務" value={search} onChange={e=>setSearch(e.target.value)}/><button className={button} disabled={pending} onClick={()=>router.refresh()}>更新</button></RosterToolbar>}
-      {(process.env.NEXT_PUBLIC_BEAUTY_SETUP_REVIEW==='1'||(data.chargeRulesActive&&data.access.planAccess&&data.access.staffAccess)||data.chargeCatalog?.enabled)&&tab==='設定'&&data.manage.settings&&!readOnly&&<div className="flex justify-end"><BeautyOpeningGuide key={data.storeId} data={data}/></div>}{tab==='首頁'&&homeContent}
+      {(process.env.NEXT_PUBLIC_BEAUTY_SETUP_REVIEW==='1'||(data.chargeRulesActive&&data.access.planAccess&&data.access.staffAccess)||data.chargeCatalog?.enabled)&&tab==='設定'&&data.manage.settings&&!readOnly&&<BeautyOpeningGuide key={data.storeId} data={data} store={openingStore}/>}{tab==='首頁'&&homeContent}
 
-      {tab==='班表'&&<BeautyScheduleWorkspace suspended={!!(listOpen||selectedId||detailId||moneyPanel||statusDraft||booking||rental)||!!(calendarSync?.base===incoming&&calendarSync.pending)} cashbookShortcut={cashbookShortcut} move={cut?{clipboard:cut.clipboard,onPaste:setPaste,onCancel:()=>{setCut(null);setPaste(null);}}:undefined} data={data} slug={slug} onLoaded={value=>setCalendarState({base:incoming,value})} onOpen={id=>id.startsWith("rental:")?(data.access.customerAccess?setRental({id:id.slice(7)}):setError("沒有檢視租借顧客資料的權限")):setSelectedId(id)} onRoster={()=>setListOpen(true)} onDateChange={date=>{++calendarGeneration.current;setCalendarSync(null);if(date.slice(0,7)===data.date.slice(0,7))setCalendarState(old=>{const current=old?.base===incoming?old.value:incoming;return current.date===date?old:{base:incoming,value:{date,calendar:current.calendar,items:current.items,calendarDays:current.calendarDays,rentals:current.rentals,rosterSnapshots:current.rosterSnapshots}};});const q=new URLSearchParams(window.location.search);q.set('date',date);window.history.replaceState(null,'','?'+q);}} readOnly={readOnly}/>}
+      {tab==='班表'&&<BeautyScheduleWorkspace suspended={!!(listOpen||selectedId||detailId||moneyPanel||statusDraft||booking||rental)||!!(calendarSync?.base===incoming&&calendarSync.pending)} cashbookShortcut={cashbookShortcut} move={cut?{clipboard:cut.clipboard,onPaste:setPaste,onCancel:()=>{setCut(null);setPaste(null);}}:undefined} data={data} slug={slug} onLoaded={value=>setCalendarState({base:incoming,value})} onOpen={id=>id.startsWith("rental:")?(data.access.customerAccess?setRental({id:id.slice(7),initialDetail:data.rentalDetails?.[id.slice(7)]}):setError("沒有檢視租借顧客資料的權限")):setSelectedId(id)} onRoster={()=>setListOpen(true)} onDateChange={date=>{++calendarGeneration.current;setCalendarSync(null);if(date.slice(0,7)===data.date.slice(0,7))setCalendarState(old=>{const current=old?.base===incoming?old.value:incoming;return current.date===date?old:{base:incoming,value:{date,calendar:current.calendar,items:current.items,calendarDays:current.calendarDays,rentals:current.rentals,rentalDetails:current.rentalDetails,rosterSnapshots:current.rosterSnapshots}};});const q=new URLSearchParams(window.location.search);q.set('date',date);window.history.replaceState(null,'','?'+q);}} readOnly={readOnly}/>}
       {(listOpen||selectedId)&&<RightSheet open={(!moneyPanel||moneyPanel.kind==='collect')&&!statusDraft&&!detailId} presentation="centered" className="fitness-management-editor" fitContent width={1200} labelledById="beauty-roster-title" closeOnEscape={!pending&&!rosterBusy&&!pendingId&&!collectionBusy} onClose={()=>closeRoster()}>
-      <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-primary-50/60 px-4"><div className="flex items-center gap-3">{selectedId&&listOpen&&<button className={button} disabled={pending} onClick={()=>closeRoster(true)}>返回清單</button>}<h2 id="beauty-roster-title" className="font-semibold">預約清單</h2></div><button className={button} disabled={pending||!!pendingId||collectionBusy} onClick={()=>closeRoster()}>關閉</button></header>
-      <section className="flex min-h-0 flex-1 flex-col p-4" aria-label="預約清單">{error&&<p role="alert" className="text-sm text-red-700">{error}</p>}{syncNeeded&&<button type="button" className={button} disabled={!!pendingId} onClick={()=>void syncRoster()}>重新讀取核對</button>}<BeautyNativeRoster allowPreparedSnapshot={data.rosterSnapshots!==invalidatedRosterSnapshots} onSnapshotInvalidated={()=>setInvalidatedRosterSnapshots(data.rosterSnapshots)} onCommitted={()=>void syncCalendar(data.date,true)} collectionRecoveryEnabled={collectionRecoveryEnabled} suspended={!!detailId||!!statusDraft||!!moneyPanel} onCut={cutBooking} pendingId={pendingId} snapshot={rosterSnapshot} busy={pending||!!pendingId||syncNeeded||collectionBusy} data={data} bookingId={selectedId} readOnly={readOnly} onBusyChange={setRosterBusy} onAttendance={attendance} onStatus={status} onMoney={(kind,ids,initialCharges)=>{if(!pending&&!pendingId&&!syncNeeded&&!mutationLock.current)setMoneyPanel({kind,ids,initialCharges});}} onCustomer={setDetailId}/></section></RightSheet>}
+      <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-primary-50/60 px-4"><div className="flex items-center gap-3">{selectedId&&listOpen&&<button className={button} disabled={pending} onClick={()=>closeRoster(true)}>返回清單</button>}<h2 id="beauty-roster-title" className="font-semibold">{selectedId?"預約詳情":"預約清單"}</h2></div><div className="flex flex-wrap items-center justify-end gap-2">{selectedId&&!readOnly&&data.items.filter(row=>row.groupId===data.items.find(item=>item.id===selectedId)?.groupId).length===1&&<>{data.manage.update&&data.items.find(item=>item.id===selectedId)?.status==='RESERVED'&&<button className={button} disabled={pending||rosterBusy||!!pendingId||collectionBusy} onClick={()=>cutBooking(selectedId)}>✂ 改時間</button>}{data.access.writeAccess&&data.items.find(item=>item.id===selectedId)?.customerId&&<button className={button} disabled={pending||rosterBusy||!!pendingId||collectionBusy} onClick={()=>copyBooking(selectedId)}>⧉ 複製預約</button>}</>}<button className={button} disabled={pending||!!pendingId||collectionBusy} onClick={()=>closeRoster()}>關閉</button></div></header>
+      <section className="flex min-h-0 flex-1 flex-col p-4" aria-label="預約清單">{pendingId&&<p role="status" className="mb-2 text-sm text-primary-800">{pendingId==='sync'?'正在核對最新預約狀態…':'正在更新服務狀態與堂數，請稍候…'}</p>}{error&&<p role="alert" className="text-sm text-red-700">{error}</p>}{syncNeeded&&<button type="button" className={button} disabled={!!pendingId} onClick={()=>void syncRoster()}>重新讀取核對</button>}<BeautyNativeRoster allowPreparedSnapshot={data.rosterSnapshots!==invalidatedRosterSnapshots} onSnapshotInvalidated={()=>setInvalidatedRosterSnapshots(data.rosterSnapshots)} onCommitted={()=>void syncCalendar(data.date,true)} collectionRecoveryEnabled={collectionRecoveryEnabled} suspended={!!detailId||!!statusDraft||!!moneyPanel} onCut={cutBooking} onCopy={copyBooking} pendingId={pendingId} snapshot={rosterSnapshot} busy={pending||!!pendingId||syncNeeded||collectionBusy} data={data} bookingId={selectedId} readOnly={readOnly} onBusyChange={setRosterBusy} onAttendance={attendance} onStatus={status} onMoney={(kind,ids,initialCharges)=>{if(!pending&&!pendingId&&!syncNeeded&&!mutationLock.current)setMoneyPanel({kind,ids,initialCharges});}} onCustomer={setDetailId}/></section></RightSheet>}
       {moneyPanel?.kind==='collect'&&<BeautyCollectionDialog initialCharges={moneyPanel.initialCharges} ids={moneyPanel.ids} storeId={data.storeId} collectionRecoveryEnabled={collectionRecoveryEnabled&&!readOnly} canDiscount={!readOnly&&!!data.manage.discount} onGuard={onCollectionGuard} onClose={closeMoney} onSaved={()=>{setMoneyPanel(null);toast.success('已更新帳務');void syncRoster();}}/>}
       {cut&&paste&&<SportsMoveConfirm key={cut.requestKey+JSON.stringify(paste)} clipboard={cut.clipboard} seed={paste} rooms={data.locations.filter(l=>l.isActive)} coaches={data.techs.filter(t=>t.active).map(t=>({id:t.id,displayName:t.name}))} onClose={()=>setPaste(null)} source={{save:async target=>moveBeautyAppointment('manager',{id:cut.clipboard.sessionId,revision:cut.revision,requestKey:cut.requestKey,date:target.date,time:target.time,technicianId:target.coachId,locationId:target.roomId,reason:'班表剪下貼上改期'}),read:()=>readBeautyMoveResult(cut.clipboard.sessionId)}} onSaved={date=>{setPaste(null);setCut(null);toast.success('已改期');void syncCalendar(date);}}/>}
       {tab==='顧客管理'&&<BeautyNativeCustomerWorkspace data={data} readOnly={readOnly} planPurchaseRecoveryEnabled={planPurchaseRecoveryEnabled} collectionRecoveryEnabled={collectionRecoveryEnabled}/>}
       {tab==='顧客經營'&&careContent}
       {tab==='分析'&&analyticsContent}
-      {tab==='營運'&&operationsContent}
+      {tab==='營運'&&<>{operationsContent}<BeautyAddOnStatistics key={data.storeId} storeId={data.storeId}/></>}
       {['位置管理','服務項目','收費方式','技師管理'].includes(tab)&&<fieldset disabled={pending} aria-busy={pending} className="min-w-0">{pending&&<p role="status" className="py-2 text-sm text-earth-500">更新資料中…</p>}<BeautyManagementList key={tab} tab={tab} data={data} canEdit={!readOnly&&canEditTab} onEdit={(kind,draft)=>{if(!pending&&(draft||(!readOnly&&canEditTab)))setEditor({kind,draft:draft as Record<string,unknown>|undefined});}}/></fieldset>}
       {tab==='設定'&&settingsContent}
       {statusDraft&&<RightSheet open presentation="centered" className="fitness-management-editor" width={520} fitContent labelledById="beauty-status-title" closeOnEscape={!pending} onClose={()=>{if(!pending)setStatusDraft(null);}}><form className="space-y-3 p-4" onSubmit={e=>{e.preventDefault();if(!pending&&!readOnly&&data.manage.update&&statusDraft.reason.trim())run(async()=>{const r=await changeBeautyStatus('manager',statusDraft);if(r.success)setStatusDraft(null);return r;});}}><h2 id="beauty-status-title" className="font-semibold">確認服務狀態變更</h2><p>{data.items.find(b=>b.id===statusDraft.id)?.personName} · {data.items.find(b=>b.id===statusDraft.id)?.serviceName}</p><p>{({COMPLETED:'服務完成',CANCELLED:'取消此服務分項',NO_SHOW:'標記未到',RESERVED:'恢復／更正回預約'})[statusDraft.target]}</p><label>操作原因<textarea className={field} required maxLength={500} disabled={pending} value={statusDraft.reason} onChange={e=>setStatusDraft({...statusDraft,reason:e.target.value})}/></label>{error&&<p role="alert" className="text-red-700">{error}</p>}<div className="flex justify-end gap-3"><button type="button" className={button} disabled={pending} onClick={()=>{setStatusDraft(null);}}>返回</button><button className={button+' !bg-primary-700 !text-white'} disabled={pending||readOnly||!data.manage.update||!statusDraft.reason.trim()}>{pending?'處理中…':'確認'}</button></div></form></RightSheet>}
 
       {booking && !readOnly && data.access.writeAccess && <BeautyNativeScheduleDialog data={data} date={bookingSeed.date??data.date}
-        seed={{time:bookingSeed.time,coachId:bookingSeed.technicianId,roomId:bookingSeed.locationId,customerId:initialCustomerId}}
+        seed={{serviceId:bookingSeed.serviceId,isTrial:bookingSeed.isTrial,time:bookingSeed.time,coachId:bookingSeed.technicianId,roomId:bookingSeed.locationId,customerId:bookingSeed.customerId??initialCustomerId}}
         onGuard={updateBookingGuard} busy={bookingState.pending} onClose={closeBooking}
-        onCreated={date=>{setBooking(false);setBookingState({dirty:false,pending:false});toast.success('已新增預約');void syncCalendar(date);}}/>}
+        onCreated={date=>{setBooking(false);setBookingSeed({});setBookingState({dirty:false,pending:false});toast.success('已新增預約');void syncCalendar(date);}}/>}
       {editor && (
         <BeautyCatalogEditor
           kind={editor.kind}
@@ -285,7 +296,7 @@ export function BeautyDashboard({
                 {
                   refund: "登錄退款（不自動退刷）",
                   card: "購買方案",
-                  move: "改期／換技師位置",
+                  move: beautyText("改期／換技師位置"),
                 }[moneyPanel.kind]
               }
             </h2>
@@ -316,7 +327,7 @@ export function BeautyDashboard({
           </form>
         </RightSheet>
       )}
-    {rental&&<RightSheet open presentation="centered" width={1040} maxHeight={680} fixedHeight onClose={closeRental} labelledById="beauty-rental-title"><header className="flex shrink-0 items-center justify-between border-b border-earth-200 px-4 py-2"><h2 id="beauty-rental-title" className="font-semibold">{rental.id?'租借明細':'新增租借'}</h2><button className={button} disabled={rentalGuard.pending} onClick={closeRental}>關閉</button></header><div className="flex min-h-0 flex-1 flex-col p-4"><RentalPanel key={rental.id??"new"} module="beauty" id={rental.id} seed={{date:data.date}} rooms={data.locations} customers={data.customers.map(c=>({id:c.id,name:c.name,phone:c.phone}))} permissions={{customerRead:data.access.customerAccess,customerCreate:!!data.manage.customer&&!readOnly,collect:data.manage.collect&&!readOnly,correct:!!data.manage.refund&&!readOnly,edit:!!data.manage.update&&!readOnly}} onGuard={onRentalGuard}/></div></RightSheet>}
+    {rental&&<RightSheet open presentation="centered" width={640} maxHeight={680} fitContent onClose={closeRental} labelledById="beauty-rental-title"><header className="flex shrink-0 items-center justify-between border-b border-earth-200 px-4 py-2"><h2 id="beauty-rental-title" className="font-semibold">{rental.id?'租借明細':'新增租借'}</h2><button className={button} disabled={rentalGuard.pending} onClick={closeRental}>關閉</button></header><div className="flex min-h-0 flex-1 flex-col p-4"><RentalPanel key={rental.id??"new"} module="beauty" id={rental.id} initialDetail={rental.initialDetail} seed={{date:data.date}} rooms={data.locations} customers={data.customers.map(c=>({id:c.id,name:c.name,phone:c.phone}))} permissions={{customerRead:data.access.customerAccess,customerCreate:!!data.manage.customer&&!readOnly,collect:data.manage.collect&&!readOnly,correct:!!data.manage.refund&&!readOnly,edit:!!data.manage.update&&!readOnly}} onGuard={onRentalGuard}/></div></RightSheet>}
 </div>
   );
 }

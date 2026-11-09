@@ -1,0 +1,26 @@
+{
+  "syntheticDisposableDatabase": true,
+  "network": "none",
+  "unixSocketOnly": true,
+  "unusedEnginesStubbed": 8,
+  "protectedFileHashCount": 11,
+  "allProtectedFilesUnchanged": true,
+  "actualGeneratedNativeClients": [
+    {
+      "client": "main",
+      "ready": true,
+      "postgresVersion": "170011"
+    },
+    {
+      "client": "course",
+      "ready": true,
+      "postgresVersion": "170011"
+    },
+    {
+      "client": "beauty",
+      "ready": true,
+      "postgresVersion": "170011"
+    }
+  ],
+  "temporaryBuildRootRemoved": true
+}

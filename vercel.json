@@ -58,6 +58,12 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "feat/beauty-service-journey-20261103": false,
+      "chore/calendar-phase-timing-20261103": false,
+      "fix/steam-plan-reschedule-20261103": false,
+      "feat/beauty-operations-compact-20261103": false,
+      "feat/music-fitness-compact-20261103": false,
+      "fix/course-customer-filters-unified-20261103": false,
       "release/beauty-schedule-and-compact-dialogs-20261102": false,
       "fix/silverlily-calendar-loading-20261031": false,
       "review/shared-item-login-20261028": false,
@@ -85,6 +91,9 @@
       "codex/sports-production-migration-review": false,
       "codex/sports-cancel-migration-rehearsal": false,
       "main": false,
+      "fix/audit-readable-details-20261106": false,
+      "fix/beauty-booking-and-purchase-blockers-20261102": false,
+      "fix/beauty-summary-clipping-20261102": false,
       "fix/beauty-trial-guest-flow-20261102": false,
       "codex/sports-redesign-staging-20261018": false,
       "codex/sports-core-integration-review": false,
@@ -168,7 +177,20 @@
       "perf/sports-course-loading": false,
       "review/plan-management-sports-performance": false,
       "fix/calendar-restored-month-consistency": false,
-      "fix/beauty-collection-calendar-remount": false
+      "fix/beauty-collection-calendar-remount": false,
+      "fix/beauty-service-create-20261102": false,
+      "fix/beauty-void-flow-20261102": false,
+      "fix/beauty-void-pending-label-20261102": false,
+      "fix/beauty-attendance-feedback-20261102": false,
+      "fix/beauty-rental-fit-20261102": false,
+      "fix/beauty-schema-compat-20261102": false,
+      "fix/beauty-rental-charge-flow-20261102": false,
+      "fix/liff-makeup-plan-choice-20261102": false,
+      "fix/beauty-public-three-steps-20261102": false,
+      "codex/agreements-1502-integration": false,
+      "codex/all-modules-agreements-release": false,
+      "fix/agreement-privacy-default": false,
+      "content/marketing-beauty-addons-20261104": false
     }
   }
 }

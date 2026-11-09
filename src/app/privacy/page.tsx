@@ -96,7 +96,9 @@ export default function PrivacyPage() {
           </section>
 
           <section id="store-application">
+
 <h2 className="text-xl font-semibold text-earth-900">店家申請個人資料告知</h2>
+<p className="mt-3 leading-7 text-earth-700">選填朋友的店家訂閱推薦碼時，我們保存推薦關係、必要收款與退款查核及獎勵紀錄，用於確認活動資格、防止重複發放與管理使用期限。推薦人只會看到自己的獎勵狀態與天數，不會取得朋友的電話、付款金額或 LINE 身分。</p>
 <p className="mt-3 leading-7 text-earth-700">陸比音樂工作室｜統一編號：31789116；聯絡地址：新竹縣竹北市科大一路116號；聯絡信箱：steambutler500@gmail.com。</p>
 <p className="mt-3 leading-7 text-earth-700">申請資料用於需求評估、安排示範或體驗、回覆聯繫、後續建置及契約與帳務處理；來源參數及技術紀錄用於分析申請來源、維護安全與排除送出異常。送出申請不代表同意接收一般行銷訊息或授權付款。</p>
 <p className="mt-3 leading-7 text-earth-700">蒐集類別包括店家名稱、聯絡人稱呼、電話或 LINE ID、產業與門市規模、員工及顧客人數區間、現有系統、需求與聯繫偏好，以及頁面網址、來源網址、活動參數、裝置類型及申請識別碼。請勿於自由填寫欄位提供顧客名冊、健康資料或付款卡號。</p>

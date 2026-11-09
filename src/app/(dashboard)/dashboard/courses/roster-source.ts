@@ -2,7 +2,7 @@ import type {ReactNode} from 'react';
 import type {getCourseRoster} from '@/server/queries/course-members';
 import type {loadCourseSessionDetail,saveCourseRosterNote,updateCourseRosterBatch} from '@/server/actions/course-members';
 import type {CourseRosterDisplayRow} from './roster-list';
-export type ServiceRosterMetadata={revision:number;startsAt:string;endsAt:string;occupiedEndsAt:string;serviceName:string;technicianName:string;locationName:string;price:number;debit:boolean;available:number|null;collectionQuote?:import('@/server/beauty/service-charges').ServiceCharge;payment?:{reduction:number;netPrice:number;collected:number;due:number;status:string}};
+export type ServiceRosterMetadata={technicianId?:string;technicianState?:import('@/server/beauty/technician-service').TechnicianServiceState;addOnItems?:unknown;revision:number;startsAt:string;endsAt:string;occupiedEndsAt:string;serviceName:string;technicianName:string;locationName:string;price:number;debit:boolean;available:number|null;collectionQuote?:import('@/server/beauty/service-charges').ServiceCharge;payment?:{reduction:number;netPrice:number;collected:number;due:number;status:string}};
 export type NativeRosterBooking=Awaited<ReturnType<typeof getCourseRoster>>[number]&{service?:ServiceRosterMetadata};
 type Detail=Extract<Awaited<ReturnType<typeof loadCourseSessionDetail>>,{success:true}>['data'];
 export type CourseRosterSnapshot={sessionId:string;data:Detail|CourseRosterData};
@@ -10,6 +10,8 @@ export type TeacherNoteSnapshotLease={accept:(snapshot:CourseRosterSnapshot)=>bo
 export type CalendarRosterSnapshots={storeId:string;details:Record<string,CourseRosterSnapshot['data']>};
 export type CourseRosterData=Omit<Detail,'roster'|'trial'|'customers'>&{customers?:Detail['customers'];roster:NativeRosterBooking[];trial:null;readVersion?:string};
 export type CourseRosterSource={
+ header?:(rows:NativeRosterBooking[])=>ReactNode;
+ compactSingle?:boolean;
  confirmDiscard?:boolean;
  sync?:(id:string,version?:string)=>Promise<{success:true;version:string;unchanged:boolean;data?:CourseRosterData}|{success:false;error:string}>;
  readBlocked?:boolean;
@@ -24,6 +26,6 @@ export type CourseRosterSource={
  actions:(row:NativeRosterBooking)=>{label:string;onSelect:()=>void;danger?:boolean}[];
  batchAction?:{label:string;selectable:(row:NativeRosterBooking)=>boolean;onSubmit:(rows:NativeRosterBooking[])=>void};
  detailActions?:(row:NativeRosterBooking)=>ReactNode;
- labels:{list:string;pending:string;attended:string;unit:string};
+ labels:{owner?:string;list:string;pending:string;attended:string;unit:string};
  row?:(row:NativeRosterBooking)=>Partial<CourseRosterDisplayRow>;
 };

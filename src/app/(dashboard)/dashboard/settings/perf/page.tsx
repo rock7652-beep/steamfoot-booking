@@ -40,7 +40,7 @@ export default async function PerfPage() {
       <section>
         <h2 className="mb-3 text-sm font-semibold text-earth-800">頁面效能清單</h2>
         <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
+          <table data-striped-list className="w-full text-sm">
             <thead className="border-b border-earth-100 bg-earth-50/50">
               <tr>
                 <th className="px-3 py-2.5 text-left font-medium text-earth-600">路由</th>
@@ -52,7 +52,7 @@ export default async function PerfPage() {
             </thead>
             <tbody className="divide-y divide-earth-100">
               {PAGE_HOTSPOTS.map((p) => (
-                <tr key={p.route} className="hover:bg-earth-50/50 transition-colors">
+                <tr key={p.route} className=" transition-colors">
                   <td className="px-3 py-2.5 font-mono text-xs text-earth-800">{p.route}</td>
                   <td className="px-3 py-2.5 text-center font-semibold text-earth-900">{p.queryCount}</td>
                   <td className="px-3 py-2.5 text-center">
@@ -77,7 +77,7 @@ export default async function PerfPage() {
       <section>
         <h2 className="mb-3 text-sm font-semibold text-earth-800">快取 Tag 清單</h2>
         <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
+          <table data-striped-list className="w-full text-sm">
             <thead className="border-b border-earth-100 bg-earth-50/50">
               <tr>
                 <th className="px-3 py-2.5 text-left font-medium text-earth-600">Tag</th>
@@ -88,7 +88,7 @@ export default async function PerfPage() {
             </thead>
             <tbody className="divide-y divide-earth-100">
               {CACHE_INVENTORY.map((c) => (
-                <tr key={c.tag} className="hover:bg-earth-50/50 transition-colors">
+                <tr key={c.tag} className=" transition-colors">
                   <td className="px-3 py-2.5 font-mono text-xs font-medium text-primary-700">{c.tag}</td>
                   <td className="px-3 py-2.5 text-center text-earth-600">{c.ttl}s</td>
                   <td className="px-3 py-2.5">
