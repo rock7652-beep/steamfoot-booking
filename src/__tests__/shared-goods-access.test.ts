@@ -9,7 +9,7 @@ vi.mock('@/server/services/music-finance-access',()=>({requireMusicFinance:m.mus
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
 vi.mock('@/server/services/add-on-access',()=>({requireAddOnSelection:m.gate}));
 vi.mock('@/server/services/shared-goods-subject',()=>({lockSharedGoodsSubject:m.subject}));
-vi.mock('@/server/services/service-add-ons',()=>({saveAddOnOrder:m.save,postAddOnReceipt:m.receipt,addOnCommand:async(_tx:unknown,_a:unknown,_key:unknown,_intent:unknown,work:()=>Promise<unknown>)=>work()}));
+vi.mock('@/server/services/service-add-ons',()=>({saveAddOnOrder:m.save,postAddOnReceipt:m.receipt,addOnAuditEvidence:async(_tx:unknown,_a:unknown,_p:unknown,result:unknown)=>result,addOnCommand:async(_tx:unknown,_a:unknown,_key:unknown,_intent:unknown,work:()=>Promise<unknown>)=>work()}));
 vi.mock('@/server/services/operation-audit',()=>({recordOperationAudit:vi.fn()}));
 vi.mock('next/cache',()=>({revalidatePath:vi.fn()}));
 import {mutateSharedGoods} from '@/server/actions/shared-goods';

@@ -54,6 +54,7 @@ function HqLoginForm() {
         )}
 
         <form action={action} className="space-y-4">
+          {searchParams.get("intent") === "subscription-referral" && <input type="hidden" name="intent" value="subscription-referral" />}
           {/* 保留 store context，讓 OWNER/STAFF 登入後導向該店後台 */}
           {storeSlug && <input type="hidden" name="storeSlug" value={storeSlug} />}
           <div>

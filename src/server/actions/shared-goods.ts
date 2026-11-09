@@ -15,6 +15,8 @@ import {requireAddOnSelection} from '@/server/services/add-on-access';
 import {lockSharedGoodsSubject} from '@/server/services/shared-goods-subject';
 import {readAddOnOrder,saveAddOnOrder,postAddOnReceipt,addOnCommand} from '@/server/services/service-add-ons';
 import {recordOperationAudit} from '@/server/services/operation-audit';
+import {addOnAuditEvidence} from '@/server/services/service-add-ons';
+import {auditListDescription} from '@/lib/audit-presentation';
 import {revalidatePath} from 'next/cache';
 const key=z.string().min(1).max(128),subject=z.object({storeId:key,bookingId:key,participantId:key});
 async function context(permission:PermissionCode,write=false){
@@ -41,6 +43,7 @@ export async function mutateSharedGoods(input:unknown){try{
   let result;
   if(d.operation==='SAVE'){await requireAddOnSelection(tx,a.storeId,a.module);if(d.catalogRevision===undefined||!d.selections)throw new AppError('VALIDATION','缺少商品設定');result=await saveAddOnOrder(tx,a,person,{revision:d.revision,catalogRevision:d.catalogRevision,ids:[],selections:d.selections});}
   else{if(!d.amount||!d.method||d.operation==='REFUND'&&!d.originalId||d.operation==='COLLECT'&&d.originalId)throw new AppError('VALIDATION','請核對收退款資料');result=await postAddOnReceipt(tx,a,person,{revision:d.revision,amount:d.amount,method:d.method,originalId:d.originalId});}
-  await recordOperationAudit({actor:a.user,actorUserId:a.userId,storeId:a.storeId,module:a.module==='STEAMFOOT'?'STEAM':a.module,targetType:'ServiceAddOnOrder',targetId:person.reservationKey!,action:'SHARED_GOODS_'+d.operation,summary:'共同商品'+({SAVE:'修改',COLLECT:'收款',REFUND:'退款'}[d.operation]),after:result},tx);return result;
+  const evidence=await addOnAuditEvidence(tx,a,person,result,d.method);
+ await recordOperationAudit({actor:a.user,actorUserId:a.userId,storeId:a.storeId,module:a.module==='STEAMFOOT'?'STEAM':a.module,targetType:'ServiceAddOnOrder',targetId:person.reservationKey!,action:'SHARED_GOODS_'+d.operation,summary:auditListDescription({targetType:'ServiceAddOnOrder',action:'SHARED_GOODS_'+d.operation,afterJson:evidence}),after:evidence},tx);return result;
  });});revalidatePath('/dashboard/bookings');revalidatePath('/dashboard/courses');revalidatePath('/dashboard/revenue');revalidatePath('/dashboard/cashbook');return {success:true as const,data};
 }catch(e){return handleActionError(e);}}

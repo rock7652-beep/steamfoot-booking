@@ -5,7 +5,9 @@ import { getBookingCustomerProfile } from "@/server/actions/booking-customer-pro
 import { BookingServiceNoteEditor } from "./booking-service-note-editor";
 type Profile = Extract<Awaited<ReturnType<typeof getBookingCustomerProfile>>, { success: true }>['data'];
 const statusLabels: Record<string, string> = { PENDING: "預約中", CONFIRMED: "預約中", COMPLETED: "已完成", CANCELLED: "已取消", NO_SHOW: "未到" };
-export function BookingPersonDetails({ customerId, revision = 0, canEditNote, onNoteSaved, onWalletCount, initial, onOpenDetails }: {
+export function BookingPersonDetails({ customerId, revision = 0, canEditNote, onNoteSaved, onWalletCount, initial, onOpenDetails, compact = false, preferredWalletId }: {
+  compact?: boolean;
+  preferredWalletId?: string | null;
   onOpenDetails?: () => void;
   initial?: { id: string; name: string; phone: string; serviceNote: string | null };
   customerId: string; name: string; revision?: number; canEditNote: boolean; onNoteSaved?: (value: string | null) => void; onWalletCount?: (count: number | null) => void;
@@ -19,13 +21,22 @@ export function BookingPersonDetails({ customerId, revision = 0, canEditNote, on
   const [assigned, setAssigned] = useState(false);
   const [pendingPayment, setPendingPayment] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const knownWalletIds = useRef<Set<string>|null>(null);
+  const [newWalletIds,setNewWalletIds] = useState<Set<string>>(()=>new Set());
   const load = useCallback(async () => {
     const version = ++request.current;
     setLoading(true); setError("");
     try {
       const result = await reader.read(customerId);
       if (version !== request.current) return;
-      if (result.success && result.data.id === customerId) { setProfile(result.data); setLoaded(true); onWalletCount?.(result.data.wallets.length); }
+      if (result.success && result.data.id === customerId) {
+        const ids = new Set(result.data.wallets.map(wallet=>wallet.id));
+        if (knownWalletIds.current) {
+          const created = result.data.wallets.filter(wallet=>!knownWalletIds.current!.has(wallet.id)).map(wallet=>wallet.id);
+          if(created.length)setNewWalletIds(previous=>new Set([...previous,...created]));
+        }
+        knownWalletIds.current = ids;
+        setProfile(result.data); setLoaded(true); onWalletCount?.(result.data.wallets.length); }
       else { onWalletCount?.(null); setError(result.success ? "顧客資料不符，請重試" : result.error); }
     } catch { if (version === request.current) { onWalletCount?.(null); setError("資料讀取失敗，請重試。"); } }
     finally { if (version === request.current) setLoading(false); }
@@ -53,6 +64,22 @@ export function BookingPersonDetails({ customerId, revision = 0, canEditNote, on
     <span className="text-earth-700">剩 {wallet.remainingSessions}／{wallet.totalSessions} 堂</span>
     <span className="text-earth-700">{wallet.expiryDate ? `${wallet.expiryDate.replaceAll("-", "/")} 到期` : "無期限"}</span>
   </li>;
+  if (compact) {
+    const current = wallets.find(wallet=>wallet.id === preferredWalletId) ?? wallets[0];
+    const purchased = wallets.filter(wallet=>newWalletIds.has(wallet.id));
+    return <div className="text-sm">
+      {pendingPayment && <p role="status" className="text-amber-800">新購方案待付款／尚未開通</p>}
+      {loading && <p role="status" className="text-earth-500">讀取方案中…</p>}
+      {error && <p role="alert" className="text-amber-800">{assigned ? "已建立，方案資料更新失敗，請重新讀取。" : "暫時讀取不到方案"}<button type="button" onClick={()=>void load()} className="min-h-11 px-3 underline">重試</button></p>}
+      {loaded && !loading && !error && !pendingPayment && <section aria-label="本人有效方案">
+        {current && !newWalletIds.has(current.id) && <p className="text-earth-600">{preferredWalletId === current.id ? "" : `${current.name}・`}剩 {current.remainingSessions} 堂</p>}
+        {purchased.map(wallet=><p key={wallet.id} className="break-words text-earth-600">新購 {wallet.name}・剩 {wallet.remainingSessions} 堂・下次使用</p>)}
+        {wallets.length > 1 && <details><summary className="min-h-11 cursor-pointer text-primary-700">全部方案（{wallets.length}）</summary><ul>{wallets.map(walletLine)}</ul></details>}
+      </section>}
+      <button type="button" aria-expanded={open} className="min-h-11 text-primary-700" onClick={()=>{if(onOpenDetails){onOpenDetails();return;}setOpen(!open);}}>{open ? "收合資料" : "顧客資料"}</button>
+      {open && profile && <div className="rounded bg-earth-50 p-2"><p>{profile.phone || "未提供電話"}</p><BookingServiceNoteEditor compact customerId={customerId} value={profile.serviceNote} canEdit={canEditNote && loaded && !loading && !error} onSaved={value=>{setProfile(previous=>previous ? {...previous,serviceNote:value} : previous);reader.invalidate(customerId);onNoteSaved?.(value);}} /></div>}
+    </div>;
+  }
   return <div className="mt-1">
     <section aria-label="本人有效方案" className="min-w-0">
       <div className="flex flex-wrap items-center gap-2"><h4 className="text-base text-earth-600">有效方案</h4>

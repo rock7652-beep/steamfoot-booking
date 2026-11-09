@@ -1,6 +1,6 @@
 # 推薦五表：正式安裝審查包
 
-狀態：審查完成稿，尚未取得正式 DDL 安裝授權，未安裝或啟用。既有核准只涵蓋診斷 PR 與唯讀檢查。
+狀態：2026-11-05 已依使用者明確授權完成正式五表安裝，活動未啟用。來源 main `236d637d`，成功執行 [41953637299](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/41953637299)，[結果證據](../../../artifacts/subscription-referral-management/private-installation-apply-success.json)。既有 migration 帳本未變、五表皆空，未修改訂閱、扣款、通知或活動旗標。下方流程保留作安裝審查紀錄，**不得再次安裝**。
 
 本包只新增五張私有表及其約束／索引，開啟 RLS，撤回 PUBLIC、anon、authenticated、service_role 權限。沒有既有業務表 DML、角色建立、GRANT、公開 RPC、排程、活動旗標或通知／金流變更。正式 runtime 是否與 GitHub 使用同一角色仍須另外核實；成功安裝不代表正式活動可用。
 

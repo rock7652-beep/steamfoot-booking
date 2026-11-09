@@ -91,6 +91,7 @@
       "codex/sports-production-migration-review": false,
       "codex/sports-cancel-migration-rehearsal": false,
       "main": false,
+      "fix/audit-readable-details-20261106": false,
       "fix/beauty-booking-and-purchase-blockers-20261102": false,
       "fix/beauty-summary-clipping-20261102": false,
       "fix/beauty-trial-guest-flow-20261102": false,
@@ -189,7 +190,8 @@
       "codex/agreements-1502-integration": false,
       "codex/all-modules-agreements-release": false,
       "fix/agreement-privacy-default": false,
-      "feat/mixed-course-enrollment-20261109": false
+      "feat/mixed-course-enrollment-20261109": false,
+      "content/marketing-beauty-addons-20261104": false
     }
   }
 }

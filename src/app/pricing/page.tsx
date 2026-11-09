@@ -16,6 +16,7 @@ export const metadata = {
 };
 const TRIAL_URL = "/apply";
 const featureLinks: Record<string, string> = {
+  "加購商品": "product-addons", "加做項目": "service-addons",
   "LINE 自動提醒": "reminders", "資料匯出": "export", "現金抽屜": "cash",
   "工單管理": "work-orders", "進銷存管理": "inventory", "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis", "課程候補": "waitlist", "顧客標籤": "labels",
 };
@@ -35,6 +36,8 @@ const comparisonRows = [
   { label: "健康追蹤", values: ["額外加購", "免費任選", "內含"] },
   { label: "月結管理", values: ["額外加購", "免費任選", "內含"] },
   { label: "課程候補", values: ["額外加購", "免費任選", "內含"] },
+  { label: "加購商品", values: ["額外加購", "額外加購", "內含"] },
+  { label: "加做項目", values: ["額外加購", "額外加購", "額外加購"] },
   { label: "進銷存管理", values: ["額外加購", "額外加購", "額外加購"] },
   { label: "工單管理", values: ["額外加購", "額外加購", "額外加購"] },
 ] as const;

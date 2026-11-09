@@ -137,6 +137,7 @@ export default async function StoreSubscriptionsListPage({
         }
       />
 
+      {process.env.SUBSCRIPTION_REFERRALS_ENABLED === "true" && <Link href="/hq/dashboard/stores/referrals" className="inline-flex min-h-11 items-center text-base font-medium underline underline-offset-4">推薦活動核對與發放 →</Link>}
       <section className="rounded-lg border border-earth-100 bg-earth-50/40 px-4 py-2.5 text-[12px] leading-relaxed text-earth-600">
         到期日當天仍可使用；次日起後台為唯讀，停止新增預約。
         轉正式請編輯目前訂閱，選擇購買方案及「使用中」，確認有效期限後儲存。

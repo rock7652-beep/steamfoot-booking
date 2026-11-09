@@ -51,7 +51,7 @@ export async function saveSportsTeachingRule(tx: Prisma.TransactionClient, store
   }
   if (current && (sorted(current.coachIds) !== sorted(rule.expectedCoachIds) || JSON.stringify(current.expectedCompensation) !== JSON.stringify(rule.expectedCompensation)) && !same)
     throw new AppError("CONFLICT", "教練或計酬設定已有更新，請重新開啟核對");
-  if(same&&current?.expectedCompensation!==null)return;
+  if(same&&current?.expectedCompensation!==null)return current;
   const coaches = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "Staff" WHERE "storeId"=${storeId} AND status::text='ACTIVE' AND "courseCoachEnabled"=true AND id=ANY(${rule.coachIds}::text[])`;
   if (coaches.length !== new Set(rule.coachIds).size) throw new AppError("VALIDATION", "請選擇本店有效授課教練");
   const removed = current?.coachIds.filter(id => !rule.coachIds.includes(id)) ?? [];
@@ -61,4 +61,5 @@ export async function saveSportsTeachingRule(tx: Prisma.TransactionClient, store
   await tx.$executeRaw`UPDATE "Staff" SET "courseQualifiedTemplateIds"=array_remove("courseQualifiedTemplateIds",${templateId}),"updatedAt"=NOW() WHERE "storeId"=${storeId} AND id=ANY(${removed}::text[])`;
   await tx.$executeRaw`UPDATE "Staff" SET "courseQualificationsConfirmed"=true,"courseQualifiedTemplateIds"=array_append(array_remove("courseQualifiedTemplateIds",${templateId}),${templateId}),"updatedAt"=NOW() WHERE "storeId"=${storeId} AND id=ANY(${rule.coachIds}::text[])`;
   if(!current?.expectedCompensation||JSON.stringify(current.compensation)!==JSON.stringify(rule.compensation))await tx.courseCompensation.upsert({ where: { storeId_templateId_staffId: { storeId, templateId, staffId: "" } }, create: { storeId, templateId, staffId: "", rules: [rule.compensation] }, update: { rules: [rule.compensation], revision: { increment: 1 } } });
+  return current;
 }

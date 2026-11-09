@@ -4,7 +4,7 @@ vi.mock("@/server/actions/course-customer-transaction",()=>({loadCourseCustomerT
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
-const mock=vi.hoisted(()=>({periods:{read:vi.fn(),invalidate:vi.fn()},orders:{read:vi.fn(),clear:vi.fn()}}));
+const mock=vi.hoisted(()=>({periods:{read:vi.fn(),invalidate:vi.fn()},orders:{read:vi.fn(),clear:vi.fn(),invalidate:vi.fn()}}));
 vi.mock("next/navigation",()=>({useSearchParams:()=>new URLSearchParams()}));
 vi.mock("@/components/operations/panel-read-cache",()=>({usePanelReader:(name:string)=>name==="music-periods"?mock.periods:mock.orders}));
 vi.mock("@/server/actions/music-periods",()=>({loadMusicPeriods:vi.fn()}));
@@ -84,7 +84,7 @@ it("shows a completed purchase in the mounted empty panel without a page reload"
  mock.periods.read.mockResolvedValue({success:true,data:cards});mock.orders.read.mockResolvedValue({success:true,data:orders,hasMore:false});
  await act(async()=>root.render(createElement(MusicStudentCourses,{...props,revision:1})));
  expect(mock.periods.read).toHaveBeenCalledTimes(2);expect(mock.orders.read).toHaveBeenCalledTimes(2);
- expect(mock.periods.invalidate).toHaveBeenLastCalledWith("student-1");expect(mock.orders.clear).toHaveBeenCalledTimes(2);
+ expect(mock.periods.invalidate).toHaveBeenLastCalledWith("student-1");expect(mock.orders.clear).not.toHaveBeenCalled();
  expect(host.textContent).not.toContain("尚無已購課程");expect(host.textContent).toContain("購課｜2026-10-01 08:00・2 期・4 堂");
  expect(host.querySelector('[data-music-period="1"]')?.textContent).toContain("已收 NT$ 1,600");
 });

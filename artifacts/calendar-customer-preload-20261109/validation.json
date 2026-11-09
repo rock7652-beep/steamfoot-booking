@@ -1,0 +1,43 @@
+{
+  "baseCommit": "236d637dd9f03f9824bdd92841457e7e9d2a86f3",
+  "localOnly": true,
+  "vitest": {
+    "mainFiles": 16,
+    "mainPassed": 91,
+    "additionalPurchasePanelPassed": 7,
+    "customerPreloadRetested": 6
+  },
+  "typecheck": "passed: NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit",
+  "eslint": "passed: all changed/new TS, TSX and MJS files",
+  "browser": {
+    "functionalCases": 21,
+    "edgeCases": 3,
+    "errors": [],
+    "syntheticDataOnly": true,
+    "viewports": [
+      [
+        1366,
+        900
+      ],
+      [
+        1920,
+        1080
+      ],
+      [
+        1024,
+        768
+      ],
+      [
+        768,
+        1024
+      ]
+    ]
+  },
+  "unverified": [
+    "authenticated live stores",
+    "real database",
+    "real iPad/Safari",
+    "remote preview/deployment",
+    "business writes"
+  ]
+}
