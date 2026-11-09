@@ -44,7 +44,7 @@ async function main(){
   for(let n=0;n<3;n++){const cid=id+'-student-'+n,name=`${label}驗收學員${['甲','乙','丙'][n]}`;await db.customer.create({data:{id:cid,storeId,name,phone:'099900010'+n,assignedStaffId:staffId}});customers.push({id:cid,name});}
   accounts.push({kind,storeId,slug,userId,staffId,email,password,templateId,subjectId,subjectName:`混合驗收${label}`,roomId,roomName:`混合${label}教室`,teacherName:`混合${label}老師`,customers,date:'2030-11-04',time:'10:00'});
  }
- writeFileSync('/tmp/mixed-local-access.json',JSON.stringify({base:'http://127.0.0.1:3107',accounts}),{mode:0o600});
+ writeFileSync('/tmp/mixed-local-access.json',JSON.stringify({base:'http://localhost:3107',accounts}),{mode:0o600});
  console.log(JSON.stringify({isolated:true,modules:2,stores:accounts.map(a=>a.storeId),seeded:true}));
 }
 main().catch(e=>{console.error(e instanceof Error?e.message:'Seed failed');process.exitCode=1;}).finally(async()=>{await sql.end();await db.$disconnect();await course.$disconnect();});
