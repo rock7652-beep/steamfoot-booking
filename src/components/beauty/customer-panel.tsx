@@ -15,7 +15,8 @@ import {DataTable} from "@/components/desktop";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { createClientReadCache } from "@/lib/client-read-cache";
+import {usePanelReadCache} from "@/components/operations/panel-read-cache";
+import {readBeautyCustomerDetail,beautyCustomerDetailScope} from "@/lib/beauty/customer-detail-read";
 import { formatTWDateTime } from "@/lib/date-utils";
 import {
   readBeautyCustomer,
@@ -39,12 +40,7 @@ export function BeautyCustomerPanel({
   const support=useCustomerPanelGuard();
   const [editingAttribution,setEditingAttribution]=useState(false);
   const [recordTab,setRecordTab]=useState("bookings");
-  const [reader] = useState(() =>
-    createClientReadCache((id: string) => readBeautyCustomer({ id }), {
-      ttlMs: 0,
-      staleMs: 0,
-    }),
-  );
+  const reader=usePanelReadCache('beauty-customer-detail',readBeautyCustomerDetail,beautyCustomerDetailScope(data),15_000);
   const [detail, setDetail] = useState<Awaited<
       ReturnType<typeof readBeautyCustomer>
     > | null>(null),
@@ -56,7 +52,7 @@ export function BeautyCustomerPanel({
     const scope={id,active:true};readScope.current=scope;
     let active = true;
     reader
-      .load(id, { revalidate: true })
+      .load(id)
       .then((r) => {
         if (active) setDetail(r);
       })

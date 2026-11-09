@@ -30,3 +30,8 @@ export async function readBeautyNativeCalendar(date:string,slug:string):Promise<
   return value;
  }finally{clearTimeout(timer);}
 }
+
+/** The receipt and parent props use the same version, so accepting a month is not mistaken for a mutation. */
+export function beautyCalendarSnapshotVersion(data:Pick<BeautyCalendarData,'date'|'items'|'rentals'>,customerAccess:boolean,assigned:Record<string,string|null>){
+ return JSON.stringify([data.date.slice(0,7),customerAccess,assigned,data.items.map(b=>[b.id,b.revision,b.paymentStatus,b.personName,b.personPhone]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))),(data.rentals??[]).map(r=>[r.id,r.startsAt,r.endsAt,r.customerId,r.customerName,r.customerPhone])]);
+}

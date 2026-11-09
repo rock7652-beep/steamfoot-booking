@@ -1,0 +1,192 @@
+{
+  "fixtureOnly": true,
+  "results": [
+    {
+      "profile": "sports",
+      "width": 1366,
+      "height": 900,
+      "warmMs": 65,
+      "preloadReadOnly": true,
+      "completeMonth": true
+    },
+    {
+      "profile": "sports",
+      "width": 1920,
+      "height": 1080,
+      "warmMs": 69,
+      "preloadReadOnly": true,
+      "completeMonth": true
+    },
+    {
+      "profile": "sports",
+      "width": 1024,
+      "height": 768,
+      "warmMs": 90,
+      "preloadReadOnly": true,
+      "completeMonth": true
+    },
+    {
+      "profile": "sports",
+      "width": 768,
+      "height": 1024,
+      "warmMs": 61,
+      "preloadReadOnly": true,
+      "completeMonth": true
+    },
+    {
+      "profile": "music",
+      "width": 1366,
+      "height": 900,
+      "warmMs": 63,
+      "preloadReadOnly": true,
+      "completeMonth": true
+    },
+    {
+      "profile": "music",
+      "width": 1920,
+      "height": 1080,
+      "warmMs": 63,
+      "preloadReadOnly": true,
+      "completeMonth": true
+    },
+    {
+      "profile": "music",
+      "width": 1024,
+      "height": 768,
+      "warmMs": 58,
+      "preloadReadOnly": true,
+      "completeMonth": true
+    },
+    {
+      "profile": "music",
+      "width": 768,
+      "height": 1024,
+      "warmMs": 61,
+      "preloadReadOnly": true,
+      "completeMonth": true
+    },
+    {
+      "profile": "beauty",
+      "width": 1366,
+      "height": 900,
+      "warmMs": 79,
+      "preloadReadOnly": true,
+      "completeMonth": true
+    },
+    {
+      "profile": "beauty",
+      "width": 1920,
+      "height": 1080,
+      "warmMs": 47,
+      "preloadReadOnly": true,
+      "completeMonth": true
+    },
+    {
+      "profile": "beauty",
+      "width": 1024,
+      "height": 768,
+      "warmMs": 62,
+      "preloadReadOnly": true,
+      "completeMonth": true
+    },
+    {
+      "profile": "beauty",
+      "width": 768,
+      "height": 1024,
+      "warmMs": 63,
+      "preloadReadOnly": true,
+      "completeMonth": true
+    },
+    {
+      "profile": "sports",
+      "kind": "customers",
+      "width": 1366,
+      "height": 900,
+      "warmMs": 128,
+      "readCount": 1,
+      "correctCustomer": true,
+      "panelContained": true
+    },
+    {
+      "profile": "sports",
+      "kind": "customers",
+      "width": 1024,
+      "height": 768,
+      "warmMs": 117,
+      "readCount": 1,
+      "correctCustomer": true,
+      "panelContained": true
+    },
+    {
+      "profile": "sports",
+      "kind": "customers",
+      "width": 768,
+      "height": 1024,
+      "warmMs": 108,
+      "readCount": 1,
+      "correctCustomer": true,
+      "panelContained": true
+    },
+    {
+      "profile": "music",
+      "kind": "customers",
+      "width": 1366,
+      "height": 900,
+      "warmMs": 222,
+      "readCount": 1,
+      "correctCustomer": true,
+      "panelContained": true
+    },
+    {
+      "profile": "music",
+      "kind": "customers",
+      "width": 1024,
+      "height": 768,
+      "warmMs": 177,
+      "readCount": 1,
+      "correctCustomer": true,
+      "panelContained": true
+    },
+    {
+      "profile": "music",
+      "kind": "customers",
+      "width": 768,
+      "height": 1024,
+      "warmMs": 195,
+      "readCount": 1,
+      "correctCustomer": true,
+      "panelContained": true
+    },
+    {
+      "profile": "beauty",
+      "kind": "customers",
+      "width": 1366,
+      "height": 900,
+      "warmMs": 109,
+      "readCount": 1,
+      "correctCustomer": true,
+      "panelContained": true
+    },
+    {
+      "profile": "beauty",
+      "kind": "customers",
+      "width": 1024,
+      "height": 768,
+      "warmMs": 95,
+      "readCount": 1,
+      "correctCustomer": true,
+      "panelContained": true
+    },
+    {
+      "profile": "beauty",
+      "kind": "customers",
+      "width": 768,
+      "height": 1024,
+      "warmMs": 96,
+      "readCount": 1,
+      "correctCustomer": true,
+      "panelContained": true
+    }
+  ],
+  "errors": []
+}

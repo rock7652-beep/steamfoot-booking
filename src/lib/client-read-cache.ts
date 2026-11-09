@@ -39,6 +39,13 @@ export function createClientReadCache<T>(
   return {
     get,
     load,
+    seed(key: string, value: T) {
+      // An authoritative response supersedes older speculative work for this key.
+      pending.delete(key);
+      entries.delete(key);
+      if (shouldCache(value)) entries.set(key, {value, expiresAt: Date.now() + ttlMs});
+      if (entries.size > maxEntries) entries.delete(entries.keys().next().value!);
+    },
     peek(key: string): T | undefined {
       const entry = entries.get(key);
       if (!entry || entry.expiresAt + staleMs <= Date.now()) return undefined;
