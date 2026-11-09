@@ -101,6 +101,7 @@ interface BookingEntry {
 }
 
 interface MonthSummaryDay {
+  monthlyStats?: { bookings: number; people: number; completed: number; pending: number; cancelled: number; noShow: number };
   date: string;
   totalBookingCount: number;
   totalPeople: number;
@@ -779,8 +780,24 @@ function BookingsManagerContent({
     if (failed) toast.error(`${failed} 筆未完成，請查看個別提示`);
   }
 
+  const monthStats = monthData.reduce((total, day) => {
+    const stats = day.monthlyStats;
+    if (stats) for (const key of Object.keys(total) as (keyof typeof total)[]) total[key] += stats[key];
+    return total;
+  }, { bookings: 0, people: 0, completed: 0, pending: 0, cancelled: 0, noShow: 0 });
+  const hasMonthStats = monthData.every(day => !!day.monthlyStats);
+
   return (
     <div className="flex min-w-0 flex-col gap-2">
+      {hasMonthStats && <section aria-label={`${year}年${month}月預約統計`} className="overflow-x-auto rounded-lg border border-earth-200 bg-white px-3">
+        <div className="flex min-h-11 min-w-max items-center gap-4 text-sm tabular-nums">
+          <span>本月預約 <strong className="text-base text-primary-900">{monthStats.bookings}</strong> 筆・<strong className="text-base text-primary-900">{monthStats.people}</strong> 人次</span>
+          <span className="border-l border-earth-200 pl-4">已完成 <strong className="text-base text-primary-900">{monthStats.completed}</strong> 人次</span>
+          <span className="border-l border-earth-200 pl-4">待服務 <strong className="text-base text-primary-900">{monthStats.pending}</strong> 人次</span>
+          <span className="border-l border-earth-200 pl-4 text-earth-500">取消 {monthStats.cancelled} 筆</span>
+          <span className="border-l border-earth-200 pl-4 text-earth-500">未到 {monthStats.noShow} 人次</span>
+        </div>
+      </section>}
       <Toolbar
         year={year}
         month={month}
@@ -827,11 +844,12 @@ function BookingsManagerContent({
         </div>
       </div>
 
-      {/* 與課程名單共用中央工作視窗；詳情開啟時隱藏清單，避免雙層彈窗。 */}
+      {/* 與課程名單共用中央工作視窗；詳情疊在清單上方，保留原篩選與捲動位置。 */}
       <RightSheet
         presentation="centered"
         fixedHeight
-        open={!!selectedDate && !activeBookingId}
+        open={!!selectedDate}
+        covered={!!activeBookingId}
         onClose={closeDay}
         width={1200}
         labelledById="day-detail-sheet-title"

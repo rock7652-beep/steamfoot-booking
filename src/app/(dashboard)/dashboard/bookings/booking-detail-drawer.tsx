@@ -672,6 +672,8 @@ export function BookingDetailDrawer({
         labelledById={attendanceOpen && !checkingResult ? "booking-attendance-title" : "booking-drawer-title"}
         fitContent={false}
         width={860}
+        fixedHeight
+        maxHeight={640}
       >
         {open && <BookingActionFeedback state={actionState} onCheck={() => { void saves.check(actionKey); }} />}
         {open && operationGuidePreview && <BookingGuideContext status={hasFullData ? data?.booking.bookingStatus : undefined} />}

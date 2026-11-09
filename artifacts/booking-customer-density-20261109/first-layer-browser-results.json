@@ -1,0 +1,58 @@
+[
+  {
+    "name": "desktop",
+    "width": 1440,
+    "height": 1000,
+    "passed": true,
+    "checks": [
+      "compact first-layer reservation details",
+      "inline individual collection; no extra dialog",
+      "same companion row after payment",
+      "new purchase summary with 10 sessions; no deduction",
+      "stable reservation dimensions"
+    ],
+    "data": "isolated fixture; simulated payments and purchases only"
+  },
+  {
+    "name": "ipad-landscape",
+    "width": 1024,
+    "height": 768,
+    "passed": true,
+    "checks": [
+      "compact first-layer reservation details",
+      "inline individual collection; no extra dialog",
+      "same companion row after payment",
+      "new purchase summary with 10 sessions; no deduction",
+      "stable reservation dimensions"
+    ],
+    "data": "isolated fixture; simulated payments and purchases only"
+  },
+  {
+    "name": "ipad-portrait",
+    "width": 768,
+    "height": 1024,
+    "passed": true,
+    "checks": [
+      "compact first-layer reservation details",
+      "inline individual collection; no extra dialog",
+      "same companion row after payment",
+      "new purchase summary with 10 sessions; no deduction",
+      "stable reservation dimensions"
+    ],
+    "data": "isolated fixture; simulated payments and purchases only"
+  },
+  {
+    "name": "narrow",
+    "width": 390,
+    "height": 844,
+    "passed": true,
+    "checks": [
+      "compact first-layer reservation details",
+      "inline individual collection; no extra dialog",
+      "same companion row after payment",
+      "new purchase summary with 10 sessions; no deduction",
+      "stable reservation dimensions"
+    ],
+    "data": "isolated fixture; simulated payments and purchases only"
+  }
+]
