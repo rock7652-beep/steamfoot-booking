@@ -231,7 +231,7 @@ export function CourseMemberWorkspace({
     invalidateCustomerPlanReads();
     advanceCardRevision(update);
   },[invalidateCustomerPlanReads]);
-  const planPreload=useCustomerPlanPreload({load:source?.browseCards,native:sportsNative,music,canReadCards,canReadBookings,canReadTransactions,revision:cardRevision,dataScope});
+  const planPreload=useCustomerPlanPreload({load:source?.browseCards,native:sportsNative,music,canReadCards,canReadBookings,canReadTransactions,revision:cardRevision,dataScope,storeId:previewStoreId});
   useIdleReadPreload({enabled:panel==='person'&&!!person,blocked:dirty||pending,keys:person?[person.id]:[],reader:planPreload.reader});
   const [balanceReceipts,setBalanceReceipts]=useState<{storeId:typeof previewStoreId;values:Record<string,{available:number;ids:string[]}>}>({storeId:previewStoreId,values:{}});
 

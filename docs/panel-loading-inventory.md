@@ -23,7 +23,7 @@
 | 成長顧客 | growth-customer | TTL 0，先顯示傳入姓名摘要；每次開啟及切顧客重新建立讀取狀態，舊錯誤／晚到回應隔離；視窗內重試 |
 | 交易詳情／更正／退款 | transaction-detail | TTL 0，pointer／focus／touch intent 只去重在途讀取，完成後再開仍讀最新；讀取錯誤可視窗內重試；刷新世代保護及修改後失效 |
 | 預約管理現金收支 | quick-cashbook | 獨立 GET /api/cashbook/quick，共用既有後端授權及餘額服務，避免讀取 Server Action 的頁面回應；TTL 0，門市及頁碼納入讀取鍵；pointer／focus／touch intent 在途去重；換頁隱藏舊金額，失敗原頁重試；關閉與寫入成功清除資源，晚到回應隔離 |
-| 課程堂數方案上課格子 | course-card-progress → loadCourseCardProgress | 開啟方案後獨立 TTL 0 panel reader；重新核對 wallet.read／customer.read／booking.read、門市、學員及課卡關係。RepeatableRead 讀實際 GRANT、已出席與有效補登，不從剩餘額度或同名方案推算；換卡／換店／修訂隔離舊回應。共用方案需完整使用人可見性，否則保留可見範圍的完整紀錄。無寫入或通知 |
+| 課程堂數方案上課格子 | course-card-progress → loadCourseCardProgress | 沿用方案清單的 15 秒有界顯示快取；顧客列表閒置／姓名 intent 預讀時，先取得方案，再每位最多預讀 5 張堂數卡的日期格、每次最多 2 張並行。開窗直接採用同門市／修訂／課卡／學員的有效結果；過期、購課或教務更新後重讀，失敗原位重試。資料讀取仍重新核對 wallet.read／customer.read／booking.read、門市、學員及課卡關係。RepeatableRead 讀實際 GRANT、已出席與有效補登，不從剩餘額度或同名方案推算；換卡／換店／修訂隔離舊回應。共用方案需完整使用人可見性，否則保留可見範圍的完整紀錄。無寫入或通知 |
 | 課程學員方案 | course-card | 已帶入摘要先顯示，完整卡片 TTL 0；pointer／focus／touch intent 在途去重；視窗內重試、開啟世代與 active cleanup，完整讀取成功後才可修改 |
 | 課程職員授課設定 | course-staff-teaching | 分頁需要時 TTL 0；feesReady 保留編輯草稿，重試重新讀取 |
 | 課程同行使用方式 | course-companion | TTL 0，版本保護與 expectedUpdatedAt 寫入檢查 |

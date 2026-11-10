@@ -2,7 +2,8 @@
 import React,{act} from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({cards:vi.fn(),native:vi.fn(),periods:vi.fn(),overview:vi.fn(),orders:vi.fn()}));
+const m=vi.hoisted(()=>({cards:vi.fn(),native:vi.fn(),periods:vi.fn(),overview:vi.fn(),orders:vi.fn(),progress:vi.fn()}));
+vi.mock('@/server/actions/course-card-progress',()=>({loadCourseCardProgress:m.progress}));
 vi.mock('@/server/actions/course-browse',()=>({browseCourseCards:m.cards}));
 vi.mock('@/lib/course-card-read-client',()=>({readNativeCourseCards:m.native}));
 vi.mock('@/lib/music-period-read-client',()=>({readMusicPeriods:m.periods}));
@@ -10,12 +11,13 @@ vi.mock('@/server/actions/music-student-workspace',()=>({loadMusicStudentWorkspa
 vi.mock('@/server/actions/course-customer-history',()=>({loadCourseCustomerPurchases:m.orders}));
 vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()}),usePathname:()=>'/dashboard/courses',useSearchParams:()=>new URLSearchParams()}));
 import {PanelReadProvider,useInvalidateCustomerPlanReads} from '@/components/operations/panel-read-cache';
+import {CourseCardProgress} from '@/app/(dashboard)/dashboard/courses/card-progress';
 import {useCustomerPlanPreload,useCustomerCardReader} from '@/components/admin/use-customer-plan-preload';
 let invalidate:()=>void;
 let root:Root,host:HTMLDivElement,preload:ReturnType<typeof useCustomerPlanPreload>,reader:ReturnType<typeof useCustomerCardReader>;
 type Options=Parameters<typeof useCustomerPlanPreload>[0];
 function Parent({options,open}:{options:Options;open:boolean}){const value=useCustomerPlanPreload(options),clear=useInvalidateCustomerPlanReads();React.useEffect(()=>{preload=value;invalidate=clear;},[value,clear]);return open?React.createElement(Child,{options}):null;}
-function Child({options}:{options:Options}){const value=useCustomerCardReader(options);React.useEffect(()=>{reader=value;},[value]);return null;}
+function Child({options}:{options:Options}){const value=useCustomerCardReader(options);React.useEffect(()=>{reader=value;},[value]);return options.storeId?React.createElement(CourseCardProgress,{storeId:options.storeId,customerId:"student",cardId:"sessions",revision:options.revision}):null;}
 async function render(options:Options,open=false,store='A',instance='panel'){await act(async()=>root.render(React.createElement(PanelReadProvider,{key:store},React.createElement(Parent,{key:instance,options,open}))));}
 beforeEach(()=>{vi.clearAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement('div');root=createRoot(host);for(const fn of Object.values(m))fn.mockResolvedValue({success:true,rows:[],data:[],hasMore:false});});
 afterEach(async()=>{await act(async()=>root.unmount());vi.useRealTimers();});
@@ -64,4 +66,24 @@ it('detaches pre-purchase in-flight reads in all previous revisions',async()=>{
  expect(await reader.read({customerId:'customer',search:'',history:false,page:0})).toMatchObject({rows:[{id:'new-plan'}]});
  finish({success:true,rows:[{id:'old-plan'}],hasMore:false});await pending;
  expect(await reader.read({customerId:'customer',search:'',history:false,page:0})).toMatchObject({rows:[{id:'new-plan'}]});
+});
+
+it('preloads only session progress for the authorized store, reuses it on open, and clears it after a purchase',async()=>{
+ m.cards.mockResolvedValue({success:true,rows:[{id:'sessions',unit:'SESSION'},{id:'points',unit:'POINT'}],hasMore:false});
+ m.progress.mockResolvedValue({success:true,data:{available:true,total:8,completed:[],shared:false}});
+ const options={canReadCards:true,canReadBookings:true,storeId:'store-A'};
+ await render(options);await preload.reader.read('student');
+ expect(m.progress).toHaveBeenCalledExactlyOnceWith({cardId:'sessions',customerId:'student',expectedStoreId:'store-A',dataScope:undefined});
+ await render(options,true);expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(8);expect(m.progress).toHaveBeenCalledOnce();
+ await act(async()=>invalidate());await preload.reader.read('student');expect(m.progress).toHaveBeenCalledTimes(2);
+});
+it('never preloads progress without booking access or for a different module adapter',async()=>{
+ m.cards.mockResolvedValue({success:true,rows:[{id:'card',unit:'SESSION'}],hasMore:false});
+ await render({canReadCards:true,storeId:'store'});await preload.reader.read('student');expect(m.progress).not.toHaveBeenCalled();
+ const load=vi.fn().mockResolvedValue({success:true,rows:[{id:'card',unit:'SESSION'}],hasMore:false});
+ await render({load,canReadCards:true,canReadBookings:true,storeId:'store'});await preload.reader.read('student');expect(m.progress).not.toHaveBeenCalled();
+});
+it('caps background progress requests at five cards per learner',async()=>{
+ m.cards.mockResolvedValue({success:true,rows:Array.from({length:20},(_,i)=>({id:String(i),unit:'SESSION'})),hasMore:false});
+ await render({canReadCards:true,canReadBookings:true,storeId:'store'});await preload.reader.read('student');expect(m.progress.mock.calls.map(call=>call[0].cardId)).toEqual(['0','1','2','3','4']);
 });
