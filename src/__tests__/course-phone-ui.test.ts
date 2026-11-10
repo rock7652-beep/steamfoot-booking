@@ -44,3 +44,20 @@ it("guards double approval and ignores the old panel's late mutation response", 
   expect(m.connection.mock.calls.map(call => call[0])).toEqual(["a", "b"]);
   expect(host.querySelector('[aria-busy="true"]')).toBeNull();
 });
+
+it("shows one collapsed learner at a time and restores the personal summary after revocation", async () => {
+  m.summary.mockResolvedValueOnce(ready("孩子 A")).mockResolvedValueOnce({ success: true, learners: [] });
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:compact", children: el("p", null, "原會員摘要") })));
+  expect(host.textContent).not.toContain("原會員摘要");
+  expect(host.querySelector("details.cp-phone-learner")?.hasAttribute("open")).toBe(false);
+  await act(async () => host.querySelector("button")!.click());
+  expect(host.textContent).toContain("原會員摘要");
+});
+it("renders exactly eight cells with only attended dates and does not fill a future reservation", async () => {
+  m.summary.mockResolvedValue({ success: true, learners: [{ id: "grid", name: "孩子 A", cards: [{ id: "card", name: "鋼琴八堂", unit: "SESSION", remaining: 6, held: 1, available: 5, shared: false, closed: false, expired: false, grid: { total: 8, dates: ["2026-11-03T03:00:00Z", "2026-11-10T03:00:00Z"] } }], upcoming: [{ id: "reserved", startsAt: "2026-11-17T03:00:00Z", name: "鋼琴", status: "待上課" }], history: [] }] });
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:eight" })));
+  const cells = host.querySelectorAll(".cp-phone-grid>li");
+  expect(cells).toHaveLength(8);
+  expect([...cells].map(cell => cell.textContent)).toEqual(["11/03", "11/10", "", "", "", "", "", ""]);
+  expect(host.querySelector(".cp-phone-grid-five")).toBeNull();
+});

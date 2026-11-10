@@ -114,3 +114,21 @@
 另修正明確的 `memberEntry=liff` 課程 onboarding 返回路徑，讓短效驗收入口使用 LINE 登入後回會員首頁；一般 booking=1 體驗入口維持原路徑，非課程不接受此返回例外。相關 3 檔 65 項與完整型別檢查通過。
 
 補驗兼具員工與會員身分的既有中央帳號：與現行 `verified-line-customer` 相同，群組查看依已核實的本店會員及 active 狀態授權，不用持久化的 OWNER／PARTNER 角色排除合法的 CUSTOMER-context session；不修改帳號原有角色，也不減少中央會員、其他學員身分衝突或店長操作權限檢查。相關 4 檔 92 項通過。
+
+## 最終隔離交付狀態
+
+最終程式 SHA：`709a7e71712982b3969ac736c34221872dda1dba`，A 分支正常快轉；Vercel Preview `dpl_GLhwXpgSipJkYNDxd2Yf3tjasFQh` 已 READY／target=null，固定 A alias 精確對應此部署。版本證據使用平台 alias／commit metadata，動態 HQ HTML 不保證保留 data-dpl-id，不能以該 attribute 缺少判定部署錯誤。
+
+最終 hosted 複驗 8 項通過：Owner 登入、後台實際批准、會員登入／4 個獨立餘額、390／440／768 RWD、實際撤銷，以及已有會員 cookie 時無效 LINE token 仍回 401。結果與截圖在 `/tmp/course-phone-a-hosted-qa`，不含可用的帳號憑證或分享 token。某次密碼欄等待逾時未能重現；同一版本重跑觀察到實際 phone check 200、登入 303，最後全項通過。此記錄不把單次通過擴張為所有冷啟動穩定性保證，也不把手機密碼驗收稱作真人 LINE token 驗收。
+
+驗收後已移除合成測試 phone identity link，取消合成錨點的暫時 User 關聯，兩個合成 User 均 SUSPENDED、清除 passwordHash／phone，合成 Staff 停用；沒有刪除四位學員、方案、課程、稽核或其他店資料。清理首次確認逾期，原查核顯示未執行；照工具指示以同一組精確 SQL 重新確認成功後才記完成，未換路繞過確認。原 1349 筆顧客摘要仍為 `a513a8386779fb92eb0aaa8459e297f5`，合成學員 4、啟用中合成授權 0、錨點未綁 LINE，供使用者下一步以真正 LINE 身分送出首次申請。
+
+使用者核准的 A 短效存取至台灣時間 2026-11-10 19:58:41，token 僅放私人驗收設定與交付給使用者的 URL，不提交來源、報告或截圖。給使用者的入口採 `/s/course-start-0918-a/liff/onboarding?booking=1&memberEntry=liff` 加短效參數，可在受保護 Preview 中完成正常 LINE OAuth，再返回會員首頁。測試聯絡電話 `0900000110`，申請仍須店家核對確認碼；既有已連結 A 會員直接沿用原身分，不靠輸入測試電話強制改綁。
+
+正式站未合併或部署、正式庫未執行 SQL、通知外發維持封鎖。Cloudflare 不是本次 A Vercel 部署依賴，沒有更動其設定。下一步由使用者手機開啟短效 LINE 入口並回覆確認碼；真人 LINE 認證與首綁流程在取得此操作證據前仍屬未驗。
+
+## 使用者單一 LINE 的後續驗收
+
+使用者已經由真正 LINE 登入 A 店既有會員；為避免要求第二個 LINE 或解除原綁定，使用者同意沿用既有 A 會員做群組查看。只變更四位 `qa-family-phone-a-20261110-child-*` 合成學員的聯絡電話，使其與既有 A 會員相同；不更改該會員的電話、身分、方案及課程。四位保留獨立 ID／卡片／堂數。此次是既有會員加四位合成學員，共五筆；不是首次 LINE 綁定驗收。
+
+暫時重新啟用自建的合成 Owner／Staff，使用既有短效入口與實際後台 UI 對該會員執行集中查看確認。結果 `approved:true,learnerCount:5,errors:[]`，資料庫確認啟用授權與 APPROVE_COURSE_PHONE_VIEW 稽核存在。完成操作後立即再次停用合成 Owner／Staff 並清除其密碼，不讓可登入的臨時帳號留存。群組保留供使用者現有 LINE 重新整理會員首頁查看；尚待本人畫面確認，完成後由助理撤銷這次授權並將四位合成聯絡電話還原為原驗收電話。未碰正式環境，未使用他人 LINE 登入資料。

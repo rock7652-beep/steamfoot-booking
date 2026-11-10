@@ -1,12 +1,14 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ member: vi.fn(), group: vi.fn(), cards: vi.fn(), bookings: vi.fn() }));
+const m = vi.hoisted(() => ({ member: vi.fn(), group: vi.fn(), cards: vi.fn(), bookings: vi.fn(), grids: vi.fn() }));
 vi.mock("@/server/services/course-access", () => ({ courseMember: m.member }));
 vi.mock("@/server/services/course-phone-view", () => ({ readCoursePhoneLearners: m.group }));
 vi.mock("@/server/queries/course-members", () => ({ getCourseCards: m.cards }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBooking: { findMany: m.bookings } } }));
+vi.mock("@/server/queries/course-phone-plan-grids", () => ({ readCoursePhonePlanGrids: m.grids }));
 import { loadCoursePhoneSummary } from "@/server/actions/course-phone-summary";
 beforeEach(() => {
   vi.resetAllMocks();
+  m.grids.mockResolvedValue(new Map());
   m.member.mockResolvedValue({ storeId: "store", user: { id: "member" } });
   m.group.mockResolvedValue({ status: "phone_group", learners: [{ id: "a", name: "孩子 A" }, { id: "b", name: "孩子 B" }] });
   m.cards.mockImplementation(async (_store: string, customer: string) => [{ id: `card-${customer}`, name: "鋼琴", unit: "SESSION", remaining: customer === "a" ? 8 : 5, available: 4, held: 1, allowShared: false, members: [{ name: "不應出現的其他人" }], entries: [{ note: "內部備註" }] }]);
