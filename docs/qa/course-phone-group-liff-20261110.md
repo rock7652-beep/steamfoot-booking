@@ -102,3 +102,13 @@
 本次遠端採單一原子 installation transaction，持有 advisory／Customer schema lock，先核對 A 標記、無失敗／已套用 ledger，最後比對既有顧客快照；核心 `_prisma_migrations` 各登記原始 checksum／完成一步。Supabase migration 介面另記錄此隔離 installation wrapper `course_family_phone_preview_20261110`，不再把 SQL 複製到來源 Supabase migrations 或執行第二次 DDL；此記錄是環境安裝證據，未改正式 migration runner。
 
 更新後：既有 Customer 1349 筆，排除新 NULL 欄位後的摘要仍為 `a513a8386779fb92eb0aaa8459e297f5`；新增 contact 值與查看授權皆 0，原資料未填入、合併或更名。授權表 RLS=true，PUBLIC／anon／authenticated 表權限 0。部署前既有非空唯一索引無依賴，兩筆歷史空電話分屬不同店，符合保留的 legacy blank 唯一約束。正式專案沒有 SQL 或部署操作。
+
+首個隔離版本 `438f85d25255c1db93a7782ef519de05435a6b54` 已正常快轉至 A 遠端分支，Vercel `dpl_91UqRCewTN15uG54xDgXZ8f2xqRY` READY／target=null，固定 A alias 已對應，沒有 production 發佈或專案級 staging alias。API 先拒絕字面值 preview；staging 因額外 alias 風險遭自動審核拒絕，查官方文件後改用「省略 target 即 Preview」的較小範圍方案成功，不使用被拒絕的 staging 途徑。
+
+瀏覽器先被 Vercel 保護頁擋住，預設分享連結也遭自動審核拒絕。使用者之後明確核准「1 小時驗收連結」，才為 A alias 建立 ttl=3600 的短效存取，並撤銷前次唯讀 web_fetch 產生的較長效自有連結；沒有關閉專案 Deployment Protection。權限驗收仍必須系統登入，不把 Vercel 可讀視為會員授權。
+
+真實 hosted app＋隔離 DB 的 7 項檢查已通過：合成 A 店長登入、實際後台批准 action、合成會員手機密碼登入、四個獨立方案餘額 8／5／3／10、390／440／768 寬度無溢出，以及實際撤銷後前台不顯示其他學員。使用本次新建的兩筆暫時 User／一筆 Staff、四位 Customer／四張方案卡與一堂合成課次；不新增大人 Customer、不收款、不發送通知。這是真實身份／action／DB／頁面回應，但不是持有者真實 LINE ID token 的驗收，該步仍由使用者手機完成。
+
+自動瀏覽器的初始失敗來自執行環境 Chromium 未信任代理 CA，以及測試腳本在 loading 狀態過早判斷按鈕；修正測試設定與等待條件後才記通過，不算產品成功證據。HTTPS 忽略僅在已核對的隔離 host 與合成帳號測試 context，沒有變更站台 TLS 或使用者瀏覽器。
+
+另修正明確的 `memberEntry=liff` 課程 onboarding 返回路徑，讓短效驗收入口使用 LINE 登入後回會員首頁；一般 booking=1 體驗入口維持原路徑，非課程不接受此返回例外。相關 3 檔 65 項與完整型別檢查通過。

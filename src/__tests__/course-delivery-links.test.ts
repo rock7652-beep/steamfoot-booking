@@ -1,6 +1,12 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { courseMemberReturnPath, courseLineOnboardingReturnPath } from "@/lib/course-delivery-links";
 
+it('returns explicit course member entry to the member portal while preserving normal trial onboarding',()=>{
+  expect(courseLineOnboardingReturnPath('a','?booking=1&memberEntry=liff&next=https://evil.test',true)).toBe('/s/a/book?memberEntry=liff');
+  expect(courseLineOnboardingReturnPath('a','?booking=1&memberEntry=liff')).toBe('/s/a/liff/public-trial?bookingStore=a');
+  expect(courseLineOnboardingReturnPath('a','?booking=1',true)).toBe('/s/a/liff/public-trial?bookingStore=a');
+});
+
 it("preserves explicit LINE entry for switching back from course to other modules",()=>{
   expect(courseMemberReturnPath("fitness","",true)).toBe("/s/fitness/book?memberEntry=liff");
   expect(courseMemberReturnPath("fitness","?memberEntry=https://evil.example")).toBe("/s/fitness/book");

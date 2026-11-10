@@ -107,7 +107,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, first
         const session = await refreshLiffSession({ idToken, storeSlug });
         if (cancelled) return;
         if (session.status === "session_created") {
-          router.replace(courseLineOnboardingReturnPath(storeSlug, window.location.search));
+          router.replace(courseLineOnboardingReturnPath(storeSlug, window.location.search, coursePhoneBinding));
           return;
         }
         if (session.status !== "need_onboarding") {
@@ -140,7 +140,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, first
     return () => {
       cancelled = true;
     };
-  }, [liffId, storeSlug, router]);
+  }, [liffId, storeSlug, router, coursePhoneBinding]);
 
   // ── 2. submit ──────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -192,7 +192,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, first
             : { kind: session.status === "expired" ? "expired" : "service_unavailable" });
           return;
         }
-        router.replace(courseLineOnboardingReturnPath(storeSlug, window.location.search));
+        router.replace(courseLineOnboardingReturnPath(storeSlug, window.location.search, coursePhoneBinding));
         return;
       }
 
