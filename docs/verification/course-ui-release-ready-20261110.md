@@ -22,6 +22,12 @@
 
 ## 尚未發布及授權邊界
 
+### 2026-11-10 本次發布授權更新
+
+使用者於整批統整後回覆「同意」，授權送審及安排發布，包含本批 UI 與登入核對修正 `a026f026`。本分支新增逐分支停用自動預覽建置，避免尚未證明資料隔離的 Preview 在上傳時執行；維持 main 既有停用設定，不更動正式環境與 migration target。先送 PR 跑 CI，通過後依現有手動正式發版方式發布；不直接修補任何正式會員關聯，也不發送測試通知。下面是本次授權前的歷史狀態，發布結果另依遠端 SHA 與 deployment ID 補記。
+
+送審前合併回歸：25 檔、407 項測試通過；變更程式 ESLint 0 errors（保留既有 musicStore warning）；三個課表／名單／會員卡片 Chromium 合成預覽重跑通過。登入核對合成預覽沿用同版已通過的四個尺寸。Vercel 正式專案為 `prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR`，team `team_IAPnhzLHM4x540wiXg3lTyS9`，發布前 READY 來源為 `a9f97129`、deployment `dpl_9VKJGKDh6Lqqb4XTVio46scKEuEQ`；環境變數 metadata 確認未設正式 migration target，未解密任何憑證。
+
 僅完成本地 commit／同步及 patch，未 push、建 PR、部署、合併 main 或執行 migration。
 現有 CI 在 PR 執行 lint、測試與型別檢查；Vercel git 設定只逐一列出停用分支，本分支沒有明確停用規則，因此上傳可能觸發預覽建置。專案 build 包含 `scripts/ci-migrate.mjs` 與其他環境 preflight，尚未證實本分支託管預覽的資料隔離；不得把推送當成純上傳或擅改部署設定放行。
 
