@@ -28,6 +28,8 @@
 
 送審前合併回歸：25 檔、407 項測試通過；變更程式 ESLint 0 errors（保留既有 musicStore warning）；三個課表／名單／會員卡片 Chromium 合成預覽重跑通過。登入核對合成預覽沿用同版已通過的四個尺寸。Vercel 正式專案為 `prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR`，team `team_IAPnhzLHM4x540wiXg3lTyS9`，發布前 READY 來源為 `a9f97129`、deployment `dpl_9VKJGKDh6Lqqb4XTVio46scKEuEQ`；環境變數 metadata 確認未設正式 migration target，未解密任何憑證。
 
+第一輪遠端 CI `42816019837` 找出 3 個未同步的舊測試檔（9 項失敗），均在期待已移除的展開按鈕、單人計數、舊文案或舊版寬度；補齊對新直接操作及收窄對話框的驗證，不撤回既定簡化，也不移除取消限制／身分可見性驗證。該輪其餘 16,378 項通過、296 項 skipped；Typecheck、ESLint 與三個 PostgreSQL 整合流程通過。後續以最終 head 重跑 CI，不以第一輪失敗當成通過。Cloudflare Workers 外部 build 失敗（本分支 `ace3f070-643f-4e6a-bc23-5d226425770c`；現行正式 main 同樣失敗），目前正式域名 alias 確認指向上述 Vercel deployment；本次無 Workers 設定或部署依賴，不修改 Cloudflare 或 GitHub 必要檢查規則。
+
 僅完成本地 commit／同步及 patch，未 push、建 PR、部署、合併 main 或執行 migration。
 現有 CI 在 PR 執行 lint、測試與型別檢查；Vercel git 設定只逐一列出停用分支，本分支沒有明確停用規則，因此上傳可能觸發預覽建置。專案 build 包含 `scripts/ci-migrate.mjs` 與其他環境 preflight，尚未證實本分支託管預覽的資料隔離；不得把推送當成純上傳或擅改部署設定放行。
 
