@@ -50,7 +50,7 @@ await build({
 });
 const componentCss=(await import("node:fs")).existsSync(path.join(output,"fixture.css"))?readFileSync(path.join(output,"fixture.css"),"utf8"):"";
 const css = await postcss([tailwind({ base: root })]).process(readFileSync("src/app/globals.css", "utf8"), { from: path.join(root, "src/app/globals.css") });
-writeFileSync(path.join(output, "fixture.css"), css.css+"\n"+componentCss);
+writeFileSync(path.join(output, "fixture.css"), css.css+"\n"+componentCss+'\n@media(min-width:640px){.qa-roster-frame > aside{height:420px;max-height:calc(100dvh - 3rem)}}');
 
 
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
@@ -79,6 +79,8 @@ try{
   await page.locator('summary').filter({hasText:'查看完整紀錄'}).waitFor();
   assert(await page.locator('[data-lesson-slot]').count()===10,'Live card panel should show ten slots');
   assert(await page.locator('[data-completed="true"]').count()===2,'Live card panel should show two dates');
+  const cardBox=await page.getByRole('dialog',{name:'合成學員',exact:true}).boundingBox();
+  assert(cardBox&&cardBox.y>=0&&cardBox.y+cardBox.height<=size.height+1,'Student card exceeds viewport');
   assert(await page.locator('details').filter({has:page.locator('summary').filter({hasText:'查看完整紀錄'})}).getAttribute('open')===null,'History expanded by default');
   await page.screenshot({path:path.join(output,`card-collapsed-${size.width}.png`),fullPage:true});
   if(size.width===1366)await page.getByRole('dialog',{name:'合成學員',exact:true}).screenshot({path:path.join(output,'live-card-progress.png')});
@@ -95,15 +97,29 @@ try{
   assert(page.url()===original,'Closing changed calendar URL');
   results.push({...size,passed:true});
  }
- // The learner-data menu must use the same overlay, with no route navigation.
- await page.setViewportSize({width:1366,height:768});
+ // Reproduce the actual short, transformed roster frame. Both the header and
+ // the overview progress must be visible without entering the card details.
+ for(const size of [{width:1366,height:768},{width:1024,height:768},{width:768,height:1024},{width:600,height:768}]){
+ await page.setViewportSize(size);
  await page.getByRole('button',{name:'合成學員 更多操作',exact:true}).click();
  await page.getByRole('menuitem',{name:'學員資料',exact:true}).click();
  await page.getByRole('heading',{name:'合成學員',exact:true}).waitFor();
- await page.screenshot({path:path.join(output,'student-overview.png'),fullPage:true});
+ await page.locator('[data-lesson-slot]').first().waitFor();
+ assert(await page.locator('[data-lesson-slot]').count()===10,'Overview should show ten lesson slots');
+ assert(await page.locator('[data-completed="true"]').count()===2,'Overview should show two dates');
+ const dialog=page.getByRole('dialog',{name:'合成學員',exact:true});
+ const box=await dialog.boundingBox();assert(box&&box.y>=0&&box.y+box.height<=size.height+1,'Student overview exceeds viewport');
+ const closeButton=page.getByRole('button',{name:'關閉顧客資料',exact:true});
+ assert(await closeButton.evaluate(el=>{const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return hit===el||el.contains(hit);}), 'Student header/close button is clipped');
+ const scroll=dialog.locator('[data-course-person-scroll]');
+ await scroll.evaluate(el=>{el.scrollTop=el.scrollHeight;});
+ assert(await scroll.evaluate(el=>el.scrollTop+el.clientHeight>=el.scrollHeight-1),'Bottom of student overview is unreachable');
+ await scroll.evaluate(el=>{el.scrollTop=0;});
+ await page.screenshot({path:path.join(output,`student-overview-${size.width}.png`),fullPage:true});
  assert(page.url()===original,'Learner menu navigated');
  assert(await page.getByText('課表排程',{exact:true}).count()===1,'Background was replaced');
  await page.getByRole('button',{name:'關閉顧客資料',exact:true}).click();
+ }
  const calls=await page.evaluate(()=>window.qaCalls);
  const histories=calls.filter(c=>c.name==='loadCourseCustomerBookings'&&c.args[2]?.cardId);
  assert(histories.length===5&&histories.every(c=>c.args[0]==='synthetic-customer'&&c.args[2].cardId==='synthetic-card'),'Unscoped card history');
