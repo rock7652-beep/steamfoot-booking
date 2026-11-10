@@ -1,0 +1,17 @@
+{
+  "baseCommit": "c4583d3cd68b89a92c1fb42d41e4db06e075932e",
+  "previewSource": "5a624a3faf9c45f5ecb08317b6941662e2ffe46c",
+  "previewDeployment": "dpl_95GftB4iBMJEJpvzmuwmy7A5uQMx",
+  "tests": {
+    "filesPassed": 109,
+    "passed": 1926,
+    "skipped": 2,
+    "skipReason": "opt-in native browser cases were not enabled"
+  },
+  "database": "disposable loopback PostgreSQL 16; real production database unchanged",
+  "typecheck": "passed with process-only 6144MiB Node heap",
+  "lint": "passed",
+  "humanLineFirstTimeClaim": "not verified",
+  "productionMigrationsApplied": false,
+  "productionDeployed": false
+}

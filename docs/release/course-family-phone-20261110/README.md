@@ -45,3 +45,10 @@ A 通知停發維持封鎖；本輪不依賴 Cloudflare，未調整它的設定�
 整合的登入／家庭／格子8檔143項通過；前台合成瀏覽器390/440/768/1366寬度通過。擴大回歸發現並修正舊測試fixture：電話摘要mock使用有原始實作的vi.fn，避免resetAllMocks後變成無回應；本機PostgreSQL fixture補足現行附加項目授權的期限欄位及public通知表。通知表沿用來源DDL，僅因合成Store位於各套件schema而省略本機fixture的public Store FK，沒有修改正式DDL或mock掉扣堂。初次完整typecheck碰到Node預設4GiB heap上限，使用單次程序6GiB後通過；不是把OOM記成通過。
 
 只在候選分支新增 Vercel 自動部署=false，避免送審分支自動建置連線；main與原有其他分支設定不變。A測試額外隔離仍僅留在A分支。
+
+
+## 最終本機驗證
+
+固定 PR1533 整合後業務程式，共109檔1926項通過；2項 opt-in 原生瀏覽器案例未開啟，未列為通過。PostgreSQL 使用本機 loopback PostgreSQL16 暫存容器，無正式資料。已同時執行家庭聯絡／授權／登入／格子、最新版課程UI／登入恢復、混合排課及音樂／運動／美業核心流程。完整TypeScript使用單次6GiB heap通過；修改元件與查詢ESLint通過。沒有為修正fixture而刪除原驗證斷言或mock掉扣堂。
+
+A最終隔離來源5a624a3faf9c45f5ecb08317b6941662e2ffe46c，與候選的src/prisma內容完全相同（唯一額外test為A隔離範圍測試），建置與DB隔離支援設定不進正式候選。最後Preview與CI狀態以送審時平台證據為準。本人過往A畫面／後台操作證據是前一已驗來源；新版共用格子有獨立版面與回歸證據，不把舊截圖寫成此新SHA的真人LINE首綁驗收。
