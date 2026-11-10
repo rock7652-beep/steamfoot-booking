@@ -29,10 +29,10 @@ try{
  assert.equal(await panel.getByRole('alert').count(),0);report.checks.push('ledger-remaining-10-reserved-2-available-8');
  await panel.getByRole('button',{name:'歷史方案（1）',exact:true}).click();
  await panel.getByText('已到期',{exact:true}).waitFor();
- const expired=panel.locator('li').filter({has:page.getByText('已到期',{exact:true})});assert.equal(await expired.getByText(/可預約/).count(),0);
+ const expired=panel.locator('li').filter({has:page.getByText('已到期',{exact:true})});assert.equal((await expired.innerText()).includes('可預約'),false);
  await capture('history');await panel.getByRole('button',{name:'收合歷史方案',exact:true}).click();report.checks.push('history-expired-not-presented-as-bookable');
- await panel.getByLabel('蒸足10堂方案方案操作',{exact:true}).click();await capture('plan-management');
- await panel.getByLabel('蒸足10堂方案方案操作',{exact:true}).click();report.checks.push('original-plan-management-disclosure');
+ await panel.getByLabel('蒸足10堂方案方案操作',{exact:true}).click();await panel.getByText('每堂使用紀錄',{exact:true}).click();await panel.getByText('可用 8 堂',{exact:true}).waitFor();assert.equal(await panel.getByRole('alert').count(),0);await capture('plan-management');
+ await panel.getByLabel('蒸足10堂方案方案操作',{exact:true}).click();report.checks.push('original-plan-management-and-authoritative-session-read');
  await panel.getByRole('button',{name:'編輯顧客資料',exact:true}).click();await panel.getByRole('button',{name:'← 返回顧客',exact:true}).click();
  await panel.getByText('可預約 8 堂',{exact:true}).waitFor();report.checks.push('edit-return-preserves-overview');
  for(const [width,height]of [[390,844],[360,780],[768,1024],[1024,768],[1366,900],[1920,1080]]){
