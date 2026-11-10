@@ -130,15 +130,14 @@ it('keeps save failures beside the submit button outside the scrolling fields an
   await act(async()=>{await new Promise(resolve=>setTimeout(resolve,160));});
   const save=()=>Array.from(host.querySelectorAll('button')).find(button=>button.textContent==='新增')!;
   const capacity=host.querySelector<HTMLInputElement>('[aria-label="名額"]')!;
-  expect(capacity).not.toBeNull();
-  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(capacity,'2');capacity.dispatchEvent(new Event('input',{bubbles:true}));});
+  expect(capacity).toBeNull();
   await act(async()=>{await new Promise(resolve=>setTimeout(resolve,160));});
-  expect(host.textContent).toContain('1 位學員／2 個名額');
+  expect(host.textContent).toContain('1 位學員');expect(host.textContent).not.toContain('個名額');
   expect(save().disabled).toBe(false);
   await act(async()=>save().click());
-  expect(vi.mocked(createCourseSchedule)).toHaveBeenLastCalledWith(expect.objectContaining({capacity:2,enrollmentMode:'ASSIGNED',learners:[expect.objectContaining({customerId:'student'})]}));
+  expect(vi.mocked(createCourseSchedule)).toHaveBeenLastCalledWith(expect.objectContaining({capacity:1,enrollmentMode:'ASSIGNED',learners:[expect.objectContaining({customerId:'student'})]}));
   expect(host.querySelector('footer [role="alert"]')?.textContent).toBe('方案期別待確認，請先核對各期堂數');
-  expect(host.querySelector<HTMLInputElement>('[aria-label="名額"]')!.value).toBe('2');
+  expect(host.querySelector<HTMLInputElement>('[aria-label="名額"]')).toBeNull();
   expect(host.querySelector<HTMLInputElement>('[aria-label="排課日期"]')!.value).toBe('2026-10-27');
   expect(host.textContent).toContain('測試學員');expect(created).not.toHaveBeenCalled();expect(save().disabled).toBe(false);
  }finally{await act(async()=>root.unmount());}

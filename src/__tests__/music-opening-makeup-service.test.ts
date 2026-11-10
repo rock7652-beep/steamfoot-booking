@@ -10,7 +10,7 @@ const reserve: OpeningMakeupCommand = { entitlementId: "right", expectedVersion:
 function setup() {
   const snapshot = makeupRecord();
   const right = { id: "right", storeId: actor.storeId, customerId: "synthetic-student", templateId: "synthetic-template", sourceKey: musicOpeningMakeupSourceKey(snapshot), sourceSlotKey: musicOpeningMakeupSourceSlotKey(snapshot), contentHash: musicOpeningMakeupContentHash(snapshot), snapshot, version: 0 };
-  const session = { id: "session", storeId: actor.storeId, templateId: right.templateId, startsAt: new Date("2026-10-09T02:00:00Z"), endsAt: new Date("2026-10-09T03:00:00Z"), template: { isActive: true, visibility: "PUBLIC", classType: "PRIVATE" }, cancelledAt: null, releasedAt: null, capacity: 2, teacherAttendance: "SCHEDULED" };
+  const session = { id: "session", storeId: actor.storeId, templateId: right.templateId, startsAt: new Date("2026-10-09T02:00:00Z"), endsAt: new Date("2026-10-09T03:00:00Z"), template: { isActive: true, visibility: "PUBLIC", classType: "PRIVATE" }, cancelledAt: null, releasedAt: null, enrollmentMode:"OPEN", capacity: 2, teacherAttendance: "SCHEDULED" };
   const bookings: Array<Record<string, unknown>> = [];
   const receipts: Array<{ afterJson: { requestHash: string; result: unknown } }> = [];
   const tx = {
@@ -81,4 +81,10 @@ describe("dedicated opening lifecycle service", () => {
     const expired = setup(); expired.session.startsAt = new Date("2027-01-01T02:00:00Z"); await expect(expired.run()).rejects.toThrow("有效期限");
   });
   it("refuses another live attempt even with a fresh command", async () => { const f = setup(); await f.run(); f.receipts.length = 0; await expect(f.run({ ...reserve, requestKey: "new", expectedVersion: 1 })).rejects.toThrow("已保留"); });
+});
+
+it.each(["ASSIGNED","OPEN"])("opening makeup respects %s class capacity policy",async mode=>{
+ const f=setup();f.session.enrollmentMode=mode;f.tx.courseBooking.count.mockResolvedValue(2);
+ if(mode==="ASSIGNED"){await f.run();expect(f.tx.courseBooking.create).toHaveBeenCalledOnce();}
+ else{await expect(f.run()).rejects.toThrow("滿班");expect(f.tx.courseBooking.create).not.toHaveBeenCalled();}
 });

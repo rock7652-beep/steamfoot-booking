@@ -1,3 +1,4 @@
+vi.mock("@/server/services/sports-staging-schedule",()=>({readSportsSessionRule:vi.fn().mockResolvedValue(null)}));
 // Notice persistence is covered by course-store-notices and PostgreSQL tests.
 vi.mock("@/server/services/course-store-notices", () => ({ recordCourseStoreNotice: vi.fn() }));
 vi.mock("@/lib/feature-gate", () => ({
@@ -38,6 +39,7 @@ import {
   correctCourseAttendance,
   refundTeacherAbsentSession,
 } from "@/server/services/course-booking";
+import {readSportsSessionRule} from "@/server/services/sports-staging-schedule";
 import { changeCompanionUsage } from "@/server/services/course-companions";
 import type { Prisma } from "../../generated/course-client";
 const actor = {
@@ -439,6 +441,26 @@ describe("music manager full-class enrollment",()=>{
   m.tx.courseSession.findFirst.mockResolvedValue({id:"session",template:{isActive:true,visibility:"PUBLIC",musicSubject:{isActive:true}},startsAt:new Date("2026-09-16T10:00:00Z"),endsAt:new Date("2026-09-16T11:00:00Z"),capacity:2,pointCost:1});
   m.tx.coursePointCard.findFirst.mockResolvedValue({id:"card",templateIds:[],requestKey:"test-card",unit:"SESSION",remaining:5,expiresAt:new Date("2026-10-01"),members:[{customerId:"a"},{customerId:"b"}]});
   m.tx.courseBooking.count.mockResolvedValue(2);
+ });
+ it.each(["CARD","TRIAL"])("assigned %s enrollment ignores a legacy one-seat limit without override",async kind=>{
+  vi.mocked(readSportsSessionRule).mockResolvedValueOnce({enrollment:"ASSIGNED",planId:"capacity-test-plan"} as never);
+  const card=await m.tx.coursePointCard.findFirst();m.tx.coursePointCard.findFirst.mockResolvedValue({...card,planId:"capacity-test-plan"});
+  if(kind==="CARD")await reserveCourse(manager,input);
+  else await reserveTrialCourse(manager,{sessionId:"session",customerId:"b",requestKey:"trial-assigned",trialPrice:499});
+  expect(m.tx.courseBooking.create).toHaveBeenCalledOnce();
+ });
+ it("music assigned metadata also ignores the legacy seat limit",async()=>{
+  const session=await m.tx.courseSession.findFirst();m.tx.courseSession.findFirst.mockResolvedValue({...session,enrollmentMode:"ASSIGNED"});
+  await reserveCourse(manager,input);expect(m.tx.courseBooking.create).toHaveBeenCalledOnce();
+ });
+ it("members still cannot self-enroll into assigned classes",async()=>{
+  vi.mocked(readSportsSessionRule).mockResolvedValueOnce({enrollment:"ASSIGNED",planId:"capacity-test-plan"} as never);
+  await expect(reserveCourse(actor,input)).rejects.toThrow("指定學員");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();
+ });
+ it("assigned enrollment still rejects duplicate learners",async()=>{
+  vi.mocked(readSportsSessionRule).mockResolvedValueOnce({enrollment:"ASSIGNED",planId:"capacity-test-plan"} as never);m.tx.courseBooking.findFirst.mockResolvedValue({id:"duplicate"});
+  const card=await m.tx.coursePointCard.findFirst();m.tx.coursePointCard.findFirst.mockResolvedValue({...card,planId:"capacity-test-plan"});
+  await expect(reserveCourse(manager,input)).rejects.toThrow("已預約");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();
  });
  it("requires explicit manager confirmation",async()=>{await expect(reserveCourse(manager,input)).rejects.toThrow("滿班");expect(m.tx.courseBooking.create).not.toHaveBeenCalled();});
  it("confirmed manager can add a learner without changing public class capacity",async()=>{await reserveCourse(manager,{...input,allowOverCapacity:true});expect(m.tx.courseBooking.create).toHaveBeenCalledOnce();expect(m.tx.courseBooking.create.mock.calls[0][0].data).not.toHaveProperty("allowOverCapacity");expect(m.tx.courseBooking.findFirst).toHaveBeenLastCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:"store-a",customerId:"b",session:expect.objectContaining({startsAt:{lt:new Date("2026-09-16T11:00:00Z")}})})}));});

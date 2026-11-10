@@ -1,4 +1,5 @@
 "use client";
+import {courseHasSeatLimit} from "@/lib/course-capacity";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import { courseDisplayText } from "@/lib/course-display-text";
 import { useState } from "react";
@@ -11,6 +12,7 @@ type Row = {
   startsAt: string;
   endsAt: string;
   capacity: number;
+  enrollmentMode?:string;
   coach: string;
   room: string;
   booked: number;
@@ -67,7 +69,7 @@ export function CourseTodayList({
                 <td className="px-4 py-1">{s.coach}</td>
                 <td className="px-4 py-1">{s.room}</td>
                 <td className="px-4 py-1">
-                  {s.booked}／{s.capacity}
+                  {courseHasSeatLimit(s)?`${s.booked}／${s.capacity}`:`${s.booked} 人`}
                 </td>
                 <td className="px-4 py-1"><button className="min-h-11 rounded-lg border border-primary-200 px-3 text-primary-800" onClick={() => setSelected(s.id)}>名單{ s.unmarked > 0 ? ` · ${s.unmarked} 位待出席` : "／查看"}</button></td>
               </tr>

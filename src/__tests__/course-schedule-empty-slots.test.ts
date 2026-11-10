@@ -145,3 +145,11 @@ it("music keeps real lessons and original moved positions outside its default wi
   expect(host.querySelector('[aria-label="課表結束時間"]')?.textContent).toBe("23:00");
  } finally {await act(async()=>root.unmount());host.remove();}
 });
+
+it.each(["FITNESS","MUSIC"] as const)("%s assigned classes never show full or remaining-seat badges from legacy capacity",async businessProfile=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ const assigned={...session,capacity:1,enrollmentMode:"OPEN",sportsEnrollment:"ASSIGNED",bookings:[{customerId:"student",customerName:"學員",status:"RESERVED",bookingKind:"CARD"}]};
+ try{await act(async()=>root.render(createElement(CourseScheduleBoard,{...base,businessProfile,mode:"day",sessions:[assigned]})));expect(host.textContent).not.toContain("滿班1");expect(host.textContent).not.toContain("1 / 1");expect(host.textContent).not.toContain("剩 0 位");}
+ finally{await act(async()=>root.unmount());host.remove();}
+});

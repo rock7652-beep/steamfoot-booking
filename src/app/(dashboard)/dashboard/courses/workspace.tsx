@@ -1,4 +1,5 @@
 "use client";
+import {courseHasSeatLimit} from "@/lib/course-capacity";
 import {useCalendarMonthPreload} from "@/components/admin/use-calendar-month-preload";
 import {ScheduleSummaryButton} from "@/components/admin/schedule-summary-button";
 import {useSeedCustomerLabels} from "@/components/customer-label-context";
@@ -152,7 +153,7 @@ export type Session = {
   id: string;
   templateId: string;
   nameSnapshot: string;
-  bookingAudience?:string; sportsEnrollment?:string;
+  bookingAudience?:string; enrollmentMode?:string; sportsEnrollment?:string;
   startsAt: string;
   endsAt: string;
   coachId: string;
@@ -937,7 +938,7 @@ export function CourseWorkspace({
       setScheduleValidationError(message);
       setScheduleSummary(fields.get("repeatMode") === "weekly" ? message : "請完成日期與時段，確認排課範圍");
     }
-    const limit = rooms.find(room => room.id === fields.get("roomId"))?.capacity;
+    const limit = catalogSource ? rooms.find(room => room.id === fields.get("roomId"))?.capacity : null;
     setRoomCapacityNotice(limit && Number(fields.get("capacity")) > limit ? `人數上限超過教室容納 ${limit} 人，請確認容量` : "");
   }
   useEffect(()=>{scheduleOpenIntent.current=panel==="schedule";},[panel]);
@@ -1465,7 +1466,7 @@ export function CourseWorkspace({
               <thead className="bg-earth-50 text-earth-600">
                 <tr>
                   {(view === "rooms"
-                    ? ["空間名稱", "分類", ...((catalogSource&&!catalogSource.rentalModule) ? [] : [...(businessProfile==="MUSIC"||catalogSource?.rentalModule==="beauty"?[]:["容納人數"]), "開放租借", "每小時租金"]), ...(businessProfile === "MUSIC" || (catalogSource&&!catalogSource.rentalModule) ? ["狀態"] : []), "操作"]
+                    ? ["空間名稱", "分類", ...((catalogSource&&!catalogSource.rentalModule) ? [] : [...(!catalogSource||businessProfile==="MUSIC"||catalogSource.rentalModule==="beauty"?[]:["容納人數"]), "開放租借", "每小時租金"]), ...(businessProfile === "MUSIC" || (catalogSource&&!catalogSource.rentalModule) ? ["狀態"] : []), "操作"]
                     : [
                         (catalogSource?"服務項目":"課程名稱"),
                         ...(businessProfile==="MUSIC"||catalogSource?["分類"]:["班別"]),
@@ -1523,7 +1524,7 @@ export function CourseWorkspace({
                           </td></>}
                         </>
                       ) : (!catalogSource||!!catalogSource.rentalModule) && (<>
-                        {businessProfile!=="MUSIC"&&catalogSource?.rentalModule!=="beauty"&&<td className="whitespace-nowrap px-3 py-1 tabular-nums">{item.capacity ?? "—"}</td>}
+                        {!!catalogSource&&businessProfile!=="MUSIC"&&catalogSource.rentalModule!=="beauty"&&<td className="whitespace-nowrap px-3 py-1 tabular-nums">{item.capacity ?? "—"}</td>}
                         <td className="whitespace-nowrap px-3 py-1">{item.rentalEnabled ? "開放" : "未開放"}</td>
                         <td className="whitespace-nowrap px-3 py-1 tabular-nums">{item.rentalHourlyRate == null ? "—" : item.rentalHourlyRate === 0 ? (item.rentalEnabled ? "免費" : "—") : `$${item.rentalHourlyRate.toLocaleString("zh-TW")}／時`}</td>
                       </>)}
@@ -1848,7 +1849,7 @@ export function CourseWorkspace({
                             placeholder="輸入或選擇分類"
                           />
                         </label>)}
-                        <RoomMore hideCapacity={catalogSource?.rentalModule === "beauty"} service={!!catalogSource&&!catalogSource.rentalModule} music={businessProfile === "MUSIC"} />
+                        <RoomMore hideCapacity={!catalogSource||catalogSource.rentalModule === "beauty"} service={!!catalogSource&&!catalogSource.rentalModule} music={businessProfile === "MUSIC"} />
                       </fieldset>
                       </form>
                     )}
@@ -1952,7 +1953,7 @@ export function CourseWorkspace({
               <dl className="divide-y divide-earth-100">{[
                 ["名稱",editing.kind === "template" ? courseDisplayName(editing.value.name) : editing.value.name],...(businessProfile === "MUSIC" || catalogSource || editing.kind === "room" ? [["分類",editing.value.category || (businessProfile === "MUSIC" ? "未分類" : "—")]] : []),
                 ["狀態",editing.kind === "room" ? (editing.value.isActive ? "啟用":"停用") : ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[editing.value.visibility ?? "PUBLIC"])],
-                ...(catalogSource?(editing.kind==="template"?[["服務時長",`${editing.value.durationMinutes} 分鐘`],["整理時間",`${editing.value.bufferMinutes??0} 分鐘`]]:[]):editing.kind === "template" ? [[businessProfile === "MUSIC" ? "課型":"班別",editing.value.classType === "PRIVATE" ? "個別課" : editing.value.classType === "SELF_ORGANIZED" ? "自組課" : editing.value.classType === "GROUP" ? "團體課":businessProfile === "MUSIC" ? "待補設定" : "未設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",businessProfile === "MUSIC" ? `每位學員 1 堂；${editing.value.musicTermLessons ?? "待設定"} 堂／期；每堂 NT$ ${editing.value.musicPricePerLesson ?? "待設定"}` : `點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["候補", editing.value.waitlistEnabled ? `開啟・${editing.value.waitlistLimit ?? waitlistDefaultLimit} 人・${waitlistStopLabel(editing.value.waitlistStopMinutes ?? waitlistDefaultStopMinutes)}` : "關閉"],["預設空間",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : businessProfile === "MUSIC" ? [] : [["容納人數",editing.value.capacity ?? "未設定"]]),
+                ...(catalogSource?(editing.kind==="template"?[["服務時長",`${editing.value.durationMinutes} 分鐘`],["整理時間",`${editing.value.bufferMinutes??0} 分鐘`]]:[]):editing.kind === "template" ? [[businessProfile === "MUSIC" ? "課型":"班別",editing.value.classType === "PRIVATE" ? "個別課" : editing.value.classType === "SELF_ORGANIZED" ? "自組課" : editing.value.classType === "GROUP" ? "團體課":businessProfile === "MUSIC" ? "待補設定" : "未設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",businessProfile === "MUSIC" ? `每位學員 1 堂；${editing.value.musicTermLessons ?? "待設定"} 堂／期；每堂 NT$ ${editing.value.musicPricePerLesson ?? "待設定"}` : `點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["候補", editing.value.waitlistEnabled ? `開啟・${editing.value.waitlistLimit ?? waitlistDefaultLimit} 人・${waitlistStopLabel(editing.value.waitlistStopMinutes ?? waitlistDefaultStopMinutes)}` : "關閉"],["預設空間",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : businessProfile === "MUSIC" || !catalogSource ? [] : [["容納人數",editing.value.capacity ?? "未設定"]]),
               ].map(([label,value])=><div key={String(label)} className="grid grid-cols-[7rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>
               {!catalogSource && editing.kind === "template" && <DebitRule music={businessProfile === "MUSIC"}/>}
               <details hidden={!!catalogSource&&editing.kind==='template'} name="course-workspace-details"><summary className="min-h-11 cursor-pointer py-3">{editing.kind === "template" ? "課程介紹與注意事項":"設備、位置與備註"}</summary>{(editing.kind === "template" ? [editing.value.description,editing.value.precautions]:[editing.value.equipment,editing.value.location,editing.value.details]).map((value,i)=><p key={i} className="whitespace-pre-wrap py-2">{value || "未填"}</p>)}</details>
@@ -1979,14 +1980,14 @@ export function CourseWorkspace({
                           ...common,
                           expectedRevision:courseRoomRevision(editing.value),
                           ...(catalogSource?{catalogSnapshot:editing.value.catalogSnapshot}:{}),
-                          capacity: data.has("roomCapacity") ? (data.get("roomCapacity") ? Number(data.get("roomCapacity")) : null) : editing.value.capacity ?? null,
+                          capacity: !catalogSource ? null : data.has("roomCapacity") ? (data.get("roomCapacity") ? Number(data.get("roomCapacity")) : null) : editing.value.capacity ?? null,
                           details: data.get("details") || "",
                               equipment:data.get("equipment") || "",location:data.get("location") || "",
                               rentalEnabled:data.get("rentalEnabled")==="yes",rentalHourlyRate:Number(data.get("rentalHourlyRate")||0),rentalBufferMinutes:Number(data.get("rentalBufferMinutes")||0),
                         }, editing.value);
                       const details = {
                         durationMinutes: Number(data.get("duration")),
-                        capacity: Number(data.get("capacity")),
+                        capacity: data.has("capacity") ? Number(data.get("capacity")) : editing.value.capacity,
                         pointCost: businessProfile === "MUSIC" ? 1 : Number(data.get("cost")),
                       };
                       if (editing.kind === "template")
@@ -2082,7 +2083,7 @@ export function CourseWorkspace({
                   </label>
                 )}
                 {editing.kind === "room" && (
-                  <RoomMore hideCapacity={catalogSource?.rentalModule === "beauty"} service={!!catalogSource&&!catalogSource.rentalModule} music={businessProfile === "MUSIC"}
+                  <RoomMore hideCapacity={!catalogSource||catalogSource.rentalModule === "beauty"} service={!!catalogSource&&!catalogSource.rentalModule} music={businessProfile === "MUSIC"}
                     capacity={editing.value.capacity}
                     equipment={editing.value.equipment} location={editing.value.location}
                     details={editing.value.details}
@@ -2181,8 +2182,8 @@ export function CourseWorkspace({
                         />
                       )}
                     </label>
-                    <label className={editing.kind==="template" && businessProfile!=="MUSIC"?"sm:col-span-2":""}>
-                      人數上限
+                    {(editing.kind==="template"||courseHasSeatLimit(editing.value,editing.value.sportsEnrollment))&&<label className={editing.kind==="template" && businessProfile!=="MUSIC"?"sm:col-span-2":""}>
+                      開放選課名額
                       <input
                         className={field}
                         name="capacity"
@@ -2192,7 +2193,7 @@ export function CourseWorkspace({
                         required
                         defaultValue={editing.value.capacity}
                       />
-                    </label>
+                    </label>}
                     {businessProfile !== "MUSIC" && <label className={editing.kind==="template"?"sm:col-span-2":""}>
                       每堂扣點
                       <input
@@ -2602,7 +2603,7 @@ export function CourseWorkspace({
           const rentalDialog = isRentalSession(dialogSession);
           const sportsRosterDialog = !rentalDialog && (courseDialog.kind === "roster"||sportsNative) && businessProfile !== "MUSIC";
           const oneToOneMusicDialog = courseDialog.kind === "roster" && businessProfile === "MUSIC"
-            && dialogSession.capacity === 1;
+            && dialogSession.capacity === 1 && dialogSession.bookings.filter(booking=>booking.status!=="CANCELLED").length<=1;
           const dialogTitle = sportsNative&&!rentalDialog?"上課名單":rentalDialog ? "租借資訊" :
             courseDialog.kind === "roster"
               ? businessProfile === "MUSIC" ? "課程詳情" : "上課名單"

@@ -65,10 +65,10 @@ function assertSportsFixedCapacity(capacity:number,learners:number){
 /** No card is reserved for an ongoing assigned place. Attendance resolves the current paid card. */
 export async function addSportsFixedLearners(tx:Tx,actor:CourseActor,session:{id:string;templateId:string;startsAt:Date;endsAt:Date;pointCost:number;capacity:number},rule:SportsScheduleRule){
  if(!(await sportsNativePreview(actor.storeId))||!rule.perpetual)throw new AppError("FORBIDDEN","此店尚未開放運動固定課");
- assertSportsFixedCapacity(session.capacity,rule.students.length);
+ if(rule.enrollment!=="ASSIGNED")assertSportsFixedCapacity(session.capacity,rule.students.length);
  if(!rule.students.length)return;
  const occupied=await tx.courseBooking.count({where:{storeId:actor.storeId,sessionId:session.id,status:{not:"CANCELLED"}}});
- assertSportsFixedCapacity(session.capacity,occupied+rule.students.length);
+ if(rule.enrollment!=="ASSIGNED")assertSportsFixedCapacity(session.capacity,occupied+rule.students.length);
  for(const learner of rule.students){
   const customer=await tx.$queryRaw<Array<{name:string}>>`SELECT name FROM "Customer" WHERE id=${learner.customerId} AND "storeId"=${actor.storeId} AND "mergedIntoCustomerId" IS NULL`;
   if(!customer.length)throw new AppError("VALIDATION","學員不屬於本店");
@@ -99,7 +99,7 @@ export async function materializeSportsMonth(tx:Tx,actor:CourseActor,first:strin
     const index=Math.round((Date.parse(date+"T12:00:00Z")-Date.parse(toLocalDateStr(series.startsAt)+"T12:00:00Z"))/86400000)/(series.frequency==="BIWEEKLY"?14:7);
     if(await tx.courseSession.findUnique({where:{storeId_requestKey_requestIndex:{storeId:actor.storeId,requestKey:series.requestKey,requestIndex:index}}}))continue;
     const students=learners.filter(l=>!l.stopDate||date<l.stopDate).map(l=>({customerId:l.customerId,cardId:null}));
-    assertSportsFixedCapacity(series.capacity,students.length);
+    if(original.enrollment!=="ASSIGNED")assertSportsFixedCapacity(series.capacity,students.length);
     pending.push({date,range,index,students});
    }
   }catch(error){

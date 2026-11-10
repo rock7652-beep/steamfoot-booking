@@ -1,0 +1,21 @@
+vi.mock("@/server/services/course-waitlist",()=>({cancelCourseWaitlistForSession:vi.fn()}));
+vi.mock("@/server/services/sports-permanent-series",()=>({ensureSportsMonth:vi.fn(),readSportsSeries:vi.fn(),sportsLearners:{}}));
+import {beforeEach,afterEach,expect,it,vi} from "vitest";
+const m=vi.hoisted(()=>({rule:vi.fn(),booking:vi.fn(),create:vi.fn(),session:vi.fn()}));
+vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:async()=>({id:"enabled"})}}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{}}));
+vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:async()=>true}));
+vi.mock("@/server/services/sports-staging-schedule",()=>({readSportsSessionRule:m.rule}));
+vi.mock("@/server/services/course-booking",()=>({reserveCourseInTransaction:vi.fn(),settleCourseBooking:vi.fn()}));
+vi.mock("@/server/services/course-access",()=>({courseManager:async()=>({storeId:"store",user:{id:"manager",name:"店長"}}),courseTransaction:async(_store:string,run:(tx:unknown)=>unknown)=>run({courseSession:{findFirst:m.session},courseBooking:{findUnique:async()=>null,findFirst:m.booking,create:m.create}})}));
+import {arrangeSportsMakeup} from "@/server/actions/sports-series";
+const input={sourceId:"source",sessionId:"target",requestKey:"fd8a8f7f-b6c1-481b-a88e-5c2fce84bcb4"};
+beforeEach(()=>{
+ vi.clearAllMocks();vi.stubEnv("VERCEL_ENV","preview");m.rule.mockResolvedValue({enrollment:"ASSIGNED"});
+ m.booking.mockResolvedValue(null).mockResolvedValueOnce({id:"source",customerId:"student",status:"CANCELLED",absenceKind:"STUDENT_LEAVE",session:{templateId:"t",startsAt:new Date("2099-01-01")}});
+ m.session.mockResolvedValue({id:"target",enrollmentMode:"OPEN",capacity:1,startsAt:new Date("2099-01-02"),endsAt:new Date("2099-01-02T01:00Z"),bookings:[{customerId:"another"}]});
+});
+afterEach(()=>vi.unstubAllEnvs());
+it("allows makeup into assigned classes despite a filled legacy capacity",async()=>{expect(await arrangeSportsMakeup(input)).toMatchObject({success:true});expect(m.create).toHaveBeenCalledWith({data:expect.objectContaining({sessionId:"target",customerId:"student",bookingKind:"UNPAID",pointCost:0})});});
+it("retains the OPEN target seat limit",async()=>{m.rule.mockResolvedValue({enrollment:"OPEN"});expect(await arrangeSportsMakeup(input)).toMatchObject({success:false,error:expect.stringContaining("名額")});expect(m.create).not.toHaveBeenCalled();});
+it("retains duplicate enrollment protection for assigned targets",async()=>{m.session.mockResolvedValue({id:"target",capacity:1,startsAt:new Date("2099-01-02"),bookings:[{customerId:"student"}]});expect(await arrangeSportsMakeup(input)).toMatchObject({success:false,error:expect.stringContaining("已在本堂")});expect(m.create).not.toHaveBeenCalled();});

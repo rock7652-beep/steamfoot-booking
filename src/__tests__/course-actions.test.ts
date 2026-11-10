@@ -153,11 +153,11 @@ describe("room capacity changes", () => {
     expect(await updateCourseRoom({...room,equipment:"瑜珈墊"})).toEqual({success:true});
     expect(mocks.existing).not.toHaveBeenCalled();
   });
-  it("blocks a lower capacity when a live session still has a higher limit", async () => {
+  it("saves unlimited spaces even when legacy live sessions have larger counts", async () => {
     mocks.room.mockResolvedValue({capacity:6});
     mocks.existing.mockResolvedValue([{id:"live",nameSnapshot:"課程",startsAt:new Date(),capacity:6}]);
-    expect(await updateCourseRoom(room)).toMatchObject({success:false,conflicts:[{id:"live"}]});
-    expect(mocks.catalogUpdate).not.toHaveBeenCalled();
+    mocks.catalogUpdate.mockResolvedValue({count:1});
+    expect(await updateCourseRoom(room)).toMatchObject({success:true});expect(mocks.catalogUpdate).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({capacity:null})}));expect(mocks.existing).not.toHaveBeenCalled();
   });
 });
 describe("fixed-slot and temporary moves", () => {
@@ -356,9 +356,10 @@ describe("music course places independent of enrollment and room size", () => {
     expect(mocks.create.mock.calls[0][0].data).toEqual([expect.objectContaining({capacity:2,enrollmentMode:"ASSIGNED"})]);
     expect(mocks.scheduleLearner).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:"store-a"}),expect.objectContaining({customerId:"student-a",cardId:null}),null);
   });
-  it("still rejects more assigned learners than the explicit course places", async () => {
-    expect(await createCourseSchedule({...schedule,capacity:1,learners:[learner,{customerId:"student-b",cardId:null}]})).toMatchObject({success:false,error:"學員人數超過課程名額"});
-    expect(mocks.create).not.toHaveBeenCalled();
+  it("allows assigned learners beyond the legacy numeric capacity", async () => {
+    mocks.template.mockResolvedValue({id:"yoga",name:"雙人課",pointCost:1,isActive:true,visibility:"PUBLIC",musicSubjectId:"subject",musicSubject:{id:"subject",isActive:true}});
+    mocks.existing.mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"session-created"}]);
+    expect(await createCourseSchedule({...schedule,capacity:1,learners:[learner,{customerId:"student-b",cardId:null}]})).toMatchObject({success:true});expect(mocks.scheduleLearner).toHaveBeenCalledTimes(2);
   });
 });
 

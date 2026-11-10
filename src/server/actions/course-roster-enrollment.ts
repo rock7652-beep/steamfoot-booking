@@ -1,5 +1,7 @@
 "use server";
 import { enqueueOperationAudit } from "@/server/services/operation-audit-outbox";
+import {courseHasSeatLimit} from "@/lib/course-capacity";
+import {readSportsSessionRule} from "@/server/services/sports-staging-schedule";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { courseManager, courseTransaction } from "@/server/services/course-access";
@@ -12,9 +14,11 @@ const id=z.string().min(1).max(100);
 async function enrollmentScope(tx:Prisma.TransactionClient,storeId:string,sessionId:string,customerId:string) {
   const source=await tx.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null,releasedAt:null},select:{id:true,requestKey:true,templateId:true,startsAt:true}});
   if(!source)throw new AppError("NOT_FOUND","找不到可加入的本堂課程");
-  const sessions=await tx.courseSession.findMany({where:{storeId,requestKey:source.requestKey,templateId:source.templateId,cancelledAt:null,releasedAt:null,teacherAttendance:"SCHEDULED",OR:[{id:source.id},{startsAt:{gt:source.startsAt,gte:new Date()}}]},select:{id:true,startsAt:true,pointCost:true,capacity:true,bookings:{where:{OR:[{status:{not:"CANCELLED"}},{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED","TEACHER_ABSENT"]}}]},select:{customerId:true,status:true}}},orderBy:[{startsAt:"asc"},{id:"asc"}],take:101});
+  const sessions=await tx.courseSession.findMany({where:{storeId,requestKey:source.requestKey,templateId:source.templateId,cancelledAt:null,releasedAt:null,teacherAttendance:"SCHEDULED",OR:[{id:source.id},{startsAt:{gt:source.startsAt,gte:new Date()}}]},select:{id:true,startsAt:true,pointCost:true,capacity:true,enrollmentMode:true,bookingAudience:true,bookings:{where:{OR:[{status:{not:"CANCELLED"}},{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED","TEACHER_ABSENT"]}}]},select:{customerId:true,status:true}}},orderBy:[{startsAt:"asc"},{id:"asc"}],take:101});
   if(sessions.length>100)throw new AppError("VALIDATION","後續課程超過 100 堂，請分段加入");
-  return sessions.filter(session=>!session.bookings.some(booking=>booking.customerId===customerId)).map(session=>({id:session.id,startsAt:session.startsAt.toISOString(),pointCost:session.pointCost,full:session.bookings.filter(booking=>booking.status!=="CANCELLED").length>=session.capacity}));
+  return Promise.all(sessions.filter(session=>!session.bookings.some(booking=>booking.customerId===customerId)).map(async session=>{
+    const rule=await readSportsSessionRule(tx,storeId,session.id);
+    return ({id:session.id,startsAt:session.startsAt.toISOString(),pointCost:session.pointCost,full:courseHasSeatLimit(session,rule?.enrollment)&&session.bookings.filter(booking=>booking.status!=="CANCELLED").length>=session.capacity});}));
 }
 export async function previewCourseEnrollment(input:unknown) {
   try {

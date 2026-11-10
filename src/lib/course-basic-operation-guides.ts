@@ -94,7 +94,7 @@ export const courseBasicOperationGuides: OperationGuide[] = [
     path: "設定 → 營業與預約 → 預約與取消截止", keywords: "預約截止 取消截止 提前 分鐘 逾期 不能取消",
     steps: ["找到預約與取消截止區塊，查看目前設定。", "分別調整預約及自行取消的提前時間，確認後儲存。", "重新開啟核對；請會員以我的預約顯示的自行取消截止時間為準。"],
     important: "超過自行取消期限請聯絡店長，不要以刪除帳號或重建預約處理。",
-    details: ["自由預約先保留額度，出席才扣；固定期課未到仍扣堂，不提供補課券。", "改截止時間不等於退款，也不會放寬教室容量或方案限制。"],
+    details: ["自由預約先保留額度，出席才扣；固定期課未到仍扣堂，不提供補課券。", "改截止時間不等於退款，也不會放寬開放選課名額或方案限制。"],
     success: "設定保留正確，會員畫面顯示對應截止時間。",
     permission: "business_hours.manage", feature: null, modules: ["course"], kind: "howto", verification: "source-reviewed",
     sources: ["src/server/actions/course-settings.ts", "src/app/(dashboard)/dashboard/courses/settings-workspace.tsx", "src/app/(customer)/book/course-portal-client.tsx"],
