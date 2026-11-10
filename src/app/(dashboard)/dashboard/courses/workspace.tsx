@@ -2183,7 +2183,7 @@ export function CourseWorkspace({
                       )}
                     </label>
                     {(editing.kind==="template"||courseHasSeatLimit(editing.value,editing.value.sportsEnrollment))&&<label className={editing.kind==="template" && businessProfile!=="MUSIC"?"sm:col-span-2":""}>
-                      開放選課名額
+                      人數上限
                       <input
                         className={field}
                         name="capacity"
