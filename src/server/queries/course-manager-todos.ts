@@ -20,7 +20,7 @@ export async function getCourseManagerTodoCounts(storeId: string, now: Date) {
 
 /** Preserve the mature one-hour post-service grace period, using the actual class end. */
 export async function getIncompleteCourseCandidates(now: Date, options: {includeWithoutLine?:boolean} = {}) {
-  const candidates = await prisma.store.findMany({ where: { industryModule: "COURSE", isDemo: false, operatingStatus: { in: ["ACTIVE", "TRIAL"] } }, select: { id: true, slug: true } });
+  const candidates = await prisma.store.findMany({ where: { industryModule: "COURSE", isDemo: false, featureEntitlements: { some: { featureKey: { in: ["business.fitness", "business.music"] }, status: "ENABLED" } }, operatingStatus: { in: ["ACTIVE", "TRIAL"] } }, select: { id: true, slug: true } });
   const eligible = options.includeWithoutLine ? null : await Promise.all(candidates.map(store => hasStoreFeature(store.id, FEATURES.LINE_REMINDER)));
   const stores = candidates.filter((_, index) => !eligible || eligible[index]);
   if (!stores.length) return [];

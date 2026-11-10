@@ -28,3 +28,8 @@ it("rechecks completion, cancellation, store and extended class end after claimi
   await isCourseBookingStillIncomplete("course", "booking", now);
   expect(m.recheck).toHaveBeenCalledWith({ where: { id: "booking", storeId: "course", status: "RESERVED", session: { storeId: "course", cancelledAt: null, endsAt: { lte: new Date("2026-09-17T00:00:00Z") } } }, select: { id: true } });
 });
+
+it.each([false,true])("excludes unactivated stores before reminder feature checks (includeWithoutLine=%s)",async includeWithoutLine=>{
+ await getIncompleteCourseCandidates(now,{includeWithoutLine});
+ expect(m.stores).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({featureEntitlements:{some:{featureKey:{in:["business.fitness","business.music"]},status:"ENABLED"}}})}));
+});

@@ -192,7 +192,8 @@
       "fix/agreement-privacy-default": false,
       "feat/mixed-course-enrollment-20261109": false,
       "content/marketing-beauty-addons-20261104": false,
-      "fix/course-single-charge-validation-20261109": false
+      "fix/course-single-charge-validation-20261109": false,
+      "fix/course-reminder-active-scope-20261026": false
     }
   }
 }
