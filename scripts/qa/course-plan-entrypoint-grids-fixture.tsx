@@ -9,7 +9,7 @@ import {useCustomerPlanPreload} from '../../src/components/admin/use-customer-pl
 import type {CoursePortalData} from '../../src/app/(customer)/book/course-portal';
 const params=new URLSearchParams(location.search),total=params.get('total')==='8'?8:10;
 const grid={total,dates:params.has('attended')?['2026-11-03T03:00:00Z']:[]};
-const card={id:'synthetic-card',name:'舞蹈（常態）-'+total+'堂',unit:'SESSION',termSessionIds:[],templateIds:[],allowShared:false,available:total,remaining:total,held:0,entries:[],expired:false,closed:false,expiresAt:'2027-01-24T00:00:00Z',members:[{id:'synthetic-member',name:'合成學員'}],grid};
+const card={id:'synthetic-card',name:'舞蹈（常態）-'+total+'堂',unit:'SESSION',termSessionIds:[],templateIds:[],allowShared:false,available:total-grid.dates.length,remaining:total-grid.dates.length,held:0,entries:[],expired:false,closed:false,expiresAt:'2027-01-24T00:00:00Z',members:[{id:'synthetic-member',name:'合成學員'}],grid};
 const data={initialRole:'member',rolePreferenceKey:'grid-entrypoint-synthetic',month:'2026-11',serverNow:Date.parse('2026-11-10T11:00:00Z'),memberEnabled:true,hasWork:false,customerId:'synthetic-member',customerName:'合成學員',storeName:'合成店家',storeId:'synthetic-store',prefix:'/s/synthetic',cards:[card],plans:[],templates:[],bookings:[],orders:[],sessions:[],hours:[],special:[],config:{},bookingWindow:{closesAt:'2026-12-10T00:00:00Z'},nextBooking:null,nextWork:null,work:[],memberRecords:[],readOnly:true,initialView:'plans'} as unknown as CoursePortalData;
 (window as unknown as {qaAction:(name:string)=>Promise<unknown>}).qaAction=async name=>{throw Error('Unexpected backend action '+name);};
 function Admin(){

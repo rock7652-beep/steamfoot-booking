@@ -63,7 +63,7 @@ try{
   await page.route('**/*',async route=>{
    const req=route.request(),url=new URL(req.url());
    if(req.isNavigationRequest())return route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="zh-Hant"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'});
-   if(url.pathname.endsWith('/card-read')){reads.push('cards');await new Promise(r=>setTimeout(r,150));return route.fulfill({json:{success:true,rows:[{id:'synthetic-card',name:'舞蹈（常態）-'+total+'堂',unit:'SESSION',remaining:total,available:total,held:0,members:[{id:'synthetic-member',name:'合成學員'}],entries:[],expired:false,closed:false,expiresAt:'2027-01-24T00:00:00Z',templateIds:[],termSessionIds:[]}],hasMore:false}});}
+   if(url.pathname.endsWith('/card-read')){reads.push('cards');await new Promise(r=>setTimeout(r,150));return route.fulfill({json:{success:true,rows:[{id:'synthetic-card',name:'舞蹈（常態）-'+total+'堂',unit:'SESSION',remaining:total-(attended?1:0),available:total-(attended?1:0),held:0,members:[{id:'synthetic-member',name:'合成學員'}],entries:[],expired:false,closed:false,expiresAt:'2027-01-24T00:00:00Z',templateIds:[],termSessionIds:[]}],hasMore:false}});}
    if(url.pathname.endsWith('/card-progress-read')){reads.push('progress');await new Promise(r=>setTimeout(r,150));return route.fulfill({json:{success:true,data:{available:true,total,completed:attended?[{id:"attended",date:"2026-11-03T03:00:00Z",customerName:"合成學員"}]:[],shared:false}}});}
    return route.abort();
   });
