@@ -19,6 +19,7 @@ import { courseAccount } from "@/server/services/course-access";
 import { coursePrisma } from "@/lib/course-db";
 import { getCourseCards } from "@/server/queries/course-members";
 import { getCourseMemberRecords } from "@/server/queries/course-member-records";
+import { readCoursePhonePlanGrids } from "@/server/queries/course-phone-plan-grids";
 import { getCoursePlanHistory } from "@/server/queries/course-plan-history";
 import { CoursePortalClient } from "./course-portal-client";
 import { monthRange, toLocalMonthStr, parseTaipeiDateTime, dayRange, toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
@@ -112,7 +113,7 @@ async function readCoursePortal(requestedMonth: string | undefined, preview: Fro
   const waitlistEnabled = waitlistFeature && (waitlistSetting?.enabled ?? false);
   const cards = memberEnabled ? (await timing.measure("cards", () => getCourseCards(storeId, customer.id))).filter(card => !musicStore || card.unit === "SESSION") : [];
   const memberRecordsPromise = memberEnabled ? getCourseMemberRecords(storeId,customer.id,musicStore) : Promise.resolve([]);
-  const planHistory = await timing.measure("plan_history", () => getCoursePlanHistory(storeId, customer.id, cards.map(card => card.id), now));
+  const [planHistory,planGrids] = await Promise.all([timing.measure("plan_history", () => getCoursePlanHistory(storeId, customer.id, cards.map(card => card.id), now)), timing.measure("plan_grids",()=>readCoursePhonePlanGrids(storeId,customer.id,cards.map(card=>card.id)))]);
   // Independent opening rights are visible only to their own learner. Shared
   // cards/reserver identity never grant access to another learner's entitlement.
   const memberBookingAccess = {
@@ -381,7 +382,7 @@ async function readCoursePortal(requestedMonth: string | undefined, preview: Fro
     sharedCardState,
     config,
     // Shared membership grants names and shared balance, never another member's contact/profile fields.
-    cards: cards.map(card => ({ ...card, members: courseCardPublicMembers(card.members), history: planHistory.find(history => history.cardId === card.id) ?? { createdAt: null, count: 0, lessons: [] },
+    cards: cards.map(card => ({ ...card, grid:planGrids.get(card.id)??null, members: courseCardPublicMembers(card.members), history: planHistory.find(history => history.cardId === card.id) ?? { createdAt: null, count: 0, lessons: [] },
       // Only this customer's existing purchase records may appear beside a shared card.
       purchases: orders.filter(order => order.cardId === card.id).map(order => ({ id: order.id, points: order.points, createdAt: order.createdAt.toISOString(), status: order.status })),
     })),

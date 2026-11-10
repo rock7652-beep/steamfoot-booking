@@ -11,10 +11,10 @@ export function useCalendarMonthPreload({enabled,date,blocked,reader,revision=0}
   useIdleReadPreload({enabled,blocked,reader,revision,keys:[-1,1,-2,2].map(delta=>addTaiwanDuration(`${month}-01`,delta,"MONTH")),startDelayMs:250,gapMs:0,concurrency:2,retainSnapshots:true});
 }
 
-export function useIdleReadPreload({enabled,keys,blocked,reader,revision=0,startDelayMs=1500,gapMs=500,concurrency=1,retainSnapshots=false}:{
+export function useIdleReadPreload({enabled,keys,blocked,reader,revision=0,startDelayMs=1500,gapMs=500,concurrency=1,retainSnapshots=false,allowFocusedInput=false}:{
  enabled:boolean;keys:string[];blocked:boolean;revision?:number;
  reader:{read:(key:string)=>Promise<unknown>;get:(key:string)=>unknown;snapshot?:(key:string)=>unknown};
- startDelayMs?:number;gapMs?:number;concurrency?:number;retainSnapshots?:boolean;
+ startDelayMs?:number;gapMs?:number;concurrency?:number;retainSnapshots?:boolean;allowFocusedInput?:boolean;
 }){
   const key=JSON.stringify(keys);
   // In-flight reads survive effect cancellation; keep the cap across date changes.
@@ -27,7 +27,7 @@ export function useIdleReadPreload({enabled,keys,blocked,reader,revision=0,start
     const schedule=(delay:number)=>{const timer=setTimeout(()=>{timers.delete(timer);void next();},delay);timers.add(timer);};
     const next=async()=>{
       if(canceled||!targets.length)return;
-      if(document.hidden||!navigator.onLine||document.activeElement?.matches("input, textarea, select, [contenteditable='true']")){
+      if(document.hidden||!navigator.onLine||!allowFocusedInput&&document.activeElement?.matches("input, textarea, select, [contenteditable='true']")){
         schedule(1500);return;
       }
       if(active.current>=concurrency){schedule(250);return;}
@@ -42,5 +42,5 @@ export function useIdleReadPreload({enabled,keys,blocked,reader,revision=0,start
     };
     for(let worker=0;worker<Math.min(concurrency,targets.length);worker++)schedule(startDelayMs);
     return()=>{canceled=true;for(const timer of timers)clearTimeout(timer);};
-  },[enabled,key,blocked,reader,revision,startDelayMs,gapMs,concurrency,retainSnapshots]);
+  },[enabled,key,blocked,reader,revision,startDelayMs,gapMs,concurrency,retainSnapshots,allowFocusedInput]);
 }
