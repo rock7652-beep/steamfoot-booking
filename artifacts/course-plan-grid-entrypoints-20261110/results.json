@@ -1,0 +1,94 @@
+{
+  "scope": "Actual CoursePortalClient plans and CourseCardBrowser/Progress components, full styles, synthetic data and mocked HTTP; not hosted auth or real latency acceptance",
+  "results": [
+    {
+      "mode": "portal",
+      "width": 390,
+      "height": 844,
+      "total": 10,
+      "columns": 5,
+      "gridWidth": 332,
+      "cellHeight": 48,
+      "reads": [],
+      "pass": true
+    },
+    {
+      "mode": "portal",
+      "width": 360,
+      "height": 800,
+      "total": 8,
+      "columns": 4,
+      "gridWidth": 302,
+      "cellHeight": 48,
+      "reads": [],
+      "pass": true
+    },
+    {
+      "mode": "portal",
+      "width": 768,
+      "height": 1024,
+      "total": 10,
+      "columns": 5,
+      "gridWidth": 372,
+      "cellHeight": 48,
+      "reads": [],
+      "pass": true
+    },
+    {
+      "mode": "admin",
+      "width": 1366,
+      "height": 900,
+      "total": 10,
+      "columns": 10,
+      "gridWidth": 1032,
+      "cellHeight": 44,
+      "reads": [
+        "cards",
+        "progress"
+      ],
+      "pass": true
+    },
+    {
+      "mode": "admin",
+      "width": 1024,
+      "height": 768,
+      "total": 10,
+      "columns": 10,
+      "gridWidth": 908,
+      "cellHeight": 44,
+      "reads": [
+        "cards",
+        "progress"
+      ],
+      "pass": true
+    },
+    {
+      "mode": "admin",
+      "width": 768,
+      "height": 1024,
+      "total": 10,
+      "columns": 10,
+      "gridWidth": 652,
+      "cellHeight": 44,
+      "reads": [
+        "cards",
+        "progress"
+      ],
+      "pass": true
+    },
+    {
+      "mode": "admin",
+      "width": 600,
+      "height": 900,
+      "total": 10,
+      "columns": 5,
+      "gridWidth": 484,
+      "cellHeight": 44,
+      "reads": [
+        "cards",
+        "progress"
+      ],
+      "pass": true
+    }
+  ]
+}

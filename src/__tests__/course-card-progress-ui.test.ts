@@ -3,7 +3,7 @@ import {act,createElement as h} from 'react';
 import {createRoot} from 'react-dom/client';
 import {beforeEach,it,expect,vi} from 'vitest';
 const m=vi.hoisted(()=>({read:vi.fn()}));
-vi.mock('@/server/actions/course-card-progress',()=>({loadCourseCardProgress:m.read}));
+vi.mock('@/lib/course-card-read-client',()=>({readCourseCardProgress:m.read}));
 vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()}),usePathname:()=>'/hq/dashboard/courses',useSearchParams:()=>new URLSearchParams()}));
 import {CourseCardProgress} from '@/app/(dashboard)/dashboard/courses/card-progress';
 const result={success:true,data:{available:true,total:10,shared:true,completed:[{id:'b1',date:'2026-11-03T08:30:00Z',customerName:'甲',courseName:'舞蹈'},{id:'b2',date:'2026-11-10T08:30:00Z',customerName:'乙',courseName:'舞蹈'}]}};

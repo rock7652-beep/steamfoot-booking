@@ -33,8 +33,9 @@ export function CourseCardBrowser({load,reservations,renderProgress,sessionUnitL
     }).catch(()=>{if(active)setResult({key,customerId,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},delay);
     return ()=>{active=false;clearTimeout(timer);};
   },[customerId,dataScope,state,key,browseReader,snapshot,revision]);
-  const ready=result?.key===key;
-  const visible=result?.customerId===customerId?result:null;
+  const cached=browseReader.get({customerId,dataScope,...state});
+  const ready=result?.key===key||!!cached;
+  const visible=result?.key===key?result:cached?.success?{key,customerId,rows:cached.rows,hasMore:cached.hasMore,totals:cached.totals}:result?.customerId===customerId?result:null;
   const renderRows=()=>visible?.rows.map(c=>{
           const unit=c.unit==="SESSION"?sessionUnitLabel:"點";
           const inactive=c.closed||c.expired;

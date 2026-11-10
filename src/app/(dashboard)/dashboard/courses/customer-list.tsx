@@ -68,7 +68,7 @@ export function CourseCustomerList({ planPreload, preloadBlocked=false, beautyMo
   };
   const staff = [...new Map(rows.flatMap(row => row.assignedStaff ? [[row.assignedStaff.id, row.assignedStaff] as const] : [])).values()];
   const pageRows = customerPage ? filtered : filtered.slice((page - 1) * 20, page * 20);
-  useIdleReadPreload({enabled:!!planPreload&&canReadCards,blocked:preloadBlocked||selectedIds.size>0,keys:pageRows.slice(0,5).map(row=>row.id),reader:planPreload?.reader??emptyPreloadReader});
+  useIdleReadPreload({enabled:!!planPreload&&canReadCards,allowFocusedInput:true,blocked:preloadBlocked||selectedIds.size>0,keys:pageRows.slice(0,5).map(row=>row.id),reader:planPreload?.reader??emptyPreloadReader});
   return <section className={`space-y-3 ${selectedIds.size ? "pb-40" : ""}`}>
     <CustomersToolbar beautyMode={beautyMode} labelsInMore={sportsNative} musicMode={music} staffOptions={assignmentStaff.length ? assignmentStaff : staff} basePath={listBasePath} courseMode trailing={canMerge || canExport || (sportsNative&&onPurchase) ? <ExclusiveMenu label={sportsNative?"顧客管理更多操作":"更多"} triggerText={sportsNative?"⋯":undefined}>{sportsNative&&onPurchase&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm text-primary-700" onClick={onPurchase}>購買方案</button>}{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}

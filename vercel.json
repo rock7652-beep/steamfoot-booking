@@ -197,7 +197,8 @@
       "feat/mixed-course-enrollment-20261109": false,
       "content/marketing-beauty-addons-20261104": false,
       "fix/course-single-charge-validation-20261109": false,
-      "codex/course-family-release-20261110": false
+      "codex/course-family-release-20261110": false,
+      "fix/course-plan-grid-entrypoints-20261110": false
     }
   }
 }

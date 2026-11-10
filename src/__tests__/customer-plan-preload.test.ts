@@ -3,9 +3,8 @@ import React,{act} from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({cards:vi.fn(),native:vi.fn(),periods:vi.fn(),overview:vi.fn(),orders:vi.fn(),progress:vi.fn()}));
-vi.mock('@/server/actions/course-card-progress',()=>({loadCourseCardProgress:m.progress}));
 vi.mock('@/server/actions/course-browse',()=>({browseCourseCards:m.cards}));
-vi.mock('@/lib/course-card-read-client',()=>({readNativeCourseCards:m.native}));
+vi.mock('@/lib/course-card-read-client',()=>({readNativeCourseCards:m.cards,readCourseCardProgress:m.progress}));
 vi.mock('@/lib/music-period-read-client',()=>({readMusicPeriods:m.periods}));
 vi.mock('@/server/actions/music-student-workspace',()=>({loadMusicStudentWorkspace:m.overview}));
 vi.mock('@/server/actions/course-customer-history',()=>({loadCourseCustomerPurchases:m.orders}));
@@ -23,8 +22,8 @@ beforeEach(()=>{vi.clearAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRO
 afterEach(async()=>{await act(async()=>root.unmount());vi.useRealTimers();});
 it.each([false,true])('shares a completed background read with a newly opened customer (%s native)',async native=>{
  const options={canReadCards:true,native};await render(options);await act(async()=>preload.reader.read('A'));
- await render(options,true);expect(await reader.read({customerId:'A',search:'',history:false,page:0})).toMatchObject({success:true});expect(native?m.native:m.cards).toHaveBeenCalledOnce();
- await reader.read({customerId:'B',search:'',history:false,page:0});expect(native?m.native:m.cards).toHaveBeenCalledTimes(2);
+ await render(options,true);expect(await reader.read({customerId:'A',search:'',history:false,page:0})).toMatchObject({success:true});expect(m.cards).toHaveBeenCalledOnce();
+ await reader.read({customerId:'B',search:'',history:false,page:0});expect(m.cards).toHaveBeenCalledTimes(2);
 });
 it('prepares music overview, periods and purchases independently, without discarding them on open',async()=>{
  await render({music:true,canReadCards:true,canReadBookings:true,canReadTransactions:true});await preload.reader.read('student');
