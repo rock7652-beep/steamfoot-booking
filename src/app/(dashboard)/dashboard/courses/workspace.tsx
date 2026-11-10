@@ -1492,7 +1492,7 @@ export function CourseWorkspace({
                     "durationMinutes" in item ? (item as Template) : null;
                   return (
                     <Fragment key={item.id}>
-                    {isInactiveItem(item)&&(index===0||!isInactiveItem(visibleItems[index-1]))&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?6:catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-1"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelectedIds([]);setShowInactive(v=>!v);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
+                    {isInactiveItem(item)&&(index===0||!isInactiveItem(visibleItems[index-1]))&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?6:catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"||!catalogSource?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-1"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelectedIds([]);setShowInactive(v=>!v);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
                     <tr
                       data-new-room={item.id === newRoomId ? "true" : undefined}
                       {...order.rowProps(item.id)}
@@ -1575,7 +1575,7 @@ export function CourseWorkspace({
                     </Fragment>
                   );
                 })}
-                {!inactiveExpanded&&inactiveFilteredItems.length>0&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?6:catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-1"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelectedIds([]);setShowInactive(true);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>展開</span></button></td></tr>}
+                {!inactiveExpanded&&inactiveFilteredItems.length>0&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={view==="rooms"?(businessProfile==="MUSIC"?6:catalogSource&&!catalogSource.rentalModule?4:catalogSource?.rentalModule==="beauty"||!catalogSource?5:6):businessProfile==="MUSIC"?7:6} className="px-3 py-1"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelectedIds([]);setShowInactive(true);}}><span>{view==="rooms"?"停用空間":catalogSource?"下架服務":"下架課程"}（{inactiveFilteredItems.length}）</span><span>展開</span></button></td></tr>}
               </tbody>
             </table>
             {!filteredItems.length && (
