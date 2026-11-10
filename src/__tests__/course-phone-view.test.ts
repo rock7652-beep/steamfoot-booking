@@ -42,6 +42,13 @@ it("does not disclose siblings before confirmation or after revocation", async (
   expect(m.grant.mock.calls[0][0].where).toEqual({ storeId: "store", userId: "member", anchorCustomerId: anchor.id, phone: anchor.phone, revokedAt: null });
 });
 
+it("preserves a verified member session for a parent whose persisted account also has a staff role", async () => {
+  m.user.mockImplementation(async ({ where }: { where: { role?: string } }) => where.role ? null : { id: "member", role: "OWNER" });
+  expect((await readCoursePhoneLearners()).status).toBe("phone_group");
+  expect(await approveCoursePhoneView(anchor.id)).toMatchObject({ learnerCount: 4 });
+  expect(m.user.mock.calls[0][0].where).toEqual({ id: "member", status: "ACTIVE" });
+});
+
 it("reads fresh membership on each request, including a newly added child", async () => {
   expect((await readCoursePhoneLearners()).learners).toHaveLength(4);
   m.rows.mockResolvedValue([anchor, child("new-child")]);

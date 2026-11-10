@@ -94,6 +94,14 @@ it("keeps a central Account's other-store legacy Customer and uses the scoped li
   expect(m.customerUpdate.mock.calls[0][0].data).not.toHaveProperty("userId");
   expect(m.linkCreate.mock.calls[0][0].data.userId).toBe("central-member");
 });
+
+it("keeps an existing staff-role central account in member context without changing its persisted role", async () => {
+  m.accountFind.mockResolvedValue({ userId: "central-owner" });
+  m.userFind.mockImplementation(async ({ where }: { where: { role?: string } }) => where.role ? null : { id: "central-owner", role: "OWNER" });
+  await approveCoursePhoneLogin(confirm);
+  expect(m.userCreate).not.toHaveBeenCalled();
+  expect(m.upsertGrant.mock.calls[0][0].create.userId).toBe("central-owner");
+});
 it("does not permit ordinary staff or a SELF_ONLY manager to confirm another manager's group", async () => {
   m.manager.mockResolvedValueOnce({ user: { id: "staff", role: "PARTNER", staffId: "staff" }, storeId: "store" });
   await expect(approveCoursePhoneLogin(confirm)).rejects.toThrow("店長");

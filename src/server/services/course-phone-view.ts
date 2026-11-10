@@ -71,7 +71,7 @@ export async function approveCoursePhoneView(anchorCustomerId: string) {
       storeId, userId: memberUserId, customerId: { not: anchor.id },
     }, select: { id: true } });
     if (otherMembership) throw new AppError("CONFLICT", "本店登入身分有多筆學員連結，請先確認");
-    const member = await tx.user.findFirst({ where: { id: memberUserId, role: "CUSTOMER", status: "ACTIVE" }, select: { id: true } });
+    const member = await tx.user.findFirst({ where: { id: memberUserId, status: "ACTIVE" }, select: { id: true } });
     const phone = contactPhone(anchor);
     if (!member || !/^09\d{8}$/.test(phone)) throw new AppError("CONFLICT", "學員登入身分或聯絡電話需確認");
     const rows = await groupRows(tx, storeId, phone);
@@ -120,7 +120,9 @@ export async function readCoursePhoneLearners() {
   const linked = await resolveCentralMemberCustomerForStore(actor.user.id, actor.storeId);
   if (!linked || linked.customerId !== actor.customer.id) throw new AppError("FORBIDDEN", "請重新確認本店登入身分");
   return prisma.$transaction(async tx => {
-    const member = await tx.user.findFirst({ where: { id: actor.user.id, role: "CUSTOMER", status: "ACTIVE" }, select: { id: true } });
+    // Like verified-line-customer, authorize the verified store membership.
+    // An OWNER/PARTNER can have a CUSTOMER-context LINE session too.
+    const member = await tx.user.findFirst({ where: { id: actor.user.id, status: "ACTIVE" }, select: { id: true } });
     if (!member) throw new AppError("FORBIDDEN", "會員帳號目前無法使用");
     const anchor = await tx.customer.findFirst({
       where: { id: actor.customer.id, storeId: actor.storeId, mergedIntoCustomerId: null }, select: contactSelect,

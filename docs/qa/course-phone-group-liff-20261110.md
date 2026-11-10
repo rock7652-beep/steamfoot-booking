@@ -112,3 +112,5 @@
 自動瀏覽器的初始失敗來自執行環境 Chromium 未信任代理 CA，以及測試腳本在 loading 狀態過早判斷按鈕；修正測試設定與等待條件後才記通過，不算產品成功證據。HTTPS 忽略僅在已核對的隔離 host 與合成帳號測試 context，沒有變更站台 TLS 或使用者瀏覽器。
 
 另修正明確的 `memberEntry=liff` 課程 onboarding 返回路徑，讓短效驗收入口使用 LINE 登入後回會員首頁；一般 booking=1 體驗入口維持原路徑，非課程不接受此返回例外。相關 3 檔 65 項與完整型別檢查通過。
+
+補驗兼具員工與會員身分的既有中央帳號：與現行 `verified-line-customer` 相同，群組查看依已核實的本店會員及 active 狀態授權，不用持久化的 OWNER／PARTNER 角色排除合法的 CUSTOMER-context session；不修改帳號原有角色，也不減少中央會員、其他學員身分衝突或店長操作權限檢查。相關 4 檔 92 項通過。

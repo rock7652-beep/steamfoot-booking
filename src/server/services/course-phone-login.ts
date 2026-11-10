@@ -95,7 +95,7 @@ export async function approveCoursePhoneLogin(input: { requestId: string; custom
     }
     assertCoursePhoneGroupIdentity(rows, anchor.id, memberUserId ?? "");
     if (memberUserId) {
-      const member = await tx.user.findFirst({ where: { id: memberUserId, role: "CUSTOMER", status: "ACTIVE" }, select: { id: true } });
+      const member = await tx.user.findFirst({ where: { id: memberUserId, status: "ACTIVE" }, select: { id: true } });
       if (!member) throw new AppError("CONFLICT", "登入帳號目前無法使用");
     } else {
       // An unrelated legacy phone/password owner is a conflict, not proof.
