@@ -17,3 +17,11 @@ it.each([{VERCEL_ENV:'production'},{VERCEL_PROJECT_ID:'production-project'},{VER
  expect(()=>assertCompactOperationsPreview({...env,...patch})).toThrow();
  expect(()=>customerOverviewPreviewStore('music','addons-qa-music',{...env,...patch})).toThrow();
 });
+
+import {assertCustomerOverviewPackaging} from '../../scripts/customer-overview-preview-packaging.mjs';
+it('only permits artifact cleanup inside the exact hosted build sandbox',()=>{
+ expect(()=>assertCustomerOverviewPackaging(env,'/vercel/path0')).not.toThrow();
+ expect(()=>assertCustomerOverviewPackaging(env,'/workspace/project')).toThrow();
+ expect(()=>assertCustomerOverviewPackaging({...env,VERCEL_ENV:'production'},'/vercel/path0')).toThrow();
+ expect(()=>assertCustomerOverviewPackaging({...env,VERCEL_GIT_COMMIT_REF:'other'},'/vercel/path0')).toThrow();
+});
