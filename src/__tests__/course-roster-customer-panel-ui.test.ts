@@ -18,10 +18,10 @@ it('先顯示學員摘要，原網址與課表保持不動；成功後同窗載�
  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);const close=vi.fn();const url=location.href;
  try{
   await act(async()=>root.render(h('main',{},h('div',{'data-calendar':true},'原課表'),h(RosterCustomerPanel,{customer,sessionId:'session',storeId:'store',onClose:close}))));
-  expect(host.textContent).toContain('學員甲');expect(host.textContent).toContain('讀取學員資料中');expect(location.href).toBe(url);
+  expect(document.body.textContent).toContain('學員甲');expect(document.body.textContent).toContain('讀取學員資料中');expect(host.textContent).not.toContain('讀取學員資料中');expect(location.href).toBe(url);
   await act(async()=>resolve(data()));
-  expect(host.querySelector('[data-panel-only="true"]')?.getAttribute('data-card')).toBe('card-1');expect(host.querySelector('[data-calendar]')?.textContent).toBe('原課表');expect(location.href).toBe(url);
-  await act(async()=>host.querySelector<HTMLButtonElement>('button')!.click());expect(close).toHaveBeenCalledOnce();
+  expect(document.body.querySelector('[data-panel-only="true"]')?.getAttribute('data-card')).toBe('card-1');expect(host.querySelector('[data-calendar]')?.textContent).toBe('原課表');expect(location.href).toBe(url);
+  await act(async()=>document.body.querySelector<HTMLButtonElement>('button')!.click());expect(close).toHaveBeenCalledOnce();
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 it('換學員後忽略前一位晚到結果，失敗可在原窗重試',async()=>{
@@ -29,9 +29,9 @@ it('換學員後忽略前一位晚到結果，失敗可在原窗重試',async()=
  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
  const view=(id:string)=>h(RosterCustomerPanel,{key:id,customer:{...customer,id},sessionId:'session',storeId:'store',onClose:vi.fn()});
  try{
-  await act(async()=>root.render(view('first')));await act(async()=>root.render(view('second')));expect(host.textContent).toContain('網路失敗');
-  await act(async()=>oldResolve(data('first')));expect(host.querySelector('[data-student]')).toBeNull();
-  await act(async()=>Array.from(host.querySelectorAll('button')).find(b=>b.textContent==='重試')!.click());
-  expect(host.querySelector('[data-student]')?.getAttribute('data-student')).toBe('second');
+  await act(async()=>root.render(view('first')));await act(async()=>root.render(view('second')));expect(document.body.textContent).toContain('網路失敗');
+  await act(async()=>oldResolve(data('first')));expect(document.body.querySelector('[data-student]')).toBeNull();
+  await act(async()=>Array.from(document.body.querySelectorAll('button')).find(b=>b.textContent==='重試')!.click());
+  expect(document.body.querySelector('[data-student]')?.getAttribute('data-student')).toBe('second');
  }finally{await act(async()=>root.unmount());host.remove();}
 });

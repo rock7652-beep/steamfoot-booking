@@ -6,15 +6,15 @@ import { RosterTable } from "@/components/admin/roster-primitives";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import { CourseCardReservations } from "./card-reservations";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { browseCourseCards } from "@/server/actions/course-browse";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
 export type CardBrowseState = { search: string; history: boolean; page: number };
-export function CourseCardBrowser({load,reservations,sessionUnitLabel="堂", overview=false, showOverviewTotals=false, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
+export function CourseCardBrowser({load,reservations,renderProgress,sessionUnitLabel="堂", overview=false, showOverviewTotals=false, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
   showOverviewTotals?:boolean;overview?:boolean;dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
-  onSelect:(card:CourseCardView)=>void;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
+  onSelect:(card:CourseCardView)=>void;renderProgress?:(card:CourseCardView)=>ReactNode;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
 }) {
   const browseReader = useCustomerCardReader({load,native,revision});
   const detailReader = usePanelReader(load?"module-card":"course-card", load??browseCourseCards);
@@ -45,6 +45,7 @@ export function CourseCardBrowser({load,reservations,sessionUnitLabel="堂", ove
               {(!native||c.members.length>1)&&<span className="min-w-0 break-words text-sm text-earth-500">{c.members.length>1?`共同餘額 · 共卡人：${c.members.map(m=>m.name).join("、")}`:`持有人：${c.members[0]?.name??"未設定"}`}</span>}<span className="text-sm text-earth-500">{c.expiryKind === "NO_EXPIRY" ? "無期限" : !c.expiresAt || (c.openingImported && !c.musicActivatedAt) ? "期初效期待核對" : c.musicValidityDays && !c.musicActivatedAt ? `首次上課起 ${c.musicValidityDays} 天` : `${toLocalDateStr(new Date(c.expiresAt))} 到期`}</span>
             </button>
             {overview&&c.openingIssue&&<p className="text-sm text-amber-800">{c.openingIssue}</p>}
+            {overview&&renderProgress?.(c)}
             {(overview||!native||c.held>0||!!status)&&<div className="flex flex-wrap items-center gap-x-3 text-earth-600"><span>{inactive?"紀錄剩餘":"剩餘"} {c.remaining} {unit}</span>{canReadBookings&&c.held>0?<CourseCardReservations label={overview?"預約保留":undefined} load={reservations} sessionUnitLabel={sessionUnitLabel} cardId={c.id} held={c.held} unit={c.unit} revision={revision}/>:!overview||c.held>0?<span>{overview?"預約保留":"已預約"} {c.held} {unit}{c.unit==="POINT"?"額度":""}</span>:null}{!inactive&&status&&<span className="text-xs">{status}</span>}</div>}
           </div>;
           return <tr key={c.id}>
