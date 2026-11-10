@@ -155,7 +155,7 @@ try{
    failNext=false;await page.getByRole('button',{name:profile==='music'?'重新讀取':'重試',exact:true}).click();await page.getByText(new RegExp("^"+nextText)).last().waitFor();
    results.push({profile,case:'note failure retains draft and retries; card/next failures retry; empty; 20 cards; resize preserves search; detail return restores scroll',passed:true});
   }
-  results.push({profile,width,height,layout:true,history:true,editReturn:true,purchaseReturn:true});console.log(JSON.stringify(results.at(-1))); 
+  results.push({profile,width,height,layout:true,history:true,editReturn:true,purchaseReturn:true});console.log(JSON.stringify(results.at(-1)));
   await context.close();
  }
  assert.equal(errors.length,0,JSON.stringify(errors));
