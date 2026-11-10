@@ -198,7 +198,8 @@
       "content/marketing-beauty-addons-20261104": false,
       "fix/course-single-charge-validation-20261109": false,
       "codex/course-family-release-20261110": false,
-      "fix/course-plan-grid-entrypoints-20261110": false
+      "fix/course-plan-grid-entrypoints-20261110": false,
+      "feat/course-subject-entitlement-20261110": false
     }
   }
 }

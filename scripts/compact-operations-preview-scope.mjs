@@ -1,3 +1,4 @@
+export const COURSE_SUBJECT_PREVIEW_BRANCH='feat/course-subject-entitlement-20261110';
 export const CALENDAR_TRANSACTION_PREVIEW_BRANCH='fix/silverlily-calendar-transaction-timeout-20261110';
 export const CUSTOMER_OVERVIEW_PREVIEW_BRANCH='feat/customer-overview-alignment-20261110';
 export const COMPACT_OPERATIONS_BRANCH='feat/beauty-operations-compact-20261103';
@@ -5,7 +6,7 @@ export const MUSIC_FITNESS_COMPACT_BRANCH='feat/music-fitness-compact-20261103';
 export const UNIFIED_CUSTOMER_FILTERS_BRANCH='fix/course-customer-filters-unified-20261103';
 export const BOOKING_CALENDAR_PREVIEW_BRANCH='fix/steam-plan-reschedule-20261103';
 export const BEAUTY_SERVICE_JOURNEY_BRANCH='feat/beauty-service-journey-20261103';
-const COMPACT_PREVIEW_BRANCHES=[CALENDAR_TRANSACTION_PREVIEW_BRANCH,CUSTOMER_OVERVIEW_PREVIEW_BRANCH,BEAUTY_SERVICE_JOURNEY_BRANCH,COMPACT_OPERATIONS_BRANCH,MUSIC_FITNESS_COMPACT_BRANCH,UNIFIED_CUSTOMER_FILTERS_BRANCH,BOOKING_CALENDAR_PREVIEW_BRANCH];
+const COMPACT_PREVIEW_BRANCHES=[COURSE_SUBJECT_PREVIEW_BRANCH,CALENDAR_TRANSACTION_PREVIEW_BRANCH,CUSTOMER_OVERVIEW_PREVIEW_BRANCH,BEAUTY_SERVICE_JOURNEY_BRANCH,COMPACT_OPERATIONS_BRANCH,MUSIC_FITNESS_COMPACT_BRANCH,UNIFIED_CUSTOMER_FILTERS_BRANCH,BOOKING_CALENDAR_PREVIEW_BRANCH];
 export const COMPACT_OPERATIONS_PROJECT='prj_Aq5uK16Dc49OAUPJnP5VtnVAEdTs';
 export const COMPACT_OPERATIONS_DATABASE='ttworfzgwejdeolegkxl';
 export const COMPACT_OPERATIONS_ROLE='steamfoot_compact_qa_20261103';
@@ -54,5 +55,11 @@ export function calendarPerformanceSportsPreview(storeId,env=process.env){
 export function customerOverviewPreviewStore(module,storeId,env=process.env){
  const stores={sports:'addons-qa-fitness',music:'addons-qa-music',beauty:'addons-qa-beauty'};
  if(![CUSTOMER_OVERVIEW_PREVIEW_BRANCH,CALENDAR_TRANSACTION_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF??'')||!Object.hasOwn(stores,module)||storeId!==stores[module]||(env.VERCEL_GIT_COMMIT_REF===CALENDAR_TRANSACTION_PREVIEW_BRANCH&&module!=='sports'))return false;
+ return assertCompactOperationsPreview(env);
+}
+
+/** Subject entitlement rehearsal uses only the existing synthetic QA fitness store. */
+export function courseSubjectSportsPreview(storeId,env=process.env){
+ if(storeId!=='addons-qa-fitness'||env.VERCEL_GIT_COMMIT_REF!==COURSE_SUBJECT_PREVIEW_BRANCH)return false;
  return assertCompactOperationsPreview(env);
 }
