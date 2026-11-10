@@ -83,7 +83,7 @@ describe("music Preview student quotas through the actual customer creation acti
     expect(m.raw.mock.calls[0][0].join("?")).toBe('SELECT id FROM "Store" WHERE id = ? FOR UPDATE');
     expect(m.count).toHaveBeenCalledExactlyOnceWith({ where: { storeId: MUSIC_OPENING_STORE, mergedIntoCustomerId: null } });
     expect(m.create).toHaveBeenCalledExactlyOnceWith({
-      data: { storeId: MUSIC_OPENING_STORE, ...input, email: null, gender: null, birthday: null },
+      data: { storeId: MUSIC_OPENING_STORE, ...input, contactPhone:null, email: null, gender: null, birthday: null },
       select: { id: true },
     });
     expect(m.raw.mock.invocationCallOrder[0]).toBeLessThan(m.count.mock.invocationCallOrder[0]);
