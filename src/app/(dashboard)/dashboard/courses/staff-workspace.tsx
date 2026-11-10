@@ -102,6 +102,8 @@ export function CourseStaffWorkspace({
   sportsNative=false,
   sportsDefaultFees:initialSportsDefaultFees=[],
   initialCreate=false,
+  initialCustomer,
+  onPanelClose,
   salaryHref = null,
   previewStoreId,
   counterpartChoices:sourceCounterpartChoices=[],
@@ -125,6 +127,8 @@ export function CourseStaffWorkspace({
 }: {
   source?:CourseStaffSource;
   initialCreate?:boolean;
+  initialCustomer?:{id:string;name:string;phone:string;email?:string;birthday?:string;emergencyContactName?:string;emergencyContactPhone?:string;linkMember?:boolean};
+  onPanelClose?:()=>void;
   sportsNative?:boolean; previewStoreId?: string;
   sportsDefaultFees?:{templateId:string;rules:unknown}[];
   salaryHref?: string | null; salaryLabel?: string;
@@ -210,7 +214,7 @@ export function CourseStaffWorkspace({
   const updateAvailabilityGuard=useCallback((value:{dirty:boolean;pending:boolean})=>setAvailabilityGuard(value),[]);
   const [readOnly,setReadOnly]=useState(false);
   const [dirty,setDirty]=useState(false);
-  const [selectedCustomerId,setSelectedCustomerId]=useState("");
+  const [selectedCustomerId,setSelectedCustomerId]=useState(initialCustomer?.linkMember?initialCustomer.id:"");
   const [linePickerOpen,setLinePickerOpen]=useState(true);
   const [teachingDirty,setTeachingDirty]=useState(false);
   const [sportsDefaults,setSportsDefaults]=useState(initialSportsDefaultFees);
@@ -317,7 +321,9 @@ export function CourseStaffWorkspace({
   }
   function close() {
     if (locked || availabilityGuard.pending) return;
+    if(onPanelClose&&(dirty||availabilityGuard.dirty)&&!window.confirm("尚有未儲存的變更，確定離開？"))return;
     setOpen(false);
+    onPanelClose?.();
   }
   return (
     <div className={styles.workspace}>
@@ -537,11 +543,11 @@ export function CourseStaffWorkspace({
             >
               <fieldset disabled={readOnly || locked} className="contents">
               <div data-staff-tab="basic" hidden={tab!=="basic"} className={tab==="basic" ? music?"grid grid-cols-1 gap-2 @min-[28rem]/staff:grid-cols-3":"grid grid-cols-1 gap-3 min-[400px]:grid-cols-2" : "hidden"}>
-              <CourseStaffBasicFields key={`basic:${linkedStaffId}`} name={person?.name??selectedCounterpart?.name??""} active={person?.active!==false} phone={person?.phone??selectedCounterpart?.phone}/>
+              <CourseStaffBasicFields key={`basic:${linkedStaffId}`} name={person?.name??selectedCounterpart?.name??initialCustomer?.name??""} active={person?.active!==false} phone={person?.phone??selectedCounterpart?.phone??initialCustomer?.phone}/>
               {source?.basicFields(person)}
 
               {kind === "manager" && coachEnabled && <label className="col-span-full flex min-h-11 items-center gap-2"><input type="checkbox" checked={coachEnabled} onChange={e=>setCoachEnabled(e.target.checked)}/>兼任授課</label>}
-              <CourseStaffPersonalFields email={kind==='coach'?person?.contactEmail??'':undefined} scopeKey={linkedStaffId} birthday={person?.birthday??selectedCounterpart?.birthday} emergencyContactName={person?.emergencyContactName??selectedCounterpart?.emergencyContactName} emergencyContactPhone={person?.emergencyContactPhone??selectedCounterpart?.emergencyContactPhone} emergencyContactRelation={person?.emergencyContactRelation??selectedCounterpart?.emergencyContactRelation}>
+              <CourseStaffPersonalFields email={kind==='coach'?person?.contactEmail??initialCustomer?.email??'':undefined} scopeKey={linkedStaffId} birthday={person?.birthday??selectedCounterpart?.birthday??initialCustomer?.birthday} emergencyContactName={person?.emergencyContactName??selectedCounterpart?.emergencyContactName??initialCustomer?.emergencyContactName} emergencyContactPhone={person?.emergencyContactPhone??selectedCounterpart?.emergencyContactPhone??initialCustomer?.emergencyContactPhone} emergencyContactRelation={person?.emergencyContactRelation??selectedCounterpart?.emergencyContactRelation}>
                 <label hidden={!!source} className="col-span-full block">{kind==="coach"?"連結後台人員（同一人）":music?personnelText("連結教師（同一人）"):personnelText("連結教練（同一人）")}<select className={field} aria-label="連結既有身分" value={linkedStaffId} onChange={e=>{setLinkedStaffId(e.target.value);setDirty(true);}}><option value="">不連結</option>{counterpartChoices.filter(c=>!c.linked||c.id===person?.linkedStaffId).map(c=><option key={c.id} value={c.id}>{c.name}{c.phone?`（${c.phone}）`:""}</option>)}</select></label>
                 {person?.linkedStaffId&&<p className="col-span-full text-sm text-earth-600">已連結：{person.linkedStaffName}・權限各自獨立</p>}
               </CourseStaffPersonalFields>
@@ -578,7 +584,7 @@ export function CourseStaffWorkspace({
               {coachEnabled && (
                 <label className="block" hidden={!linePickerOpen}>
                   選擇 LINE 會員
-                  <div data-browse-control><CourseCustomerPicker choices={source?.customerChoices} enabled={!readOnly && tab==="work" && linePickerOpen} name="customerId" initial={person?.customerId ? [{id:person.customerId,name:customers.find(c=>c.id===person.customerId)?.name??"已連結顧客"}] : []} onChange={rows=>{setSelectedCustomerId(rows[0]?.id??"");setDirty(true);}}/></div>
+                  <div data-browse-control><CourseCustomerPicker choices={source?.customerChoices} enabled={!readOnly && tab==="work" && linePickerOpen} name="customerId" initial={person?.customerId ? [{id:person.customerId,name:customers.find(c=>c.id===person.customerId)?.name??"已連結顧客"}] : !person&&initialCustomer?.linkMember?[{id:initialCustomer.id,name:initialCustomer.name}]:[]} onChange={rows=>{setSelectedCustomerId(rows[0]?.id??"");setDirty(true);}}/></div>
 
                   <span className="text-xs text-earth-500">
                     請選已完成本店 LINE 登入的顧客。

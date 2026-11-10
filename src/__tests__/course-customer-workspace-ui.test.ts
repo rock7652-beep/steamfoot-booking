@@ -220,3 +220,9 @@ it('beauty-source late status for a previous customer cannot appear in the next 
  await act(async()=>release({success:true,data:{status:'COMMITTED',requestKey:'11111111-1111-4111-8111-111111111111',purchaseId:'old-card'}}));
  expect(transport.getPending).toHaveBeenCalledWith('other');expect(host.textContent).not.toContain('這筆購買已完成');expect(host.textContent).toContain('另一位顧客');expect(transport.acknowledge).not.toHaveBeenCalled();
 });
+
+it('opens the module staff entry instead of the generic course staff action',async()=>{
+ const open=vi.fn(),source={staffAction:{label:'加入為技師',available:(id:string)=>id==='person',open},browseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),bookings:vi.fn().mockResolvedValue({success:true,data:[],hasMore:false}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,source,canManageStaff:false})));
+ await click('加入為技師');expect(open).toHaveBeenCalledWith('person');expect(host.textContent).not.toContain('加入為教練');
+});

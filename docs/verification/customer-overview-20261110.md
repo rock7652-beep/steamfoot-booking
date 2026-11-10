@@ -78,3 +78,14 @@ LINE 啟用事件全為 SKIPPED。受限角色仍拒絕通知 worker 權限，�
 - 本地 `tsc --noEmit`、變更來源 ESLint、`git diff --check` 通過；5 組相關回歸 46 項通過。瀏覽器合成資料 21 案例通過、零 pageerror／console error，包含六種尺寸、單／多方案、零保留與非零保留、說明展開、歷史切換、編輯／購買返回、失敗重試及捲動保留。新增測試定位針對下次預約區，避免誤匹配收合說明文字；fixture 異動先依既有事件失效快取，美業核對「次」單位。
 
 新版 Preview 來源為 `e3126980b7cce791c97acc29b9b50d6c7ea62340`，部署 `dpl_8fBkdZFxSTR1RWJ3UFrD9XzHHSjL`。最初 polish 建置於約 38 秒時中止，以補齊額度說明中的效期／限制後重建，沒有完成或驗收該中止版本。此部署已 READY；正常 OWNER 登入後，三模組均通過「可用 4 堂／次」、零保留不顯示、音樂單方案不重複合計、額度說明展開、歷史切換及編輯返回。每模組重新核對 390×844、768×1024、1024×768、1366×900，無頁面水平溢出及 pageerror；12 張截圖均等資料完成載入後取得，並依精確來源 SHA 核對。這是 Chrome 模擬尺寸，非真機 Safari。新版網址為 https://steamfoot-compact-qa-20261103-3qfqrn2l7-rock7652-2111s-projects.vercel.app ，分享憑證仍只存私有設定。本輪未新增資料庫寫入或啟用通知；前輪扣堂／取消交易證據獨立保留，不宣稱已在新來源重播所有交易。Cloudflare 無本次必要依賴。
+
+
+## 補充：美業「加入為技師」入口
+
+使用者指出美業總覽缺少此入口。原美業 adapter 固定 `canManageStaff=false`；保留此隔離，新增 module-owned `staffAction` 接點，不呼叫課程 `saveCourseStaff`。只有非唯讀、既有 `manage.technician` 與 `staffAccess` 都允許時顯示，已依同會員連結的技師不重複提供新增。
+
+點擊後進入原「技師管理」及同一 `BeautyNativeStaffWorkspace`／`CourseStaffWorkspace` 表單，以本店已授權 customer rows 核對 `customerToTechnician`，帶入姓名、電話、Email、性別、生日與既有緊急聯絡欄位；僅本店 ACTIVE 會員可預填原會員連結，未連結顧客保留未連結，不以電話或 LINE 名稱認定身分。沿用 `saveBeautyNativeStaff` 的門市、人員／拆帳權限、request key、catalog 檢查與收據；沒有另建轉換 API 或擴大寫入權限。服務資格、拆帳與工作權限仍在原表單設定，未因入口出現就聲稱已加入。
+
+新增表單關閉時返回原顧客總覽並保留搜尋；未儲存變更離開須確認，取消離開保留草稿，pending／結果未知仍鎖定。共用人員表單增加可選初始顧客資料及關閉回呼，其他入口未提供時維持原行為。
+
+本地回歸涵蓋 module action、權限／唯讀／已連結條件、外店及不合法 query 不預填、會員未連結、原表單資料帶入及 dirty 取消。線上驗收使用 `QA_BEAUTY_TECHNICIAN_ENTRY=1` 的只讀 probe：從總覽開原表單、390／768／1366 尺寸、草稿取消離開與返回搜尋，不送出技師新增、會員重綁或通知。最終 head、CI 與同版 Preview 的執行結果維護於 PR #1531；較早來源的購買／扣堂證據不冒充本輪技師新增交易。

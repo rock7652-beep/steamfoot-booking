@@ -107,6 +107,20 @@ try{
   await dialog.getByRole('button',{name:'編輯顧客資料',exact:true}).scrollIntoViewIfNeeded();await capture('width-'+width);
   report.checks.push({step:'authenticated-responsive-profile',width,height,pass:true});
  }
+ if(kind==='beauty'&&phase==='probe'&&process.env.QA_BEAUTY_TECHNICIAN_ENTRY==='1'){
+  const join=dialog.getByRole('button',{name:'加入為技師',exact:true});await join.waitFor();
+  await join.click();await page.waitForURL(url=>url.searchParams.get('tab')==='技師管理'&&url.searchParams.get('customerToTechnician')===customer.id);
+  const technician=page.getByRole('dialog').filter({has:page.getByRole('heading',{name:'新增技師',exact:true})});await technician.waitFor();
+  const form=technician.locator('#course-staff-form');assert.equal(await form.locator('input[name="name"]').inputValue(),customer.name);
+  assert.ok(await form.locator('input[name="phone"]').inputValue());assert.equal(await page.getByRole('dialog').count(),1);
+  for(const [width,height] of [[390,844],[768,1024],[1366,900]]){await page.setViewportSize({width,height});await page.waitForTimeout(120);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await capture('technician-'+width);}
+  await form.locator('input[name="name"]').fill(customer.name+'・未儲存');let confirmation='';page.once('dialog',async d=>{confirmation=d.message();await d.dismiss();});
+  await technician.getByRole('button',{name:'關閉',exact:true}).click();assert.match(confirmation,/未儲存/);assert.equal(await form.locator('input[name="name"]').inputValue(),customer.name+'・未儲存');
+  page.once('dialog',d=>d.accept());await technician.getByRole('button',{name:'關閉',exact:true}).click();
+  await page.waitForURL(url=>url.searchParams.get('tab')==='顧客管理'&&url.searchParams.get('customerId')===customer.id&&!url.searchParams.has('customerToTechnician'));
+  await dialog.waitFor();await dialog.getByRole('button',{name:'加入為技師',exact:true}).waitFor();assert.equal(new URL(page.url()).searchParams.get('search'),'總覽驗收');
+  report.checks.push({step:'native-technician-form-prefill-dirty-cancel-and-return-no-submit',pass:true});
+ }
  if(phase==='schedule'){
   assert.equal(process.env.QA_ALLOW_ISOLATED_WRITES,'1');
   await page.getByRole(kind==='beauty'?'button':'link',{name:kind==='beauty'?'新增預約':'安排課程',exact:true}).first().click();
