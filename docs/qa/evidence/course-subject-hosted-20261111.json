@@ -1,0 +1,205 @@
+{
+  "environment": "isolated QA; synthetic data only",
+  "project": "steamfoot-compact-qa-20261103",
+  "database": "ttworfzgwejdeolegkxl",
+  "store": "addons-qa-fitness",
+  "deployment": "dpl_5Fk9jzaYNm5ZWoo5uNiJ6MRLPD3W",
+  "runtimeCommit": "69b34743a5b2bbc66959cf108e1ada0d7d7dd5d1",
+  "dateTaipei": "2026-11-11",
+  "actualBrowserActions": [
+    "owner email/password login",
+    "OPEN add learner; four A-subject cards eligible after OLD-card review; B/C excluded",
+    "OPEN mark attended and exact captured HTTP request replay in authenticated browser",
+    "ASSIGNED mark attended and exact captured HTTP request replay in authenticated browser",
+    "OPEN and ASSIGNED restore pending attendance"
+  ],
+  "bothAttended": {
+    "cards": [
+      {
+        "id": "qa-subject-20261110-A1",
+        "expiry": "2027-11-10T00:00:00+00:00",
+        "subject": "qa-customer-overview-20261110-sports-subject",
+        "remaining": 0
+      },
+      {
+        "id": "qa-subject-20261110-A2",
+        "expiry": "2027-11-10T00:00:00+00:00",
+        "subject": "qa-customer-overview-20261110-sports-subject",
+        "remaining": 5
+      },
+      {
+        "id": "qa-subject-20261110-A3",
+        "expiry": "2027-11-10T00:00:00+00:00",
+        "subject": "qa-customer-overview-20261110-sports-subject",
+        "remaining": 3
+      },
+      {
+        "id": "qa-subject-20261110-B1",
+        "expiry": "2027-11-10T00:00:00+00:00",
+        "subject": "qa-subject-20261110-B",
+        "remaining": 10
+      },
+      {
+        "id": "qa-subject-20261110-C2",
+        "expiry": "2027-11-10T00:00:00+00:00",
+        "subject": "qa-subject-20261110-C",
+        "remaining": 10
+      },
+      {
+        "id": "qa-subject-20261110-OLD",
+        "expiry": "2027-11-10T00:00:00+00:00",
+        "subject": "qa-customer-overview-20261110-sports-subject",
+        "remaining": 19
+      }
+    ],
+    "entries": [
+      {
+        "card": "qa-subject-20261110-A1",
+        "kind": "DEBIT",
+        "points": 1,
+        "booking": "cmwawkr520001jy08nm42c35j"
+      },
+      {
+        "card": "qa-subject-20261110-A1",
+        "kind": "CORRECT:ATTENDED:RESERVED:8582bbf0-5338-48bf-9d16-d20453e2c3f9",
+        "points": 1,
+        "booking": "cmwawkr520001jy08nm42c35j"
+      },
+      {
+        "card": "qa-subject-20261110-A1",
+        "kind": "DEBIT:b80bc3d0-251a-43f2-99b3-7ab25744acc8",
+        "points": 1,
+        "booking": "cmwawkr520001jy08nm42c35j"
+      },
+      {
+        "card": "qa-subject-20261110-A1",
+        "kind": "DEBIT",
+        "points": 1,
+        "booking": "qa-subject-20261110-session-ASSIGNED-booking"
+      }
+    ],
+    "bookings": [
+      {
+        "id": "cmwawkr520001jy08nm42c35j",
+        "card": "qa-subject-20261110-A1",
+        "cost": 1,
+        "status": "ATTENDED",
+        "session": "qa-subject-20261110-session-OPEN"
+      },
+      {
+        "id": "qa-subject-20261110-session-ASSIGNED-booking",
+        "card": "qa-subject-20261110-A1",
+        "cost": 1,
+        "status": "ATTENDED",
+        "session": "qa-subject-20261110-session-ASSIGNED"
+      }
+    ]
+  },
+  "finalState": {
+    "cards": [
+      {
+        "id": "qa-subject-20261110-A1",
+        "expiry": "2027-11-10T00:00:00+00:00",
+        "remaining": 2
+      },
+      {
+        "id": "qa-subject-20261110-A2",
+        "expiry": "2027-11-10T00:00:00+00:00",
+        "remaining": 5
+      },
+      {
+        "id": "qa-subject-20261110-A3",
+        "expiry": "2027-11-10T00:00:00+00:00",
+        "remaining": 3
+      },
+      {
+        "id": "qa-subject-20261110-B1",
+        "expiry": "2027-11-10T00:00:00+00:00",
+        "remaining": 10
+      },
+      {
+        "id": "qa-subject-20261110-C2",
+        "expiry": "2027-11-10T00:00:00+00:00",
+        "remaining": 10
+      },
+      {
+        "id": "qa-subject-20261110-OLD",
+        "expiry": "2027-11-10T00:00:00+00:00",
+        "remaining": 19
+      }
+    ],
+    "entries": [
+      {
+        "card": "qa-subject-20261110-A1",
+        "kind": "DEBIT",
+        "points": 1,
+        "booking": "cmwawkr520001jy08nm42c35j"
+      },
+      {
+        "card": "qa-subject-20261110-A1",
+        "kind": "CORRECT:ATTENDED:RESERVED:8582bbf0-5338-48bf-9d16-d20453e2c3f9",
+        "points": 1,
+        "booking": "cmwawkr520001jy08nm42c35j"
+      },
+      {
+        "card": "qa-subject-20261110-A1",
+        "kind": "DEBIT:b80bc3d0-251a-43f2-99b3-7ab25744acc8",
+        "points": 1,
+        "booking": "cmwawkr520001jy08nm42c35j"
+      },
+      {
+        "card": "qa-subject-20261110-A1",
+        "kind": "DEBIT",
+        "points": 1,
+        "booking": "qa-subject-20261110-session-ASSIGNED-booking"
+      },
+      {
+        "card": "qa-subject-20261110-A1",
+        "kind": "CORRECT:ATTENDED:RESERVED:3727c22b-1894-4ab2-9289-33bebe2cbc55",
+        "points": 1,
+        "booking": "qa-subject-20261110-session-ASSIGNED-booking"
+      },
+      {
+        "card": "qa-subject-20261110-A1",
+        "kind": "CORRECT:ATTENDED:RESERVED:4f9376ec-0984-463a-9780-071ec5740bf2",
+        "points": 1,
+        "booking": "cmwawkr520001jy08nm42c35j"
+      }
+    ],
+    "bookings": [
+      {
+        "id": "qa-subject-20261110-session-ASSIGNED-booking",
+        "card": null,
+        "cost": 0,
+        "kind": "UNPAID",
+        "status": "RESERVED",
+        "session": "qa-subject-20261110-session-ASSIGNED"
+      },
+      {
+        "id": "cmwawkr520001jy08nm42c35j",
+        "card": "qa-subject-20261110-A1",
+        "cost": 1,
+        "kind": "CARD",
+        "status": "RESERVED",
+        "session": "qa-subject-20261110-session-OPEN"
+      }
+    ],
+    "rlsEnabled": true,
+    "restrictedRole": true
+  },
+  "ledgerExplanation": "OPEN: first attendance + restore, then attendance with successful exact replay + final restore. ASSIGNED: attendance with successful exact replay + restore. Total 3 real attendance transitions and 3 matching corrections; replay adds no debit.",
+  "security": {
+    "temporaryPolicies": 11,
+    "originalPoliciesExactlyRestored": true,
+    "rlsEnabled": true,
+    "roleRemainsRestricted": true,
+    "productionDataChanged": false,
+    "notificationsEnabled": false
+  },
+  "limitations": [
+    "QA only; no production deployment or real customer card edits",
+    "SET ROLE negative-policy probe was denied by the connector before executing inserts; not counted as a passing negative RLS test",
+    "Full mobile member-portal end-to-end flow is not covered",
+    "Cloudflare Workers check remains failing; not reported as all checks green"
+  ]
+}

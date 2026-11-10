@@ -26,21 +26,34 @@
 - 真實 OWNER 帳密登入成功，沒有 mock 身分或 action。指定學員名單確認 A1（2堂）＋A2（5堂）＋A3（3堂）合計 10 堂，B1／C2 及待核對 OPEN 舊卡均未計入。
 - 真實舊卡核對 action 成功，1366／1024／768 寬度無水平溢出。只在明確勾選後確認。資料庫覆核：舊卡轉為 A 科目快照、剩餘仍 19 堂、到期仍 2027-11-10T00:00:00Z；只有原 GRANT 19，沒有新增扣堂；CONFIRM_CARD_SUBJECT 稽核恰好一筆。
 - 本機相關 PostgreSQL 共 59 項通過；當前 head 的 mixed workflow 42848571719 成功（41項不略過＋4項核心流程）。預覽來源的完整 CI 42847413826 重跑成功；原本一次不相關 PGlite 初始化逾時已單獨覆核並重跑失敗工作。Cloudflare Workers 檢查仍失敗，不能宣稱所有檢查全綠。
-- 實際 OPEN 新增學員及兩種模式的點名扣堂／還堂尚未完成。QA 的 CourseBooking、CoursePointEntry、OperationAuditOutbox 既有 RLS 僅允許前一批列名帳號／學員；本次新建專用身分不在其中。沒有修改這些安全政策，沒有用管理者 SQL 代替被限制的扣堂交易。瀏覽器 reserve 嘗試停在新增視窗等待，尚未送出預約。
+- 初次驗收時，QA 的 CourseBooking、CoursePointEntry、OperationAuditOutbox 既有 RLS 僅允許前一批列名帳號／學員，阻擋本次專用身分。之後取得明確的限時權限授權，完成下節真實交易驗收並恢復原政策。未用管理者 SQL 代替扣堂交易。
 - 驗收輸出位於執行工作區 `/tmp/subject-hosted/`；該目錄的 state.json 是私密登入資料，不可分享或提交。
 
-## 待核准的 QA 扣堂驗收權限範圍（尚未執行）
+## QA 扣堂驗收權限範圍（已核准、執行並恢復）
 
-目的只限完成兩堂合成課程的預約、點名、防重送及恢復待點名測試。
+使用者於本對話明確同意。目的只限完成兩堂合成課程的預約、點名、防重送及恢復待點名測試。以下為實際執行的限制；驗收後11條政策已逐條比對與原始定義完全一致。
 
 - 只修改隔離 Supabase 專案 `ttworfzgwejdeolegkxl` 中角色 `steamfoot_compact_qa_20261103` 的既有測試白名單政策，不動正式專案，不關閉 RLS，不增加管理者權限。
 - 門市限 `addons-qa-fitness`；操作者限 `compact-qa-20261103-subject-20261110-owner`；學員限 `qa-subject-20261110-student`；課程限 `qa-subject-20261110-session-OPEN` 與 `qa-subject-20261110-session-ASSIGNED`。
 - 可扣抵卡限本次 `qa-subject-20261110-A1/A2/A3/B1/C2/OLD` 六張合成卡；實際扣堂仍由應用程式檢查科目。帳本只允許上述課程預約的保留、實扣與還堂操作，不允許加值、退款或其他學員操作。
 - 權限截止 2026-11-11 23:02:49 台灣時間（15:02:49Z），與預覽分享到期一致。驗收後恢復原政策。
-- 執行前保存原政策定義並核對未變更，在交易中只新增上述精確條件到必要 permissive／restrictive 政策，保留其他測試範圍與原到期限制；保存對應回復 SQL。任何額外表或權限需求均先停止依賴操作。
+- 執行前保存原政策定義並核對未變更，在交易中只新增上述精確條件到必要 permissive／restrictive 政策，保留其他測試範圍與原到期限制；回復交易再次核對套用後定義未被他人修改，然後恢復原11條政策。RLS全程啟用，角色沒有 superuser／bypassrls。隔離QA留存兩筆政策套用／回復 migration歷史，不是應用程式資料結構 migration。
+
+## 2026-11-11 實際預約、扣堂、防重送與還堂結果
+
+- 重用同一個 READY Vercel 預覽，不額外建置。真實登入＋真實 Next Server Actions，沒有替身身分或 action mock。
+- OPEN 從名單「＋學員」搜尋合成學員：舊卡已核對後有4個A科目可用方案（A1/A2/A3/OLD）；B1/C2排除，成功新增一筆預約。點名前科目合計29堂；核對前已驗A1/A2/A3合計10堂、未知舊卡19堂不計。
+- OPEN、ASSIGNED各從畫面點名，兩筆預約皆綁最早購買A1、每筆1堂。兩堂同時ATTENDED時A1由2堂變0，A2仍5、A3仍3、B1/C2各10、OLD仍19；各卡到期日不變。
+- 兩種模式皆捕捉原始已登入點名HTTP請求，在同一瀏覽器同身分重送；回應成功，權威資料庫對帳無新增重複扣抵。單次只扣一張A卡。
+- 透過畫面「恢復狀態」還堂，皆返還原A1，最終六張卡餘額回到2/5/3/10/10/19，兩筆預約回RESERVED；ASSIGNED依原規則解除待核對綁卡，OPEN保留原來源卡與預約保留。
+- OPEN第一輪點名已成功，但測試器的獨立request replay遇環境直連拒絕；先實際還堂，再改從原瀏覽器傳送捕捉到的請求驗證。故帳本有OPEN兩次真實出席＋兩次還堂、ASSIGNED一次出席＋一次還堂，總計3 DEBIT對3 CORRECT，淨扣0；不是重送產生重複扣堂。
+- reserve、attend-open、attend-assigned、restore-open、restore-assigned最終瀏覽器驗收皆complete=true，無pageerror或HTTP錯誤。前述腳本第一次等待錯誤的搜尋／選單標籤與SSR尚未hydration的點擊已修正，只以最後一次完整操作及DB對帳作證據。
+- 臨時政策已恢復，11條的qual／with_check／角色／cmd／permissive與保存的原始快照完全一致。不得以此歷史授權再次放寬政策。
+- 嘗試從連接器以SET ROLE驗負向規則時，連接器拒絕切換角色，後續測試INSERT未執行；未繞過、不計為負向RLS測試通過。
+- 可提交的無憑證證據：[hosted驗收JSON](evidence/course-subject-hosted-20261111.json)。原始政策與回復SQL保存在私密/tmp檔案，分享token、登入狀態及密碼未提交。
 
 ## 驗證限制與待發布事項
 
-- 尚未合併或發布正式站；沒有更改正式卡片、帳本、LINE 綁定或通知停發設定。
-- 本機／CI PostgreSQL 證據不能代替尚未完成的 hosted 點名扣堂驗收；手機會員流程也未列為本次已通過。
+- 尚未合併或發布正式站；沒有更改正式卡片、帳本、LINE 綁定或通知停發設定。PR仍為Draft，Cloudflare Workers檢查失敗狀態保留。
+- 本次hosted驗收已補齊後台兩種模式的合成學員扣堂與還堂；手機會員入口、完整購買流程不是本次hosted驗收已通過項目，購買核心另有CI PostgreSQL證據。
 - 正式舊卡仍需依原購買資料逐卡核對，商品改科目不會回填已購卡。正式資料確認及正式發布另需明確授權。
