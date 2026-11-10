@@ -79,3 +79,14 @@ it('rejects a different customer authorization store before issuing a card',asyn
  expect(await assignBeautyNativeCard(input)).toMatchObject({success:false});
  expect(m.issue).not.toHaveBeenCalled();
 });
+
+it('reads the earliest still-reserved Beauty appointment for the overview within the authorized store and customer',async()=>{
+ await readBeautyNativeCustomerBookings('c',0,{mode:'upcoming'});
+ expect(m.bookings).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:'a',customerId:'c',status:'RESERVED',endsAt:{gt:expect.any(Date)}}),orderBy:[{startsAt:'asc'},{id:'asc'}],skip:0}));
+});
+it('keeps descending complete Beauty history when no upcoming mode is requested',async()=>{
+ await readBeautyNativeCustomerBookings('c');
+ const query=m.bookings.mock.calls[0][0];
+ expect(query.orderBy).toEqual([{startsAt:'desc'},{id:'desc'}]);
+ expect(query.where).not.toHaveProperty('status');
+});

@@ -83,10 +83,12 @@ export async function readBeautyNativeCardReservations(input:unknown){
   return {success:true as const,scoped:true,hasMore:rows.length>20,rows:rows.slice(0,20).map(b=>({id:b.id,customerName:b.personName,amount:1,name:b.serviceName,startsAt:b.startsAt.toISOString()}))};
  }catch(error){return failure(error);}
 }
-export async function readBeautyNativeCustomerBookings(customerId:string,offset=0,range:{from?:string;to?:string}={}){
+export async function readBeautyNativeCustomerBookings(customerId:string,offset=0,range:{from?:string;to?:string;mode?:string}={}){
  try{
   const s=await scope('booking.read',{customerIds:[id.parse(customerId)]});customerExists(s,customerId);const skip=z.number().int().min(0).max(1000000).parse(offset);
-  const rows=await beautyPrisma.beautyAppointment.findMany({where:{storeId:s.storeId,customerId,startsAt:courseHistoryRange(range)},orderBy:[{startsAt:'desc'},{id:'desc'}],skip,take:11});
+  const mode=z.enum(['all','upcoming']).parse(range.mode??'all');
+  const order=mode==='upcoming'?'asc' as const:'desc' as const;
+  const rows=await beautyPrisma.beautyAppointment.findMany({where:{storeId:s.storeId,customerId,startsAt:courseHistoryRange(range),...(mode==='upcoming'?{status:'RESERVED',endsAt:{gt:new Date()}}:{})},orderBy:[{startsAt:order},{id:order}],skip,take:11});
   const [cards,techs]=await Promise.all([beautyPrisma.beautyCard.findMany({where:{storeId:s.storeId,id:{in:rows.flatMap(b=>b.cardId?[b.cardId]:[])}}}),beautyPrisma.beautyTechnician.findMany({where:{storeId:s.storeId,id:{in:rows.map(b=>b.technicianId)}},select:{id:true,name:true}})]);
   return {success:true as const,hasMore:rows.length>10,data:rows.slice(0,10).map(b=>{const c=cards.find(c=>c.id===b.cardId);return {id:b.id,absenceKind:null,coachName:techs.find(t=>t.id===b.technicianId)?.name,name:b.serviceName,date:b.startsAt.toISOString(),status:b.status==='COMPLETED'?'ATTENDED':b.status,checkedIn:false,plan:c?.name??'單次服務',expiresAt:c?.expiresAt.toISOString()??null,points:c?1:0,unit:c?'SESSION':'TRIAL',notes:b.notes,operator:'',service:{debit:b.debit,isTrial:b.isTrial}};})};
  }catch(error){return failure(error);}

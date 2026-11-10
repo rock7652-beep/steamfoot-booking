@@ -1,3 +1,4 @@
+import {customerOverviewPreviewStore} from "./compact-operations-preview-scope.mjs";
 import {assertMusicOpeningPreviewEnvironment,isMusicOpeningDatabase} from './music-opening-preview-scope.mjs';
 import {SCHEDULE_CONFLICT_PREVIEW_BRANCH} from './sports-shared-card-preview-scope.mjs';
 import {MIXED_ENROLLMENT_PREVIEW_BRANCHES,assertSportsRedesignPreviewEnvironment} from './sports-redesign-preview-scope.mjs';
@@ -29,6 +30,7 @@ export function assertMusicNativeReleaseEnvironment(env){
 /** Capability only. Every caller must retain store/feature/permission authorization. */
 export function musicNativeWorkflowEnabled(storeId,env=process.env){
  if(!storeId)return false;
+ if(customerOverviewPreviewStore("music",storeId,env))return true;
  if(storeId==='store-lubymusic'&&env.SPORTS_LIVE_FLOW_QA==='1'){
   try{assertSportsLiveFlowQaEnvironment(env);return true;}catch{return false;}
  }

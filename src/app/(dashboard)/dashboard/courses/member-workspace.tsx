@@ -6,7 +6,10 @@ import {courseCheckoutReceipt,type CourseCheckoutReceipt} from "@/lib/course-che
 import {coursePlanModeAllowed} from "@/lib/course-scheduling-modes";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
-import {CustomerAttributionForm} from "@/components/customer-attribution-form";
+import {useFeaturePresentation} from "@/components/feature-presentation";
+import {FEATURES} from "@/lib/feature-flags";
+import {CustomerProfileConnection, CustomerProfileHeader, CustomerProfileIdentity, CustomerOverviewBody} from "@/components/admin/customer-profile-layout";
+import {CustomerNextBooking} from "./customer-next-booking";
 import {DeferredCustomerSupport} from "./deferred-customer-support";
 import {canCloseConfirmedSettingsSave} from "@/lib/settings-save-outcome";
 import type {CourseCustomerSource} from "./member-source";
@@ -174,7 +177,7 @@ export function CourseMemberWorkspace({
   sharedCardState?: FeaturePresentationState;
 }) {
   const personnelText = useCoursePersonnelText();
-  const IdentitySection = music ? "section" : "details";
+  const canPreview=useFeaturePresentation(FEATURES.FRONTEND_PREVIEW)==="ENABLED";
   const confirmDiscard=source?.confirmDiscard??catalogSource?.form.confirmDiscard??true;
   const compactCatalog=!!catalogSource?.form.compact;
   const supportGuard = useCustomerPanelGuard(confirmDiscard);
@@ -257,14 +260,18 @@ export function CourseMemberWorkspace({
   const [notice, setNotice] = useState("");
   const [purchased,setPurchased]=useState<{customerId:string;templateId:string}|null>(null);
   const card = cardDetail.data ?? (loadedCard?.id===cardId ? loadedCard : cards.find((c) => c.id === cardId));
+  const editReturnTab=useRef<typeof personTab>("info");
+  const detailReturnTab=useRef<typeof personTab>("info");
+  function returnToCustomer(){if(canLeave()){setDirty(false);setPanel("person");setPersonTab(detailReturnTab.current);setEditingPerson(false);}}
   function selectCard(value:CourseCardView) {
     if (!open("card")) return;
     setCardId(value.id);setLoadedCard(value);setCardOpening(n=>n+1);
   }
   function open(value: typeof panel) {
     if (!canLeave()) return false;
+    rememberProfileScroll();
     setDirty(false);
-    if(value === "assign" || value === "card")setPersonTab(music ? "courses" : "plans");
+    if(value === "assign" || value === "card")detailReturnTab.current=personTab;
     if(value === "assign"){setServicePurchase(false);setCheckoutReceipt(null);}
     if(value === "assign")setRevenueStaffId(customerRows.find(c=>c.id===person?.id)?.assignedStaff?.id??"");
     if (value === "person") { setPersonTab("info"); setEditingPerson(false); }
@@ -284,19 +291,43 @@ export function CourseMemberWorkspace({
   const purchaseRecovery = useCoursePurchaseRecovery(person?.id || purchaseCustomerId || undefined, panel === "assign" && !servicePurchase,source?.automaticPurchaseCompletion);
   const onServicePurchaseGuard=useCallback((dirty:boolean,busy:boolean)=>{setDirty(dirty);setFormPending(busy);},[]);
   useCourseDraftGuard(confirmDiscard&&(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(dirty || supportGuard.dirty),(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
-  function finishDraftForm(row?:Plan,syncWarning=false){publishMusicFinanceChange();if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("收費方式已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);}else{setPanel(null);}}
+  function finishDraftForm(row?:Plan,syncWarning=false){publishMusicFinanceChange();if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("收費方式已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);setPersonTab(editReturnTab.current);router.refresh();}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers"&&!panelOnly, panel && customerPanel ? person.id : null, personTab);
   const [visitedTabs,setVisitedTabs]=useState<{id:string;tabs:string[]}>({id:"",tabs:[]});
   const hasVisitedTab=(tab:string)=>personTab===tab || (visitedTabs.id===person?.id && visitedTabs.tabs.includes(tab));
   const studentScroll=useRef<HTMLDivElement>(null);
   const studentScrollPositions=useRef<Record<string,number>>({});
-  const scrollKey=`course-panel:${previewStoreId??"current"}:${person?.id}:${personTab}:${panel}`;
-  useLayoutEffect(()=>{if(studentScroll.current){let saved=0;try{saved=Number(sessionStorage.getItem(scrollKey))||0;}catch{} studentScroll.current.scrollTop=studentScrollPositions.current[scrollKey]??saved;}},[scrollKey]);
+  const scrollKey=`course-panel:${previewStoreId??"current"}:${person?.id}:${personTab}:${panel}:${editingPerson?"edit":"view"}`;
+  function rememberProfileScroll(){
+    if(!studentScroll.current||restoringScroll.current)return;
+    const top=studentScroll.current.scrollTop;
+    studentScrollPositions.current[scrollKey]=top;
+    try{sessionStorage.setItem(scrollKey,String(top));}catch{}
+  }
+  const restoringScroll=useRef(false);
+  useLayoutEffect(()=>{
+    const element=studentScroll.current;
+    if(!element)return;
+    let saved=0;try{saved=Number(sessionStorage.getItem(scrollKey))||0;}catch{}
+    const target=studentScrollPositions.current[scrollKey]??saved;
+    restoringScroll.current=true;
+    const stop=()=>{restoringScroll.current=false;observer.disconnect();};
+    const restore=()=>{element.scrollTop=target;if(element.scrollTop>=target-1)stop();};
+    // The initial loading state can be shorter than the original scroll position.
+    const observer=new ResizeObserver(restore);
+    if(element.firstElementChild)observer.observe(element.firstElementChild);
+    element.addEventListener("wheel",stop,{passive:true});
+    element.addEventListener("touchmove",stop,{passive:true});
+    element.addEventListener("keydown",stop);
+    restore();
+    return()=>{stop();element.removeEventListener("wheel",stop);element.removeEventListener("touchmove",stop);element.removeEventListener("keydown",stop);};
+  },[scrollKey]);
   function switchPersonTab(value: typeof personTab) {
     if (pending || formPending) return;
     if (panel !== "person" && !open("person")) return;
     if(formUncertain||supportGuard.pending)return;
+    rememberProfileScroll();
     setEditingAttribution(false);
     setVisitedTabs(previous=>({id:person?.id??"",tabs:[...new Set([...(previous.id===person?.id?previous.tabs:[]),personTab,value])]}));
     setPersonTab(music && value!=="info" ? "courses" : value);
@@ -336,15 +367,14 @@ export function CourseMemberWorkspace({
           setCardRevision(n=>n+1);setDirty(false);setNotice('');
           window.dispatchEvent(new Event('customer-search-invalidated'));
           if(source.purchaseCompleted){source.purchaseCompleted();return;}
-          setCustomerCardBrowse({search:'',history:false,page:0});
-          if(person){setPanel('person');setPersonTab('info');}else setPanel(null);
+          if(person){setPanel('person');setPersonTab(detailReturnTab.current);}else setPanel(null);
           router.refresh();return;
         }
         if(panel==="assign"&&source?.purchaseCompleted){setDirty(false);source.purchaseCompleted();return;}
         if(result.checkoutCards)setCheckoutCards({...result.checkoutCards,revision:cardRevision+1});
         if(!result.financePublished){publishMusicFinanceChange();setCardRevision(n=>n+1);}setDirty(false);
         if(panel==="assign")setPurchased({customerId:String(data.get("customerId")??person?.id??""),templateId:music&&purchaseSubjectId?musicTeachingKey(purchaseSubjectId):sportsData?.subjects.find(s=>s.id===plans.find(p=>p.id===planId)?.sportsSubjectId)?.templateId??plans.find(p=>p.id===planId)?.templateIds[0]??""});
-        if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab(music ? "courses" : "info"); setEditingPerson(false); }
+        if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab(detailReturnTab.current); setEditingPerson(false); }
         else setPanel(null);
         if (panel === "plan") toast.success("方案已儲存");
         else setNotice(panel === "assign" ? "結帳完成，方案已加入" : "已儲存");
@@ -379,7 +409,7 @@ export function CourseMemberWorkspace({
     setDirty(false);setCardRevision(n=>n+1);setNotice('');
     window.dispatchEvent(new Event('customer-search-invalidated'));
     if(source?.purchaseCompleted){source.purchaseCompleted();return;}
-    if(person){setPanel('person');setPersonTab('info');}else setPanel(null);
+    if(person){setPanel('person');setPersonTab(detailReturnTab.current);}else setPanel(null);
     router.refresh();
   });
   const completedPurchaseKey=source?.automaticPurchaseCompletion&&panel==='assign'&&purchaseRecovery.view.kind==='intent'&&purchaseRecovery.view.intent.status==='COMMITTED'?JSON.stringify([automaticCompletionScope,purchaseRecovery.view.intent.requestKey]):'';
@@ -573,6 +603,7 @@ export function CourseMemberWorkspace({
           fitContent={panel==="service-price"||(!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
           labelledById="course-member-sheet"
         >
+          {panel === "person" && person ? <CustomerProfileHeader name={person.name} labelledById="course-member-sheet" busy={!canLeave()} editing={editingPerson} onClose={close} onEdit={canEdit?()=>{if(canLeave()){rememberProfileScroll();editReturnTab.current=personTab;setEditingAttribution(false);setPersonTab("info");setEditingPerson(true);}}:undefined} onBack={()=>{if(canLeave()){rememberProfileScroll();setEditingPerson(false);setPersonTab(editReturnTab.current);setDirty(false);}}} more={params.get("returnCourseSession")||(canPreview&&previewStoreId&&(!source||source.previewEnabled))?<>{params.get("returnCourseSession")&&<DashboardLink className={button} href={`/dashboard/courses?${new URLSearchParams({date:params.get("returnCourseDate")??toLocalDateStr(),action:"booking",session:params.get("returnCourseSession")!})}`}>返回課表</DashboardLink>}{previewStoreId&&(!source||source.previewEnabled)&&<FrontendPreviewQuickLink storeId={previewStoreId} personId={person.id}/>}</>:undefined}/> : <>
           <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-earth-100 bg-primary-50/60 px-4 py-2">
             <h2 id="course-member-sheet" className="min-w-0 break-words text-base font-semibold text-primary-900">
               {panel==="service-price"?"一般／體驗設定":customerPanel ? person.name : panel === "person"
@@ -602,12 +633,14 @@ export function CourseMemberWorkspace({
             </button>
             </div>
           </header>
+          </>}
+          <div data-course-person-scroll={scrollKey} ref={studentScroll} onScroll={e=>{if(restoringScroll.current)return;studentScrollPositions.current[scrollKey]=e.currentTarget.scrollTop;try{sessionStorage.setItem(scrollKey,String(e.currentTarget.scrollTop));}catch{}}} className={`@container/member min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain ${music ? "p-3" : "p-4"}`}><div className="min-w-0">
+            {panel === "person" && person && !editingPerson && <CustomerProfileIdentity phone={person.phone} labels={<CustomerLabels customerId={person.id} readOnly={!canEdit} maxVisible={5}/>} connection={<CustomerProfileConnection key={person.id} label={customerRows.find(row=>row.id===person.id)?.lineLinkStatus === "LINKED" ? customerRows.find(row=>row.id===person.id)?.lineName || "已連結" : customerRows.find(row=>row.id===person.id)?.lineLinkStatus ? "未連結" : "待核對"}>{source?.support?<DeferredCustomerSupport customerId={person.id} load={source.support} expanded/>:<><StoreMemberConnectionPanel compact customerId={person.id}/><CustomerPanelAdvanced managerSimple active customerId={person.id} readOnly={!canEdit} canEdit={canEdit} onMutated={()=>router.refresh()}/></>}</CustomerProfileConnection>} actions={<>{source?.onSchedule?<button type="button" disabled={!canLeave()} className="min-h-11 rounded-lg bg-primary-700 px-3 text-sm text-white disabled:opacity-50" onClick={()=>{if(canLeave())source.onSchedule?.(person.id,()=>setCardRevision(n=>n+1));}}>新增預約</button>:!source&&canSchedule&&canReadBookings?<DashboardLink className="inline-flex min-h-11 items-center rounded-lg bg-primary-700 px-3 text-sm text-white" href={studentScheduleHref(person.id,params.toString())} onClick={event=>{if(!canLeave())event.preventDefault();}}>安排課程</DashboardLink>:null}{canAssign&&<button type="button" disabled={!canLeave()} className={button} onClick={()=>open("assign")}>{music?"購課／續購":"新增方案"}</button>}</>}/>}
           {(customerPanel || panel === "person") && person && <nav aria-label={music ? "學員詳細資料分區" : "顧客詳細資料分區"} className="flex shrink-0 flex-wrap gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2">
-            {(music ? [["info","基本資料"], ...((canReadCards || canReadTransactions || canReadBookings) ? [["courses","課程與學費"]] : [])] : [ ["info","顧客概況"], ...((canReadTransactions || canReadBookings) ? [["records","紀錄"]] : []) ]).map(([value,label])=><button key={value} type="button" disabled={pending||formPending} aria-pressed={panel !== "health" && personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${panel !== "health" && personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>switchPersonTab(value as typeof personTab)}>{label}</button>)}
+            {(music ? [["info","總覽"], ...((canReadCards || canReadTransactions || canReadBookings) ? [["courses","課程與學費"]] : [])] : [ ["info","總覽"], ...((canReadTransactions || canReadBookings) ? [["records","紀錄"]] : []) ]).map(([value,label])=><button key={value} type="button" disabled={pending||formPending} aria-pressed={panel !== "health" && personTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${panel !== "health" && personTab===value?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>switchPersonTab(value as typeof personTab)}>{label}</button>)}
             {healthEnabled && !music && <button type="button" disabled={pending||formPending} aria-pressed={panel === "health"} className={`min-h-11 rounded-lg px-3 text-sm ${panel === "health" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-primary-50"}`} onClick={()=>{if(panel !== "health")open("health");}}>健康追蹤</button>}
           </nav>}
-          <div data-course-person-scroll={scrollKey} ref={studentScroll} onScroll={e=>{studentScrollPositions.current[scrollKey]=e.currentTarget.scrollTop;try{sessionStorage.setItem(scrollKey,String(e.currentTarget.scrollTop));}catch{}}} className={`@container/member min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain ${music ? "p-3" : "p-4"}`}>
-            {music && panel === "person" && person && personTab === "info" && !editingPerson && <MusicStudentOverview revision={cardRevision} legacy={dataScope === "legacy"} key={`overview-${person.id}`} customerId={person.id} tab={personTab} />}
+
             {confirmedPurchase}
             {panel==="assign"&&pending&&<p role="status" className="mb-3 rounded-lg bg-primary-50 px-4 py-3 font-medium text-primary-900">正在確認購買與收款，請稍候，勿重複送出。</p>}
             {notice && <div role="status" className="mb-3 flex flex-wrap items-center justify-between gap-2 text-primary-700"><span>{notice}</span>{notice==="結帳完成，方案已加入"&&purchased&&canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>{music||sportsNative?"安排課程":"前往課表"}</DashboardLink>}</div>}
@@ -654,30 +687,14 @@ export function CourseMemberWorkspace({
               </section>}
 
             </section>}
-            {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>switchPersonTab(panel === "card" || panel === "assign" ? "plans" : "info")}>‹ 返回 {person.name} 詳情</button>}
-            {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
-              {music && <StudentMakeupStatus onPendingChange={setFormPending} customerId={person.id} revision={person.updatedAt??""}/>}
-              <CustomerDetailFields className={music ? "@min-[46rem]/member:grid-cols-3" : undefined} items={[
-                {label:"電話",value:<CustomerPhoneLink phone={person.phone}/>},
-                ...(!music?[{label:"所屬店長",value:customerRows.find(c=>c.id===person.id)?.assignedStaff?.displayName??null}]:[]),
-                {label:"電子信箱",value:person.email},{label:"生日",value:person.birthday},
-                {label:"性別",value:({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender??""]},
-                {label:"緊急聯絡人",value:person.emergencyContactName},
-                {label:"緊急聯絡電話",value:person.emergencyContactPhone?<CustomerPhoneLink phone={person.emergencyContactPhone}/>:null},
-                {label:"地址",value:person.address,full:true},
-              ]}/>
-              <CustomerLabels customerId={person.id} readOnly={!canEdit} maxVisible={5}/>
-
-              <RetainedNoteEditor quiet optimistic key={person.id} stateKey={`customer-note:${person.id}`} title="店內備註" formatDisplay={music ? musicNoteDisplay : undefined} hint={music ? personnelText("店長與授課教師可見") : personnelText("店長與授課教練可見")}
-                placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
-                save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
-                onSaved={() => router.refresh()} />
-              {personTab === "info" && <IdentitySection className="border-b border-earth-100 pb-2">{!music && <summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">身分與歸屬資訊</summary>}<dl className="space-y-2 text-sm">
-                <div>LINE 綁定：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"}</div>
-              </dl>
-                {canManageStaff && <button type="button" className="min-h-11 text-sm text-primary-700" onClick={() => open("coach")}>{music ? personnelText("加入為教師") : personnelText(courseDisplayText("加入為教練", music))}</button>}<CustomerAttributionForm staffLabel="所屬店長" hideStaff={music} key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
-              </IdentitySection>}
-            </section>}
+            {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={returnToCustomer}>‹ 返回 {person.name} 詳情</button>}
+            {panel === "person" && person && personTab === "info" && !editingPerson && <CustomerOverviewBody
+              next={<MusicStudentOverview revision={cardRevision} key={`overview-${person.id}`} customerId={person.id} tab="info"/>}
+              cards={canReadCards&&<section className="space-y-2"><h3 className="text-sm font-semibold">方案</h3><CourseCardBrowser overview snapshot={checkoutCards} dataScope={dataScope} sharedCardState={sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}
+              attribution={attribution} details={detailFields}
+              note={<RetainedNoteEditor quiet optimistic emptyActionLabel="＋備註" key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" formatDisplay={musicNoteDisplay} hint="" placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit} save={(serviceNote,expectedServiceNote)=>saveCourseCustomerNote({customerId:person.id,serviceNote,expectedServiceNote})} onSaved={()=>router.refresh()}/>}
+              actions={<><StudentMakeupStatus onPendingChange={setFormPending} customerId={person.id} revision={person.updatedAt??""}/>{canManageStaff&&<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>open("coach")}>{personnelText("加入為教師")}</button>}</>}
+            />}
             {panel === "person" && (
               <CourseCustomerDraftForm compact={music} key={`draft-${person?.id??"new"}`} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
             )}
@@ -688,14 +705,11 @@ export function CourseMemberWorkspace({
 
 </> : <>
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth scope={source?.healthScope} compact={sportsNative} customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
-            {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>switchPersonTab("info")}>‹ 返回 {person.name} 詳情</button>}
-            {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
-              <div aria-label="顧客基本資料" className={sportsNative?"grid grid-cols-1 items-start gap-x-5 sm:grid-cols-2":"contents"}>
-              <CustomerPhoneLink phone={person.phone}/>
-              <CustomerLabels customerId={person.id} readOnly={!canEdit} maxVisible={5}/>
-              {sportsNative&&<div className="sm:col-span-2">{attribution}{detailFields}</div>}
-              </div>
-              <RetainedNoteEditor confirmDiscard={confirmDiscard} quiet optimistic key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
+            {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={returnToCustomer}>‹ 返回 {person.name} 詳情</button>}
+            {panel === "person" && person && personTab === "info" && !editingPerson && <CustomerOverviewBody
+              next={canReadBookings&&<CustomerNextBooking key={person.id} customerId={person.id} load={source?.bookings} serviceMode={!!source} revision={cardRevision}/>}
+              cards={canReadCards&&<section className="space-y-2"><h3 className="text-sm font-semibold">方案</h3><CourseCardBrowser overview load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} snapshot={checkoutCards} sharedCardState={sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}
+              attribution={attribution} details={detailFields} note={<RetainedNoteEditor confirmDiscard={confirmDiscard} quiet optimistic emptyActionLabel="＋備註" key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={async(serviceNote, expectedServiceNote) => {
                   const input={customerId:person.id,serviceNote,expectedServiceNote};
@@ -704,18 +718,9 @@ export function CourseMemberWorkspace({
                   const response=await fetch(`${window.location.pathname.replace(/\/$/,"")}/notes`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(input)});
                   const result=await response.json();if(!result||typeof result.success!=="boolean")throw new Error("儲存回應格式不正確");return result as Awaited<ReturnType<typeof saveCourseCustomerNote>>;
                 }}
-                onSaved={value=>{if(sportsNative)setNoteReceipts(rows=>({...rows,[person.id]:{source:sourcePeople.find(p=>p.id===person.id)?.serviceNote??null,value}}));else router.refresh();if(source)router.refresh();}} />
-              {!sportsNative&&attribution}
-              {canReadCards && <section aria-label="持有方案" className="border-t border-earth-100 pt-2">
-                <div className="flex min-h-11 items-center justify-between gap-3"><h3 className="text-sm font-semibold">持有方案</h3>{canAssign && <button type="button" className={button} onClick={() => open("assign")}>購買方案</button>}</div>
-                <CourseCardBrowser snapshot={checkoutCards} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
-              </section>}
-              {source?.support?<DeferredCustomerSupport key={person.id} customerId={person.id} load={source.support}/>:<>
-              <StoreMemberConnectionPanel compact={sportsNative} key={`membership-${person.id}`} customerId={person.id} pendingOnly />
-              <CustomerPanelAdvanced key={`line-${person.id}`} managerSimple active customerId={person.id} readOnly={!!source||!canEdit} canEdit={!source&&canEdit} onMutated={() => router.refresh()}/></>}
-              {!sportsNative&&detailFields}
-              {canManageStaff && <ExclusiveMenu quiet triggerText="更多" label="顧客其他操作"><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={() => open("coach")}>{personnelText("加入為教練")}</button></ExclusiveMenu>}
-            </section>}
+                onSaved={value=>{if(sportsNative)setNoteReceipts(rows=>({...rows,[person.id]:{source:sourcePeople.find(p=>p.id===person.id)?.serviceNote??null,value}}));else router.refresh();if(source)router.refresh();}} />}
+              actions={canManageStaff&&<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>open("coach")}>{personnelText("加入為教練")}</button>}
+            />}
             {panel === "person" && (
               <CourseCustomerDraftForm save={source?.saveProfile} draftScope={source?"module-customer":"course-customer"} key={person?.id??"new"} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onDirtyChange={setDirty} onSaved={finishDraftForm} />
             )}
@@ -731,7 +736,7 @@ export function CourseMemberWorkspace({
 
             )}
             {panel === "assign" && source?.purchaseService && <label className="mb-3 block">消費類型<select aria-label="消費類型" className={field} value={servicePurchase?"service":"plan"} disabled={pending||formPending||formUncertain} onChange={e=>{setServicePurchase(e.target.value==="service");setDirty(false);setError("");}}><option value="plan">多次方案</option><option value="service">單次／體驗</option></select></label>}
-            {panel === "assign" && servicePurchase && source?.purchaseService?.({customerId:person?.id,onGuard:onServicePurchaseGuard,onSaved:()=>{publishMusicFinanceChange();setDirty(false);setFormPending(false);setCardRevision(n=>n+1);setNotice("服務收款完成");if(person){setPanel("person");setPersonTab("info");}else setPanel(null);router.refresh();},onClose:()=>{if(canLeave()){setDirty(false);setServicePurchase(false);}}})}
+            {panel === "assign" && servicePurchase && source?.purchaseService?.({customerId:person?.id,onGuard:onServicePurchaseGuard,onSaved:()=>{publishMusicFinanceChange();setDirty(false);setFormPending(false);setCardRevision(n=>n+1);setNotice("服務收款完成");if(person){setPanel("person");setPersonTab(detailReturnTab.current);}else setPanel(null);router.refresh();},onClose:()=>{if(canLeave()){setDirty(false);setServicePurchase(false);}}})}
             {panel === "assign" && !servicePurchase && <CoursePurchaseRecoveryNotice automaticCompletion={source?.automaticPurchaseCompletion} recovery={purchaseRecovery} disabled={pending||formPending} onCommitted={()=>{setCardRevision(n=>n+1);publishMusicFinanceChange();if(source?.purchaseCompleted){source.purchaseCompleted();return;}open("assign");setNotice("購買已完成，方案正在更新");}}/>}
             {panel === "assign" && !servicePurchase && (
               <form
@@ -843,7 +848,7 @@ export function CourseMemberWorkspace({
                 <CourseCardEntries card={card} sessionUnitLabel={source?.sessionUnitLabel} entryLabels={source?.entryLabels}/>
               </>
             )}
-          </div>
+          </div></div>
           {panel !== "health" && !(panel === "assign" && servicePurchase) && (panel!=="plan"||!planReadOnly) && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || ((source?.canManageMembers??canAssign) && sharingVisible && card?.allowShared)) && (
             <footer className={panel === "plan" && !music ? fitnessEditorFooter : `shrink-0 border-t border-earth-100 bg-white px-4 py-3 ${music && panel === "assign" ? "flex flex-wrap items-center gap-3" : ""}`}>
               {panel === "assign" && <p className={`${music ? "min-w-0 flex-1" : "mb-2"} flex flex-wrap justify-between gap-2 text-sm`}><span>{person?.name} · {plans.find(p=>p.id===planId)?.name}</span><strong>實收 {assignmentSummary.paid === null ? "—" : `NT$ ${assignmentSummary.paid.toLocaleString()}`}</strong></p>}
