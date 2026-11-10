@@ -21,7 +21,7 @@ export function CustomerProfileHeader({name,labelledById,busy,editing,onEdit,onB
 }
 
 export function CustomerProfileIdentity({phone,connection,labels,actions}:{phone:string;connection?:ReactNode;labels:ReactNode;actions:ReactNode}) {
-  return <section aria-label="顧客聯絡與常用操作" className="space-y-2 pb-2">
+  return <section aria-label="顧客聯絡與常用操作" className="space-y-1 pb-1">
     <div className="flex min-w-0 flex-wrap items-start gap-x-4 gap-y-1"><CustomerPhoneLink phone={phone}/>{connection}</div>
     {labels}
     <div className="flex flex-wrap gap-2">{actions}</div>
@@ -31,7 +31,7 @@ export function CustomerProfileIdentity({phone,connection,labels,actions}:{phone
 export function CustomerOverviewBody({next,cards,attribution,note,details,actions}:{
   next?:ReactNode;cards?:ReactNode;attribution?:ReactNode;note?:ReactNode;details?:ReactNode;actions?:ReactNode;
 }) {
-  return <section aria-label="顧客總覽" className="space-y-3 pt-3">
+  return <section aria-label="顧客總覽" className="space-y-2 pt-2">
     {next}{cards}{attribution}{note}
     {details&&<details className="border-t border-earth-100 text-sm"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">基本資料</summary>{details}</details>}
     {actions}

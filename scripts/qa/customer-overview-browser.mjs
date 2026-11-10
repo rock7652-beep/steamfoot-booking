@@ -78,7 +78,7 @@ try{
  browser=await chromium.launch({executablePath:process.env.QA_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true,args:['--no-sandbox']});
  for(const profile of (process.argv.includes('--quick')?['sports']:['sports','music','beauty']))for(const [width,height] of (process.argv.includes('--quick')?[[390,844]]:[[390,844],[360,780],[768,1024],[1024,768],[1366,900],[1920,1080]])){
   const context=await browser.newContext({viewport:{width,height}}),page=await context.newPage();page.setDefaultTimeout(15000);
-  let empty=false,failCards=false,failNext=false,failNote=false,many=false,delay=50;
+  let zeroHeld=false,empty=false,failCards=false,failNext=false,failNote=false,many=false,delay=50;
   page.on('pageerror',error=>errors.push({profile,error:error.message}));page.on('console',message=>{if(message.type()==='error')errors.push({profile,error:message.text()});});
   await page.route('**/*',async route=>{
    const req=route.request(),url=new URL(req.url());
@@ -88,7 +88,7 @@ try{
     await new Promise(resolve=>setTimeout(resolve,delay));
     if(url.pathname.endsWith('/cards')||url.pathname.includes('/card-read')){
      if(failCards)return route.fulfill({json:{success:false,error:'合成方案讀取失敗'}});
-     return route.fulfill({json:{success:true,rows:empty?[]:Array.from({length:many?20:1},(_,i)=>card(input.cardId??'card-'+i,input.history)),hasMore:many&&!input.page,totals:[{unit:'SESSION',count:1,remaining:10,held:2,available:8}]}});
+     return route.fulfill({json:{success:true,rows:empty?[]:Array.from({length:many?20:1},(_,i)=>({...card(input.cardId??'card-'+i,input.history),...(zeroHeld?{held:0,available:10}:{})})),hasMore:many&&!input.page,totals:[{unit:'SESSION',count:many?20:1,remaining:many?200:10,held:zeroHeld?0:many?40:2,available:zeroHeld?(many?200:10):many?160:8}]}});
     }
     if(url.pathname.endsWith('/bookings'))return route.fulfill({json:failNext?{success:false,error:'合成預約讀取失敗'}:{success:true,hasMore:false,data:empty?[]:[{id:'booking',sessionId:'session',date:'2026-11-11T09:30:00Z',name:'合成課程／服務',coachName:'合成人員',status:'RESERVED',unit:'SESSION',points:1,plan:'合成方案'}]}});
     if(url.pathname.endsWith('/overview'))return route.fulfill({json:failNext?{success:false,error:'合成預約讀取失敗'}:{success:true,data:{balance:{remaining:10,held:2,available:8,makeupRemaining:0,issues:0},next:empty?null:{id:'session',date:'2026-11-11T09:30:00Z',name:'合成課程'},canReadBookings:true}}});
@@ -102,9 +102,15 @@ try{
   await dialog.getByText('有效方案 · card-0',{exact:true}).waitFor();
   assert.equal(await dialog.getByRole('button',{name:'編輯顧客資料',exact:true}).count(),1);
   assert.equal(await dialog.getByLabel('方案效期',{exact:true}).count(),0);
+  if(profile==='music')assert.equal(await dialog.getByLabel('有效方案合計',{exact:true}).count(),0,'Single plan must not repeat the balance summary');
+  await dialog.getByText('可用 8 '+(profile==='beauty'?'次':'堂'),{exact:true}).waitFor();
+  await dialog.getByRole('button',{name:new RegExp('預約保留 2 '+(profile==='beauty'?'次':'堂'))}).waitFor();
+  await dialog.getByText('額度說明',{exact:true}).click();
+  await dialog.getByText(/下次預約不一定已保留本方案額度/).waitFor();
+  await dialog.getByText('額度說明',{exact:true}).click();
   assert.equal(await dialog.getByRole('button',{name:profile==='music'?'購課／續購':'新增方案',exact:true}).count(),1);
     const nextText=profile==='music'?'下次上課：':'下次預約';
-  const next=dialog.getByText(new RegExp(nextText)).last();await next.waitFor();
+  const next=dialog.getByText(new RegExp("^"+nextText)).last();await next.waitFor();
   const nextY=(await next.boundingBox()).y,cardY=(await dialog.getByText('有效方案 · card-0',{exact:true}).boundingBox()).y;assert.ok(nextY<cardY,'Next booking must precede cards');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Page overflow');
   assert.equal(await dialog.evaluate(e=>e.scrollWidth>e.clientWidth+1),false,'Dialog overflow');
@@ -137,9 +143,16 @@ try{
    await dialog.getByRole('button',{name:'‹ 返回 合成顧客甲 詳情',exact:true}).click();await dialog.getByText('歷史方案 · card-19',{exact:true}).waitFor();
    await page.waitForFunction(()=>document.querySelector('[data-course-person-scroll]').scrollTop>200);assert.ok(await scroller.evaluate(element=>element.scrollTop)>200,'Detail return lost scroll position');
 
+   await dialog.getByRole('button',{name:'返回有效方案',exact:true}).click();await dialog.getByText('有效方案 · card-19',{exact:true}).waitFor();
+   if(profile==='music')await dialog.getByLabel('有效方案合計',{exact:true}).getByText('有效方案合計 · 20 個',{exact:true}).waitFor();
+   many=false;zeroHeld=true;await page.evaluate(()=>window.dispatchEvent(new Event('customer-search-invalidated')));await dialog.getByRole('button',{name:'歷史方案',exact:true}).click();await dialog.getByText('歷史方案 · card-0',{exact:true}).waitFor();
+   await dialog.getByRole('button',{name:'返回有效方案',exact:true}).click();await dialog.getByText('可用 10 '+(profile==='beauty'?'次':'堂'),{exact:true}).waitFor();
+   assert.equal(await dialog.getByText(/已預約 0|預約保留 0/).count(),0,'Zero plan holds must not look like no customer bookings');
+   if(profile==='music')assert.equal(await dialog.getByLabel('有效方案合計',{exact:true}).count(),0);
+
    failNext=true;await page.reload();await page.getByRole('alert').filter({hasText:'合成預約讀取失敗'}).waitFor();
    assert.equal(await page.getByText('尚未安排下次課程',{exact:true}).count(),0,'Failed upcoming read became empty');
-   failNext=false;await page.getByRole('button',{name:profile==='music'?'重新讀取':'重試',exact:true}).click();await page.getByText(new RegExp(nextText)).last().waitFor();
+   failNext=false;await page.getByRole('button',{name:profile==='music'?'重新讀取':'重試',exact:true}).click();await page.getByText(new RegExp("^"+nextText)).last().waitFor();
    results.push({profile,case:'note failure retains draft and retries; card/next failures retry; empty; 20 cards; resize preserves search; detail return restores scroll',passed:true});
   }
   results.push({profile,width,height,layout:true,history:true,editReturn:true,purchaseReturn:true});console.log(JSON.stringify(results.at(-1))); 

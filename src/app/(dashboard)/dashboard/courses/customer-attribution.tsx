@@ -7,7 +7,7 @@ type Form=ComponentProps<typeof CustomerAttributionForm>;
 export function CourseCustomerAttribution({customerId,currentStaff,currentSponsor,staffOptions,canAssign,music=false,compact=false,editing,onToggle,onSaved,saveAction,searchAction}:{
  customerId:string;currentStaff:{id:string;displayName:string}|null;currentSponsor:Form['currentSponsor'];staffOptions:Form['staffOptions'];canAssign:boolean;music?:boolean;compact?:boolean;editing:boolean;onToggle:()=>void;onSaved:()=>void;saveAction?:Form['saveAction'];searchAction?:Form['searchAction'];
 }){
- return <section aria-label="歸屬設定" className={compact?'py-1':'border-t border-earth-100 py-2'}>
+ return <section aria-label="歸屬設定" className={compact?'border-t border-earth-100':'border-t border-earth-100 py-2'}>
   <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm">
    {!music&&<span>所屬店長：{currentStaff?.displayName??'未指派'}</span>}
    <span>推薦人：{currentSponsor?.name??'未設定'}</span>

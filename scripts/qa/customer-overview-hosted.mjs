@@ -51,6 +51,26 @@ try{
  assert.equal(await dialog.getByRole('alert').count(),0,'Profile reads must complete without errors');
  await capture('opened');
  report.checks.push({step:'authenticated-profile-open',pass:true});
+ if(process.env.QA_OVERVIEW_REFINED==='1'){
+  await dialog.getByText('可用 4 '+(kind==='beauty'?'次':'堂'),{exact:true}).waitFor();
+  assert.equal(await dialog.getByText(/已預約 0|預約保留 0/).count(),0);
+  if(kind==='music'){
+   assert.equal(await dialog.getByLabel('有效方案合計',{exact:true}).count(),0);
+   assert.equal(await dialog.getByText(/一般剩餘/).count(),0);
+  }
+  await dialog.getByText('額度說明',{exact:true}).click();
+  await dialog.getByText(/下次預約不一定已保留本方案額度/).waitFor();
+  await dialog.getByText('額度說明',{exact:true}).click();
+  await dialog.getByRole('button',{name:'歷史方案',exact:true}).click();
+  await dialog.getByText('歷史驗收方案・已到期',{exact:true}).waitFor();
+  await dialog.getByRole('button',{name:'返回有效方案',exact:true}).click();
+  await dialog.getByText('可用 4 '+(kind==='beauty'?'次':'堂'),{exact:true}).waitFor();
+  await dialog.getByRole('button',{name:'編輯顧客資料',exact:true}).click();
+  await dialog.locator('input[name="address"]').waitFor();
+  await dialog.getByRole('button',{name:'返回總覽',exact:true}).click();
+  await dialog.getByRole('button',{name:'編輯顧客資料',exact:true}).waitFor();
+  report.checks.push({step:'refined-balance-labels-disclosure-history-and-edit-return',pass:true});
+ }
  if(phase==='profile'){
   assert.equal(process.env.QA_ALLOW_ISOLATED_WRITES,'1');
   await dialog.getByRole('button',{name:'編輯顧客資料',exact:true}).click();await dialog.locator('input[name="address"]').fill('隔離驗收地址・'+kind);
