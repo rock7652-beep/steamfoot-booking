@@ -66,14 +66,14 @@ jobs:
         run: >-
           npx vitest run src/__tests__/course-mixed-enrollment.pg.test.ts
           src/__tests__/sports-card-modes.pg.test.ts
-          --reporter=default --reporter=json --outputFile=mixed-course-pg-results.json
-      - name: Require all 39 database scenarios without skips
+          --no-file-parallelism --reporter=default --reporter=json --outputFile=mixed-course-pg-results.json
+      - name: Require all 41 database scenarios without skips
         run: |
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
             const r = JSON.parse(readFileSync("mixed-course-pg-results.json", "utf8"));
-            if (!r.success || r.numTotalTests !== 39 || r.numPassedTests !== 39 || r.numPendingTests !== 0) {
-              throw new Error("Expected all 39 mixed enrollment and sports card database scenarios");
+            if (!r.success || r.numTotalTests !== 41 || r.numPassedTests !== 41 || r.numPendingTests !== 0) {
+              throw new Error("Expected all 41 mixed enrollment and sports card database scenarios");
             }
           '
       - name: Verify existing music and sports purchase, attendance and restoration
