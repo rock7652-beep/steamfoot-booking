@@ -1,0 +1,52 @@
+{
+  "kind": "sports",
+  "phase": "verify",
+  "environment": "protected Vercel Preview + isolated Supabase",
+  "mocks": false,
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "elapsedMs": 3458
+    },
+    {
+      "step": "cold-calendar-data-ready",
+      "elapsedMs": 2303,
+      "pass": true
+    },
+    {
+      "step": "authoritative-database-result",
+      "pass": true,
+      "sessionId": "cmw93lepo0000l508k3a3m7rd",
+      "capacity": 4,
+      "fixedLearners": 1,
+      "booked": 2,
+      "openSeats": 2
+    },
+    {
+      "step": "reload-persists-roster",
+      "pass": true,
+      "elapsedMs": 2360
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    }
+  ],
+  "errors": []
+}

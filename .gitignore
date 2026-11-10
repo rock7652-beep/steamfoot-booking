@@ -78,3 +78,5 @@ tsconfig.beauty-release-qa.json
 
 # Local monthly-adjustment acceptance evidence is preserved outside hosted runtime builds.
 /artifacts/monthly-adjustments/feedback-density/
+
+/.next-marketing-publication-qa/

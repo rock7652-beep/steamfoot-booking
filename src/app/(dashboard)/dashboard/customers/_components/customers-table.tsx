@@ -189,7 +189,7 @@ export function CustomersTable({
       header: "姓名",
       noLink: true,
       width: "w-32",
-      accessor: (c) => <button type="button" disabled={isInactiveRow(c)} onClick={e=>{e.stopPropagation();onView(c);}} onMouseEnter={()=>onPrefetch?.(c)} className="relative z-20 min-h-11 whitespace-nowrap text-left text-sm font-semibold text-primary-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600 disabled:text-earth-400">{c.name}</button>,
+      accessor: (c) => <button type="button" disabled={isInactiveRow(c)} onClick={e=>{e.stopPropagation();onView(c);}} onMouseEnter={()=>onPrefetch?.(c)} onFocus={()=>onPrefetch?.(c)} onTouchStart={()=>onPrefetch?.(c)} className="relative z-20 min-h-11 whitespace-nowrap text-left text-sm font-semibold text-primary-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary-600 disabled:text-earth-400">{c.name}</button>,
     },
     {
       key: "phone", header: "電話", noLink: true, width: "w-36",

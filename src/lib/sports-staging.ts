@@ -1,17 +1,20 @@
-import {calendarPerformanceSportsPreview} from "../../scripts/compact-operations-preview-scope.mjs";
+import {calendarPerformanceSportsPreview,customerOverviewPreviewStore} from "../../scripts/compact-operations-preview-scope.mjs";
 import { sportsProductionEnabled } from "../../scripts/sports-production-scope.mjs";
 import { sportsProductionStore } from "./sports-production-store";
 import {courseWorkflowSportsPreview} from "../../scripts/course-workflow-preview-scope.mjs";
 export { sportsProductionEnabled };
-import { assertSportsRedesignPreviewEnvironment } from "../../scripts/sports-redesign-preview-scope.mjs";
+import { assertSportsRedesignPreviewEnvironment, MIXED_ENROLLMENT_PREVIEW_BRANCHES } from "../../scripts/sports-redesign-preview-scope.mjs";
 import { assertSportsLiveFlowQaEnvironment } from "../../scripts/sports-live-flow-qa-scope.mjs";
 /** Authorized sports module in production, or the unchanged isolated QA boundary. */
 export async function sportsStagingEnabled(storeId?: string) {
   if (process.env.VERCEL_ENV === "production") return sportsProductionStore(storeId);
-  if(calendarPerformanceSportsPreview(storeId)||courseWorkflowSportsPreview(storeId))return true;
+  if(customerOverviewPreviewStore("sports",storeId)||calendarPerformanceSportsPreview(storeId)||courseWorkflowSportsPreview(storeId))return true;
   if (process.env.SPORTS_REDESIGN_PRODUCTION === "1") return sportsProductionEnabled(storeId);
   if (process.env.SPORTS_REDESIGN_STAGING !== "1") return false;
-  if (process.env.SPORTS_REDESIGN_PREVIEW === "1") assertSportsRedesignPreviewEnvironment(process.env);
+  if (process.env.SPORTS_REDESIGN_PREVIEW === "1") {
+    assertSportsRedesignPreviewEnvironment(process.env);
+    if(MIXED_ENROLLMENT_PREVIEW_BRANCHES.includes(process.env.VERCEL_GIT_COMMIT_REF??""))return storeId==='sports-live-flow-store';
+  }
   else assertSportsLiveFlowQaEnvironment(process.env);
   return true;
 }

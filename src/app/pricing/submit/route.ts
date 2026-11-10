@@ -37,6 +37,9 @@ export async function POST(request: Request) {
   ].filter(Boolean).join("\n") };
   // Existing receivers keep these in the notes column; avoid sending two copies.
   delete sheetPayload.websiteUrl; delete sheetPayload.facebookUrl; delete sheetPayload.instagramUrl;
+  // Subscription referral attribution stays in the authenticated HQ intake, not external Sheet delivery.
+  delete sheetPayload.subscriptionReferralCode; delete sheetPayload.subscriptionReferralConfirmed;
+  if (payload.subscriptionReferralCode) { delete sheetPayload.pageUrl; delete sheetPayload.referrer; }
   const sheetBody = JSON.stringify(sheetPayload);
   if (sheetBody.length > 24000) return reply({ ok: false, code: "INVALID_INPUT" }, 400);
   // Only an authenticated HQ synthetic check may save to the explicitly isolated
@@ -57,6 +60,14 @@ export async function POST(request: Request) {
       if (user.role !== "ADMIN") return reply({ ok: false, code: "HQ_REQUIRED" }, 403);
       await requirePermission("staff.manage");
     } catch { return reply({ ok: false, code: "HQ_REQUIRED" }, 403); }
+  }
+  if (payload.subscriptionReferralCode) {
+    try {
+      const { subscriptionReferralsReady, referralDatabase } = await import("@/server/services/subscription-referral/runtime");
+      const { validReferralCode } = await import("@/server/services/subscription-referral/repository");
+      if (!hqEnabled || !await subscriptionReferralsReady()) return reply({ok:false,code:"REFERRAL_UNAVAILABLE"},503);
+      if (!await validReferralCode(referralDatabase,payload.subscriptionReferralCode)) return reply({ok:false,code:"INVALID_REFERRAL_CODE"},400);
+    } catch { return reply({ok:false,code:"REFERRAL_UNAVAILABLE"},503); }
   }
   let savedHqId: string | undefined;
   let intake: typeof import("@/server/services/consultation-lead-intake") | undefined;

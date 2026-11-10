@@ -1,0 +1,42 @@
+{
+  "fixtureOnly": true,
+  "results": [
+    {
+      "profile": "beauty",
+      "kind": "customers",
+      "width": 1366,
+      "height": 900,
+      "warmMs": 264,
+      "readCount": 1,
+      "correctCustomer": true,
+      "panelContained": true,
+      "purchaseEventInvalidation": true,
+      "keyedPanelRemount": true
+    },
+    {
+      "profile": "beauty",
+      "kind": "customers",
+      "width": 1024,
+      "height": 768,
+      "warmMs": 436,
+      "readCount": 1,
+      "correctCustomer": true,
+      "panelContained": true,
+      "purchaseEventInvalidation": true,
+      "keyedPanelRemount": true
+    },
+    {
+      "profile": "beauty",
+      "kind": "customers",
+      "width": 768,
+      "height": 1024,
+      "warmMs": 122,
+      "readCount": 1,
+      "correctCustomer": true,
+      "panelContained": true,
+      "purchaseEventInvalidation": true,
+      "keyedPanelRemount": true
+    }
+  ],
+  "errors": []
+}

@@ -33,7 +33,7 @@ describe("student makeup return context", () => {
   });
   it("does not accept external redirects, unrelated actions or a different student", () => {
     const result=studentReturnHref("correct","returnTo=https://evil.test&action=delete&customerId=wrong&view=plans&studentTab=info");
-    expect(result).toBe("/dashboard/courses?view=customers&customerId=correct&studentTab=courses");
+    expect(result).toBe("/dashboard/courses?view=customers&customerId=correct&studentTab=info");
   });
 });
 

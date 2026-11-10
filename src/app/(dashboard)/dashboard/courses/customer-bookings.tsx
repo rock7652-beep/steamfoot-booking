@@ -11,7 +11,7 @@ import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { courseBookingHistoryLabel } from "@/lib/course-booking-history-label";
 import { DashboardLink } from "@/components/dashboard-link";
 type HistoryRow=Extract<Awaited<ReturnType<typeof loadCourseCustomerBookings>>,{success:true}>['data'][number]&{service?:{debit:boolean;isTrial:boolean}};
-export type CustomerBookingHistoryReader=(customerId:string,offset?:number,range?:{from?:string;to?:string;cardId?:string})=>Promise<{success:true;hasMore:boolean;data:HistoryRow[]}|{success:false;error:string}>;
+export type CustomerBookingHistoryReader=(customerId:string,offset?:number,range?:{from?:string;to?:string;mode?:string;cardId?:string})=>Promise<{success:true;hasMore:boolean;data:HistoryRow[]}|{success:false;error:string}>;
 const readHistory:typeof loadCourseCustomerBookings=(...args)=>musicPanelRead("bookings",args,()=>loadCourseCustomerBookings(...args));
 export function CourseCustomerBookings({ cardId,customerId, compact=false, music = false,load,sessionUnitLabel="堂",serviceMode=false }: { cardId?:string;load?:CustomerBookingHistoryReader;sessionUnitLabel?:string;serviceMode?:boolean;customerId: string;compact?:boolean; music?: boolean }) {
   const personnelText = useCoursePersonnelText();

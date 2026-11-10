@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": ".next-marketing-publication-qa/tsbuildinfo"
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
+    ".next-marketing-publication-qa/types/**/*.ts",
+    ".next-marketing-publication-qa/dev/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}

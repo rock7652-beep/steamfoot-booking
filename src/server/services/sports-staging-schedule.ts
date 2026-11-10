@@ -72,8 +72,8 @@ export async function attachSportsSessionRules(
   if (trialLearnerCount&&(!sessions.every(s=>s.isTrial)||rule.frequency!=="SINGLE"||trialLearnerCount>sessions[0].capacity))throw new AppError("VALIDATION","體驗學員只適用單次體驗排課且不可超過名額");
   if (!sessionIds && rule.enrollment === "ASSIGNED" && !rule.students.length && !trialLearnerCount)
     throw new AppError("VALIDATION", "請至少指定一位學員");
-  if (rule.enrollment === "OPEN" && rule.students.length)
-    throw new AppError("VALIDATION", "開放選課不會自動加入指定學員");
+  if (rule.students.length > sessions[0].capacity)
+    throw new AppError("VALIDATION", "固定學員人數超過課程名額");
   if (
     new Set(rule.students.map((s) => s.customerId)).size !==
     rule.students.length

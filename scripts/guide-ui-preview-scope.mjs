@@ -1,4 +1,5 @@
 import { isEditorialUiPreview } from "./editorial-preview-scope.mjs";
+import { isMarketingPublicationLocalQa } from "./marketing-publication-local-qa.mjs";
 
 // Non-secret, exact-target UI sandbox. No real database is permitted here.
 export const GUIDE_UI_PREVIEW_BRANCH = "feat/public-guide-articles-20261007";
@@ -217,6 +218,7 @@ export function isSpaRetirementPreviewPath(path) {
 }
 
 export function isGuideUiPreview(env = process.env) {
+  if (isMarketingPublicationLocalQa(env)) return true;
   if (isEditorialUiPreview(env)) return true;
   if (isSpaRetirementUiPreview(env) || isMarketingStickyUiPreview(env)) return true;
   if (isPaidAttendanceUiPreview(env) || isStudentLoyaltyUiPreview(env) || isRolePermissionsUiPreview(env) || isRenewalUiPreview(env) || isTeacherFeeUiPreview(env) || isPilatesUiPreview(env) || isMusicMigrationUiPreview(env) || isSinglePricingUiPreview(env) || isHqUsageUiPreview(env) || isTrialUiPreview(env) || isWaitlistUiPreview(env)) return true;

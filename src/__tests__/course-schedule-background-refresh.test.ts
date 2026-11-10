@@ -111,11 +111,13 @@ it.each(["month","week","day"] as const)("native sports and beauty %s calendars 
   const read=vi.fn().mockResolvedValue({success:true,data:snapshot});
   const source:CourseCalendarSource={read,readBlocked:false,schedule:{catalogHref:"#",command:async()=>({success:false,error:"synthetic"}),createCustomer:async()=>({success:false,error:"synthetic"})},onOpen:()=>{},onRoster:()=>{},assignmentStaff:[]};
   const activeRead=beauty?read:m.nativeRead;
+  // Neighbor-month preloads are independent of the current month's 60s refresh cadence.
+  const currentReads=()=>activeRead.mock.calls.filter(([date])=>date.startsWith('2026-10')).length;
   await act(async()=>root.render(createElement(CourseWorkspace,{...props,key:String(beauty),sportsNative:true,businessProfile:"FITNESS",calendarSource:beauty?source:undefined})));
-  await tick(59_999);expect(activeRead).not.toHaveBeenCalled();
-  await tick(1);expect(activeRead).toHaveBeenCalledTimes(1);
-  await tick(59_999);expect(activeRead).toHaveBeenCalledTimes(1);
-  await tick(1);expect(activeRead).toHaveBeenCalledTimes(2);
+  await tick(59_999);expect(currentReads()).toBe(0);
+  await tick(1);expect(currentReads()).toBe(1);
+  await tick(59_999);expect(currentReads()).toBe(1);
+  await tick(1);expect(currentReads()).toBe(2);
  }
 });
 it.each(["month","week","day"] as const)("music %s uses the same 60-second calendar cadence",async mode=>{
@@ -184,7 +186,7 @@ it('music date navigation uses month JSON reads and ignores responses after retu
   const choose=async(value:string)=>{await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(date(),value);date().dispatchEvent(new Event('change',{bubbles:true}));date().dispatchEvent(new Event('input',{bubbles:true}));});await render('MUSIC');};
   await choose('2026-11-17');expect(date().disabled).toBe(false);expect(date().value).toBe('2026-11-17');expect(host.querySelector('[aria-label="課表載入"]')).not.toBeNull();
   await act(async()=>window.dispatchEvent(new Event('focus')));expect(m.router.refresh).not.toHaveBeenCalled();
-  await choose('2026-12-17');expect(date().disabled).toBe(false);expect(m.nativeRead.mock.calls.map(call=>call[0])).toEqual(['2026-11-17','2026-12-17']);
+  await choose('2026-12-17');expect(date().disabled).toBe(false);expect(m.nativeRead.mock.calls.map(call=>call[0])).toEqual(['2026-11-01','2026-12-01']);
   await choose('2026-10-17');expect(host.querySelector('[aria-label="課表載入"]')).toBeNull();
   await act(async()=>{for(const [resolve,month]of [[finishDecember,'2026-12'],[finishNovember,'2026-11']] as const)resolve({success:true,data:{month,sessions:[],calendarDays:{},cancelledBookings:[],staffAvailabilityExceptions:[]}});});
   expect(date().value).toBe('2026-10-17');expect(host.querySelector('[aria-label="課表載入"]')).toBeNull();expect(m.router.replace).not.toHaveBeenCalled();expect(m.router.refresh).not.toHaveBeenCalled();
@@ -279,5 +281,23 @@ it.each([{success:false,error:'固定課同步失敗'},{success:true,data:{store
   await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="下個月"]')!.click());
   expect(host.querySelector<HTMLInputElement>('[aria-label="課表日期"]')!.value).toBe('2026-11-01');
   expect(host.querySelector('[aria-label="課表載入"] [role="alert"]')).not.toBeNull();expect(m.nativeRead).not.toHaveBeenCalled();
+ }finally{replace(null,'',original);}
+});
+
+it('keeps a visited music month usable after 75 seconds and restores the initial month while revalidating',async()=>{
+ const original=window.location.href,replace=window.history.replaceState.bind(window.history);
+ vi.spyOn(window.history,'replaceState').mockImplementation((data,title,url)=>{replace(data,title,url);m.query=new URL(window.location.href).searchParams.toString();});
+ const snapshot=(month:string)=>({success:true,data:{storeId:'store-a',month,sessions:[],calendarDays:{},cancelledBookings:[],staffAvailabilityExceptions:[]}});
+ m.nativeRead.mockImplementation(async(date:string)=>snapshot(date.slice(0,7)));
+ const choose=async(value:string)=>{await act(async()=>{const input=host.querySelector<HTMLInputElement>('[aria-label="課表日期"]')!;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,value);input.dispatchEvent(new Event('change',{bubbles:true}));input.dispatchEvent(new Event('input',{bubbles:true}));});await render('MUSIC');};
+ try{
+  await render('MUSIC');await choose('2026-11-02');
+  expect(host.querySelector('[aria-label="課表載入"]')).toBeNull();
+  vi.setSystemTime(new Date(Date.now()+120_000));
+  m.nativeRead.mockImplementation(()=>new Promise(()=>{}));
+  await choose('2026-10-26');
+  expect(host.querySelector('[aria-label="課表載入"]')).toBeNull();
+  await choose('2026-11-02');
+  expect(host.querySelector('[aria-label="課表載入"]')).toBeNull();
  }finally{replace(null,'',original);}
 });

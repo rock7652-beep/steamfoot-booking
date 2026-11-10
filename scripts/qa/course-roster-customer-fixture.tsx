@@ -17,6 +17,7 @@ qa.qaAction=async(name,...args)=>{
  if(name==='loadCourseCardProgress')return {success:true,data:{available:true,total:10,shared:false,completed:[{id:'first',date:'2026-11-03T08:30:00Z',customerName:person.name,courseName:'舞蹈基礎課'},{id:'second',date:'2026-11-10T08:30:00Z',customerName:person.name,courseName:'舞蹈基礎課'}]}};
  if(name==='browseCourseCards')return {success:true,rows:[card],hasMore:false,totals:[]};
  if(name==='loadCourseCustomerBookings'){
+  if((args[2] as {mode?:string})?.mode==='upcoming')return {success:true,hasMore:false,data:[]};
   if((args[2] as {cardId?:string})?.cardId!==card.id)throw Error('History must be scoped to the selected card');
   return {success:true,hasMore:false,data:[{id:'history',sessionId:'prior-class',name:'舞蹈基礎課',date:'2026-11-10T08:30:00Z',status:'ATTENDED',checkedIn:true,plan:card.name,points:1,unit:'SESSION',notes:'合成紀錄',operator:'測試人員',coachName:'合成老師',expiresAt:card.expiresAt}]};
  }

@@ -37,7 +37,7 @@ vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:(_role:string,_
 vi.mock('@/lib/sports-native-preview',()=>({sportsNativePreview:(id:string)=>id.startsWith('sports-')}));
 vi.mock('@/server/services/music-native-workflow',()=>({musicNativeWorkflowEnabled:(id:string)=>id.startsWith('music-')}));
 vi.mock('@/server/services/course-business-profile',()=>({isMusicCourseStore:async(_tx:unknown,id:string)=>id.startsWith('music-'),readCourseBusinessProfile:async(_tx:unknown,id:string)=>id.startsWith('music-')?'MUSIC':'FITNESS'}));
-vi.mock('@/server/services/sports-production-readiness',()=>({sportsRulesAvailable:async()=>true,assertSportsProductionReady:vi.fn()}));
+vi.mock('@/server/services/sports-production-readiness',()=>({sportsRulesAvailable:async()=>true,assertSportsProductionReady:vi.fn(),assertSportsBookingReadReady:vi.fn()}));
 vi.mock('@/lib/feature-gate',()=>({getStoreLimitsByStoreId:async()=>({maxMonthlyBookings:null})}));
 vi.mock('@/server/services/course-access',()=>({courseManager:vi.fn(),courseTransaction:vi.fn()}));
 vi.mock('@/lib/session',()=>({requireSession:vi.fn(),getCurrentUser:vi.fn()}));

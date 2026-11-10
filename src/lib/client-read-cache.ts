@@ -39,6 +39,23 @@ export function createClientReadCache<T>(
   return {
     get,
     load,
+    /** Bounded display snapshot only. Callers must revalidate; never use for transactions. */
+    snapshot(key: string): T | undefined {
+      const entry = entries.get(key);
+      if (!entry) return undefined;
+      // Keep the active window; speculative distant months must not evict a
+      // recently displayed or reused neighbor merely because it was loaded first.
+      entries.delete(key);
+      entries.set(key, entry);
+      return entry.value;
+    },
+    seed(key: string, value: T) {
+      // An authoritative response supersedes older speculative work for this key.
+      pending.delete(key);
+      entries.delete(key);
+      if (shouldCache(value)) entries.set(key, {value, expiresAt: Date.now() + ttlMs});
+      if (entries.size > maxEntries) entries.delete(entries.keys().next().value!);
+    },
     peek(key: string): T | undefined {
       const entry = entries.get(key);
       if (!entry || entry.expiresAt + staleMs <= Date.now()) return undefined;

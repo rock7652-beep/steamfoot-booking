@@ -2,6 +2,7 @@ import 'server-only';
 import {randomUUID} from 'node:crypto';
 import {AppError} from '@/lib/errors';
 import {findSportsCard} from './sports-card-selection';
+import {sportsBookingEnrollment} from '@/lib/sports-entitlement';
 import {readSportsSessionRule} from './sports-staging-schedule';
 import {musicItemCards} from './music-item-cards';
 import {rebindPendingMusicLesson} from './music-lesson-periods';
@@ -19,7 +20,7 @@ export async function reconcileCourseItemCard(tx:Prisma.TransactionClient,actor:
  if(itemModule==='SPORTS'){
   const rule=await readSportsSessionRule(tx,actor.storeId,booking.sessionId);
   if(!rule)return;
-  picked=await findSportsCard(tx,actor.storeId,booking.customerId,[booking.session],rule,null,booking.id,true);
+  picked=await findSportsCard(tx,actor.storeId,booking.customerId,[booking.session],{...rule,enrollment:sportsBookingEnrollment(rule,booking)??rule.enrollment},null,booking.id,true);
  }else{
   const cards=await musicItemCards(tx,actor.storeId,[booking.customerId],booking.session,booking.id);
   const card=cards.find(card=>card.remaining-card.bookings.reduce((sum,row)=>sum+row.pointCost,0)>=1);

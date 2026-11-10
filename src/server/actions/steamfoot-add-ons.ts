@@ -13,6 +13,8 @@ import {paymentMethodValues} from '@/lib/payment-splits';
 import {lockAddOnSubject,readAddOnOrder,saveSteamfootAddOnOrder,postSteamfootAddOnReceipt,addOnCommand} from '@/server/services/steamfoot-add-ons';
 import {requireAddOnManagement,requireAddOnSelection} from '@/server/services/add-on-access';
 import {recordOperationAudit} from '@/server/services/operation-audit';
+import {addOnAuditEvidence} from '@/server/services/service-add-ons';
+import {auditListDescription} from '@/lib/audit-presentation';
 const key=z.string().min(1).max(128),subject=z.object({storeId:key,bookingId:key,participantId:key});
 async function context(permission:PermissionCode,write=false){
  if(process.env.STEAMFOOT_ADD_ONS_ENABLED!=='1'||process.env.BOOKING_PARTICIPANTS_ENABLED!=='true')throw new AppError('BUSINESS_RULE','附加項目尚未開放');
@@ -45,7 +47,8 @@ export async function mutateSteamfootParticipantAddOns(input:unknown){try{
  let result;
  if(d.operation==='SAVE'){await requireAddOnSelection(tx,a.storeId,'STEAMFOOT');if(d.catalogRevision===undefined||!d.ids)throw new AppError('VALIDATION','缺少品項設定');result=await saveSteamfootAddOnOrder(tx,a,person,{revision:d.revision,catalogRevision:d.catalogRevision,ids:d.ids});}
  else {if(d.amount===undefined||!d.method||d.operation==='REFUND'&&!d.originalId||d.operation==='COLLECT'&&d.originalId)throw new AppError('VALIDATION','請核對收退款資料');result=await postSteamfootAddOnReceipt(tx,a,person,{revision:d.revision,amount:d.amount,method:d.method,originalId:d.operation==='REFUND'?d.originalId:undefined});}
- await recordOperationAudit({actor:a.user,actorUserId:a.userId,storeId:a.storeId,module:'STEAM',targetType:'ServiceAddOnOrder',targetId:person.id,action:'ADD_ON_'+d.operation,summary:'附加項目'+({SAVE:'修改',COLLECT:'收款',REFUND:'退款'}[d.operation]),after:result},tx);return result;
+ const evidence=await addOnAuditEvidence(tx,a,person,result,d.method);
+ await recordOperationAudit({actor:a.user,actorUserId:a.userId,storeId:a.storeId,module:'STEAM',targetType:'ServiceAddOnOrder',targetId:person.id,action:'ADD_ON_'+d.operation,summary:auditListDescription({targetType:'ServiceAddOnOrder',action:'ADD_ON_'+d.operation,afterJson:evidence}),after:evidence},tx);return result;
  });});
  revalidatePath('/dashboard/bookings');revalidatePath('/dashboard/cashbook');revalidatePath('/dashboard/revenue');return {success:true as const,data};
 }catch(e){return handleActionError(e);}}

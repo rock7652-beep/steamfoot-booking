@@ -1,0 +1,86 @@
+name: Mixed course enrollment audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/course-mixed-enrollment-audit.yml'
+      - 'src/**/course*'
+      - 'src/**/sports*'
+      - 'src/**/music-schedule*'
+      - 'scripts/*preview-scope.mjs'
+      - 'scripts/music-native-workflow-scope.mjs'
+      - 'course-prisma/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mixed-course-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mixed-enrollment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-test-only
+          POSTGRES_DB: mixed_enrollment_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mixed_enrollment_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      NODE_ENV: test
+      BOOKING_CONCURRENCY_TEST_DATABASE_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/mixed_enrollment_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Verify mixed scheduling and isolation regressions
+        run: >-
+          npx vitest run
+          src/__tests__/course-actions.test.ts
+          src/__tests__/course-mixed-preview-scope.test.ts
+          src/__tests__/course-mixed-release.test.ts
+          src/__tests__/course-schedule-check.test.ts
+          src/__tests__/course-shared-card-booking.test.ts
+          src/__tests__/music-schedule-dropdowns.test.ts
+          src/__tests__/sports-entitlement.test.ts
+          src/__tests__/sports-permanent-series.test.ts
+          src/__tests__/sports-roster-balance.test.ts
+          src/__tests__/sports-schedule-allocation.test.ts
+          src/__tests__/sports-schedule-compensation-access.test.ts
+          src/__tests__/sports-schedule-native-ui.test.ts
+      - name: Verify mixed enrollment and card rights on real PostgreSQL
+        run: >-
+          npx vitest run src/__tests__/course-mixed-enrollment.pg.test.ts
+          src/__tests__/sports-card-modes.pg.test.ts
+          --reporter=default --reporter=json --outputFile=mixed-course-pg-results.json
+      - name: Require all 39 database scenarios without skips
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("mixed-course-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 39 || r.numPassedTests !== 39 || r.numPendingTests !== 0) {
+              throw new Error("Expected all 39 mixed enrollment and sports card database scenarios");
+            }
+          '
+      - name: Verify existing music and sports purchase, attendance and restoration
+        run: npx vitest run src/__tests__/item-core-flows.pg.test.ts -t 'sports:|music:'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mixed-course-pg-results
+          path: mixed-course-pg-results.json
+          retention-days: 3

@@ -11,7 +11,10 @@ function setup(page: string, data: object) {
   closes.push(() => w.close());
   w.scrollTo = vi.fn();
   w.HTMLElement.prototype.scrollIntoView = vi.fn();
-  w.fetch = vi.fn();
+  w.fetch = vi.fn(async (url: string) => {
+    if (url !== '/api/subscription-referrals/availability') throw new Error('Unexpected request from a restored application');
+    return {ok: true, json: async () => ({enabled: false})};
+  });
   if (page === 'apply') {
     w.sessionStorage.setItem('steam-butler-application', JSON.stringify({state: 'saved', payload: data}));
     w.eval(w.document.querySelector('script').textContent);
@@ -30,7 +33,9 @@ describe('saved application LINE handoff', () => {
     expect(decodeURIComponent(href.split('?')[1])).toBe('我已填寫體驗諮詢，店名：' + storeName);
     expect(doc.getElementById('lineHandoffMessage').value).toContain(storeName);
     expect(doc.getElementById('lineHandoff').textContent).toContain('請再按「送出」');
-    expect(w.fetch).not.toHaveBeenCalled();
+    if (page === 'apply') {
+      expect(w.fetch).toHaveBeenCalledExactlyOnceWith('/api/subscription-referrals/availability', {cache: 'no-store'});
+    } else expect(w.fetch).not.toHaveBeenCalled();
   });
   it.each(['apply', 'fitness'])('handles old %s receipt without store name', page => {
     const {doc} = setup(page, {requestId: 'legacy', contactWay: '先透過 LINE 了解'});

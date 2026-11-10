@@ -78,6 +78,17 @@ beforeEach(() => {
   m.card.mockResolvedValue({ id: "available", planId: "plan" });
   m.reserve.mockResolvedValue({ id: "booking" });
 });
+it("arranges fixed learners in an open class without charging or reserving a card",async()=>{
+ m.sessions.mockResolvedValue([{...sessions[0],capacity:4}]);
+ await attachSportsSessionRules(tx,actor,"request",{...rule,frequency:"SINGLE",enrollment:"OPEN"});
+ expect(m.reserve).toHaveBeenCalledOnce();expect(m.reserve.mock.calls[0][2]).toMatchObject({customerId:"member",cardId:null,deferredPayment:true});
+ expect(m.execute.mock.calls[0]).toContain("OPEN");
+});
+it("rejects an oversized mixed roster before writing rules or reservations",async()=>{
+ m.sessions.mockResolvedValue([{...sessions[0],capacity:1}]);
+ await expect(attachSportsSessionRules(tx,actor,"request",{...rule,frequency:"SINGLE",enrollment:"OPEN",students:[...rule.students,{customerId:"second",cardId:null}]})).rejects.toThrow("超過");
+ expect(m.execute).not.toHaveBeenCalled();expect(m.reserve).not.toHaveBeenCalled();
+});
 it("arranges all lessons without reserving a particular plan or consuming credit",async()=>{
  await attachSportsSessionRules(tx,actor,"request",rule);
  expect(m.cards).not.toHaveBeenCalled();expect(m.reserve).toHaveBeenCalledTimes(8);

@@ -1,0 +1,14 @@
+{
+  "sourceCommit": "5db2b76116eb3ad148398414a709dec5621661b2",
+  "environment": "disposable PostgreSQL 17 Docker; network none; Unix socket; actual generated Prisma client",
+  "originalVoidQueryRejected": true,
+  "originalErrorCode": "P2010",
+  "fixedQueryReturned": [
+    {
+      "lock": ""
+    }
+  ],
+  "oldQueryNegativeControl": "PGlite adapter enforces Prisma unsupported void decoding: failed as expected",
+  "fixedRelatedTests": 42,
+  "containerRemoved": true
+}

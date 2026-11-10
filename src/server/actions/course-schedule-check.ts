@@ -42,7 +42,7 @@ export async function inspectCourseSchedule(input:unknown) {
       for(const rental of rentals.filter(row=>row.occupiedStartsAt<range.endsAt&&row.occupiedEndsAt>range.startsAt))issues.push({date,reason:`${formatTWDateTime(rental.occupiedStartsAt).slice(11)} 教室已有租借`});
       const conflicts=sessions.filter(s=>s.startsAt<range.endsAt&&s.endsAt>range.startsAt);
       for(const s of conflicts)issues.push({date,reason:`${formatTWDateTime(s.startsAt).slice(11)} ${s.roomId===data.roomId?"教室":"老師"}已有課`});
-      for(const b of bookings.filter(b=>(index===0||data.learners.some(row=>row.customerId===b.customerId&&(row.cardId!==null||data.enrollmentMode==="ASSIGNED"&&!data.isTrial)))&&b.session.startsAt<range.endsAt&&b.session.endsAt>range.startsAt))issues.push({date,reason:`${b.customerName}同時段已有課`});
+      for(const b of bookings.filter(b=>(index===0||data.learners.some(row=>row.customerId===b.customerId&&(row.cardId!==null||data.enrollmentMode!==undefined&&!data.isTrial)))&&b.session.startsAt<range.endsAt&&b.session.endsAt>range.startsAt))issues.push({date,reason:`${b.customerName}同時段已有課`});
       try {
         await assertCourseSessionsFitHours(coursePrisma,storeId,[range]);
         await assertMusicCourseAvailability(coursePrisma,storeId,data.coachId,[range]);

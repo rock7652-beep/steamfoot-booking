@@ -7,6 +7,8 @@ import type {CourseCustomerSource} from '@/app/(dashboard)/dashboard/courses/mem
 import type {BeautyDashboardData} from '@/server/beauty/queries';
 const m=vi.hoisted(()=>({assign:vi.fn(),source:null as CourseCustomerSource|null,provider:null as {enabled:boolean;storeId:string;family?:string}|null}));
 vi.mock('next/dynamic',()=>({default:()=>()=>null}));
+vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()})}));
+vi.mock('@/components/beauty/native-schedule-source',()=>({BeautyNativeScheduleDialog:()=>null}));
 vi.mock('@/lib/beauty/customer-reader',()=>({beautyCustomerReaders:()=>({})}));
 vi.mock('@/server/actions/beauty-customer-attribution',()=>({saveBeautyCustomerAttribution:vi.fn(),searchBeautyReferrerCandidates:vi.fn(),bulkAssignBeautyCustomers:vi.fn()}));
 vi.mock('@/server/actions/beauty-native-customers',()=>({maintainBeautyNativeCard:vi.fn(),saveBeautyNativeCustomerProfile:vi.fn(),saveBeautyNativeCustomerNote:vi.fn(),saveBeautyNativeCardMembers:vi.fn(),assignBeautyNativeCard:m.assign}));
@@ -26,4 +28,11 @@ it('only enables the beauty plan recovery when the server-provided flag is on an
  renderToStaticMarkup(h(BeautyNativeCustomerWorkspace,{data}));expect(m.provider).toMatchObject({enabled:false,storeId:'beauty',family:'beauty-plan'});expect(m.source?.automaticPurchaseCompletion).toBe(true);
  renderToStaticMarkup(h(BeautyNativeCustomerWorkspace,{data,planPurchaseRecoveryEnabled:true}));expect(m.provider).toMatchObject({enabled:true});
  renderToStaticMarkup(h(BeautyNativeCustomerWorkspace,{data,planPurchaseRecoveryEnabled:true,readOnly:true}));expect(m.provider).toMatchObject({enabled:false});
+});
+
+it('offers the native technician entry only to writable staff managers and excludes already linked technicians',()=>{
+ const data={storeId:'beauty',customers:[{id:'c',name:'顧客',phone:'0900000000',userId:'u',_count:{sponsoredCustomers:0}}],techs:[],services:[],plans:[],cards:[],assignmentStaff:[],manage:{technician:true},access:{staffAccess:true},date:'2026-11-10'} as unknown as BeautyDashboardData;
+ renderToStaticMarkup(h(BeautyNativeCustomerWorkspace,{data}));expect(m.source?.staffAction?.label).toBe('加入為技師');expect(m.source?.staffAction?.available('c')).toBe(true);expect(m.source?.staffAction?.available('foreign')).toBe(false);
+ renderToStaticMarkup(h(BeautyNativeCustomerWorkspace,{data:{...data,techs:[{userId:'u'}]} as BeautyDashboardData}));expect(m.source?.staffAction?.available('c')).toBe(false);
+ for(const props of [{data,readOnly:true},{data:{...data,manage:{}} as BeautyDashboardData},{data:{...data,access:{staffAccess:false}} as BeautyDashboardData}]){renderToStaticMarkup(h(BeautyNativeCustomerWorkspace,props));expect(m.source?.staffAction).toBeUndefined();}
 });

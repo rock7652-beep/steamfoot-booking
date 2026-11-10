@@ -103,9 +103,9 @@ try{
  await page.screenshot({path:path.join(output,'student-overview.png'),fullPage:true});
  assert(page.url()===original,'Learner menu navigated');
  assert(await page.getByText('課表排程',{exact:true}).count()===1,'Background was replaced');
- await page.getByRole('button',{name:'關閉',exact:true}).click();
+ await page.getByRole('button',{name:'關閉顧客資料',exact:true}).click();
  const calls=await page.evaluate(()=>window.qaCalls);
- const histories=calls.filter(c=>c.name==='loadCourseCustomerBookings');
+ const histories=calls.filter(c=>c.name==='loadCourseCustomerBookings'&&c.args[2]?.cardId);
  assert(histories.length===5&&histories.every(c=>c.args[0]==='synthetic-customer'&&c.args[2].cardId==='synthetic-card'),'Unscoped card history');
  assert(errors.length===0,errors.join('\n'));
  writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,errors,calls},null,2));

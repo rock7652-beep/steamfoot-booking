@@ -8,7 +8,7 @@ vi.mock('@/lib/permissions',()=>({requirePermission:m.permission}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
 vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:m.transaction,command:m.command,audit:m.audit}));
 vi.mock('@/server/beauty/catalog',()=>({persistBeautyCatalog:m.persist}));
-import {saveBeautyNativeStaff,saveBeautyNativeWorkPermission,saveBeautyNativeStaffAvailability,readBeautyNativeStaffTeaching} from '@/server/actions/beauty-native-staff';
+import {saveBeautyNativeStaff,saveBeautyNativeWorkPermission,saveBeautyNativeStaffAvailability,readBeautyNativeStaffAvailability,readBeautyNativeStaffTeaching} from '@/server/actions/beauty-native-staff';
 const t={id:'tech',storeId:'a',revision:3,name:'技師',gender:'FEMALE',active:true,userId:null,phone:'0900000000',contactEmail:'',birthday:'',emergencyContactName:'',emergencyContactPhone:'',emergencyContactRelation:'',serviceIds:['service'],rates:{service:{mode:'PERCENT',value:40,base:'LIST'}},weekly:{inheritStore:true},exceptions:{},grants:[],sort:0};
 const actor={storeId:'a',userId:'owner',manager:true};
 const tx={beautyTechnician:{findFirst:m.find,update:m.update},beautyAppointment:{findMany:m.appointments},beautyService:{findFirst:m.service}};
@@ -32,4 +32,13 @@ it('inherits only an authoritative same-store default at the expected service re
  expect(m.service).toHaveBeenCalledWith({where:{storeId:'a',id:'service'}});
  expect(m.persist.mock.calls[0][3].rates).toEqual({});
  m.persist.mockClear();expect(await saveBeautyNativeStaff({...inherited,values:{...inherited.values,serviceRevisions:{service:7}}})).toMatchObject({success:false});expect(m.persist).not.toHaveBeenCalled();
+});
+
+it('can save a freshly reopened custom schedule with JSONB property ordering',async()=>{
+ const stored={...t,weekly:[{day:1,end:'18:00',start:'09:00'}],exceptions:{'2026-12-02':[{end:'12:00',start:'09:00'}]}};
+ m.find.mockResolvedValue(stored);
+ const opened=await readBeautyNativeStaffAvailability('tech');
+ const result=await saveBeautyNativeStaffAvailability({expectedStoreId:'a',expectedRevision:opened.revision,requestKey:input.requestKey,kind:'weekly',values:{staffId:'tech',inheritStoreHours:false,days:[{dayOfWeek:1,periods:[{openTime:'10:00',closeTime:'18:00'}]}]}});
+ expect(result).toMatchObject({success:true});
+ expect(m.persist.mock.calls[0][3].weekly).toEqual([{day:1,start:'10:00',end:'18:00'}]);
 });

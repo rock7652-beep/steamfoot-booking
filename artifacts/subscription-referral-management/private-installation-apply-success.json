@@ -1,0 +1,118 @@
+{
+  "recordedAt": "2026-11-05",
+  "sourceCommit": "236d637dd9f03f9824bdd92841457e7e9d2a86f3",
+  "runUrl": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/41953637299",
+  "result": {
+    "mode": "apply",
+    "project": "qijlnhtpbintanzpxkvf",
+    "migration": "20261104235300_subscription_referral_private_core",
+    "checksum": "9280d0494060f1e3cbff109bac26693868127b2e9c958cbe74600eccda5a1fd3",
+    "identity": {
+      "database": "postgres",
+      "role": "postgres"
+    },
+    "historicalLedgerUnchanged": true,
+    "newTablesEmpty": true,
+    "postflight": {
+      "actor": "postgres",
+      "database": "postgres",
+      "readOnly": true,
+      "migration": {
+        "checksum": "9280d0494060f1e3cbff109bac26693868127b2e9c958cbe74600eccda5a1fd3",
+        "finished": true,
+        "rolledBack": false
+      },
+      "allFiveRls": true,
+      "constraints": {
+        "c": 13,
+        "f": 11,
+        "p": 5,
+        "u": 9
+      },
+      "allFivePresent": true,
+      "apiAccessChecks": [
+        {
+          "name": "StoreSubscriptionReferralCode",
+          "allowed": false,
+          "rolname": "authenticated"
+        },
+        {
+          "name": "StoreSubscriptionReferralCode",
+          "allowed": false,
+          "rolname": "anon"
+        },
+        {
+          "name": "StoreSubscriptionReferralCode",
+          "allowed": false,
+          "rolname": "service_role"
+        },
+        {
+          "name": "StoreSubscriptionReferral",
+          "allowed": false,
+          "rolname": "authenticated"
+        },
+        {
+          "name": "StoreSubscriptionReferral",
+          "allowed": false,
+          "rolname": "anon"
+        },
+        {
+          "name": "StoreSubscriptionReferral",
+          "allowed": false,
+          "rolname": "service_role"
+        },
+        {
+          "name": "StoreSubscriptionReferralPayment",
+          "allowed": false,
+          "rolname": "authenticated"
+        },
+        {
+          "name": "StoreSubscriptionReferralPayment",
+          "allowed": false,
+          "rolname": "anon"
+        },
+        {
+          "name": "StoreSubscriptionReferralPayment",
+          "allowed": false,
+          "rolname": "service_role"
+        },
+        {
+          "name": "StoreSubscriptionReferralRefundReview",
+          "allowed": false,
+          "rolname": "authenticated"
+        },
+        {
+          "name": "StoreSubscriptionReferralRefundReview",
+          "allowed": false,
+          "rolname": "anon"
+        },
+        {
+          "name": "StoreSubscriptionReferralRefundReview",
+          "allowed": false,
+          "rolname": "service_role"
+        },
+        {
+          "name": "StoreSubscriptionReferralReward",
+          "allowed": false,
+          "rolname": "authenticated"
+        },
+        {
+          "name": "StoreSubscriptionReferralReward",
+          "allowed": false,
+          "rolname": "anon"
+        },
+        {
+          "name": "StoreSubscriptionReferralReward",
+          "allowed": false,
+          "rolname": "service_role"
+        }
+      ],
+      "publicHasNoPrivileges": true,
+      "apiRolesHaveNoPrivileges": true
+    },
+    "subscriptionChangesPerformed": false,
+    "campaignEnablementPerformed": false,
+    "verifiedTls": true,
+    "sourceCommit": "236d637dd9f03f9824bdd92841457e7e9d2a86f3"
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveSportsEntitlement, sportsEntitlementSnapshot } from "@/lib/sports-entitlement";
+import { resolveSportsEntitlement, sportsEntitlementSnapshot, sportsBookingEnrollment } from "@/lib/sports-entitlement";
 
 const lesson = { templateId: "course-a", subjectId: "yoga", pointCost: 3, enrollment: "ASSIGNED" as const, legacyPlanId: "old-package" };
 const card = { planId: "package-a", templateIds: ["old-template"], unit: "POINT", sportsMode: "ASSIGNED", sportsSubjectId: "yoga", sportsCost: 2 };
@@ -65,4 +65,16 @@ it('assigned legacy lesson-count packages follow verified teaching item rather t
  expect(resolveSportsEntitlement({planId:'points',unit:'POINT',sportsMode:'LEGACY',templateIds:['old-10']},lesson)).toEqual({eligible:true,cost:1});
  expect(resolveSportsEntitlement({planId:'makeup',unit:'SESSION',sportsMode:'LEGACY',templateIds:['old-10'],templateRestricted:true},lesson).eligible).toBe(false);
  expect(resolveSportsEntitlement({planId:'ten',unit:'SESSION',sportsMode:'LEGACY',templateIds:['old-10']},{...lesson,enrollment:'OPEN'}).eligible).toBe(false);
+});
+
+
+it('only gives mixed assigned rights to the persisted fixed reservation, never a new self booking or companion',()=>{
+ const rule={enrollment:'OPEN',payload:{students:[{customerId:'fixed'}]}};
+ const booking={customerId:'fixed',requestKey:'sports-fixed:session:fixed',session:{id:'session',requestKey:'series',requestIndex:3}};
+ expect(sportsBookingEnrollment(rule,booking)).toBe('ASSIGNED');
+ expect(sportsBookingEnrollment(rule,{...booking,requestKey:'series:3:fixed'})).toBe('ASSIGNED');
+ expect(sportsBookingEnrollment(rule,{...booking,requestKey:'new-self-booking'})).toBe('OPEN');
+ expect(sportsBookingEnrollment(rule,{...booking,companionIndex:1})).toBe('OPEN');
+ expect(sportsBookingEnrollment({...rule,payload:{students:[]}},booking)).toBe('OPEN');
+ expect(sportsBookingEnrollment(rule,{...booking,requestKey:'sports-fixed:other-session:fixed'})).toBe('OPEN');
 });

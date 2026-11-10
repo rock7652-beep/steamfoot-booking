@@ -34,6 +34,7 @@ if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.e
 }
 
 import { isGuideUiPreview } from "./scripts/guide-ui-preview-scope.mjs";
+import { isMarketingPublicationLocalQa } from "./scripts/marketing-publication-local-qa.mjs";
 isGuideUiPreview(); // Validate the isolated mode before Next build work.
 
 import type { NextConfig } from "next";
@@ -57,6 +58,7 @@ if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF ==
 const HEALTH_TRACKER_URL = "https://www.healthflow-ai.com/liff";
 
 const nextConfig: NextConfig = {
+  ...(isMarketingPublicationLocalQa()?{distDir:'.next-marketing-publication-qa',experimental:{cpus:2},typescript:{tsconfigPath:'tsconfig.marketing-publication-qa.json'}}:{}),
   serverExternalPackages: ["pdfkit"],
   ...(process.env.BEAUTY_SHARED_PAGES_BUILD_QA==='1'?{distDir:'.next-beauty-shared-pages-build-qa',typescript:{tsconfigPath:'tsconfig.beauty-shared-pages-build-qa.json'},experimental:{cpus:2}}:{}),
   ...(process.env.BEAUTY_SHARED_PAGES_LOCAL_QA==='1'?{distDir:'.next-beauty-shared-pages-qa',typescript:{tsconfigPath:'tsconfig.beauty-shared-pages-qa.json'}}:{}),
