@@ -995,15 +995,22 @@ export async function markCourseCoachAttendance(input: unknown) {
   }
 }
 
-export async function loadCourseCustomerBookings(customerId: string, offset = 0, range: {from?:string;to?:string;mode?:string} = {}) {
+export async function loadCourseCustomerBookings(customerId: string, offset = 0, range: {from?:string;to?:string;mode?:string;cardId?:string} = {}) {
   try {
-    const { storeId } = await courseManager("customer.read");
+    const { storeId,user } = await courseManager("customer.read");
+    const {getManagerCustomerWhere}=await import("@/lib/manager-visibility");
     await courseManager("booking.read");
-    const customer = await prisma.customer.findFirst({ where: { id: id.parse(customerId), storeId, mergedIntoCustomerId: null }, select: { id: true } });
+    const customer = await prisma.customer.findFirst({ where: { ...getManagerCustomerWhere(user.role,user.staffId,storeId), id: id.parse(customerId), storeId, mergedIntoCustomerId: null }, select: { id: true } });
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店顧客");
     const skip = z.number().int().min(0).max(1000000).parse(offset);
     const browse = courseBookingBrowse(range);
-    const bookings = await coursePrisma.courseBooking.findMany({ where: { storeId, customerId, ...browse.where }, include: { session: { select: { startsAt: true, nameSnapshot: true,coachId:true } }, card: { select: { nameSnapshot: true, expiresAt: true, musicValidityDays:true, musicActivatedAt:true, musicOpeningStateRequired:true, unit: true, requestKey: true } } }, orderBy: [{ session: { startsAt: browse.order } }, {id:browse.order}], skip, take: 11 });
+    const cardId=range.cardId===undefined?undefined:id.parse(range.cardId);
+    if(cardId){
+      await courseManager("wallet.read");
+      const card=await coursePrisma.coursePointCard.findFirst({where:{id:cardId,storeId,OR:[{members:{some:{customerId}}},{bookings:{some:{customerId}}}]},select:{id:true}});
+      if(!card)throw new AppError("NOT_FOUND","找不到此學員的本店方案");
+    }
+    const bookings = await coursePrisma.courseBooking.findMany({ where: { storeId, customerId, ...(cardId?{cardId}:{}), ...browse.where }, include: { session: { select: { startsAt: true, nameSnapshot: true,coachId:true } }, card: { select: { nameSnapshot: true, expiresAt: true, musicValidityDays:true, musicActivatedAt:true, musicOpeningStateRequired:true, unit: true, requestKey: true } } }, orderBy: [{ session: { startsAt: browse.order } }, {id:browse.order}], skip, take: 11 });
     const native=(await sportsNativePreview(storeId));
     const coaches=native?await prisma.staff.findMany({where:{storeId,id:{in:bookings.map(b=>b.session.coachId)}},select:{id:true,displayName:true}}):[];
     const nativeDebited = new Set((await Promise.all(bookings.filter(b=>b.absenceKind==="STUDENT_LEAVE").map(async b=>await nativeLeaveWasDebited(coursePrisma,storeId,b.id)?b.id:null))).filter(Boolean));

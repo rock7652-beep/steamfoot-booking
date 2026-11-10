@@ -128,3 +128,17 @@ it('allows the shared transaction to enroll new trial learners while retaining t
  await attachSportsSessionRules(tx,actor,'request',input,undefined,1);expect(m.reserve).not.toHaveBeenCalled();expect(m.execute).toHaveBeenCalledOnce();
  m.sessions.mockResolvedValue([{...trial,isTrial:false}]);await expect(attachSportsSessionRules(tx,actor,'request',input,undefined,1)).rejects.toThrow('體驗學員');
 });
+
+it.each(['ASSIGNED','OPEN'] as const)('十週單次批次保留 SINGLE 類型及 %s 名單',async enrollment=>{
+ const ten=Array.from({length:10},(_,i)=>({...sessions[0],id:`single-${i}`,requestIndex:i,startsAt:parseTaipeiDateTime(addTaiwanDuration('2026-11-10',i*7,'DAY'),'16:30')!}));
+ m.sessions.mockResolvedValue(ten);
+ await attachSportsSessionRules(tx,actor,'request',{...rule,frequency:'SINGLE',enrollment,students:enrollment==='ASSIGNED'?rule.students:[]});
+ expect(m.execute).toHaveBeenCalledTimes(10);
+ expect(m.reserve).toHaveBeenCalledTimes(enrollment==='ASSIGNED'?10:0);
+ for(const call of m.reserve.mock.calls)expect(call[2]).toMatchObject({deferredPayment:true,cardId:null,customerId:'member'});
+});
+it('批次開放體驗仍被拒絕',async()=>{
+ m.sessions.mockResolvedValue(sessions.slice(0,2).map(s=>({...s,isTrial:true})));
+ await expect(attachSportsSessionRules(tx,actor,'request',{...rule,frequency:'SINGLE',enrollment:'OPEN',students:[]})).rejects.toThrow('體驗僅建立單次');
+ expect(m.execute).not.toHaveBeenCalled();expect(m.reserve).not.toHaveBeenCalled();
+});

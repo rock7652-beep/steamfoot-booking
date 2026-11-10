@@ -43,7 +43,7 @@ it.each([[true,true],[true,false],[false,true],[false,false]])("keeps existing p
  expect(host.querySelector(".cp-daily")?.textContent).not.toContain("開放吉他");expect(host.querySelector(".cp-days .self")).not.toBeNull();
  expect(host.querySelectorAll(".cp-calendar-modes button")).toHaveLength(open?2:0);
  if(open){await click("開放選課");expect(host.querySelector(".cp-daily")?.textContent).toContain("開放吉他");expect(host.querySelector(".cp-daily")?.textContent).not.toContain("指定鋼琴");expect(host.querySelector(".cp-days")?.textContent).toContain("1堂");await click("我的課表");}
- await click("查看明細 ⌄");expect([...host.querySelectorAll("button")].some(b=>b.textContent==="改時段")).toBe(false);
+ expect(host.querySelector(".cp-booking-heading button")).toBeNull();expect([...host.querySelectorAll("button")].some(b=>b.textContent==="改時段")).toBe(false);
  expect([...host.querySelectorAll("button")].some(b=>b.textContent==="請假")).toBe(true);
 });
 it("keeps authorized proxy bookings separate from unrelated shared-card members",async()=>{

@@ -482,6 +482,18 @@ describe('sports guest trial transaction',()=>{
  });
 });
 
+it.each([false,true])('十週運動單次批次不誤判固定系列，實際撞課仍整批拒絕 (%s)',async conflict=>{
+ const {addTaiwanDuration}=await import('@/lib/date-utils');
+ if(conflict)mocks.conflict.mockResolvedValue({startsAt:new Date('2026-11-17T08:30:00Z'),roomId:'room-a'});
+ const result=await createCourseSchedule({...input,repeatUntil:undefined,date:'2026-11-10',time:'16:30',scheduleType:'SINGLE',additionalDates:Array.from({length:9},(_,i)=>addTaiwanDuration('2026-11-10',(i+1)*7,'DAY')),sportsStaging:{frequency:'SINGLE',enrollment:'OPEN',planId:null,students:[],trialPrice:0}});
+ expect(result.success).toBe(!conflict);
+ if(conflict)expect(mocks.create).not.toHaveBeenCalled();
+ else{
+  const rows=mocks.create.mock.calls[0][0].data;
+  expect(rows).toHaveLength(10);expect(rows.every((s:{scheduleType:string})=>s.scheduleType==='SINGLE')).toBe(true);
+  expect(mocks.existing.mock.calls.some(([arg])=>arg.select?.rescheduledFromStartsAt)).toBe(false);
+ }
+});
 
 describe('mixed music scheduling',()=>{
  const mixed={...input,repeatUntil:undefined,enrollmentMode:'OPEN',scheduleType:'SINGLE',capacity:4,learners:[{customerId:'learner',cardId:null}]};

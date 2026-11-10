@@ -2,6 +2,7 @@
 import {useCustomerPlanPreload} from "@/components/admin/use-customer-plan-preload";
 import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import dynamic from "next/dynamic";
+import {RosterCustomerPanel} from "./roster-customer-panel";
 import type {CourseAddOnCapabilities} from "@/server/services/course-add-ons";
 const CourseBookingAddOns=dynamic(()=>import("@/components/add-ons/course-booking").then(m=>m.CourseBookingAddOns),{loading:()=> <p role="status">讀取附加項目中…</p>});
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
@@ -37,6 +38,7 @@ import { useRetainedState, retainedString, retainedPage } from "@/components/ope
 import { previewCourseEnrollment, enrollCourseSeries } from "@/server/actions/course-roster-enrollment";
 import { CustomerLabels } from "@/components/customer-labels";
 import { RosterToolbar,rosterRowClassName,rosterStatusButtonClassName } from "@/components/admin/roster-primitives";
+import {RosterPlanSummary} from "./roster-plan-summary";
 import {CourseAssignmentPayment} from "@/components/admin/course-assignment-payment";
 import {ItemBalanceSummary} from "@/components/admin/item-balance-summary";
 import {MusicAssignmentPayment} from "@/components/admin/music-assignment-payment";
@@ -56,7 +58,6 @@ import type { SaveState } from "@/hooks/use-responsive-action";
 import { formatTWDateTime, toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
 import { COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
 
-import { DashboardLink } from "@/components/dashboard-link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   updateCourseRosterBatch,
@@ -118,7 +119,7 @@ function TermPaymentHistory({ booking }: { booking: Awaited<ReturnType<typeof ge
 }
 
 export function CourseRoster({
-  source,
+  source,storeId,
   sportsNative=false,
   onBusyChange,refreshVersion=0,
   sessionId,
@@ -148,7 +149,7 @@ export function CourseRoster({
   onSnapshotInvalidated,
   beginTeacherNoteSnapshot,
 }: {
-  source?:CourseRosterSource;
+  source?:CourseRosterSource;storeId?:string;
   sessionId: string;
   capacity: number;
   canCreate: boolean;
@@ -222,10 +223,11 @@ export function CourseRoster({
   const uncertain = operationScope.current.uncertain;
   const [makeupPending,setMakeupPending]=useState(false);
   const pending = transitionPending || uncertain || makeupPending;
+  const [studentPanel,setStudentPanel]=useState<{id:string;name:string;phone:string;cardId?:string}|null>(null);
   const [addOnsBusy,setAddOnsBusy]=useState(false);
   const bulkPending = pending || savingBookingIds.length > 0 || addOnsBusy;
   const ownerBusy=view==="roster"?transitionPending||makeupPending||savingBookingIds.length>0||addOnsBusy:bulkPending;
-  useEffect(()=>{onBusyChange?.(ownerBusy);return()=>onBusyChange?.(false);},[ownerBusy,onBusyChange]);
+  useEffect(()=>{onBusyChange?.(ownerBusy||!!studentPanel);return()=>onBusyChange?.(false);},[ownerBusy,studentPanel,onBusyChange]);
   const [batchMode, setBatchMode] = useState(false);
   const [paymentMenu, setPaymentMenu] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -456,7 +458,7 @@ export function CourseRoster({
   const quickLoad=useRef(load);quickLoad.current=load;
   const sourceVersion=useRef<string|undefined>(undefined);
   const sourceSync=source?.sync;
-  const sourceReadBlocked=useRef(false);sourceReadBlocked.current=!!source?.readBlocked;
+  const sourceReadBlocked=useRef(false);sourceReadBlocked.current=!!source?.readBlocked||!!studentPanel;
   const sourceRead=source?.read;
   const sourceSnapshot=source?.snapshot??initialSnapshot;
   const appliedSnapshot=useRef(seed);
@@ -1346,6 +1348,7 @@ export function CourseRoster({
   return (
 
     <section data-roster-ready="true" data-live-music-roster={musicLayout?'true':undefined} className={`flex min-h-0 w-full flex-col gap-2 ${!musicLayout ? sportsRoster.root : ""} ${musicLayout ? "" : "flex-1 overflow-hidden"}`}>
+      {studentPanel&&<RosterCustomerPanel key={`${sessionId}:${studentPanel.id}`} customer={studentPanel} sessionId={sessionId} storeId={storeId} dataScope={rosterParams.get("dataScope")==="legacy"?"legacy":undefined} onClose={()=>setStudentPanel(null)}/>}
       {readNotice}
       {source?.header?.(roster)}
       {!source&&<aside className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 text-sm" aria-label={`教師資訊：${teacherName}、${courseName}、${roomName}`}>
@@ -1560,7 +1563,7 @@ export function CourseRoster({
           </section>
 
         </div>
-      ) : <CourseRosterList separateIdentity={compactSingle} disabled={sourceReadFailed} labels={source?{identity:"顧客／電話",owner:source.labels.owner??"技師／位置",cost:"本次使用",balance:"可用次數",balanceDescription:"方案剩餘次數扣除所有已預約保留次數",scroll:"預約名單捲動區"}:sportsNative?{cost:"本堂用量",balance:"本期剩餘",balanceDescription:"目前方案未扣用的餘額；可用額度另扣除已預約保留，點名時重新核對。"}:{balanceDescription:postClassBalanceDescription}} empty={rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"} footer={!sportsNative&&activeRows.length>0?<p className="px-3 py-1 text-sm text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額</p>:undefined} rows={searchedRows.map((booking):CourseRosterDisplayRow=>{
+      ) : <CourseRosterList showPlanDetails={sportsNative&&!source} separateIdentity={compactSingle} disabled={sourceReadFailed} labels={source?{identity:"顧客／電話",owner:source.labels.owner??"技師／位置",cost:"本次使用",balance:"可用次數",balanceDescription:"方案剩餘次數扣除所有已預約保留次數",scroll:"預約名單捲動區"}:sportsNative?{cost:"本堂用量",balance:"方案／剩餘",balanceDescription:"目前方案未扣用的餘額；可用額度另扣除已預約保留，點名時重新核對。"}:{balanceDescription:postClassBalanceDescription}} empty={rosterFiltered ? "目前條件沒有符合的學員" : "尚未加入學員"} footer={!sportsNative&&activeRows.length>0?<p className="px-3 py-1 text-sm text-earth-500">○ 待點名　✓ 出席　課後剩餘＝本方案本堂扣點後餘額</p>:undefined} rows={searchedRows.map((booking):CourseRosterDisplayRow=>{
         const leave=["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"");
         const deducted=(booking.absenceKind==="GROUP_LEAVE_FORFEITED"||booking.leaveDeductsWithMakeup)||booking.status==="NO_SHOW";
         const label=booking.absenceKind==="TEACHER_ABSENT"?"本堂免扣":booking.status==="ATTENDED"?"已出席":leave?((booking.absenceKind==="GROUP_LEAVE_FORFEITED"||booking.leaveDeductsWithMakeup)?"缺席・扣堂":"缺席・不扣堂"):booking.status==="NO_SHOW"?(booking.bookingKind==="TRIAL"?"缺席":"缺席・扣堂"):booking.status==="CANCELLED"?"已取消":"待點名";
@@ -1569,7 +1572,7 @@ export function CourseRoster({
         return {id:booking.id,name:booking.customerName,phone:booking.customerPhone,owner:booking.assignedCoachName||"",status:label,mark:booking.status==="ATTENDED"?'attended':deducted?'deducted':leave?'leave':booking.status==="CANCELLED"?'cancelled':'pending',statusTitle:booking.status==="RESERVED"?"標記出席":"更正點名",statusDisabled:!canEdit||rowPending(booking.id)||teacherAbsent||(booking.status==="CANCELLED"&&!leave),onStatus:event=>booking.status==="RESERVED"?run(()=>updateCourseBookingStatus({returnRoster:!source,bookingId:booking.id,status:"ATTENDED"}),`已將 ${booking.customerName} 標記出席`,{bookingId:booking.id,status:"ATTENDED"}):toggleRosterMenu(event.currentTarget,booking.id,sportsNative?"status":"more"),onOpen:()=>source?.onOpen?source.onOpen(booking):setInfoBookingId(booking.id),
           ...(batchMode&&(source?!!source.batchAction:canEdit)&&booking.status!=="CANCELLED"?{selected:selected.includes(booking.id),selectionDisabled:bulkPending||!selectableRows.some(row=>row.id===booking.id),onSelect:(checked:boolean)=>setSelected(old=>checked?[...old,booking.id]:old.filter(id=>id!==booking.id))}:{}),
           context:<CourseBookingContextIndicator name={booking.customerName} shared={sharedCardState!=="HIDDEN"&&booking.sharedCard} proxy={!!booking.operatorCustomerId&&booking.operatorCustomerId!==booking.customerId&&!booking.companionIndex} onOpen={()=>setInfoBookingId(booking.id)}/>,badge:booking.bookingKind==="UNPAID"&&sportsNative?<span className="text-sm text-amber-800">點名前核對方案</span>:trialBadge(booking),feedback:rowFeedback(booking.id),cost:booking.bookingKind==="TRIAL"?"":booking.bookingKind==="UNPAID"?"點名時扣":booking.bookingKind==="TEACHER_MAKEUP"?"免費券":<>{booking.pointCost}{booking.unit==="SESSION"&&<span className="ml-1 text-sm">堂</span>}</>,
-          balance:(sportsNative||!!booking.sportsBalance)&&booking.bookingKind!=="TRIAL"&&booking.bookingKind!=="TEACHER_MAKEUP"?<ItemBalanceSummary balance={booking.sportsBalance}/>:after==null?"":after<0?"不足":after,
+          balance:sportsNative&&!source?<RosterPlanSummary booking={booking} onOpen={()=>{if(booking.customerId)setStudentPanel({id:booking.customerId,name:booking.customerName,phone:booking.customerPhone,...(booking.cardId?{cardId:booking.cardId}:{})});}}/>:(sportsNative||!!booking.sportsBalance)&&booking.bookingKind!=="TRIAL"&&booking.bookingKind!=="TEACHER_MAKEUP"?<ItemBalanceSummary balance={booking.sportsBalance}/>:after==null?"":after<0?"不足":after,
           balanceWarning:sportsNative?!(booking.sportsBalance?.byUnit??(booking.sportsBalance?[booking.sportsBalance]:[])).some(balance=>balance.available>=balance.cost):after!=null&&after<=0,
           reminders:<SportsRosterReminders customerId={booking.customerId??undefined} name={booking.customerName} serviceNote={booking.serviceNote} notes={booking.notes} canEdit={canEdit} canEditNote={canEdit&&booking.status!=="CANCELLED"} onOpen={()=>setInfoBookingId(booking.id)} inlineNote={inlineBookingNote(booking.id)}/>,...((source?source.actions(booking).length>0:canEdit)?{onMore:(event)=>toggleRosterMenu(event.currentTarget,booking.id),moreOpen:openActionMenu?.bookingId===booking.id}:{}),...(source?.row?.(booking)??{}),...(source?{statusDisabled:!canEdit||rowPending(booking.id)||source.row?.(booking).statusDisabled||(!source.statusMenu&&booking.status!=="RESERVED"),...(source.statusMenu?{onStatus:(event)=>source.statusActions&&booking.status==="RESERVED"?source.row?.(booking).onStatus?.(event):toggleRosterMenu(event.currentTarget,booking.id,"status")}:{})}: {})};
       })}/>}
@@ -1934,7 +1937,7 @@ export function CourseRoster({
               <button type="button" role="menuitem" className={button} disabled={!canEdit||teacherAbsent||rowPending(actionBooking.id)||actionBooking.status==="CANCELLED"} onClick={()=>{setOpenActionMenu(null);run(()=>updateCourseBookingStatus({returnRoster:!source,bookingId:actionBooking.id,status:"STUDENT_LEAVE",expectedStatus:actionBooking.status}),`已更正 ${actionBooking.customerName} 未出席不扣堂`,{bookingId:actionBooking.id,status:"CANCELLED",absenceKind:"STUDENT_LEAVE"});}}>未出席不扣堂</button>
               <button type="button" role="menuitem" className={button} disabled={!canEdit||teacherAbsent||rowPending(actionBooking.id)||actionBooking.status==="CANCELLED"||actionBooking.status==="NO_SHOW"} onClick={()=>{setOpenActionMenu(null);run(()=>updateCourseBookingStatus({returnRoster:!source,bookingId:actionBooking.id,status:"NO_SHOW",expectedStatus:actionBooking.status}),`已更正 ${actionBooking.customerName} 未出席扣堂`,{bookingId:actionBooking.id,status:"NO_SHOW"});}}>未出席扣堂</button>
             </> : <>
-              {actionBooking.customerId&&<DashboardLink onPointerEnter={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} onFocus={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} onTouchStart={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} role="menuitem" className={`${button} flex items-center justify-center`} onClick={()=>setOpenActionMenu(null)} href={`/dashboard/courses?${new URLSearchParams({view:"customers",customerId:actionBooking.customerId,studentTab:"info",returnCourseSession:sessionId,returnCourseDate:rosterParams.get("date")??toLocalDateStr()})}`}>學員資料</DashboardLink>}
+              {actionBooking.customerId&&<button type="button" onPointerEnter={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} onFocus={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} onTouchStart={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} role="menuitem" className={`${button} flex items-center justify-center`} onClick={()=>{setOpenActionMenu(null);setStudentPanel({id:actionBooking.customerId!,name:actionBooking.customerName,phone:actionBooking.customerPhone});}}>學員資料</button>}
               {canPurchase&&actionBooking.customerId&&<button type="button" role="menuitem" className={`${button} flex items-center justify-center`} disabled={purchasePending||rowPending(actionBooking.id)} onClick={()=>{setOpenActionMenu(null);if(actionBooking.bookingKind==="TRIAL")setPaymentBooking(actionBooking.id);else void openStudentPurchase(actionBooking.id);}}>學員繳費</button>}
               {canEdit&&!teacherAbsent&&<button type="button" role="menuitem" className={`${button} text-red-700`} disabled={rowPending(actionBooking.id)} onClick={()=>{setOpenActionMenu(null);setCancelBooking({id:actionBooking.id,name:actionBooking.customerName,status:actionBooking.status as "RESERVED"|"ATTENDED"|"NO_SHOW"|"CANCELLED",refund:actionBooking.pointCost,unit:actionBooking.unit==="SESSION"?"堂":"點"});}}>取消本堂</button>}
               {canEdit&&actionBooking.customerId&&!actionBooking.companionIndex&&actionBooking.bookingKind!=="TRIAL"&&<button type="button" role="menuitem" className={`${button} text-red-700`} disabled={rowPending(actionBooking.id)} onClick={()=>{setOpenActionMenu(null);void openFutureStop(actionBooking.id,actionBooking.customerName);}}>取消後續課程</button>}
@@ -1943,7 +1946,7 @@ export function CourseRoster({
             {openActionMenu.attendance ? <>
               {([ ["RESERVED", "恢復原狀態"], ["WAIVED", "請假"], ["NO_SHOW", "曠課"] ] as const).map(([target,label])=><button key={target} type="button" role="menuitem" className={button} disabled={!canEdit || teacherAbsent || rowPending(actionBooking.id)} onClick={()=>{setOpenActionMenu(null);run(()=>correctMusicRosterAttendance({returnRoster:!source,bookingId:actionBooking.id,expectedStatus:actionBooking.status,target}),`已更新 ${actionBooking.customerName}：${label}`,{bookingId:actionBooking.id,status:target==="WAIVED"?"CANCELLED":target,absenceKind:target==="WAIVED"?"STUDENT_LEAVE":null});}}>{label}</button>)}
             </> : <>
-              {actionBooking.customerId && <DashboardLink onPointerEnter={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} onFocus={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} onTouchStart={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} role="menuitem" className={`${button} flex items-center`} onClick={()=>setOpenActionMenu(null)} href={`/dashboard/courses?${new URLSearchParams({view:"customers",customerId:actionBooking.customerId,studentTab:"info",returnCourseSession:sessionId,returnCourseDate:rosterParams.get("date") ?? toLocalDateStr()})}`}>學員資料</DashboardLink>}
+              {actionBooking.customerId && <button type="button" onPointerEnter={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} onFocus={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} onTouchStart={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} role="menuitem" className={`${button} flex items-center`} onClick={()=>{setOpenActionMenu(null);setStudentPanel({id:actionBooking.customerId!,name:actionBooking.customerName,phone:actionBooking.customerPhone});}}>學員資料</button>}
               {canPurchase && actionBooking.customerId && actionBooking.bookingKind!=="TRIAL" && <button type="button" role="menuitem" className={button} disabled={purchasePending} onClick={()=>{setOpenActionMenu(null);void openStudentPurchase(actionBooking.id);}}>學員繳費</button>}
               {canEdit && !teacherAbsent && <button type="button" role="menuitem" className={`${button} text-red-700`} disabled={rowPending(actionBooking.id)} onClick={()=>{setOpenActionMenu(null);setCancelBooking({id:actionBooking.id,name:actionBooking.customerName,status:actionBooking.status as "RESERVED"|"ATTENDED"|"NO_SHOW"|"CANCELLED",refund:actionBooking.pointCost,unit:actionBooking.unit==="SESSION"?"堂":"點"});}}>取消本堂</button>}
               {canEdit && actionBooking.customerId && !actionBooking.companionIndex && actionBooking.bookingKind!=="TRIAL" && <button type="button" role="menuitem" className={`${button} text-red-700`} disabled={rowPending(actionBooking.id)} onClick={()=>{setOpenActionMenu(null);void openFutureStop(actionBooking.id,actionBooking.customerName);}}>取消後續課程</button>}
@@ -1953,7 +1956,7 @@ export function CourseRoster({
             {canEdit && !musicLayout && !teacherAbsent && actionBooking.status === "RESERVED" && <><button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null);setNoShowBooking({id:actionBooking.id,name:actionBooking.customerName,trial:actionBooking.bookingKind === "TRIAL",term:actionBooking.termCount > 0,fixed:actionBooking.sportsFixed});}}>缺席・扣堂</button><button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null);setStudentLeave({id:actionBooking.id,name:actionBooking.customerName,deductSeparate:actionBooking.leaveDeductsWithMakeup});}}>缺席・不扣堂</button></>}
             {canEdit && !musicLayout && !teacherAbsent && (actionBooking.status === "ATTENDED" || actionBooking.status === "NO_SHOW" || ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(actionBooking.absenceKind ?? "")) && <button type="button" role="menuitem" className={button} disabled={rowPending(actionBooking.id)} onClick={() => {setOpenActionMenu(null);run(() => (source?.batch??updateCourseRosterBatch)({sessionId,target:"RESERVED",bookings:[{id:actionBooking.id,status:actionBooking.status}]}),`已恢復 ${actionBooking.customerName} 待點名`,{bookingId:actionBooking.id,status:"RESERVED"});}}>恢復待點名</button>}
             <button type="button" role="menuitem" className={button} onClick={()=>{setOpenActionMenu(null);setInfoBookingId(actionBooking.id);}}>標籤與備註</button>
-            {actionBooking.customerId && <DashboardLink onPointerEnter={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} onFocus={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} onTouchStart={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} role="menuitem" className={`${button} flex items-center`} onClick={()=>setOpenActionMenu(null)} href={`/dashboard/courses?${new URLSearchParams({view:"customers",customerId:actionBooking.customerId,studentTab:"info",returnCourseSession:sessionId,returnCourseDate:rosterParams.get("date") ?? toLocalDateStr()})}`}>學員資料</DashboardLink>}{canEdit && <OperationHistoryButton targetType="CourseBooking" targetId={actionBooking.id} />}
+            {actionBooking.customerId && <button type="button" onPointerEnter={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} onFocus={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} onTouchStart={()=>actionBooking.customerId&&customerPlanPreload.prefetch(actionBooking.customerId)} role="menuitem" className={`${button} flex items-center`} onClick={()=>{setOpenActionMenu(null);setStudentPanel({id:actionBooking.customerId!,name:actionBooking.customerName,phone:actionBooking.customerPhone});}}>學員資料</button>}{canEdit && <OperationHistoryButton targetType="CourseBooking" targetId={actionBooking.id} />}
 
             {canPurchase && actionBooking.customerId && (!musicLayout||actionBooking.bookingKind!=="TRIAL") && <button type="button" role="menuitem" className="min-h-10 rounded px-2 text-left text-primary-800 hover:bg-primary-50 disabled:opacity-50" disabled={purchasePending} onClick={() => { setOpenActionMenu(null); void openStudentPurchase(actionBooking.id); }}>學員繳費</button>}
             {canEdit && !teacherAbsent && <button type="button" role="menuitem" className="min-h-10 rounded px-2 text-left text-red-700 hover:bg-red-50" disabled={rowPending(actionBooking.id)} onClick={() => { setOpenActionMenu(null); setCancelBooking({ id: actionBooking.id, name: actionBooking.customerName, status: actionBooking.status as "RESERVED" | "ATTENDED" | "NO_SHOW" | "CANCELLED", refund: actionBooking.pointCost, unit: actionBooking.unit === "SESSION" ? "堂" : "點" }); }}>取消本堂</button>}

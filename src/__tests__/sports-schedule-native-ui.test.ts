@@ -131,6 +131,30 @@ it.each([false,true])('only enables scheduling after current metadata is confirm
  expect(Array.from(m.host.querySelectorAll('button')).find(b=>b.textContent==='新增')!.disabled).toBe(metadataPending);await m.close();
 });
 
+it('單次可填十週，切換類型保留草稿，失敗重送沿用同一請求',async()=>{
+ vi.mocked(sportsStagingCommand).mockClear();
+ vi.mocked(sportsStagingCommand).mockResolvedValue({success:false,error:'後續日期有衝突'});
+ const m=await mount({coachId:'coach'});
+ try{
+  const clickKind=async(label:string)=>act(async()=>Array.from(m.host.querySelectorAll('button')).find(b=>b.textContent===label)!.click());
+  const radio=Array.from(m.host.querySelectorAll('input[type="radio"]')).find(e=>e.parentElement?.textContent==='開放選課') as HTMLInputElement;
+  await act(async()=>radio.click());
+  expect(m.host.querySelector('[aria-label="單次課安排週數"]')).toBeNull();
+  await clickKind('單次');
+  const weeks=m.host.querySelector<HTMLInputElement>('[aria-label="單次課安排週數"]')!;
+  expect(weeks.value).toBe('1');
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(weeks,'10');weeks.dispatchEvent(new Event('input',{bubbles:true}));});
+  expect(m.host.textContent).toContain('共 10 堂');
+  await clickKind('固定隔週');expect(m.host.querySelector('[aria-label="單次課安排週數"]')).toBeNull();
+  await clickKind('單次');expect(m.host.querySelector<HTMLInputElement>('[aria-label="單次課安排週數"]')!.value).toBe('10');
+  for(let i=0;i<2;i++)await act(async()=>m.host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+  expect(sportsStagingCommand).toHaveBeenCalledTimes(2);
+  expect(vi.mocked(sportsStagingCommand).mock.calls[0][0]).toEqual(vi.mocked(sportsStagingCommand).mock.calls[1][0]);
+  expect(vi.mocked(sportsStagingCommand).mock.calls[0][0]).toMatchObject({payload:{kind:'單次',count:10,mode:'開放選課'}});
+  expect(m.host.querySelector('[role="alert"]')?.textContent).toBe('後續日期有衝突');
+  expect(m.host.querySelector<HTMLInputElement>('[aria-label="單次課安排週數"]')!.value).toBe('10');
+ }finally{await m.close();}
+});
 it('submits an open class with fixed learners and preserves the draft when either mode closes',async()=>{
  vi.mocked(sportsStagingCommand).mockResolvedValue({success:true});
  const m=await mount({coachId:'coach'});

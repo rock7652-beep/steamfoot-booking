@@ -1,0 +1,8 @@
+// Synthetic member portal, with all backend imports blocked by the browser harness.
+import {createRoot} from 'react-dom/client';
+import {CoursePortalClient} from '../../src/app/(customer)/book/course-portal-client';
+import type {CoursePortalData} from '../../src/app/(customer)/book/course-portal';
+const session={id:'session',templateId:'template',name:'舞蹈（常態課程）',startsAt:'2026-11-14T10:40:00Z',coach:'合成老師',room:'A',cost:0,capacity:3,occupied:1,precautions:'',waitlistAllowed:false,waitlistPosition:null,waitlistRemaining:0};
+const data={selfBookingEnabled:false,selfLeaveEnabled:false,selfRescheduleEnabled:false,initialRole:'member',rolePreferenceKey:'direct-action-synthetic',month:'2026-11',serverNow:Date.parse('2026-11-10T11:33:00Z'),initialDate:'2026-11-14',initialView:'schedule',memberEnabled:true,hasWork:false,customerId:'member',customerName:'合成學員',storeName:'合成舞蹈店',storeId:'synthetic',prefix:'/s/synthetic',companionBookingEnabled:false,cancellationLeadMinutes:0,cards:[],plans:[],templates:[],bookings:[{...session,id:'trial',sessionId:'session',status:'RESERVED',customerId:'member',customerName:'合成學員',operatorName:'合成學員',bookingAudience:'ASSIGNED',unit:'TRIAL',planName:'體驗',trialPrice:480,trialPaid:null,notes:'',expiresAt:null}],orders:[],hours:[],special:[],config:{},bookingWindow:{closesAt:'2026-12-10T00:00:00Z'},nextBooking:null,nextWork:null,work:[],sessions:[session]} as unknown as CoursePortalData&{initialDate:string;initialView:'schedule'};
+(window as unknown as {qaAction:(name:string,...args:unknown[])=>Promise<unknown>}).qaAction=async name=>{throw Error('Unexpected backend action '+name);};
+createRoot(document.getElementById('root')!).render(<CoursePortalClient {...data}/>);

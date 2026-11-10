@@ -33,7 +33,7 @@ import { logLineBindEvent } from "@/lib/line-bind-log";
 import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
 import { assertStoreLiffContext, resolveStoreLiffContext } from "@/server/services/store-liff-context";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { onboardCourseLineMember } from "@/server/services/course-line-onboarding";
+import { onboardOrRecoverCourseLineMember } from "@/server/services/course-line-onboarding";
 import { onboardVerifiedBeautyMember } from "@/server/services/beauty-line-onboarding";
 import { storePhoneNeedsConfirmation, completeAuthorizedFirstStoreLogin } from "@/server/services/store-member-connection";
 
@@ -114,11 +114,23 @@ export async function submitOnboarding(
     });
   }
   if (industry === "course") {
-    const result = await onboardCourseLineMember({
+    const result = await onboardOrRecoverCourseLineMember({
       storeId: store.id, lineUserId: verified.lineUserId,
       lineName: verified.displayName, name, phone, identityProvider: context.identityProvider,
+      channelId: verified.channelId,
     });
     console.info("[course-line-onboarding] result", { status: result.status });
+    if (result.status === "login_review_pending") {
+      const diagnostic = createLiffReviewDiagnostic({
+        storeId: store.id, identityProvider: context.identityProvider,
+        channelId: verified.channelId, verifiedSubject: verified.lineUserId,
+        reason: "store_membership_unconfirmed",
+      });
+      logLineBindEvent({ path: "liff-exchange", status: "identity_review_required",
+        storeId: store.id, storeSlug: store.slug, errorCode: "IDENTITY_REVIEW_REQUIRED",
+        extra: { ...diagnostic, entryPoint: "course_onboarding" } });
+      return { ...result, referenceId: diagnostic.referenceId };
+    }
     return result;
   }
 
