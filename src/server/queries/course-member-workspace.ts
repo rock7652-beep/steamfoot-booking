@@ -1,3 +1,4 @@
+import {courseCustomerPhone} from "@/lib/course-customer-contact";
 import "server-only";
 import { sportsNativePreview } from "@/lib/sports-native-preview";
 import { loadSportsStaging } from "@/server/actions/sports-staging";
@@ -74,7 +75,7 @@ export async function loadCourseMemberWorkspace(view:"customers"|"plans",query:R
       view === "customers" && canReadPeople
         ? prisma.customer.findMany({
             where: { ...getManagerCustomerWhere(user.role, user.staffId, storeId), storeId, mergedIntoCustomerId: null, id: { in: customerIds }, AND:[musicCustomerWhere(storeId,query.dataScope)] },
-            select: { id: true, updatedAt: true, name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, address: true, notes: true, emergencyContactName: true, emergencyContactPhone: true, lineUserId: true, lineLinkStatus: true, customerStage: true, createdAt: true, totalPoints: true, mergedIntoCustomerId: true, user: {select:{status:true}}, assignedStaff: {select:{id:true,storeId:true,displayName:true,colorCode:true}}, sponsor:{select:{id:true,storeId:true,name:true}}, _count:{select:{sponsoredCustomers:{where:{storeId,mergedIntoCustomerId:null}}}} },
+            select: { id: true, updatedAt: true, name: true, phone: true, contactPhone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, address: true, notes: true, emergencyContactName: true, emergencyContactPhone: true, lineUserId: true, lineLinkStatus: true, customerStage: true, createdAt: true, totalPoints: true, mergedIntoCustomerId: true, user: {select:{status:true}}, assignedStaff: {select:{id:true,storeId:true,displayName:true,colorCode:true}}, sponsor:{select:{id:true,storeId:true,name:true}}, _count:{select:{sponsoredCustomers:{where:{storeId,mergedIntoCustomerId:null}}}} },
             orderBy: { name: "asc" },
           })
         : [],
@@ -102,7 +103,7 @@ export async function loadCourseMemberWorkspace(view:"customers"|"plans",query:R
   if(panelOnly&&!people.some(p=>p.id===query.customerId))notFound();
   const lastClassByCustomer = new Map(customerPage?.rows.map(row=>[row.id,row.lastVisitAt ? new Date(row.lastVisitAt) : null]));
   const customerRows = people.map(p=>({
-    id:p.id,name:p.name,phone:p.phone,lineName:p.lineName,lineUserId:p.lineUserId,
+    id:p.id,name:p.name,phone:courseCustomerPhone(p),lineName:p.lineName,lineUserId:p.lineUserId,
     lineLinkStatus:p.lineLinkStatus,customerStage:p.customerStage,createdAt:p.createdAt,
     totalPoints:p.totalPoints,sponsoredCount:p._count.sponsoredCustomers,
     sponsor:p.sponsor?.storeId===storeId ? {id:p.sponsor.id,name:p.sponsor.name} : null,
@@ -158,7 +159,7 @@ export async function loadCourseMemberWorkspace(view:"customers"|"plans",query:R
     termSessions:termSessions.map(s=>({id:s.id,name:courseDisplayName(s.nameSnapshot),startsAt:s.startsAt.toISOString()})),
     templates:presentCourseTemplates(templates,plans,music),subjects,musicTeachers,canEditMusicTeachers,view,
     canReadTransactions,canSchedule,canReadBookings,
-    people:people.map(p=>({id:p.id,updatedAt:p.updatedAt.toISOString(),name:p.name,phone:p.phone,email:p.email,gender:p.gender,height:p.height,lineName:p.lineName,serviceNote:p.serviceNote,address:p.address,notes:p.notes,emergencyContactName:p.emergencyContactName,emergencyContactPhone:p.emergencyContactPhone,birthday:p.birthday?.toISOString().slice(0,10)??""})),
+    people:people.map(p=>({id:p.id,updatedAt:p.updatedAt.toISOString(),name:p.name,phone:courseCustomerPhone(p),email:p.email,gender:p.gender,height:p.height,lineName:p.lineName,serviceNote:p.serviceNote,address:p.address,notes:p.notes,emergencyContactName:p.emergencyContactName,emergencyContactPhone:p.emergencyContactPhone,birthday:p.birthday?.toISOString().slice(0,10)??""})),
     plans,cards:[],canEdit,canCreate,canManageStaff,canAssign:canAssign&&canReadCards&&canReadPeople&&canAssignWithTransaction,
     canManageCards,canDiscount,sharedCardState,schedulingModes:schedulingModes??undefined,sportsData,music,
   } satisfies ComponentProps<typeof CourseMemberWorkspace>;

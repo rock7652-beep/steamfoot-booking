@@ -3,7 +3,7 @@ import type { StorePlanFields } from "@/lib/store-plan";
 
 const m = vi.hoisted(() => ({
   manager: vi.fn(), plan: vi.fn(), transaction: vi.fn(), raw: vi.fn(),
-  count: vi.fn(), create: vi.fn(), refresh: vi.fn(), logError: vi.fn(),
+  count: vi.fn(), create: vi.fn(), find:vi.fn(), refresh: vi.fn(), logError: vi.fn(),
 }));
 
 // Keep the action, validators, feature-gate and effective quota resolver real.
@@ -47,16 +47,17 @@ function setup(storeId = MUSIC_OPENING_STORE) {
     maxStaffOverride: null, maxCustomersOverride: null, maxMonthlyBookingsOverride: null,
     maxMonthlyReportsOverride: null, maxReminderSendsOverride: null, maxStoresOverride: null,
   };
-  m.manager.mockResolvedValue({ storeId, user: { id: "synthetic-manager" } });
+  m.manager.mockResolvedValue({ storeId, user: { id: "synthetic-manager", role:"OWNER", staffId:"synthetic-manager-staff" } });
   m.plan.mockImplementation(async (requestedId: string) => {
     expect(requestedId).toBe(storeId);
     return plan;
   });
   m.raw.mockResolvedValue([{ id: storeId }]);
+  m.find.mockResolvedValue(null);
   m.count.mockResolvedValue(10000);
   m.create.mockResolvedValue({ id: "synthetic-customer" });
   m.transaction.mockImplementation(async (work: (tx: unknown) => unknown) => work({
-    $queryRaw: m.raw, customer: { count: m.count, create: m.create },
+    $queryRaw: m.raw, customer: { count: m.count, create: m.create, findFirst:m.find },
   }));
   return plan;
 }
@@ -82,7 +83,7 @@ describe("music Preview student quotas through the actual customer creation acti
     expect(m.raw.mock.calls[0][0].join("?")).toBe('SELECT id FROM "Store" WHERE id = ? FOR UPDATE');
     expect(m.count).toHaveBeenCalledExactlyOnceWith({ where: { storeId: MUSIC_OPENING_STORE, mergedIntoCustomerId: null } });
     expect(m.create).toHaveBeenCalledExactlyOnceWith({
-      data: { storeId: MUSIC_OPENING_STORE, ...input, email: null, gender: null, birthday: null },
+      data: { storeId: MUSIC_OPENING_STORE, ...input, contactPhone:null, email: null, gender: null, birthday: null },
       select: { id: true },
     });
     expect(m.raw.mock.invocationCallOrder[0]).toBeLessThan(m.count.mock.invocationCallOrder[0]);

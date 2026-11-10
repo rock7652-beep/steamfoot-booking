@@ -4,7 +4,7 @@ import {loadCourseScheduleEnrollmentOptions,createScheduleCustomer} from "@/serv
 import {courseCardScheduleIssue,courseCardScheduleRows} from "@/lib/course-card-schedule-issue";
 import {parseTaipeiDateTime,toLocalDateStr} from "@/lib/date-utils";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
-export type ScheduleLearner={customerId:string;cardId:string;name:string;trialPrice?:number;participantPhone?:string};
+export type ScheduleLearner={customerId:string;cardId:string;name:string;trialPrice?:number;sharedContactPhone?:boolean;participantPhone?:string};
 type Card=Extract<Awaited<ReturnType<typeof loadCourseScheduleEnrollmentOptions>>,{success:true}>["cards"][number];
 export function CourseScheduleLearners({templateId,pointCost,capacity,value,onChange,disabled=false,scope="",occurrenceCount=1,onValidityChange,trialMode=false,canCreateCustomer=false,onPendingChange,onDraftChange,itemOnly=false,allowDeferred=false,showCapacity=true,useConfiguredTrialPrice=false,scheduleDate,scheduleTime,scheduleDates}:{scheduleDates?:string[];scheduleTime?:string;scheduleDate?:string;useConfiguredTrialPrice?:boolean;itemOnly?:boolean;allowDeferred?:boolean;showCapacity?:boolean;onDraftChange?:(dirty:boolean)=>void;onPendingChange?:(pending:boolean)=>void;trialMode?:boolean;canCreateCustomer?:boolean;templateId:string;pointCost:number;capacity:number;value:ScheduleLearner[];onChange:(value:ScheduleLearner[])=>void;disabled?:boolean;scope?:string;occurrenceCount?:number;onValidityChange?:(valid:boolean)=>void}) {
   const resolvedTemplate=useRef<string|null>(null);
@@ -16,6 +16,7 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
   const [supplementKey,setSupplementKey]=useState<string|null>(null);
   const [newName,setNewName]=useState("");
   const [newPhone,setNewPhone]=useState("");
+  const [customerRequestKey,setCustomerRequestKey]=useState(()=>crypto.randomUUID());
   const [createError,setCreateError]=useState("");
   const [notice,setNotice]=useState("");
   useEffect(()=>{onDraftChange?.(!!newName||!!newPhone);return()=>onDraftChange?.(false);},[newName,newPhone,onDraftChange]);
@@ -94,13 +95,13 @@ export function CourseScheduleLearners({templateId,pointCost,capacity,value,onCh
       <label>手機<input aria-label="新學員手機" type="tel" className="min-h-11 w-full min-w-0 rounded-lg border px-2" value={newPhone} disabled={creating||disabled} onChange={e=>setNewPhone(e.target.value)}/></label>
       <button type="button" className="col-span-2 min-h-11 text-primary-700" disabled={creating||disabled||!newName.trim()||!newPhone.trim()} onClick={()=>startCreate(async()=>{
         setCreateError("");
-        try{const result=await createScheduleCustomer({name:newName,phone:newPhone});if(!result.success){setCreateError(result.error??"新增失敗");return;}
+        try{const result=await createScheduleCustomer({name:newName,phone:newPhone,requestKey:customerRequestKey});if(!result.success){setCreateError(result.error??"新增失敗");return;}
         const person=result.customer;setCustomers(rows=>[...rows.filter(row=>row.id!==person.id),person]);
         if(supplementKey){
           if(value.some(row=>row.customerId===person.id&&row.customerId!==supplementKey)){setCreateError("此學員已在名單，請核對同行者");return;}
           onChange(value.map(row=>row.customerId===supplementKey?{...row,customerId:person.id,name:person.name}:row));
         }else if(!value.some(row=>row.customerId===person.id)){const card=!itemOnly&&!trialMode?(available.find(card=>card.members.some(member=>member.id===person.id))??(allowDeferred?cards.find(card=>card.members.some(member=>member.id===person.id)):undefined)):undefined;onChange([...value,{customerId:person.id,name:person.name,cardId:card?.id??"",...(!card&&trialMode?{trialPrice:trial.price}:{})}]);}
-        setNotice(person.existing?"此手機已有學員，已帶入原資料":"學員已建檔");setNewCustomer(false);setSupplementKey(null);setNewName("");setNewPhone("");
+        setNotice(person.existing?"此手機已有學員，已帶入原資料":"學員已建檔");setNewCustomer(false);setSupplementKey(null);setNewName("");setNewPhone("");setCustomerRequestKey(crypto.randomUUID());
         }catch{setCreateError("連線失敗，請重試");}
       })}>{creating?"儲存中…":supplementKey?"儲存資料":"建立並加入"}</button>
       {createError&&<p role="alert" className="col-span-2 text-red-700">{createError}</p>}

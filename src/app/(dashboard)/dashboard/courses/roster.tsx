@@ -1295,6 +1295,7 @@ export function CourseRoster({
                 const saved = await saveCourseCustomer({
                   name: data.get("name"),
                   phone: data.get("phone"),
+                  requestKey,
                 });
                 if (!saved.success) return saved;
                 return createCourseTrial({
@@ -1332,7 +1333,7 @@ export function CourseRoster({
               </label>
             </div>
             {!sportsNative&&<p className="text-sm text-earth-500">
-              若手機已存在，請改用「選擇既有顧客」，避免重複建檔。
+              同一位學員請使用既有顧客；不同孩子可使用相同聯絡電話。
             </p>}
             {priceField}
             {noteField}

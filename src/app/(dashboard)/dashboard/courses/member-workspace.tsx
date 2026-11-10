@@ -21,6 +21,7 @@ import type {CoursePlanCatalogPort} from "./course-profile-forms";
 import {studentScheduleHref} from "@/lib/music-student-navigation";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
+import { CoursePhoneViewPanel } from "@/components/admin/course-phone-view-panel";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
 import { coursePlanSnapshot } from "@/lib/course-plan-snapshot";
@@ -708,6 +709,7 @@ export function CourseMemberWorkspace({
               note={<RetainedNoteEditor quiet optimistic emptyActionLabel="＋備註" key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" formatDisplay={musicNoteDisplay} hint="" placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit} save={(serviceNote,expectedServiceNote)=>saveCourseCustomerNote({customerId:person.id,serviceNote,expectedServiceNote})} onSaved={()=>router.refresh()}/>}
               actions={<><StudentMakeupStatus onPendingChange={setFormPending} customerId={person.id} revision={person.updatedAt??""}/>{canManageStaff&&<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>open("coach")}>{personnelText("加入為教師")}</button>}</>}
             />}
+            {panel === "person" && person && personTab === "info" && !editingPerson && !source && <CoursePhoneViewPanel key={`phone-${person.id}`} customerId={person.id} />}
             {panel === "person" && (
               <CourseCustomerDraftForm compact={music} key={`draft-${person?.id??"new"}`} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
             )}
@@ -734,6 +736,7 @@ export function CourseMemberWorkspace({
                 onSaved={value=>{if(sportsNative)setNoteReceipts(rows=>({...rows,[person.id]:{source:sourcePeople.find(p=>p.id===person.id)?.serviceNote??null,value}}));else router.refresh();if(source)router.refresh();}} />}
               actions={source?.staffAction?.available(person.id)?<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>{if(canLeave()){rememberProfileScroll();source.staffAction!.open(person.id);}}}>{source.staffAction.label}</button>:canManageStaff&&<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>open("coach")}>{personnelText("加入為教練")}</button>}
             />}
+            {panel === "person" && person && personTab === "info" && !editingPerson && !source && <CoursePhoneViewPanel key={`phone-${person.id}`} customerId={person.id} />}
             {panel === "person" && (
               <CourseCustomerDraftForm save={source?.saveProfile} draftScope={source?"module-customer":"course-customer"} key={person?.id??"new"} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onDirtyChange={setDirty} onSaved={finishDraftForm} />
             )}

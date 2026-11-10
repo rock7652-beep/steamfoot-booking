@@ -1,3 +1,4 @@
+import {courseCustomerPhone} from "@/lib/course-customer-contact";
 import {calendarMonthReadActive} from "@/server/services/calendar-month-read-scope";
 import {courseCalendarRead} from '@/server/services/course-calendar-read-scope';
 import {sportsNativePreview} from "@/lib/sports-native-preview";
@@ -84,7 +85,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       members: c.members.map((m) => ({
         id: m.customerId,
         name: people.find((p) => p.id === m.customerId)?.name ?? "學員",
-        phone: people.find((p) => p.id === m.customerId)?.phone ?? "",
+        phone: courseCustomerPhone(people.find((p) => p.id === m.customerId)),
       })),
       entries: c.entries.map((e) => ({
         id: e.id,
@@ -162,7 +163,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     once("roster-customers",()=>prisma.customer.findMany({
     relationLoadStrategy:"join",
     where: { storeId, id: { in: readBookings.map((b) => b.customerId).filter((id): id is string => !!id) } },
-    select: { id: true, phone: true, serviceNote: true, notes: true, assignedStaff: { select: { id: true, displayName: true, storeId: true } } },
+    select: { id: true, phone: true, contactPhone: true, serviceNote: true, notes: true, assignedStaff: { select: { id: true, displayName: true, storeId: true } } },
   })),
   once("roster-absence-history",()=>coursePrisma.courseBooking.findMany({
     where: {storeId,bookingKind:{not:"OPENING_MAKEUP"},musicOpeningMakeupEntitlementId:null,customerId:{in:readBookings.map(b=>b.customerId).filter((id): id is string => !!id)},OR:[{absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},{status:"NO_SHOW"}]},
@@ -312,7 +313,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     assignedCoachName: (customers.find(c => c.id === b.customerId)?.assignedStaff?.storeId === storeId ? customers.find(c => c.id === b.customerId)?.assignedStaff?.displayName : "") ?? "",
     expiresAt: card?.expiresAt?.toISOString() ?? null,
     ...(!openingMakeup && opening.kind === "NATIVE" && card?.musicValidityDays && !card.musicActivatedAt ? { activationExpiryLabel: `首次上課起 ${card.musicValidityDays} 天` } : {}),
-    customerPhone: customers.find((c) => c.id === b.customerId)?.phone ?? "",
+    customerPhone: courseCustomerPhone(customers.find((c) => c.id === b.customerId)),
     absenceCount: (b.customerId?absenceCounts.get(b.customerId):0)??0,
     absenceHistory: absenceHistory.filter(item=>item.customerId===b.customerId).map(item=>({date:item.session.startsAt.toISOString(),status:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(item.absenceKind ?? "") ? "請假" : "曠課"})),
     serviceNote: [musicSourceDisplayNote(customers.find((c) => c.id === b.customerId)?.serviceNote), customers.find((c) => c.id === b.customerId)?.notes].filter(Boolean).join("\n"),

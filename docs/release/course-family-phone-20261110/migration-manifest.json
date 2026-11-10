@@ -1,0 +1,18 @@
+{
+  "baseCommit": "c4583d3cd68b89a92c1fb42d41e4db06e075932e",
+  "productionProject": "qijlnhtpbintanzpxkvf",
+  "previewProject": "ttworfzgwejdeolegkxl",
+  "productionWritesExecuted": false,
+  "migrations": [
+    {
+      "name": "20261110082629_course_family_contact",
+      "sha256": "2f3a69cfe658f87394c2199a2f1457f6512b258dc0035cdc2049f4ed77af8acc",
+      "path": "prisma/migrations/20261110082629_course_family_contact/migration.sql"
+    },
+    {
+      "name": "20261110095649_course_phone_view_grant",
+      "sha256": "f864790a0b779597f311ca722117d0cadc01632684dbfe27f2507db4ffd84177",
+      "path": "prisma/migrations/20261110095649_course_phone_view_grant/migration.sql"
+    }
+  ]
+}

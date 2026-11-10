@@ -33,6 +33,12 @@ it("staff messaging confirmation authorizes one first Login capture without copy
  expect(m.captureCreate.mock.calls[0][0].data).not.toHaveProperty("candidateLineUserId");
  expect(m.accountCreate).toHaveBeenCalledWith({data:expect.objectContaining({provider:"line-messaging:channel"})});
 });
+
+it("does not consume a course phone confirmation through the notification approval action",async()=>{
+ m.request.findFirst.mockResolvedValue({id:"r",storeId:"a",customerId:"c",phone:"0912345678",status:"PENDING",expiresAt:new Date(Date.now()+3600000),identityProvider:"line",channelKey:"course-phone:channel",lineUserId:"course-phone:verified-subject"});
+ await expect(approveStoreMemberConnection(ctx,"r","c")).rejects.toThrow(/登入確認/);
+ expect(m.accountCreate).not.toHaveBeenCalled();expect(m.customerUpdate).not.toHaveBeenCalled();
+});
 it("does not authorize replacement when a Login account already exists",async()=>{
  m.config.mockReturnValue(null);
  m.request.findFirst.mockResolvedValue({id:"r",storeId:"a",customerId:"c",phone:"0912345678",status:"PENDING",expiresAt:new Date(Date.now()+3600000),identityProvider:"line-messaging:channel",channelKey:"channel",lineUserId:line});

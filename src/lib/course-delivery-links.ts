@@ -1,6 +1,9 @@
 /** Public routing only: never accept a redirect URL from query parameters. */
-export function courseLineOnboardingReturnPath(slug: string, search: string): string {
+export function courseLineOnboardingReturnPath(slug: string, search: string, allowMemberReturn = false): string {
   const prefix = `/s/${encodeURIComponent(slug)}/liff`;
+  if (allowMemberReturn && new URLSearchParams(search).get('memberEntry') === 'liff') {
+    return courseMemberReturnPath(slug, search, true);
+  }
   return new URLSearchParams(search).get("booking") === "1"
     ? `${prefix}/public-trial?bookingStore=${encodeURIComponent(slug)}` : prefix;
 }

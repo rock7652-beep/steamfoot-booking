@@ -65,6 +65,7 @@ import { musicPurchasedQuantity, musicPurchasedTitle } from "@/lib/music-purchas
 import { CourseMemberPaymentRecords } from "./course-member-records";
 import type { CoursePortalData } from "./course-portal";
 import { CourseMemberContactForm } from "@/components/course-member-contact-form";
+import { CoursePhoneLearners } from "@/components/course-phone-learners";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { CourseHealthWorkspace } from "@/components/course-health-workspace";
 import { CopyButton } from "./shop/[planId]/checkout/copy-button";
@@ -901,7 +902,18 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
             <>
               {!coach && <StoreImageAnnouncements storeSlug={p.prefix.split("/")[2] ?? ""} preview={!!p.readOnly} />}
               {heading(coach ? "今日工作" : "會員首頁")}
-              {!coach && <section className="cp-card cp-next">
+              {coach ? (
+                <>
+                  <p>今天 · {today} · {todayWork.length} 堂</p>
+                  {workRows(todayWork.filter(s => !isEnded(s) || needsRoll(s)))}
+                  {todayWork.some(s => isEnded(s) && !needsRoll(s)) && <details className="cp-card cp-pad"><summary>已結束課程（{todayWork.filter(s=>isEnded(s)&&!needsRoll(s)).length}）</summary>{workRows(todayWork.filter(s=>isEnded(s)&&!needsRoll(s)))}</details>}
+                  {!todayWork.length && <section className="cp-card cp-pad"><p>今天沒有課程</p>{p.nextWork ? <button onClick={() => { go("schedule"); workDate(courseDate(p.nextWork!.startsAt)); }}>下一堂 · {formatTWDateTime(new Date(p.nextWork.startsAt))} · {p.nextWork.name}</button> : <p>尚無後續授課安排。</p>}</section>}
+                  {overdue.length > 0 && <details className="cp-card cp-pad"><summary>過往待點名 · {overdue.length} 堂</summary>{overdue.map(s => <section key={s.id}><h3>{courseDate(s.startsAt)}</h3>{workRows([s])}</section>)}</details>}
+                </>
+              ) : (
+                <>
+                  <CoursePhoneLearners key={`${p.rolePreferenceKey}:${p.customerId}`} scope={`${p.prefix}:${p.rolePreferenceKey}:${p.customerId}`} disabled={!!p.readOnly}>
+              <section className="cp-card cp-next">
                 <div>
                   <small>{coach ? "下一堂課" : "下一次上課"}</small>
                   <strong>
@@ -932,19 +944,11 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                 >
                   {!coach && !p.nextBooking ? selfBookingEnabled ? "預約課程" : "查看課表" : "查看"}
                 </button>}
-              </section>}
-              {coach ? (
-                <>
-                  <p>今天 · {today} · {todayWork.length} 堂</p>
-                  {workRows(todayWork.filter(s => !isEnded(s) || needsRoll(s)))}
-                  {todayWork.some(s => isEnded(s) && !needsRoll(s)) && <details className="cp-card cp-pad"><summary>已結束課程（{todayWork.filter(s=>isEnded(s)&&!needsRoll(s)).length}）</summary>{workRows(todayWork.filter(s=>isEnded(s)&&!needsRoll(s)))}</details>}
-                  {!todayWork.length && <section className="cp-card cp-pad"><p>今天沒有課程</p>{p.nextWork ? <button onClick={() => { go("schedule"); workDate(courseDate(p.nextWork!.startsAt)); }}>下一堂 · {formatTWDateTime(new Date(p.nextWork.startsAt))} · {p.nextWork.name}</button> : <p>尚無後續授課安排。</p>}</section>}
-                  {overdue.length > 0 && <details className="cp-card cp-pad"><summary>過往待點名 · {overdue.length} 堂</summary>{overdue.map(s => <section key={s.id}><h3>{courseDate(s.startsAt)}</h3>{workRows([s])}</section>)}</details>}
-                </>
-              ) : (
-                <>
-                  <button className="primary cp-wide-action" onClick={() => { go("schedule"); if (selfBookingEnabled) setCalendarView("open"); }}>{selfBookingEnabled ? "立即預約" : "查看課表"}</button>
+              </section>
                   <section className="cp-card cp-pad" aria-label="有效方案合計"><h2>有效方案合計</h2><div className="cp-balances">{!balanceTotals.length && <p>目前沒有有效方案</p>}{balanceTotals.map(total => <p key={total.unit}><strong>還可預約 {total.available} {unit(total.unit)}</strong>{total.held > 0 && <small className="cp-balance-breakdown">剩餘 {total.remaining} {unit(total.unit)}｜已預約 {total.held} {unit(total.unit)}</small>}</p>)}</div><button onClick={()=>go("plans")}>我的方案</button></section>
+                  </CoursePhoneLearners>
+                  <button className="primary cp-wide-action" onClick={() => { go("schedule"); if (selfBookingEnabled) setCalendarView("open"); }}>{selfBookingEnabled ? "立即預約" : "查看課表"}</button>
+
 
                 </>
               )}

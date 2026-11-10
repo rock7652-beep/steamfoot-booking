@@ -14,4 +14,3 @@ it('未綁卡時標示適用方案合計及查看方案，不虛構已使用的�
  const html=renderToStaticMarkup(h(RosterPlanSummary,{booking,onOpen:vi.fn()}));
  expect(html).toContain('適用方案合計');expect(html).toContain('查看方案');expect(html).not.toContain('此方案上課紀錄');expect(html).not.toContain('2027-01-01');
 });
-

@@ -121,6 +121,7 @@ export async function attachSportsSessionRules(
             sessionId: session.id,
             cardId: null,
             deferredPayment: !session.isTrial,
+            onSite: true,
             customerId: student.customerId,
             trialPrice: session.isTrial ? rule.trialPrice : undefined,
             requestKey: `${requestKey}:${session.requestIndex}:${student.customerId}`,

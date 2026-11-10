@@ -497,7 +497,7 @@ function BeautyDetailedBookingForm({
             <input
               required
               type="date"
-              min={toLocalDateStr()}
+              min={mode === "manager" ? undefined : toLocalDateStr()}
               className={control}
               value={date}
               onChange={(e) => {

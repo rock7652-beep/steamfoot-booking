@@ -21,7 +21,7 @@ it("checks the confirmed dates before reserving and rejects a stale scope",async
 });
 it("reserves each lesson under the same transaction and replays without duplicate writes",async()=>{
  expect(await enrollCourseSeries(input)).toMatchObject({success:true,count:2});expect(m.reserve).toHaveBeenCalledTimes(2);
- expect(m.reserve.mock.calls[1][2]).toMatchObject({sessionId:"second",cardId:"card",requestKey:`${input.requestKey}:second`});
+ expect(m.reserve.mock.calls[1][2]).toMatchObject({sessionId:"second",cardId:"card",onSite:true,requestKey:`${input.requestKey}:second`});
  m.previous.mockResolvedValue([{sessionId:"first"},{sessionId:"second"}]);
  expect(await enrollCourseSeries(input)).toMatchObject({success:true,count:2});expect(m.reserve).toHaveBeenCalledTimes(2);
 });

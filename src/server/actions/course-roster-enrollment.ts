@@ -39,7 +39,7 @@ export async function enrollCourseSeries(input:unknown) {
       const actor={storeId,userId:user.id,name:user.name??"店長"};
       const cardId=data.cardId;
       if(!cardId&&!data.autoCard)throw new AppError("VALIDATION","請選擇有效方案");
-      for(const session of sessions)await reserveCourseInTransaction(tx,actor,{...data,cardId:cardId??null,deferredPayment:data.autoCard&&!cardId,sessionId:session.id,requestKey:`${data.requestKey}:${session.id}`},limits.maxMonthlyBookings);
+      for(const session of sessions)await reserveCourseInTransaction(tx,actor,{...data,cardId:cardId??null,deferredPayment:data.autoCard&&!cardId,onSite:true,sessionId:session.id,requestKey:`${data.requestKey}:${session.id}`},limits.maxMonthlyBookings);
       return sessions.length;
     }, async (auditResult, tx) => { await enqueueOperationAudit({actorUserId:user.id,storeId,module:"COURSE",targetType:"CourseSession",targetId:data.sessionId,action:"ENROLL_SERIES",summary:`加入學員至 ${auditResult} 堂課程`,after:{customerId:data.customerId,sessionIds:data.sessionIds}}, tx, data.requestKey); });
 

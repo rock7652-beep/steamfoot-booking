@@ -205,8 +205,8 @@ export async function findAllocation(
 
   if (
     !allowPast &&
-    (startsAt.getTime() <= Date.now() + policy.leadMinutes * 60000 ||
-      d.date > (policy.bookableUntilDate??addTaiwanDuration(toLocalDateStr(), policy.bookableDays, "DAY")))
+    ((!a.manager && startsAt.getTime() <= Date.now() + policy.leadMinutes * 60000) ||
+      (d.date > (policy.bookableUntilDate??addTaiwanDuration(toLocalDateStr(), policy.bookableDays, "DAY")) && !(a.manager && startsAt.getTime() <= Date.now())))
   )
     throw new AppError("VALIDATION", "此時間尚未開放或已超過預約截止");
   if (!allowPast && !slots.includes(d.time) && !memberSlots.includes(d.time))
