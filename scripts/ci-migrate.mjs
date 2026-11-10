@@ -148,6 +148,7 @@ import { assertReviewedReleaseEnvironment } from "./consultation-preview-scope.m
 
 // Validate the exact release mode before any migration subprocess or DB client.
 const releaseMode = assertReviewedReleaseEnvironment(process.env);
+if(releaseMode==="subscription-referral-qa"){console.info("[referral-qa] restricted_isolated_role=true migrations_skipped=true deliveries_blocked=true");process.exit(0);}
 const { assertCourseAgreementsBuildConfiguration } = await import('./course-agreements-build-readiness.mjs');
 assertCourseAgreementsBuildConfiguration(process.env);
 if (releaseMode === 'course-agreements-preview') {

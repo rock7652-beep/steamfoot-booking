@@ -11,7 +11,7 @@ import {measureMusicCheckout,withCourseCheckoutRequest,musicCheckoutShouldDeferS
 import {readPurchasedCourseRoster,readPurchasedCourseCards,readCommittedCourseRoster} from '@/server/queries/course-purchase-roster';
 import {assertCoursePlanMode} from "@/server/services/course-scheduling-modes";
 
-import {Prisma as CoursePrismaValue} from "../../../generated/course-client";
+import {loadCoursePrismaRuntime} from "@/lib/generated-prisma-runtime";
 import {assertChargeProviders} from "@/server/services/course-charge";
 import {requireStoreFeature} from "@/lib/feature-gate";
 import {FEATURES} from "@/lib/feature-flags";
@@ -315,8 +315,10 @@ export async function saveCoursePointPlan(input: unknown) {
       throw new AppError("CONFLICT","方案已有更新，輸入已保留。請核對目前資料後再編輯。");
     }
     if (planId) {
+      // SQL-null enums must come from the same external runtime as coursePrisma.
+      // A bundled enum from another runtime serializes as JSON {} and falsely conflicts.
       const result = await tx.coursePointPlan.updateMany({
-        where: { id: planId, storeId, ...(expected ? {...expected,chargeSettings:expected.chargeSettings===null?{equals:CoursePrismaValue.DbNull}:{equals:expected.chargeSettings},musicTermSizes:{equals:expected.musicTermSizes},templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
+        where: { id: planId, storeId, ...(expected ? {...expected,chargeSettings:expected.chargeSettings===null?{equals:loadCoursePrismaRuntime().Prisma.DbNull}:{equals:expected.chargeSettings},musicTermSizes:{equals:expected.musicTermSizes},templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
         data:{...data,chargeSettings:data.chargeSettings??undefined},
       });
       if (!result.count) throw new AppError(expected?"CONFLICT":"NOT_FOUND", expected?"方案已有更新，輸入已保留。請核對目前資料後再編輯。":"找不到本店方案");

@@ -291,3 +291,17 @@ it("closes a changed music teacher without a leave-confirmation popup or save",a
   expect(m.save).not.toHaveBeenCalled();
  } finally { confirm.mockRestore(); }
 });
+
+it('prefills a customer in the original staff form and confirms unsaved return without submitting',async()=>{
+ const onPanelClose=vi.fn(),initialCustomer={id:'customer',name:'顧客轉技師',phone:'0912345678',email:'customer@example.invalid',birthday:'1990-01-02',emergencyContactName:'家人',emergencyContactPhone:'0999999999',linkMember:true};
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{initialCreate:true,initialCustomer,onPanelClose,previewStoreId:'s',staff:[],maxStaff:null,templates:[],customers:[{id:'customer',name:initialCustomer.name}],canManage:true,permissionGroups:[]})));
+ const form=document.getElementById('course-staff-form')!;
+ expect((form.querySelector('[name="name"]') as HTMLInputElement).value).toBe(initialCustomer.name);
+ expect((form.querySelector('[name="phone"]') as HTMLInputElement).value).toBe(initialCustomer.phone);
+ expect((form.querySelector('[name="customerId"]') as HTMLInputElement).value).toBe('customer');
+ const name=form.querySelector('[name="name"]') as HTMLInputElement;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(name,'未儲存姓名');name.dispatchEvent(new Event('input',{bubbles:true}));});
+ const confirm=vi.spyOn(window,'confirm').mockReturnValue(false);
+ await click('取消');expect(confirm).toHaveBeenCalled();expect(onPanelClose).not.toHaveBeenCalled();expect(document.getElementById('course-staff-form')).not.toBeNull();
+ confirm.mockReturnValue(true);await click('取消');expect(onPanelClose).toHaveBeenCalledTimes(1);expect(m.save).not.toHaveBeenCalled();confirm.mockRestore();
+});

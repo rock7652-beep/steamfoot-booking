@@ -108,6 +108,14 @@ export async function hqLoginAction(
     userStoreSlug,
   });
 
+  // Exact referral intent only; never accept an arbitrary return URL from the browser.
+  const destination = process.env.SUBSCRIPTION_REFERRALS_ENABLED === "true"
+    && formData.get("intent") === "subscription-referral" && user.role === "OWNER"
+    && userStoreSlug && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$/.test(userStoreSlug)
+    ? `/s/${userStoreSlug}/admin/dashboard/settings/subscription-referrals`
+    : process.env.SUBSCRIPTION_REFERRALS_ENABLED === "true" && formData.get("intent") === "subscription-referral" && user.role === "ADMIN"
+      ? "/hq/dashboard/stores/referrals" : decision.redirectTo;
+
   if (decision.clearStoreContext) {
     await clearStoreContextCookies();
   }
@@ -117,7 +125,7 @@ export async function hqLoginAction(
     await signIn("credentials", {
       email,
       password,
-      redirectTo: decision.redirectTo,
+      redirectTo: destination,
       // Complete authentication and cookies here, then let the browser navigate.
       // A streamed Server Action redirect can fetch a protected deployment's
       // Vercel authentication page and preload its assets on our own origin.
@@ -131,7 +139,7 @@ export async function hqLoginAction(
     throw e;
   }
 
-  return { error: null, redirectTo: decision.redirectTo };
+  return { error: null, redirectTo: destination };
 }
 
 async function findLoginUser(email: string) {

@@ -41,14 +41,26 @@ export type CourseActor = {
 
 export type CourseNoShowChoice = "DEDUCTED" | "DEDUCTED_WITH_MAKEUP";
 export async function syncCourseRelease(tx: Prisma.TransactionClient, storeId: string, sessionId: string) {
-  const session = await tx.courseSession.findFirst({ where: { id: sessionId, storeId, cancelledAt: null }, select: { teacherAttendance: true, releasedAt: true, startsAt: true, endsAt: true, roomId: true, coachId: true } });
+  const session = await tx.courseSession.findFirst({ where: { id: sessionId, storeId, cancelledAt: null }, select: { teacherAttendance: true, releasedAt: true, startsAt: true, endsAt: true, roomId: true, coachId: true, enrollmentMode:true, requestKey:true } });
   if (!session) return;
   const sports = (await sportsNativePreview(storeId));
   const [active, leave] = await Promise.all([
     tx.courseBooking.count({ where: { storeId, sessionId, status: sports ? { notIn: ["CANCELLED", "NO_SHOW"] } : { not: "CANCELLED" } } }),
     tx.courseBooking.count({ where: { storeId, sessionId, OR: [{ status: "CANCELLED", absenceKind: { in: ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"] } }, ...(sports ? [{status: "NO_SHOW"}] : [])] } }),
   ]);
-  const shouldRelease = active === 0 && (["LEAVE", "NO_SHOW"].includes(session.teacherAttendance) || leave > 0);
+  const teacherAbsent = ["LEAVE", "NO_SHOW"].includes(session.teacherAttendance);
+  let mixed = false;
+  if (active === 0 && leave > 0 && !teacherAbsent) {
+    if (sports) {
+      const {readSportsSessionRule}=await import("./sports-staging-schedule");
+      const rule=await readSportsSessionRule(tx,storeId,sessionId);
+      mixed=rule?.enrollment==="OPEN"&&!!rule.payload?.students?.length;
+    } else if (session.enrollmentMode === "OPEN") {
+      mixed=await tx.courseBooking.count({where:{storeId,sessionId,requestKey:{startsWith:`schedule:${session.requestKey}:`}}})>0;
+    }
+  }
+  // A fixed learner leaving a mixed class frees a seat, not its public class.
+  const shouldRelease = active === 0 && (teacherAbsent || leave > 0 && !mixed);
   if (shouldRelease !== Boolean(session.releasedAt)) {
     if (!shouldRelease) {
       const conflict = await tx.courseSession.findFirst({ where: {
@@ -471,7 +483,7 @@ export async function reserveCourseInTransaction(
       actorUserId: actor.userId,
     },
   });
-  await enqueueOperationAudit({ actorUserId: actor.userId, actorNameSnapshot: actor.name, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: "建立課程預約" }, tx, input.requestKey);
+  await enqueueOperationAudit({ actorUserId: actor.userId, actorNameSnapshot: actor.name, storeId, module: "COURSE", targetType: "CourseBooking", targetId: booking.id, action: "CREATE", summary: `建立課程預約：${booking.customerName} · ${session.nameSnapshot}`, after: {customerName:booking.customerName,nameSnapshot:session.nameSnapshot,startsAt:session.startsAt.toISOString()} }, tx, input.requestKey);
   if(!options.memberReschedule && actor.customerId)await recordCourseStoreNotice(tx,actor,{subjectKey:`booking:${booking.id}`,kind:"BOOKING",customerName:booking.customerName,courseName:session.nameSnapshot,coachId:session.coachId,startsAt:session.startsAt});
   return booking;
 }

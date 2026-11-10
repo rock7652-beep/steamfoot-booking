@@ -143,3 +143,32 @@ it('keeps save failures beside the submit button outside the scrolling fields an
   expect(host.textContent).toContain('測試學員');expect(created).not.toHaveBeenCalled();expect(save().disabled).toBe(false);
  }finally{await act(async()=>root.unmount());}
 });
+
+it('submits fixed learners with total open capacity and omits them when the mixed choice is off',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ vi.mocked(getMusicSlotMatches).mockResolvedValue({success:true,data:[{time:'18:00',roomId:'room',coachIds:['wu']}],unavailable:[],blocker:undefined});
+ vi.mocked(inspectCourseSchedule).mockResolvedValue({success:true,issues:[]});
+ vi.mocked(loadCourseScheduleEnrollmentOptions).mockResolvedValue({success:true,cards:[],customers:[{id:'student',name:'測試學員',phone:'0900000000'}],trialSettings:{enabled:false,price:0}});
+ const {createCourseSchedule}=await import('@/server/actions/course');
+ vi.mocked(createCourseSchedule).mockResolvedValue({success:false,error:'保留草稿供核對',conflicts:[]});
+ const host=document.createElement('div'),root=createRoot(host);
+ const props={templates:[{id:'guitar',name:'吉他',durationMinutes:50,capacity:4,defaultRoomId:null,musicSubjectId:'guitar',musicSubject:{id:'guitar',name:'吉他',isActive:true}}],rooms:[{id:'room',name:'01'}],coaches:[{id:'wu',displayName:'教師'}],initialDate:'2026-10-27',seed:{time:'18:00',roomId:'room',coachId:'wu'},initialTemplateId:'guitar',initialLearner:{customerId:'student',name:'測試學員',cardId:''},requestKey:'mixed-ui',onCreated:vi.fn()};
+ try{
+  await act(async()=>root.render(React.createElement(MusicScheduleWizard,props)));
+  await act(async()=>host.querySelectorAll<HTMLInputElement>('input[type="radio"]')[1].click());
+  await act(async()=>host.querySelector<HTMLInputElement>('[aria-label="同時安排固定學員"]')!.click());
+  const capacity=host.querySelector<HTMLInputElement>('[aria-label="名額"]')!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(capacity,'4');capacity.dispatchEvent(new Event('input',{bubbles:true}));});
+  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,160));});
+  expect(host.textContent).toContain('剩餘 3 人可自由選課');
+  const save=()=>Array.from(host.querySelectorAll('button')).find(button=>button.textContent==='新增')!;
+  expect(save().disabled).toBe(false);await act(async()=>save().click());
+  expect(vi.mocked(createCourseSchedule).mock.calls.at(-1)![0]).toMatchObject({enrollmentMode:'OPEN',capacity:4,learners:[{customerId:'student',cardId:null}]});
+  await act(async()=>host.querySelector<HTMLInputElement>('[aria-label="同時安排固定學員"]')!.click());
+  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,160));});
+  await act(async()=>save().click());
+  expect(vi.mocked(createCourseSchedule).mock.calls.at(-1)![0]).toMatchObject({enrollmentMode:'OPEN',capacity:4,learners:[]});
+  await act(async()=>root.render(React.createElement(MusicScheduleWizard,{...props,schedulingModes:{selfBookingEnabled:true,assignedSchedulingEnabled:false}})));
+  expect(host.querySelector('[aria-label="同時安排固定學員"]')).toBeNull();
+ }finally{await act(async()=>root.unmount());}
+});

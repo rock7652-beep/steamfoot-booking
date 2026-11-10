@@ -8,7 +8,7 @@ export function studentReturnHref(customerId: string, query = "", _tab: "makeups
   }
   if (source.get("dataScope") === "legacy") next.set("dataScope", "legacy");
   next.set("customerId", customerId);
-  next.set("studentTab", source.get("studentTab") === "records" ? "records" : "courses");
+  next.set("studentTab", source.get("studentTab") === "info" ? "info" : source.get("studentTab") === "records" ? "records" : "courses");
   return `/dashboard/courses?${next}`;
 }
 /** Hints only. The schedule form and write action revalidate eligibility and capacity. */

@@ -327,6 +327,19 @@ it("keeps cancelling an existing waitlist group available while self-booking is 
 
 describe("explicit sports rights in the booking transaction", () => {
   const input = { sessionId: "session", cardId: "card", customerId: "owner", requestKey: "rights-test" };
+  it("counts fixed seats toward the public limit and rejects an assigned card for a free reservation",async()=>{
+    m.sportsRule.mockResolvedValue({enrollment:"OPEN",planId:null,payload:{students:[{customerId:"fixed"}]}});
+    db.courseBooking.count.mockResolvedValue(4);
+    db.coursePointCard.findFirst.mockResolvedValue({...card,planId:"universal",sportsMode:"OPEN",sportsSubjectId:null,sportsCost:null});
+    await expect(reserveCourseInTransaction(tx,actor,input,null)).resolves.toMatchObject({pointCost:2});
+    db.courseBooking.count.mockResolvedValue(5);
+    await expect(reserveCourseInTransaction(tx,actor,{...input,requestKey:"last-seat"},null)).rejects.toThrow("滿班");
+    expect(db.courseBooking.create).toHaveBeenCalledOnce();
+    db.courseBooking.count.mockResolvedValue(4);
+    db.coursePointCard.findFirst.mockResolvedValue({...card,planId:"assigned",sportsMode:"ASSIGNED",sportsSubjectId:"yoga",sportsCost:4});
+    await expect(reserveCourseInTransaction(tx,actor,{...input,requestKey:"wrong-mode"},null)).rejects.toThrow("指定學員方案");
+    expect(db.courseBooking.create).toHaveBeenCalledOnce();
+  });
   it("records the learner purchase cost instead of the scheduled package cost", async () => {
     m.sportsRule.mockResolvedValue({ enrollment: "ASSIGNED", planId: "other-package" });
     db.courseSession.findFirst.mockResolvedValue({ ...session, pointCost: 3, template: { ...session.template, musicSubjectId: "yoga" } });

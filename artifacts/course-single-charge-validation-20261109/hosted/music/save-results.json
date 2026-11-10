@@ -1,0 +1,78 @@
+{
+  "kind": "music",
+  "phase": "save",
+  "environment": "protected Vercel Preview + isolated Supabase",
+  "mocks": false,
+  "complete": true,
+  "checks": [
+    {
+      "step": "actual-login",
+      "pass": true,
+      "elapsedMs": 4073
+    },
+    {
+      "step": "cold-calendar-data-ready",
+      "elapsedMs": 3097,
+      "pass": true
+    },
+    {
+      "step": "mixed-form-resize-retains-draft",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "mixed-form-resize-retains-draft",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "mixed-form-resize-retains-draft",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "step": "real-server-action-confirmed",
+      "pass": true,
+      "url": "https://steamfoot-booking-faf52f01y-rock7652-2111s-projects.vercel.app/s/lubymusic/admin/dashboard/courses?view=schedule&date=2026-11-10"
+    },
+    {
+      "step": "authoritative-database-result",
+      "pass": true,
+      "sessionId": "cmw944pcg0000lk07wc7b29e1",
+      "capacity": 4,
+      "fixedLearners": 1,
+      "openSeats": 3
+    },
+    {
+      "step": "reload-persists-roster",
+      "pass": true,
+      "elapsedMs": 2727
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "step": "persisted-roster-responsive",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "saveButton": {
+    "enabled": false,
+    "text": "新增"
+  }
+}

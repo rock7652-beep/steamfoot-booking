@@ -708,9 +708,9 @@ describe("public editorial guides", () => {
     const xml = await sitemap(new Request("https://www.steamfoot.com/sitemap.xml?token=secret")).text();
     const rules = await robots(new Request("https://www.steamfoot.com/robots.txt")).text();
     expect(PUBLISHED_GUIDE_PATHS).toHaveLength(20 + editorialGuides.filter(guide => guide.status === "published").length);
-    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(12 + PUBLISHED_GUIDE_PATHS.length);
+    expect([...xml.matchAll(/<loc>/g)]).toHaveLength(13 + PUBLISHED_GUIDE_PATHS.length);
     expect(xml).not.toContain("/pricing/features/services");
-    for (const modulePath of ["slots", "music", "fitness"]) {
+    for (const modulePath of ["slots", "beauty", "music", "fitness"]) {
       expect(xml).toContain(`<loc>https://www.steamfoot.com/pricing/features/${modulePath}</loc>`);
     }
     for (const path of PUBLISHED_GUIDE_PATHS) {

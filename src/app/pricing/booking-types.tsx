@@ -2,6 +2,7 @@ import Link from "next/link";
 
 export const BOOKING_TYPES = [
   { id: "slots", name: "時段預約", question: "幾點還能接幾位？", who: "蒸足、岩盤浴、桑拿、親子遊戲", detail: "固定時段、接待名額與當日名單", cta: "看時段預約" },
+  { id: "beauty", name: "美業模組", question: "顧客約哪位服務人員，要做哪些項目？", who: "美容、美體、美甲、美睫、按摩、SPA", detail: "服務項目、人員安排與顧客預約", cta: "看美業模組" },
   { id: "fitness", name: "運動課程", question: "哪堂課，還有幾個名額？", who: "運動教室、瑜珈、皮拉提斯", detail: "課表、學員預約與出席紀錄", cta: "看運動教室" },
   { id: "music", name: "音樂課程", question: "誰跟哪位老師上課？", who: "音樂教室、樂器教學、才藝課程", detail: "固定課、調課補課與老師鐘點", cta: "看音樂教室" },
 ] as const;
@@ -16,6 +17,8 @@ function BookingTypeIcon({ type }: { type: typeof BOOKING_TYPES[number]["id"] })
         <rect x="7" y="12" width="7" height="24" rx="2" /><rect x="34" y="12" width="7" height="24" rx="2" />
         <path d="M4 19v10m40-10v10M14 20h20m-20 8h20" />
         <path d="m19 11 3-4m4 4 3-4m-10 34 3-4m4 4 3-4" stroke="#967039" />
+      </> : type === "beauty" ? <>
+        <path d="m8 14 8 8 8-13 8 13 8-8-4 21H12L8 14Z" /><path d="M13 40h22M16 29h16" stroke="#967039" />
       </> : <>
         <path d="M18 34V13l22-5v22M18 20l22-5" />
         <ellipse cx="12" cy="35" rx="6" ry="5" /><ellipse cx="34" cy="31" rx="6" ry="5" />
@@ -29,7 +32,7 @@ export function BookingTypes({ compact = false }: { compact?: boolean }) {
   return <section id="how-it-works" aria-labelledby="booking-types-title" className={compact ? "my-8 scroll-mt-24" : "mx-auto max-w-6xl scroll-mt-24 px-5 pb-10 pt-4 sm:px-8"}>
     <p className="text-sm font-medium text-[#74603C]">從店裡的安排方式開始</p>
     <h2 id="booking-types-title" className="mt-2 text-2xl font-semibold sm:text-3xl">你的店，怎麼安排預約？</h2>
-    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {BOOKING_TYPES.map(item => <article key={item.id} className="flex flex-col rounded-2xl border border-[#153B31]/15 bg-white/75 p-4 sm:p-5">
         <div className="flex items-center gap-3">
           <BookingTypeIcon type={item.id} />

@@ -505,7 +505,8 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 - Settings Panel → 共用 panel 容器，逐步取代只屬於單一模組的 panel wrapper
 - Reminder Center → 共用 tabs、panel、dirty guard、發送紀錄與健康狀態元件
 - 方案開通通知 → `src/components/admin/plan-activation-notification-setting.tsx`；蒸足、運動、音樂與美業共用顧客提醒開關、LINE Flex 卡片、收合卡片預覽與儲存回饋，各模組在實際購買／核帳開通時建立事件，保留原帳務規則。
-- 顧客概況 → `src/app/(dashboard)/dashboard/courses/customer-overview.tsx`；顧客基本資料編輯沿用同目錄 `CourseCustomerDraftForm`，美業注入有門市／權限／版本檢查的儲存接點，不改用課程寫入。
+- 顧客概況 → 現行音樂／運動／美業使用 `src/components/admin/customer-profile-layout.tsx` 的共用標題、聯絡與操作區、總覽排列，由 `CourseMemberWorkspace` 注入各模組內容；保留音樂「課程與學費」及各模組原紀錄分類。總覽依下次預約、方案、歸屬、備註排列，基本資料按需展開；LINE 身分與通知狀態分開，未知不寫成未連結。舊相容入口仍保留 `courses/customer-overview.tsx`。顧客基本資料編輯沿用 `CourseCustomerDraftForm`，美業注入有門市／權限／版本檢查的儲存接點，不改用課程寫入。
+- 顧客總覽的方案摘要以「可用」呈現，保留額度使用「預約保留」，與下次預約分開；不因顧客已有預約就推算占用。零保留不顯示「已預約 0」，計算口徑按需展開。音樂僅多個有效方案顯示合計，使用完整 totals，不重複單方案摘要；另發補課及需核對狀態保留。縮減區塊留白時維持原字級與 44px 操作尺寸。
 - 人員／技師編輯的基本欄位、分頁、服務資格列與後台權限 → `src/app/(dashboard)/dashboard/courses/staff-editor-fields.tsx`，由原課程及美業共同使用；可服務時間、拆帳基準及工作權限由原模組保留。
 - 顧客詳情的備註、歸屬、LINE 與基本資料編輯 → `src/components/admin/use-customer-panel-guard.ts` 收集既有 SettingsPanelContext 的 dirty／pending 狀態；運動／音樂與 SPA 各自注入原有資料及業務操作。
 - 顧客經營分類與生日月份 → `src/app/(dashboard)/dashboard/growth/_components/care-filters.tsx`；運動／音樂與美業共用，資料口徑各自保留。
@@ -563,6 +564,8 @@ Settings Panel 應共用：標題、關閉按鈕、dirty guard、未儲存提示
 # 38. Changelog
 
 ## v1.5 — 2026-10-06
+
+- 2026-11-10：音樂／運動／美業顧客資料共用精簡頂部與總覽順序，保留各模組交易、課程與學費及權限；操作返回原分頁並等待內容載入後恢復捲動位置。此支線的本機合成資料預覽不代表正式站已更新，驗收限制見 `docs/verification/customer-overview-20261110.md`。
 
 - 2026-10-11：音樂／運動店務管理依首次開店流程排列為空間、課程、方案、教師／教練、人員、設定；沿用模組名稱及權限。店家獲准的操作紀錄若可見，放在人員後、設定前。桌機與行動選單共用同一來源。
 - 2026-11-04：運動日常工作維持首頁、課表排程、顧客管理、顧客經營、營運、分析，再列獲准的工單／進銷存，與音樂主要工作順序一致；保留模組稱呼與原有權限／功能開關。

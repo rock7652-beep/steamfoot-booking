@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 
 import { coursePrisma } from "@/lib/course-db";
 import { PERMISSION_LABELS } from "@/lib/permissions";
+import { readLegacyAddOnAuditEvidence } from "./add-on-audit-reader";
 import { auditRecord, auditSnapshotTarget, auditTargetLabel, auditText, type AuditReferences, type PresentedAudit } from "@/lib/audit-presentation";
 
 type AuditRow = PresentedAudit & { id: string; targetId: string; storeId: string | null };
@@ -19,14 +20,23 @@ export async function resolveAuditPresentation(rows: AuditRow[], options: { hq?:
   const visibleStoreIds = [...new Set([...storeIds,...viewedStoreIds])];
   const set = (type: string, id: string, storeId: string, label: string) => targets.set(`${type}:${storeId}:${id}`, auditText(label));
   await Promise.all([
+    (async () => {
+      try {
+        const evidence = await readLegacyAddOnAuditEvidence(rows);
+        for (const [id, references] of evidence) Object.assign(refs[id], references);
+      } catch (error) {
+        // Supplementary evidence must not make the original audit page unusable.
+        console.error("[audit-presentation] legacy-addon-evidence-unavailable", { error: error instanceof Error ? error.name : "UnknownError" });
+      }
+    })(),
     (async () => { const OR = groups(["Booking"]); if (!OR.length) return;
       const found = await prisma.booking.findMany({ where: { OR }, select: { id: true, storeId: true, bookingDate: true, slotTime: true, customer: { select: { name: true } } } });
       found.forEach(r => set("Booking",r.id,r.storeId,`${r.customer.name} · ${r.bookingDate.toISOString().slice(0,10)} ${r.slotTime}`)); })(),
     (async () => { const OR = groups(["Customer"]); if (!OR.length) return;
       const found = await prisma.customer.findMany({ where: { OR }, select: { id: true, storeId: true, name: true } }); found.forEach(r => set("Customer",r.id,r.storeId,r.name)); })(),
-    (async () => { const OR = groups(["Staff","StaffPermission"]); if (!OR.length) return;
+    (async () => { const OR = groups(["Staff","StaffPermission","CourseCompensation","CourseTeacherCompensationSetting","CourseTeacherFinanceScope"]); if (!OR.length) return;
       const found = await prisma.staff.findMany({ where: { OR }, select: { id: true, storeId: true, user: { select: { name: true } } } });
-      found.forEach(r => ["Staff","StaffPermission"].forEach(t => set(t,r.id,r.storeId,r.user.name))); })(),
+      found.forEach(r => ["Staff","StaffPermission","CourseCompensation","CourseTeacherCompensationSetting","CourseTeacherFinanceScope"].forEach(t => set(t,r.id,r.storeId,r.user.name))); })(),
     (async () => { const OR = groups(["CustomerPlanWallet"]); if (!OR.length) return;
       const found = await prisma.customerPlanWallet.findMany({ where: { OR }, select: { id: true, storeId: true, customer: { select: { name: true } }, plan: { select: { name: true } } } });
       found.forEach(r => set("CustomerPlanWallet",r.id,r.storeId,`${r.customer.name} · ${r.plan.name}`)); })(),

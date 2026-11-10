@@ -1,6 +1,7 @@
 "use client";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { CustomerPhoneLink } from "@/components/customer-detail-fields";
+import {CustomerProfileConnection,customerProfileLineLabel} from "@/components/admin/customer-profile-layout";
 import { CustomerLabels } from "@/components/customer-labels";
 
 import { useEffect, useRef, useState } from "react";
@@ -94,7 +95,20 @@ export function CustomerDetailDrawerContent({
   const [activeEditor,setActiveEditor] = useState<string | null>(null);
   const editingAttribution=activeEditor === "attribution";
   const setEditingAttribution=(open:boolean)=>setActiveEditor(open ? "attribution" : null);
-  const [recordsTab, setRecordsTab] = useState<"bookings" | "consumption">(customer.canReadBookings ? "bookings" : "consumption");
+  const [panelTab, setPanelTab] = useState<"overview" | "bookings" | "consumption" | "profile">("overview");
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const tabScroll = useRef<Record<string, number>>({});
+  const lineManagementRef = useRef<HTMLDivElement>(null);
+  function switchTab(next: typeof panelTab, focus?:"line") {
+    if (!allowNavigation()) return;
+    tabScroll.current[panelTab] = bodyRef.current?.scrollTop ?? 0;
+    if(focus==="line")setView("overview");
+    setPanelTab(next);
+    requestAnimationFrame(() => {
+      if(focus==="line"&&lineManagementRef.current){lineManagementRef.current.focus({preventScroll:true});lineManagementRef.current.scrollIntoView({block:"start"});}
+      else if (bodyRef.current) bodyRef.current.scrollTop = tabScroll.current[next] ?? 0;
+    });
+  }
   const headerRef = useRef<HTMLDivElement>(null);
   const planSectionRef = useRef<HTMLElement>(null);
 
@@ -139,28 +153,29 @@ export function CustomerDetailDrawerContent({
   // 身份異常旗標：來源是 LINE 但實際 LINE 未綁定時提示
 
   return (
-    <div className="@container/customer-detail flex h-full min-h-0 flex-col">
+    <div data-customer-detail className="@container/customer-detail flex h-full min-h-0 flex-col">
       {/* Header */}
       <header
         ref={headerRef}
         tabIndex={-1}
         className="sticky top-0 z-10 flex items-start justify-between border-b border-earth-100 bg-white px-5 py-2 outline-none"
       >
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <div className="flex items-center gap-2"><h2 id={titleId} className="truncate text-base font-semibold text-primary-900">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <div className="min-w-0"><div className="flex flex-wrap items-center gap-x-3"><div className="flex items-center gap-2"><h2 id={titleId} className="truncate text-base font-semibold text-primary-900">
             {customer.name}
           </h2>{!readOnly && canEditNote && <button type="button" onClick={() => setView("edit")} aria-label="編輯顧客資料" className="min-h-11 min-w-11 rounded text-sm text-primary-700">✎</button>}</div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-earth-500">
             {phoneDisplay !== "—" && <CustomerPhoneLink phone={customer.phone}/>}
-            {customer.lineName && <span>LINE {customer.lineName}</span>}
+            <CustomerProfileConnection label={customerProfileLineLabel(customer.lineLinkStatus,customer.lineName)} onManage={()=>switchTab("profile","line")}/>
           </div>
-          <CustomerLabels maxVisible={2} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
+          </div><div className="flex flex-wrap items-center gap-2"><CustomerLabels maxVisible={2} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
           <div>
             {customer.customerStage !== "ACTIVE" && <CustomerStatusBadge
               stage={customer.customerStage}
               lineLinkStatus={customer.lineLinkStatus}
             />}
-          </div>
+          </div></div></div>
+          {!readOnly && <div className="flex flex-wrap gap-2">{customer.canBook && <button type="button" onClick={() => { if (allowNavigation()) setView("booking"); }} className="min-h-11 rounded-md bg-primary-700 px-3 text-sm text-white">新增預約</button>}{customer.canAssignPlan && <button type="button" onClick={() => { if (!allowNavigation()) return; setView("overview"); setPanelTab("overview"); setAssignOpen(true); requestAnimationFrame(() => planSectionRef.current?.scrollIntoView({block:"start"})); }} className="min-h-11 rounded-md border border-earth-200 px-3 text-sm text-primary-700">新增方案</button>}</div>}
         </div>
         <button
           type="button"
@@ -174,37 +189,21 @@ export function CustomerDetailDrawerContent({
         </button>
       </header>
 
+      <nav hidden={view !== "overview"} aria-label="顧客資料分類" className="shrink-0 overflow-x-auto border-b border-earth-200 bg-earth-50 px-5">
+        <div className="flex min-w-max gap-1">
+          {([{id:"overview",label:"總覽"}, ...(customer.canReadBookings ? [{id:"bookings",label:"預約紀錄"}] : []), ...(customer.recentConsumption !== null ? [{id:"consumption",label:"消費紀錄"}] : []), {id:"profile",label:"基本／健康資料"}] as const).map(tab => <button key={tab.id} type="button" aria-current={panelTab === tab.id ? "page" : undefined} onClick={() => switchTab(tab.id as typeof panelTab)} className={`min-h-11 border-b-2 px-3 text-sm ${panelTab === tab.id ? "border-primary-700 font-semibold text-primary-900" : "border-transparent text-earth-600"}`}>{tab.label}</button>)}
+        </div>
+      </nav>
       {/* Body */}
-      <div hidden={view !== "overview"} className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-5 py-3 space-y-3">
+      <div ref={bodyRef} hidden={view !== "overview"} className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-5 py-3 space-y-3">
         {readOnly ? (
           <div className="rounded-lg border border-primary-100 bg-primary-50 px-3 py-2 text-sm text-primary-800">
             查看模式提供完整閱讀能力，顧客操作請由該店自行完成。
           </div>
         ) : null}
 
-        <section aria-label="顧客歸屬" className="border-b border-earth-100">
-          <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm"><span>歸屬店長：{staffOptions.find(staff=>staff.id===customer.assignedStaffId)?.displayName ?? "未指派"}</span><span>推薦人：{sponsor?.name ?? "未設定"}</span>{canAssign && !readOnly && <button type="button" onClick={()=>{if(allowNavigation())setEditingAttribution(!editingAttribution);}} className="min-h-11 px-3 text-primary-700">{editingAttribution ? "收合" : "修改"}</button>}</div>
-          {editingAttribution && <CustomerAttributionForm customerId={customer.id} currentStaffId={customer.assignedStaffId} currentSponsor={sponsor ? {id:sponsor.id,name:sponsor.name} : null} staffOptions={staffOptions} canAssign={canAssign && !readOnly} readOnly={readOnly} onSaved={()=>{setEditingAttribution(false);handleMutated();}} />}
-        </section>
-        <BookingServiceNoteEditor compact optimistic customerId={customer.id} value={customer.serviceNote}
-          canEdit={canEditNote && !readOnly} onSaved={() => handleMutated()} />
-
-        {/* Quick actions */}
-        <section>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            {!readOnly ? (
-              <>
-                {customer.canBook && <button type="button" onClick={() => setView("booking")} className="min-h-11 rounded-md bg-primary-700 px-4 text-sm text-white">新增預約</button>}
-                {customer.canAssignPlan && <button type="button" onClick={() => { setAssignOpen(true); planSectionRef.current?.scrollIntoView({block:"start"}); }} className="min-h-11 rounded-md border px-4 text-sm text-primary-700">新增方案</button>}
-              </>
-            ) : null}
-          </div>
-        </section>
-
-        {!readOnly && <StoreMemberConnectionPanel key={`member-connection:${customer.id}`} customerId={customer.id} pendingOnly />}
-        <CustomerPanelAdvanced key={`line-management:${customer.id}`} managerSimple active customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
-        <CustomerPanelSummaryView initialData={initialSummary} customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} />
-
+        <div hidden={panelTab !== "overview" && panelTab !== "profile"}><CustomerPanelSummaryView section={panelTab === "profile" ? "health" : "overview"} initialData={initialSummary} customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} /></div>
+        <section hidden={panelTab !== "overview"} className="space-y-2">
         {/* 課程方案 / 堂數 */}
         <section ref={planSectionRef}>
           <h3 className="mb-2 text-sm font-semibold text-primary-900">方案</h3>
@@ -223,17 +222,17 @@ export function CustomerDetailDrawerContent({
                 return (
                   <li
                     key={w.id}
-                    className="flex flex-wrap items-start gap-x-3 gap-y-2 border-t border-earth-100 pt-2"
+                    className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 rounded-lg border border-earth-200 bg-earth-50 px-3 py-2"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-earth-900">
+                        <div className="break-words text-sm font-semibold text-earth-900">
                           {w.plan.name}
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-500">
-                          <span className="tabular-nums">
-                            剩餘 <span className="font-medium text-earth-800">{remaining}</span>｜已約 {reserved}｜可約 {available}
-                          </span>
+                          <strong className="tabular-nums text-primary-900">
+                            {expired || w.status === "EXPIRED" ? "已到期" : w.status === "CANCELLED" ? "已取消" : w.status === "USED_UP" ? "已用完" : `可預約 ${available} 堂`}
+                          </strong>
                           {expiry ? (
                             <span className={`tabular-nums ${expired ? "text-red-600" : ""}`}>
                               {formatTWTime(expiry, { dateOnly: true })} 到期
@@ -243,6 +242,7 @@ export function CustomerDetailDrawerContent({
                             <span>無期限</span>
                           )}
                         </div>
+                        <p className="mt-1 flex flex-wrap gap-x-3 text-sm tabular-nums text-earth-600"><span>剩餘 {remaining} 堂</span>{reserved > 0 && <span>預約保留 {reserved} 堂</span>}</p>
                       </div>
                     </div>
                     <details className="group shrink-0 max-w-full open:w-full">
@@ -306,21 +306,31 @@ export function CustomerDetailDrawerContent({
 
 
 
-        <section className="border-t border-earth-100 pt-3">
-          <div className="flex gap-2" role="tablist" aria-label="顧客紀錄">
-            {customer.canReadBookings && <button type="button" role="tab" aria-selected={recordsTab === "bookings"} onClick={() => setRecordsTab("bookings")} className={`min-h-11 rounded px-3 text-sm ${recordsTab === "bookings" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600"}`}>預約紀錄</button>}
-            {customer.recentConsumption && <button type="button" role="tab" aria-selected={recordsTab === "consumption"} onClick={() => setRecordsTab("consumption")} className={`min-h-11 rounded px-3 text-sm ${recordsTab === "consumption" ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600"}`}>消費紀錄</button>}
-          </div>
-          {customer.canReadBookings && <CustomerPanelRecordsList customerId={customer.id} kind="bookings" active={recordsTab === "bookings"} revision={String(revision)} />}
-          {customer.recentConsumption !== null && <CustomerPanelRecordsList customerId={customer.id} kind="consumption" active={recordsTab === "consumption"} revision={String(revision)} />}
+        <section aria-label="顧客歸屬">
+          <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm"><span>歸屬店長：{staffOptions.find(staff=>staff.id===customer.assignedStaffId)?.displayName ?? "未指派"}</span><span>推薦人：{sponsor?.name ?? "未設定"}</span>{canAssign && !readOnly && <button type="button" onClick={()=>{if(allowNavigation())setEditingAttribution(!editingAttribution);}} className="min-h-11 px-3 text-primary-700">{editingAttribution ? "收合" : "編輯"}</button>}</div>
+          {editingAttribution && <CustomerAttributionForm customerId={customer.id} currentStaffId={customer.assignedStaffId} currentSponsor={sponsor ? {id:sponsor.id,name:sponsor.name} : null} staffOptions={staffOptions} canAssign={canAssign && !readOnly} readOnly={readOnly} onSaved={()=>{setEditingAttribution(false);handleMutated();}} />}
+        </section>
+        <BookingServiceNoteEditor compact optimistic customerId={customer.id} value={customer.serviceNote}
+          canEdit={canEditNote && !readOnly} onSaved={() => handleMutated()} />
+
         </section>
 
+        <section hidden={panelTab !== "bookings"}>
+          {customer.canReadBookings && <CustomerPanelRecordsList customerId={customer.id} kind="bookings" active={view === "overview" && panelTab === "bookings"} revision={String(revision)} />}
+        </section>
+        <section hidden={panelTab !== "consumption"}>
+          {customer.recentConsumption !== null && <CustomerPanelRecordsList customerId={customer.id} kind="consumption" active={view === "overview" && panelTab === "consumption"} revision={String(revision)} />}
+        </section>
+        <section hidden={panelTab !== "profile"} className="space-y-3">
+          {!readOnly && <StoreMemberConnectionPanel key={`member-connection:${customer.id}`} customerId={customer.id} pendingOnly />}
+          <div ref={lineManagementRef} tabIndex={-1} role="region" aria-label="LINE 身分管理" className="outline-none"><CustomerPanelAdvanced key={`line-management:${customer.id}`} managerSimple active={panelTab === "profile"} customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} /></div>
         <section aria-label="更多資料" className="space-y-1 border-t border-earth-100 pt-2">
-        <CollapsibleSection title="基本資料">
+        <CollapsibleSection title="基本資料" defaultOpen>
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm @min-[560px]/customer-detail:grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             {[["電話", phoneDisplay], ["Email", customer.email], ["LINE 名稱", customer.lineName], ["性別", customer.gender === "MALE" ? "男" : customer.gender === "FEMALE" ? "女" : null], ["生日", customer.birthday ? formatTWTime(customer.birthday, {dateOnly:true}) : null], ["身高", customer.height ? `${customer.height} cm` : null]].filter(([,value])=>!!value && value !== "—").map(([label,value]) => <div key={label} className="contents"><dt className="text-earth-500">{label}</dt><dd className="break-words text-earth-800">{value || "—"}</dd></div>)}
           </dl>
         </CollapsibleSection>
+        </section>
         </section>
       </div>
       {view !== "overview" && <div className="min-h-0 flex-1 overflow-y-auto p-4">

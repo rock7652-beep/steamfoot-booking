@@ -1,4 +1,5 @@
 "use server";
+import {sportsReadinessTransactionOptions} from "@/lib/sports-readiness-transaction";
 import {calendarPhase,calendarAccessPhase,traceCourseCalendar} from "@/server/services/course-calendar-timing";
 import { courseDisplayName } from "@/lib/course-template-presentation";
 import {sportsSeriesTable} from "@/lib/sports-series-storage";
@@ -15,7 +16,7 @@ import {reserveCourseInTransaction,settleCourseBooking} from "@/server/services/
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(d=>!!parseTaipeiDateTime(d,"00:00"));
 async function actor(permission:Parameters<typeof courseManager>[0]){
  const a=await calendarPhase("access",()=>courseManager(permission,{measure:calendarAccessPhase}));if(!(await calendarPhase("sports_scope",()=>sportsNativePreview(a.storeId)))||!await calendarPhase("module_entitlement",()=>prisma.storeFeatureEntitlement.findFirst({where:{storeId:a.storeId,featureKey:"business.fitness",status:"ENABLED"}})))throw new AppError("FORBIDDEN","此店尚未開放運動固定課");
- if(process.env.VERCEL_ENV==="production")await calendarPhase("production_readiness",()=>coursePrisma.$transaction(tx=>(import("@/server/services/sports-production-readiness")).then(m=>m.assertSportsProductionReady(tx,a.storeId))));
+ if(process.env.VERCEL_ENV==="production")await calendarPhase("production_readiness",()=>coursePrisma.$transaction(tx=>(import("@/server/services/sports-production-readiness")).then(m=>m.assertSportsProductionReady(tx,a.storeId)),sportsReadinessTransactionOptions));
  return {storeId:a.storeId,userId:a.user.id,name:a.user.name??"門市人員"};
 }
 export async function syncSportsPermanentCalendar(input:unknown){return traceCourseCalendar("sports_sync",async()=>{try{

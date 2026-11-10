@@ -1,0 +1,33 @@
+{
+  "baseCommit": "236d637dd9f03f9824bdd92841457e7e9d2a86f3",
+  "branch": "fix/calendar-customer-preload-20261109",
+  "uncommitted": false,
+  "sources": {
+    "scripts/qa/calendar-customer-preload-browser.mjs": "cdba394bab4c345455e76cf6aa11cb68b6d6234c8155a0cf10407046add17d55",
+    "scripts/qa/calendar-customer-preload-fixture.tsx": "b53c7bf1bd5df70a203b8cf58123e4dad4d9a137f641f0d30b9854b03a6becf2",
+    "src/__tests__/beauty-native-calendar-transport.test.ts": "a6dcd6856472e5b9ff8eb9bb51c7bc33ce640fbbe50a52630dc904ac61f9d0b0",
+    "src/__tests__/calendar-month-preload.test.ts": "a0f5ab0ddf0e230d71524d18f076ca2ba0afcbea091f65062ce01cedae31d29f",
+    "src/__tests__/client-read-cache.test.ts": "4e87aef8732f2682959aa988d5669b9a676ff36d213dc516443337c4deeab373",
+    "src/__tests__/customer-plan-preload.test.ts": "19595ce6719af2e881813194e24649a7c18c080bafbad94e8e1a487d9bcde088",
+    "src/__tests__/music-student-courses-ui.test.ts": "5f9fdc4b5a21f4f388c2dce920e426f675d27e8359a247a847de2f95e42a6a8d",
+    "src/app/(dashboard)/dashboard/courses/card-browser.tsx": "004507f405def16c31de0fe39d222d32f58f8c3342bce346cd46dd214fbee800",
+    "src/app/(dashboard)/dashboard/courses/customer-list.tsx": "d69dcd99c39e77562eb7a254ac73b4e244ca00edddda7c185eb49a4182e4a829",
+    "src/app/(dashboard)/dashboard/courses/member-workspace.tsx": "63b49cc55c4df1d4f78f3d09eceb178f1449f24470eda00849f94212c4f1474c",
+    "src/app/(dashboard)/dashboard/courses/music-student-courses.tsx": "16b9abf650505026770f80d757da30dc7503e86931c857af2500672df2491161",
+    "src/app/(dashboard)/dashboard/courses/music-student-overview.tsx": "1880847e082162a3b957aed88822b95b0bb1e4ecd1c78a91e3aea38e379d9baa",
+    "src/app/(dashboard)/dashboard/courses/roster.tsx": "fb5f3f7ddd04cd330fd9f6743ad489eaa4b579ec1426dc10cbda987f653f77e1",
+    "src/app/(dashboard)/dashboard/courses/workspace.tsx": "b215b76ef85989c331dc8bbd8e0d078aab4cb95125b09d2bce81cceac479264d",
+    "src/app/(dashboard)/dashboard/customers/_components/customers-table.tsx": "7000d9f76a34e0277abd513d94487c460c0c976dcb60f64d01d034ea6fcaf459",
+    "src/components/admin/use-calendar-month-preload.ts": "3fce1fa8c4a58d8a972c6532731386c5dfcca5fc2b24e0b96e467d6811540faa",
+    "src/components/admin/use-customer-card-reader.ts": "ae1a417830ff67b5e83483246ea00e5ad45a0d1cbaceb83467e776113687deea",
+    "src/components/admin/use-customer-plan-preload.ts": "bfe931d8f60a2f4865ebadc7070f80f80690598ef47d21100a0c07a53a11d3c0",
+    "src/components/beauty/customer-panel.tsx": "21317cf44a32f97f7d74cd8cac5dfd52aa50ef4e1467a3ee73bc1d22a16be925",
+    "src/components/beauty/native-roster-source.tsx": "ce59bd01995f33a45265d8ba347cb1be084489b51ce6bab911cb60afc647648b",
+    "src/components/beauty/schedule-workspace.tsx": "b0cb95b3ff5aaf454d39ae2288cf4012fbbcdfd3b1fcdcabed38ef844b932cb1",
+    "src/components/operations/panel-read-cache.tsx": "6412da4675cffdd51332fcde807dc7f4cf519a2b390863bf700618575467d1af",
+    "src/lib/beauty/customer-detail-read.ts": "fba9961b8b28e66080cbe1c1408c7eb9e2f15e909abe00ac530f0b3a53c88087",
+    "src/lib/beauty/native-calendar.ts": "94873036709baaf8ab8568b087ae78565594a5706aefbc89a46401e10b40cfc3",
+    "src/lib/client-read-cache.ts": "33bdf987bbebc340be2067c9fd1a017820dc19c9b130d7f1f715e464e447bb78"
+  },
+  "prBaseCommit": "ada7a55e9747e0c4fba3482804de8810702bee63"
+}

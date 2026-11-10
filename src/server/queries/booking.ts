@@ -10,7 +10,7 @@ import { getManagerCustomerFilter, getStoreFilter } from "@/lib/manager-visibili
 import { resolveStoreViewContextFromCookie, storeIdForViewContext, userForViewContext } from "@/lib/store-view-context-server";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 import { validateStoreAccess } from "@/lib/store";
-import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
+import { ACTIVE_BOOKING_STATUSES, PENDING_STATUSES } from "@/lib/booking-constants";
 import { TRIAL_DEFAULTS } from "@/lib/shop-config";
 import { todayRange } from "@/lib/date-utils";
 import { unstable_cache } from "next/cache";
@@ -366,7 +366,7 @@ async function computeMonthBookingSummaryMeasured(
   const monthWhere: Prisma.BookingWhereInput = {
     ...(scopeStoreId ? { storeId: scopeStoreId } : {}),
     bookingDate: { gte: startDate, lte: endDate },
-    bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
+    bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES, "CANCELLED"] },
   };
 
   // All daily counts and revenue-staff totals derive from this same snapshot.
@@ -570,7 +570,13 @@ async function computeMonthBookingSummaryMeasured(
       plan: { name: string };
     } | null;
   }
+  const participantsByBooking = new Map<string, typeof participantServices>();
+  for (const person of participantServices) {
+    const people = participantsByBooking.get(person.bookingId) ?? [];
+    people.push(person); participantsByBooking.set(person.bookingId, people);
+  }
   interface DayEntry {
+    monthlyStats: { bookings: number; people: number; completed: number; pending: number; cancelled: number; noShow: number };
     total: number;
     totalPeople: number;
     staffBookings: { staffName: string; colorCode: string; count: number }[];
@@ -581,6 +587,7 @@ async function computeMonthBookingSummaryMeasured(
   for (let day = 1; day <= endDate.getUTCDate(); day++) {
     const dateKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     dailyMap.set(dateKey, {
+      monthlyStats: { bookings: 0, people: 0, completed: 0, pending: 0, cancelled: 0, noShow: 0 },
       total: 0,
       totalPeople: 0,
       staffBookings: [],
@@ -593,6 +600,21 @@ async function computeMonthBookingSummaryMeasured(
     const dateKey = b.bookingDate.toISOString().slice(0, 10);
     const entry = dailyMap.get(dateKey);
     if (!entry) continue;
+    const stats = entry.monthlyStats;
+    if (b.bookingStatus === "CANCELLED") { stats.cancelled++; continue; }
+    const participants = (participantsByBooking.get(b.id) ?? []).filter(person => person.status !== "REMOVED");
+    stats.bookings++;
+    if (participants.length) {
+      stats.people += participants.filter(person => person.status !== "CANCELLED").length;
+      stats.completed += participants.filter(person => person.status === "COMPLETED").length;
+      stats.pending += participants.filter(person => person.status === "PENDING").length;
+      stats.noShow += participants.filter(person => person.status === "NO_SHOW").length;
+    } else {
+      stats.people += b.people;
+      if (b.bookingStatus === "COMPLETED") stats.completed += b.attendedPeople ?? b.people;
+      if (b.bookingStatus === "NO_SHOW") stats.noShow += b.people;
+      if ((PENDING_STATUSES as readonly string[]).includes(b.bookingStatus)) stats.pending += b.people;
+    }
     entry.bookings.push({
       id: b.id,
       slotTime: b.slotTime,
@@ -689,6 +711,7 @@ async function computeMonthBookingSummaryMeasured(
 
   return Array.from(dailyMap.entries()).map(([dateStr, data]) => ({
     date: dateStr,
+    monthlyStats: data.monthlyStats,
     totalBookingCount: data.total,
     totalPeople: data.totalPeople,
     staffBookings: data.staffBookings,

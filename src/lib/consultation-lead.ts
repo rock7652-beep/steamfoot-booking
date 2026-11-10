@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalSubscriptionReferralCode } from "./subscription-referral-forms";
 
 export const CONSULTATION_LEAD_STATUSES = {
   NEW: "待聯繫",
@@ -38,6 +39,8 @@ function optionalPublicUrl(allowedHosts?: readonly string[]) {
 const text = z.string().trim().max(2000).optional();
 export const payloadSchema = z.object({
   requestId: z.string().uuid(),
+  subscriptionReferralCode: optionalSubscriptionReferralCode,
+  subscriptionReferralConfirmed: z.boolean().optional(),
   storeName: z.string().trim().min(1).max(200),
   contactName: z.string().trim().max(200).optional(),
   industry: z.string().trim().min(1).max(200),
@@ -55,6 +58,7 @@ export const payloadSchema = z.object({
   needs: z.array(z.string().trim().min(1).max(200)).min(1),
   replaceReason: z.array(z.string().max(200)).max(20),
 }).superRefine((data, ctx) => {
+  if (data.subscriptionReferralCode && data.subscriptionReferralConfirmed !== true) ctx.addIssue({code:"custom",message:"請確認推薦碼歸屬"});
   const fitness = data.formVersion === "fitness-v2" && data.source === "fitness-intake";
   const noContact = fitness && data.contactWay === "目前暫不考慮";
   const invalid = (message: string) => ctx.addIssue({ code: "custom", message });

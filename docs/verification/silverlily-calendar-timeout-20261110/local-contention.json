@@ -1,0 +1,60 @@
+{
+  "fixture": "local in-memory PGlite PostgreSQL wire protocol",
+  "productionAccess": false,
+  "connectionLimit": 1,
+  "rounds": [
+    {
+      "round": 1,
+      "before": {
+        "waitMs": 2003,
+        "entered": false,
+        "error": "P2028",
+        "success": false
+      },
+      "after": {
+        "waitMs": 3204,
+        "entered": true,
+        "error": null,
+        "success": true
+      }
+    },
+    {
+      "round": 2,
+      "before": {
+        "waitMs": 2002,
+        "entered": false,
+        "error": "P2028",
+        "success": false
+      },
+      "after": {
+        "waitMs": 3204,
+        "entered": true,
+        "error": null,
+        "success": true
+      }
+    },
+    {
+      "round": 3,
+      "before": {
+        "waitMs": 2003,
+        "entered": false,
+        "error": "P2028",
+        "success": false
+      },
+      "after": {
+        "waitMs": 3203,
+        "entered": true,
+        "error": null,
+        "success": true
+      }
+    }
+  ],
+  "complete": true,
+  "bounded": {
+    "waitMs": 10002,
+    "entered": false,
+    "error": "P2028",
+    "success": false
+  },
+  "executionLimitPreserved": true
+}

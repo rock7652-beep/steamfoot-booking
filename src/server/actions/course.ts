@@ -515,7 +515,6 @@ export async function createCourseSchedule(input: unknown) {
       const music = await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
       if (!music) throw new AppError("FORBIDDEN","此排課流程僅適用音樂模組");
       if (data.enrollmentMode === "ASSIGNED" && !data.learners.length) throw new AppError("VALIDATION","請指定至少一位學員");
-      if (data.enrollmentMode === "OPEN" && data.learners.length) throw new AppError("VALIDATION","開放報名建立時不指定學員");
       if (data.learners.length) {
         await courseManager("customer.read");
         const {getManagerCustomerWhere}=await import("@/lib/manager-visibility");
@@ -635,6 +634,9 @@ export async function createCourseSchedule(input: unknown) {
         if (!template || template.musicSubject?.isActive === false || template.visibility === "OFF" || !room || !coaches.length)
           throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與授課人員");
         if (template.classType !== "RENTAL") assertCourseSchedulingMode(schedulingRule, data.sportsStaging?.enrollment ?? data.enrollmentMode ?? data.bookingAudience);
+        // A mixed class needs both grants, checked again under the store lock.
+        if (data.sportsStaging?.enrollment === "OPEN" && data.sportsStaging.students.length || musicScheduling && data.enrollmentMode === "OPEN" && data.learners.length)
+          assertCourseSchedulingMode(schedulingRule, "ASSIGNED");
         await assertCourseResources(tx,storeId,{...data,requireMusicSubject:musicScheduling});
         if(musicScheduling&&data.scheduleType==="FIXED"){
           const [rules,occupied,rentals]=await Promise.all([
@@ -731,7 +733,7 @@ export async function createCourseSchedule(input: unknown) {
           );
           if (fixedOrigin) throw new AppError("CONFLICT", "原固定課保留此時段；可排單次臨時課，不可再排固定課");
         }
-        const lockedCharge=await resolveScheduleCharge(tx,storeId,{...data,sports:!!data.sportsStaging,requireSelection:data.isTrial||data.scheduleType==='SINGLE'||data.sportsStaging?.frequency==='SINGLE',open:data.sportsStaging?.enrollment==='OPEN',defaultTrialPrice:chargeDefaults?.trialDefaultPrice??0});
+        const lockedCharge=!data.isTrial?null:await resolveScheduleCharge(tx,storeId,{...data,sports:!!data.sportsStaging,requireSelection:true,open:data.sportsStaging?.enrollment==='OPEN',defaultTrialPrice:chargeDefaults?.trialDefaultPrice??0});
         if(JSON.stringify(lockedCharge)!==JSON.stringify(chargeQuote))throw new AppError('CONFLICT','收費方式已有更新，請重新確認');
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
@@ -873,7 +875,6 @@ export async function moveCourseSessions(input: unknown) {
     const targetStart = parseTaipeiDateTime(d.date, d.time);
     if (!targetStart) throw new AppError("VALIDATION", "請選擇有效時間");
 
-    const musicStore=!!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
     const result = await courseTransaction(storeId, async (tx) => {
       const source = await tx.courseSession.findFirst({
         where: { id: d.id, storeId, cancelledAt: null },
