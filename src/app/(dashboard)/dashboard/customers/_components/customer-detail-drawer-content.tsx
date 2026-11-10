@@ -1,6 +1,7 @@
 "use client";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { CustomerPhoneLink } from "@/components/customer-detail-fields";
+import {CustomerProfileConnection,customerProfileLineLabel} from "@/components/admin/customer-profile-layout";
 import { CustomerLabels } from "@/components/customer-labels";
 
 import { useEffect, useRef, useState } from "react";
@@ -97,11 +98,16 @@ export function CustomerDetailDrawerContent({
   const [panelTab, setPanelTab] = useState<"overview" | "bookings" | "consumption" | "profile">("overview");
   const bodyRef = useRef<HTMLDivElement>(null);
   const tabScroll = useRef<Record<string, number>>({});
-  function switchTab(next: typeof panelTab) {
+  const lineManagementRef = useRef<HTMLDivElement>(null);
+  function switchTab(next: typeof panelTab, focus?:"line") {
     if (!allowNavigation()) return;
     tabScroll.current[panelTab] = bodyRef.current?.scrollTop ?? 0;
+    if(focus==="line")setView("overview");
     setPanelTab(next);
-    requestAnimationFrame(() => { if (bodyRef.current) bodyRef.current.scrollTop = tabScroll.current[next] ?? 0; });
+    requestAnimationFrame(() => {
+      if(focus==="line"&&lineManagementRef.current){lineManagementRef.current.focus({preventScroll:true});lineManagementRef.current.scrollIntoView({block:"start"});}
+      else if (bodyRef.current) bodyRef.current.scrollTop = tabScroll.current[next] ?? 0;
+    });
   }
   const headerRef = useRef<HTMLDivElement>(null);
   const planSectionRef = useRef<HTMLElement>(null);
@@ -160,7 +166,7 @@ export function CustomerDetailDrawerContent({
           </h2>{!readOnly && canEditNote && <button type="button" onClick={() => setView("edit")} aria-label="編輯顧客資料" className="min-h-11 min-w-11 rounded text-sm text-primary-700">✎</button>}</div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-earth-500">
             {phoneDisplay !== "—" && <CustomerPhoneLink phone={customer.phone}/>}
-            {customer.lineName && <span>LINE {customer.lineName}</span>}
+            <CustomerProfileConnection label={customerProfileLineLabel(customer.lineLinkStatus,customer.lineName)} onManage={()=>switchTab("profile","line")}/>
           </div>
           </div><div className="flex flex-wrap items-center gap-2"><CustomerLabels maxVisible={2} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
           <div>
@@ -317,7 +323,7 @@ export function CustomerDetailDrawerContent({
         </section>
         <section hidden={panelTab !== "profile"} className="space-y-3">
           {!readOnly && <StoreMemberConnectionPanel key={`member-connection:${customer.id}`} customerId={customer.id} pendingOnly />}
-          <CustomerPanelAdvanced key={`line-management:${customer.id}`} managerSimple active={panelTab === "profile"} customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} />
+          <div ref={lineManagementRef} tabIndex={-1} role="region" aria-label="LINE 身分管理" className="outline-none"><CustomerPanelAdvanced key={`line-management:${customer.id}`} managerSimple active={panelTab === "profile"} customerId={customer.id} readOnly={readOnly} canEdit={canEditNote} onMutated={handleMutated} /></div>
         <section aria-label="更多資料" className="space-y-1 border-t border-earth-100 pt-2">
         <CollapsibleSection title="基本資料" defaultOpen>
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm @min-[560px]/customer-detail:grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)]">

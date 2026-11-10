@@ -14,6 +14,8 @@ const context=await browser.newContext({viewport:{width:1366,height:900}});
 await context.route('**/*',r=>{const u=new URL(r.request().url());return u.origin===config.base||['data:','blob:'].includes(u.protocol)?r.continue():r.abort();});
 const page=await context.newPage();page.setDefaultTimeout(45000);
 const report={source:config.commit,deployment:config.deployment,authenticated:true,mocks:false,appWrites:false,checks:[],errors:[],complete:false};
+let advancedReads=0;
+page.on('request',request=>{const url=new URL(request.url());if(url.pathname.endsWith('/customer-support-read')&&url.searchParams.get('kind')==='advanced')advancedReads++;});
 page.on('pageerror',e=>report.errors.push(e.message));
 async function capture(name){await page.waitForLoadState('networkidle');await page.screenshot({path:out+'/'+name+'.png',fullPage:true});}
 try{
@@ -27,6 +29,19 @@ try{
  const panel=page.getByRole('dialog').filter({has:page.getByRole('heading',{name:account.customerName,exact:true})});await panel.waitFor();
  await panel.getByText('可預約 8 堂',{exact:true}).waitFor();await panel.getByText('剩餘 10 堂',{exact:true}).waitFor();await panel.getByText('預約保留 2 堂',{exact:true}).waitFor();
  assert.equal(await panel.getByRole('alert').count(),0);report.checks.push('ledger-remaining-10-reserved-2-available-8');
+ if(process.env.QA_LINE_PROFILE_STATUS==='1'){
+  const line=panel.getByRole('button',{name:'LINE 身分：未連結 · 管理',exact:true});await line.waitFor();
+  assert.equal(advancedReads,0,'The header uses the supplied state without loading management details');
+  await line.click();
+  assert.equal(await panel.getByRole('button',{name:'基本／健康資料',exact:true}).getAttribute('aria-current'),'page');
+  const management=panel.getByRole('region',{name:'LINE 身分管理',exact:true});
+  await management.getByText('LINE：未綁定',{exact:true}).waitFor();
+  assert.ok(advancedReads>0);assert.equal(await panel.getByRole('alert').count(),0);
+  await capture('line-management');
+  await panel.getByRole('button',{name:'總覽',exact:true}).click();
+  await panel.getByText('可預約 8 堂',{exact:true}).waitFor();
+  report.checks.push('line-state-visible-management-loads-on-intent-and-returns');
+ }
  await panel.getByRole('button',{name:'歷史方案（1）',exact:true}).click();
  await panel.getByText('已到期',{exact:true}).waitFor();
  const expired=panel.locator('li').filter({has:page.getByText('已到期',{exact:true})});assert.equal((await expired.innerText()).includes('可預約'),false);
