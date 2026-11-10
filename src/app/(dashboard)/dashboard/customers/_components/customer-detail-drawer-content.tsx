@@ -197,7 +197,7 @@ export function CustomerDetailDrawerContent({
         ) : null}
 
         <div hidden={panelTab !== "overview" && panelTab !== "profile"}><CustomerPanelSummaryView section={panelTab === "profile" ? "health" : "overview"} initialData={initialSummary} customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} /></div>
-        <section hidden={panelTab !== "overview"} className="space-y-3">
+        <section hidden={panelTab !== "overview"} className="space-y-2">
         {/* 課程方案 / 堂數 */}
         <section ref={planSectionRef}>
           <h3 className="mb-2 text-sm font-semibold text-primary-900">方案</h3>
@@ -224,9 +224,9 @@ export function CustomerDetailDrawerContent({
                           {w.plan.name}
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-500">
-                          <span className="tabular-nums">
-                            剩餘 <span className="font-semibold text-earth-900">{remaining} 堂</span>｜已約 {reserved} 堂｜可約 {available} 堂
-                          </span>
+                          <strong className="tabular-nums text-primary-900">
+                            {expired || w.status === "EXPIRED" ? "已到期" : w.status === "CANCELLED" ? "已取消" : w.status === "USED_UP" ? "已用完" : `可預約 ${available} 堂`}
+                          </strong>
                           {expiry ? (
                             <span className={`tabular-nums ${expired ? "text-red-600" : ""}`}>
                               {formatTWTime(expiry, { dateOnly: true })} 到期
@@ -236,6 +236,7 @@ export function CustomerDetailDrawerContent({
                             <span>無期限</span>
                           )}
                         </div>
+                        <p className="mt-1 flex flex-wrap gap-x-3 text-sm tabular-nums text-earth-600"><span>剩餘 {remaining} 堂</span>{reserved > 0 && <span>預約保留 {reserved} 堂</span>}</p>
                       </div>
                     </div>
                     <details className="group shrink-0 max-w-full open:w-full">
@@ -299,7 +300,7 @@ export function CustomerDetailDrawerContent({
 
 
 
-        <section aria-label="顧客歸屬" className="border-b border-earth-100">
+        <section aria-label="顧客歸屬">
           <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm"><span>歸屬店長：{staffOptions.find(staff=>staff.id===customer.assignedStaffId)?.displayName ?? "未指派"}</span><span>推薦人：{sponsor?.name ?? "未設定"}</span>{canAssign && !readOnly && <button type="button" onClick={()=>{if(allowNavigation())setEditingAttribution(!editingAttribution);}} className="min-h-11 px-3 text-primary-700">{editingAttribution ? "收合" : "編輯"}</button>}</div>
           {editingAttribution && <CustomerAttributionForm customerId={customer.id} currentStaffId={customer.assignedStaffId} currentSponsor={sponsor ? {id:sponsor.id,name:sponsor.name} : null} staffOptions={staffOptions} canAssign={canAssign && !readOnly} readOnly={readOnly} onSaved={()=>{setEditingAttribution(false);handleMutated();}} />}
         </section>
