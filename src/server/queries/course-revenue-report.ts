@@ -1,3 +1,4 @@
+import {courseCustomerPhone} from "@/lib/course-customer-contact";
 import { courseDisplayName } from "@/lib/course-template-presentation";
 import {coursePurchaseCashflow} from "@/server/services/music-tuition-cashflow";
 import "server-only";
@@ -29,7 +30,7 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
   const purchases = [...orders,...refunds.map((r) => r.purchase)];
   const customerIds = [...new Set([...purchases.map((p) => p.customerId).filter((id): id is string => !!id),...trialReceipts.map(p=>p.booking.customerId).filter((id): id is string => !!id)])];
   const [people, staff, firstOrders] = await Promise.all([
-    prisma.customer.findMany({ where: { storeId, id: { in: customerIds } }, select: { id:true,name:true,phone:true } }),
+    prisma.customer.findMany({ where: { storeId, id: { in: customerIds } }, select: { id:true,name:true,phone:true,contactPhone:true } }),
     prisma.staff.findMany({ where: { storeId }, select: { id:true,userId:true,displayName:true,user:{select:{role:true}} } }),
     tx.coursePurchase.findMany({ where: { storeId, ...musicPurchaseWhere(storeId,filters.dataScope), customerId: { in: customerIds }, status: { in: ["CONFIRMED","REFUNDED"] } }, orderBy: [{confirmedAt:"asc"},{id:"asc"}], distinct:["customerId"], select:{id:true,customerId:true} }),
   ]);
@@ -43,7 +44,7 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
     const person = peopleById.get(order.customerId ?? "");
     const owner = order.revenueStaffId ? staffById.get(order.revenueStaffId) : staffByUser.get(order.confirmedBy ?? "");
     rows.push({ id,transactionNo:null,transactionDate:toLocalDateStr(date),storeName:store.name,
-      customerName:person?.name??order.customerName??"顧客資料待核對",customerPhone:person?.phone??"",customerId:order.customerId,
+      customerName:person?.name??order.customerName??"顧客資料待核對",customerPhone:courseCustomerPhone(person),customerId:order.customerId,
       coachName:owner?.displayName??null,coachRole:owner?.user.role??null,staffId:owner?.id??null,
       planName:order.name,planType:order.unit,unit:order.unit,grossAmount:amount,discountAmount:0,netAmount:amount,
       paymentMethod:splits.length?"MIXED":method,paymentSplits:splits,status:refund?"REFUNDED":"SUCCESS",isFirstPurchase:!refund&&firstPurchaseIds.has(order.id),

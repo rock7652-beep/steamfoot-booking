@@ -24,14 +24,14 @@ export async function reserveScheduledMusicLearner(tx:Prisma.TransactionClient,a
     // Ordinary native packages are resolved first-purchased-first-used at attendance.
     const {readMusicOpeningCard}=await import("@/lib/music-opening-runtime");
     if(readMusicOpeningCard(card,actor.storeId).kind==="NATIVE"&&!card.requestKey?.startsWith("music-leave-makeup:")&&!card.requestKey?.startsWith("no-show-makeup:"))
-      return reserveCourseInTransaction(tx,actor,{...input,cardId:null,deferredPayment:true},limit);
+      return reserveCourseInTransaction(tx,actor,{...input,cardId:null,deferredPayment:true,onSite:true},limit);
     const termAllowed=!card.termSessionIds.length||card.termSessionIds.includes(input.sessionId)||session.templateId.startsWith("teaching:")&&!!await tx.courseSession.findFirst({where:{storeId:actor.storeId,id:{in:card.termSessionIds},requestKey:session.requestKey},select:{id:true}});
     const held=await tx.courseBooking.aggregate({where:{storeId:actor.storeId,cardId:card.id,status:"RESERVED"},_sum:{pointCost:true}});
     const first=await tx.courseBooking.findFirst({where:{storeId:actor.storeId,cardId:card.id,status:"RESERVED"},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}});
     const expiry=card.musicValidityDays&&!card.musicActivatedAt?musicCourseExpiry(first?.session.startsAt??session.startsAt,card.musicValidityDays):card.expiresAt;
     if(termAllowed&&!card.closedAt&&card.remaining-(held._sum.pointCost??0)>0&&courseCardCoversDate(card,actor.storeId,new Date())&&(expiry?session.startsAt<=expiry:courseCardCoversDate(card,actor.storeId,session.startsAt))){usableCardId=card.id;if(card.termSessionIds.length&&!card.termSessionIds.includes(input.sessionId))await tx.coursePointCard.update({where:{id:card.id},data:{termSessionIds:[...card.termSessionIds,input.sessionId]}});}
   }
-  return reserveCourseInTransaction(tx,actor,{...input,cardId:usableCardId,deferredPayment:!usableCardId},limit);
+  return reserveCourseInTransaction(tx,actor,{...input,cardId:usableCardId,deferredPayment:!usableCardId,onSite:true},limit);
 }
 
 /** Attach a newly purchased plan without changing the learner's booking identity. */

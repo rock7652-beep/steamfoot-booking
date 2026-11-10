@@ -12,6 +12,8 @@ import { useBookingFormValidation } from "./booking-create-form";
 import { shouldClearSelectedSlot } from "./booking-submit-validation";
 import { SteamfootBookingCalendar } from "@/components/steamfoot-booking-calendar";
 
+const fetchBackfillSlots = (date: string) => fetchDaySlots(date, undefined, { allowPast: true });
+
 interface Props {
   days: string[];
   defaultDate: string;
@@ -19,7 +21,7 @@ interface Props {
   lockScheduleSelection?: boolean;
   todayStr: string;
   /** SSR 預載的「初始日期」時段（= defaultDate，或不在 days 內時的 days[0]）。
-   *  有值 → 第一屏直接顯示、不打 client；undefined（過去日期 / SSR 失敗）→ client fallback。 */
+   *  有值 → 第一屏直接顯示、不打 client；undefined（SSR 失敗）→ client fallback。 */
   initialSlots?: SlotAvailability[];
 }
 
@@ -44,7 +46,7 @@ export function DashboardBookingForm({
   initialSlots,
 }: Props) {
   const { errors, clearError, calendarCustomerId, setCalendarDate } = useBookingFormValidation();
-  const initialDate = days.includes(defaultDate) ? defaultDate : (days[0] ?? "");
+  const initialDate = /^\d{4}-\d{2}-\d{2}$/.test(defaultDate) && (defaultDate <= todayStr || days.includes(defaultDate)) ? defaultDate : (days[0] ?? "");
   const [selectedDate, setSelectedDate] = useState(initialDate);
   useEffect(() => { setCalendarDate(selectedDate); }, [selectedDate, setCalendarDate]);
   // SSR 已帶初始日時段 → 首屏直接顯示、loading=false；否則沿用原本 client 載入。
@@ -53,12 +55,12 @@ export function DashboardBookingForm({
   const [selectedSlot, setSelectedSlot] = useState<string | null>(defaultSlotTime ?? null);
   const [people, setPeople] = useState(1);
   const [slotResetMessage, setSlotResetMessage] = useState(false);
-  const readSlots = usePanelReader("steam-day-slots", fetchDaySlots);
+  const readSlots = usePanelReader("steam-backfill-day-slots", fetchBackfillSlots);
   const initialSlotsConsumed = useRef(false);
   const requestIdRef = useRef(0);
   useEffect(() => () => { requestIdRef.current++; }, []);
 
-  // 過去日期整天不可預約
+  // Historical dates are available to authorized back-office users.
   const isPastDate = selectedDate < todayStr;
 
   // Fresh SSR seed on first mount; all subsequent date reads are authoritative.
@@ -91,7 +93,7 @@ export function DashboardBookingForm({
       setLoading(false);
       return;
     }
-    if (selectedDate && !isPastDate) {
+    if (selectedDate) {
       loadSlots(selectedDate);
     } else {
       requestIdRef.current++;
@@ -101,7 +103,7 @@ export function DashboardBookingForm({
   }, [selectedDate, isPastDate, loadSlots, lockScheduleSelection]);
 
   const isClosed =
-    !lockScheduleSelection && !loading && !isPastDate && slots.length === 0;
+    !lockScheduleSelection && !loading && slots.length === 0;
 
   const handlePeopleChange = (nextPeople: number) => {
     setPeople(nextPeople);
@@ -120,12 +122,12 @@ export function DashboardBookingForm({
         <label className="block text-sm font-medium text-earth-700">
           日期 <span className="text-red-500">*</span>
         </label>
-        {days.length === 0 ? (
+        {days.length === 0 && lockScheduleSelection ? (
           <p className="mt-1.5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
             店鋪目前沒有開放可預約日期，請先到營業時間設定開放日期。
           </p>
         ) : !lockScheduleSelection ? (
-          <SteamfootBookingCalendar days={days} value={selectedDate} customerId={calendarCustomerId}
+          <SteamfootBookingCalendar allowPast days={days.length ? days : [todayStr]} value={selectedDate} customerId={calendarCustomerId}
             onChange={(date) => { setSelectedSlot(null); setSelectedDate(date); setCalendarDate(date); }} />
         ) : (
           <select
@@ -150,8 +152,8 @@ export function DashboardBookingForm({
 
       {/* 過去日期警告 */}
       {isPastDate && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-          不可建立過去日期的預約，請選擇今天或未來日期。
+        <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          正在補登過往預約，請核對顧客、日期與實際服務時間。
         </div>
       )}
 
@@ -211,21 +213,21 @@ export function DashboardBookingForm({
           </div>
         ) : slots.length === 0 ? (
           <p className="mt-1.5 py-4 text-center text-sm text-earth-400">
-            {isPastDate ? "過去日期無法預約" : "此日無可預約時段"}
+            此日無可預約時段
           </p>
         ) : (
           <div className={styles.slots}>
             {slots.map((s) => {
               const isPast = isSlotPastToday(selectedDate, s.startTime);
               const display = getSlotCapacityDisplay(s.capacity, s.bookedCount, people);
-              const disabled = isPast || !display.canFitRequestedPeople || isPastDate;
+              const disabled = !display.canFitRequestedPeople;
 
               return (
                 <label
                   key={s.startTime}
                   title={
                     isPast
-                      ? "已過時段"
+                      ? "補登已過時段"
                       : !display.canFitRequestedPeople
                         ? display.selectionStatus === "full" ? "此時段已額滿" : "此時段無法容納目前預約人數"
                         : display.label ?? "可預約"
@@ -253,7 +255,7 @@ export function DashboardBookingForm({
                   />
                   <span>{s.startTime}</span>
                   <span className={`mt-0.5 text-center text-sm ${disabled ? "text-earth-400" : display.capacityStatus === "low" ? "text-yellow-800" : "text-earth-500"}`}>
-                    {isPast ? "已過" : display.label ?? "可預約"}
+                    {isPast ? `補登 · ${display.label ?? "可預約"}` : display.label ?? "可預約"}
                   </span>
                 </label>
               );
@@ -272,9 +274,9 @@ export function DashboardBookingForm({
           selectedDate === todayStr &&
           !loading &&
           slots.length > 0 &&
-          slots.every((s) => isSlotPastToday(selectedDate, s.startTime) || s.available <= 0) && (
+          slots.every((s) => s.available <= 0) && (
             <p className="mt-2 text-xs text-red-500">
-              今天所有時段都已過或已滿，請選擇其他日期。
+              今天所有時段都已滿，請選擇其他日期。
             </p>
           )}
       </div>

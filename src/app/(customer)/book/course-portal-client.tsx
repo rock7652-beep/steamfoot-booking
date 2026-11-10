@@ -65,6 +65,7 @@ import { musicPurchasedQuantity, musicPurchasedTitle } from "@/lib/music-purchas
 import { CourseMemberPaymentRecords } from "./course-member-records";
 import type { CoursePortalData } from "./course-portal";
 import { CourseMemberContactForm } from "@/components/course-member-contact-form";
+import { CoursePhoneLearners } from "@/components/course-phone-learners";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { CourseHealthWorkspace } from "@/components/course-health-workspace";
 import { CopyButton } from "./shop/[planId]/checkout/copy-button";
@@ -907,6 +908,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
             <>
               {!coach && <StoreImageAnnouncements storeSlug={p.prefix.split("/")[2] ?? ""} preview={!!p.readOnly} />}
               {heading(coach ? "今日工作" : "會員首頁")}
+              {!coach && !p.readOnly && <CoursePhoneLearners key={`${p.rolePreferenceKey}:${p.customerId}`} scope={`${p.prefix}:${p.rolePreferenceKey}:${p.customerId}`} />}
               {!coach && <section className="cp-card cp-next">
                 <div>
                   <small>{coach ? "下一堂課" : "下一次上課"}</small>

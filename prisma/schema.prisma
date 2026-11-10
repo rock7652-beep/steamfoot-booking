@@ -1143,7 +1143,8 @@ model Customer {
   userId                   String?               @unique // nullable: 有些顧客不一定有登入帳號
   storeId                  String
   name                     String
-  phone                    String
+  phone                    String                // 個人手機／身分比對；共用聯絡電話學員留空
+  contactPhone             String?               // 家長聯絡電話；不作登入或 LINE 身分比對
   email                    String? // 用於 Google 綁定比對（per-store unique）
   googleId                 String? // Google sub ID（per-store unique）
   avatar                   String? // Google 大頭貼 URL（未來 UI 用）
@@ -1239,7 +1240,9 @@ model Customer {
   centralMemberLinkReviewRequests CentralMemberLinkReviewRequest[]
   lineRebindRequests              LineRebindRequest[]
 
-  @@unique([storeId, phone], name: "uq_store_customer_phone")
+  // Non-empty identity phones retain uq_store_customer_phone via a SQL partial unique index.
+  @@index([storeId, phone])
+  @@index([storeId, contactPhone])
   @@unique([storeId, email], name: "uq_store_customer_email")
   @@unique([storeId, googleId], name: "uq_store_customer_google")
   @@unique([storeId, lineUserId], name: "uq_store_customer_line")
@@ -1336,6 +1339,24 @@ model HealthflowLinkCallback {
 // ============================================================
 // CustomerIdentityLink（跨店登入身份 → 店內 Customer）
 // ============================================================
+
+// Read-only course phone groups. Tenant FKs, RLS and revocation triggers live
+// in the SQL migration; this is not a CustomerIdentityLink or a booking grant.
+model CoursePhoneViewGrant {
+  id String @id @default(cuid())
+  storeId String
+  userId String
+  anchorCustomerId String
+  phone String
+  confirmedByUserId String
+  confirmedAt DateTime @default(now())
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, userId, phone])
+  @@index([storeId, anchorCustomerId])
+}
 
 // Own-channel webhook evidence; phone selects a candidate but never approves it.
 // Scoped FKs and RLS are defined in the separately reviewed SQL draft.

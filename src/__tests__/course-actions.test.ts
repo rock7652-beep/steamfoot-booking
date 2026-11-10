@@ -23,10 +23,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/server/services/course-charge",()=>({resolveScheduleCharge:mocks.quote}));
 vi.mock("@/lib/shop-config",()=>({getTrialSettings:async()=>({trialEnabled:true,trialDefaultPrice:499,trialAllowPriceEdit:true,trialMinPrice:0,trialMaxPrice:1000000}),clampTrialTotal:(price:number|undefined)=>price??499}));
 vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:async()=>({maxCustomers:null,maxMonthlyBookings:null})}));
-vi.mock("@/server/services/music-teaching-item",()=>({readTeachingTrialPrice:async()=>null,ensureMusicTeachingItem:async()=>{}}));
+vi.mock("@/server/services/music-teaching-item",()=>({readTeachingTrialPrice:async()=>null,ensureMusicTeachingItem:async()=>{},musicTeachingQualifications:async()=>["yoga"]}));
 vi.mock("@/server/services/course-booking",()=>({reserveCourseInTransaction:mocks.reserve}));
+vi.mock("@/server/services/music-schedule-enrollment",()=>({reserveScheduledMusicLearner:mocks.reserve}));
 vi.mock("@/lib/sports-staging", () => ({ requireSportsStaging: vi.fn(), sportsStagingEnabled: () => false }));
-vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findFirst: async () => ({ id: "fitness" }) } } }));
+vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findFirst: async () => ({ id: "fitness" }) }, customer: { count: async ({where}:{where:{id:{in:string[]}}}) => where.id.in.length } } }));
 vi.mock("@/server/services/sports-staging-schedule", () => ({ attachSportsSessionRules: vi.fn(),readSportsSessionRule:vi.fn() }));
 vi.mock("@/server/services/course-access", () => ({
   courseTransaction: async (_storeId: string, work: (tx: unknown) => Promise<unknown>) => {
@@ -341,6 +342,39 @@ describe("course scheduling action", () => {
   });
 });
 
+describe("music course places independent of enrollment and room size", () => {
+  const learner = {customerId:"student-a",cardId:null};
+  const schedule = {...input,repeatUntil:undefined,scheduleType:"SINGLE",enrollmentMode:"ASSIGNED",capacity:2,learners:[learner]};
+  it.each([null,1])("keeps two music course places with one unpaid learner, ignoring room capacity %s", async (roomCapacity) => {
+    mocks.room.mockResolvedValue({id:"room-a",capacity:roomCapacity});
+    mocks.template.mockResolvedValue({id:"yoga",name:"雙人課",pointCost:1,isActive:true,visibility:"PUBLIC",musicSubjectId:"subject",musicSubject:{id:"subject",isActive:true}});
+    mocks.existing.mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"session-created"}]);
+    const result = await createCourseSchedule(schedule);
+    expect(result).toMatchObject({success:true});
+    expect(mocks.create.mock.calls[0][0].data).toEqual([expect.objectContaining({capacity:2,enrollmentMode:"ASSIGNED"})]);
+    expect(mocks.reserve).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({storeId:"store-a"}),expect.objectContaining({customerId:"student-a",cardId:null}),null);
+  });
+  it("still rejects more assigned learners than the explicit course places", async () => {
+    expect(await createCourseSchedule({...schedule,capacity:1,learners:[learner,{customerId:"student-b",cardId:null}]})).toMatchObject({success:false,error:"學員人數超過課程名額"});
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+});
+
+it("creates distinct trial learners when two children explicitly share a guardian phone", async () => {
+  mocks.template.mockResolvedValue({id:"yoga",name:"雙人體驗",pointCost:1,isActive:true,visibility:"PUBLIC",musicTrialMode:"PAID",musicSubjectId:"subject",musicSubject:{id:"subject",isActive:true}});
+  mocks.existing.mockResolvedValueOnce([]).mockResolvedValueOnce([{id:"session-created"}]);
+  const keys=["51331a2d-d143-4b60-820e-9e23da96cd71","07ad289f-bc07-4c39-a2a9-04cb20b14e46"];
+  mocks.permission.mockResolvedValue({id:'owner-a',role:'OWNER',name:'店長'});
+  const fallback=mocks.raw.getMockImplementation()!;
+  mocks.raw.mockImplementation(async(sql:TemplateStringsArray,...args:unknown[])=>sql.join('').includes('FROM "Customer"')?(mocks.execute.mock.calls.some(([query])=>query.join('').includes('INSERT INTO "Customer"'))?[{id:`trial:${keys[0]}`,name:'小安',assignedStaffId:null}]:[]):fallback(sql,...args));
+  const result=await createCourseSchedule({...input,repeatUntil:undefined,isTrial:true,scheduleType:"TRIAL",enrollmentMode:"ASSIGNED",capacity:2,learners:keys.map((participantKey,index)=>({participantKey,customerId:null,cardId:null,customerName:index?"小晴":"小安",customerPhone:"0912345678"}))});
+  expect(result).toMatchObject({success:true});
+  const customers=mocks.execute.mock.calls.filter(([sql])=>sql.join("").includes('INSERT INTO "Customer"'));
+  expect(customers).toHaveLength(2);
+  expect(customers.map(call=>call.slice(1,6))).toEqual(keys.map((key,index)=>[`trial:${key}`,"store-a",index?"小晴":"小安",index?"":"0912345678",index?"0912345678":null]));
+  expect(mocks.reserve.mock.calls.map(call=>call[2].customerId)).toEqual(keys.map(key=>`trial:${key}`));
+});
+
 describe("copy course schedule", () => {
   it("copies the selected session snapshot instead of changed template defaults", async () => {
     mocks.conflict
@@ -447,7 +481,7 @@ describe('sports guest trial transaction',()=>{
   mocks.quote.mockResolvedValue({snapshot:{planId:'single'},duration:90,trialPrice:480});
   mocks.existing.mockImplementation(async(args:{select?:{id?:boolean}})=>args.select?.id?[{id:'created'}]:[]);
   const fallback=mocks.raw.getMockImplementation()!;
-  mocks.raw.mockImplementation(async(sql:TemplateStringsArray,...args:unknown[])=>sql.join('').includes('FROM "Customer"')?(existingCustomer?[{id:'existing-customer',assignedStaffId:null}]:[]):fallback(sql,...args));
+  mocks.raw.mockImplementation(async(sql:TemplateStringsArray,...args:unknown[])=>sql.join('').includes('FROM "Customer"')?(existingCustomer?[{id:'existing-customer',name:'體驗學員',assignedStaffId:null}]:[]):fallback(sql,...args));
  }
  it.each([false,true])('creates a trial booking using the authoritative quote; existing phone reused=%s',async existingCustomer=>{
   setup(existingCustomer);

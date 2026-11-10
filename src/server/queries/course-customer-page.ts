@@ -67,7 +67,7 @@ export async function getCourseCustomerPage(
       WHERE c."storeId"=${storeId} ${musicRetirementSql(storeId,"Customer","c.id")} AND c."mergedIntoCustomerId" IS NULL ${labelFilter} ${cohortSql}
         AND (${staffScope}::text IS NULL OR c."assignedStaffId"=${staffScope})
         AND (${assigned}='' OR c."assignedStaffId"=${assigned})
-        AND (${search}='' OR strpos(lower(concat(c.name,' ',c.phone,' ',c."lineName")),${search})>0)
+        AND (${search}='' OR strpos(lower(concat(c.name,' ',c.phone,' ',c."contactPhone",' ',c."lineName")),${search})>0)
         AND (${status}<>'linked' OR c."lineLinkStatus"='LINKED')
         AND (${status}<>'unlinked' OR c."lineLinkStatus"<>'LINKED')
         AND (${status}<>'lead' OR c."customerStage"='LEAD')

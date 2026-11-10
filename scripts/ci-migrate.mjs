@@ -1,3 +1,9 @@
+import {assertCoursePhoneAPreview} from './course-phone-a-preview-scope.mjs';
+if (assertCoursePhoneAPreview(process.env)) {
+  console.info('[course-phone-a-preview] isolated_database=true migrations_skipped=true notifications_blocked=true');
+  process.exit(0);
+}
+
 // Exact, loopback-only rehearsal of this dispatcher. It cannot use deployed metadata.
 if (process.env.DIGITAL_MANAGER_MIGRATION_QA === '1') {
   const {assertDigitalManagerLocalEnvironment,runDigitalManagerLocalRehearsal}=await import('./digital-manager-migration-review.mjs');

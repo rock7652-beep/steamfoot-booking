@@ -3,6 +3,7 @@ vi.mock("@/lib/session",()=>({getCurrentUser:vi.fn(),requireSession:vi.fn()}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-transaction-action",()=>({CustomerTransactionAction:()=>null}));
 vi.mock("@/components/admin/store-member-connection-panel", () => ({ StoreMemberConnectionPanel: () => null }));
 // @vitest-environment jsdom
+vi.mock("@/server/actions/course-phone-view",()=>({loadCoursePhoneConnection:vi.fn().mockResolvedValue({success:true,data:{anchorCustomerId:"person",learnerCount:1,grantId:null,linked:false,canConfirm:false,pending:[]}}),confirmCoursePhoneLogin:vi.fn(),confirmCoursePhoneView:vi.fn(),removeCoursePhoneView:vi.fn()}));
 
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";

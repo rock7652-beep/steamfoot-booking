@@ -187,7 +187,7 @@ export async function fetchMonthAvailability(
 // fetchDaySlots — 單日時段查詢（前台預約用，含 duty 過濾）
 // ============================================================
 
-export async function fetchDaySlots(date: string, requestedStoreId?: string): Promise<{ slots: SlotAvailability[] }> {
+export async function fetchDaySlots(date: string, requestedStoreId?: string, options?: { allowPast?: boolean }): Promise<{ slots: SlotAvailability[] }> {
   // Fixed action label only; no arguments, customer data, or identifiers.
   console.info("[BOOKING_ACTION]", "fetchDaySlots");
   // A roster can be opened via an authorized /s/:slug route without an
@@ -202,6 +202,12 @@ export async function fetchDaySlots(date: string, requestedStoreId?: string): Pr
     ? await validateStoreAccess(user, requestedStoreId!, "read")
     : (await resolveReadStoreContextOrThrow(user)).storeId;
   if (!storeId) throw new AppError("VALIDATION", "請指定門市");
+
+  const allowPast = options?.allowPast === true;
+  if (allowPast) {
+    if (user.role === "CUSTOMER") throw new AppError("FORBIDDEN", "補登僅供有權限的後台人員操作");
+    await requirePermission("booking.create", undefined, { storeId });
+  }
 
   if (!(await isStoreBookable(storeId))) return { slots: [] };
 
@@ -260,7 +266,7 @@ export async function fetchDaySlots(date: string, requestedStoreId?: string): Pr
       startTime: s.startTime,
       capacity: s.capacity,
       bookedCount: booked,
-      available: isPast ? 0 : Math.max(0, s.capacity - booked),
+      available: isPast && !allowPast ? 0 : Math.max(0, s.capacity - booked),
       isEnabled: true,
       isPast,
     });

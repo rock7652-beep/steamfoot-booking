@@ -99,7 +99,7 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
     if (!request) throw new AppError("NOT_FOUND", "找不到本店連結申請");
     // Login reviews have a separate approval path and must never become OA
     // recipients, even if a caller submits their ID to this action directly.
-    if (request.channelKey?.startsWith("login:")) throw new AppError("CONFLICT", "請使用會員登入確認操作");
+    if (request.channelKey?.startsWith("login:") || request.channelKey?.startsWith("course-phone:")) throw new AppError("CONFLICT", "請使用會員登入確認操作");
     if (request.status === "APPROVED") return;
     if (request.status !== "PENDING" || request.expiresAt <= new Date()) throw new AppError("CONFLICT", "申請已逾時，請顧客重新操作");
     const config = getConfiguredStoreLine(ctx.storeId);
@@ -187,7 +187,7 @@ export async function approveStoreMemberConnection(ctx: Pick<InventoryContext, "
 export async function readStoreMemberConnection(storeId: string, customerId: string) {
   const [customer, connections] = await Promise.all([
     prisma.customer.findFirst({ where: { storeId, id: customerId }, select: { lineLinkStatus: true, userId: true, identityLinks: { select: { userId: true } } } }),
-    prisma.storeMemberConnection.findMany({ where: { storeId, customerId, status: { in: ["PENDING", "APPROVED"] } }, select: { id: true, verificationCode: true, status: true, expiresAt: true, confirmedAt: true, channelKey: true }, orderBy: { updatedAt: "desc" } }),
+    prisma.storeMemberConnection.findMany({ where: { storeId, customerId, channelKey: { not: { startsWith: "course-phone:" } }, status: { in: ["PENDING", "APPROVED"] } }, select: { id: true, verificationCode: true, status: true, expiresAt: true, confirmedAt: true, channelKey: true }, orderBy: { updatedAt: "desc" } }),
   ]);
   if (!customer) throw new AppError("NOT_FOUND", "找不到顧客");
   const owners = new Set([...(customer.userId ? [customer.userId] : []), ...customer.identityLinks.map(l => l.userId)]);

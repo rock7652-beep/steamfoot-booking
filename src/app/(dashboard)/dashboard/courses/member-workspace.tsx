@@ -15,6 +15,7 @@ import type {CoursePlanCatalogPort} from "./course-profile-forms";
 import {studentScheduleHref} from "@/lib/music-student-navigation";
 import type {SportsSnapshot} from "@/lib/sports-staging-types";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
+import { CoursePhoneViewPanel } from "@/components/admin/course-phone-view-panel";
 import { courseTemplateLabel } from "@/lib/course-template-presentation";
 import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
 import { coursePlanSnapshot } from "@/lib/course-plan-snapshot";
@@ -700,6 +701,7 @@ export function CourseMemberWorkspace({
                 <div className="flex min-h-11 items-center justify-between gap-3"><h3 className="text-sm font-semibold">持有方案</h3>{canAssign && <button type="button" className={button} onClick={() => open("assign")}>購買方案</button>}</div>
                 <CourseCardBrowser snapshot={checkoutCards} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} compact sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
               </section>}
+              {source?.healthScope !== "beauty" && <CoursePhoneViewPanel key={`phone-${person.id}`} customerId={person.id} />}
               {source?.support?<DeferredCustomerSupport key={person.id} customerId={person.id} load={source.support}/>:<>
               <StoreMemberConnectionPanel compact={sportsNative} key={`membership-${person.id}`} customerId={person.id} pendingOnly />
               <CustomerPanelAdvanced key={`line-${person.id}`} managerSimple active customerId={person.id} readOnly={!!source||!canEdit} canEdit={!source&&canEdit} onMutated={() => router.refresh()}/></>}

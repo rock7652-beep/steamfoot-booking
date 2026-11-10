@@ -89,12 +89,12 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
   // 效能：SSR 預載「初始日期」的時段，讓第一屏就有時段，避免 client mount 後才
   // fetchDaySlots 的二次往返（店長感受到的「頁面到了、時段還要再等一下」）。
-  // 過去日期不預載（表單會擋）；查詢失敗 → undefined，client fallback 維持原行為。
-  const initialSlotDate = days.includes(defaultDate) ? defaultDate : days[0];
+  // 後台補登也預載歷史日期；查詢失敗 → undefined，由 client 重試。
+  const initialSlotDate = defaultDate <= todayStr || days.includes(defaultDate) ? defaultDate : days[0];
   let initialSlots: Awaited<ReturnType<typeof fetchDaySlots>>["slots"] | undefined;
-  if (!isSpaStore && !lockSpaSchedule && initialSlotDate && initialSlotDate >= todayStr) {
+  if (!isSpaStore && !lockSpaSchedule && initialSlotDate ) {
     try {
-      initialSlots = (await fetchDaySlots(initialSlotDate)).slots;
+      initialSlots = (await fetchDaySlots(initialSlotDate, undefined, { allowPast: true })).slots;
     } catch {
       initialSlots = undefined;
     }

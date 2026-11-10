@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   errorLog: vi.fn(),
   requireSession: vi.fn(),
   checkBookingLimit: vi.fn(),
+  bookableUntil: vi.fn(),
   checkMonthlyBookingLimitOrThrow: vi.fn(),
   getStoreOperatingStatus: vi.fn(),
   isStoreBookableStatus: vi.fn(),
@@ -63,13 +64,13 @@ vi.mock("@/lib/store", () => ({
   resolveWriteStoreId: h.resolveWriteStoreId,
 }));
 vi.mock("@/lib/date-utils", () => ({
-  getNowTaipeiHHmm: () => "00:00",
+  getNowTaipeiHHmm: () => "12:00",
   toLocalDateStr: () => "2026-07-10",
   dayRange: (date: string) => ({ start: new Date(`${date}T00:00:00.000Z`) }),
 }));
 vi.mock("@/lib/shop-config", () => ({
   checkBookingLimit: h.checkBookingLimit,
-  resolveBookableUntilDate: () => "2026-12-31",
+  resolveBookableUntilDate: h.bookableUntil,
 }));
 vi.mock("@/lib/usage-gate", () => ({
   checkMonthlyBookingLimitOrThrow: h.checkMonthlyBookingLimitOrThrow,
@@ -139,6 +140,7 @@ beforeEach(() => {
     staffId: null,
   });
   h.checkBookingLimit.mockResolvedValue({ allowed: true, limit: 999 });
+  h.bookableUntil.mockReturnValue("2026-12-31");
   h.checkMonthlyBookingLimitOrThrow.mockResolvedValue(undefined);
   h.getStoreOperatingStatus.mockResolvedValue("OPEN");
   h.isStoreBookableStatus.mockReturnValue(true);
@@ -301,4 +303,28 @@ it("rejects disabled core booking permission before reading customer or writing 
   expect(result.success).toBe(false);
   expect(h.customerFindUnique).not.toHaveBeenCalled();
   expect(h.bookingCreate).not.toHaveBeenCalled();
+});
+
+it.each(['2026-07-09','2026-07-10'])('allows authorized staff to backfill %s without skipping store or capacity checks',async bookingDate=>{
+ h.customerFindUnique.mockResolvedValueOnce({...customer(),planWallets:[]});
+ const {createBooking}=await import('@/server/actions/booking');
+ const result=await createBooking({customerId:CUSTOMER_ID,bookingDate,slotTime:'10:00',bookingType:'SINGLE',skipDutyCheck:true});
+ expect(result).toMatchObject({success:true});
+ expect(h.permission).toHaveBeenCalledWith('booking.create');
+ expect(h.bookingCreate).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({storeId:'store-taichung',bookingDate:new Date(bookingDate+'T00:00:00Z')})}));
+});
+it('keeps the historical-date restriction for customer self-booking',async()=>{
+ h.requireSession.mockResolvedValue({id:'customer-user',role:'CUSTOMER',storeId:'store-taichung',customerId:CUSTOMER_ID});
+ const {createBooking}=await import('@/server/actions/booking');
+ expect(await createBooking({customerId:CUSTOMER_ID,bookingDate:'2026-07-09',slotTime:'10:00',bookingType:'SINGLE'})).toMatchObject({success:false,error:'不可預約過去的日期'});
+ expect(h.bookingCreate).not.toHaveBeenCalled();
+});
+it('allows a historical visit despite an old opening window, while retaining future window limits',async()=>{
+ h.bookableUntil.mockReturnValue('2026-07-01');
+ h.customerFindUnique.mockResolvedValueOnce({...customer(),planWallets:[]});
+ const {createBooking}=await import('@/server/actions/booking');
+ expect(await createBooking({customerId:CUSTOMER_ID,bookingDate:'2026-07-09',slotTime:'10:00',bookingType:'SINGLE',skipDutyCheck:true})).toMatchObject({success:true});
+ h.bookingCreate.mockClear();
+ expect(await createBooking({customerId:CUSTOMER_ID,bookingDate:'2026-07-11',slotTime:'10:00',bookingType:'SINGLE',skipDutyCheck:true})).toMatchObject({success:false,error:expect.stringContaining('目前僅開放')});
+ expect(h.bookingCreate).not.toHaveBeenCalled();
 });

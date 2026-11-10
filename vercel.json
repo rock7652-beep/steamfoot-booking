@@ -188,7 +188,9 @@
       "fix/beauty-public-three-steps-20261102": false,
       "codex/agreements-1502-integration": false,
       "codex/all-modules-agreements-release": false,
-      "fix/agreement-privacy-default": false
+      "fix/agreement-privacy-default": false,
+      "codex/course-liff-ui-20260922": false,
+      "codex/course-phone-a-preview-20261110": false
     }
   }
 }

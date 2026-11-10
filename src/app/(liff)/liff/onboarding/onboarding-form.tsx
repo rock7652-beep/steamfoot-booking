@@ -5,7 +5,8 @@
  *
  * 流程 (plan §1.1 + §3.4)：
  *   1. mount → initLiff(liffId) + getIDToken() + getProfile().displayName (預填姓名)
- *   2. 顯示姓名 / 手機表單（兩欄都有值才能 submit；plan §3.5）
+ *   2. 課程先輸入聯絡電話；既有學員送門市確認，新電話才填學員姓名。
+ *      其他模組維持姓名 / 手機表單。
  *   3. submit → submitOnboarding(...) (server action)
  *      - ok → refreshLiffSession verifies and creates the session
  *             → router.replace(`/s/{slug}/liff`) → LiffShell 重跑 → signed_in
@@ -61,14 +62,16 @@ interface OnboardingFormProps {
   /** PR-E：per-store LINE OA 連結（server resolveStorePresentation 注入）。 */
   contactUrl: string;
   firstRegistration?: boolean;
+  coursePhoneBinding?: boolean;
 }
 
-export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, firstRegistration = false }: OnboardingFormProps) {
+export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, firstRegistration = false, coursePhoneBinding = false }: OnboardingFormProps) {
   const router = useRouter();
   const [state, setState] = useState<FormState>({ kind: "initializing" });
   const [nameValue, setNameValue] = useState("");
   const [phoneValue, setPhoneValue] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [needsName, setNeedsName] = useState(false);
 
   // iOS may retain the keyboard's viewport offset after the form is replaced
   // by a result. Release focus and reveal the result/header in normal flow.
@@ -145,10 +148,10 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, first
     setFieldError(null);
     if (state.kind !== "ready" && state.kind !== "blocked") return;
 
-    const name = nameValue.trim();
+    const name = coursePhoneBinding && !needsName ? "" : nameValue.trim();
     const phone = phoneValue.trim();
 
-    if (!name) {
+    if (!name && (!coursePhoneBinding || needsName)) {
       setFieldError(liffMessages.error.missingName);
       return;
     }
@@ -172,6 +175,11 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, first
     }
 
     switch (result.status) {
+      case "needs_name":
+        setNeedsName(true);
+        setNameValue("");
+        setState({ kind: "ready", idToken, defaultName, pictureUrl });
+        return;
       case "login_review_pending":
         setState({ kind: "login_review_pending", referenceId: result.referenceId, verificationCode: result.verificationCode });
         return;
@@ -219,7 +227,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, first
         <h1 className="mt-2 text-2xl font-semibold text-earth-900">
           {firstRegistration ? "加入本店會員" : liffMessages.onboarding.title}
         </h1>
-        <p className="mt-2 text-sm text-earth-600">{firstRegistration ? "填寫姓名與手機，完成會員登記。" : liffMessages.onboarding.body}</p>
+        <p className="mt-2 text-sm text-earth-600">{coursePhoneBinding ? needsName ? "填寫學員姓名，完成首次登記。" : "輸入學員聯絡電話，連結本店課程資料。" : firstRegistration ? "填寫姓名與手機，完成會員登記。" : liffMessages.onboarding.body}</p>
       </header>
 
       {state.kind === "initializing" && (
@@ -256,7 +264,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, first
       )}
       {state.kind === "login_review_pending" && (
         <InfoBlock tone="yellow"
-          body={`已送出會員登入確認申請。請向店家出示確認碼 ${state.verificationCode}，核對本人後，重新整理並再次輸入會員資料完成登入。請勿重新註冊或解除 LINE 綁定。查核編號：${state.referenceId}`}
+          body={coursePhoneBinding ? `已送出電話綁定申請。請向店家出示確認碼 ${state.verificationCode}，確認後重新進入本店，即可查看同電話學員的課程。` : `已送出會員登入確認申請。請向店家出示確認碼 ${state.verificationCode}，核對本人後，重新整理並再次輸入會員資料完成登入。請勿重新註冊或解除 LINE 綁定。查核編號：${state.referenceId}`}
           showRetry showContactStore contactUrl={contactUrl} />
       )}
 
@@ -300,9 +308,9 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, first
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <label className="flex flex-col gap-1.5">
+            {(!coursePhoneBinding || needsName) && <label className="flex flex-col gap-1.5">
               <span className="text-sm font-medium text-earth-700">
-                {liffMessages.onboarding.nameLabel}
+                {coursePhoneBinding ? "學員姓名" : liffMessages.onboarding.nameLabel}
               </span>
               <input
                 name="name"
@@ -316,7 +324,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, first
                 className="rounded-lg border border-earth-300 px-3 py-2.5 text-base text-earth-900 focus:border-earth-500 focus:outline-none focus:ring-1 focus:ring-earth-500 disabled:bg-earth-50"
                 autoComplete="name"
               />
-            </label>
+            </label>}
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-medium text-earth-700">
                 {liffMessages.onboarding.phoneLabel}
@@ -328,13 +336,13 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, first
                 inputMode="tel"
                 autoComplete="tel"
                 value={phoneValue}
-                onChange={(e) => setPhoneValue(e.target.value)}
+                onChange={(e) => { setPhoneValue(e.target.value); if (coursePhoneBinding) setNeedsName(false); }}
                 placeholder={liffMessages.onboarding.phonePlaceholder}
                 disabled={state.kind === "submitting"}
                 className="rounded-lg border border-earth-300 px-3 py-2.5 text-base text-earth-900 focus:border-earth-500 focus:outline-none focus:ring-1 focus:ring-earth-500 disabled:bg-earth-50"
               />
               <span className="text-[11px] text-earth-500">
-                {firstRegistration ? "手機用於預約聯繫" : liffMessages.onboarding.phoneHelp}
+                {coursePhoneBinding ? "同電話的學員保留各自課程與堂數。" : firstRegistration ? "手機用於預約聯繫" : liffMessages.onboarding.phoneHelp}
               </span>
             </label>
 
@@ -348,7 +356,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, first
               type="submit"
               disabled={
                 state.kind === "submitting" ||
-                !nameValue.trim() ||
+                ((!coursePhoneBinding || needsName) && !nameValue.trim()) ||
                 !phoneValue.trim()
               }
               className="mt-2 rounded-xl bg-earth-800 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98] disabled:opacity-60"

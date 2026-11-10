@@ -19,8 +19,8 @@ export async function loadSteamBookingForm(date: string) {
     const config=await prisma.shopConfig.findUnique({where:{storeId},select:{bookableUntilDate:true}});
     const todayStr=toLocalDateStr();
     const days=enumerateBookableDates(todayStr,resolveBookableUntilDate(config?.bookableUntilDate));
-    const defaultDate=days.includes(date)?date:days[0]??todayStr;
-    const initialSlots=(await fetchDaySlots(defaultDate)).slots;
+    const defaultDate=/^\d{4}-\d{2}-\d{2}$/.test(date)&&(date<=todayStr||days.includes(date))?date:days[0]??todayStr;
+    const initialSlots=(await fetchDaySlots(defaultDate,undefined,{allowPast:true})).slots;
     return {success:true as const,data:{days,todayStr,defaultDate,initialSlots,isAdmin:user.role==="ADMIN"}};
   } catch(error) {const result=handleActionError(error);return {success:false as const,error:!result.success?result.error:"載入失敗"};}
 }

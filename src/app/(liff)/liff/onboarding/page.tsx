@@ -48,13 +48,15 @@ export default async function LiffOnboardingPage() {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
 
+  const industry = await getStoreIndustryModule(presentation.id);
   return (
     <OnboardingForm
       storeSlug={presentation.slug}
       storeName={presentation.name}
       liffId={liffId}
       contactUrl={presentation.contactUrl}
-      firstRegistration={await getStoreIndustryModule(presentation.id) === "beauty"}
+      firstRegistration={industry === "beauty"}
+      coursePhoneBinding={industry === "course"}
     />
   );
 }

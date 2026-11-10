@@ -82,7 +82,7 @@ export function MusicScheduleWizard({schedulingModes,autoRoom=false,subjects,tem
   const template=eligibleTemplates.find(t=>t.id===templateId);
   const hasTemplate=!!template;
   useEffect(()=>{if(isTrial&&selectedCharge)setDuration(isTrial?selectedCharge.settings.trialDuration??selectedCharge.settings.durationMinutes:selectedCharge.settings.durationMinutes);},[selectedCharge,isTrial]);
-  const effectiveCapacity=enrollmentMode==="ASSIGNED"?Math.max(1,learners.length):capacity;
+  const effectiveCapacity=enrollmentMode==="ASSIGNED"?Math.max(capacity,learners.length):capacity;
   const submittedLearners=enrollmentMode==="ASSIGNED"?learners:[];
   const fixed=buildFixedScheduleDates(date,frequency);
   const weeksValid=Number.isInteger(singleWeeks)&&singleWeeks>=1&&singleWeeks<=53;
@@ -168,9 +168,9 @@ export function MusicScheduleWizard({schedulingModes,autoRoom=false,subjects,tem
       {canChooseCourse&&<section aria-label={personnelText("合格教師與可用教室")} className="min-w-0"><label>{template?personnelText("可教這門課的教師"):personnelText("授課教師")}<select aria-label={personnelText("授課教師")} className={field} value={selectedCoachId} disabled={!template} onChange={e=>setCoachId(e.target.value)}><option value="">{template?personnelText("請選擇教師"):"請先選擇教學項目"}</option>{coachId&&(!template||!teacherIds.includes(coachId))&&<option value={coachId} disabled={!!template&&slots!==null}>{coaches.find(c=>c.id===coachId)?.displayName??personnelText("原選教師")}{template?(slots===null?"（確認授課資格中…）":"（此時段不可安排）"):""}</option>}{teacherIds.map(id=><option key={id} value={id}>{coaches.find(c=>c.id===id)?.displayName??personnelText("教師")}</option>)}</select></label>{!template&&coachId&&<p className="py-2 text-earth-600">{personnelText("已帶入課表教師，選擇教學項目後確認授課資格。")}</p>}{template&&positionReady&&!slots&&!slotError&&<p role="status" className="py-2 text-earth-600">{personnelText("正在確認可授課教師，其他欄位仍可操作…")}</p>}{slots&&!teacherIds.length&&<p role="status" className="py-2 text-amber-800">{date} · {unavailableReason||personnelText("此課程在所選時段與教室沒有可授課教師，請調整時間、教室或課程。")}{fixTarget==="teacher"&&<a className="flex min-h-11 items-center underline" href="/dashboard/teachers" target="_blank" rel="noopener noreferrer">{personnelText("設定教師授課資格與可授課時間")}</a>}</p>}</section>}
       </div>
       {canChooseCourse&&template&&isTrial&&<p role="status" className="text-earth-600">體驗費用依所選課程設定；每位學員個別計費。</p>}
-      {canChooseCourse&&template&&enrollmentMode==="OPEN"&&<label className="block">名額<input aria-label="名額" className={field} type="number" min={1} max={500} value={capacity} onChange={e=>setCapacity(Number(e.target.value))}/></label>}
+      {canChooseCourse&&template&&<label className="col-span-2 block @min-[36rem]:col-span-1">課程名額<input aria-label="名額" className={field} type="number" min={Math.max(1,submittedLearners.length)} max={500} value={effectiveCapacity} onChange={e=>setCapacity(Number(e.target.value))}/><span className="mt-1 block text-earth-600">依課程設定人數，不受空間人數限制。</span></label>}
       {template&&positionReady&&<details aria-label="新增前確認" className="col-span-2 rounded-lg bg-earth-50 px-3 py-1 text-earth-700">
-        <summary className="min-h-11 cursor-pointer content-center">安排摘要 · {repeat ? (frequency === "BIWEEKLY" ? "隔週" : "每週") : `${dates.length} 次`} · {enrollmentMode === "ASSIGNED" ? `${learners.length} 位學員` : `${capacity} 個名額`}</summary>
+        <summary className="min-h-11 cursor-pointer content-center">安排摘要 · {repeat ? (frequency === "BIWEEKLY" ? "隔週" : "每週") : `${dates.length} 次`} · {enrollmentMode === "ASSIGNED" ? `${learners.length} 位學員／${effectiveCapacity} 個名額` : `${capacity} 個名額`}</summary>
         <p className="break-words">{schedulingLabel(template)} · {rooms.find(room=>room.id===roomId)?.name} · {coaches.find(coach=>coach.id===selectedCoachId)?.displayName??personnelText("尚未選教師")}</p>
         <p>{date} {weekday} {time}–{endLabel}</p>
         <p>{repeat?`${frequency==="BIWEEKLY"?"每隔一週":"每週"}・持續至取消後續`:`共 ${dates.length} 次` } · {enrollmentMode==="ASSIGNED"?`指定 ${learners.length} 位學員，各自使用個人方案或繳費`:`開放選課 ${capacity} 人`}</p>
