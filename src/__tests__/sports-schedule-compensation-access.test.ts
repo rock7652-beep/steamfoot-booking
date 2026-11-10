@@ -1,8 +1,8 @@
 import {beforeEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({finance:false,denied:"",manager:vi.fn(),compensation:vi.fn(),plans:vi.fn(),savePlan:vi.fn(),room:vi.fn(),template:vi.fn(),coaches:vi.fn(),plan:vi.fn(),schedule:vi.fn()}));
+const m=vi.hoisted(()=>({transaction:vi.fn(),finance:false,denied:"",manager:vi.fn(),compensation:vi.fn(),plans:vi.fn(),savePlan:vi.fn(),room:vi.fn(),template:vi.fn(),coaches:vi.fn(),plan:vi.fn(),schedule:vi.fn()}));
 vi.mock("@/lib/sports-staging",()=>({requireSportsStaging:()=>{}}));
 vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:async()=>({})},customer:{findMany:async()=>[]},staff:{findMany:m.coaches}}}));
-vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:async()=>({selfBookingEnabled:false,assignedSchedulingEnabled:true})},$transaction:async(cb:(tx:object)=>unknown)=>cb({}),musicSubject:{findMany:async()=>[]},coursePointPlan:{findMany:m.plans,findFirst:m.plan},courseTemplate:{findFirst:m.template,findMany:async()=>[{id:"t",musicSubjectId:"subject",pointCost:2}]},coursePointCard:{findMany:async()=>[]},courseRoom:{findFirst:m.room,findMany:async()=>[]},courseCompensation:{findMany:m.compensation},courseSession:{findMany:async()=>[]},courseRental:{findMany:async()=>[]},$queryRaw:async()=>[]}}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:async()=>({selfBookingEnabled:false,assignedSchedulingEnabled:true})},$transaction:m.transaction,musicSubject:{findMany:async()=>[]},coursePointPlan:{findMany:m.plans,findFirst:m.plan},courseTemplate:{findFirst:m.template,findMany:async()=>[{id:"t",musicSubjectId:"subject",pointCost:2}]},coursePointCard:{findMany:async()=>[]},courseRoom:{findFirst:m.room,findMany:async()=>[]},courseCompensation:{findMany:m.compensation},courseSession:{findMany:async()=>[]},courseRental:{findMany:async()=>[]},$queryRaw:async()=>[]}}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseMember:vi.fn(),courseTransaction:vi.fn()}));
 vi.mock("@/server/services/sports-production-readiness",()=>({assertSportsProductionReady:async()=>{}}));
 vi.mock("@/server/services/operation-audit-outbox",()=>({enqueueOperationAudit:vi.fn()}));
@@ -13,7 +13,7 @@ vi.mock("@/server/actions/course-trial",()=>({}));
 vi.mock("@/server/actions/course-refund",()=>({}));
 import {loadSportsStaging} from "@/server/actions/sports-staging";
 beforeEach(()=>{
- vi.clearAllMocks();m.room.mockResolvedValue({id:"room",capacity:8});m.template.mockResolvedValue({id:"t"});m.coaches.mockResolvedValue([]);m.finance=false;m.denied="";
+ vi.clearAllMocks();m.transaction.mockImplementation(async(cb:(tx:object)=>unknown)=>cb({}));m.room.mockResolvedValue({id:"room",capacity:8});m.template.mockResolvedValue({id:"t"});m.coaches.mockResolvedValue([]);m.finance=false;m.denied="";
  m.manager.mockImplementation(async(permission:string)=>{if(permission===m.denied||permission==="teacher.compensation.read"&&!m.finance)throw new Error("FORBIDDEN");return {storeId:"sports-live-flow-store",user:{id:"staff",role:"STAFF"}};});
  m.compensation.mockResolvedValue([{templateId:"t",rules:[{mode:"HOUR",value:700}]}]);m.plans.mockResolvedValue([{id:"plan",name:"十堂",points:10,price:2000,validDays:90,unit:"SESSION",templateIds:["t"],isActive:true}]);
 });
@@ -88,4 +88,11 @@ it('體驗新客由共用排課交易建立並預約，保留方案選擇且不�
  expect(await sportsStagingCommand({operation:'schedule',payload})).toMatchObject({success:true});
  expect(m.schedule).toHaveBeenCalledWith(expect.objectContaining({chargePlanId:'single',isTrial:true,learners:[{customerId:null,cardId:null,participantKey:trialLearner.participantKey,customerName:trialLearner.name,customerPhone:trialLearner.phone}],sportsStaging:expect.objectContaining({students:[],enrollment:'ASSIGNED',frequency:'SINGLE'})}));
  m.schedule.mockClear();m.plan.mockResolvedValue({id:'single',templateIds:['t'],chargeSettings:null});expect((await sportsStagingCommand({operation:'schedule',payload})).success).toBe(false);expect(m.schedule).not.toHaveBeenCalled();
+});
+
+it('schedule option readiness tolerates queued acquisition but retains bounded execution and fails closed',async()=>{
+ expect((await loadSportsStaging(true,true)).success).toBe(true);
+ expect(m.transaction).toHaveBeenCalledExactlyOnceWith(expect.any(Function),{maxWait:10000,timeout:5000});
+ m.plans.mockClear();m.transaction.mockRejectedValueOnce(new Error('catalog permission denied'));
+ expect((await loadSportsStaging(true,true)).success).toBe(false);expect(m.plans).not.toHaveBeenCalled();
 });
