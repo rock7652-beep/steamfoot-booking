@@ -1,6 +1,7 @@
-.compact { container-type: inline-size; }
-.compactGrid { grid-template-columns: repeat(var(--lesson-narrow-columns), minmax(0, 1fr)); }
-.compactGrid > li > span, .compactGrid > li > button { min-height: 44px; }
+.compact { container-type: inline-size; display: flex; flex-direction: column; gap: 6px; }
+.compact > * { margin-block: 0; }
+.compactGrid { grid-template-columns: repeat(var(--lesson-narrow-columns), minmax(0, 1fr)); gap: 4px; padding-right: 0; }
+.compactGrid > li > span, .compactGrid > li > button { min-height: 44px; padding-inline: 4px; text-align: center; align-items: center; justify-content: center; }
 @container (min-width: 640px) {
   .compactGrid { grid-template-columns: repeat(var(--lesson-wide-columns), minmax(0, 1fr)); }
 }

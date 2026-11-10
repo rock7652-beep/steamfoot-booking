@@ -6,6 +6,7 @@
       "width": 390,
       "height": 844,
       "total": 10,
+      "attended": false,
       "columns": 5,
       "gridWidth": 332,
       "cellHeight": 48,
@@ -17,6 +18,7 @@
       "width": 360,
       "height": 800,
       "total": 8,
+      "attended": false,
       "columns": 4,
       "gridWidth": 302,
       "cellHeight": 48,
@@ -28,6 +30,7 @@
       "width": 768,
       "height": 1024,
       "total": 10,
+      "attended": false,
       "columns": 5,
       "gridWidth": 372,
       "cellHeight": 48,
@@ -39,6 +42,7 @@
       "width": 1366,
       "height": 900,
       "total": 10,
+      "attended": false,
       "columns": 10,
       "gridWidth": 1032,
       "cellHeight": 44,
@@ -53,6 +57,7 @@
       "width": 1024,
       "height": 768,
       "total": 10,
+      "attended": false,
       "columns": 10,
       "gridWidth": 908,
       "cellHeight": 44,
@@ -67,6 +72,7 @@
       "width": 768,
       "height": 1024,
       "total": 10,
+      "attended": false,
       "columns": 10,
       "gridWidth": 652,
       "cellHeight": 44,
@@ -81,6 +87,7 @@
       "width": 600,
       "height": 900,
       "total": 10,
+      "attended": false,
       "columns": 5,
       "gridWidth": 484,
       "cellHeight": 44,
@@ -88,6 +95,33 @@
         "cards",
         "progress"
       ],
+      "pass": true
+    },
+    {
+      "mode": "admin",
+      "width": 1366,
+      "height": 900,
+      "total": 10,
+      "attended": true,
+      "columns": 10,
+      "gridWidth": 1032,
+      "cellHeight": 44,
+      "reads": [
+        "cards",
+        "progress"
+      ],
+      "pass": true
+    },
+    {
+      "mode": "portal",
+      "width": 390,
+      "height": 844,
+      "total": 10,
+      "attended": true,
+      "columns": 5,
+      "gridWidth": 332,
+      "cellHeight": 48,
+      "reads": [],
       "pass": true
     }
   ]

@@ -57,25 +57,26 @@ writeFileSync(path.join(output, "fixture.css"), css.css+"\n"+componentCss);
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 const results=[];
 try{
- for(const [mode,width,height,total] of [['portal',390,844,10],['portal',360,800,8],['portal',768,1024,10],['admin',1366,900,10],['admin',1024,768,10],['admin',768,1024,10],['admin',600,900,10]]){
+ for(const [mode,width,height,total,attended=false] of [['portal',390,844,10],['portal',360,800,8],['portal',768,1024,10],['admin',1366,900,10],['admin',1024,768,10],['admin',768,1024,10],['admin',600,900,10],['admin',1366,900,10,true],['portal',390,844,10,true]]){
   const page=await browser.newPage({viewport:{width,height}}),errors=[],reads=[];page.on('pageerror',e=>errors.push(e.message));
   page.setDefaultTimeout(10000);
   await page.route('**/*',async route=>{
    const req=route.request(),url=new URL(req.url());
    if(req.isNavigationRequest())return route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="zh-Hant"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'});
    if(url.pathname.endsWith('/card-read')){reads.push('cards');await new Promise(r=>setTimeout(r,150));return route.fulfill({json:{success:true,rows:[{id:'synthetic-card',name:'舞蹈（常態）-'+total+'堂',unit:'SESSION',remaining:total,available:total,held:0,members:[{id:'synthetic-member',name:'合成學員'}],entries:[],expired:false,closed:false,expiresAt:'2027-01-24T00:00:00Z',templateIds:[],termSessionIds:[]}],hasMore:false}});}
-   if(url.pathname.endsWith('/card-progress-read')){reads.push('progress');await new Promise(r=>setTimeout(r,150));return route.fulfill({json:{success:true,data:{available:true,total,completed:[],shared:false}}});}
+   if(url.pathname.endsWith('/card-progress-read')){reads.push('progress');await new Promise(r=>setTimeout(r,150));return route.fulfill({json:{success:true,data:{available:true,total,completed:attended?[{id:"attended",date:"2026-11-03T03:00:00Z",customerName:"合成學員"}]:[],shared:false}}});}
    return route.abort();
   });
-  await page.goto(`https://synthetic.invalid/hq/dashboard/courses?mode=${mode}&total=${total}`);await page.addStyleTag({path:path.join(output,'fixture.css')});await page.addScriptTag({path:path.join(output,'fixture.js')});
+  await page.goto(`https://synthetic.invalid/hq/dashboard/courses?mode=${mode}&total=${total}${attended?"&attended=1":""}`);await page.addStyleTag({path:path.join(output,'fixture.css')});await page.addScriptTag({path:path.join(output,'fixture.js')});
   const assert=(value,message)=>{if(!value)throw Error(message)};
   if(mode==='portal'){await page.locator('.cp-plan>summary').click();await page.locator('.cp-plan [data-lesson-slot]').first().waitFor();}
   else{await page.locator('#preload').click();await page.locator('#preload-state').filter({hasText:'完成'}).waitFor();await page.locator('#open').click();await page.locator('[data-lesson-slot]').first().waitFor();assert(reads.length===2,'Opening reread prefetched data');await page.locator('#open').click();await page.locator('#open').click();await page.locator('[data-lesson-slot]').first().waitFor();assert(reads.length===2,'Reopening reread prefetched data');}
-  const grid=page.locator('ol[aria-label="'+total+' 堂進度"]');assert(await grid.locator('li').count()===total,'Incorrect purchased cell count');assert(await grid.locator('time').count()===0,'Reserved/unused plan must remain blank');
+  const grid=page.locator('ol[aria-label="'+total+' 堂進度"]');assert(await grid.locator('li').count()===total,'Incorrect purchased cell count');assert(await grid.locator('time').count()===(attended?1:0),'Only attended dates may fill cells');
+  if(attended){const centered=await grid.locator('time').evaluate(el=>{const t=el.getBoundingClientRect(),c=el.parentElement.getBoundingClientRect();return Math.abs((t.left+t.width/2)-(c.left+c.width/2))<1&&Math.abs((t.top+t.height/2)-(c.top+c.height/2))<1;});assert(centered,'Date text is not centered');}
   const metrics=await grid.evaluate(el=>({columns:getComputedStyle(el).gridTemplateColumns.split(' ').length,gridWidth:el.getBoundingClientRect().width,cellHeight:el.querySelector('li>span')?.getBoundingClientRect().height}));
   if(mode==='admin')assert(metrics.columns===(metrics.gridWidth>=640?10:5),'Backend columns must follow panel width');
   assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),'Page overflows');assert(!errors.length,errors.join(';'));
-  await page.screenshot({path:path.join(output,`${mode}-${width}-${total}.png`),fullPage:true});results.push({mode,width,height,total,...metrics,reads,pass:true});await page.close();
+  await page.screenshot({path:path.join(output,`${mode}-${width}-${total}${attended?"-filled":""}.png`),fullPage:true});results.push({mode,width,height,total,attended,...metrics,reads,pass:true});await page.close();
  }
  writeFileSync(path.join(output,'results.json'),JSON.stringify({scope:'Actual CoursePortalClient plans and CourseCardBrowser/Progress components, full styles, synthetic data and mocked HTTP; not hosted auth or real latency acceptance',results},null,2));console.log(JSON.stringify(results));
 }finally{await browser.close()}
