@@ -58,7 +58,10 @@ export function customerOverviewPreviewStore(module,storeId,env=process.env){
  return assertCompactOperationsPreview(env);
 }
 
-/** Subject entitlement rehearsal uses only the existing synthetic QA fitness store. */
+/** Subject entitlement rehearsal uses only the existing synthetic QA fitness store.
+ * @param {string|undefined} storeId
+ * @param {Readonly<Record<string,string|undefined>>} env
+ */
 export function courseSubjectSportsPreview(storeId,env=process.env){
  if(storeId!=='addons-qa-fitness'||env.VERCEL_GIT_COMMIT_REF!==COURSE_SUBJECT_PREVIEW_BRANCH)return false;
  return assertCompactOperationsPreview(env);
