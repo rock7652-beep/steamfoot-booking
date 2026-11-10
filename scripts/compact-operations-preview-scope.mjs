@@ -45,7 +45,11 @@ export function calendarPerformanceSportsPreview(storeId,env=process.env){
  return assertCompactOperationsPreview(env);
 }
 
-/** Current customer-profile acceptance: three existing synthetic demo stores only. */
+/** Current customer-profile acceptance: three existing synthetic demo stores only.
+ * @param {string} module
+ * @param {string|undefined} storeId
+ * @param {Readonly<Record<string,string|undefined>>} env
+ */
 export function customerOverviewPreviewStore(module,storeId,env=process.env){
  const stores={sports:'addons-qa-fitness',music:'addons-qa-music',beauty:'addons-qa-beauty'};
  if(env.VERCEL_GIT_COMMIT_REF!==CUSTOMER_OVERVIEW_PREVIEW_BRANCH||!Object.hasOwn(stores,module)||storeId!==stores[module])return false;

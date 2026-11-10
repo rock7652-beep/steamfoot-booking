@@ -1,6 +1,6 @@
 # 音樂／運動／美業顧客總覽驗收（2026-11-10）
 
-版本：支線 `feat/customer-overview-alignment-20261110`，由主線 `5b9e9264` 建立。使用者本次授權為執行已討論的顧客資料優化；本地修改與合成資料 Preview 已完成，未 push、建遠端 PR、合併或部署正式站。
+版本：支線 `feat/customer-overview-alignment-20261110`，由主線 `5b9e9264` 建立。以下原始本地階段紀錄保留；使用者後續明確授權登入後業務驗收與線上 Preview，最新結果見末節。未合併或部署正式站。
 
 ## 入口與範圍
 
@@ -33,3 +33,36 @@
 ## 建置與交付
 
 本輪集中修改後在本地進行型別、回歸與 Vite Preview；未建立雲端建置，沒有新增 Vercel 部署費用。既有線上 Preview 不含本次變更，不能作為此版本的驗收證據。正式發布前仍需針對精確版本核對隔離環境、必要業務流程與發布授權。Cloudflare 非本次本機 UI 變更的必要依賴。
+
+## 後續授權：線上登入與完整顧客流程驗收
+
+本節取代上方本地階段「未部署／未執行真實交易」的限制，僅指下列顧客總覽相關流程。2026-11-10 使用者授權繼續完成登入後業務驗收並提供線上預覽，未授權正式發布。
+
+- 精確 Preview 來源：`e519c8b8430802c4b960f1340f0f4d82f9d1fd77`。
+- Vercel QA project：`steamfoot-compact-qa-20261103`，部署 `dpl_HzjrRUgrr628UEdjfeK7PcQRUgjK`，READY。
+- URL：<https://steamfoot-compact-qa-20261103-kyys1rmh1-rock7652-2111s-projects.vercel.app>。需要暫時分享權限及另行提供的 QA 登入資訊，分享憑證不進公開 repo。
+- Supabase：隔離 `steamfoot-preview`（`ttworfzgwejdeolegkxl`），三間既有 demo 店 `addons-qa-fitness`、`addons-qa-music`、`addons-qa-beauty`；正式專案與正式資料未變更。
+- 真正 Chrome → 正常帳密登入 → OWNER 工作階段 → 原 Server Actions → PostgreSQL。自有網域請求未 mock；瀏覽器禁止連往 Preview 以外網域。後端仍以 Preview 對外封鎖及資料庫限制確保不外送。
+
+| 登入後案例 | 運動 | 音樂 | 美業 |
+| --- | --- | --- | --- |
+| OWNER 與店家身分核對 | 通過 | 通過 | 通過 |
+| 編輯地址、備註儲存後重整 | 通過 | 通過 | 通過 |
+| 原結帳流程購買四堂／次方案、返回顧客 | 通過 | 通過 | 通過 |
+| 新增單次課／預約、重新讀取下次預約 | 通過 | 通過 | 通過 |
+| 點名／完成服務扣一次，總覽 4→3 | 通過 | 通過 | 通過 |
+| 取消已出席／完成項目並返還，總覽 3→4 | 通過 | 通過 | 通過 |
+| 取消後重新安排 11/12 16:00 | 通過 | 通過 | 通過 |
+| 歷史／有效方案、紀錄或課程學費、返回搜尋 | 通過 | 通過 | 通過 |
+| 另一店顧客深連結不暴露姓名／電話 | 通過 | 通過 | 通過 |
+| 已登入 390×844、768×1024、1024×768、1366×900 | 通過 | 通過 | 通過 |
+
+資料庫獨立核對：運動及音樂各一筆 CONFIRMED 購買、金額 800；美業一筆新方案及購買收款。三模組收入各 800，非實際刷卡扣款。方案均回復 4；課程 ledger 各一次 DEBIT 與 RELEASE，美業 ledger -1/+1。每模組保留一筆已取消及一筆重新預約的測試紀錄。原生流程在點名／完成服務才套用方案，預約尚未綁卡時，方案「已預約 0」符合原 reader，不能用顧客預約筆數自行推算占用。音樂購課的應收 800／已收 800／未收 0 已在原課程學費頁顯示。
+
+本輪逐步發現並補齊的是 QA 限權帳號缺漏：稽核 JSON helper、薪酬快照、運動排課規則、提醒結清及美業稽核事件等；失敗交易先確認回滾後才重試，未以管理員 SQL 代替應用交易。所有補充寫入均有 restrictive RLS 限定本輪 QA 店、顧客、方案、人員或關聯預約；RLS 未停用。原 QA role 到期阻擋登入，僅延長至 **2026-11-13 12:00 台灣時間**，新增權限及 QA 帳號讀取同時到期。連線上限由 8 暫時調整為 16 以容納暖機 serverless pools；確認結束後應還原 8 並撤銷本輪 policies／grants，依當時基線核對，不清除其他 QA 資料。
+
+LINE 啟用事件全為 SKIPPED。受限角色仍拒絕通知 worker 權限，日誌可見 deferred 訊息；未為消除日誌而開通外送或放寬到其他店。未測 LINE OAuth／送達、實際金流退款、所有角色排列或真機 iPad／Safari；課堂取消返還額度不等同退現金。本次沒有宣稱全平台所有業務均驗收。
+
+驗收腳本：`scripts/qa/customer-overview-hosted.mjs`。須以私有 `/tmp/customer-overview-hosted-config.json` 和 `/tmp/customer-overview-access.json` 指定部署、QA 帳號及 fixture；寫入另須 `QA_ALLOW_ISOLATED_WRITES=1`，排課送出須 `QA_SUBMIT_SCHEDULE=1`，不可盲目重播 purchase／attendance／cancel。每階段 JSON 與截圖位於私有 `/tmp/customer-overview-hosted`；成功階段才納入交付證據，失敗與先前 capture 尚在載入的圖不納入。密碼、cookie、資料庫密碼、share token 均不進 repo。
+
+後續本地核對：型別通過；最新 Preview scope／原隔離 scope／Postgres packaging／導覽共 4 組 39 項通過。此前 62 項與合成 UI 21 案例仍分別保留，不將重疊項加總成新總數。第一個雲端建置因 proxy artifact 超過 250 MB 失敗；第二次僅移除既有保守包裝規則允許的截圖／未使用非 Postgres engine 後成功，proxy 約 199 MB。兩次建置均為 QA，沒有正式部署。
