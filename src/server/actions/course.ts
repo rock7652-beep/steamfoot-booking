@@ -695,7 +695,7 @@ export async function createCourseSchedule(input: unknown) {
         if(rental)throw new AppError("CONFLICT",`${formatTWDateTime(rental.occupiedStartsAt)} 教室已有租借，整批尚未建立`);
         // A moved fixed lesson still owns its original recurring slot. A one-off
         // lesson may use the released occurrence, but a new fixed series may not.
-        if (musicScheduling ? (data.scheduleType === "FIXED" || data.scheduleType === "LEGACY" && (occurrences.length > 1 || template.musicScheduleMode === "FIXED")) : (occurrences.length > 1 || template.musicScheduleMode === "FIXED" || data.sportsStaging && data.sportsStaging.frequency!=="SINGLE")) {
+        if (musicScheduling ? (data.scheduleType === "FIXED" || data.scheduleType === "LEGACY" && (occurrences.length > 1 || template.musicScheduleMode === "FIXED")) : (data.sportsStaging ? data.sportsStaging.frequency!=="SINGLE" : occurrences.length > 1 || template.musicScheduleMode === "FIXED")) {
           const movedOrigins = await tx.courseSession.findMany({
             where: {
               storeId,

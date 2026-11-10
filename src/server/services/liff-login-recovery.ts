@@ -6,9 +6,9 @@ import { normalizePhone } from "@/lib/normalize";
 import { AppError } from "@/lib/errors";
 import { sha256 } from "./line-rebind";
 import { LIFF_LOGIN_FIRST_CAPTURE_REASON, LIFF_LOGIN_REBIND_REASON } from "./liff-login-rebind";
-import { resolveStoreLiffContext } from "./store-liff-context";
+import { assertStoreLiffContext, resolveStoreLiffContext } from "./store-liff-context";
 import type { InventoryContext } from "./inventory";
-import { requireSteamfootStore } from "@/lib/industry-module-server";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 const TTL = 24 * 60 * 60_000;
 const PREFIX = "login:";
@@ -73,12 +73,15 @@ export async function approveLiffLoginRecovery(
   ctx: Pick<InventoryContext, "user" | "storeId">, requestId: string, customerId: string, verificationCode: string,
 ) {
   const { inventoryTransactionAccess } = await import("./inventory");
-  await requireSteamfootStore(ctx.storeId);
+  const industry = await getStoreIndustryModule(ctx.storeId);
+  if (industry !== "steamfoot" && industry !== "course") throw new AppError("FORBIDDEN", "本模組不支援此登入核對流程");
   const store = await prisma.store.findUnique({ where: { id: ctx.storeId }, select: { slug: true } });
   if (!store) throw new AppError("NOT_FOUND", "找不到門市");
   const context = await resolveStoreLiffContext(store.slug);
-  // Provider/course onboarding retains its own membership rules.
+  // Independent providers retain their own membership rules. Legacy course
+  // stores must explicitly match the configured central Login audience.
   if (context.config || context.identityProvider !== "line") throw new AppError("CONFLICT", "請使用本店的會員身分確認流程");
+  if (industry === "course") await assertStoreLiffContext({ id: ctx.storeId, slug: store.slug }, context);
   return prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT "id" FROM "Store" WHERE "id"=${ctx.storeId} FOR UPDATE`;
     const access = await inventoryTransactionAccess(tx, ctx);

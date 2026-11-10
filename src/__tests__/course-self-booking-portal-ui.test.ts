@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-vi.mock("@/server/actions/course-phone-summary",()=>({loadCoursePhoneSummary:vi.fn().mockResolvedValue({success:true,learners:[]})}));
+vi.mock("@/server/actions/course-phone-summary",()=>({loadCoursePhoneSummary:vi.fn(async()=>({success:true,learners:[]}))}));
 vi.mock("@/server/actions/central-member-store", () => ({ selectCentralMemberStoreAction: vi.fn() }));
 vi.mock("@/server/actions/course-teacher-session",()=>({loadCourseTeacherSession:vi.fn(),changeCourseTeacherSession:vi.fn()}));
 import { act, createElement as el } from "react";
@@ -83,7 +83,8 @@ describe("student booking switch portal", () => {
     const data = props();
     data.bookings = [{ ...data.sessions[0], id:"booking",sessionId:"session",status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31" }] as unknown as CoursePortalData["bookings"];
     await render({...data,initialView:"bookings"} as unknown as typeof data);
-    await click("查看明細 ⌄"); await click("取消"); expect(dialog()).toBeNull();
+    await click("取消"); expect(dialog()).toBeNull();
+    expect(host.querySelector(".cp-booking-card")?.textContent?.match(/取消截止/g)).toHaveLength(1);
     expect(host.querySelector('.cp-inline-confirm')?.closest('[inert]')).toBeNull();
     m.cancel.mockResolvedValueOnce({success:false,error:"預約已變更"});
     await click("確認取消");
@@ -110,7 +111,7 @@ describe("student booking switch portal", () => {
     const data=props();
     data.bookings=[{...data.sessions[0],id:"booking",sessionId:"session",status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31"}] as unknown as CoursePortalData["bookings"];
     await render({...data,initialView:"bookings"} as unknown as typeof data);
-    await click("查看明細 ⌄"); await click("取消"); await click("首頁"); await click("課表");
+    await click("取消"); await click("首頁"); await click("課表");
     expect(host.querySelector('.cp-inline-confirm')).toBeNull();
     expect(m.cancel).not.toHaveBeenCalled();
   });
@@ -170,9 +171,9 @@ describe("student booking switch portal", () => {
     data.bookings = [{ ...data.sessions[0], id: "booking", sessionId: "session", status: "RESERVED", customerId: "member", customerName: "會員本人", operatorName: "本人", notes: "", unit: "POINT", planName: "十點方案", expiresAt: "2099-12-31", trialPaid: null, trialPrice: null }] as unknown as CoursePortalData["bookings"];
     await render({ ...data, initialView: "bookings" } as unknown as typeof data);
     expect(host.textContent).toContain("會員本人"); expect(button("改時段")).toBeUndefined();
-    await click("查看明細 ⌄"); await click("取消"); expect(dialog()).toBeNull(); await click("確認取消", host.querySelector(".cp-inline-confirm")!); expect(m.cancel).toHaveBeenCalledWith({ bookingId: "booking", status: "CANCELLED", member: true });
+    await click("取消"); expect(dialog()).toBeNull(); await click("確認取消", host.querySelector(".cp-inline-confirm")!); expect(m.cancel).toHaveBeenCalledWith({ bookingId: "booking", status: "CANCELLED", member: true });
     data.serverNow = Date.parse("2099-01-20T11:00:00+08:00"); await act(async () => root.render(el(CoursePortalClient, { ...data, initialView: "bookings", key: "after-cutoff" })));
-    expect(button("取消")).toBeUndefined(); expect(host.textContent).toContain("已超過取消期限");
+    expect(button("取消")).toBeUndefined(); expect(host.textContent).toContain("已逾取消期限");
   });
 
   it("keeps purchase submission available with self-booking disabled", async () => {
@@ -235,7 +236,7 @@ describe("member leave debit confirmation",()=>{
   const data=props();data.musicStore=music;
   data.bookings=[{...data.sessions[0],id:"booking",sessionId:"session",classType,status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:1,unit,planName:"方案",notes:"",expiresAt:"2099-12-31"}] as unknown as CoursePortalData["bookings"];
   await render({...data,initialView:"bookings"} as unknown as typeof data);
-  await click("查看明細 ⌄");await click(action);
+  await click(action);
   expect(host.querySelector('.cp-inline-confirm')?.textContent).toContain(text);
   expect(m.cancel).not.toHaveBeenCalled();
   await click(music?"確認請假":"確認取消");
@@ -259,3 +260,11 @@ it("does not append an empty open-course message beneath an existing personal le
 });
 
 it('submits selected goods once with the same member reservation and keeps candidate metadata separate from quota',async()=>{m.goods.mockResolvedValue({success:true,data:{revision:3,groups:[{id:'g',title:'飲品',kind:'SHARED_GOODS',multiple:true,required:false,options:[{id:'tea',name:'茶',price:80,duration:0,active:true}]}]}});await render(props());await click('預約');const d=dialog();await act(async()=>d.querySelector<HTMLInputElement>('[aria-label="加購商品選購"] input')!.click());await act(async()=>d.querySelector<HTMLButtonElement>('[aria-label="增加茶"]')!.click());await click('確認預約',d);expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({sessionId:'session',sharedGoods:{revision:3,selections:[{id:'tea',quantity:2}]}}));});
+
+it('個人課程卡精簡重複確認與說明，保留金額及店家請假規則',async()=>{
+ const data=props();data.selfBookingEnabled=false;data.selfLeaveEnabled=false;data.selfRescheduleEnabled=false;
+ data.bookings=[{...data.sessions[0],id:'trial-booking',sessionId:'session',status:'RESERVED',customerId:'member',customerName:'本人',operatorName:'本人',bookingAudience:'ASSIGNED',cost:0,unit:'TRIAL',planName:'體驗',trialPrice:480,trialPaid:null,notes:'攜帶室內鞋',expiresAt:null}] as unknown as CoursePortalData['bookings'];
+ await render({...data,initialView:'bookings'} as unknown as typeof data);
+ expect(button('查看明細 ⌄')).toBeUndefined();expect(button('收合明細 ⌃')).toBeUndefined();expect(button('確認會到')).toBeUndefined();
+ expect(host.textContent).toContain('體驗 NT$ 480');expect(host.textContent).toContain('攜帶室內鞋');expect(host.textContent).not.toContain('體驗不使用方案額度');expect(host.textContent).not.toContain('取消截止');expect(host.textContent).not.toContain('共 1 人');expect(host.textContent).toContain('請假請洽店家');expect(button('取消')).toBeUndefined();expect(button('改時段')).toBeUndefined();
+});

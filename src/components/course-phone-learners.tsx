@@ -2,7 +2,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { loadCoursePhoneSummary } from "@/server/actions/course-phone-summary";
-import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
+import { LessonProgressGrid } from "@/components/admin/lesson-progress-grid";
+import { formatTWDateTime } from "@/lib/date-utils";
 
 type Summary = Awaited<ReturnType<typeof loadCoursePhoneSummary>>;
 type Learner = Extract<Summary, { success: true }>["learners"][number];
@@ -11,14 +12,7 @@ function Plan({ card }: { card: Learner["cards"][number] }) {
   const unit = card.unit === "SESSION" ? "堂" : "點";
   return <section className="cp-phone-plan" aria-label={card.name}>
     <h4>{card.name}{card.shared && <span className="cp-muted"> · 共用</span>}</h4>
-    {card.grid && <ol className={`cp-phone-grid${card.grid.total % 5 === 0 ? " cp-phone-grid-five" : ""}`} aria-label={`${card.name}，共 ${card.grid.total} 堂`} style={card.grid.total < 4 ? { gridTemplateColumns: `repeat(${card.grid.total}, minmax(0, 1fr))` } : undefined}>
-      {Array.from({ length: card.grid.total }, (_, index) => {
-        const date = card.grid!.dates[index];
-        return <li key={index} aria-label={`第 ${index + 1} 堂${date ? `，已上課 ${toLocalDateStr(new Date(date))}` : "，尚無上課紀錄"}`} className={date ? "is-attended" : undefined}>
-          {date && <time dateTime={date}>{toLocalDateStr(new Date(date)).slice(5).replace("-", "/")}</time>}
-        </li>;
-      })}
-    </ol>}
+    {card.grid && <LessonProgressGrid total={card.grid.total} completed={card.grid.dates.map((date,index)=>({id:`${card.id}:${index}`,date}))} columns={Math.min(card.grid.total,card.grid.total % 5 === 0 ? 5 : 4)} showSummary={false} gridClassName="cp-phone-grid" />}
     <p className="cp-muted">剩餘 {card.remaining} {unit} · 已預約 {card.held} {unit} · 可再約 {card.available} {unit}{card.closed ? " · 已結束" : card.expired ? " · 已到期" : ""}</p>
   </section>;
 }

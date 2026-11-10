@@ -1,3 +1,4 @@
+vi.mock("@/app/(dashboard)/dashboard/courses/roster-customer-panel",()=>({RosterCustomerPanel:({customer,sessionId}:{customer:{id:string};sessionId:string})=>createElement("aside",{"data-roster-student":customer.id,"data-origin-session":sessionId},"原地學員資料")}));
 import {preparedRoster} from "./fixtures/prepared-roster";
 // Native cases keep the real HTTP protocol with their existing fetch fixtures.
 vi.mock("@/lib/sports-session-detail-client",async()=>({readSportsSessionDetail:(await vi.importActual<typeof import("@/lib/course-session-detail-client")>("@/lib/course-session-detail-client")).readCourseSessionDetailClient}));
@@ -69,9 +70,9 @@ it("shows private makeup and renewal without combining leave with paid lessons",
   expect(host.textContent).toContain("下期已繳 8 堂 · 2026-09-29 · NT$ 6,400 · 轉帳");
   expect(host.textContent).toContain("1. 2026-10-06 待上課");
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="學員 更多操作"]')!.click());
-  const learnerLink=document.querySelector<HTMLAnchorElement>('a[role="menuitem"]');
-  expect(learnerLink?.textContent).toBe("學員資料");
-  expect(learnerLink?.href).toContain("customerId=student");
+  const learnerButton=Array.from(document.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')).find(b=>b.textContent==='學員資料')!;
+  expect(learnerButton).toBeTruthy();await act(async()=>learnerButton.click());
+  expect(host.querySelector('[data-roster-student]')?.getAttribute('data-roster-student')).toBe('student');
   expect([...document.querySelectorAll('[role="menuitem"]')].some(item=>item.textContent==="預約紀錄")).toBe(false);
  }finally{await act(async()=>root.unmount());host.remove();}
 });
@@ -626,8 +627,9 @@ it("stacks music labels and both note actions in one column and links to the exa
   const column=host.querySelector('[aria-label="合成學員 標籤與備註"]')!;expect(column.children.length).toBe(3);expect(column.textContent).toContain("長期提醒");expect(column.textContent).toContain("本堂提醒");
   expect(column.querySelector('[aria-label="合成學員 本次備註"]')).toBeTruthy();
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="合成學員 更多操作"]')!.click());
-  const link=[...document.querySelectorAll<HTMLAnchorElement>('a[role="menuitem"]')].find(a=>a.textContent==="學員資料")!;
-  const href=new URL(link.href);expect(href.pathname).toBe("/hq/dashboard/courses");expect(href.searchParams.get("customerId")).toBe("student-ui");expect(href.searchParams.get("returnCourseSession")).toBe("session-ui");
+  const button=[...document.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(a=>a.textContent==="學員資料")!;
+  await act(async()=>button.click());
+  const panel=host.querySelector('[data-roster-student]');expect(panel?.getAttribute('data-roster-student')).toBe('student-ui');expect(panel?.getAttribute('data-origin-session')).toBe('session-ui');
   expect([...document.querySelectorAll('[role="menuitem"]')].some(e=>e.textContent==="預約紀錄")).toBe(false);
  }finally{await act(async()=>root.unmount());host.remove();}
 });
@@ -678,7 +680,7 @@ it('native roster shows current remaining and separates attendance from learner 
  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
  try{
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:'native-menus',capacity:8,canCreate:true,canEdit:true,sportsNative:true})));
-  expect(host.textContent).toContain('本期剩餘');expect(host.textContent).toContain('8 堂');expect(host.textContent).toContain('可用 6 堂');
+  expect(host.textContent).toContain('方案／剩餘');expect(host.textContent).toContain('8 堂');expect(host.textContent).toContain('可用 6 堂');
   await act(async()=>host.querySelector<HTMLButtonElement>('button[aria-label="舞蹈學員：待點名"]')!.click());
   expect(m.status).toHaveBeenCalledExactlyOnceWith({returnRoster:true,bookingId:'native',status:'ATTENDED'});
   expect(document.querySelector('[role="menu"]')).toBeNull();

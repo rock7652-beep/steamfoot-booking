@@ -58,6 +58,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/course-schedule-progress-ui-20261110": false,
       "fix/silverlily-calendar-transaction-timeout-20261110": false,
       "feat/customer-overview-alignment-20261110": false,
       "feat/beauty-service-journey-20261103": false,
@@ -195,6 +196,7 @@
       "feat/mixed-course-enrollment-20261109": false,
       "content/marketing-beauty-addons-20261104": false,
       "fix/course-single-charge-validation-20261109": false,
+      "codex/course-family-release-20261110": false,
       "codex/course-liff-ui-20260922": false,
       "codex/course-phone-a-preview-20261110": false
     }
