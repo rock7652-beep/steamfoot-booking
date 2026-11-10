@@ -58,6 +58,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/silverlily-calendar-transaction-timeout-20261110": false,
       "feat/customer-overview-alignment-20261110": false,
       "feat/beauty-service-journey-20261103": false,
       "chore/calendar-phase-timing-20261103": false,

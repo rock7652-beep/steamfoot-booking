@@ -1,4 +1,5 @@
 "use server";
+import {sportsReadinessTransactionOptions} from "@/lib/sports-readiness-transaction";
 import {sportsAssignedStudentSubjects} from "@/server/services/sports-teaching-templates";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {courseChargeSettings} from "@/lib/course-charge-settings";
@@ -56,7 +57,7 @@ async function actor(permission: Parameters<typeof courseManager>[0]) {
     },
   });
   if (!fitness) throw new AppError("FORBIDDEN", "此入口僅適用運動店");
-  await coursePrisma.$transaction(tx => assertSportsProductionReady(tx, a.storeId));
+  await coursePrisma.$transaction(tx => assertSportsProductionReady(tx, a.storeId), sportsReadinessTransactionOptions);
   return a;
 }
 async function result<T extends { success: boolean; error?: string }>(
