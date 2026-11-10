@@ -32,6 +32,14 @@ try{
  if(process.env.QA_LINE_PROFILE_STATUS==='1'){
   const line=panel.getByRole('button',{name:'LINE 身分：未連結 · 管理',exact:true});await line.waitFor();
   assert.equal(advancedReads,0,'The header uses the supplied state without loading management details');
+  await panel.getByRole('button',{name:'編輯顧客資料',exact:true}).click();
+  const draftName=panel.locator('input[name="name"]');await draftName.fill(account.customerName+'・未儲存');
+  await panel.getByRole('button',{name:'捨棄草稿',exact:true}).waitFor();
+  let confirmation='';page.once('dialog',async d=>{confirmation=d.message();await d.dismiss();});
+  await line.click();assert.match(confirmation,/未儲存/);assert.equal(await draftName.inputValue(),account.customerName+'・未儲存');assert.equal(advancedReads,0);
+  await panel.getByRole('button',{name:'捨棄草稿',exact:true}).click();
+  await panel.getByRole('button',{name:'← 返回顧客',exact:true}).click();
+  report.checks.push('line-management-respects-unsaved-edit-cancel-without-app-writes');
   await line.click();
   assert.equal(await panel.getByRole('button',{name:'基本／健康資料',exact:true}).getAttribute('aria-current'),'page');
   const management=panel.getByRole('region',{name:'LINE 身分管理',exact:true});

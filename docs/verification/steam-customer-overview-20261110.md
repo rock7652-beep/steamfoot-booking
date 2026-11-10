@@ -39,3 +39,17 @@ Vercel project `prj_Aq5uK16Dc49OAUPJnP5VtnVAEdTs`，Supabase `ttworfzgwejdeolegk
 新版 URL：https://steamfoot-compact-qa-20261103-81fx8zbyi-rock7652-2111s-projects.vercel.app 。分享憑證不進 repo。截圖及 JSON 位於私有 `/tmp/steam-customer-overview`，交付只含成功報告與六種尺寸、歷史、管理截圖；前輪 Preview 只作登入與 fixture 讀取預檢，不冒充本輪畫面證據。
 
 建置沿用既有 QA 包裝規則，一次建置成功；本輪沒有正式部署或應用業務寫入。Chrome 模擬尺寸不等同真機 iPad／Safari，未重新執行線上扣堂、取消或付款交易；取消釋放由上述原堂數 service 回歸覆蓋。測試資料不代表真實購買或金流。
+
+## 後續：電話旁的 LINE 身分與管理入口
+
+使用者明確確認蒸足也要在電話旁固定顯示 LINE 身分及管理入口。沿用共用 `CustomerProfileConnection` 呈現，蒸足點擊後切到原基本／健康資料分頁並定位、聚焦原 LINE 管理區；其他三模組維持原行內展開方式。沒有另建或同時掛兩個綁定編輯器。
+
+狀態使用原已授權顧客資料的 `lineLinkStatus`：LINKED 顯示已連結及非空名稱，UNLINKED 顯示未連結，BLOCKED 顯示已封鎖，缺值／未知顯示待核對。名稱不能作為已連結證據；此摘要不代表 LINE Login 已驗證、通知可發送或已送達。標題不額外讀取管理明細，原 advanced reader 仍依原 active 分頁條件讀取；既有待處理會員連結 reader 不改。
+
+管理入口沿用 `allowNavigation` 的 dirty／pending 保護，保持原角色、門市及唯讀限制，不增加寫入或對外權限。管理完成仍由原 `onMutated` 更新顧客資料。無新增查詢路由、全域快取、資料庫 fixture 或 policies，沿用前輪專用 QA 顧客；不測試真實 LINE 綁定、解除、重綁或發送。
+
+本地型別、變更來源 ESLint、`git diff --check` 通過。3 組 14 項測試通過，含四種狀態、只有名稱仍待核對、既有三模組行內展開、管理跳轉不另掛編輯器、原門市拒絕／唯讀與清單同步。先在前輪 Preview 確認原 LINE 管理 reader 能正常讀取，該舊版只屬讀取預檢。
+
+本輪 UI 來源 `209446957a1dd2deb62ba455705565009dcc748e`，部署 `dpl_FSbeFHEfgkQKWKWg8J9odUYwbg7M`。此精確部署已 READY。正常登入後已通過：標題常駐未連結狀態、點管理前 advanced 讀取為零、點擊後原管理區顯示真實未綁定資料、切到正確分頁及返回總覽；編輯姓名草稿後點 LINE 管理會詢問離開，取消後草稿保留且不讀取管理資料，捨棄本機草稿後可正常進入，沒有儲存顧客或變更綁定。六種尺寸截圖無水平溢出，無 pageerror。其他三模組亦在同一來源重新完成正常登入、總覽、歷史／編輯返回與四種尺寸的只讀 smoke；其行內 LINE 展開由上述元件測試覆蓋，未宣稱逐模組完成真實 LINE OAuth 或重新綁定。正式站未更新。
+
+本輪網址：https://steamfoot-compact-qa-20261103-baex3vtl1-rock7652-2111s-projects.vercel.app 。一次 QA 建置成功，分享 token 不進 repo；已連結／已封鎖／未知由元件狀態案例驗證，實際登入 QA 顧客仍為未綁定，沒有為了截圖改寫綁定狀態。
