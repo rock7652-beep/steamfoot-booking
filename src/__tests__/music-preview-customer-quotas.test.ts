@@ -3,7 +3,7 @@ import type { StorePlanFields } from "@/lib/store-plan";
 
 const m = vi.hoisted(() => ({
   manager: vi.fn(), plan: vi.fn(), transaction: vi.fn(), raw: vi.fn(),
-  count: vi.fn(), create: vi.fn(), refresh: vi.fn(), logError: vi.fn(),
+  count: vi.fn(), create: vi.fn(), find:vi.fn(), refresh: vi.fn(), logError: vi.fn(),
 }));
 
 // Keep the action, validators, feature-gate and effective quota resolver real.
@@ -47,16 +47,17 @@ function setup(storeId = MUSIC_OPENING_STORE) {
     maxStaffOverride: null, maxCustomersOverride: null, maxMonthlyBookingsOverride: null,
     maxMonthlyReportsOverride: null, maxReminderSendsOverride: null, maxStoresOverride: null,
   };
-  m.manager.mockResolvedValue({ storeId, user: { id: "synthetic-manager" } });
+  m.manager.mockResolvedValue({ storeId, user: { id: "synthetic-manager", role:"OWNER", staffId:"synthetic-manager-staff" } });
   m.plan.mockImplementation(async (requestedId: string) => {
     expect(requestedId).toBe(storeId);
     return plan;
   });
   m.raw.mockResolvedValue([{ id: storeId }]);
+  m.find.mockResolvedValue(null);
   m.count.mockResolvedValue(10000);
   m.create.mockResolvedValue({ id: "synthetic-customer" });
   m.transaction.mockImplementation(async (work: (tx: unknown) => unknown) => work({
-    $queryRaw: m.raw, customer: { count: m.count, create: m.create },
+    $queryRaw: m.raw, customer: { count: m.count, create: m.create, findFirst:m.find },
   }));
   return plan;
 }

@@ -13,7 +13,7 @@ describe("course UI final fixes", () => {
     expect(toolbar).toContain('placeholder="搜尋姓名 / 電話 / LINE 名稱"');
     expect(picker).toContain('"搜尋姓名／電話／LINE 名稱"');
     const search = read("src/server/actions/course-browse.ts");
-    expect(search).toContain('["name", "phone", "lineName"]');
+    expect(search).toContain('["name", "phone", "contactPhone", "lineName"]');
   });
 
   it("separates plan products from held plans and keeps assignment with held plans", () => {
