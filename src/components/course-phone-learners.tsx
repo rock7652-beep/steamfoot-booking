@@ -11,7 +11,7 @@ function Plan({ card }: { card: Learner["cards"][number] }) {
   const unit = card.unit === "SESSION" ? "堂" : "點";
   return <section className="cp-phone-plan" aria-label={card.name}>
     <h4>{card.name}{card.shared && <span className="cp-muted"> · 共用</span>}</h4>
-    {card.grid && <ol className={`cp-phone-grid${card.grid.total % 5 === 0 ? " cp-phone-grid-five" : ""}`} aria-label={`${card.name}，共 ${card.grid.total} 堂`}>
+    {card.grid && <ol className={`cp-phone-grid${card.grid.total % 5 === 0 ? " cp-phone-grid-five" : ""}`} aria-label={`${card.name}，共 ${card.grid.total} 堂`} style={card.grid.total < 4 ? { gridTemplateColumns: `repeat(${card.grid.total}, minmax(0, 1fr))` } : undefined}>
       {Array.from({ length: card.grid.total }, (_, index) => {
         const date = card.grid!.dates[index];
         return <li key={index} aria-label={`第 ${index + 1} 堂${date ? `，已上課 ${toLocalDateStr(new Date(date))}` : "，尚無上課紀錄"}`} className={date ? "is-attended" : undefined}>
