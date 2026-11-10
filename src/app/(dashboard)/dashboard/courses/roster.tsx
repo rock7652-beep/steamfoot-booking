@@ -1,4 +1,5 @@
 "use client";
+import {courseHasSeatLimit} from "@/lib/course-capacity";
 import {useCustomerPlanPreload} from "@/components/admin/use-customer-plan-preload";
 import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import dynamic from "next/dynamic";
@@ -253,6 +254,7 @@ export function CourseRoster({
   const [learnerCustomers,setLearnerCustomers]=useState<Array<{id:string;name:string;phone:string}>>([]);
   useEffect(()=>setLearnerCustomers([]),[sessionId]);
   const [session, setSession] = useState<{
+    enrollmentMode?:string;
     addOns?:CourseAddOnCapabilities|null;
     startsAt: string;
     pointCost: number;
@@ -855,8 +857,9 @@ export function CourseRoster({
     return()=>{current=false;};
   },[view,sessionId,customerId]);
   const count = activeRows.length;
+  const seatLimited=courseHasSeatLimit(session??{});
   const occupiedCount=activeRows.filter(row=>row.status!=="CANCELLED").length;
-  const oneToOneMusic = musicLayout && capacity === 1;
+  const oneToOneMusic = musicLayout && capacity === 1 && occupiedCount <= 1;
   const groupCohortProgress = classType === "GROUP" ? activeRows[0]?.groupCohortProgress : null;
   const teacherAbsent = (session?.teacherAttendance === "LEAVE" || session?.teacherAttendance === "NO_SHOW");
   const waitingCount = activeRows.filter(
@@ -973,7 +976,7 @@ export function CourseRoster({
           if(musicLayout&&chosenCard?.openingImported&&!chosenCard.openingReservable){setMessage("請先核對可用方案與來源堂次");return;}
           const totalCost=enrollmentSessions.reduce((total,item)=>total+(chosenCard?.sportsMode==="ASSIGNED"?chosenCard.sportsCost??1:chosenCard?.unit==="SESSION"?1:item.pointCost),0);
           if(enrollmentScope==="FUTURE" && !sportsNative && !musicLayout && (enrollmentLoading || !enrollmentSessions.length || !chosenCard || chosenCard.available<totalCost || enrollmentSessions.some(item=>!chosenCard.expiresAt||item.startsAt>chosenCard.expiresAt))){setMessage("請確認後續日期與方案額度、有效期限");return;}
-          const allowOverCapacity = enrollmentScope==="FUTURE" ? enrollmentSessions.some(item=>item.full) : occupiedCount >= capacity;
+          const allowOverCapacity = enrollmentScope==="FUTURE" ? enrollmentSessions.some(item=>item.full) : seatLimited && occupiedCount >= capacity;
           if(allowOverCapacity && !window.confirm(`所選課程已滿班（本堂 ${occupiedCount}/${capacity} 人）${waitlist.length ? `，另有 ${waitlist.length} 位候補` : ""}。確認超額加入這位學員？`)) return;
           const data = new FormData(event.currentTarget);
           if(enrollmentScope==="FUTURE") {
@@ -1084,7 +1087,7 @@ export function CourseRoster({
           )}
         </div></>}
 
-        {customerId && cardId && occupiedCount>=capacity && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm">
+        {customerId && cardId && seatLimited && occupiedCount>=capacity && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm">
           <span>全班 {occupiedCount}/{capacity} 人{waitlist.length?` · 候補 ${waitlist.length} 人`:""}</span>
           {session?.waitlistEnabled && <button type="button" className={button} disabled={pending} onClick={()=>run(()=>joinManagerCourseWaitlist({sessionId,cardId,customerIds:[customerId],requestKey}),"已加入本堂候補")}>加入候補</button>}
           <span className="text-xs text-earth-600">直接預約會再次確認超額加入。</span>
@@ -1214,7 +1217,7 @@ export function CourseRoster({
             className={sportsNative?bookingLayout.trial:"space-y-4"}
             onSubmit={(event) => {
               event.preventDefault();
-              const allowOverCapacity = occupiedCount >= capacity;
+              const allowOverCapacity = seatLimited && occupiedCount >= capacity;
               if(allowOverCapacity && !window.confirm(`所選課程已滿班（本堂 ${occupiedCount}/${capacity} 人）${waitlist.length ? `，另有 ${waitlist.length} 位候補` : ""}。確認超額加入這位學員？`)) return;
               const data = new FormData(event.currentTarget);
               run(() =>
@@ -1289,7 +1292,7 @@ export function CourseRoster({
             className={sportsNative?bookingLayout.trial:"space-y-4"}
             onSubmit={(event) => {
               event.preventDefault();
-              const allowOverCapacity = occupiedCount >= capacity;
+              const allowOverCapacity = seatLimited && occupiedCount >= capacity;
               if(allowOverCapacity && !window.confirm(`所選課程已滿班（本堂 ${occupiedCount}/${capacity} 人）${waitlist.length ? `，另有 ${waitlist.length} 位候補` : ""}。確認超額加入這位學員？`)) return;
               const data = new FormData(event.currentTarget);
               run(async () => {
@@ -1371,7 +1374,7 @@ export function CourseRoster({
           </summary>
           <div className="border-t border-amber-100 px-3 py-2">
             <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-amber-900">
-              <span>目前空位 {Math.max(0, capacity - activeRows.filter(row => row.status !== "CANCELLED").length)}</span>
+              <span>目前空位 {seatLimited ? Math.max(0, capacity - occupiedCount) : "不限"}</span>
               <span>開課前 {Math.round((session?.waitlistStopMinutes ?? 240) / 60)} 小時停止自動遞補</span>
             </div>
             <ol className="space-y-1 text-sm text-earth-800">
@@ -1386,7 +1389,7 @@ export function CourseRoster({
               ))}
             </ol>
             {canEdit && session?.waitlistEnabled!==false && (
-              activeRows.filter(row => row.status !== "CANCELLED").length >= capacity ? (
+              seatLimited && occupiedCount >= capacity ? (
                 <p className="mt-3 rounded-lg bg-white/80 px-3 py-2 text-sm font-medium text-amber-900">目前滿班，暫無可遞補名額</p>
               ) : (
                 <button

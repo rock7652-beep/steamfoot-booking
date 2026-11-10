@@ -69,10 +69,10 @@ export async function attachSportsSessionRules(
     )
   )
     throw new AppError("VALIDATION", "固定頻率與課次日期不符");
-  if (trialLearnerCount&&(!sessions.every(s=>s.isTrial)||rule.frequency!=="SINGLE"||trialLearnerCount>sessions[0].capacity))throw new AppError("VALIDATION","體驗學員只適用單次體驗排課且不可超過名額");
+  if (trialLearnerCount&&(!sessions.every(s=>s.isTrial)||rule.frequency!=="SINGLE"||rule.enrollment!=="ASSIGNED"&&trialLearnerCount>sessions[0].capacity))throw new AppError("VALIDATION","體驗學員只適用單次體驗排課且不可超過名額");
   if (!sessionIds && rule.enrollment === "ASSIGNED" && !rule.students.length && !trialLearnerCount)
     throw new AppError("VALIDATION", "請至少指定一位學員");
-  if (rule.students.length > sessions[0].capacity)
+  if (rule.enrollment !== "ASSIGNED" && rule.students.length > sessions[0].capacity)
     throw new AppError("VALIDATION", "固定學員人數超過課程名額");
   if (
     new Set(rule.students.map((s) => s.customerId)).size !==

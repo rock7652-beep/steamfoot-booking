@@ -1,4 +1,6 @@
 "use server";
+import {courseHasSeatLimit} from "@/lib/course-capacity";
+import {readSportsSessionRule} from "@/server/services/sports-staging-schedule";
 import {sportsReadinessTransactionOptions} from "@/lib/sports-readiness-transaction";
 import {calendarPhase,calendarAccessPhase,traceCourseCalendar} from "@/server/services/course-calendar-timing";
 import { courseDisplayName } from "@/lib/course-template-presentation";
@@ -65,7 +67,8 @@ export async function arrangeSportsMakeup(input:unknown){try{
   if(!source?.customerId||!(source.status==="NO_SHOW"||source.status==="CANCELLED"&&["STUDENT_LEAVE","TEACHER_ABSENT"].includes(source.absenceKind??"")))throw new AppError("VALIDATION","此紀錄不適用補課");
   if(await tx.courseBooking.findFirst({where:{storeId:a.storeId,AND:[{OR:[{makeupForBookingId:source.id},{requestKey:{startsWith:`sports-makeup:${source.id}:`}}]}],OR:[{status:{not:"CANCELLED"}},{absenceKind:{in:["STUDENT_LEAVE","TEACHER_ABSENT"]}}]}}))throw new AppError("CONFLICT","這次缺課已安排補課");
   const target=await tx.courseSession.findFirst({where:{id:d.sessionId,storeId:a.storeId,cancelledAt:null,releasedAt:null,templateId:source.session.templateId,startsAt:{gt:source.session.startsAt}},include:{bookings:{where:{status:{not:"CANCELLED"}}}}});
-  if(!target||target.startsAt<new Date()||target.bookings.length>=target.capacity)throw new AppError("VALIDATION","請選擇尚有名額的未來同課程");
+  const targetRule=target?await readSportsSessionRule(tx,a.storeId,target.id):null;
+  if(!target||target.startsAt<new Date()||courseHasSeatLimit(target,targetRule?.enrollment)&&target.bookings.length>=target.capacity)throw new AppError("VALIDATION","請選擇尚有名額的未來同課程");
   if(target.bookings.some(b=>b.customerId===source.customerId))throw new AppError("CONFLICT","學員已在本堂課名單");
   const overlap=await tx.courseBooking.findFirst({where:{storeId:a.storeId,customerId:source.customerId,status:{not:"CANCELLED"},session:{cancelledAt:null,releasedAt:null,startsAt:{lt:target.endsAt},endsAt:{gt:target.startsAt}}}});if(overlap)throw new AppError("CONFLICT","學員同時段已有課程");
   if(source.status==="NO_SHOW"){

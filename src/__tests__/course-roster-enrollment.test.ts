@@ -1,3 +1,4 @@
+vi.mock("@/server/services/sports-staging-schedule",()=>({readSportsSessionRule:vi.fn().mockResolvedValue(null)}));
 import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({source:vi.fn(),sessions:vi.fn(),previous:vi.fn(),reserve:vi.fn(),manager:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
@@ -5,6 +6,7 @@ vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:vi.fn().mockResolvedV
 vi.mock("@/server/services/operation-audit",()=>({recordOperationAuditBestEffort:vi.fn()}));
 vi.mock("@/server/services/course-booking",()=>({reserveCourseInTransaction:m.reserve}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:async(_store:string,run:(tx:unknown)=>unknown)=>run({courseSession:{findFirst:m.source,findMany:m.sessions},courseBooking:{findMany:m.previous}})}));
+import {readSportsSessionRule} from "@/server/services/sports-staging-schedule";
 import {enrollCourseSeries,previewCourseEnrollment} from "@/server/actions/course-roster-enrollment";
 const input={sessionId:"first",customerId:"student",cardId:"card",sessionIds:["first","second"],requestKey:"d81d61fc-60e4-4d45-b5a2-4d9d0968440a"};
 beforeEach(()=>{
@@ -31,4 +33,12 @@ it("propagates an unavailable lesson instead of reporting partial success",async
 
 it.each([{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:"right"}])("rejects opening markers before ordinary series enrollment: %j",async marker=>{
  expect(await enrollCourseSeries({...input,...marker})).toMatchObject({success:false});expect(m.reserve).not.toHaveBeenCalled();
+});
+
+it("does not mark assigned series full when legacy capacity is one",async()=>{
+ m.sessions.mockResolvedValue(["first","second"].map(id=>({id,startsAt:new Date("2099-01-01"),pointCost:1,capacity:1,enrollmentMode:"OPEN",bookings:[{customerId:"another",status:"RESERVED"}]})));
+ vi.mocked(readSportsSessionRule).mockResolvedValue({enrollment:"ASSIGNED"} as never);
+ const result=await previewCourseEnrollment(input);expect(result).toMatchObject({success:true,sessions:[{full:false},{full:false}]});
+ vi.mocked(readSportsSessionRule).mockResolvedValue({enrollment:"OPEN"} as never);
+ expect(await previewCourseEnrollment(input)).toMatchObject({success:true,sessions:[{full:true},{full:true}]});
 });

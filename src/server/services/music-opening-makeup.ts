@@ -1,3 +1,4 @@
+import {courseHasSeatLimit} from "@/lib/course-capacity";
 import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
@@ -77,7 +78,7 @@ export async function changeOpeningMakeupInTransaction(tx: Prisma.TransactionCli
       tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: session.id, status: { not: "CANCELLED" } } }),
       tx.courseBooking.findFirst({ where: { storeId: actor.storeId, customerId: right.customerId, status: { not: "CANCELLED" }, session: { cancelledAt: null, releasedAt: null, startsAt: { lt: session.endsAt }, endsAt: { gt: session.startsAt } } } }),
     ]);
-    if (occupied >= session.capacity) return fail("本堂課已滿班");
+    if (courseHasSeatLimit(session) && occupied >= session.capacity) return fail("本堂課已滿班");
     if (overlap) return fail("學員同時段已有課程");
     booking = await tx.courseBooking.create({ data: {
       storeId: actor.storeId, sessionId: session.id, customerId: right.customerId, customerName: customers[0].name,

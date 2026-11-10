@@ -539,8 +539,6 @@ export async function sportsStagingCommand(input: unknown) {
       });
       if (coaches.length !== 1) throw new AppError("VALIDATION", "請重新選擇具本課程授課資格的教練；同名教練請重新整理後選擇。");
       const coach = coaches[0];
-      if (room.capacity !== null && d.capacity > room.capacity)
-        throw new AppError("VALIDATION", "人數超過空間容量");
       const frequency =
         d.kind === "每週固定"
           ? "WEEKLY"

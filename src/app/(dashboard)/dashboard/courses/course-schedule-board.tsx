@@ -1,4 +1,5 @@
 "use client";
+import {courseHasSeatLimit} from "@/lib/course-capacity";
 import {useBeautyPersonnelText} from "@/components/course-personnel-label";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 
@@ -58,6 +59,9 @@ type Session = {
   coachId: string;
   roomId: string;
   capacity: number;
+  enrollmentMode?:string;
+  sportsEnrollment?:string;
+  bookingAudience?:string;
   pointCost: number;
   teacherAttendance?: string;
   requestKey?: string;
@@ -211,12 +215,12 @@ function openSeats(session: Session) {
 }
 
 function isFull(session: Session) {
-  return session.bookings.filter(booking => booking.status !== "CANCELLED").length >= session.capacity;
+  return courseHasSeatLimit(session,session.sportsEnrollment) && session.bookings.filter(booking => booking.status !== "CANCELLED").length >= session.capacity;
 }
 
 function isNearFull(session: Session) {
   const remaining = openSeats(session);
-  return remaining > 0 && remaining <= 2;
+  return courseHasSeatLimit(session,session.sportsEnrollment) && remaining > 0 && remaining <= 2;
 }
 
 function filterSession(session: Session, filter: QuickFilter) {
@@ -255,7 +259,7 @@ function adaptiveCopy(
     primary: privateClass && customer ? customer : session.previewFaded && customer ? `${session.nameSnapshot} · ${customer}` : session.nameSnapshot,
     secondary: privateClass
       ? session.nameSnapshot
-      : `${session.bookings.filter(booking => booking.status !== "CANCELLED").length} / ${session.capacity} 人`,
+      : courseHasSeatLimit(session,session.sportsEnrollment) ? `${session.bookings.filter(booking => booking.status !== "CANCELLED").length} / ${session.capacity} 人` : `${session.bookings.filter(booking => booking.status !== "CANCELLED").length} 人`,
     coach,
     room,
   };
@@ -373,7 +377,7 @@ function SessionCard({
         {copy.privateClass&&<p>{session.nameSnapshot}</p>}
         <p>{hhmm(session.startsAt)}–{hhmm(session.endsAt)} · {presentation.label}</p>
         <p>{copy.room}{!rental&&` · ${copy.coach}`}</p>
-        {!rental&&copy.groupClass&&<p>預約 {session.capacity-seats}／{session.capacity} 人</p>}
+        {!rental&&copy.groupClass&&<p>{copy.secondary}</p>}
         {!rental&&<p>{detailStatus}</p>}
         {musicContext&&<p>{musicContext}</p>}{destination&&<p>{destination}</p>}
       </>}

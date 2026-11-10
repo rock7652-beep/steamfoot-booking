@@ -3,7 +3,7 @@ import {courseCalendarRead} from "@/server/services/course-calendar-read-scope";
 import {coursePrisma} from "@/lib/course-db";
 import {memoizeCourseReadRequest} from "@/server/services/course-read-request-memo";
 
-const SESSION_SELECT={id:true,chargeSnapshot:true,startsAt:true,templateId:true,requestKey:true,requestIndex:true,pointCost:true,teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true,template:{select:{classType:true,musicTermLessons:true,musicSubjectId:true,musicSubject:{select:{isActive:true}},waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}}} as const;
+const SESSION_SELECT={id:true,enrollmentMode:true,bookingAudience:true,chargeSnapshot:true,startsAt:true,templateId:true,requestKey:true,requestIndex:true,pointCost:true,teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true,template:{select:{classType:true,musicTermLessons:true,musicSubjectId:true,musicSubject:{select:{isActive:true}},waitlistStopMinutes:true,waitlistEnabled:true,waitlistLimit:true}}} as const;
 
 /** Shared session metadata for the detail, waitlist and balance readers.
  * Financial rows remain independent live queries; no cross-request cache. */
