@@ -85,6 +85,7 @@ import { CourseCustomerPurchases } from "./customer-purchases";
 import { CourseCustomerList } from "./customer-list";
 import type { CourseCustomerPage } from "@/server/queries/course-customer-page";
 import type { CustomerRow } from "../customers/_components/customers-table";
+import {CourseCardProgress} from "./card-progress";
 import { CourseCustomerBookings } from "./customer-bookings";
 import {StudentMakeupStatus} from "./student-makeup-status";
 import { CourseCustomerDraftForm, CoursePlanDraftForm, type Person, type Plan } from "./course-profile-forms";
@@ -101,7 +102,7 @@ import {saveCourseSessionAdjustment} from '@/server/actions/course-session-adjus
 import {saveCourseCardManagement} from '@/server/actions/course-card-management';
 
 export function CourseMemberWorkspace({
-  source,panelOnly=false,initialCustomerId,onPanelClose,initialAction,
+  source,panelOnly=false,initialCustomerId,onPanelClose,initialAction,initialCardId,
   catalogSource,
   subjectLabel="教學項目",
   sportsNative=false,
@@ -139,7 +140,7 @@ export function CourseMemberWorkspace({
   music = false,
   sharedCardState = "ENABLED",
 }: {
-  source?:CourseCustomerSource;panelOnly?:boolean;initialAction?:'assign';initialCustomerId?:string;onPanelClose?:()=>void;
+  source?:CourseCustomerSource;panelOnly?:boolean;initialCardId?:string;initialAction?:'assign';initialCustomerId?:string;onPanelClose?:()=>void;
   subjectLabel?:string;
   catalogSource?:{order?:import("@/lib/course-display-order").CourseOrderWriter;status:CatalogStatusDriver;form:CoursePlanCatalogPort};
   sportsNative?:boolean;
@@ -216,7 +217,7 @@ export function CourseMemberWorkspace({
   const [status, setStatus] = useRetainedState(`course-${view}:status`, "all", retainedString);
   const [panel, setPanel] = useState<
     "person" | "plan" | "assign" | "card" | "coach" | "health" | "service-price" | null
-  >(initialPerson ? initialAction==="assign"?"assign":"person" : canCreate&&view==="plans"&&params.get("action")==="create"?"plan":null);
+  >(initialPerson ? initialAction==="assign"?"assign":initialCardId&&canReadCards?"card":"person" : canCreate&&view==="plans"&&params.get("action")==="create"?"plan":null);
   const [selectedPerson, setPerson] = useState<Person | null>(initialPerson);
   const person = people.find(p => p.id === selectedPerson?.id) ?? selectedPerson;
   const [personTab, setPersonTab] = useState<"info" | "plans" | "courses" | "records" | "payments" | "bookings" | "makeups">(() => music && ["courses", "plans", "payments", "bookings", "makeups"].includes(params.get("studentTab") ?? "") ? "courses" : params.get("studentTab")==="records" ? "records" : "info");
@@ -246,7 +247,7 @@ export function CourseMemberWorkspace({
   function close() { if (canLeave()) { setPanel(null); setDirty(false); onPanelClose?.(); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
-  const [cardId, setCardId] = useState("");
+  const [cardId, setCardId] = useState(initialCardId??"");
   const cardDetail = useCardDetail(panel === "card", cardId, cardOpening,source?.browseCards??dataScope);
   const cardLoading = cardDetail.loading;
   const cardError = cardDetail.error;
@@ -468,6 +469,7 @@ export function CourseMemberWorkspace({
         </>);
   return (
     <>
+      {!panelOnly&&<>
       {!panel&&confirmedPurchase}
       {!panel&&notice==="結帳完成，方案已加入"&&purchased&&<div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800"><span>{notice}</span>{canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>{music||sportsNative?"安排課程":"前往課表"}</DashboardLink>}</div>}
       {view === "plans" && !compactCatalog && <div className="flex flex-wrap items-center gap-3">
@@ -600,14 +602,15 @@ export function CourseMemberWorkspace({
       )}
       {view === "plans" && planArea === "catalog" && totalRows > 20 && <nav aria-label="清單分頁" className="mt-3 flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
 
+      </>}
       {panel && (
         <SettingsPanelContext.Provider value={supportGuard.context}><RightSheet className={music ? undefined : "fitness-management-editor"} presentation="centered"
           open
           onClose={close}
-          width={customerPanel ? (source?880:1100) : panel === "plan"&&(sportsData||music) ? 1120 : panel === "assign" || panel === "plan" ? 920 : 640}
-          fixedHeight={customerPanel || panel === "plan"}
+          width={customerPanel ? (source?880:panelOnly&&panel==="card"?640:panelOnly?880:1100) : panel === "plan"&&(sportsData||music) ? 1120 : panel === "assign" || panel === "plan" ? 920 : 640}
+          fixedHeight={(customerPanel&&!(panelOnly&&panel==="card")) || panel === "plan"}
           maxHeight={customerPanel ? 900 : panel === "plan"&&(sportsData||music) ? 760 : 680}
-          fitContent={panel==="service-price"||(!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
+          fitContent={panelOnly&&panel==="card"||panel==="service-price"||(!customerPanel && (panel === "assign" || panel === "person" || panel === "health" || panel === "card"))}
           labelledById="course-member-sheet"
         >
           {panel === "person" && person ? <CustomerProfileHeader name={person.name} labelledById="course-member-sheet" busy={!canLeave()} editing={editingPerson} onClose={close} onEdit={canEdit?()=>{if(canLeave()){rememberProfileScroll();editReturnTab.current=personTab;setEditingAttribution(false);setPersonTab("info");setEditingPerson(true);}}:undefined} onBack={()=>{if(canLeave()){rememberProfileScroll();setEditingPerson(false);setPersonTab(editReturnTab.current);setDirty(false);}}} more={params.get("returnCourseSession")||(canPreview&&previewStoreId&&(!source||source.previewEnabled))?<>{params.get("returnCourseSession")&&<DashboardLink className={button} href={`/dashboard/courses?${new URLSearchParams({date:params.get("returnCourseDate")??toLocalDateStr(),action:"booking",session:params.get("returnCourseSession")!})}`}>返回課表</DashboardLink>}{previewStoreId&&(!source||source.previewEnabled)&&<FrontendPreviewQuickLink storeId={previewStoreId} personId={person.id}/>}</>:undefined}/> : <>
@@ -706,7 +709,7 @@ export function CourseMemberWorkspace({
             {panel === "person" && (
               <CourseCustomerDraftForm compact={music} key={`draft-${person?.id??"new"}`} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
             )}
-            {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${recordTab===value ? "bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>{setRecordTab(value);const url=new URL(window.location.href);url.searchParams.set("studentRecords",value);window.history.replaceState(null,"",url.pathname+url.search);}}>{label}</button>)}</nav>}
+            {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${recordTab===value ? "bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>{setRecordTab(value);if(panelOnly)return;const url=new URL(window.location.href);url.searchParams.set("studentRecords",value);window.history.replaceState(null,"",url.pathname+url.search);}}>{label}</button>)}</nav>}
             {!music && panel === "person" && (personTab === "records" && recordTab === "purchases") && person && canReadTransactions && <div ><CourseCustomerPurchases music={music} key={`purchases-${person.id}`} customerId={person.id} /></div>}
             {!music && panel === "person" && (personTab === "records" && recordTab === "bookings") && person && canReadBookings && <div ><CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} music={music} /></div>}
             {panel==="plan"&&planReadOnly&&plan&&<dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{[["方案",plan.termSessionIds?.length?"期課":plan.unit==="POINT"?"點數":"堂數"],["額度",`${plan.points} ${plan.unit==="POINT"?"點":"堂"}`],["售價",`NT$ ${plan.price.toLocaleString("zh-TW")}`],["效期",`${plan.validDays} 天`],["狀態",plan.isActive?"上架":"下架"],[music?"所屬教學項目":"適用課程",music?planItems(plan).map(s=>s.name).join("、")||"待確認對應":plan.templateIds.length?templates.filter(t=>plan.templateIds.includes(t.id)).map(t=>t.name).join("、")||"指定課程":"全部課程"],["購買方式",plan.customerPurchasable===false?"僅後台指派":"顧客可購買"],...(sharingVisible?[["共卡",plan.allowShared?"允許":"不允許"]]:[])].map(([label,value])=><div key={label} className="border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd className="mt-1 break-words text-primary-900">{value}</dd></div>)}{plan.termSessionIds?.length?<div className="sm:col-span-2 text-sm"><dt className="text-earth-500">上課日期 · {plan.termSessionIds.length} 堂</dt><dd>{termSessions.filter(s=>plan.termSessionIds?.includes(s.id)).map(s=><p key={s.id} className="py-1">{formatTWDateTime(new Date(s.startsAt))} · {s.name}</p>)}</dd></div>:null}</dl>}
@@ -733,7 +736,7 @@ export function CourseMemberWorkspace({
             {panel === "person" && (
               <CourseCustomerDraftForm save={source?.saveProfile} draftScope={source?"module-customer":"course-customer"} key={person?.id??"new"} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onDirtyChange={setDirty} onSaved={finishDraftForm} />
             )}
-            {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings",source?"服務紀錄":"上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${recordTab===value ? "bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>{setRecordTab(value);const url=new URL(window.location.href);url.searchParams.set("studentRecords",value);window.history.replaceState(null,"",url.pathname+url.search);}}>{label}</button>)}</nav>}
+            {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings",source?"服務紀錄":"上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`min-h-11 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary-600 ${recordTab===value ? "bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>{setRecordTab(value);if(panelOnly)return;const url=new URL(window.location.href);url.searchParams.set("studentRecords",value);window.history.replaceState(null,"",url.pathname+url.search);}}>{label}</button>)}</nav>}
             {panel === "person" && personTab === "records" && person && canReadTransactions && recordTab === "purchases" && <CourseCustomerPurchases serviceMode={!!source} load={source?.purchases} sessionUnitLabel={source?.sessionUnitLabel} compact={sportsNative} key={`purchases-${person.id}`} customerId={person.id} />}
             {panel === "person" && personTab === "records" && person && canReadBookings && recordTab === "bookings" && <CourseCustomerBookings load={source?.bookings} serviceMode={!!source} sessionUnitLabel={source?.sessionUnitLabel} compact={sportsNative} key={`bookings-${person.id}`} customerId={person.id} />}
             {panel==="plan"&&planReadOnly&&plan&&<dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{[["方案",plan.termSessionIds?.length?"期課":plan.unit==="POINT"?"點數":"堂數"],["額度",`${plan.points} ${plan.unit==="POINT"?"點":"堂"}`],["售價",`NT$ ${plan.price.toLocaleString("zh-TW")}`],["效期",`${plan.validDays} 天`],["狀態",plan.isActive?"上架":"下架"],["適用課程",plan.sportsMode==="OPEN"?"開放選課通用卡":plan.templateIds.length?templates.filter(t=>plan.templateIds.includes(t.id)).map(courseTemplateLabel).join("、")||"指定課程":"全部課程"],["購買方式",plan.customerPurchasable===false?"僅後台指派":"顧客可購買"],...(sharingVisible?[["共卡",plan.allowShared?"允許":"不允許"]]:[])].map(([label,value])=><div key={label} className="border-b border-earth-100 py-2 text-sm"><dt className="text-earth-500">{label}</dt><dd className="mt-1 break-words text-primary-900">{value}</dd></div>)}{plan.termSessionIds?.length?<div className="sm:col-span-2 text-sm"><dt className="text-earth-500">上課日期 · {plan.termSessionIds.length} 堂</dt><dd>{termSessions.filter(s=>plan.termSessionIds?.includes(s.id)).map(s=><p key={s.id} className="py-1">{formatTWDateTime(new Date(s.startsAt))} · {s.name}</p>)}</dd></div>:null}</dl>}
@@ -821,11 +824,15 @@ export function CourseMemberWorkspace({
                 </fieldset>
               </form>
             )}
+            {panel==="card"&&!card&&cardLoading&&<p role="status">讀取方案詳細資料中…</p>}
+            {panel==="card"&&!card&&cardError&&<p role="alert">{cardError}<button className={button} onClick={cardDetail.retry}>重新載入</button></p>}
             {panel === "card" && card && (
               <>
                 {cardLoading && <p role="status">讀取方案詳細資料中…</p>}
                 {cardError && <div role="alert" className="mb-3 text-red-700"><p>{cardError}</p><button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-primary-700" onClick={cardDetail.retry}>重新載入</button></div>}
                 <CourseCardSummary card={card} sessionUnitLabel={source?.sessionUnitLabel}/>
+                {!source&&person&&previewStoreId&&card.unit==="SESSION"&&canReadBookings&&!cardLoading&&!cardError&&!error&&<CourseCardProgress key={`${person.id}:${card.id}`} cardId={card.id} customerId={person.id} storeId={previewStoreId} dataScope={dataScope} revision={cardRevision}/>}
+                {!source&&person&&canReadBookings&&!cardLoading&&!cardError&&!error&&<details className="my-3 border-y border-earth-100 py-2"><summary className="min-h-11 cursor-pointer py-2 font-medium text-primary-800">查看完整紀錄</summary><p className="text-sm text-earth-600">{card.name} · 僅列此學員使用這份方案的紀錄</p><CourseCustomerBookings key={`${person.id}:${card.id}:${cardRevision}`} customerId={person.id} cardId={card.id} compact/></details>}
                 {!cardLoading&&!cardError&&!error&&source?.cardManagement?.(card,{onPending:setFormPending,onDirtyChange:setDirty,onSaved:()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}})}
                 {!source&&canManageCards&&previewStoreId&&!cardLoading&&!cardError&&!error&&<PlanManagementControls key={card.id+":"+card.expiresAt+":"+card.remaining} storeId={previewStoreId} card={card} save={saveCourseCardManagement} sessionAdjustment={{save:saveCourseSessionAdjustment,records:card.sessionAdjustments??[],members:card.members,blockedReason:card.openingImported||card.templateRestricted?'來源方案或補課權益須由原專用流程核對。':undefined}} unitLabel={card.unit==='SESSION'?'堂':'點'} expiryHint={music&&card.musicValidityDays?'儲存後以指定到期日為準，首次上課與恢復點名不再重算本方案期限；既有補課權益仍保留。':undefined} onDirtyChange={setDirty} onPending={setFormPending} onSaved={()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}}/>}
                 {canReadBookings && !cardLoading && !cardError && !error && card.held > 0 && <CourseCardReservations load={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} cardId={card.id} held={card.held} unit={card.unit} revision={cardRevision}/>}

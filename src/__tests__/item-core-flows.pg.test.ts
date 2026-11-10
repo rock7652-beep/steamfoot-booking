@@ -62,6 +62,12 @@ let beautyContext:{storeId:string;actor:{storeId:string;userId:string;manager:bo
  beforeAll(async()=>{
   await db().$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);created=true;
   await installAuditOutboxTestSchema(url!,db());
+  // The notice writer addresses public; stores in this guarded disposable test
+  // live in a per-suite schema. Keep the actual notice columns/constraints,
+  // omitting only the unrelated public Store FK for this local fixture.
+  const noticeDdl=readFileSync('scripts/sql/digital-manager-notice-candidate.sql','utf8').match(/CREATE TABLE IF NOT EXISTS public\."DigitalManagerNotice" \([\s\S]*?\n\);/)?.[0];
+  if(!noticeDdl)throw Error('Missing digital manager notice test DDL');
+  await db().$executeRawUnsafe(noticeDdl.replace(' REFERENCES public."Store"(id) ON DELETE RESTRICT',''));
   for(const datamodel of ['course-prisma/schema.prisma','beauty-prisma/schema.prisma']){
    const ddl=execFileSync('node_modules/.bin/prisma',['migrate','diff','--from-empty','--to-schema-datamodel',datamodel,'--script'],{encoding:'utf8'});
    for(const sql of ddl.split(';').map(s=>s.trim()).filter(Boolean))await db().$executeRawUnsafe(sql);
@@ -69,7 +75,7 @@ let beautyContext:{storeId:string;actor:{storeId:string;userId:string;manager:bo
   await db().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text NOT NULL,"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')');
   await db().$executeRawUnsafe('CREATE TABLE "Customer" (id text,"storeId" text,name text,phone text,"assignedStaffId" text,"mergedIntoCustomerId" text,PRIMARY KEY(id,"storeId"))');
   await db().$executeRawUnsafe('CREATE TABLE "Staff" (id text PRIMARY KEY,"storeId" text,"displayName" text,status text)');
-  await db().$executeRawUnsafe('CREATE TABLE "StoreFeatureEntitlement" ("storeId" text,"featureKey" text,status text)');
+  await db().$executeRawUnsafe('CREATE TABLE "StoreFeatureEntitlement" ("storeId" text,"featureKey" text,status text,"startsAt" timestamptz,"expiresAt" timestamptz)');
   await db().$executeRawUnsafe('CREATE TABLE "BusinessHours" ("storeId" text,"dayOfWeek" integer,"isOpen" boolean,"openTime" text,"closeTime" text,segments jsonb,"slotInterval" integer,"defaultCapacity" integer)');
   await db().$executeRawUnsafe('CREATE TABLE "SpecialBusinessDay" ("storeId" text,date date,type text)');
   await db().$executeRawUnsafe('CREATE TABLE "SlotOverride" ("storeId" text,date date,"startTime" text,type text,capacity integer,reason text)');

@@ -141,7 +141,6 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
     [courseFilterLabel, setCourseFilterLabel] = useState(""),
     [teacherFilterLabel, setTeacherFilterLabel] = useState(""),
     [history, setHistory] = useState(false),
-    [bookingDetails, setBookingDetails] = useState<Record<string, boolean>>({}),
     [cardHistory, setCardHistory] = useState(false),
     [expandedPlanHistory, setExpandedPlanHistory] = useState<Record<string, boolean>>({}),
     [expandedPlanCards, setExpandedPlanCards] = useState<Record<string, boolean>>({}),
@@ -500,7 +499,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
     const weekday = new Date(d + "T12:00:00+08:00").getUTCDay();
     return p.hours.some((h) => h.dayOfWeek === weekday && !h.isOpen);
   }
-  const calendar=<CoursePortalCalendar month={p.month} selected={selected} monthPicker={monthPicker} context={<><span>{coach?"我的授課":personalCalendar?"我的課表":"開放選課"}</span><button onClick={()=>{if(!leaveNote())return;setDate(today);if(!today.startsWith(p.month))month(today.slice(0,7),today);}}>今天</button></>} days={courseMonthDays(p.month).dates.map(d=>{const sessions=(coach?work:personalCalendar?[]:p.sessions).filter(s=>courseDate(s.startsAt)===d),marks=courseMemberMarkers(personalBookings.filter(b=>!b.sessionCancelled&&courseDate(b.startsAt)===d),p.customerId);return {date:d,count:sessions.length,closed:closed(d),...marks};})} markers={!coach} legend={<>{coach?"授課堂數":<><span className="cp-legend-self">● 本人</span>　<span className="cp-legend-shared">◆ 代約／共卡</span></>}　淡色為公休</>} onSelect={d=>{if(!leaveNote())return;setDate(d);setRoster(null);requestAnimationFrame(()=>daily.current?.scrollIntoView({behavior:'smooth',block:'start'}));}}/>;
+  const calendar=<CoursePortalCalendar month={p.month} selected={selected} monthPicker={monthPicker} context={<>{(coach||!selfBookingEnabled)&&<span>{coach?"我的授課":"我的課表"}</span>}<button onClick={()=>{if(!leaveNote())return;setDate(today);if(!today.startsWith(p.month))month(today.slice(0,7),today);}}>今天</button></>} days={courseMonthDays(p.month).dates.map(d=>{const sessions=(coach?work:personalCalendar?[]:p.sessions).filter(s=>courseDate(s.startsAt)===d),marks=courseMemberMarkers(personalBookings.filter(b=>!b.sessionCancelled&&courseDate(b.startsAt)===d),p.customerId);return {date:d,count:sessions.length,closed:closed(d),...marks};})} markers={!coach} legend={<>{coach?"授課堂數":<><span className="cp-legend-self">● 本人</span>　<span className="cp-legend-shared">◆ 代約／共卡</span></>}　淡色為公休</>} onSelect={d=>{if(!leaveNote())return;setDate(d);setRoster(null);requestAnimationFrame(()=>daily.current?.scrollIntoView({behavior:'smooth',block:'start'}));}}/>;
   const notOpenYet = (s: Session) => new Date(s.startsAt).getTime() > new Date(p.bookingWindow.closesAt).getTime() || (!!p.bookingWindow.opensAt && now < new Date(p.bookingWindow.opensAt).getTime());
   function lessonCostLabel(s: Session) {
     const units = Array.from(new Set(eligible(s).map(c => c.unit)));
@@ -735,11 +734,10 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                 return (
                   <article className="cp-card cp-pad cp-booking-card" key={id}>
                     <div className="cp-booking-heading">
-                      <h2><time className="cp-booking-time" dateTime={first.startsAt}>{formatTWDateTime(new Date(first.startsAt))}</time><span>{first.name}</span></h2>
-                      <button aria-expanded={!!bookingDetails[id]} aria-controls={`booking-details-${id}`} onClick={() => setBookingDetails(previous => ({...previous, [id]: !previous[id]}))}>{bookingDetails[id] ? "收合明細 ⌃" : "查看明細 ⌄"}</button>
+                      <h2><time className="cp-booking-time" dateTime={first.startsAt}>{page === "schedule" && personalCalendar ? formatTWDateTime(new Date(first.startsAt)).slice(11) : formatTWDateTime(new Date(first.startsAt))}</time><span>{first.name}</span></h2>
                     </div>
-                    <p className="cp-booking-location">{first.coach} · {first.room} · 共 {list.length} 人</p>
-                    <div id={`booking-details-${id}`}>
+                    <p className="cp-booking-location">{[first.coach,first.room,list.length>1?`共 ${list.length} 人`:null].filter(Boolean).join(" · ")}</p>
+                    <div>
                     {list.map((b) => (
                       <div className="cp-person" key={b.id}>
                         <div className="cp-line cp-booking-person-line">
@@ -750,9 +748,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                           <span className="cp-badge" data-status={b.status}>
                             {b.sessionCancelled ? "停課" : b.status === "RESERVED" && new Date(b.startsAt).getTime() <= now ? "待確認出席" : statusName(b.status)}
                           </span>
-                          {bookingDetails[id] && <>
                           {!b.openingMakeup && !b.sessionCancelled && b.bookingAudience !== "ASSIGNED" && selfRescheduleEnabled && b.status === "RESERVED" && now < cancellationCutoff(b.startsAt) && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"reschedule"})}>改時段</button>}
-                          {!b.openingMakeup && !b.sessionCancelled && b.status === "RESERVED" && b.unit === "TRIAL" && Date.parse(b.startsAt)>now && <button disabled={pending} onClick={()=>setNotification({bookingId:b.id,action:"confirm"})}>確認會到</button>}
                           {!b.openingMakeup && !b.sessionCancelled && b.status === "RESERVED" && canSelfCancel(b.startsAt) && (
                             <button
                               disabled={pending}
@@ -764,13 +760,12 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                               {p.musicStore&&b.unit!=="TRIAL"?"請假":"取消"}
                             </button>
                           )}
-                          </>}
                         {!b.openingMakeup && !b.sessionCancelled && b.status === "RESERVED" && !canSelfCancel(b.startsAt) && (
                           <div className="cp-late-cancel">
-                            <span className="cp-muted">{selfLeaveEnabled?"已超過取消期限":"請假請聯繫店家"}</span>
-                            {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) ? (
-                              <a className="cp-btn cp-small-action" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">聯絡店家</a>
-                            ) : <span className="cp-muted">請洽店家</span>}
+                            {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) ? <>
+                              {selfLeaveEnabled&&<span className="cp-muted">已逾取消期限</span>}
+                              <a className="cp-btn cp-small-action" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">{selfLeaveEnabled?"聯絡店家":"請假聯絡店家"}</a>
+                            </> : <span className="cp-muted">{selfLeaveEnabled?"已逾取消期限，請洽店家":"請假請洽店家"}</span>}
                           </div>
                         )}
                         </div>
@@ -778,20 +773,19 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                           <ul><li>
                             {b.unit === "TRIAL" ? `體驗 NT$ ${b.trialPrice} · ${b.trialPaid === null ? "尚未收款" : `已收款 NT$ ${b.trialPaid}`}` : b.planName}{b.expiresAt ? ` · ${courseDate(b.expiresAt)} 到期` : ""}
                           </li>
-                          <li>{b.openingMakeup ? "獨立補課權益，不使用方案額度" : <>
-                            {b.unit === "TRIAL" ? "" : b.status === "ATTENDED" ? "已扣除" : b.status === "RESERVED" ? "本次使用" : b.status === "NO_SHOW" ? "本次額度" : "已釋放"}{" "}
-                            {b.unit === "TRIAL" ? "體驗不使用方案額度" : `${b.cost} ${unit(b.unit)}`}
-                          </>}</li>
-                          {bookingDetails[id] && b.customerId !== p.customerId && (
+                          {(b.openingMakeup||b.unit!=="TRIAL")&&<li>{b.openingMakeup ? "獨立補課權益，不使用方案額度" : <>
+                            {b.status === "ATTENDED" ? "已扣除" : b.status === "RESERVED" ? "本次使用" : b.status === "NO_SHOW" ? "本次額度" : "已釋放"}{" "}{b.cost} {unit(b.unit)}
+                          </>}</li>}
+                          {b.customerId !== p.customerId && b.operatorName && (
                             <li>預約人：{b.operatorName}</li>
                           )}
-                          {!b.openingMakeup && !b.sessionCancelled && b.status === "RESERVED" && <li>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</li>}
+                          {!b.openingMakeup && !b.sessionCancelled && b.status === "RESERVED" && selfLeaveEnabled && cancelId !== b.id && <li>取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</li>}
                           </ul>
-                          {bookingDetails[id] && b.notes && <p>備註：{b.notes}</p>}
+                          {b.notes && <p>備註：{b.notes}</p>}
                           {!b.openingMakeup && cancelId === b.id && <section className="cp-inline-confirm" aria-label={`取消 ${b.customerName} 的預約`}>
                             <p>{p.musicStore&&b.unit!=="TRIAL"?"確認這堂請假？":"取消這堂預約，釋放保留額度。"}</p>
                             {courseLeaveDebitMessage(p.musicStore,b) && <p>{courseLeaveDebitMessage(p.musicStore,b)}</p>}
-                            <p>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</p>
+                            <p>取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</p>
                             {!canSelfCancel(b.startsAt) && <p className="cp-error">已超過自行取消期限，請聯絡店家。</p>}
                             {error && <p role="alert" className="cp-error">{error}</p>}
                             <div className="cp-actions">
@@ -941,8 +935,6 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                     go(coach || !p.nextBooking ? "schedule" : "bookings");
                     const next = coach ? p.nextWork : p.nextBooking;
                     if (next) {
-                      const reservation = p.bookings.find(b => b.startsAt === next.startsAt && b.name === next.name && b.status === "RESERVED");
-                      if (!coach && reservation) setBookingDetails(previous => ({...previous, [reservation.sessionId]: true}));
                       setDate(courseDate(next.startsAt));
                       if (!courseDate(next.startsAt).startsWith(p.month))
                         month(courseDate(next.startsAt).slice(0, 7), courseDate(next.startsAt));

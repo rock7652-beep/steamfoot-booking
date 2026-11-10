@@ -43,7 +43,7 @@ vi.mock("@/server/services/beauty-line-onboarding", () => ({
   onboardVerifiedBeautyMember: (...args: unknown[]) => mockBeautyOnboarding(...args),
 }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: (...args: unknown[]) => mockIndustry(...args) }));
-vi.mock("@/server/services/course-line-onboarding", () => ({ onboardCourseLineMember: (...args: unknown[]) => mockCourseOnboarding(...args) }));
+vi.mock("@/server/services/course-line-onboarding", () => ({ onboardOrRecoverCourseLineMember: (...args: unknown[]) => mockCourseOnboarding(...args) }));
 
 vi.mock("@/lib/liff/verify-id-token", async () => {
   // 保留真正的 LiffIdTokenError class，讓 action 用 instanceof 判型
@@ -244,6 +244,17 @@ describe("submitOnboarding action (PR-C2)", () => {
     expect(mockCourseOnboarding).toHaveBeenCalledWith(expect.objectContaining({ storeId: STORE.id, lineUserId: LINE_USER_ID }));
     expect(mockBindLine).not.toHaveBeenCalled();
     expect(mockIdentitySync).not.toHaveBeenCalled();
+  });
+  it("returns a confirmation code and diagnostic reference for an existing course member", async () => {
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockIndustry.mockResolvedValue("course");
+    mockCourseOnboarding.mockResolvedValue({ status: "login_review_pending", verificationCode: "ABC123" });
+    await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({
+      status: "login_review_pending", verificationCode: "ABC123", referenceId: expect.stringMatching(/^[a-f0-9-]{36}$/),
+    });
+    expect(mockCourseOnboarding).toHaveBeenCalledWith(expect.objectContaining({ channelId: CHANNEL, lineUserId: LINE_USER_ID }));
+    expect(mockBindLine).not.toHaveBeenCalled(); expect(mockIdentitySync).not.toHaveBeenCalled();
   });
   it.each(["ok", "identity_review_required", "service_unavailable"])("routes configured beauty registration through its own service: %s", async status => {
     vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([{

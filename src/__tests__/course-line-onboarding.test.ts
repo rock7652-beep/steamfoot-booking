@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => {
     customerIdentityLink: { findMany: vi.fn(), create: vi.fn() },
     user: { create: vi.fn() },
   };
-  return { tx, transaction: vi.fn(), resolve: vi.fn(),
+  return { tx, transaction: vi.fn(), resolve: vi.fn(), complete: vi.fn(), recovery: vi.fn(),
     account: { findUnique: vi.fn() }, store: { findUnique: vi.fn() },
     customer: { findFirst: vi.fn() }, customerIdentityLink: { findFirst: vi.fn() } };
 });
@@ -14,13 +14,17 @@ vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction,
   account: mocks.account, store: mocks.store, customer: mocks.customer,
   customerIdentityLink: mocks.customerIdentityLink } }));
 vi.mock("@/server/services/verified-line-customer", () => ({ resolveVerifiedLineCustomer: mocks.resolve }));
-import { canOnboardCentralLineAccountToCourse, onboardCourseLineMember } from "@/server/services/course-line-onboarding";
+vi.mock("@/server/services/store-member-connection", () => ({ completeAuthorizedFirstStoreLogin: mocks.complete }));
+vi.mock("@/server/services/liff-login-recovery", () => ({ requestLiffLoginRecovery: mocks.recovery }));
+import { canOnboardCentralLineAccountToCourse, onboardCourseLineMember, onboardOrRecoverCourseLineMember } from "@/server/services/course-line-onboarding";
 const input = { storeId: "course", lineUserId: "verified-subject", name: "Member", phone: "0999000123", lineName: "LINE name" };
 const joiningInput = { storeId: input.storeId, lineUserId: input.lineUserId, identityProvider: "line" };
 
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.resolve.mockResolvedValue(null);
+  mocks.complete.mockResolvedValue(false);
+  mocks.recovery.mockResolvedValue({ status: "pending", verificationCode: "ABC123" });
   mocks.transaction.mockImplementation((fn) => fn(mocks.tx));
   mocks.tx.account.findUnique.mockResolvedValue(null);
   mocks.tx.customer.findMany.mockResolvedValue([]);
@@ -32,6 +36,36 @@ beforeEach(() => {
   mocks.store.findUnique.mockResolvedValue({ industryModule: "COURSE" });
   mocks.customer.findFirst.mockResolvedValue(null);
   mocks.customerIdentityLink.findFirst.mockResolvedValue(null);
+});
+
+describe("existing course member Login recovery", () => {
+  const verifiedInput = { ...input, channelId: "verified-channel" };
+  beforeEach(() => { mocks.tx.customer.findMany.mockResolvedValue([{ id: "original-member" }]); });
+  it("queues the verified Login for staff review without creating a duplicate member", async () => {
+    expect(await onboardOrRecoverCourseLineMember(verifiedInput)).toEqual({ status: "login_review_pending", verificationCode: "ABC123" });
+    expect(mocks.recovery).toHaveBeenCalledWith(verifiedInput);
+    expect(mocks.tx.customer.create).not.toHaveBeenCalled(); expect(mocks.tx.account.create).not.toHaveBeenCalled();
+    expect(mocks.tx.user.create).not.toHaveBeenCalled();
+  });
+  it("consumes staff authorization on retry before requesting another confirmation", async () => {
+    mocks.complete.mockResolvedValue(true);
+    expect(await onboardOrRecoverCourseLineMember(verifiedInput)).toEqual({ status: "ok" });
+    expect(mocks.complete).toHaveBeenCalledWith({ storeId: input.storeId, phone: input.phone, candidateLineUserId: input.lineUserId });
+    expect(mocks.recovery).not.toHaveBeenCalled(); expect(mocks.tx.customer.create).not.toHaveBeenCalled();
+  });
+  it("keeps independent providers on their existing review path", async () => {
+    expect(await onboardOrRecoverCourseLineMember({ ...verifiedInput, identityProvider: "line-provider:901" })).toEqual({ status: "identity_review_required" });
+    expect(mocks.complete).not.toHaveBeenCalled(); expect(mocks.recovery).not.toHaveBeenCalled();
+  });
+  it.each(["review", "unavailable"])("preserves %s instead of claiming a successful login", async status => {
+    mocks.recovery.mockResolvedValue({ status });
+    expect(await onboardOrRecoverCourseLineMember(verifiedInput)).toEqual({ status: status === "review" ? "identity_review_required" : "service_unavailable" });
+  });
+  it("does not turn a failed identity lookup into registration or recovery", async () => {
+    mocks.resolve.mockRejectedValue(new Error("lookup down"));
+    expect(await onboardOrRecoverCourseLineMember(verifiedInput)).toEqual({ status: "service_unavailable" });
+    expect(mocks.recovery).not.toHaveBeenCalled(); expect(mocks.tx.customer.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("central LINE account joining a course store", () => {

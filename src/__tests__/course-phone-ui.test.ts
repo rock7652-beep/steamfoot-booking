@@ -59,5 +59,5 @@ it("renders exactly eight cells with only attended dates and does not fill a fut
   const cells = host.querySelectorAll(".cp-phone-grid>li");
   expect(cells).toHaveLength(8);
   expect([...cells].map(cell => cell.textContent)).toEqual(["11/03", "11/10", "", "", "", "", "", ""]);
-  expect(host.querySelector(".cp-phone-grid-five")).toBeNull();
+  expect(host.querySelector<HTMLOListElement>(".cp-phone-grid")!.style.gridTemplateColumns).toBe("repeat(4, minmax(0, 1fr))");
 });

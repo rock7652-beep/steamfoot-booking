@@ -2,6 +2,30 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { resolveVerifiedLineCustomer } from "./verified-line-customer";
+import { completeAuthorizedFirstStoreLogin } from "./store-member-connection";
+import { requestLiffLoginRecovery } from "./liff-login-recovery";
+
+/** Called only after verifying the token and this course store's channel.
+ * Existing members use a staff-reviewed Login proof, never the OA subject or
+ * supplied phone alone. Independent providers retain their own onboarding. */
+export async function onboardOrRecoverCourseLineMember(input: Parameters<typeof onboardCourseLineMember>[0] & {
+  channelId: string;
+}) {
+  try {
+    const result = await onboardCourseLineMember(input);
+    if (result.status !== "identity_review_required" || (input.identityProvider ?? "line") !== "line") return result;
+    if (await completeAuthorizedFirstStoreLogin({
+      storeId: input.storeId, phone: input.phone, candidateLineUserId: input.lineUserId,
+    })) return { status: "ok" as const };
+    const review = await requestLiffLoginRecovery(input);
+    if (review.status === "pending") return {
+      status: "login_review_pending" as const, verificationCode: review.verificationCode,
+    };
+    return { status: review.status === "unavailable" ? "service_unavailable" as const : "identity_review_required" as const };
+  } catch {
+    return { status: "service_unavailable" as const };
+  }
+}
 
 /** A central LINE account can join an empty course store through the normal
  * phone/name onboarding form. Do not offer this path when that store already

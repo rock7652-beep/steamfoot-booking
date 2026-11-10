@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ transaction: vi.fn(), access: vi.fn(), context: vi.fn(), module: vi.fn(),
+const m = vi.hoisted(() => ({ transaction: vi.fn(), access: vi.fn(), context: vi.fn(), module: vi.fn(), assertContext: vi.fn(),
   store: { findUnique: vi.fn() }, customer: { findMany: vi.fn(), update: vi.fn() },
   user: { findUnique: vi.fn(), create: vi.fn() }, account: { findUnique: vi.fn(), findMany: vi.fn() },
   link: { findFirst: vi.fn(), findMany: vi.fn() },
@@ -8,9 +8,9 @@ const m = vi.hoisted(() => ({ transaction: vi.fn(), access: vi.fn(), context: vi
 const tx = { $queryRaw: vi.fn(), customer: m.customer, user: m.user, account: m.account,
   customerIdentityLink: m.link, storeMemberConnection: m.request, lineRebindRequest: m.grant, auditLog: { create: m.audit } };
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: m.transaction, store: m.store } }));
-vi.mock("@/lib/industry-module-server", () => ({ requireSteamfootStore: m.module }));
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: m.module }));
 vi.mock("@/server/services/inventory", () => ({ inventoryTransactionAccess: m.access }));
-vi.mock("@/server/services/store-liff-context", () => ({ resolveStoreLiffContext: m.context }));
+vi.mock("@/server/services/store-liff-context", () => ({ resolveStoreLiffContext: m.context, assertStoreLiffContext: m.assertContext }));
 import { requestLiffLoginRecovery, approveLiffLoginRecovery } from "@/server/services/liff-login-recovery";
 import { sha256 } from "@/server/services/line-rebind";
 import type { InventoryContext } from "@/server/services/inventory";
@@ -22,6 +22,7 @@ const pending = () => ({ id: "r", storeId: "s", customerId: "c", phone: input.ph
   lineUserId: "login:" + fingerprint, verificationCode: "ABC123", status: "PENDING", expiresAt: new Date(Date.now() + 60_000) });
 beforeEach(() => {
   vi.resetAllMocks();
+  m.module.mockResolvedValue("steamfoot");
   m.transaction.mockImplementation(async callback => callback(tx));
   m.access.mockResolvedValue(() => true);
   m.store.findUnique.mockResolvedValue({ slug: "store" });
@@ -71,6 +72,30 @@ describe("verified login recovery request", () => {
   });
 });
 describe("staff approval of verified login recovery", () => {
+  it("approves a legacy course member's exact Login proof using the existing messaging owner", async () => {
+    m.module.mockResolvedValue("course");
+    m.customer.findMany.mockResolvedValue([{ ...customer, userId: null }]);
+    m.account.findMany.mockResolvedValue([]); m.link.findMany.mockResolvedValue([]);
+    await approveLiffLoginRecovery(ctx, "r", "c", "ABC123");
+    expect(m.assertContext).toHaveBeenCalledWith({ id: "s", slug: "store" }, expect.objectContaining({ channelId: "123" }));
+    expect(m.user.create).not.toHaveBeenCalled(); expect(m.customer.update).not.toHaveBeenCalled();
+    expect(m.grant.create).toHaveBeenCalledWith({ data: expect.objectContaining({ reason: "LIFF_LOGIN_FIRST_CAPTURE_V1:verified:" + fingerprint }) });
+  });
+  it("rejects an unconfigured course audience before changing membership", async () => {
+    m.module.mockResolvedValue("course"); m.assertContext.mockRejectedValue(new Error("channel mismatch"));
+    await expect(approveLiffLoginRecovery(ctx, "r", "c", "ABC123")).rejects.toThrow("channel mismatch");
+    expect(m.transaction).not.toHaveBeenCalled();
+  });
+  it.each(["beauty", "spa"])("does not extend legacy Login recovery to %s", async industry => {
+    m.module.mockResolvedValue(industry);
+    await expect(approveLiffLoginRecovery(ctx, "r", "c", "ABC123")).rejects.toThrow();
+    expect(m.transaction).not.toHaveBeenCalled();
+  });
+  it("preserves independent provider isolation", async () => {
+    m.module.mockResolvedValue("course"); m.context.mockResolvedValue({ config: {}, identityProvider: "line-provider:901" });
+    await expect(approveLiffLoginRecovery(ctx, "r", "c", "ABC123")).rejects.toThrow(/本店/);
+    expect(m.transaction).not.toHaveBeenCalled();
+  });
   it("creates an exact one-time grant and audit, without changing notification or Login credentials", async () => {
     await approveLiffLoginRecovery(ctx, "r", "c", "ABC123");
     expect(m.grant.create).toHaveBeenCalledWith({ data: expect.objectContaining({
