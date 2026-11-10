@@ -1,3 +1,4 @@
+import {sportsReadinessTransactionOptions} from "@/lib/sports-readiness-transaction";
 import {readMusicCalendarRecurrence} from "@/server/services/music-calendar-recurrence";
 import {preloadCourseCalendarRosters} from "@/server/services/course-calendar-rosters";
 import {createCoursePageTiming,coursePageTimingVisible} from "@/server/services/course-page-timing";
@@ -101,7 +102,7 @@ export default async function CoursesPage({
   const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map(item => item.featureKey));
   // Catalog saves must not wait for the monthly schedule, rental or customer reads.
   const sportsNative = businessProfile === "FITNESS" && (await sportsNativePreview(storeId));
-  if(sportsNative&&process.env.VERCEL_ENV==="production")await coursePrisma.$transaction(tx=>import("@/server/services/sports-production-readiness").then(m=>m.assertSportsProductionReady(tx,storeId)));
+  if(sportsNative&&process.env.VERCEL_ENV==="production")await coursePrisma.$transaction(tx=>import("@/server/services/sports-production-readiness").then(m=>m.assertSportsProductionReady(tx,storeId)),sportsReadinessTransactionOptions);
 
   timing.mark("profile");
   if (view === "catalog" && (businessProfile === "MUSIC" || sportsNative)) {
