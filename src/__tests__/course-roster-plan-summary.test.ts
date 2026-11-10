@@ -14,3 +14,11 @@ it('未綁卡時標示適用方案合計及查看方案，不虛構已使用的�
  const html=renderToStaticMarkup(h(RosterPlanSummary,{booking,onOpen:vi.fn()}));
  expect(html).toContain('適用方案合計');expect(html).toContain('查看方案');expect(html).not.toContain('此方案上課紀錄');expect(html).not.toContain('2027-01-01');
 });
+it('does not repeat equal total and available amounts; preserves differences and true shortages',()=>{
+ const b=preparedRoster().roster[0];b.cardId=null;b.bookingKind='UNPAID';
+ const balance={unit:'SESSION',remaining:10,available:10,cost:1,planName:'十堂'};
+ const balances=[balance];b.sportsBalance={...balance,byUnit:balances};
+ let html=renderToStaticMarkup(h(RosterPlanSummary,{booking:b,onOpen:vi.fn()}));expect(html).toContain('可用 10 堂');expect(html).not.toContain('剩餘 10 堂');expect(html).not.toContain('額度不足');
+ balances[0]={...balance,available:9};html=renderToStaticMarkup(h(RosterPlanSummary,{booking:b,onOpen:vi.fn()}));expect(html).toContain('可用 9 堂');expect(html).toContain('剩餘 10 堂');
+ balances[0]={...balance,available:0};html=renderToStaticMarkup(h(RosterPlanSummary,{booking:b,onOpen:vi.fn()}));expect(html).toContain('額度不足');
+});

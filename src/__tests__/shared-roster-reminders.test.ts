@@ -23,14 +23,14 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
 
-async function render({ count = 1, notes = "本次完整內容", serviceNote = "店內完整內容", canEdit = true, canEditNote = true, enabled = true } = {}) {
+async function render({ count = 1, notes = "本次完整內容", serviceNote = "店內完整內容", canEdit = true, canEditNote = true, enabled = true,quietEmpty=false } = {}) {
   const initial: LabelSnapshot = { available: true, enabled, canEdit, canManage: false,
     categories: [{ id: "cat", name: "偏好", number: 1, position: 0, active: true }],
     labels: Array.from({ length: count }, (_, i) => ({ id: `label-${i}`, name: `標籤${i + 1}`, categoryId: "cat", active: true })),
     assignments: { customer: Array.from({ length: count }, (_, i) => `label-${i}`) } };
   m.load.mockResolvedValue(initial);
   await act(async () => root.render(jsx(CustomerLabelsProvider, { initial, children: createElement(RosterReminders, {
-    customerId: "customer", name: "示範學員", serviceNote, notes, canEdit, canEditNote,
+    customerId: "customer", name: "示範學員", serviceNote, notes, canEdit, canEditNote,quietEmpty,
     onOpen: m.open, onEdit: m.edit,
   }) })));
 }
@@ -107,4 +107,11 @@ it("opens complete multiline notes without a module callback and returns focus a
   await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true})));
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(document.activeElement).toBe(overview);
+});
+
+it('omits empty native roster text while preserving label and note controls',async()=>{
+ await render({count:0,notes:'',serviceNote:'',quietEmpty:true});
+ expect(host.textContent).not.toContain('無標籤');expect(host.textContent).not.toContain('尚無備註');
+ expect(host.querySelector('button[aria-label="示範學員 查看或修改標籤"]')).not.toBeNull();
+ expect(host.querySelector('button[aria-label="示範學員 本次備註"]')).not.toBeNull();
 });
