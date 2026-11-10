@@ -1,0 +1,35 @@
+{
+  "scope": "Actual roster/portal components with full styles, synthetic data; all network and server actions blocked; not authenticated business QA",
+  "results": [
+    {
+      "mode": "roster",
+      "width": 1366,
+      "height": 900,
+      "pass": true
+    },
+    {
+      "mode": "roster",
+      "width": 1024,
+      "height": 768,
+      "pass": true
+    },
+    {
+      "mode": "roster",
+      "width": 768,
+      "height": 1024,
+      "pass": true
+    },
+    {
+      "mode": "portal",
+      "width": 390,
+      "height": 844,
+      "pass": true
+    },
+    {
+      "mode": "portal",
+      "width": 360,
+      "height": 800,
+      "pass": true
+    }
+  ]
+}

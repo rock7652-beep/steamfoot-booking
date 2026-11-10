@@ -1085,7 +1085,7 @@ export function CourseWorkspace({
       {!panel && <CourseConflicts items={conflicts}/>}
       {sportsNative&&<span hidden data-operation-background-refresh/>}
       {sportsNative&&moveTarget&&moveClipboard&&<SportsMoveConfirm clipboard={moveClipboard} seed={moveTarget} rooms={allRooms.filter(r=>r.isActive)} coaches={allCoaches.filter(c=>c.status==="ACTIVE"&&c.courseCoachEnabled)} onClose={()=>setMoveTarget(null)} onReview={()=>{setCourseDialog({sessionId:moveClipboard.sessionId,kind:"roster"});setMoveTarget(null);}} onSaved={(date,patches)=>{const ensure=date.slice(0,7)!==(nativeCalendar?.month??loadedDate.slice(0,7));++calendarRequest.current;setNativeCalendar(previous=>({...previous??{month:loadedDate.slice(0,7),sessions:sourceSessions,cancelledBookings:sourceCancelledBookings,calendarDays:sourceCalendarDays,staffAvailabilityExceptions:sourceStaffAvailabilityExceptions},sessions:applySportsMovePatches(previous?.sessions??sourceSessions,patches??[])}));setNativeDate(date);nativeDateRef.current=date;setMoveTarget(null);setMoveClipboard(null);setNotice("已調課");void refreshNativeCalendar(date,ensure);}}/>}
-      {sportsNative&&view==="schedule"&&notice&&<p role="status" aria-live="polite" className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 font-medium text-primary-900">{notice}</p>}
+      {sportsNative&&view==="schedule"&&notice&&<div role="status" aria-live="polite" className="flex flex-wrap items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 font-medium text-primary-900"><span>{notice}</span>{notice.includes("同步未完成")&&<button type="button" className="min-h-11 rounded-lg border border-primary-300 px-3" onClick={()=>{const shownNotice=notice;void refreshNativeCalendar(selectedDate,true,true).then(ok=>{if(ok)setNotice(current=>current===shownNotice?"":current);});}}>重新整理課表</button>}</div>}
       {sportsNative&&calendarDataReady&&<p role="status" className="h-5 text-sm text-earth-500">{calendarReading ? "課表讀取中…" : ""}</p>}
       {view === "schedule" && (
         <div className={`${styles.workspace} flex min-w-0 flex-col gap-1`}>
@@ -1348,13 +1348,13 @@ export function CourseWorkspace({
             </>
           )}
           </CalendarMonthBoundary>
-          <p
+          {(!sportsNative||pending)&&<p
             role="status"
             aria-live="polite"
             className="text-sm text-primary-700"
           >
             {pending ? "處理中…" : notice}
-          </p>
+          </p>}
           {error && calendarDataReady && <p role="alert" className="text-sm text-red-700">{error}</p>}
         </div>
       )}
