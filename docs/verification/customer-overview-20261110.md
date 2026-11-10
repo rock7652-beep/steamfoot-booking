@@ -66,3 +66,15 @@ LINE 啟用事件全為 SKIPPED。受限角色仍拒絕通知 worker 權限，�
 驗收腳本：`scripts/qa/customer-overview-hosted.mjs`。須以私有 `/tmp/customer-overview-hosted-config.json` 和 `/tmp/customer-overview-access.json` 指定部署、QA 帳號及 fixture；寫入另須 `QA_ALLOW_ISOLATED_WRITES=1`，排課送出須 `QA_SUBMIT_SCHEDULE=1`，不可盲目重播 purchase／attendance／cancel。每階段 JSON 與截圖位於私有 `/tmp/customer-overview-hosted`；成功階段才納入交付證據，失敗與先前 capture 尚在載入的圖不納入。密碼、cookie、資料庫密碼、share token 均不進 repo。
 
 後續本地核對：型別通過；最新 Preview scope／原隔離 scope／Postgres packaging／導覽共 4 組 39 項通過。此前 62 項與合成 UI 21 案例仍分別保留，不將重疊項加總成新總數。第一個雲端建置因 proxy artifact 超過 250 MB 失敗；第二次僅移除既有保守包裝規則允許的截圖／未使用非 Postgres engine 後成功，proxy 約 199 MB。兩次建置均為 QA，沒有正式部署。
+
+## 截圖回饋後的第二輪收斂
+
+使用者於同日授權執行三項調整：音樂避免重複餘額摘要、縮減總覽空白、釐清下次預約與方案保留額度。修改沿用同一支線、三間隔離 demo 店及前述有限期 QA 帳號；正式站未更新。
+
+- 音樂總覽隱藏概況的一般餘額 strip；單方案直接看方案卡，多個有效方案才依 reader 的完整 totals 顯示合計，搜尋／分頁不以畫面可見資料推算總數。原另發補課及待核對提示保留，其他專用入口維持原行為。
+- 共用聯絡區、總覽、方案及歸屬減少區塊間距；字級及主要 44px 操作尺寸保留。
+- 方案主數字改為「可用」，有保留才顯示「預約保留」及原明細展開；零保留不再顯示「已預約 0」。計算口徑收在「額度說明」，涵蓋預約保留、效期與使用限制，不把下次預約當作已綁定本方案；不更改後端餘額或交易。
+- React 檢查：沒有新增查詢、effect、跨 scope 快取或套件；沿用原 reader 與授權，新增 summary／details 支援鍵盤與觸控，保留狀態與錯誤。
+- 本地 `tsc --noEmit`、變更來源 ESLint、`git diff --check` 通過；5 組相關回歸 46 項通過。瀏覽器合成資料 21 案例通過、零 pageerror／console error，包含六種尺寸、單／多方案、零保留與非零保留、說明展開、歷史切換、編輯／購買返回、失敗重試及捲動保留。新增測試定位針對下次預約區，避免誤匹配收合說明文字；fixture 異動先依既有事件失效快取，美業核對「次」單位。
+
+新版 Preview 來源為 `e3126980b7cce791c97acc29b9b50d6c7ea62340`，部署 `dpl_8fBkdZFxSTR1RWJ3UFrD9XzHHSjL`。最初 polish 建置於約 38 秒時中止，以補齊額度說明中的效期／限制後重建，沒有完成或驗收該中止版本。此部署已 READY；正常 OWNER 登入後，三模組均通過「可用 4 堂／次」、零保留不顯示、音樂單方案不重複合計、額度說明展開、歷史切換及編輯返回。每模組重新核對 390×844、768×1024、1024×768、1366×900，無頁面水平溢出及 pageerror；12 張截圖均等資料完成載入後取得，並依精確來源 SHA 核對。這是 Chrome 模擬尺寸，非真機 Safari。新版網址為 https://steamfoot-compact-qa-20261103-3qfqrn2l7-rock7652-2111s-projects.vercel.app ，分享憑證仍只存私有設定。本輪未新增資料庫寫入或啟用通知；前輪扣堂／取消交易證據獨立保留，不宣稱已在新來源重播所有交易。Cloudflare 無本次必要依賴。
