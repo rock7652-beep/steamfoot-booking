@@ -6,14 +6,14 @@ vi.mock('@/server/services/sports-staging-schedule',()=>({readSportsSessionRule:
 import {readSportsRosterBalances} from '@/server/services/sports-roster-balance';
 const card=(id:string,remaining:number,held=0)=>({id,remaining,storeId:'store',sportsMode:'ASSIGNED',sportsSubjectId:'dance',sportsCost:1,unit:'SESSION',planId:'plan',templateIds:['old'],nameSnapshot:'十堂舞蹈',requestKey:'normal',termSessionIds:[],members:[{customerId:'a'},{customerId:'b'}],bookings:[{pointCost:held}]});
 beforeEach(()=>{vi.clearAllMocks();m.session.mockResolvedValue({id:'session',templateId:'current',startsAt:new Date('2099-10-28'),pointCost:1,template:{musicSubjectId:'dance'}});m.rule.mockResolvedValue({enrollment:'ASSIGNED',planId:null});m.cards.mockResolvedValue([]);m.templates.mockResolvedValue([{id:'current'},{id:'old'}]);});
-it('separates fixed and open balances in one class, even for shared-card members',async()=>{
+it('uses the same subject balance for fixed and open learners, excluding unscoped cards',async()=>{
  m.rule.mockResolvedValue({enrollment:'OPEN',planId:null,payload:{students:[{customerId:'a',cardId:null}]}});
  m.cards.mockResolvedValue([card('assigned',10),{...card('open',20),sportsMode:'OPEN',sportsSubjectId:null,sportsCost:null}]);
  const {coursePrisma}=await import('@/lib/course-db');
  const session={id:'session',requestKey:'schedule',requestIndex:0};
  const bookings=[{customerId:'a',requestKey:'sports-fixed:session:a',session},{customerId:'b',requestKey:'self-booking',session}];
  const result=await readSportsRosterBalances('store','session',['a','b'],coursePrisma,undefined,bookings);
- expect(result.get('a')).toMatchObject({remaining:10});expect(result.get('b')).toMatchObject({remaining:20});
+ expect(result.get('a')).toMatchObject({remaining:10});expect(result.get('b')).toMatchObject({remaining:10});
 });
 it('batches learners in the same store and displays remaining separately from shared holds',async()=>{
  m.cards.mockResolvedValue([card('card',10,3)]);
@@ -52,3 +52,9 @@ it('uses one month card read but checks each class date and never reuses a trans
  m.cards.mockClear();const tx={...coursePrisma} as unknown as Parameters<typeof readSportsRosterBalances>[3];
  await withCourseCalendarRead('store',['a'],()=>Promise.all([1,2].map(()=>readSportsRosterBalances('store','a',['a'],tx,['a','b']))));expect(m.cards).toHaveBeenCalledTimes(2);
 });
+it.each(['OPEN','ASSIGNED'])('aggregates A1/A2/A3 for %s and excludes B1/C2 and unauthorized coaches',async enrollment=>{
+ m.rule.mockResolvedValue({enrollment,planId:null});
+ m.cards.mockResolvedValue([card('A1',2,1),card('A2',5,2),card('A3',3),{...card('B1',50),sportsSubjectId:'B'},{...card('C2',50),sportsSubjectId:'C'},{...card('wrong-coach',90),plan:{chargeSettings:{kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['other-coach']}}}]);
+ expect((await readSportsRosterBalances('store','session',['a','a'])).get('a')).toMatchObject({remaining:10,available:7});
+});
+it('marks an unscoped old card for review rather than counting its balance',async()=>{m.cards.mockResolvedValue([{...card('old',19),sportsMode:'OPEN',sportsSubjectId:null,sportsCost:null}]);expect((await readSportsRosterBalances('store','session',['a'])).get('a')).toMatchObject({reviewRequired:true,remaining:0,byUnit:[]});});

@@ -116,7 +116,8 @@ export async function joinCourseWaitlist(
     if (activeCard.expiresAt! < activeSession.startsAt) fail("方案不涵蓋上課日期，不能候補");
     const sportsRule=await readSportsSessionRule(tx,actor.storeId,activeSession.id);
     if(sportsRule?.enrollment==="ASSIGNED")fail("指定學員課程不開放候補");
-    const rights=resolveSportsEntitlement({...activeCard,templateRestricted:activeCard.requestKey?.startsWith("no-show-makeup:")??false},{templateId:activeSession.templateId,subjectId:activeSession.template.musicSubjectId??null,pointCost:activeSession.pointCost,enrollment:sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null});
+  const compatibleTemplateIds=await (await import("./sports-teaching-templates")).readSportsTeachingTemplates(tx,actor.storeId,activeSession.template.musicSubjectId);
+    const rights=resolveSportsEntitlement({...activeCard,templateRestricted:activeCard.requestKey?.startsWith("no-show-makeup:")??false},{templateId:activeSession.templateId,subjectId:activeSession.template.musicSubjectId??null,pointCost:activeSession.pointCost,enrollment:sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null,compatibleTemplateIds});
     if(!rights.eligible)fail(rights.reason);
     if (activeCard.termSessionIds.length && !activeCard.termSessionIds.includes(activeSession.id))
       fail("此方案僅能使用指定課次");

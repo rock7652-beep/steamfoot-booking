@@ -415,8 +415,9 @@ async function readCoursePortal(requestedMonth: string | undefined, preview: Fro
         }
       : null,
     memberRecords: await memberRecordsPromise,
-    sessions: (bookingRule?.selfBookingEnabled === false ? [] : sessions).map((s) => ({
+    sessions: await Promise.all((bookingRule?.selfBookingEnabled === false ? [] : sessions).map(async (s) => ({
       ...({sportsEnrollment:sportsRules.find(r=>r.sessionId===s.id)?.enrollment??null,sportsPlanId:sportsRules.find(r=>r.sessionId===s.id)?.planId??null,sportsSubjectId:s.template.musicSubjectId} as Partial<{sportsEnrollment:string|null;sportsPlanId:string|null;sportsSubjectId:string|null}>),
+      compatibleTemplateIds:!musicStore?await (await import("@/server/services/sports-teaching-templates")).readSportsTeachingTemplates(coursePrisma,storeId,s.template.musicSubjectId):[],
       sportsTrialPrice:s.isTrial?sportsRules.find(r=>r.sessionId===s.id)?.trialPrice??null:null,
       id: s.id,
       templateId: s.templateId,
@@ -434,7 +435,7 @@ async function readCoursePortal(requestedMonth: string | undefined, preview: Fro
       waitlistCount: waitlistMeta.get(s.id)?.count ?? 0,
       waitlistPosition: waitlistMeta.get(s.id)?.ownPosition ?? null,
       waitlistRemaining: Math.max(0, (sportsWaitlist.get(s.id)?.limit??(s.template.waitlistLimit || waitlistSetting?.defaultLimit || 5)) - (waitlistMeta.get(s.id)?.count ?? 0)),
-    })),
+    }))),
     bookings: bookings.map((b) => ({
       id: b.id,
       openingMakeup: isMusicOpeningMakeupBooking(b),

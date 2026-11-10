@@ -24,19 +24,19 @@ it('music defaults to one lesson, saves free trial and duration and limits selec
  await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  expect(m.save.mock.calls[0][0]).toMatchObject({points:1,unit:'SESSION',chargeSettings:{kind:'single',trialPrice:0,trialDuration:20,providerIds:['teacher']}});
 });
-it('sports defaults to single; open selection clears trial overrides and retains store-based pricing',async()=>{
- mount(false);fill(input('體驗價'),'200');fill(input('體驗時間'),'30');
+it('sports keeps subject and trial pricing independent of enrollment',async()=>{
+ mount(false,{selfBookingEnabled:true,assignedSchedulingEnabled:false});fill(input('體驗價'),'200');fill(input('體驗時間'),'30');
  const provider=[...document.querySelectorAll('fieldset')].find(f=>f.firstElementChild?.tagName==='LEGEND'&&f.firstElementChild.textContent?.includes('此收費'))!.querySelector<HTMLInputElement>('input')!;
  act(()=>provider.click());
- act(()=>{const mode=document.querySelector<HTMLSelectElement>('[aria-label="方案適用方式"]')!;mode.value='OPEN';mode.dispatchEvent(new Event('change',{bubbles:true}));});
- expect(input('體驗價')).toBeNull();expect(document.body.textContent).toContain('沿用店家預設體驗費');
+ expect(document.querySelector('[aria-label="方案適用方式"]')).toBeNull();
+ expect(document.querySelector('[aria-label="教學項目"]')).not.toBeNull();
  await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
- expect(m.sports.mock.calls[0][0]).toMatchObject({sportsMode:'OPEN',amount:1,unit:'堂數',chargeSettings:{trialPrice:null,trialDuration:null,providerIds:['teacher']}});
+ expect(m.sports.mock.calls[0][0]).toMatchObject({sportsMode:'ASSIGNED',subject:'subject',amount:1,unit:'堂數',chargeSettings:{trialPrice:200,trialDuration:30,providerIds:['teacher']}});
 });
 
 it('hides disabled open-selection offers and keeps one qualified-provider picker',()=>{
  mount(false,{selfBookingEnabled:false,assignedSchedulingEnabled:true});
- expect(document.body.textContent).not.toMatch(/開放選課|通用卡/);
+ expect(document.body.textContent).not.toContain('開放選課通用卡');
  expect(document.querySelector('[aria-label="方案適用方式"]')).toBeNull();
  expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('此收費可安排'))).toHaveLength(1);
 });
@@ -45,7 +45,7 @@ it.each([false,true])('legacy fee editing preserves existing provider settings=%
  expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('可授課教練'))).toHaveLength(0);
  expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('此收費可安排'))).toHaveLength(configured?1:0);
  if(!configured)expect(document.body.textContent).toContain('保留既有授課規則');
- expect(document.body.textContent).not.toMatch(/開放選課|通用卡/);
+ expect(document.body.textContent).not.toContain('開放選課通用卡');
 });
 
 it('keeps store cost outside disclosure and retains it when switching fee sections',()=>{

@@ -95,6 +95,6 @@ it.each([{bookingKind:"OPENING_MAKEUP"},{musicOpeningMakeupEntitlementId:"right"
 it("rejects purchase of a disabled open-selection offer without changing existing orders",async()=>{
  m.plan.mockResolvedValue({id:"p",sportsMode:"OPEN",name:"通用卡",unit:"POINT",points:10,price:600,storeCost:0,termSessionIds:[],validDays:30,templateIds:[]});
  m.modeRule.mockResolvedValue({selfBookingEnabled:false,assignedSchedulingEnabled:true});
- expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234"})).toMatchObject({success:false,error:expect.stringContaining("已關閉開放選課")});
+ expect(await purchaseCoursePlan({planId:"p",requestKey:"c2e8b58e-7c61-4a09-a76a-e7be331a7b11",transferLastFive:"1234"})).toMatchObject({success:false,error:expect.stringContaining("請先設定方案適用科目")});
  expect(m.createOrder).not.toHaveBeenCalled();expect(m.createCard).not.toHaveBeenCalled();
 });

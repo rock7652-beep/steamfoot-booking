@@ -26,10 +26,12 @@ it.each([
   { sportsMode: "OPEN", sportsSubjectId: null, sportsCost: null },
 ])("copies $sportsMode rights into both the granted card and confirmed purchase", async rights => {
   planFind.mockResolvedValue({ id: "plan", storeId: "store", name: "方案", points: 10, price: 1000, validDays: 30, unit: "POINT", templateIds: [], storeCost: 0, ...rights });
-  const result = await assignCourseWithCheckout(tx, { storeId: "store", userId: "manager" }, {
+  const operation = () => assignCourseWithCheckout(tx, { storeId: "store", userId: "manager" }, {
     planId: "plan", customerId: "learner", expiresDate: "2099-01-01", requestKey: "sale",
     expectedListPrice: 1000, expectedStoreCost: 0, revenueStaffId: "", discountKind: "AMOUNT", discountValue: 0, paymentMethod: "OTHER", transferLastFour: "",
   });
+  if(rights.sportsMode==='OPEN'){await expect(operation()).rejects.toThrow('設定方案適用科目');expect(cardCreate).not.toHaveBeenCalled();expect(purchaseCreate).not.toHaveBeenCalled();return;}
+  const result=await operation();
   expect(planFind).toHaveBeenCalledWith({ where: { id: "plan", storeId: "store", isActive: true } });
   expect(cardCreate.mock.calls[0][0].data).toMatchObject({ ...rights, storeId: "store", remaining: 10 });
   expect(purchaseCreate.mock.calls[0][0].data).toMatchObject({ ...rights, storeId: "store", cardId: "card", status: "CONFIRMED", price: 1000 });

@@ -163,6 +163,7 @@ it("keeps music's existing per-plan restriction even for member removals", async
 it.each(["ASSIGNED","OPEN"])("preserves existing %s rights when a generic edit omits hidden sports fields",async sportsMode=>{
  const rights={sportsMode,sportsSubjectId:sportsMode==="ASSIGNED"?"subject":null,sportsCost:sportsMode==="ASSIGNED"?2:null};
  m.plan.mockResolvedValue({...oldPlan,...rights});
- expect(await saveCoursePointPlan({...planInput,id:"plan",name:"改名"})).toMatchObject({success:true});
- expect(m.updatePlan.mock.calls[0][0].data).toMatchObject({...rights,name:"改名"});
+ const result=await saveCoursePointPlan({...planInput,id:"plan",name:"改名"});
+ if(sportsMode==="OPEN"){expect(result).toMatchObject({success:false,error:expect.stringContaining("適用科目")});expect(m.updatePlan).not.toHaveBeenCalled();}
+ else{expect(result).toMatchObject({success:true});expect(m.updatePlan.mock.calls[0][0].data).toMatchObject({...rights,name:"改名"});}
 });

@@ -20,7 +20,9 @@ export async function reconcileCourseItemCard(tx:Prisma.TransactionClient,actor:
  if(itemModule==='SPORTS'){
   const rule=await readSportsSessionRule(tx,actor.storeId,booking.sessionId);
   if(!rule)return;
-  picked=await findSportsCard(tx,actor.storeId,booking.customerId,[booking.session],{...rule,enrollment:sportsBookingEnrollment(rule,booking)??rule.enrollment},null,booking.id,true);
+  const rights={...rule,enrollment:sportsBookingEnrollment(rule,booking)??rule.enrollment};
+  picked=await findSportsCard(tx,actor.storeId,booking.customerId,[booking.session],rights,booking.cardId,booking.id,true,{cardId:booking.card.id,cost:booking.pointCost});
+  if(!picked)picked=await findSportsCard(tx,actor.storeId,booking.customerId,[booking.session],rights,null,booking.id,true);
  }else{
   const cards=await musicItemCards(tx,actor.storeId,[booking.customerId],booking.session,booking.id);
   const card=cards.find(card=>card.remaining-card.bookings.reduce((sum,row)=>sum+row.pointCost,0)>=1);

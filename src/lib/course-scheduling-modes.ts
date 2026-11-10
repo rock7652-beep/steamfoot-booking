@@ -10,5 +10,6 @@ export function courseSchedulingModeAllowed(rule: CourseSchedulingModes | null |
 
 /** Historical balances retain their original mode; new offers obey the store's current modes. */
 export function coursePlanModeAllowed(rule: CourseSchedulingModes | null | undefined, mode?: string | null) {
-  return mode === "OPEN" || mode === "ASSIGNED" ? courseSchedulingModeAllowed(rule, mode) : true;
+  if(mode === "ASSIGNED") {const modes=courseSchedulingModes(rule);return modes.open||modes.assigned;}
+  return mode === "OPEN" ? false : true;
 }

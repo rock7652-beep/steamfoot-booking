@@ -1,0 +1,17 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+vi.mock('server-only',()=>({}));
+const m=vi.hoisted(()=>({manager:vi.fn(),person:vi.fn(),transaction:vi.fn(),staging:vi.fn(),confirm:vi.fn()}));
+vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.person}}}));
+vi.mock('@/lib/course-db',()=>({coursePrisma:{$transaction:m.transaction}}));
+vi.mock('@/server/services/course-access',()=>({courseManager:m.manager}));
+vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:()=>({})}));
+vi.mock('@/lib/sports-staging',()=>({requireSportsStaging:m.staging}));
+vi.mock('@/server/services/course-store-lock',()=>({lockCourseStore:vi.fn()}));
+vi.mock('@/server/services/course-card-subject',()=>({confirmCardSubject:m.confirm,readSubjectReviewCard:vi.fn(),cardSubjectRevision:vi.fn()}));
+import {confirmCardSubjectAction} from '@/server/actions/course-card-subject';
+const input={cardId:'card',customerId:'learner',expectedStoreId:'store',subjectId:'A',cost:1,expectedRevision:'a'.repeat(64),requestKey:'11111111-1111-4111-8111-111111111111',confirmed:true};
+beforeEach(()=>{vi.clearAllMocks();m.manager.mockResolvedValue({storeId:'store',user:{id:'owner',role:'OWNER'}});m.person.mockResolvedValue({id:'learner'});m.transaction.mockImplementation(work=>work({}));});
+it('requires all existing plan, wallet and customer permissions before entering a transaction',async()=>{expect(await confirmCardSubjectAction(input)).toEqual({success:true});expect(m.manager.mock.calls.map(c=>c[0])).toEqual(['plans.edit','wallet.read','customer.read']);expect(m.transaction).toHaveBeenCalledWith(expect.any(Function),{isolationLevel:'Serializable',timeout:15000});expect(m.confirm).toHaveBeenCalledOnce();});
+it('rejects a switched store before any database mutation',async()=>{expect(await confirmCardSubjectAction({...input,expectedStoreId:'other'})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});
+it('rejects staff and a foreign or invisible learner',async()=>{m.manager.mockResolvedValue({storeId:'store',user:{id:'staff',role:'STAFF'}});expect(await confirmCardSubjectAction(input)).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();m.manager.mockResolvedValue({storeId:'store',user:{id:'owner',role:'OWNER'}});m.person.mockResolvedValue(null);expect(await confirmCardSubjectAction(input)).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});
+it('requires explicit confirmation and refuses malformed costs without reading or writing cards',async()=>{for(const patch of [{confirmed:false},{cost:0},{cost:1.5}])expect(await confirmCardSubjectAction({...input,...patch})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();expect(m.confirm).not.toHaveBeenCalled();});

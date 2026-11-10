@@ -53,7 +53,7 @@ describe("2026-10-21 backend guide audit", () => {
       "教練基本資料、教學項目與授課資格、收費方式",
     );
     expect(guide("C172").details.join(" ")).toContain(
-      "通用卡適用自由選課預約",
+      "同科目 A1、A2、A3 可用額度分單位合計",
     );
     expect(guide("C173").keywords).toContain("單堂名稱");
     expect(guide("C114").details.join(" ")).toContain("同名教練");

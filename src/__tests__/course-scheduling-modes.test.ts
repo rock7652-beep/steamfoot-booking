@@ -23,3 +23,10 @@ it("additive migration retains all old controls, revisions and records",async()=
  expect((await db.query('SELECT * FROM "CourseBooking"')).rows).toEqual([{id:'retained'}]);
  }finally{await db.close();}
 });
+it('subject-scoped plans work with either enrollment mode while old unscoped products require review',async()=>{
+ const {coursePlanModeAllowed}=await import('@/lib/course-scheduling-modes');
+ expect(coursePlanModeAllowed({selfBookingEnabled:true,assignedSchedulingEnabled:false},'ASSIGNED')).toBe(true);
+ expect(coursePlanModeAllowed({selfBookingEnabled:false,assignedSchedulingEnabled:true},'ASSIGNED')).toBe(true);
+ expect(coursePlanModeAllowed({selfBookingEnabled:false,assignedSchedulingEnabled:false},'ASSIGNED')).toBe(false);
+ expect(coursePlanModeAllowed({selfBookingEnabled:true,assignedSchedulingEnabled:true},'OPEN')).toBe(false);
+});

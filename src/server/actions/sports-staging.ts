@@ -407,6 +407,7 @@ export async function saveSportsFee(input: unknown) {
       })
       .parse(input);
     const { storeId } = await actor("plans.edit");
+    if(d.sportsMode==='OPEN')throw new AppError('VALIDATION','請選擇方案適用科目；開放選課與指定學員不再區分方案');
     const base: Partial<z.infer<typeof coursePlanValues>> = d.snapshot
       ? coursePlanValues.parse(JSON.parse(d.snapshot))
       : {};
