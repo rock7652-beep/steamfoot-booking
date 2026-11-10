@@ -2585,7 +2585,7 @@ export function CourseWorkspace({
                 ? "＋ 學員預約"
                 : "＋ 新顧客／體驗客";
           const dialogModeAllowed=!sportsNative||coursePlanModeAllowed(activeSchedulingModes,dialogSession.sportsEnrollment);
-          const rosterContent=(kind:"roster"|"member-booking"|"trial-booking")=>(<CourseRoster
+          const rosterContent=(kind:"roster"|"member-booking"|"trial-booking")=>(<CourseRoster storeId={storeId??undefined}
                   sportsNative={sportsNative}
                   key={`${dialogSession.id}-${kind}`}
                   sessionId={dialogSession.id}
@@ -2627,7 +2627,7 @@ export function CourseWorkspace({
               fitContent={rentalDialog ? businessProfile !== "MUSIC" && !dialogSession.rentalId : (courseDialog.kind === "roster" || sportsNative)}
               onClose={closeRentalDialog}
               maxHeight={rentalDialog ? businessProfile === "MUSIC" ? 680 : 400 : 900}
-              width={rentalDialog ? businessProfile === "MUSIC" ? 760 : 640 : oneToOneMusicDialog ? 1000 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster"||sportsNative ? 1200 : 560}
+              width={rentalDialog ? businessProfile === "MUSIC" ? 760 : 640 : oneToOneMusicDialog ? 1000 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : sportsNative ? 1000 : courseDialog.kind === "roster" ? 1200 : 560}
               labelledById="course-operation-title"
             >
               <header className={`flex shrink-0 justify-between gap-4 border-b border-earth-200 px-4 ${rentalDialog ? "items-center bg-primary-50/60 py-2" : sportsRosterDialog ? "items-start bg-primary-50 py-2" : "items-start bg-primary-50 py-3"}`}>

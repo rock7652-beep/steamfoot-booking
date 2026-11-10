@@ -51,8 +51,9 @@ export async function attachSportsSessionRules(
     orderBy: { requestIndex: "asc" },
   });
   if (!sessions.length) throw new AppError("NOT_FOUND", "排課資料不存在");
-  if (rule.frequency === "SINGLE" && sessions.length !== 1)
-    throw new AppError("VALIDATION", "單次排課不可包含多堂");
+  // A finite batch contains independent SINGLE lessons; trials stay one-off.
+  if (sessions.some(s=>s.isTrial) && sessions.length !== 1)
+    throw new AppError("VALIDATION", "體驗僅建立單次課程");
   if (
     rule.frequency !== "SINGLE" &&
     sessions.some(

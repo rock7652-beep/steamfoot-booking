@@ -90,7 +90,7 @@ describe("own independent opening makeup in the member portal", () => {
   it.each(["ATTENDED", "CANCELLED"])("keeps %s history cardless and does not claim a paid-card deduction", async status => {
     const data = openingData(); data.bookings[0].status = status;
     await render({ ...data, initialView: "bookings" } as unknown as typeof data);
-    await click("查看明細 ⌄");
+
     expect(host.textContent).toContain("獨立補課權益，不使用方案額度");
     expect(host.textContent).not.toContain("已扣除"); expect(host.textContent).not.toContain("已釋放");
     expectNoOpeningMutation();
@@ -110,7 +110,7 @@ describe("own independent opening makeup in the member portal", () => {
     const data = openingData();
     const native = {...data, bookings:[{...data.bookings[0], openingMakeup:false}]};
     await render({ ...native, initialView: "bookings" } as unknown as typeof data);
-    await click("查看明細 ⌄");await click("取消"); expect(button("確認取消", host)).toBeTruthy();
+    await click("取消"); expect(button("確認取消", host)).toBeTruthy();
     await render({ ...data, initialView: "bookings" } as unknown as typeof data);
     expect(host.querySelector(".cp-inline-confirm")).toBeNull();
     expectNoOpeningMutation();

@@ -55,3 +55,16 @@
 .separateIdentity .row .identity, .separateIdentity .row .pointColumn, .separateIdentity .row .balanceColumn, .separateIdentity .row .more, .separateIdentity .row .reminders {grid-column:auto;grid-row:auto;}
 .separateIdentity .header .notesHeading {display:block;}
 .phoneColumn {white-space:nowrap;}
+
+/* Scheme identity and its records stay readable beside balances. */
+.planDetails .header, .planDetails .row {grid-template-columns:minmax(15rem,1.2fr) 5rem 4rem 8rem minmax(10rem,1.2fr) 44px;}
+@container sports-roster (max-width:1023px){
+ .planDetails .header, .planDetails .row {grid-template-columns:minmax(15rem,1.2fr) 4rem 8rem minmax(10rem,1.2fr) 44px;}
+}
+@container sports-roster (max-width:879px){
+ .planDetails .header, .planDetails .row {grid-template-columns:minmax(0,1fr) 64px 8rem 44px;}
+}
+@container sports-roster (max-width:639px){
+ .planDetails .row .balanceColumn {grid-column:1 / 4;grid-row:3;}
+ .planDetails .row .reminders {grid-row:4;}
+}

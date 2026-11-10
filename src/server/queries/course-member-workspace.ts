@@ -1,0 +1,168 @@
+import "server-only";
+import { sportsNativePreview } from "@/lib/sports-native-preview";
+import { loadSportsStaging } from "@/server/actions/sports-staging";
+import { presentCourseTemplates, courseDisplayName } from "@/lib/course-template-presentation";
+import { musicPlanWhere } from "@/server/services/music-plan-scope";
+import { musicPurchaseWhere } from "@/server/services/music-finance-scope";
+import { musicDataScope, musicSessionWhere, musicCustomerWhere } from "@/server/services/music-data-scope";
+import { getCourseSharedCardState } from "@/server/services/course-shared-card";
+import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
+import { EMPTY_LABELS } from "@/lib/customer-labels";
+import {readCourseOrders} from "@/server/services/course-display-order";
+import {orderCourseRows} from "@/lib/course-display-order";
+import {readSettlementSettings} from "@/server/services/course-monthly-settlement";
+import { getManagerCustomerWhere } from "@/lib/manager-visibility";
+import { hasStoreFeature, requireStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
+import { notFound } from "next/navigation";
+import { getCurrentUser } from "@/lib/session";
+import { checkPermission } from "@/lib/permissions";
+import { getActiveStoreForRead } from "@/lib/store";
+import { requireCourseStore } from "@/lib/industry-module-server";
+import { coursePrisma } from "@/lib/course-db";
+import { prisma } from "@/lib/db";
+import { getCourseCustomerPage } from "@/server/queries/course-customer-page";
+import { hasDataExportFeature } from "@/lib/data-export-gate";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
+import { OperationTiming } from "@/lib/operation-timing";
+import { coursePurchaseIntentsEnabled } from "@/lib/course-purchase-intent-flag";
+import type { ComponentProps } from "react";
+import type { CourseMemberWorkspace } from "@/app/(dashboard)/dashboard/courses/member-workspace";
+
+export async function loadCourseMemberWorkspace(view:"customers"|"plans",query:Record<string,string|undefined>={},panelOnly=false){
+  const timing = new OperationTiming("course-member-page");
+  try {
+  const user = await getCurrentUser();
+  if (
+    !user ||
+    !(await checkPermission(
+      user.role,
+      user.staffId,
+      view === "customers" ? "customer.read" : "wallet.read",
+    ))
+  )
+    notFound();
+  const storeId = await getActiveStoreForRead(user);
+  if (!storeId) notFound();
+  await requireCourseStore(storeId);
+  const viewContext = await resolveStoreViewContextFromCookie(user);
+  const isViewMode = viewContext?.isViewMode ?? false;
+  const music = !!(await prisma.storeFeatureEntitlement.findFirst({
+    where: { storeId, featureKey: "business.music", status: "ENABLED" },
+    select: { storeId: true },
+  }));
+  const sportsNative=(await sportsNativePreview(storeId));
+  await requireStoreFeature(storeId,view==="customers"?FEATURES.CUSTOMER_MANAGEMENT:FEATURES.PLAN_MANAGEMENT);
+  const sportsDataPromise=view==="plans"&&sportsNative&&!isViewMode&&(user.role==="ADMIN"||user.storeId===storeId)?loadSportsStaging(true).then(r=>r.success?r.data:undefined):Promise.resolve(undefined);
+  const canReadCards = await checkPermission(
+    user.role,
+    user.staffId,
+    "wallet.read",
+  );
+  const canReadPeople = await checkPermission(
+    user.role,
+    user.staffId,
+    "customer.read",
+  );
+  const params = new URLSearchParams(Object.entries(query).filter((pair): pair is [string,string] => typeof pair[1] === "string"));
+  const customerPage = view === "customers" && canReadPeople && !panelOnly
+    ? await timing.measure("customer_list", () => getCourseCustomerPage(storeId, user.role, user.staffId, params, canReadCards, new Date(), music)) : undefined;
+  const customerIds = customerPage?.rows.map(r => r.id) ?? [];
+  if (query.customerId) customerIds.push(query.customerId);
+  const [people, plans, canEdit, canAssign, canCreate, canManageStaff] =
+    await timing.measure("people_and_permissions", () => Promise.all([
+      view === "customers" && canReadPeople
+        ? prisma.customer.findMany({
+            where: { ...getManagerCustomerWhere(user.role, user.staffId, storeId), storeId, mergedIntoCustomerId: null, id: { in: customerIds }, AND:[musicCustomerWhere(storeId,query.dataScope)] },
+            select: { id: true, updatedAt: true, name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, address: true, notes: true, emergencyContactName: true, emergencyContactPhone: true, lineUserId: true, lineLinkStatus: true, customerStage: true, createdAt: true, totalPoints: true, mergedIntoCustomerId: true, user: {select:{status:true}}, assignedStaff: {select:{id:true,storeId:true,displayName:true,colorCode:true}}, sponsor:{select:{id:true,storeId:true,name:true}}, _count:{select:{sponsoredCustomers:{where:{storeId,mergedIntoCustomerId:null}}}} },
+            orderBy: { name: "asc" },
+          })
+        : [],
+      canReadCards
+        ? coursePrisma.coursePointPlan.findMany({
+            where: { storeId, ...musicPlanWhere(storeId,query.dataScope) },
+            orderBy: { name: "asc" },
+          })
+        : [],
+      isViewMode ? Promise.resolve(false) : checkPermission(
+        user.role,
+        user.staffId,
+        view === "customers" ? "customer.update" : "plans.edit",
+      ),
+      isViewMode ? Promise.resolve(false) : checkPermission(user.role, user.staffId, "wallet.create"),
+      isViewMode ? Promise.resolve(false) : checkPermission(
+        user.role,
+        user.staffId,
+        view === "customers" ? "customer.create" : "plans.edit",
+      ),
+      user.role === "OWNER" && !isViewMode
+        ? checkPermission(user.role, user.staffId, "staff.manage")
+        : false,
+    ]));
+  if(panelOnly&&!people.some(p=>p.id===query.customerId))notFound();
+  const lastClassByCustomer = new Map(customerPage?.rows.map(row=>[row.id,row.lastVisitAt ? new Date(row.lastVisitAt) : null]));
+  const customerRows = people.map(p=>({
+    id:p.id,name:p.name,phone:p.phone,lineName:p.lineName,lineUserId:p.lineUserId,
+    lineLinkStatus:p.lineLinkStatus,customerStage:p.customerStage,createdAt:p.createdAt,
+    totalPoints:p.totalPoints,sponsoredCount:p._count.sponsoredCustomers,
+    sponsor:p.sponsor?.storeId===storeId ? {id:p.sponsor.id,name:p.sponsor.name} : null,
+    assignedStaff:p.assignedStaff?.storeId===storeId ? {id:p.assignedStaff.id,displayName:p.assignedStaff.displayName,colorCode:p.assignedStaff.colorCode} : null,
+    mergedIntoCustomerId:p.mergedIntoCustomerId,userStatus:p.user?.status??null,
+    serviceNote:p.serviceNote,lastVisitAt:lastClassByCustomer.get(p.id)??null,
+    validPackageSessions:0,
+  }));
+  const canReadTermSessions = view === "plans" && await checkPermission(user.role, user.staffId, "booking.read");
+  const [assignmentStaff, termSessions, templates, subjects, displayOrders, musicTeacherRows, canEditMusicTeachers] = await timing.measure("catalog_metadata", () => Promise.all([
+    prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{status:"ACTIVE",...(view !== "customers" ? {role:"OWNER" as const} : {})},...(view === "customers" && !music ? {OR:[{courseCoachEnabled:true},{user:{role:"OWNER" as const}}]} : {})},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}),
+    canReadTermSessions ? coursePrisma.courseSession.findMany({where:{storeId,...musicSessionWhere(storeId,query.dataScope),cancelledAt:null,startsAt:{gt:new Date()}},orderBy:{startsAt:"asc"},take:300,select:{id:true,nameSnapshot:true,startsAt:true}}) : [],
+    coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true,musicTeacherShare:true,musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true,musicScheduleMode:true,classType:true,musicSubjectId:true},orderBy:[{category:"asc"},{name:"asc"}]}),
+    (music || sportsNative) ? coursePrisma.musicSubject.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true},orderBy:[{category:"asc"},{name:"asc"}]}) : [],
+    readCourseOrders(storeId),
+    music ? prisma.staff.findMany({where:{storeId,courseCoachEnabled:true},select:{id:true,displayName:true,status:true,courseQualifiedTemplateIds:true},orderBy:{displayName:"asc"}}) : [],
+    isViewMode ? false : checkPermission(user.role,user.staffId,"staff.manage"),
+  ]));
+  const musicTeachers = musicTeacherRows.map(t=>({id:t.id,name:t.displayName,active:t.status==="ACTIVE",qualificationIds:t.courseQualifiedTemplateIds}));
+
+  plans.splice(0,plans.length,...orderCourseRows(plans,displayOrders.plan?.ids??[]));
+  subjects.splice(0,subjects.length,...orderCourseRows(subjects,displayOrders.subject?.ids??[]));
+  // Once the actor, selected store and page permissions are verified these
+  // independent reads can proceed together. Never use these presentation
+  // grants in place of server-side mutation authorization.
+  const canManageCards=!isViewMode&&canReadCards&&canReadPeople&&await checkPermission(user.role,user.staffId,"wallet.adjust");
+  const [orders, canExport, labelSnapshot, settlement, canMerge, canAssignManager,
+    healthEnabled, canReadTransactions, canSchedule, canReadBookings,
+    canAssignWithTransaction, canDiscount, sharedCardState, schedulingModes, sportsData] = await timing.measure("workspace_finish", () => Promise.all([
+    view === "plans" && canReadCards ? coursePrisma.coursePurchase.findMany({where:{storeId,...musicPurchaseWhere(storeId,query.dataScope),status:"PENDING"},orderBy:{createdAt:"asc"}}) : [],
+    (async()=>view === "customers" && await checkPermission(user.role,user.staffId,"customer.export") && !isViewMode && await hasDataExportFeature(storeId))(),
+    view === "customers" && canReadPeople ? customerLabelSnapshot(customerRows.map(c=>c.id)) : EMPTY_LABELS,
+    readSettlementSettings(coursePrisma,storeId),
+    !isViewMode && (user.role === "OWNER" || user.role === "ADMIN") ? checkPermission(user.role, user.staffId, "customer.update") : false,
+    !isViewMode ? checkPermission(user.role, user.staffId, "customer.assign") : false,
+    hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY),
+    checkPermission(user.role, user.staffId, "transaction.read"),
+    !isViewMode ? checkPermission(user.role,user.staffId,"booking.create") : false,
+    checkPermission(user.role, user.staffId, "booking.read"),
+    canAssign && canReadCards && canReadPeople ? checkPermission(user.role,user.staffId,"transaction.create") : false,
+    !isViewMode ? checkPermission(user.role,user.staffId,"transaction.discount") : false,
+    music ? "ENABLED" as const : getCourseSharedCardState(storeId),
+    sportsNative ? coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}}) : undefined,
+    sportsDataPromise,
+  ]));
+  const buyers = orders.length ? await prisma.customer.findMany({where:{storeId,id:{in:orders.map(o=>o.customerId)}},select:{id:true,name:true}}) : [];
+  const workspaceProps = {
+    initialAction:query.action==="assign"&&canAssign?"assign" as const:undefined,
+    initialCustomerId:query.customerId, dataScope:musicDataScope(storeId,query.dataScope)??undefined,
+    sportsNative,previewStoreId:storeId,displayOrder:displayOrders.plan,profitEnabled:settlement.profitEnabled,
+    canDelete:user.role==="OWNER"&&!isViewMode,canExport,canMerge,customerRows,customerPage,assignmentStaff,
+    canAssignManager,canReadCards,healthEnabled,
+    termSessions:termSessions.map(s=>({id:s.id,name:courseDisplayName(s.nameSnapshot),startsAt:s.startsAt.toISOString()})),
+    templates:presentCourseTemplates(templates,plans,music),subjects,musicTeachers,canEditMusicTeachers,view,
+    canReadTransactions,canSchedule,canReadBookings,
+    people:people.map(p=>({id:p.id,updatedAt:p.updatedAt.toISOString(),name:p.name,phone:p.phone,email:p.email,gender:p.gender,height:p.height,lineName:p.lineName,serviceNote:p.serviceNote,address:p.address,notes:p.notes,emergencyContactName:p.emergencyContactName,emergencyContactPhone:p.emergencyContactPhone,birthday:p.birthday?.toISOString().slice(0,10)??""})),
+    plans,cards:[],canEdit,canCreate,canManageStaff,canAssign:canAssign&&canReadCards&&canReadPeople&&canAssignWithTransaction,
+    canManageCards,canDiscount,sharedCardState,schedulingModes:schedulingModes??undefined,sportsData,music,
+  } satisfies ComponentProps<typeof CourseMemberWorkspace>;
+  return {workspaceProps,labelSnapshot,storeId,recoveryEnabled:coursePurchaseIntentsEnabled(storeId),
+    review:{canConfirm:canAssign&&musicDataScope(storeId,query.dataScope)!=="legacy",orders:orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}};
+  } finally {timing.finish();}
+}

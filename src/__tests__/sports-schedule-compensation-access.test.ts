@@ -1,5 +1,6 @@
 import {beforeEach,expect,it,vi} from "vitest";
 const m=vi.hoisted(()=>({finance:false,denied:"",manager:vi.fn(),compensation:vi.fn(),plans:vi.fn(),savePlan:vi.fn(),room:vi.fn(),template:vi.fn(),coaches:vi.fn(),plan:vi.fn(),schedule:vi.fn()}));
+vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:async()=>true}));
 vi.mock("@/lib/sports-staging",()=>({requireSportsStaging:()=>{}}));
 vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:async()=>({})},customer:{findMany:async()=>[]},staff:{findMany:m.coaches}}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBookingRule:{findUnique:async()=>({selfBookingEnabled:false,assignedSchedulingEnabled:true})},$transaction:async(cb:(tx:object)=>unknown)=>cb({}),musicSubject:{findMany:async()=>[]},coursePointPlan:{findMany:m.plans,findFirst:m.plan},courseTemplate:{findFirst:m.template,findMany:async()=>[{id:"t",musicSubjectId:"subject",pointCost:2}]},coursePointCard:{findMany:async()=>[]},courseRoom:{findFirst:m.room,findMany:async()=>[]},courseCompensation:{findMany:m.compensation},courseSession:{findMany:async()=>[]},courseRental:{findMany:async()=>[]},$queryRaw:async()=>[]}}));
@@ -81,4 +82,26 @@ it('體驗新客由共用排課交易建立並預約，保留方案選擇且不�
  expect(await sportsStagingCommand({operation:'schedule',payload})).toMatchObject({success:true});
  expect(m.schedule).toHaveBeenCalledWith(expect.objectContaining({chargePlanId:'single',isTrial:true,learners:[{customerId:null,cardId:null,participantKey:trialLearner.participantKey,customerName:trialLearner.name,customerPhone:trialLearner.phone}],sportsStaging:expect.objectContaining({students:[],enrollment:'ASSIGNED',frequency:'SINGLE'})}));
  m.schedule.mockClear();m.plan.mockResolvedValue({id:'single',templateIds:['t'],chargeSettings:null});expect((await sportsStagingCommand({operation:'schedule',payload})).success).toBe(false);expect(m.schedule).not.toHaveBeenCalled();
+});
+
+it.each([1,10,53])('單次一次建立 %s 週的獨立課次，跨年仍沿用共用排課交易',async count=>{
+ const {sportsStagingCommand}=await import('@/server/actions/sports-staging');
+ const {addTaiwanDuration}=await import('@/lib/date-utils');
+ m.plan.mockResolvedValue(null);m.coaches.mockResolvedValue([{id:'coach'}]);m.schedule.mockResolvedValue({success:true});
+ const payload={subject:'subject',kind:'單次',mode:'指定學員',date:'2026-11-10',time:'16:30',duration:60,count,coach:'老師',coachId:'coach',room:'A',capacity:1,students:['student'],price:0,requestKey:'00000000-0000-4000-8000-000000000001'};
+ expect(await sportsStagingCommand({operation:'schedule',payload})).toMatchObject({success:true});
+ expect(m.schedule).toHaveBeenCalledOnce();
+ expect(m.schedule).toHaveBeenCalledWith(expect.objectContaining({scheduleType:'SINGLE',date:payload.date,additionalDates:Array.from({length:count-1},(_,i)=>addTaiwanDuration(payload.date,(i+1)*7,'DAY')),sportsStaging:expect.objectContaining({frequency:'SINGLE',perpetual:undefined,students:[{customerId:'student',cardId:null}]})}));
+});
+it.each([0,54,1.5])('拒絕無效週數 %s',async count=>{
+ const {sportsStagingCommand}=await import('@/server/actions/sports-staging');
+ expect(await sportsStagingCommand({operation:'schedule',payload:{subject:'subject',kind:'單次',mode:'開放選課',date:'2026-11-10',time:'16:30',duration:60,count,coach:'老師',room:'A',capacity:1,students:[],price:0,requestKey:'00000000-0000-4000-8000-000000000001'}})).toMatchObject({success:false});
+ expect(m.schedule).not.toHaveBeenCalled();
+});
+
+it.each(['每週固定','隔週固定'])('原生%s仍建立永久系列，不套用有限週數',async kind=>{
+ const {sportsStagingCommand}=await import('@/server/actions/sports-staging');
+ m.plan.mockResolvedValue(null);m.coaches.mockResolvedValue([{id:'coach'}]);m.schedule.mockResolvedValue({success:true});
+ expect(await sportsStagingCommand({operation:'schedule',payload:{subject:'subject',kind,mode:'指定學員',date:'2026-11-10',time:'16:30',duration:60,count:10,coach:'老師',room:'A',capacity:1,students:['student'],price:0,requestKey:'00000000-0000-4000-8000-000000000001'}})).toMatchObject({success:true});
+ expect(m.schedule).toHaveBeenCalledWith(expect.objectContaining({additionalDates:[],sportsStaging:expect.objectContaining({perpetual:true,frequency:kind==='每週固定'?'WEEKLY':'BIWEEKLY'})}));
 });

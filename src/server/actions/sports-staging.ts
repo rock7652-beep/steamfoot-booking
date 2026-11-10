@@ -478,7 +478,7 @@ export async function sportsStagingCommand(input: unknown) {
           duration: z.number().int().min(5).max(480),
           waitlistLimit:z.number().int().min(0).max(100).optional(),
           waitlistStopMinutes:z.number().int().min(0).max(10080).optional(),
-          count: z.number().int().min(1).max(24),
+          count: z.number().int().min(1).max(53),
           coach: z.string(),
           coachId: id.optional(),
           room: z.string(),
@@ -547,7 +547,7 @@ export async function sportsStagingCommand(input: unknown) {
             ? "BIWEEKLY"
             : "SINGLE";
       const perpetual=(await sportsNativePreview(storeId))&&frequency!=="SINGLE";
-      const count=frequency==="SINGLE"||perpetual?1:d.count;
+      const count=d.kind==="體驗"||perpetual?1:d.count;
       // Resolve cards only after createCourseSchedule holds the Store lock and
       // has checked for an existing receipt. Retries preserve original intent.
       const students = (d.mode === '指定學員' ? d.students : []).map(customerId=>({customerId,cardId:null}));
@@ -556,6 +556,7 @@ export async function sportsStagingCommand(input: unknown) {
         createCourseSchedule({
           ...(d.kind==="體驗"?{learners:d.trialLearner?[{customerId:null,cardId:null,participantKey:d.trialLearner.participantKey,customerName:d.trialLearner.name,customerPhone:d.trialLearner.phone}]:d.students.map(customerId=>({customerId,cardId:null})),bookingAudience:d.mode==="指定學員"?"ASSIGNED":"OPEN"}:{}),
           chargePlanId:plan?.chargeSettings?plan.id:undefined,
+          ...(d.kind==="單次"?{scheduleType:"SINGLE" as const}:{}),
           templateId: template.id,
           roomId: room.id,
           coachId: coach.id,
