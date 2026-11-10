@@ -117,3 +117,14 @@ describe("own independent opening makeup in the member portal", () => {
     expectNoOpeningMutation();
   });
 });
+
+it.each([8,10])('renders purchased date cells in the actual plans page without a phone group (%i)',async total=>{
+ const data=props(),card={...data.cards[0],unit:'SESSION',grid:{total,dates:total===8?['2099-01-03T03:00:00.000Z']:[]}};
+ await act(async()=>root.render(el(CoursePortalClient,{...data,cards:[card],initialView:'plans',readOnly:true})));
+ const plan=host.querySelector<HTMLDetailsElement>('.cp-plan')!;
+ await act(async()=>{plan.open=true;plan.dispatchEvent(new Event('toggle'));});
+ expect(plan.querySelectorAll('[data-lesson-slot]')).toHaveLength(total);
+ expect(plan.querySelectorAll('[data-completed="true"]')).toHaveLength(total===8?1:0);
+ for(const blank of plan.querySelectorAll('[data-completed="false"]'))expect(blank.textContent).toBe('');
+ expect(m.booking).not.toHaveBeenCalled();expect(m.purchase).not.toHaveBeenCalled();
+});

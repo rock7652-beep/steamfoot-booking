@@ -7,3 +7,11 @@ export async function readNativeCourseCards(input:unknown):Promise<Awaited<Retur
  if(!response.ok)throw new Error('方案讀取失敗，請重試');
  return response.json();
 }
+
+/** Same authorization/progress projection as the action, outside the action queue. */
+export async function readCourseCardProgress(input:unknown):Promise<Awaited<ReturnType<typeof import('@/server/actions/course-card-progress').loadCourseCardProgress>>>{
+ const prefix=window.location.pathname.split('/dashboard')[0];
+ const response=await fetch(`${prefix}/dashboard/courses/card-progress-read?args=${encodeURIComponent(JSON.stringify(input))}`,{credentials:'same-origin',cache:'no-store'});
+ if(!response.ok)throw new Error('上課進度讀取失敗，請重試');
+ return response.json();
+}

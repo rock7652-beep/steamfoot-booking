@@ -4,8 +4,8 @@ import { courseSessionAdjustmentRecords } from "@/server/services/course-session
 import { activeSessionAdjustments } from "@/lib/plan-session-adjustment";
 import { dayRange } from "@/lib/date-utils";
 
-/** Display only. Caller derives the learner/card IDs from the verified phone
- * grant and rechecks that grant after reading. Never infer attendance from a
+/** Display only. Caller derives the learner/card IDs from a verified member
+ * session or phone grant (rechecked after reading). Never infer attendance from a
  * reservation or reconstruct a purchased quantity from the current balance. */
 export async function readCoursePhonePlanGrids(storeId: string, customerId: string, cardIds: string[]) {
   if (!cardIds.length) return new Map<string, { total: number; dates: string[] }>();

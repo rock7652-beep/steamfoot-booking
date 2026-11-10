@@ -1,10 +1,11 @@
+vi.mock('@/server/queries/course-phone-plan-grids',()=>({readCoursePhonePlanGrids:(...args:unknown[])=>m.grids(...args)}));
 vi.mock("@/server/queries/course-plan-history",()=>({getCoursePlanHistory:async()=>[]}));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const m = vi.hoisted(() => ({
   account: vi.fn(), identity: vi.fn(), staffLink: vi.fn(), store: vi.fn(), config: vi.fn(),
   context: vi.fn(), hours: vi.fn(), special: vi.fn(), feature: vi.fn(), contact: vi.fn(),
-  income: vi.fn(), musicFeature: vi.fn(), cards: vi.fn(), sharedCardState: vi.fn(),
+  grids:vi.fn(),income: vi.fn(), musicFeature: vi.fn(), cards: vi.fn(), sharedCardState: vi.fn(),
   sessions: vi.fn(), bookings: vi.fn(), nextBooking: vi.fn(), nextWork: vi.fn(),
   plans: vi.fn(), orders: vi.fn(), templates: vi.fn(), bookingRule: vi.fn(),
   health: vi.fn(), healthCount: vi.fn(), coaches: vi.fn(), referral: vi.fn(), write: vi.fn(),
@@ -167,7 +168,7 @@ beforeEach(() => {
   m.contact.mockResolvedValue(null);
   m.income.mockResolvedValue(null);
   m.musicFeature.mockResolvedValue({ storeId });
-  m.cards.mockResolvedValue([]);
+  m.cards.mockResolvedValue([]);m.grids.mockResolvedValue(new Map());
   m.sharedCardState.mockResolvedValue("ENABLED");
   m.sessions.mockResolvedValue([]);
   m.nextWork.mockResolvedValue(null);
@@ -325,4 +326,12 @@ describe("member portal opening-makeup visibility", () => {
     expect(rows).toEqual(before);
     expect(m.write).not.toHaveBeenCalled();
   });
+});
+
+it('passes only the authorized member cards into the same grid projection used by live and read-only portals',async()=>{
+ m.cards.mockResolvedValue([{id:'native-session-card',unit:'SESSION',members:[],expiresAt:null}]);
+ m.grids.mockResolvedValue(new Map([['native-session-card',{total:10,dates:[]}]]));
+ const result=await loadCoursePortal('2026-10');
+ expect(m.grids).toHaveBeenCalledExactlyOnceWith(storeId,customerId,['native-session-card']);
+ expect(result.cards[0].grid).toEqual({total:10,dates:[]});
 });

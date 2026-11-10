@@ -2,7 +2,7 @@
 import React,{act} from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
-import {useCalendarMonthPreload} from '@/components/admin/use-calendar-month-preload';
+import {useCalendarMonthPreload,useIdleReadPreload} from '@/components/admin/use-calendar-month-preload';
 import {createClientReadCache} from '@/lib/client-read-cache';
 let root:Root,host:HTMLDivElement;
 beforeEach(()=>{vi.useFakeTimers();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});vi.spyOn(document,'hidden','get').mockReturnValue(false);vi.spyOn(navigator,'onLine','get').mockReturnValue(true);host=document.createElement('div');document.body.append(host);root=createRoot(host);});
@@ -54,4 +54,12 @@ it('does not repeatedly fetch expired display snapshots while navigation still r
  const reader={read:cache.load,get:cache.get,snapshot:cache.snapshot};
  await render({enabled:true,date:'2026-11-01',blocked:false,reader});await tick(500);expect(fetcher).not.toHaveBeenCalled();
  await cache.load('2026-10-01',{revalidate:true});expect(fetcher).toHaveBeenCalledOnce();
+});
+
+it('preloads settled search results while the search field retains focus, but still pauses for editing',async()=>{
+ function SearchHarness({blocked=false}:{blocked?:boolean}){useIdleReadPreload({enabled:true,keys:['student'],blocked,reader,allowFocusedInput:true});return null;}
+ const reader={read:vi.fn(async()=>null),get:()=>undefined},input=document.createElement('input');document.body.append(input);input.focus();
+ try{await act(async()=>root.render(React.createElement(SearchHarness,{blocked:true})));await tick(2000);expect(reader.read).not.toHaveBeenCalled();
+ await act(async()=>root.render(React.createElement(SearchHarness,{})));await tick(1500);expect(reader.read).toHaveBeenCalledExactlyOnceWith('student');}
+ finally{input.remove();}
 });
