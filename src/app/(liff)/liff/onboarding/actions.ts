@@ -34,13 +34,14 @@ import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-
 import { assertStoreLiffContext, resolveStoreLiffContext } from "@/server/services/store-liff-context";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { onboardCourseLineMember } from "@/server/services/course-line-onboarding";
+import { requestCoursePhoneLogin } from "@/server/services/course-phone-login";
 import { onboardVerifiedBeautyMember } from "@/server/services/beauty-line-onboarding";
 import { storePhoneNeedsConfirmation, completeAuthorizedFirstStoreLogin } from "@/server/services/store-member-connection";
 
 const InputSchema = z.object({
   idToken: z.string().min(1),
   storeSlug: z.string().min(1),
-  name: z.string().trim().min(1).max(50),
+  name: z.string().trim().max(50),
   phone: z.string().trim().min(1).max(20),
 });
 
@@ -55,6 +56,7 @@ export interface OnboardingActionInput {
  * 結果 enum (plan §3.2 + §3.3) — 顧客語言；不暴露 helper 內部 status 名。
  */
 export type OnboardingActionResult =
+  | { status: "needs_name" }
   | { status: "ok" }                            // created_new / bound_existing / already_synced
   | { status: "invalid_phone" }
   | { status: "not_found" }
@@ -107,6 +109,7 @@ export async function submitOnboarding(
 
   try { await assertStoreLiffContext(store, context); } catch { return { status: "service_unavailable" }; }
   const industry = await getStoreIndustryModule(store.id);
+  if (!name && industry !== "course") return { status: "service_unavailable" };
   if (industry === "beauty" && context.config) {
     return onboardVerifiedBeautyMember({
       storeId: store.id, lineUserId: verified.lineUserId,
@@ -114,6 +117,11 @@ export async function submitOnboarding(
     });
   }
   if (industry === "course") {
+    if (!name) {
+      try { return await requestCoursePhoneLogin({ storeId: store.id, phone, lineUserId: verified.lineUserId,
+        identityProvider: context.identityProvider, channelId: verified.channelId }); }
+      catch { return { status: "service_unavailable" }; }
+    }
     const result = await onboardCourseLineMember({
       storeId: store.id, lineUserId: verified.lineUserId,
       lineName: verified.displayName, name, phone, identityProvider: context.identityProvider,
@@ -121,6 +129,8 @@ export async function submitOnboarding(
     console.info("[course-line-onboarding] result", { status: result.status });
     return result;
   }
+
+  if (!name) return { status: "service_unavailable" };
 
   if (context.config) return { status: "service_unavailable" };
 

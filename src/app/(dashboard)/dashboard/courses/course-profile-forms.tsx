@@ -22,7 +22,7 @@ import { coursePlanSnapshot } from "@/lib/course-plan-snapshot";
 import { musicPlanQuote } from "@/lib/music-course-products";
 import type { FeaturePresentationState } from "@/lib/effective-entitlement";
 import {savedCourseServicePrice,type CourseServicePrice} from '@/lib/course-service-price';
-export type Person = { id: string; updatedAt?: string; name: string; phone: string; email: string | null; gender: string | null; birthday: string; serviceNote: string | null; address: string | null; notes: string | null; emergencyContactName: string | null; emergencyContactPhone: string | null };
+export type Person = { sharedContactPhone?:boolean; id: string; updatedAt?: string; name: string; phone: string; email: string | null; gender: string | null; birthday: string; serviceNote: string | null; address: string | null; notes: string | null; emergencyContactName: string | null; emergencyContactPhone: string | null };
 export type Plan = {
   chargeSettings?:unknown;
   catalogRevision?:number;catalogSnapshot?:Record<string,unknown>;lowBalanceEnabled?:boolean;lowBalanceThreshold?:number|null;
@@ -64,11 +64,11 @@ function useSaveForm<T=Plan>(draft: Pick<ReturnType<typeof useFormDraft>,"busy"|
 }
 export type CustomerProfileWriter=(input:Record<string,unknown>)=>Promise<{success:boolean;error?:string}>;
 export function CourseCustomerDraftForm({save=saveCourseCustomer,draftScope="course-customer",person,canEdit,canCreate,hidden,compact=false,...callbacks}:Callbacks&{save?:CustomerProfileWriter;draftScope?:string;person:Person|null;canEdit:boolean;canCreate:boolean;hidden:boolean;compact?:boolean}){
- const [profileRequestKey]=useState(()=>crypto.randomUUID());
+ const [profileRequestKey,setProfileRequestKey]=useState(()=>crypto.randomUUID());
  const customerField=compact ? `${field} min-h-11 min-w-0 max-w-full` : field;
  const [year="1970",month="",day=""]=(person?.birthday??"").split("-");
  const draft=useFormDraft(`${draftScope}:${person?.id??"new"}`,{name:person?.name??"",phone:person?.phone??"",email:person?.email??"",gender:person?.gender??"",serviceNote:person?.serviceNote??"",address:person?.address??"",emergencyContactName:person?.emergencyContactName??"",emergencyContactPhone:person?.emergencyContactPhone??"",birthYear:year||"1970",birthMonth:month,birthDay:day},person?.updatedAt??null);
- const {submit,error,pending,committedWarning}=useSaveForm(draft,callbacks);
+ const {submit,error,pending,committedWarning}=useSaveForm(draft,{...callbacks,onSaved:(row,syncWarning)=>{if(!person&&!syncWarning)setProfileRequestKey(crypto.randomUUID());callbacks.onSaved(row,syncWarning);}});
  return <form id="course-member-form" className={`${compact ? "grid grid-cols-2 gap-3 [&_label]:min-w-0" : "grid grid-cols-1 gap-3 sm:grid-cols-2"} ${hidden?"hidden":""}`} onSubmit={e=>{
   if(person?!canEdit:!canCreate){e.preventDefault();return;}
   void submit(e,d=>save({requestKey:profileRequestKey,id:person?.id,expectedUpdatedAt:draft.expectedRevision??undefined,name:d.get("name"),phone:d.get("phone"),email:d.get("email"),gender:d.get("gender"),birthday:d.get("birthday"),...(!person||compact?{serviceNote:d.get("serviceNote")}:{}),address:d.get("address"),emergencyContactName:d.get("emergencyContactName"),emergencyContactPhone:d.get("emergencyContactPhone")}));

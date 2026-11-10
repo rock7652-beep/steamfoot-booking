@@ -471,3 +471,12 @@ describe("opening makeup cannot fall through ordinary mutation services",()=>{
   await expect(changeCompanionUsage(tx,actor,{bookingId:"booking",mode:"TRIAL",expectedUpdatedAt:"2026-10-01T00:00:00Z",requestKey:"req"})).rejects.toThrow("期初補課");noWrites();
  });
 });
+
+it('allows manager roster backfill after the lesson without granting customers a deadline bypass',async()=>{
+ const session={id:'session',template:{isActive:true,visibility:'PUBLIC'},startsAt:new Date('2026-09-14T10:00:00Z'),capacity:2,pointCost:3};
+ m.tx.courseSession.findFirst.mockResolvedValue(session);
+ await expect(reserveCourse({...actor,customerId:undefined},input)).resolves.toBeDefined();
+ m.tx.courseBooking.create.mockClear();
+ await expect(reserveCourse(actor,{...input,requestKey:'customer-past'})).rejects.toThrow('已超過預約截止時間');
+ expect(m.tx.courseBooking.create).not.toHaveBeenCalled();
+});

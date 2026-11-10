@@ -1,4 +1,6 @@
 "use server";
+import {courseCustomerPhoneFields} from "@/lib/course-customer-contact";
+import {getManagerCustomerWhere} from "@/lib/manager-visibility";
 import {readAuthorizedCourseSessionDetail} from '@/server/queries/authorized-course-session-detail';
 import {readCourseDetailMusicStore} from '@/server/queries/course-detail-music-store';
 import {withReadRequestMemo,isReadRequestMemoActive} from '@/server/services/read-request-memo';
@@ -131,7 +133,7 @@ const bookingInput = z.object({
 
 export async function saveCourseCustomer(input: unknown,module:"course"|"beauty"="course") {
   try {
-    const data = updateCustomerSchema.pick({ name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, expectedUpdatedAt: true }).extend({ id: id.optional(), emergencyContactName: z.string().trim().max(100).nullable().optional(), emergencyContactPhone: z.string().trim().max(30).nullable().optional(), address: z.string().trim().max(300).nullable().optional(), notes: z.string().trim().max(1000).nullable().optional(), requestKey:z.string().uuid().optional(),expectedStoreId:id.optional() }).parse(input);
+    const data = updateCustomerSchema.pick({ name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, expectedUpdatedAt: true }).extend({ id: id.optional(), emergencyContactName: z.string().trim().max(100).nullable().optional(), emergencyContactPhone: z.string().trim().max(30).nullable().optional(), address: z.string().trim().max(300).nullable().optional(), notes: z.string().trim().max(1000).nullable().optional(), requestKey:z.string().uuid().optional(),sharedContactPhone:z.boolean().optional(),expectedStoreId:id.optional() }).parse(input);
     module=z.enum(["course","beauty"]).parse(module);
     const permission=data.id ? "customer.update" : "customer.create";
     const context=module==='beauty'?await(await import('@/server/beauty/access')).beautyManager(permission,true):await courseManager(permission);
@@ -141,8 +143,16 @@ export async function saveCourseCustomer(input: unknown,module:"course"|"beauty"
     if(module==='beauty'&&!data.id&&!data.requestKey)throw new AppError('VALIDATION','缺少顧客建立請求，請重新開啟');
     if(module==='beauty')await requireStoreFeature(storeId,FEATURES.CUSTOMER_MANAGEMENT);
     if (data.birthday && !parseTaipeiDateTime(data.birthday, "00:00")) throw new AppError("VALIDATION", "生日格式不正確");
+    const previous = data.id ? await prisma.customer.findFirst({where:{id:data.id,storeId,mergedIntoCustomerId:null},select:{phone:true,contactPhone:true,userId:true,lineUserId:true,googleId:true,lineBindingCode:true}}) : null;
+    if(data.id&&!previous)throw new AppError('NOT_FOUND','找不到本店學員');
+    let sharedContactPhone=data.sharedContactPhone??(!previous?.phone&&!!previous?.contactPhone);
+    if(sharedContactPhone&&module!=='course')throw new AppError('VALIDATION','家長聯絡電話目前僅適用課程學員');
+    if(sharedContactPhone&&!data.id&&!data.requestKey)throw new AppError('VALIDATION','缺少學員建立請求，請重新開啟表單');
+    if(sharedContactPhone&&(previous?.userId||previous?.lineUserId||previous?.googleId||previous?.lineBindingCode))throw new AppError('CONFLICT','已連結會員身分的手機不能改為共用聯絡電話，請另外建立孩子的學員資料');
+    const familyScope=module==='course'&&'user' in context?getManagerCustomerWhere(context.user.role,context.user.staffId,storeId):null;
+    if(familyScope?.assignedStaffId==='__IMPOSSIBLE__')throw new AppError('FORBIDDEN','無法確認本店學員管理身分');
     const profile = {
-      name: data.name, phone: data.phone,
+      name: data.name, ...(module==='course'?courseCustomerPhoneFields(data.phone,sharedContactPhone):{phone:data.phone}),
       email: data.email ?? null,
       gender: data.gender ?? null,
       birthday: data.birthday ? new Date(`${data.birthday}T00:00:00.000Z`) : null,
@@ -166,7 +176,7 @@ export async function saveCourseCustomer(input: unknown,module:"course"|"beauty"
       const limits = await getStoreLimitsByStoreId(storeId);
       customerId = await prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${storeId} FOR UPDATE`;
-        const receiptId=module==='beauty'?`beauty-customer:${createHash('sha256').update(JSON.stringify([storeId,data.requestKey])).digest('hex')}`:null;
+        const receiptId=module==='beauty'||sharedContactPhone||!!data.requestKey?`${module==='beauty'?'beauty':'course'}-customer:${createHash('sha256').update(JSON.stringify([storeId,data.requestKey])).digest('hex')}`:null;
         const fingerprint=createHash('sha256').update(JSON.stringify(profile)).digest('hex');
         if(receiptId){
           const previous=await tx.auditLog.findUnique({where:{id:receiptId}});
@@ -175,18 +185,28 @@ export async function saveCourseCustomer(input: unknown,module:"course"|"beauty"
             return previous.targetId;
           }
         }
+        let storedProfile=profile;
+        if(module==='course'){
+          const same=await tx.customer.findFirst({where:{storeId,name:data.name,mergedIntoCustomerId:null,OR:[{phone:data.phone},{contactPhone:data.phone}]},select:{id:true}});
+          if(same)throw new AppError('CONFLICT','已有相同姓名與電話的學員，請搜尋既有資料');
+          const collision=await tx.customer.findFirst({where:{storeId,OR:[{phone:data.phone},{contactPhone:data.phone}]},select:{id:true}});
+          sharedContactPhone=sharedContactPhone||!!collision;
+          if(sharedContactPhone&&!data.requestKey)throw new AppError('VALIDATION','請重新開啟表單後建立學員');
+          if(sharedContactPhone&&'user' in context&&getManagerCustomerWhere(context.user.role,context.user.staffId,storeId).assignedStaffId==='__IMPOSSIBLE__')throw new AppError('FORBIDDEN','無法確認本店學員管理身分');
+          storedProfile={...profile,...courseCustomerPhoneFields(data.phone,sharedContactPhone)};
+        }
         const count = await tx.customer.count({
           where: { storeId, mergedIntoCustomerId: null },
         });
         if (limits.maxCustomers !== null && count >= limits.maxCustomers)
           throw new AppError("FORBIDDEN", "已達方案顧客額度上限");
         const created = await tx.customer.create({
-          data: { storeId, ...profile },
+          data: { storeId, ...storedProfile, ...(typeof familyScope?.assignedStaffId==='string'?{assignedStaffId:familyScope.assignedStaffId}:{}) },
           select: { id: true },
         });
         if(receiptId){
           if(!actorUserId)throw new AppError('FORBIDDEN','請重新登入');
-          await tx.auditLog.create({data:{id:receiptId,actorUserId,storeId,module:'BEAUTY',targetType:'Customer',targetId:created.id,action:'CREATE',summary:fingerprint}});
+          await tx.auditLog.create({data:{id:receiptId,actorUserId,storeId,module:module==='beauty'?'BEAUTY':'COURSE',targetType:'Customer',targetId:created.id,action:'CREATE',summary:fingerprint}});
         }
         return created.id;
       });
@@ -195,6 +215,8 @@ export async function saveCourseCustomer(input: unknown,module:"course"|"beauty"
     if(module==='beauty'){try{revalidatePath("/dashboard/beauty");}catch{syncWarning=true;}}else refresh();
     return { success: true as const, data: { id: customerId },syncWarning };
   } catch (error) {
+    const duplicate=error as {code?:string;meta?:{target?:unknown}};
+    if(module==='course'&&duplicate?.code==='P2002'&&JSON.stringify(duplicate.meta?.target??'').includes('phone'))return {success:false as const,error:'電話資料已有更新，請重新核對後儲存。'};
     return handleActionError(error);
   }
 }

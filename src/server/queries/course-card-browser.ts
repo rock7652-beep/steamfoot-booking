@@ -43,7 +43,7 @@ async function readCards(input: unknown, previewOnly: boolean, timings?: Record<
       data.customerId ? prisma.customer.findFirst({where:{...visibility,storeId,id:data.customerId,mergedIntoCustomerId:null},select:{id:true}}) : Promise.resolve(true),
       typeof visibility.assignedStaffId === "string" ? prisma.customer.findMany({where:{...visibility,storeId,mergedIntoCustomerId:null},select:{id:true}}) : Promise.resolve(null),
       data.search ? prisma.customer.findMany({where:{...visibility,storeId,mergedIntoCustomerId:null,
-        OR:[{name:{contains:data.search,mode:"insensitive"}},{phone:{contains:data.search}}]},select:{id:true}}) : Promise.resolve([]),
+        OR:[{name:{contains:data.search,mode:"insensitive"}},{phone:{contains:data.search}},{contactPhone:{contains:data.search}}]},select:{id:true}}) : Promise.resolve([]),
       prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
     ]));
     if (!customer) throw new AppError("NOT_FOUND","找不到本店顧客");

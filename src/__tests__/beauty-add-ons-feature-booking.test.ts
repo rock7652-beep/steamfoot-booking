@@ -31,3 +31,14 @@ it('retains established service duration snapshots when rescheduling after closu
  expect(m.enabled).not.toHaveBeenCalled();
  expect(m.allocate).toHaveBeenCalledWith(expect.objectContaining({services:[expect.objectContaining({id:'s',duration:90,buffer:5,addOnGroups:[]})]}));
 });
+it('allows authorized manager backfill while retaining customer deadlines and slot rules',async()=>{
+ const past={...input,date:'2026-10-30'};
+ await expect(findAllocation({} as Args[0],actor,past,[],undefined,loaded)).resolves.toBeDefined();
+ expect(m.allocate).toHaveBeenCalledOnce();
+ await expect(findAllocation({} as Args[0],actor,past,[],undefined,{...loaded,policy:{...loaded.policy,bookableUntilDate:'2026-01-01',cancelDeduct:false as const,noShowDeduct:false as const}})).resolves.toBeDefined();
+ m.allocate.mockClear();
+ await expect(findAllocation({} as Args[0],{...actor,manager:false},past,[],undefined,loaded)).rejects.toThrow('預約截止');
+ await expect(findAllocation({} as Args[0],actor,{...past,time:'03:17'},[],undefined,loaded)).rejects.toThrow('此開始時間未開放');
+ await expect(findAllocation({} as Args[0],actor,{...input,date:'2027-01-01'},[],undefined,loaded)).rejects.toThrow('尚未開放');
+ expect(m.allocate).not.toHaveBeenCalled();
+});

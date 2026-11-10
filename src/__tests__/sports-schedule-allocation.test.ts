@@ -92,7 +92,7 @@ it("rejects an oversized mixed roster before writing rules or reservations",asyn
 it("arranges all lessons without reserving a particular plan or consuming credit",async()=>{
  await attachSportsSessionRules(tx,actor,"request",rule);
  expect(m.cards).not.toHaveBeenCalled();expect(m.reserve).toHaveBeenCalledTimes(8);
- for(const call of m.reserve.mock.calls)expect(call[2]).toMatchObject({cardId:null,deferredPayment:true,customerId:"member"});
+ for(const call of m.reserve.mock.calls)expect(call[2]).toMatchObject({cardId:null,deferredPayment:true,onSite:true,customerId:"member"});
 });
 it("ignores a stale plan selection when arranging an item",async()=>{
  await attachSportsSessionRules(tx,actor,"request",{...rule,students:[{customerId:"member",cardId:"original"}]});

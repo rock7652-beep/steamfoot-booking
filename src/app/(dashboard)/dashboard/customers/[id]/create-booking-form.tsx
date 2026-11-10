@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect, useActionState, useRef } from "react"
 import { createBooking } from "@/server/actions/booking";
 import { fetchDaySlots } from "@/server/actions/slots";
 import { toast } from "sonner";
+import { toLocalDateStr } from "@/lib/date-utils";
 import type { SlotAvailability } from "@/types";
 import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 import { SteamfootBookingCalendar } from "@/components/steamfoot-booking-calendar";
@@ -30,7 +31,7 @@ type BookingType = "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
 export function CreateBookingForm({ customerId, days, activeWallets, simplified = false, onSuccess }: Props) {
   const [dirty, setDirty] = useState(false);
   const requestKey = useBookingRequestKey();
-  const [selectedDate, setSelectedDate] = useState(days[0] ?? "");
+  const [selectedDate, setSelectedDate] = useState(days[0] ?? toLocalDateStr());
   const [calendarRefresh, setCalendarRefresh] = useState(0);
   const slotRequest = useRef(0);
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
@@ -43,7 +44,7 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
     const request = ++slotRequest.current;
     setLoadingSlots(true);
     try {
-      const result = await fetchDaySlots(date);
+      const result = await fetchDaySlots(date, undefined, { allowPast: true });
       if (request !== slotRequest.current) return;
       setSlots(result.slots);
     } catch {
@@ -57,8 +58,8 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
     if (selectedDate) void loadSlots(selectedDate);
   }, [selectedDate, loadSlots]);
 
-  // 可預約的時段（排除已過和已滿）
-  const availableSlots = slots.filter((s) => s.available > 0 && !s.isPast);
+  // Authorized back-office lookup retains real capacity for past slots.
+  const availableSlots = slots.filter((s) => s.available > 0);
 
   const [state, action, pending] = useActionState(
     async (_prev: { error: string | null; success: boolean }, formData: FormData) => {
@@ -110,26 +111,20 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
 
       <div className={simplified ? "col-span-2 min-w-0 sm:col-span-4" : undefined}>
         <label className="block text-xs text-earth-500">日期</label>
-        {days.length === 0 ? (
-          <p className="mt-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
-            店鋪目前沒有開放可預約日期
-          </p>
-        ) : simplified ? (
-          <SteamfootBookingCalendar days={days} value={selectedDate} customerId={customerId}
+        {simplified ? (
+          <SteamfootBookingCalendar allowPast days={days.length ? days : [toLocalDateStr()]} value={selectedDate} customerId={customerId}
             disabled={pending} refreshKey={calendarRefresh}
             onChange={(date) => { if (date !== selectedDate) { setDirty(true); setLoadingSlots(true); setSelectedDate(date); } }} />
         ) : (
-          <select
+          <input
             name="bookingDate"
+            type="date"
             required
+            max={days[days.length - 1] ?? toLocalDateStr()}
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="mt-1 w-full rounded border border-earth-300 px-2 py-1 text-sm"
-          >
-            {days.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
+            onChange={(e) => {setDirty(true);setSelectedDate(e.target.value);}}
+            className="mt-1 min-h-11 w-full rounded border border-earth-300 px-2 py-1 text-sm"
+          />
         )}
       </div>
 

@@ -1,3 +1,4 @@
+import {courseCustomerContact} from "@/lib/course-customer-contact";
 import { MUSIC_OPENING_CARD_SELECT } from "@/lib/music-opening-runtime";
 import "server-only";
 import { musicCustomerWhere } from "@/server/services/music-data-scope";
@@ -10,7 +11,7 @@ export async function getCourseCustomerCsv(storeId: string, access: {cards: bool
   await requireCourseStore(storeId);
   const customers = await prisma.customer.findMany({
     where: {storeId, mergedIntoCustomerId: null, ...musicCustomerWhere(storeId,dataScope)},
-    select: {id:true,name:true,phone:true,email:true,lineName:true,customerStage:true,address:true,notes:true,emergencyContactName:true,emergencyContactPhone:true,createdAt:true,assignedStaff:{select:{storeId:true,displayName:true}}},
+    select: {id:true,name:true,phone:true,contactPhone:true,email:true,lineName:true,customerStage:true,address:true,notes:true,emergencyContactName:true,emergencyContactPhone:true,createdAt:true,assignedStaff:{select:{storeId:true,displayName:true}}},
     orderBy: [{name:"asc"},{id:"asc"}],
   });
   const cards = access.cards ? await coursePrisma.coursePointCard.findMany({
@@ -25,5 +26,5 @@ export async function getCourseCustomerCsv(storeId: string, access: {cards: bool
     FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId"
     WHERE b."storeId"=${storeId} AND b.status<>'CANCELLED'
     GROUP BY b."customerId"` : [];
-  return customerExportCsv(storeId,access,customers,cards,classes);
+  return customerExportCsv(storeId,access,customers.map(courseCustomerContact),cards,classes);
 }

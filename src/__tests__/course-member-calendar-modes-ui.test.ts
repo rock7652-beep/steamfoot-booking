@@ -1,5 +1,6 @@
 vi.mock("@/server/actions/customer-booking-goods",()=>({readCustomerBookingGoods:vi.fn().mockResolvedValue({success:true,data:null})}));
 // @vitest-environment jsdom
+vi.mock("@/server/actions/course-phone-summary",()=>({loadCoursePhoneSummary:vi.fn().mockResolvedValue({success:true,learners:[]})}));
 vi.mock("@/server/actions/central-member-store", () => ({ selectCentralMemberStoreAction: vi.fn() }));
 vi.mock("@/server/actions/sports-staging",()=>({bookSportsTrial:vi.fn()}));
 vi.mock("@/server/actions/course-teacher-session",()=>({loadCourseTeacherSession:vi.fn(),changeCourseTeacherSession:vi.fn()}));

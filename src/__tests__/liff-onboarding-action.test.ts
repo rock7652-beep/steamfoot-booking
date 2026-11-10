@@ -36,6 +36,8 @@ const mockAuthorizedFirstCapture = vi.fn();
 const mockIdentitySync = vi.fn();
 const mockIndustry = vi.fn();
 const mockCourseOnboarding = vi.fn();
+const mockCoursePhoneLogin = vi.hoisted(() => vi.fn());
+vi.mock("@/server/services/course-phone-login", () => ({ requestCoursePhoneLogin: mockCoursePhoneLogin }));
 const mockBeautyOnboarding = vi.fn();
 vi.mock("@/server/services/beauty-line-onboarding", () => ({
   onboardVerifiedBeautyMember: (...args: unknown[]) => mockBeautyOnboarding(...args),
@@ -191,6 +193,7 @@ describe("submitOnboarding action (PR-C2)", () => {
   });
 
   beforeEach(() => {
+    mockCoursePhoneLogin.mockReset();
     mockNotificationActivation.mockReset().mockResolvedValue("not_applicable");
     mockFirstActivation.mockReset().mockResolvedValue("review");
     mockRecovery.mockReset().mockResolvedValue({ status: "review" });
@@ -214,6 +217,22 @@ describe("submitOnboarding action (PR-C2)", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+  });
+
+  it("requests phone-only course confirmation using only the verified LINE subject and store channel", async () => {
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockIndustry.mockResolvedValue("course");
+    mockCoursePhoneLogin.mockResolvedValue({ status: "login_review_pending", referenceId: "request", verificationCode: "ABC123" });
+    expect(await submitOnboarding({ ...VALID_INPUT, name: "" })).toMatchObject({ status: "login_review_pending" });
+    expect(mockCoursePhoneLogin).toHaveBeenCalledWith({ storeId: STORE.id, phone: VALID_INPUT.phone, lineUserId: LINE_USER_ID, identityProvider: "line", channelId: CHANNEL });
+    expect(mockCourseOnboarding).not.toHaveBeenCalled();
+  });
+  it("does not enqueue a course phone request from an invalid LINE token", async () => {
+    mockIndustry.mockResolvedValue("course");
+    mockVerify.mockRejectedValue(new Error("invalid token"));
+    expect(await submitOnboarding({ ...VALID_INPUT, name: "" })).toMatchObject({ status: "service_unavailable" });
+    expect(mockCoursePhoneLogin).not.toHaveBeenCalled();
   });
 
   it("routes verified course onboarding through the atomic service without legacy mutations", async () => {

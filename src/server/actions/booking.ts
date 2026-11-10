@@ -150,7 +150,7 @@ async function loadCreateBookingEligibility(params: {
   });
 
   const todayStr = toLocalDateStr();
-  if (bookingDate < todayStr) {
+  if (user.role === "CUSTOMER" && bookingDate < todayStr) {
     throw new AppError("VALIDATION", "不可預約過去的日期");
   }
   const sc = await prisma.shopConfig.findUnique({
@@ -171,7 +171,8 @@ async function loadCreateBookingEligibility(params: {
     });
     bookableUntil = resolveCustomerBookableUntilDate(customerWindowConfig);
   }
-  if (bookingDate > bookableUntil) {
+  const backofficePast = user.role !== "CUSTOMER" && (bookingDate < todayStr || bookingDate === todayStr && slotTime <= getNowTaipeiHHmm());
+  if (bookingDate > bookableUntil && !backofficePast) {
     throw new AppError(
       "BUSINESS_RULE",
       user.role === "CUSTOMER"
@@ -543,9 +544,10 @@ export async function createBooking(
     }
 
     const bookingDateObj = new Date(data.bookingDate + "T00:00:00Z");
+    const backfilled = user.role !== "CUSTOMER" && (data.bookingDate < todayStr || data.bookingDate === todayStr && data.slotTime <= getNowTaipeiHHmm());
 
-    // 同日已過時段不可預約（後端強制擋）
-    if (data.bookingDate === todayStr) {
+    // Customer deadlines remain enforced; authorized staff may backfill actual visits.
+    if (user.role === "CUSTOMER" && data.bookingDate === todayStr) {
       const nowHHmm = getNowTaipeiHHmm();
       if (data.slotTime <= nowHHmm) {
         throw new AppError(
@@ -778,7 +780,8 @@ export async function createBooking(
       await recordOperationAudit({
         actorUserId: user.id, storeId, module: "STEAM", targetType: "Booking",
         targetId: created.id, action: "CREATE",
-        summary: user.role === "CUSTOMER" ? "顧客建立預約" : "建立預約",
+        summary: user.role === "CUSTOMER" ? "顧客建立預約" : backfilled ? "補登過往預約" : "建立預約",
+        ...(backfilled ? {after:{bookingDate:data.bookingDate,slotTime:data.slotTime}} : {}),
       }, tx);
 
       return created;

@@ -32,6 +32,7 @@ const page=(params="",role="ADMIN",staffId:string|null=null,cards=true)=>getCour
     ])await db!.$executeRawUnsafe(ddl);
     await db!.$executeRawUnsafe(`INSERT INTO "Customer" SELECT 'a-'||n,'a',NULL,'synthetic-customer-'||lpad(n::text,4,'0'),'synthetic-contact-'||lpad(n::text,8,'0'),NULL,'UNLINKED','CUSTOMER',CASE WHEN n<=10 THEN 'manager-a' ELSE 'manager-b' END,NULL,NULL,'2026-09-01'::timestamptz FROM generate_series(1,1000) n`);
     await db!.$executeRawUnsafe(`INSERT INTO "Customer" VALUES ('foreign','b',NULL,'synthetic-customer-0000','synthetic-foreign-contact',NULL,'LINKED','LEAD','manager-a',NULL,NULL,'2026-09-21')`);
+    await db!.$executeRawUnsafe('ALTER TABLE "Customer" ADD COLUMN "contactPhone" text');
     await db!.$executeRawUnsafe(`INSERT INTO "CourseSession" (id,"storeId","startsAt") VALUES ('s','a','2026-09-20T17:00:00Z'),('s-b','b','2026-09-21T01:00:00Z')`);
     await db!.$executeRawUnsafe(`INSERT INTO "CourseBooking" VALUES ('a-1000','s','a','ATTENDED',NULL,0),('a-999','s-b','b','ATTENDED',NULL,0)`);
     await db!.$executeRawUnsafe(`INSERT INTO "CoursePointCard"(id,"storeId",unit,remaining,"closedAt","expiresAt") VALUES ('shared','a','POINT',100,NULL,'2026-10-01'),('expired','a','POINT',10000,NULL,'2026-09-01'),('closed','a','POINT',10000,'2026-09-20','2026-10-01'),('session','a','SESSION',5,NULL,'2026-10-01')`);

@@ -18,5 +18,12 @@ it("uses the fresh initial snapshot once, then reflects capacity changes when re
  m.slots.mockResolvedValue({slots:[slot(0)]});
  await act(async()=>Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="2026-10-06")!.click());
  await act(async()=>Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="2026-10-05")!.click());
- expect(m.slots).toHaveBeenCalledWith("2026-10-05");expect(host.querySelector<HTMLInputElement>('input[type="radio"]')!.disabled).toBe(false);
+ expect(m.slots).toHaveBeenCalledWith("2026-10-05",undefined,{allowPast:true});expect(host.querySelector<HTMLInputElement>('input[type="radio"]')!.disabled).toBe(false);
+});
+it("keeps past dates and elapsed slots selectable for backfill, but still blocks full slots",async()=>{
+ await act(async()=>root.render(React.createElement(DashboardBookingForm,{days:['2026-10-04','2026-10-05'],defaultDate:'2026-10-03',todayStr:'2026-10-04',initialSlots:[{...slot(0),isPast:true},{...slot(2),startTime:'11:00',isPast:true}]})));
+ expect(host.textContent).toContain('正在補登過往預約');
+ expect(host.querySelector<HTMLInputElement>('input[value="10:00"]')!.disabled).toBe(false);
+ expect(host.querySelector<HTMLInputElement>('input[value="11:00"]')!.disabled).toBe(true);
+ expect(m.calendar).toHaveBeenCalledWith('2026-10-03');
 });
