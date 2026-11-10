@@ -1,4 +1,4 @@
-# 同科目方案資格與舊卡核對：本機驗證
+# 同科目方案資格與舊卡核對：驗證紀錄
 
 業務來源：[同科目方案規格](../course-subject-entitlement-20261110.md)。基準 main `f74815a7`，本機分支 `feat/course-subject-entitlement-20261110`。本紀錄不是正式發布或正式顧客資料確認。
 
@@ -19,9 +19,28 @@
 - `scripts/qa/course-subject-browser.mjs` 以實際 React 元件配合合成資料與 stub actions，所有網路請求阻擋。1440×900、1024×768、768×1024、600×768 無水平溢出；只有開放選課仍有科目；明確勾選才可儲存；失敗保留選擇，重試保持相同識別及版本；回覆遺失會鎖住原意圖、只重送同一收據，未確認結果不顯示成功，無 pageerror。截圖與 JSON 輸出在 `/tmp/course-subject-ui/`。
 - 最終型別檢查 `tsc --noEmit`、變更檔案 ESLint 及 `git diff --check` 通過。最終全量 `npx vitest run --testTimeout=15000`：1,752 檔、16,483 項通過，33 檔／298 項略過；隔離 PostgreSQL 的 26 項另以明確本機測試 URL 執行通過。略過項目不當成已驗收。現有巢狀 Resend mock 提示仍存在，未修改不相關測試。
 
+## 2026-11-11 隔離預覽實際驗收（台灣時間）
+
+- Draft PR：<https://github.com/rock7652-beep/steamfoot-booking/pull/1538>；分支 head `4417b64a`。預覽 deployment `dpl_5Fk9jzaYNm5ZWoo5uNiJ6MRLPD3W` 已 READY，來源 `69b34743`；與 head 差異僅 PostgreSQL 測試，不涉及執行程式。
+- 使用專用 QA 專案、受限資料庫角色與 `addons-qa-fitness`。已取得使用者授權建立 23 小時預覽分享及進行實際驗收；分享 token、密碼和瀏覽器登入狀態不進版本庫。
+- 真實 OWNER 帳密登入成功，沒有 mock 身分或 action。指定學員名單確認 A1（2堂）＋A2（5堂）＋A3（3堂）合計 10 堂，B1／C2 及待核對 OPEN 舊卡均未計入。
+- 真實舊卡核對 action 成功，1366／1024／768 寬度無水平溢出。只在明確勾選後確認。資料庫覆核：舊卡轉為 A 科目快照、剩餘仍 19 堂、到期仍 2027-11-10T00:00:00Z；只有原 GRANT 19，沒有新增扣堂；CONFIRM_CARD_SUBJECT 稽核恰好一筆。
+- 本機相關 PostgreSQL 共 59 項通過；當前 head 的 mixed workflow 42848571719 成功（41項不略過＋4項核心流程）。預覽來源的完整 CI 42847413826 重跑成功；原本一次不相關 PGlite 初始化逾時已單獨覆核並重跑失敗工作。Cloudflare Workers 檢查仍失敗，不能宣稱所有檢查全綠。
+- 實際 OPEN 新增學員及兩種模式的點名扣堂／還堂尚未完成。QA 的 CourseBooking、CoursePointEntry、OperationAuditOutbox 既有 RLS 僅允許前一批列名帳號／學員；本次新建專用身分不在其中。沒有修改這些安全政策，沒有用管理者 SQL 代替被限制的扣堂交易。瀏覽器 reserve 嘗試停在新增視窗等待，尚未送出預約。
+- 驗收輸出位於執行工作區 `/tmp/subject-hosted/`；該目錄的 state.json 是私密登入資料，不可分享或提交。
+
+## 待核准的 QA 扣堂驗收權限範圍（尚未執行）
+
+目的只限完成兩堂合成課程的預約、點名、防重送及恢復待點名測試。
+
+- 只修改隔離 Supabase 專案 `ttworfzgwejdeolegkxl` 中角色 `steamfoot_compact_qa_20261103` 的既有測試白名單政策，不動正式專案，不關閉 RLS，不增加管理者權限。
+- 門市限 `addons-qa-fitness`；操作者限 `compact-qa-20261103-subject-20261110-owner`；學員限 `qa-subject-20261110-student`；課程限 `qa-subject-20261110-session-OPEN` 與 `qa-subject-20261110-session-ASSIGNED`。
+- 可扣抵卡限本次 `qa-subject-20261110-A1/A2/A3/B1/C2/OLD` 六張合成卡；實際扣堂仍由應用程式檢查科目。帳本只允許上述課程預約的保留、實扣與還堂操作，不允許加值、退款或其他學員操作。
+- 權限截止 2026-11-11 23:02:49 台灣時間（15:02:49Z），與預覽分享到期一致。驗收後恢復原政策。
+- 執行前保存原政策定義並核對未變更，在交易中只新增上述精確條件到必要 permissive／restrictive 政策，保留其他測試範圍與原到期限制；保存對應回復 SQL。任何額外表或權限需求均先停止依賴操作。
+
 ## 驗證限制與待發布事項
 
-- 合成 UI 沒有登入、真實門市、真實訂單與資料庫，不能稱為完整業務或效能驗收；實際預覽環境的後台到會員手機流程仍待發布前核對。
-- 沒有推送分支、建立 PR、合併或部署；沒有更改部署設定、正式卡片、帳本、LINE 綁定或通知。
-- 正式林仲萱／其他舊卡的科目仍需依原購買資料逐卡核對。商品改科目不會回填已購卡。
-- 發布／正式資料確認仍需獨立明確授權。核准前維持本機可審閱結果。
+- 尚未合併或發布正式站；沒有更改正式卡片、帳本、LINE 綁定或通知停發設定。
+- 本機／CI PostgreSQL 證據不能代替尚未完成的 hosted 點名扣堂驗收；手機會員流程也未列為本次已通過。
+- 正式舊卡仍需依原購買資料逐卡核對，商品改科目不會回填已購卡。正式資料確認及正式發布另需明確授權。
