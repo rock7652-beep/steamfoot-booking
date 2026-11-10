@@ -312,11 +312,17 @@ export function CourseMemberWorkspace({
     let saved=0;try{saved=Number(sessionStorage.getItem(scrollKey))||0;}catch{}
     const target=studentScrollPositions.current[scrollKey]??saved;
     restoringScroll.current=true;
-    const stop=()=>{restoringScroll.current=false;observer.disconnect();};
+    let observer:ResizeObserver|MutationObserver|undefined;
+    const stop=()=>{restoringScroll.current=false;observer?.disconnect();};
     const restore=()=>{element.scrollTop=target;if(element.scrollTop>=target-1)stop();};
     // The initial loading state can be shorter than the original scroll position.
-    const observer=new ResizeObserver(restore);
-    if(element.firstElementChild)observer.observe(element.firstElementChild);
+    if(typeof ResizeObserver!=="undefined"){
+      const resize=new ResizeObserver(restore);observer=resize;
+      if(element.firstElementChild)resize.observe(element.firstElementChild);
+    }else if(typeof MutationObserver!=="undefined"){
+      const mutation=new MutationObserver(restore);observer=mutation;
+      mutation.observe(element,{childList:true,subtree:true,characterData:true});
+    }
     element.addEventListener("wheel",stop,{passive:true});
     element.addEventListener("touchmove",stop,{passive:true});
     element.addEventListener("keydown",stop);

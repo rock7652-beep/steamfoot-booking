@@ -7,6 +7,8 @@ import type {CourseCustomerSource} from '@/app/(dashboard)/dashboard/courses/mem
 import type {BeautyDashboardData} from '@/server/beauty/queries';
 const m=vi.hoisted(()=>({assign:vi.fn(),source:null as CourseCustomerSource|null,provider:null as {enabled:boolean;storeId:string;family?:string}|null}));
 vi.mock('next/dynamic',()=>({default:()=>()=>null}));
+vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()})}));
+vi.mock('@/components/beauty/native-schedule-source',()=>({BeautyNativeScheduleDialog:()=>null}));
 vi.mock('@/lib/beauty/customer-reader',()=>({beautyCustomerReaders:()=>({})}));
 vi.mock('@/server/actions/beauty-customer-attribution',()=>({saveBeautyCustomerAttribution:vi.fn(),searchBeautyReferrerCandidates:vi.fn(),bulkAssignBeautyCustomers:vi.fn()}));
 vi.mock('@/server/actions/beauty-native-customers',()=>({maintainBeautyNativeCard:vi.fn(),saveBeautyNativeCustomerProfile:vi.fn(),saveBeautyNativeCustomerNote:vi.fn(),saveBeautyNativeCardMembers:vi.fn(),assignBeautyNativeCard:m.assign}));
