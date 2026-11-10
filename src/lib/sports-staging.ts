@@ -1,4 +1,4 @@
-import {calendarPerformanceSportsPreview} from "../../scripts/compact-operations-preview-scope.mjs";
+import {calendarPerformanceSportsPreview,customerOverviewPreviewStore} from "../../scripts/compact-operations-preview-scope.mjs";
 import { sportsProductionEnabled } from "../../scripts/sports-production-scope.mjs";
 import { sportsProductionStore } from "./sports-production-store";
 import {courseWorkflowSportsPreview} from "../../scripts/course-workflow-preview-scope.mjs";
@@ -8,7 +8,7 @@ import { assertSportsLiveFlowQaEnvironment } from "../../scripts/sports-live-flo
 /** Authorized sports module in production, or the unchanged isolated QA boundary. */
 export async function sportsStagingEnabled(storeId?: string) {
   if (process.env.VERCEL_ENV === "production") return sportsProductionStore(storeId);
-  if(calendarPerformanceSportsPreview(storeId)||courseWorkflowSportsPreview(storeId))return true;
+  if(customerOverviewPreviewStore("sports",storeId)||calendarPerformanceSportsPreview(storeId)||courseWorkflowSportsPreview(storeId))return true;
   if (process.env.SPORTS_REDESIGN_PRODUCTION === "1") return sportsProductionEnabled(storeId);
   if (process.env.SPORTS_REDESIGN_STAGING !== "1") return false;
   if (process.env.SPORTS_REDESIGN_PREVIEW === "1") {

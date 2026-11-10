@@ -22,7 +22,7 @@ vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:(
 vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({children,width,fitContent,maxHeight}:{children:unknown;width:number;fitContent:boolean;maxHeight?:number})=>createElement("aside",{"data-width":width,"data-max-height":maxHeight,"data-fit-content":String(fitContent)},children as never)}));
 vi.mock("@/components/customer-attribution-form",()=>({CustomerAttributionForm:()=>null}));
 vi.mock("@/server/actions/course-customer-attribution",()=>({saveCourseCustomerAttribution:vi.fn(),searchCourseReferrerCandidates:vi.fn()}));
-vi.mock("@/server/actions/course-members",()=>({saveCourseCustomer:m.save,saveCoursePointPlan:vi.fn(),assignCoursePointCard:m.courseAssign,setCourseCardMembers:vi.fn(),loadMusicJoinOptions:vi.fn().mockResolvedValue({success:true,options:[]})}));
+vi.mock("@/server/actions/course-members",()=>({saveCourseCustomer:m.save,saveCoursePointPlan:vi.fn(),assignCoursePointCard:m.courseAssign,setCourseCardMembers:vi.fn(),loadCourseCustomerBookings:vi.fn().mockResolvedValue({success:true,data:[],hasMore:false}),loadMusicJoinOptions:vi.fn().mockResolvedValue({success:true,options:[]})}));
 vi.mock("@/server/actions/course-purchase-intent",()=>({prepareCoursePurchaseIntent:vi.fn(),getCoursePurchaseIntent:vi.fn(),getPendingCoursePurchaseIntent:vi.fn(),cancelCoursePurchaseIntent:vi.fn(),acknowledgeCoursePurchaseIntent:vi.fn()}));
 vi.mock("@/server/actions/course-staff",()=>({saveCourseStaff:vi.fn()}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-purchases",()=>({CourseCustomerPurchases:()=>null}));
@@ -34,7 +34,7 @@ import {CourseMemberWorkspace} from "@/app/(dashboard)/dashboard/courses/member-
 import {CoursePurchaseIntentProvider} from "@/app/(dashboard)/dashboard/courses/purchase-recovery";
 let host:HTMLDivElement,root:Root;
 const props={view:"customers" as const,templates:[],people:[{id:"person",name:"測試學員",phone:"0900000000",email:null,gender:null,birthday:"",height:null,lineName:null,serviceNote:null,address:null,notes:null,emergencyContactName:null,emergencyContactPhone:null}],plans:[],cards:[],canEdit:true,canCreate:true,canManageStaff:false,canAssign:true,canReadBookings:true,canReadTransactions:true,healthEnabled:true,customerRows:[],canReadCards:true,assignmentStaff:[],canAssignManager:false};
-const click=async(text:string)=>{const b=[...host.querySelectorAll("button")].find(b=>b.textContent===text);expect(b,text).toBeTruthy();await act(async()=>b!.click());};
+const click=async(text:string)=>{const b=[...host.querySelectorAll("button")].find(b=>b.textContent===text||b.getAttribute("aria-label")===text);expect(b,text).toBeTruthy();await act(async()=>b!.click());};
 beforeEach(()=>{vi.clearAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();});
 it("preserves the edit draft across tabs and closes without redundant confirmation",async()=>{
@@ -42,15 +42,15 @@ it("preserves the edit draft across tabs and closes without redundant confirmati
  await click("編輯顧客資料");
  const input=host.querySelector('input[name="name"]') as HTMLInputElement;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"尚未儲存姓名");input.dispatchEvent(new Event("input",{bubbles:true}));});
- await click("紀錄");await click("顧客概況");
+ await click("紀錄");await click("總覽");
  expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("尚未儲存姓名");
- vi.spyOn(window,"confirm").mockReturnValue(false);await click("關閉");
+ vi.spyOn(window,"confirm").mockReturnValue(false);await click("關閉顧客資料");
  expect(window.confirm).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();expect(host.querySelector("aside")).toBeNull();
 });
 it("does not show unauthorized wallet, record, health, or edit controls",async()=>{
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,canEdit:false,canCreate:false,canAssign:false,canReadCards:false,canReadBookings:false,canReadTransactions:false,healthEnabled:false})));
- const buttons=[...host.querySelectorAll("button")].map(b=>b.textContent);
- for(const label of ["購買方案","紀錄","健康追蹤","編輯顧客資料","儲存"])expect(buttons).not.toContain(label);
+ const buttons=[...host.querySelectorAll("button")].map(b=>b.getAttribute("aria-label")??b.textContent);
+ for(const label of ["購買方案","新增方案","購課／續購","紀錄","健康追蹤","編輯顧客資料","儲存"])expect(buttons).not.toContain(label);
 });
 it("separates plan products and held plans into compact views",async()=>{
  const plans=[{id:"plan",name:"運動十點方案",points:10,price:1000,validDays:30,isActive:true,unit:"POINT",templateIds:[]}];
@@ -97,7 +97,7 @@ it("keeps the customer shell and navigation stable across internal pages",async(
  expect(shell?.getAttribute("data-width")).toBe("1100");
  expect(shell?.getAttribute("data-fit-content")).toBe("false");
  expect(shell?.getAttribute("data-max-height")).toBe("900");
- for(const label of ["購買方案","紀錄","健康追蹤","顧客概況"]){
+ for(const label of ["購買方案","紀錄","健康追蹤","總覽"]){
   await click(label);
   expect(host.querySelector("aside")).toBe(shell);
   expect(shell?.getAttribute("data-width")).toBe("1100");
@@ -107,8 +107,8 @@ it("keeps the customer shell and navigation stable across internal pages",async(
  }
  await click("編輯顧客資料");
  expect(host.querySelector('input[name="name"]')).not.toBeNull();
- await click("返回基本資料");
- expect([...host.querySelectorAll("button")].map(b=>b.textContent)).toContain("編輯顧客資料");
+ await click("返回總覽");
+ expect([...host.querySelectorAll("button")].map(b=>b.getAttribute("aria-label")??b.textContent)).toContain("編輯顧客資料");
  expect(host.querySelector("aside")).toBe(shell);
 });
 
@@ -219,4 +219,10 @@ it('beauty-source late status for a previous customer cannot appear in the next 
  await act(async()=>root.render(view('person')));await act(async()=>root.render(view('other')));
  await act(async()=>release({success:true,data:{status:'COMMITTED',requestKey:'11111111-1111-4111-8111-111111111111',purchaseId:'old-card'}}));
  expect(transport.getPending).toHaveBeenCalledWith('other');expect(host.textContent).not.toContain('這筆購買已完成');expect(host.textContent).toContain('另一位顧客');expect(transport.acknowledge).not.toHaveBeenCalled();
+});
+
+it('opens the module staff entry instead of the generic course staff action',async()=>{
+ const open=vi.fn(),source={staffAction:{label:'加入為技師',available:(id:string)=>id==='person',open},browseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),bookings:vi.fn().mockResolvedValue({success:true,data:[],hasMore:false}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,source,canManageStaff:false})));
+ await click('加入為技師');expect(open).toHaveBeenCalledWith('person');expect(host.textContent).not.toContain('加入為教練');
 });
