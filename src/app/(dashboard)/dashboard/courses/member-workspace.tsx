@@ -577,7 +577,7 @@ export function CourseMemberWorkspace({
         onAssign={canAssign&&purchasablePlans.length>0 ? id => { if (!open("assign")) return; setPerson(people.find(p => p.id === id) ?? null); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
       planArea === "catalog" ? <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
-        <table data-striped-list className={`${music ? "min-w-[740px]" : "min-w-[1000px] table-fixed"} w-full text-left text-sm`}>
+        <table data-striped-list className={`${groupedFees?"[--list-row-tint:#faf9f6] [--list-row-hover:#f4f2ed]":""} ${music ? "min-w-[740px]" : "min-w-[1000px] table-fixed"} w-full text-left text-sm`}>
           <thead className={` bg-earth-50`}>
             <tr>
               {(music ? [...(groupedFees?[]:["科目類別"]), "收費名稱", "課堂數", "收費金額", "狀態", "操作"] : [groupedFees?"收費名稱":"方案／適用課程", "額度", "售價", "有效天數", "購買方式", "操作"]).map((h) => (

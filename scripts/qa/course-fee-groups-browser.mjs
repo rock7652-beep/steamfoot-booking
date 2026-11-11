@@ -66,6 +66,13 @@ try{
   await page.getByRole('heading',{name:/收費方式/}).waitFor();
  }
  await load();
+ const dataRows=page.locator('tbody > tr[data-row-id]');
+ await page.mouse.move(0,0);
+ assert(await dataRows.nth(0).evaluate(row=>getComputedStyle(row).backgroundColor)==='rgb(255, 255, 255)','White row changed');
+ assert(await dataRows.nth(1).evaluate(row=>getComputedStyle(row).backgroundColor)==='rgb(250, 249, 246)','Tint is not the lighter shade');
+ await dataRows.nth(1).hover();
+ assert(await dataRows.nth(1).evaluate(row=>getComputedStyle(row).backgroundColor)==='rgb(244, 242, 237)','Hover is not the lighter shade');
+ await page.mouse.move(0,0);
  for(const size of [{width:1366,height:900},{width:1920,height:1080},{width:1024,height:768},{width:768,height:1024},{width:600,height:800}]){
   await page.setViewportSize(size);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Whole page overflow');
