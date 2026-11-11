@@ -1,3 +1,5 @@
+import { PlanUsageGrid } from "@/components/admin/plan-usage-grid";
+import { walletPlanProgress } from "@/lib/wallet-plan-progress";
 import { getCustomerPanelContext } from "@/server/actions/customer-panel-context";
 import { CustomerStandaloneDetail } from "../_components/customer-standalone-detail";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
@@ -1333,6 +1335,8 @@ function WalletItem({
           </div>
         </div>
       </div>
+
+      <div className="px-3"><PlanUsageGrid progress={walletPlanProgress(w)} unitLabel="堂" /></div>
 
       {/* 次要操作 — 預設收合（調整堂數 / 延長期限 / 堂數明細）*/}
       {hasManage && (

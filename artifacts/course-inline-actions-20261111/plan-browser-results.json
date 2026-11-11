@@ -1,0 +1,42 @@
+[
+  {
+    "width": 390,
+    "height": 844,
+    "routeUnchanged": true,
+    "panelRetained": true,
+    "scrollPreservedOnOpen": true,
+    "cancelRetainsGrid": true,
+    "realWrites": false,
+    "errors": []
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "routeUnchanged": true,
+    "panelRetained": true,
+    "scrollPreservedOnOpen": true,
+    "cancelRetainsGrid": true,
+    "realWrites": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "routeUnchanged": true,
+    "panelRetained": true,
+    "scrollPreservedOnOpen": true,
+    "cancelRetainsGrid": true,
+    "realWrites": false,
+    "errors": []
+  },
+  {
+    "width": 1366,
+    "height": 900,
+    "routeUnchanged": true,
+    "panelRetained": true,
+    "scrollPreservedOnOpen": true,
+    "cancelRetainsGrid": true,
+    "realWrites": false,
+    "errors": []
+  }
+]

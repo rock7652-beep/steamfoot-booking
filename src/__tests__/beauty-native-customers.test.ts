@@ -1,11 +1,12 @@
 vi.mock('@/server/actions/beauty-technician-service',()=>({saveBeautyTechnicianService:vi.fn()}));
 import {beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({after:vi.fn(),invalidate:vi.fn(),roster:vi.fn(),raw:vi.fn(),manager:vi.fn(),session:vi.fn(),feature:vi.fn(),people:vi.fn(),card:vi.fn(),cards:vi.fn(),holds:vi.fn(),entries:vi.fn(),bookings:vi.fn(),techs:vi.fn(),payments:vi.fn(),tx:vi.fn(),issue:vi.fn(),members:vi.fn(),profile:vi.fn(),note:vi.fn(),intentCommit:vi.fn(),intentFingerprint:vi.fn()}));
+const m=vi.hoisted(()=>({progress:vi.fn(),readTx:vi.fn(),after:vi.fn(),invalidate:vi.fn(),roster:vi.fn(),raw:vi.fn(),manager:vi.fn(),session:vi.fn(),feature:vi.fn(),people:vi.fn(),card:vi.fn(),cards:vi.fn(),holds:vi.fn(),entries:vi.fn(),bookings:vi.fn(),techs:vi.fn(),payments:vi.fn(),tx:vi.fn(),issue:vi.fn(),members:vi.fn(),profile:vi.fn(),note:vi.fn(),intentCommit:vi.fn(),intentFingerprint:vi.fn()}));
 vi.mock('next/cache',()=>({revalidatePath:m.invalidate}));
 vi.mock('next/server',()=>({after:m.after}));
 vi.mock('@/server/actions/beauty-native-roster',()=>({readBeautyNativeRoster:m.roster}));
 vi.mock('@/lib/db',()=>({prisma:{customer:{findMany:m.people}}}));
-vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{$queryRaw:m.raw,beautyCard:{findMany:m.cards,findFirst:m.card},beautyAppointment:{groupBy:m.holds,findMany:m.bookings},beautyLedger:{findMany:m.entries},beautyTechnician:{findMany:m.techs},beautyPayment:{findMany:m.payments}}}));
+vi.mock('@/server/beauty/plan-progress',()=>({beautyPlanProgress:m.progress}));
+vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{$transaction:m.readTx,$queryRaw:m.raw,beautyCard:{findMany:m.cards,findFirst:m.card},beautyAppointment:{groupBy:m.holds,findMany:m.bookings},beautyLedger:{findMany:m.entries},beautyTechnician:{findMany:m.techs},beautyPayment:{findMany:m.payments}}}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
 vi.mock('@/lib/session',()=>({requireSession:m.session}));
 vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:()=>({assignedStaffId:'staff'})}));
@@ -15,7 +16,7 @@ vi.mock('@/server/beauty/purchase-intent',()=>({commitBeautyPlanIntent:m.intentC
 vi.mock('@/server/actions/beauty',()=>({updateBeautyCardMembers:m.members}));
 vi.mock('@/server/actions/course-members',()=>({saveCourseCustomer:m.profile}));
 vi.mock('@/server/actions/course-customer-note',()=>({saveCourseCustomerNote:m.note}));
-import {browseBeautyNativeCards,readBeautyNativeCustomerBookings,readBeautyNativeCustomerPurchases,assignBeautyNativeCard,saveBeautyNativeCardMembers,saveBeautyNativeCustomerProfile} from '@/server/actions/beauty-native-customers';
+import {readBeautyNativeCardProgress,browseBeautyNativeCards,readBeautyNativeCustomerBookings,readBeautyNativeCustomerPurchases,assignBeautyNativeCard,saveBeautyNativeCardMembers,saveBeautyNativeCustomerProfile} from '@/server/actions/beauty-native-customers';
 const a={storeId:'a',userId:'owner',manager:true};
 const card={id:'card',storeId:'a',customerId:'c',memberIds:['c'],planId:'plan',name:'五次方案',sessions:5,remaining:4,listPrice:5000,paid:4500,serviceIds:['s'],allowShared:true,expiresAt:new Date('2090-01-01'),closedAt:null};
 const input={expectedStoreId:'a',customerId:'c',planId:'plan:plan',expiresDate:'2090-01-01',requestKey:'00000000-0000-4000-8000-000000000001',expectedListPrice:5000,expectedStoreCost:0,discountKind:'AMOUNT',discountValue:500,paymentMethod:'BANK_TRANSFER',transferLastFour:'1234'};
@@ -89,4 +90,11 @@ it('keeps descending complete Beauty history when no upcoming mode is requested'
  const query=m.bookings.mock.calls[0][0];
  expect(query.orderBy).toEqual([{startsAt:'desc'},{id:'desc'}]);
  expect(query.where).not.toHaveProperty('status');
+});
+
+it('authorizes both plan and booking reads and scopes the full shared grid before returning dates',async()=>{
+ m.readTx.mockImplementation(async run=>run({beautyCard:{findFirst:m.card}}));m.card.mockResolvedValue({...card,createdAt:new Date('2026-11-01')});m.progress.mockResolvedValue({available:true,total:5,completed:[],voided:[]});
+ const result=await readBeautyNativeCardProgress({cardId:'card',customerId:'c',expectedStoreId:'a'});expect(result.success).toBe(true);expect(m.manager).toHaveBeenCalledWith('wallet.read');expect(m.manager).toHaveBeenCalledWith('booking.read');expect(m.progress).toHaveBeenCalledWith(expect.anything(),'a',expect.objectContaining({id:'card'}),['c']);expect(m.card).toHaveBeenLastCalledWith({where:{id:'card',storeId:'a',memberIds:{has:'c'}}});
+ m.progress.mockClear();expect((await readBeautyNativeCardProgress({cardId:'card',customerId:'c',expectedStoreId:'foreign'})).success).toBe(false);expect(m.progress).not.toHaveBeenCalled();
+ m.manager.mockImplementation(async permission=>{if(permission==='booking.read')throw Error('Forbidden');return a;});expect((await readBeautyNativeCardProgress({cardId:'card',customerId:'c',expectedStoreId:'a'})).success).toBe(false);expect(m.progress).not.toHaveBeenCalled();
 });

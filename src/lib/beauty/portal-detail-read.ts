@@ -12,3 +12,5 @@ async function read<T>(slug:string,params:Record<string,string>):Promise<T>{
 export async function readBeautyCardHistory(cardId:string,slug:string){return read<Awaited<ReturnType<typeof History>>>(slug,{kind:'history',card:cardId});}
 export async function readBeautyOwnIncome(month:string,slug:string){return read<Awaited<ReturnType<typeof Income>>>(slug,{kind:'income',month});}
 export async function readBeautyWorkRecords(input:{month:string;pending:boolean;search:string;page:number},slug:string){return read<Awaited<ReturnType<typeof Records>>>(slug,{kind:'records',month:input.month,pending:input.pending?'1':'0',search:input.search,page:String(input.page)});}
+
+export async function readBeautyCardProgress(cardId:string,slug:string){return read<Awaited<ReturnType<typeof import("@/server/actions/beauty-portal").readBeautyCardProgress>>>(slug,{kind:"progress",card:cardId});}

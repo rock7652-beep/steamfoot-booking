@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({authorize:vi.fn(),membership:vi.fn(),technician:vi.fn(),customer:vi.fn(),portal:vi.fn(),requireBeauty:vi.fn(),feature:vi.fn(),check:vi.fn(),history:vi.fn(),income:vi.fn(),records:vi.fn(),health:vi.fn(),healthEnabled:vi.fn(),slots:vi.fn()}));
+const m=vi.hoisted(()=>({progress:vi.fn(),authorize:vi.fn(),membership:vi.fn(),technician:vi.fn(),customer:vi.fn(),portal:vi.fn(),requireBeauty:vi.fn(),feature:vi.fn(),check:vi.fn(),history:vi.fn(),income:vi.fn(),records:vi.fn(),health:vi.fn(),healthEnabled:vi.fn(),slots:vi.fn()}));
 vi.mock('@/server/services/frontend-preview',()=>({authorizeFrontendPreview:m.authorize}));
 vi.mock('@/server/services/central-member-resolver',()=>({resolveCentralMemberCustomerForStore:m.membership}));
 vi.mock('@/lib/beauty-db',()=>({beautyPrisma:{beautyTechnician:{findFirst:m.technician}}}));
@@ -8,7 +8,7 @@ vi.mock('@/server/beauty/queries',()=>({beautyPortalForActor:m.portal}));
 vi.mock('@/server/beauty/access',()=>({requireBeauty:m.requireBeauty}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
 vi.mock('@/lib/permissions',()=>({checkPermission:m.check}));
-vi.mock('@/server/beauty/portal-details',()=>({beautyCardHistoryForActor:m.history,beautyOwnIncomeForActor:m.income,beautyWorkRecordsForActor:m.records}));
+vi.mock('@/server/beauty/portal-details',()=>({beautyCardProgressForActor:m.progress,beautyCardHistoryForActor:m.history,beautyOwnIncomeForActor:m.income,beautyWorkRecordsForActor:m.records}));
 vi.mock('@/server/services/customer-health-read',()=>({readCustomerHealthForStore:m.health}));
 vi.mock('@/server/beauty/health',()=>({beautyHealthEnabled:m.healthEnabled}));
 vi.mock('@/server/beauty/availability',()=>({beautySlotsForActor:m.slots}));
@@ -22,3 +22,7 @@ it('rechecks authorization for every detail and rejects foreign module data',asy
 it('cannot read member balances or health under a work selection',async()=>{await expect(readBeautyPreview(work,'history','card')).rejects.toThrow();await expect(readBeautyPreview(work,'health',null)).rejects.toThrow();expect(m.history).not.toHaveBeenCalled();expect(m.health).not.toHaveBeenCalled();});
 it('uses the shared availability reader only after resolving the same-store selected member',async()=>{await readBeautyPreview(member,'slots',{date:'2026-11-02'});expect(m.customer).toHaveBeenCalledWith({where:{storeId:'s',id:'c',mergedIntoCustomerId:null},select:{id:true}});expect(m.slots).toHaveBeenCalledWith('member',{date:'2026-11-02'},{storeId:'s',userId:null,customerId:'c'});});
 it('honors disabled health and denies missing preview authority before any details',async()=>{m.healthEnabled.mockResolvedValue(false);await expect(readBeautyPreview(member,'health',null)).rejects.toThrow('健康功能');expect(m.health).not.toHaveBeenCalled();m.authorize.mockRejectedValue(Error('denied'));await expect(readBeautyPreview(work,'income','2026-10')).rejects.toThrow('denied');expect(m.income).not.toHaveBeenCalled();});
+
+it('authorizes the selected preview member before reading a full plan grid and refuses work identity',async()=>{
+ m.progress.mockResolvedValue({progress:{available:true,total:8,completed:[],voided:[]}});await readBeautyPreview(member,'progress','shared');expect(m.progress).toHaveBeenCalledWith({storeId:'s',userId:null,customerId:'c'},'shared');m.progress.mockClear();await expect(readBeautyPreview(work,'progress','shared')).rejects.toThrow('請切換會員身分');expect(m.progress).not.toHaveBeenCalled();
+});

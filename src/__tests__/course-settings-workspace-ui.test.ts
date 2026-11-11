@@ -1,3 +1,4 @@
+vi.mock("@/server/actions/subscription-referral",()=>({createMySubscriptionReferralCode:vi.fn()}));
 // @vitest-environment jsdom
 vi.mock("@/server/actions/course-store-notices",()=>({saveCourseOperationSwitch:vi.fn()}));
 vi.mock("@/server/actions/course-teacher-changes",()=>({loadCourseTeacherChange:vi.fn(),loadCourseTeacherLeave:vi.fn(),changeCourseTeacherBooking:vi.fn()}));
@@ -268,12 +269,12 @@ it("only publishes the saved store profile after confirmation, preserving the gu
  }finally{unsubscribe();}
 });
 
-it("links store referral codes from system plan settings only when supplied by the server",async()=>{
+it("shows the server-supplied referral code in place without a navigation link",async()=>{
  window.history.replaceState(null,'','/s/a/admin/dashboard/courses?view=settings&section=subscription');
- await render({...defaults,subscriptionReferralHref:'/dashboard/settings/subscription-referrals'});
+ await render({...defaults,subscriptionReferral:{storeId:'a',code:'SB-ABCDEFGH',available:true,readError:false,canCreate:true}});
  const section=host.querySelector('section[aria-label="系統方案與用量"]')!;
  expect(section.textContent).toContain('店家推薦碼');
- expect(section.querySelector('a[aria-label="開啟店家推薦碼"]')?.getAttribute('href')).toContain('/dashboard/settings/subscription-referrals');
+ expect(section.textContent).toContain('SB-ABCDEFGH');expect(section.querySelector('a[href*="subscription-referrals"]')).toBeNull();expect(section.textContent).toContain('複製推薦碼');
  await render(defaults);expect(section.textContent).not.toContain('店家推薦碼');
  expect(m.save).not.toHaveBeenCalled();
 });

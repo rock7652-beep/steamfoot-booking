@@ -6,6 +6,16 @@ import {AppError} from '@/lib/errors';
 import {monthRange,toLocalMonthStr} from '@/lib/date-utils';
 import {publicReceipt} from './booking';
 import {beautySessionAdjustmentRecords} from './session-adjustment';
+import {beautyPlanProgress} from './plan-progress';
+export async function beautyCardProgressForActor(a:BeautyActor,cardId:string){
+ z.string().min(1).max(100).parse(cardId);
+ if(!a.customerId)throw new AppError('FORBIDDEN','缺少會員身分');
+ return beautyPrisma.$transaction(async tx=>{
+  const card=await tx.beautyCard.findFirst({where:{id:cardId,storeId:a.storeId,memberIds:{has:a.customerId!}}});
+  if(!card)throw new AppError('FORBIDDEN','無法查看此方案');
+  return {progress:await beautyPlanProgress(tx,a.storeId,card),purchasedAt:card.createdAt.toISOString(),price:card.listPrice,shared:card.memberIds.length>1};
+ },{isolationLevel:'RepeatableRead'});
+}
 export async function beautyCardHistoryForActor(a:BeautyActor,cardId:string){
  z.string().min(1).max(100).parse(cardId);
  const card=await beautyPrisma.beautyCard.findFirst({where:{id:cardId,storeId:a.storeId,memberIds:{has:a.customerId!}},select:{id:true}});

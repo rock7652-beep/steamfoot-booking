@@ -27,6 +27,7 @@ await build({
     });
     builder.onLoad({ filter: /.*/, namespace: "qa" }, args => {
       if (args.path === "navigation") return { contents: `import {useSyncExternalStore} from 'react';
+        for(const name of ['pushState','replaceState']){const original=history[name].bind(history);history[name]=(...args)=>{original(...args);window.dispatchEvent(new Event('qa-route'));};}
         const subscribe=cb=>{window.addEventListener('qa-route',cb);return()=>window.removeEventListener('qa-route',cb)};
         const navigate=href=>{history.replaceState(null,'',href);window.dispatchEvent(new Event('qa-route'))};
         export const usePathname=()=>useSyncExternalStore(subscribe,()=>location.pathname);
@@ -45,19 +46,25 @@ writeFileSync(path.join(output, "fixture.css"), css.css+"\n"+componentCss);
 
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 const results=[];
-try{for(const [width,height] of [[1366,900],[1024,768],[768,1024]]){
+try{for(const [width,height] of [[1366,900],[1024,768],[768,1024],[390,844]]){
  const page=await browser.newPage({viewport:{width,height}}),errors=[];
  page.on('pageerror',error=>errors.push(error.message));
  await page.route('**/*',route=>route.request().isNavigationRequest()?route.fulfill({contentType:'text/html',body:'<!doctype html><html><meta name="viewport" content="width=device-width,initial-scale=1"><body><div id="root"></div></body></html>'}):route.abort());
  await page.goto('http://synthetic.invalid/s/synthetic/admin/dashboard/courses?view=settings&section=subscription');
  await page.addStyleTag({path:path.join(output,'fixture.css')});await page.addScriptTag({path:path.join(output,'fixture.js')});
- const link=page.getByRole('link',{name:'開啟店家推薦碼',exact:true});await link.waitFor();
- const href=await link.getAttribute('href');if(!href.endsWith('/dashboard/settings/subscription-referrals'))throw new Error('Incorrect destination');
- if(await link.evaluate(el=>el.getBoundingClientRect().height)<44)throw new Error('Touch target too small');
+ const href=page.url();
+ await page.getByText('SB-ABCDEFGH',{exact:true}).waitFor();
+ await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__copied=text;}}}));
+ await page.getByRole('button',{name:'複製推薦碼',exact:true}).click();
+ if(await page.evaluate(()=>window.__copied)!=='SB-ABCDEFGH')throw new Error('Wrong copied code');
+ await page.getByRole('button',{name:'複製連結',exact:true}).click();
+ if(await page.evaluate(()=>window.__copied)!=='https://www.steamfoot.com/apply?ref=SB-ABCDEFGH')throw new Error('Wrong copied link');
+ if(page.url()!==href)throw new Error('Referral copy navigated away');
+ if(await page.locator('a[href*="subscription-referrals"]').count())throw new Error('Inline code still has a navigation link');
  if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw new Error('Overflow');
  if(errors.length)throw new Error(errors.join('\n'));
- await page.screenshot({path:path.join(output,`referral-${width}.png`),fullPage:true});
- await page.getByRole('button',{name:'營業與預約',exact:true}).click();
+ await page.screenshot({path:path.join(output,`referral-${width}.png`),fullPage:true});await page.locator('section[aria-label="系統方案與用量"]').screenshot({path:path.join(output,`inline-code-${width}.png`)});
+ if(width<768)await page.locator('nav[aria-label="設定分類"] select').selectOption('booking');else await page.getByRole('button',{name:'營業與預約',exact:true}).click();
  const booking=page.locator('section[aria-label="營業與預約"]');await booking.waitFor();
  const typography=await booking.evaluate(section=>({titles:[...section.querySelectorAll('h2,h3,legend')].filter(el=>el.getClientRects().length&&!el.classList.contains('sr-only')).map(el=>({text:el.textContent,size:getComputedStyle(el).fontSize})),buttons:[...section.querySelectorAll('button')].filter(el=>el.textContent==='修改'&&el.getClientRects().length).map(el=>getComputedStyle(el).fontSize)}));
  if(!typography.titles.some(row=>row.text==='預約開放期限')||typography.titles.some(row=>row.size!=='16px'))throw new Error('Setting titles have inconsistent sizes: '+JSON.stringify(typography));

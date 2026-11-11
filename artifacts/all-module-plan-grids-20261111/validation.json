@@ -1,0 +1,41 @@
+{
+  "base": "51a11b3d81a27e35d12e2031d9ca4823cf8ac12d",
+  "scope": [
+    "Steam admin/customer ledger grids",
+    "Beauty scoped admin/member/preview progress reads",
+    "Music/sports shared compact presentation; point plans unchanged",
+    "Music/sports authorized shared usage names attached to actual dates"
+  ],
+  "tests": {
+    "relatedFiles": 23,
+    "passed": 269
+  },
+  "typescript": "passed",
+  "eslint": "passed",
+  "viewports": [
+    [
+      390,
+      844
+    ],
+    [
+      768,
+      1024
+    ],
+    [
+      1024,
+      768
+    ],
+    [
+      1366,
+      900
+    ]
+  ],
+  "browser": "Real grid and beauty progress components; synthetic data and transport only",
+  "realWrites": false,
+  "limits": [
+    "Not deployed or authenticated production acceptance",
+    "Steam legacy rows without complete dates or matching balance show reconciliation message",
+    "Beauty full shared progress withheld when a manager cannot view all members or historical users"
+  ],
+  "status": "local validation passed; not merged or deployed"
+}

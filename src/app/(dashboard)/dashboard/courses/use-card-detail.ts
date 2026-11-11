@@ -4,7 +4,7 @@ import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { browseCourseCards } from "@/server/actions/course-browse";
 import type { CourseCardView } from "./member-workspace";
 
-export function useCardDetail(open: boolean, cardId: string, opening: number,loadOrScope?:typeof browseCourseCards|"operational"|"legacy") {
+export function useCardDetail(open: boolean, cardId: string, opening: number,loadOrScope?:typeof browseCourseCards|"operational"|"legacy",fresh=false) {
   const load=typeof loadOrScope==="function"?loadOrScope:undefined;
   const dataScope=typeof loadOrScope==="string"?loadOrScope:undefined;
   const reader = usePanelReader(load?"module-card":"course-card", load??browseCourseCards);
@@ -14,6 +14,7 @@ export function useCardDetail(open: boolean, cardId: string, opening: number,loa
   useEffect(() => {
     if (!open || !cardId) return;
     let active = true;
+    if(fresh)reader.invalidate({cardId,dataScope});
     reader.read({ cardId, dataScope }).then(value => {
       if (!active) return;
       setResult(value.success && value.rows[0]
@@ -23,7 +24,7 @@ export function useCardDetail(open: boolean, cardId: string, opening: number,loa
       if (active) setResult({ key, error: "讀取方案失敗，請重試" });
     });
     return () => { active = false; };
-  }, [open, cardId, key, reader, dataScope]);
+  }, [open, cardId, key, reader, dataScope,fresh]);
   const current = open && result?.key === key ? result : undefined;
   const loading = open && !!cardId && !current;
   function retry() {

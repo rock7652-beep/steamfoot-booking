@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {CourseSettingsWorkspaceEntry} from '@/app/(dashboard)/dashboard/courses/non-calendar-view-entries';
-const m = vi.hoisted(() => ({ config: vi.fn(), store: vi.fn(), feature: vi.fn(), view: vi.fn(), usage: vi.fn(), rule: vi.fn(), permission: vi.fn(), user: vi.fn() }));
+const m = vi.hoisted(() => ({ config: vi.fn(), store: vi.fn(), feature: vi.fn(), view: vi.fn(), usage: vi.fn(), rule: vi.fn(), permission: vi.fn(), user: vi.fn(), referral:vi.fn() }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("not found"); }, redirect: () => { throw new Error("redirect"); } }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
@@ -14,6 +14,7 @@ vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature, isStoreFeatur
 vi.mock("@/lib/shop-config", () => ({ DEFAULT_BOOKABLE_DAYS_AHEAD: 14, TRIAL_DEFAULTS: { trialEnabled: true, trialDefaultPrice: 499 } }));
 vi.mock("@/components/desktop", () => ({ PageShell: () => null, PageHeader: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/courses/settings-workspace", () => ({ CourseSettingsWorkspace: () => null }));
+vi.mock("@/server/queries/subscription-referral-code",()=>({readStoreSubscriptionReferralCode:m.referral}));
 import { CourseSharedHub } from "@/app/(dashboard)/dashboard/courses/shared-hub";
 import { FEATURES } from "@/lib/feature-flags";
 vi.mock("@/server/queries/course-setup", () => ({getCourseSetup:async()=>null}));
@@ -23,7 +24,7 @@ async function props() {
  return find(tree)!;
 }
 beforeEach(() => {
-  vi.resetAllMocks(); m.user.mockResolvedValue({role:"OWNER",staffId:"staff"}); m.permission.mockResolvedValue(true); m.config.mockResolvedValue(null); m.store.mockResolvedValue({ name: "A", plan: "GROWTH", currentSubscription: null, subscriptions: [] }); m.feature.mockResolvedValue(false); m.view.mockResolvedValue(null); m.usage.mockResolvedValue({ metrics: [] });
+  vi.resetAllMocks();m.referral.mockResolvedValue({available:true,code:"SB-ABCDEFGH",readError:false}); m.user.mockResolvedValue({role:"OWNER",staffId:"staff"}); m.permission.mockResolvedValue(true); m.config.mockResolvedValue(null); m.store.mockResolvedValue({ name: "A", plan: "GROWTH", currentSubscription: null, subscriptions: [] }); m.feature.mockResolvedValue(false); m.view.mockResolvedValue(null); m.usage.mockResolvedValue({ metrics: [] });
 });
 describe("course settings server summaries", () => {
   it("uses central defaults without inventing an inactive trial or fake subscription", async () => {
@@ -58,15 +59,16 @@ it("starts feature and permitted usage reads while shop configuration is pending
  finally { finish(null); await pending; }
 });
 
-it("exposes the existing store referral destination only when enabled and permitted",async()=>{
+it("loads the inline referral only for the authorized owner when enabled",async()=>{
  vi.stubEnv('SUBSCRIPTION_REFERRALS_ENABLED','true');
  try{
- expect((await props()).subscriptionReferralHref).toBe('/dashboard/settings/subscription-referrals');
+ expect((await props()).subscriptionReferral).toMatchObject({storeId:'a',code:'SB-ABCDEFGH',available:true,canCreate:true});expect(m.referral).toHaveBeenCalledExactlyOnceWith('a');
  m.permission.mockImplementation(async (_role,_staff,permission)=>permission!=='staff.view');
- expect((await props()).subscriptionReferralHref).toBeUndefined();
+ expect((await props()).subscriptionReferral).toBeUndefined();
  m.permission.mockResolvedValue(true);m.user.mockResolvedValue({role:'PARTNER',staffId:'partner'});
- expect((await props()).subscriptionReferralHref).toBeUndefined();
+ expect((await props()).subscriptionReferral).toBeUndefined();
  m.user.mockResolvedValue({role:'OWNER',staffId:'staff'});vi.stubEnv('SUBSCRIPTION_REFERRALS_ENABLED','false');
- expect((await props()).subscriptionReferralHref).toBeUndefined();
+ expect((await props()).subscriptionReferral).toBeUndefined();
+  expect(m.referral).toHaveBeenCalledTimes(1);
  }finally{vi.unstubAllEnvs();}
 });

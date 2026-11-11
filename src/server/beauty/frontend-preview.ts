@@ -10,7 +10,7 @@ import {AppError} from '@/lib/errors';
 import {requireStoreFeature} from '@/lib/feature-gate';
 import {checkPermission} from '@/lib/permissions';
 import {FEATURES} from '@/lib/feature-flags';
-import {beautyCardHistoryForActor,beautyOwnIncomeForActor,beautyWorkRecordsForActor} from './portal-details';
+import {beautyCardProgressForActor,beautyCardHistoryForActor,beautyOwnIncomeForActor,beautyWorkRecordsForActor} from './portal-details';
 import {readCustomerHealthForStore} from '@/server/services/customer-health-read';
 import {beautyHealthEnabled} from './health';
 import {beautySlotsForActor} from './availability';
@@ -43,9 +43,9 @@ export async function loadBeautyPreview(selection:FrontendPreviewSelection,month
 /** GET-only reads. The selected identity is authorized anew for every request. */
 export async function readBeautyPreview(selection:FrontendPreviewSelection,kind:string,input:unknown){
  const {a}=await actor(selection);
- if(kind==='history'){
+ if(kind==='history'||kind==='progress'){
   if(selection.role!=='member')throw new AppError('FORBIDDEN','請切換會員身分');
-  return beautyCardHistoryForActor(a,z.string().min(1).max(180).parse(input));
+  return kind==='progress'?beautyCardProgressForActor(a,z.string().min(1).max(100).parse(input)):beautyCardHistoryForActor(a,z.string().min(1).max(180).parse(input));
  }
  if(kind==='income'||kind==='records'){
   if(selection.role!=='work'||!a.technicianId)throw new AppError('FORBIDDEN','請切換技師身分');

@@ -14,10 +14,11 @@ async function hqActor(){const user=await requireAdminSession();if(getEffectiveA
 function errorMessage(error:unknown){return error instanceof Error&&!error.message.includes("\n")&&error.message.length<160&&/[\u3400-\u9fff]/.test(error.message)&&!error.message.startsWith("Invalid")?error.message:"操作未完成，請核對資料或重新整理後重試。";}
 export async function createMySubscriptionReferralCode(_previous:ReferralActionState,form:FormData):Promise<ReferralActionState>{
   try{
-    if([...form.keys()].some(key=>key!=="$ACTION_ID"&&key!=="$ACTION_REF"&&!key.startsWith("$ACTION_")))throw new Error("推薦碼只依目前登入店家建立");
+    if([...form.keys()].some(key=>key!=="expectedStoreId"&&key!=="$ACTION_ID"&&key!=="$ACTION_REF"&&!key.startsWith("$ACTION_")))throw new Error("推薦碼只依目前登入店家建立");
     const user=await requireStaffSession();
     if(getEffectiveActorRole(user)!=="OWNER")throw new Error("此功能僅限店家老闆使用");
     const storeId=await getActiveStoreForRead(user);if(!storeId)throw new Error("請先選擇店家");
+    if(form.has("expectedStoreId")&&form.get("expectedStoreId")!==storeId)throw new Error("門市已切換，請重新開啟設定");
     // Referral management does not change operational access or reopen an expired subscription.
     await requirePermission("staff.view",undefined,{storeId});await requireSubscriptionReferralsReady();
     const code=await ensureReferralCode(referralDatabase,storeId,user.id);

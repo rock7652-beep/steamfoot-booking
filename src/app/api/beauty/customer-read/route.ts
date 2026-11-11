@@ -3,12 +3,12 @@ import {z} from 'zod';
 import {beautyManager} from '@/server/beauty/access';
 import {AppError,handleActionError} from '@/lib/errors';
 import {readBeautyCustomerSupport} from '@/server/beauty/customer-support-read';
-import {readBeautyNativeSingleServices,browseBeautyNativeCards,readBeautyNativeCardReservations,readBeautyNativeCustomerBookings,readBeautyNativeCustomerPurchases,beautyNativeCheckoutCashStatus} from '@/server/actions/beauty-native-customers';
+import {readBeautyNativeCardProgress,readBeautyNativeSingleServices,browseBeautyNativeCards,readBeautyNativeCardReservations,readBeautyNativeCustomerBookings,readBeautyNativeCustomerPurchases,beautyNativeCheckoutCashStatus} from '@/server/actions/beauty-native-customers';
 import {traceBeautyRead,beautyReadTimingHeader,beautyReadStep} from '@/server/beauty/read-timing';
 import {withBeautyReadScope} from '@/server/beauty/request-scope';
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'private, no-store','Vary':'Cookie'};
-const schema=z.object({store:z.string().min(1).max(180),operation:z.enum(['cards','reservations','bookings','purchases','support','cash','services']),input:z.unknown(),offset:z.number().int().nonnegative().optional(),range:z.object({from:z.string().optional(),to:z.string().optional(),mode:z.enum(["all","upcoming"]).optional()}).optional()});
+const schema=z.object({store:z.string().min(1).max(180),operation:z.enum(['progress','cards','reservations','bookings','purchases','support','cash','services']),input:z.unknown(),offset:z.number().int().nonnegative().optional(),range:z.object({from:z.string().optional(),to:z.string().optional(),mode:z.enum(["all","upcoming"]).optional()}).optional()});
 export async function POST(request:NextRequest){
  try{
   const d=schema.parse(await request.json());
@@ -18,6 +18,7 @@ export async function POST(request:NextRequest){
    if(d.operation==='support')return readBeautyCustomerSupport(z.string().min(1).max(180).parse(d.input));
    return beautyReadStep('data',()=>beautyReadStepPort());
    async function beautyReadStepPort(){
+    if(d.operation==='progress')return readBeautyNativeCardProgress(d.input);
     if(d.operation==='services')return readBeautyNativeSingleServices(d.input,d.offset);
     if(d.operation==='cards')return browseBeautyNativeCards(d.input);
     if(d.operation==='reservations')return readBeautyNativeCardReservations(d.input);

@@ -16,3 +16,5 @@ export function beautyCustomerReaders(store:string):Pick<CourseCustomerSource,'b
 }
 
 export function readBeautySingleServices(store:string,customerId:string,offset=0){return read<Awaited<ReturnType<typeof import('@/server/actions/beauty-native-customers').readBeautyNativeSingleServices>>>(store,'services',customerId,offset);}
+
+export function readBeautyNativeCardProgress(store:string,customerId:string,cardId:string){return read<Awaited<ReturnType<typeof import("@/server/actions/beauty-native-customers").readBeautyNativeCardProgress>>>(store,"progress",{expectedStoreId:store,customerId,cardId});}

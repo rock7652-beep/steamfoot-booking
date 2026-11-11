@@ -1,4 +1,6 @@
 "use client";
+import { MySubscriptionReferralCode } from "@/components/subscription-referrals/my-code";
+import { createMySubscriptionReferralCode } from "@/server/actions/subscription-referral";
 import {PublicBookingLinkRow} from "@/components/settings/public-booking-link-row";
 import {useCoursePersonnelText,useCoursePersonnelLabel} from "@/components/course-personnel-label";
 
@@ -53,7 +55,7 @@ export type CourseSettingsWorkspaceProps = {
   canTrial?: boolean; canHours?: boolean; canDutyRead?: boolean; canDutyManage?: boolean; canReminders?: boolean; canCare?: boolean;
   // Destination permissions only; HQ feature presentation comes from the shared provider.
   canDigitalButler?: boolean; canReferralShare?: boolean; canUnassignedPlans?: boolean; subscriptionSummary?: string;
-  subscriptionReferralHref?:string;
+  subscriptionReferral?:{storeId:string;code:string|null;available:boolean;readError:boolean;canCreate:boolean};
   bookingOpensAt?: string | null; bookingWindowDays?: number; bookableUntilDate?: string | null; dutyEnabled?: boolean;
   trialEnabled?: boolean; trialPrice?: number; usageMetrics?: UsageMetric[];
   assignedSchedulingEnabled?:boolean;
@@ -267,7 +269,7 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
       <section hidden={active !== "subscription"} aria-label="系統方案與用量">{props.moduleContent ? props.moduleContent.sections.subscription : <>
         {props.source?.subscription??<><Row title="店家系統方案" summary={[props.planLabel, props.subscriptionSummary].filter(Boolean).join("・")} />
         {props.usageMetrics && <Row title="目前用量" summary={props.usageMetrics.map(metric => `${metric.label} ${metric.current.toLocaleString("zh-TW")} / ${metric.limit === null ? "不限" : metric.limit.toLocaleString("zh-TW")}`).join("・")} />}</>}
-       </>}{props.subscriptionReferralHref && <Row title="店家推薦碼" summary="查看推薦碼、推薦連結與免費天數" href={props.subscriptionReferralHref} action="查看" />}</section>
+       </>}{props.subscriptionReferral && <MySubscriptionReferralCode key={props.subscriptionReferral.storeId} inline initialCode={props.subscriptionReferral.code} expectedStoreId={props.subscriptionReferral.storeId} canCreate={props.subscriptionReferral.canCreate} createAction={createMySubscriptionReferralCode} unavailable={props.subscriptionReferral.available?undefined:props.subscriptionReferral.readError?"暫時無法讀取推薦碼，請重新整理重試":"推薦活動尚未開通"} />}</section>
     {leaveHref && <RightSheet presentation="centered" open compact width={480} onClose={() => setLeaveHref(null)} labelledById="course-settings-leave-title"><header className="p-4"><h2 id="course-settings-leave-title" className="font-semibold">{pending ? "設定仍在儲存" : "尚有未儲存的修改"}</h2></header><div className="p-4"><p>{pending ? "請等儲存完成後再離開。" : "離開將捨棄尚未儲存內容；切換左側設定分類則會保留。"}</p><div className="mt-4 flex flex-wrap gap-3"><button type="button" className="min-h-11 rounded border px-4" onClick={() => setLeaveHref(null)}>繼續編輯</button>{!pending && <button type="button" className="min-h-11 rounded bg-primary-700 px-4 text-white" onClick={() => { allowLeave.current = true; window.location.assign(leaveHref); }}>捨棄修改並離開</button>}</div></div></RightSheet>}
     {!props.moduleContent && !props.source && isCourseSettingsPanel(panel) && featurePanelAllowed && <CourseSettingsPanel panel={panel}>{props.panelContent}</CourseSettingsPanel>}
   </SettingsWorkspaceFrame></SettingsPanelContext.Provider></SettingsHrefContext.Provider>;
