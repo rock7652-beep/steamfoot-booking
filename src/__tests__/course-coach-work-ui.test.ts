@@ -361,13 +361,17 @@ describe("coach daily work interactions", () => {
 });
 
 describe("member plan and purchase navigation", () => {
-  it("opens the next booking details in place without a route change", async () => {
+  it("opens the next booking list in place and expands its details without a route change", async () => {
     const data = memberProps();
     data.bookings[0].startsAt = data.nextBooking!.startsAt;
     await act(async()=>root.render(createElement(CoursePortalClient,data)));
     await act(async()=>host.querySelector<HTMLButtonElement>('.cp-next button')!.click());
     expect(host.querySelector('.cp-booking-heading button')).toBeNull();
-    expect(host.querySelector('.cp-booking-heading time')?.getAttribute('dateTime')).toBe(data.nextBooking!.startsAt);
+    expect(host.querySelector('[data-customer-booking-row] summary time')?.getAttribute('dateTime')).toBe(data.nextBooking!.startsAt);
+    const row=host.querySelector<HTMLDetailsElement>('[data-customer-booking-row]')!;
+    expect(row.open).toBe(false);
+    await act(async()=>row.querySelector<HTMLElement>('summary')!.click());
+    expect(row.open).toBe(true);
     expect(host.querySelector('.cp-booking-detail')?.textContent).toContain('本次使用 2 點');
     expect(m.replace).not.toHaveBeenCalled();
   });
@@ -433,9 +437,13 @@ describe("member plan and purchase navigation", () => {
     expect(host.querySelector(".cp-lesson")?.textContent).not.toContain("教練：");
     expect(host.querySelector(".cp-lesson")?.textContent).not.toContain("教室：");
   });
-  it("keeps essential booking information and details directly visible inside the card", async () => {
+  it("keeps essential booking information in a compact row and opens its details in place", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings",serverNow:Date.parse("2026-09-20T13:00:00+08:00")})));
-    expect(host.querySelector(".cp-booking-location")?.textContent).toBe("林教練 · A 教室");
+    const row=host.querySelector<HTMLDetailsElement>("[data-customer-booking-row]")!;
+    expect(row.querySelector("summary")?.textContent).toContain("林教練 · A 教室");
+    expect(row.open).toBe(false);
+    await act(async()=>row.querySelector<HTMLElement>("summary")!.click());
+    expect(row.open).toBe(true);
     expect(host.textContent).toContain("待確認出席");
     expect(host.querySelector(".cp-booking-detail")).not.toBeNull();
     expect(host.querySelector(".cp-booking-detail ul")).not.toBeNull();
@@ -550,7 +558,8 @@ describe("member plan and purchase navigation", () => {
       {id:"4",name:"瑜珈四",startsAt:"2026-08-30T04:00:00Z",customerId:"member",customerName:"會員本人",status:"已取消",used:0},
     ]}}] as unknown as CoursePortalData["cards"];
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"plans"})));
-    expect(host.querySelector(".cp-plan")?.hasAttribute("open")).toBe(true);
+    expect(host.querySelector(".cp-plan")?.tagName).toBe("ARTICLE");
+    expect(host.querySelector(".cp-plan summary")).toBeNull();
     expect([...host.querySelectorAll(".cp-history-list thead th")].map(el=>el.textContent)).toEqual(["日期時間","課程","使用點數"]);
     expect(host.querySelectorAll(".cp-history-list tr[data-lesson]")).toHaveLength(3);
     expect(host.textContent).toContain("2026 年 10 月"); expect(host.textContent).toContain("2026 年 9 月");
@@ -563,7 +572,8 @@ describe("member plan and purchase navigation", () => {
     expect(host.textContent).toContain("2026 年 8 月");
     await act(async()=>host.querySelector<HTMLButtonElement>(".cp-nav button:last-child")!.click()); await click("我的方案");
     expect(host.querySelectorAll(".cp-history-list tr[data-lesson]")).toHaveLength(4);
-    expect(host.querySelector(".cp-plan")?.hasAttribute("open")).toBe(true);
+    expect(host.querySelector(".cp-plan")?.tagName).toBe("ARTICLE");
+    expect(host.querySelector(".cp-plan summary")).toBeNull();
     await click("收起紀錄"); expect(host.querySelectorAll(".cp-history-list tr[data-lesson]")).toHaveLength(3);
     await act(async()=>{ (host.querySelector(".cp-plan-row") as HTMLElement).click(); await new Promise(resolve=>setTimeout(resolve,0)); });
     expect(host.querySelector(".cp-plan")?.hasAttribute("open")).toBe(false);
@@ -793,7 +803,7 @@ describe("simple companion booking", () => {
     const names=[...host.querySelectorAll(".cp-booking-person-line strong")].map(node=>node.textContent);
     expect(names).toEqual(["🔵 會員本人","🟠 家人"]);
     expect([...host.querySelectorAll("button")].filter(button=>button.textContent==="取消")).toHaveLength(2);
-    expect(host.querySelector(".cp-booking-location")?.textContent).toContain("共 2 人");
+    expect(host.querySelector("[data-customer-booking-row] summary")?.textContent).toContain("共 2 位學員");
     expect(host.querySelector(".cp-booking-heading button")).toBeNull();
   });
 
