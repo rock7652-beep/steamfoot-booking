@@ -1,3 +1,9 @@
+// Fee-list release review uses an isolated local UI preview only.
+// Stop connected build providers before any database work on this branch.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/course-fee-groups-20261111")) {
+  throw new Error("Fee-list review cannot deploy or execute migrations; use the isolated local preview.");
+}
+
 // Exact, loopback-only rehearsal of this dispatcher. It cannot use deployed metadata.
 if (process.env.DIGITAL_MANAGER_MIGRATION_QA === '1') {
   const {assertDigitalManagerLocalEnvironment,runDigitalManagerLocalRehearsal}=await import('./digital-manager-migration-review.mjs');
