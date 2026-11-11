@@ -1,5 +1,6 @@
 // Read-only release gate. Never applies DDL, imports rows or sends notifications.
 import {fileURLToPath} from 'node:url';
+import {resolve} from 'node:path';
 import {MUSIC_OPENING_BRANCH} from './music-opening-preview-scope.mjs';
 import {assertMusicNativeReleaseEnvironment,MUSIC_RELEASE_BRANCH} from './music-native-workflow-scope.mjs';
 import {purchaseIntentAccessPreflight} from './purchase-intent-release-preflight.mjs';
@@ -37,6 +38,14 @@ export async function runMusicNativeSchemaPreflight(env=process.env){
  }finally{await client.end();}
 }
 export async function musicBuildPreflight(env=process.env){
+ // Remove review-only image inputs before Next/Vercel captures immutable paths.
+ // Scope checks prevent any mutation of a developer checkout or Preview build.
+ if(env.VERCEL==='1'&&env.VERCEL_ENV==='production'&&env.VERCEL_PROJECT_ID==='prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR'){
+  const {archiveProductionReviewInputs}=await import('./production-postgres-packaging.mjs');
+  const archive=archiveProductionReviewInputs(env,resolve(import.meta.dirname,'..'));
+  console.info('[production-review-inputs]',JSON.stringify({archived:archive.count,backupOutsideBuildRoot:true,archive:archive.archive}));
+ }
+
  if(env.VERCEL_ENV==='production'&&env.ADDONS_DATABASE_URL){
   const {execFileSync}=await import('node:child_process');
   execFileSync(process.execPath,['--conditions=react-server','--import','tsx',fileURLToPath(new URL('./addons-production-readiness.ts',import.meta.url))],{env,stdio:'inherit'});
