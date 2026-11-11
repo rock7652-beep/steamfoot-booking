@@ -110,7 +110,7 @@ type State =
       expired: LiffWalletRow[];
       history: LiffWalletRow[];
       makeupCredits: LiffMakeupCreditRow[];
-      consumption: LiffConsumptionRow[];
+      consumption: LiffConsumptionRow[] | null;
     };
 
 interface Props {
@@ -126,7 +126,7 @@ interface Props {
 
 export function WalletsList({ initialWallets, storeSlug, storeName, liffId, contactUrl, dataSource, allowBrowserSession = false }: Props) {
   const router = useRouter();
-  const [state, setState] = useState<State>(initialWallets?{kind:"ready",...initialWallets,consumption:[]}:{kind:"initializing"});
+  const [state, setState] = useState<State>(initialWallets?{kind:"ready",...initialWallets,consumption:null}:{kind:"initializing"});
 
   useEffect(() => {
     let cancelled = false;
@@ -300,7 +300,7 @@ export function WalletReadyView({
   expired: LiffWalletRow[];
   history: LiffWalletRow[];
   makeupCredits: LiffMakeupCreditRow[];
-  consumption: LiffConsumptionRow[];
+  consumption: LiffConsumptionRow[] | null;
   storeSlug: string;
   /** PR-E：per-store LINE OA 連結。 */
   contactUrl: string;
@@ -320,7 +320,7 @@ export function WalletReadyView({
         <button type="button" role="tab" aria-selected={activeTab === "plans"} onClick={() => setActiveTab("plans")} className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${activeTab === "plans" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`}>我的方案</button>
         <button type="button" role="tab" aria-selected={activeTab === "consumption"} onClick={() => setActiveTab("consumption")} className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${activeTab === "consumption" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`}>消費紀錄</button>
       </div>}
-      {activeTab === "consumption" ? <ConsumptionList rows={consumption} /> : <>
+      {activeTab === "consumption" ? consumption===null?<p role="status" className="px-4 py-3 text-earth-600">讀取消費紀錄中…</p>:<ConsumptionList rows={consumption} /> : <>
       {isEmpty ? (
         <EmptyState storeSlug={storeSlug} contactUrl={contactUrl} dataSource={dataSource} />
       ) : (
