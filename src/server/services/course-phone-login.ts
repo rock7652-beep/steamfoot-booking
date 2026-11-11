@@ -29,6 +29,14 @@ export async function requestCoursePhoneLogin(input: {
     await tx.$queryRaw`SELECT "id" FROM "Store" WHERE "id" = ${input.storeId} FOR UPDATE`;
     const rows = await coursePhoneGroupRows(tx, input.storeId, phone);
     if (!rows.length) return { status: "needs_name" as const };
+    // A single unowned learner can complete first activation with their name.
+    // Never claim or expose the record from the phone-only lookup itself.
+    const only = rows.length === 1 ? rows[0] : null;
+    if (only && only.phone === phone && !only.userId && !only.identityLinks.length &&
+        !only.googleId && !only.lineBindingCode &&
+        (!only.lineUserId || (input.identityProvider === "line" && only.lineUserId === input.lineUserId))) {
+      return { status: "needs_name" as const };
+    }
     // Prefer the original personal-phone record; later siblings are contact-only.
     const anchor = rows.find(row => row.phone === phone) ?? rows[0];
     const key = { storeId: input.storeId, lineUserId: keyFor(input.identityProvider, input.lineUserId) };

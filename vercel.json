@@ -201,7 +201,8 @@
       "fix/course-plan-grid-entrypoints-20261110": false,
       "feat/course-subject-entitlement-20261110": false,
       "fix/course-copy-density-20261110": false,
-      "fix/assigned-unlimited-20261111": false
+      "fix/assigned-unlimited-20261111": false,
+      "fix/course-single-first-login-20261111": false
     }
   }
 }
