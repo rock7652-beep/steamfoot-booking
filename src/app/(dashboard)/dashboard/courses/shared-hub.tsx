@@ -9,6 +9,7 @@ import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
+import { readStoreSubscriptionReferralCode } from "@/server/queries/subscription-referral-code";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
@@ -72,6 +73,8 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
     const canAddOns=process.env.COURSE_ADD_ONS_ENABLED==='1'&&!readOnly&&await checkPermission(user.role,user.staffId,'add_ons.manage')&&await hasStoreFeature(storeId,FEATURES.ADD_ONS)&&(!music||await (await import("@/server/services/music-finance-access")).readMusicFinanceScope(user,storeId)===null);
     const subscription = store?.currentSubscription ?? store?.subscriptions[0];
     const subscriptionSummary = subscription ? effectiveStateLabel(computeLifecycle(subscription, toLocalDateStr()).state) + (subscription.expiresAt ? " · 到期日 " + subscription.expiresAt.toISOString().slice(0, 10) : " · 未設定到期日") : "尚無訂閱紀錄；續約或調整方案請聯絡總部。";
+    const canSubscriptionReferral=process.env.SUBSCRIPTION_REFERRALS_ENABLED === "true" && getEffectiveActorRole(user) === "OWNER" && await checkPermission(user.role,user.staffId,"staff.view");
+    const subscriptionReferral=canSubscriptionReferral?{...await settingsStep("read_subscription",()=>readStoreSubscriptionReferralCode(storeId)),storeId,canCreate:!readOnly}:undefined;
     // Direct panel queries must not render protected server content for a hidden/locked
     // feature, an unauthorized account or a read-only store view.
     const featurePanelAllowed = panel === "addons" ? canAddOns : panel === "reminders" ? !readOnly && canEdit && lineReminder
@@ -91,7 +94,7 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
         canReferralShare={canPayment && !readOnly}
         canUnassignedPlans={canPlans && await checkPermission(user.role,user.staffId,"customer.read")}
         subscriptionSummary={canPayment ? subscriptionSummary : undefined}
-        subscriptionReferralHref={process.env.SUBSCRIPTION_REFERRALS_ENABLED === "true" && getEffectiveActorRole(user) === "OWNER" && await checkPermission(user.role,user.staffId,"staff.view") ? "/dashboard/settings/subscription-referrals" : undefined}
+        subscriptionReferral={subscriptionReferral}
         today={toLocalDateStr()}
         trialSettings={{ trialEnabled: config?.trialEnabled ?? TRIAL_DEFAULTS.trialEnabled, trialDefaultPrice: Number(config?.trialDefaultPrice ?? TRIAL_DEFAULTS.trialDefaultPrice), trialAllowPriceEdit: config?.trialAllowPriceEdit ?? TRIAL_DEFAULTS.trialAllowPriceEdit, trialMinPrice: Number(config?.trialMinPrice ?? TRIAL_DEFAULTS.trialMinPrice), trialMaxPrice: Number(config?.trialMaxPrice ?? TRIAL_DEFAULTS.trialMaxPrice) }}
         bookingOpensAt={config?.bookingOpensAt?.toISOString()??null}

@@ -1,0 +1,36 @@
+{
+  "status": "local-only; not published",
+  "base": "f03390c73d87839cba4c534e6bb7f85590c648e1",
+  "changes": [
+    "Display existing store referral code in system-plan settings with copy code/link; no navigation",
+    "No automatic code creation; explicit button uses existing owner action with displayed-store assertion",
+    "Open plan expiry, close, backfill and void controls under the original plan grid using the existing confirmation controls",
+    "Re-read plan details on opening; reject changed or protected card states; retain customer panel and opening scroll position"
+  ],
+  "checks": {
+    "tests": {
+      "files": 9,
+      "passed": 140
+    },
+    "eslint": "passed",
+    "typescript": "passed",
+    "browserWidths": [
+      390,
+      768,
+      1024,
+      1366
+    ],
+    "planWidths": [
+      390,
+      768,
+      1366
+    ],
+    "realWrites": false
+  },
+  "evidenceScope": "Actual component synthetic browser previews plus parent workspace integration tests with isolated transport",
+  "limits": [
+    "Not deployed; production remains f03390c7",
+    "No signed-in production UI or real LINE acceptance",
+    "Native browser load failure not reproduced; recent errors for both rewritten and HQ courses paths returned none; unauthenticated exact URL redirects to login normally"
+  ]
+}

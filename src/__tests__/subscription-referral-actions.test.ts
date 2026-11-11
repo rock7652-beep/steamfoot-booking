@@ -51,3 +51,8 @@ describe('subscription referral action authority',()=>{
  });
 
 });
+
+it('rejects an inline creation if the active store changed, while preserving legacy creation',async()=>{
+ expect((await createMySubscriptionReferralCode(initial,form({expectedStoreId:'other-store'}))).success).toBe(false);expect(m.code).not.toHaveBeenCalled();
+ expect((await createMySubscriptionReferralCode(initial,form({expectedStoreId:'owned-store'}))).success).toBe(true);expect(m.code).toHaveBeenCalledOnce();
+});

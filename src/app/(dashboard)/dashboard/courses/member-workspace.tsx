@@ -100,6 +100,7 @@ const field =
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 import {PlanManagementControls} from '@/components/admin/plan-management-controls';
+import {CourseInlinePlanManagement} from './inline-plan-management';
 import {PlanGridActions,type PlanGridAction} from '@/components/admin/plan-grid-actions';
 import {saveCourseSessionAdjustment} from '@/server/actions/course-session-adjustment';
 import {saveCourseCardManagement} from '@/server/actions/course-card-management';
@@ -245,9 +246,11 @@ export function CourseMemberWorkspace({
   const [retainedPlanUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
   const planUnit=compactCatalog?"all":retainedPlanUnit;
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
+  const [inlineEntry,setInlineEntry]=useState<{storeId:string;customerId:string;cardId:string;action:PlanGridAction}|null>(null);
+  useEffect(()=>{setInlineEntry(null);},[previewStoreId,person?.id]);
   function canLeave() { return !pending && !formPending && !formUncertain && !supportGuard.pending; }
   function changePurchaseSelection(action:()=>void){if(pending || formPending || formUncertain)return;if(music)setDirty(false);action();}
-  function close() { if (canLeave()) { setPanel(null); setDirty(false); onPanelClose?.(); } }
+  function close() { if (canLeave()) { setPanel(null); setInlineEntry(null); setDirty(false); onPanelClose?.(); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
   const [cardId, setCardId] = useState(initialCardId??"");
@@ -275,11 +278,12 @@ export function CourseMemberWorkspace({
   }
   function overviewProgress(value:CourseCardView) {
     if(source||!canReadBookings||!previewStoreId||!person||value.unit!=="SESSION")return null;
-    return <><CourseCardProgress showSummary={false} cardId={value.id} customerId={person.id} storeId={previewStoreId} dataScope={dataScope} revision={cardRevision}/>{canManageCards&&!value.closed&&!value.openingImported&&!value.templateRestricted&&<PlanGridActions label={value.name} disabled={pending||formPending} onSelect={action=>selectCard(value,action)}/>}</>;
+    return <><CourseCardProgress showSummary={false} cardId={value.id} customerId={person.id} storeId={previewStoreId} dataScope={dataScope} revision={cardRevision}/>{canManageCards&&!value.closed&&!value.openingImported&&!value.templateRestricted&&(inlineEntry?.cardId===value.id&&inlineEntry.customerId===person.id&&inlineEntry.storeId===previewStoreId?<CourseInlinePlanManagement key={`${previewStoreId}:${person.id}:${value.id}`} storeId={previewStoreId} customerId={person.id} cardId={value.id} action={inlineEntry.action} dataScope={dataScope} revision={cardRevision} music={music} onDirtyChange={setDirty} onPending={setFormPending} onCancel={()=>{setInlineEntry(null);setDirty(false);}} onSaved={()=>{setInlineEntry(null);setDirty(false);setCardRevision(n=>n+1);publishMusicFinanceChange();router.refresh();}}/>:<PlanGridActions label={value.name} disabled={pending||formPending||dirty||!!inlineEntry} onSelect={action=>{if(canLeave()&&!dirty)setInlineEntry({storeId:previewStoreId,customerId:person.id,cardId:value.id,action});}}/>)}</>;
   }
   function open(value: typeof panel) {
     if (!canLeave()) return false;
     rememberProfileScroll();
+    setInlineEntry(null);
     setDirty(false);
     if(value === "card")setCardEntry(null);
     if(value === "assign" || value === "card")detailReturnTab.current=personTab;
