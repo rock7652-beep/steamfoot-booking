@@ -14,11 +14,15 @@
 
 ## 驗證
 
-- 11 檔相關回歸 183 項通過，包含電話 lookup、首次 activation、既有登入／恢復、多人授權、方案格與共用電話 schema 權限測試。
+- 13 檔相關回歸 234 項通過，包含電話 lookup、首次 activation、既有登入／恢復、LIFF exchange／體驗入口、多人授權、方案格與共用電話 schema 權限測試。
 - 額外 `course-single-first-login.pg.test.ts` 在明確 loopback `_test` PostgreSQL 的隨機 schema 執行，6 項通過：中央／獨立 Provider 沿用原學員、同電話多人與姓名不符不認領、兩個 LINE 併發只成功一個、稽核失敗時 User／Account／link／顧客更新全部回滾。只 mock 呼叫前已驗 token 的身分邊界，業務交易與資料讀寫使用真 PostgreSQL。結束後清除測試 schema。
 - 完整 TypeScript 使用單次 6GiB heap 通過；首次以 Node 預設 heap 執行遇記憶體上限，沒有記成通過。變更 TS／TSX／瀏覽器腳本 ESLint 與 `git diff --check` 通過。
 - `scripts/qa/course-single-first-login-browser.mjs` 使用實際 OnboardingForm 及 CSS、合成 SDK／actions，所有網路封鎖。在390／440／768寬度各驗單人及多人共6情境：初次只填手機；單人補姓名不帶入 LINE 暱稱、成功重新驗 session 後導回；多人仍呈現核對碼；無水平溢出或 pageerror。
 - UI 輸出 `/tmp/course-single-first-login-ui/`。腳本初版的 router stub 每次 render 換參考及電話 label 包含輔助文字造成測試等待失敗，已修正測試器，最後6情境全通過；不把這些合成截圖稱為真人 LINE 或 hosted server action 驗收。
+
+## CI 測試隔離
+
+初次 mixed-enrollment CI 在兩個測試檔同時建立 public.OperationAuditOutbox 時遇 PostgreSQL 23505，29項未執行，沒有記成通過。沿用PR1538已準備的 `--no-file-parallelism` 修正，只串行初始化兩個測試檔，保留檔內併發情境及原40項無略過斷言；另加獨立步驟執行本次6項登入PG測試。本機依相同順序共46項通過。未停用失敗檢查、刪除斷言或合入PR1538的扣堂程式。
 
 ## 發布邊界
 
