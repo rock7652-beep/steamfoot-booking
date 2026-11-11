@@ -10,7 +10,7 @@ export function BeautyPreviewPortal({data,selection,memberId,technicianId,view}:
    const response=await fetch('/api/beauty/preview-details?'+new URLSearchParams({...selection,kind,input:JSON.stringify(input)}),{cache:'no-store',credentials:'same-origin'});
    const result=await response.json();if(typeof result?.success!=='boolean'||!response.ok&&result.success)throw Error('讀取失敗');return result as T;
   }
-  return {selection,memberId,technicianId,history:card=>read('history',card),income:month=>read('income',month),records:input=>read('records',input),health:()=>read('health',null),slots:(_mode,_slug,input)=>read('slots',input)};
+  return {selection,memberId,technicianId,progress:card=>read('progress',card),history:card=>read('history',card),income:month=>read('income',month),records:input=>read('records',input),health:()=>read('health',null),slots:(_mode,_slug,input)=>read('slots',input)};
  },[selection,memberId,technicianId]);
  return <BeautyPortal data={data} initialView={view} preview={source}/>;
 }

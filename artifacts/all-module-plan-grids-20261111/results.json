@@ -1,0 +1,118 @@
+[
+  {
+    "width": 390,
+    "height": 844,
+    "grids": {
+      "steam": {
+        "total": 10,
+        "columns": 5,
+        "rows": 2
+      },
+      "beauty": {
+        "total": 20,
+        "columns": 5,
+        "rows": 4
+      },
+      "music": {
+        "total": 8,
+        "columns": 4,
+        "rows": 2
+      },
+      "sports": {
+        "total": 10,
+        "columns": 5,
+        "rows": 2
+      }
+    },
+    "sharedUserVisible": true,
+    "realWrites": false,
+    "errors": []
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "grids": {
+      "steam": {
+        "total": 10,
+        "columns": 10,
+        "rows": 1
+      },
+      "beauty": {
+        "total": 20,
+        "columns": 10,
+        "rows": 2
+      },
+      "music": {
+        "total": 8,
+        "columns": 8,
+        "rows": 1
+      },
+      "sports": {
+        "total": 10,
+        "columns": 10,
+        "rows": 1
+      }
+    },
+    "sharedUserVisible": true,
+    "realWrites": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "grids": {
+      "steam": {
+        "total": 10,
+        "columns": 10,
+        "rows": 1
+      },
+      "beauty": {
+        "total": 20,
+        "columns": 10,
+        "rows": 2
+      },
+      "music": {
+        "total": 8,
+        "columns": 8,
+        "rows": 1
+      },
+      "sports": {
+        "total": 10,
+        "columns": 10,
+        "rows": 1
+      }
+    },
+    "sharedUserVisible": true,
+    "realWrites": false,
+    "errors": []
+  },
+  {
+    "width": 1366,
+    "height": 900,
+    "grids": {
+      "steam": {
+        "total": 10,
+        "columns": 10,
+        "rows": 1
+      },
+      "beauty": {
+        "total": 20,
+        "columns": 10,
+        "rows": 2
+      },
+      "music": {
+        "total": 8,
+        "columns": 8,
+        "rows": 1
+      },
+      "sports": {
+        "total": 10,
+        "columns": 10,
+        "rows": 1
+      }
+    },
+    "sharedUserVisible": true,
+    "realWrites": false,
+    "errors": []
+  }
+]

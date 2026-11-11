@@ -1,8 +1,8 @@
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
 import type {NextRequest} from 'next/server';
-const m=vi.hoisted(()=>({context:vi.fn(),history:vi.fn(),income:vi.fn(),records:vi.fn()}));
+const m=vi.hoisted(()=>({context:vi.fn(),progress:vi.fn(),history:vi.fn(),income:vi.fn(),records:vi.fn()}));
 vi.mock('@/lib/store-context',()=>({getStoreContext:m.context}));
-vi.mock('@/server/actions/beauty-portal',()=>({readBeautyCardHistory:m.history,readBeautyOwnIncome:m.income,readBeautyWorkRecords:m.records}));
+vi.mock('@/server/actions/beauty-portal',()=>({readBeautyCardProgress:m.progress,readBeautyCardHistory:m.history,readBeautyOwnIncome:m.income,readBeautyWorkRecords:m.records}));
 vi.mock('next/server',()=>({NextResponse:{json:(value:unknown,init?:ResponseInit)=>new Response(JSON.stringify(value),init)}}));
 import {GET} from '@/app/api/beauty/portal-details/route';
 import {readBeautyWorkRecords} from '@/lib/beauty/portal-detail-read';
@@ -20,4 +20,11 @@ it('keeps card ownership and income permission checks in their existing guarded 
 });
 it('reads through same-origin GET, never the page Server Action transport, and rejects malformed payloads',async()=>{
  const fetcher=vi.fn().mockResolvedValue(new Response(JSON.stringify({success:true,data:{items:[],hasMore:false}})));vi.stubGlobal('fetch',fetcher);await readBeautyWorkRecords({month:'2026-10',pending:true,search:'',page:0},'test');expect(fetcher.mock.calls[0][0]).toBe('/api/beauty/portal-details?store=test&kind=records&month=2026-10&pending=1&search=&page=0');expect(fetcher.mock.calls[0][1]).toMatchObject({cache:'no-store',credentials:'same-origin'});expect(fetcher.mock.calls[0][1]).not.toHaveProperty('method','POST');fetcher.mockResolvedValue(new Response(JSON.stringify({success:true})));await expect(readBeautyWorkRecords({month:'2026-10',pending:true,search:'',page:0},'test')).rejects.toThrow('讀取失敗');
+});
+
+it('routes progress reads through membership authorization and rejects other stores first',async()=>{
+ m.progress.mockResolvedValue({success:true,data:{progress:{available:true,total:10,completed:[],voided:[]}}});
+ const result=await GET(req('kind=progress&store=test&card=shared'));expect(result.status).toBe(200);expect(m.progress).toHaveBeenCalledWith('shared');expect(result.headers.get('Cache-Control')).toBe('private, no-store');
+ m.progress.mockClear();expect((await GET(req('kind=progress&store=other&card=shared'))).status).toBe(403);expect(m.progress).not.toHaveBeenCalled();
+ m.progress.mockResolvedValue({success:false,error:'無法查看此方案'});expect((await GET(req('kind=progress&store=test&card=foreign'))).status).toBe(403);
 });

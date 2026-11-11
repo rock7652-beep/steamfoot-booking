@@ -5,7 +5,7 @@ vi.mock("@/server/services/course-session-adjustment-records", () => ({ courseSe
 import { readCoursePhonePlanGrids } from "@/server/queries/course-phone-plan-grids";
 beforeEach(() => { vi.resetAllMocks(); m.cards.mockResolvedValue([{ id: "card", entries: [{ points: 8 }], bookings: [{ id: "attended", pointCost: 1, session: { startsAt: new Date("2026-11-03T03:00:00Z") } }] }]); m.adjustments.mockResolvedValue([]); });
 it("derives eight immutable purchased cells, selects only this store's learner and excludes reservations", async () => {
-  expect((await readCoursePhonePlanGrids("store", "child-a", ["card"])).get("card")).toEqual({ total: 8, dates: ["2026-11-03T03:00:00.000Z"] });
+  expect((await readCoursePhonePlanGrids("store", "child-a", ["card"])).get("card")).toMatchObject({ total: 8, dates: ["2026-11-03T03:00:00.000Z"] });
   const input = m.cards.mock.calls[0][0];
   expect(input.where).toMatchObject({ storeId: "store", id: { in: ["card"] }, members: { some: { storeId: "store", customerId: "child-a" } }, musicOpeningStateRequired: false });
   expect(input.select.bookings.where).toMatchObject({ storeId: "store", customerId: "child-a", status: "ATTENDED", absenceKind: null, session: { cancelledAt: null } });
@@ -40,4 +40,9 @@ it.each(['member','old-booking','old-backfill','old-void'])('does not present a 
  if(kind==='old-backfill')m.adjustments.mockResolvedValue([{id:'manual',cardId:'card',customerId:'hidden',operation:'BACKFILL',quantity:1,occurredOn:'2026-11-03',reversalOf:null}]);
  if(kind==='old-void')m.adjustments.mockResolvedValue([{id:'void',cardId:'card',customerId:'hidden',operation:'VOID',quantity:1,recordedAt:'2026-11-03T02:00Z',reversalOf:null}]);
  m.cards.mockResolvedValue([card]);expect((await readCoursePhonePlanGrids('store','child-a',['card'],undefined,['child-a'])).size).toBe(0);
+});
+
+it('keeps authorized shared user names attached to their actual dates',async()=>{
+ m.cards.mockResolvedValue([{id:'shared',members:[{customerId:'child-a'},{customerId:'child-b'}],entries:[{points:8}],bookings:[{id:'visit',customerId:'child-b',customerName:'孩子乙',pointCost:1,session:{startsAt:new Date('2026-11-03T02:00Z')}}]}]);
+ const grid=(await readCoursePhonePlanGrids('store','child-a',['shared'],undefined,['child-a','child-b'])).get('shared');expect(grid?.completed).toEqual([{id:'visit:0',date:'2026-11-03T02:00:00.000Z',customerName:'孩子乙'}]);
 });

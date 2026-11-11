@@ -2,18 +2,20 @@ import {NextRequest,NextResponse} from 'next/server';
 import {z} from 'zod';
 import {getStoreContext} from '@/lib/store-context';
 import {AppError,handleActionError} from '@/lib/errors';
-import {readBeautyCardHistory,readBeautyOwnIncome,readBeautyWorkRecords} from '@/server/actions/beauty-portal';
+import {readBeautyCardProgress,readBeautyCardHistory,readBeautyOwnIncome,readBeautyWorkRecords} from '@/server/actions/beauty-portal';
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'private, no-store','Vary':'Cookie'};
 /** Read-only transport: never asks the Server Action protocol to rerender the portal. */
 export async function GET(request:NextRequest){
  try{
-  const p=request.nextUrl.searchParams,kind=z.enum(['history','income','records']).parse(p.get('kind'));
+  const p=request.nextUrl.searchParams,kind=z.enum(['history','progress','income','records']).parse(p.get('kind'));
   const expected=z.string().min(1).max(100).parse(p.get('store'));
   const context=await getStoreContext();
   if(!context||context.storeSlug!==expected)throw new AppError('FORBIDDEN','店家已切換，請重新開啟本店入口');
   // Each existing reader rechecks the session, store, feature and actual member/technician.
-  const result=kind==='history'
+  const result=kind==='progress'
+   ? await readBeautyCardProgress(z.string().min(1).max(100).parse(p.get('card')))
+   : kind==='history'
    ? await readBeautyCardHistory(z.string().min(1).max(100).parse(p.get('card')))
    : kind==='income'
    ? await readBeautyOwnIncome(z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/).parse(p.get('month')))

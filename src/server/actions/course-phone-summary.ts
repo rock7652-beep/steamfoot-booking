@@ -12,7 +12,7 @@ import { parseTaipeiDateTime } from "@/lib/date-utils";
 import { readCoursePurchaseSummaries } from '@/server/queries/course-purchase-summaries';
 
 type PrivateCard=Awaited<ReturnType<typeof getCourseCards>>[number];
-type Grid={total:number;dates:string[];voidedDates?:string[]};
+type Grid=import("@/server/queries/course-phone-plan-grids").CoursePlanDateGrid;
 type Purchase={date:string;amount:number};
 function publicCard(card:PrivateCard,grid:Grid|null,purchase:Purchase|null){
   const activationDays=card.expiryKind!=="NO_EXPIRY"&&card.musicValidityDays&&!card.musicActivatedAt&&!card.openingImported?card.musicValidityDays:null;

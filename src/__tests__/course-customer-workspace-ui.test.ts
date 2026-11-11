@@ -254,3 +254,11 @@ it('rechecks the current card status before exposing an inline financial form',a
  await act(async()=>[...document.querySelectorAll('button')].find(button=>button.textContent==='調整期限')!.click());
  expect(host.textContent).toContain('方案狀態已變更');expect(host.querySelector('[aria-label="新到期日"]')).toBeNull();expect(m.management).not.toHaveBeenCalled();expect(m.adjust).not.toHaveBeenCalled();
 });
+
+it('uses the native module progress reader in the customer overview instead of the course reader',async()=>{
+ const card={id:'beauty-progress',name:'護理十次',unit:'SESSION',remaining:10,held:0,available:10,expiresAt:'2027-12-31T15:59:59.999Z',closed:false,expired:false,members:[{id:'person',name:'測試學員'}],entries:[],templateIds:[],sessionAdjustments:[]};
+ const progress=vi.fn(()=>createElement('p',null,'美業完整方案格子'));
+ const source={cardProgress:progress,browseCards:vi.fn().mockResolvedValue({success:true,rows:[card],hasMore:false}),bookings:vi.fn().mockResolvedValue({success:true,data:[],hasMore:false}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,source,previewStoreId:'beauty-store'})));
+ expect(host.textContent).toContain('美業完整方案格子');expect(progress).toHaveBeenCalledWith(expect.objectContaining({id:'beauty-progress'}),expect.objectContaining({customerId:'person'}));
+});

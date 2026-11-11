@@ -56,10 +56,10 @@ it("shows one collapsed learner at a time and restores the personal summary afte
 it("renders exactly eight cells with only attended dates and does not fill a future reservation", async () => {
   m.summary.mockResolvedValue({ success: true, learners: [{ id: "grid", name: "孩子 A", cards: [{ id: "card", name: "鋼琴八堂", unit: "SESSION", remaining: 6, held: 1, available: 5, shared: false, closed: false, expired: false, grid: { total: 8, dates: ["2026-11-03T03:00:00Z", "2026-11-10T03:00:00Z"] } }], upcoming: [{ id: "reserved", startsAt: "2026-11-17T03:00:00Z", name: "鋼琴", status: "待上課" }], history: [] }] });
   await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:eight" })));
-  const cells = host.querySelectorAll(".cp-phone-grid>li");
+  const cells = host.querySelectorAll("[data-lesson-slot]");
   expect(cells).toHaveLength(8);
   expect([...cells].map(cell => cell.textContent)).toEqual(["11/03", "11/10", "", "", "", "", "", ""]);
-  expect(host.querySelector<HTMLOListElement>(".cp-phone-grid")!.style.gridTemplateColumns).toBe("repeat(4, minmax(0, 1fr))");
+  expect(host.querySelector<HTMLOListElement>('[aria-label="8 堂進度"]')!.style.getPropertyValue("--lesson-narrow-columns")).toBe("4");
 });
 
 const balanceSummary = (remaining: number) => ({ success: true, learners: [{ id: "child-a", name: "孩子 A", cards: [{ id: "card", name: "鋼琴八堂", unit: "SESSION", remaining, held: 0, available: remaining, shared: false, closed: false, expired: false, grid: { total: 8, dates: ["2026-11-10T16:00:00Z"] } }], upcoming: [], history: [{ id: "manual", name: "鋼琴八堂", startsAt: "2026-11-10T16:00:00Z", status: "已出席（補登）", dateOnly: true, quantity: 2, unitLabel: "堂" }] }] });

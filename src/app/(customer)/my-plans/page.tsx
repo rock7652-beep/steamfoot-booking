@@ -19,6 +19,8 @@ import {
   WalletSessionDetail,
   type SessionRow,
 } from "@/components/wallet-session-detail";
+import { PlanUsageGrid } from "@/components/admin/plan-usage-grid";
+import { walletPlanProgress } from "@/lib/wallet-plan-progress";
 import { toLocalDateStr } from "@/lib/date-utils";
 
 export default async function MyPlansPage() {
@@ -185,7 +187,7 @@ export default async function MyPlansPage() {
               <h2 className="mb-3 text-lg font-bold text-earth-900">有效課程</h2>
               <div className="space-y-3">
                 {activePackageWallets.map((w) => (
-                  <WalletCard key={w.id} wallet={w} isActive />
+                  <WalletCard key={w.id} wallet={w} />
                 ))}
               </div>
             </section>
@@ -197,7 +199,7 @@ export default async function MyPlansPage() {
               <h2 className="mb-3 text-lg font-bold text-earth-900">體驗方案</h2>
               <div className="space-y-3">
                 {activeTrialWallets.map((w) => (
-                  <WalletCard key={w.id} wallet={w} isActive />
+                  <WalletCard key={w.id} wallet={w} />
                 ))}
               </div>
             </section>
@@ -209,7 +211,7 @@ export default async function MyPlansPage() {
               <h2 className="mb-3 text-base font-semibold text-earth-700">已過期</h2>
               <div className="space-y-3 opacity-70">
                 {expiredWallets.map((w) => (
-                  <WalletCard key={w.id} wallet={w} isActive={false} />
+                  <WalletCard key={w.id} wallet={w} />
                 ))}
               </div>
             </section>
@@ -221,7 +223,7 @@ export default async function MyPlansPage() {
               <h2 className="mb-3 text-base font-semibold text-earth-700">歷史課程</h2>
               <div className="space-y-3 opacity-70">
                 {historyWallets.map((w) => (
-                  <WalletCard key={w.id} wallet={w} isActive={false} />
+                  <WalletCard key={w.id} wallet={w} />
                 ))}
               </div>
             </section>
@@ -234,7 +236,6 @@ export default async function MyPlansPage() {
 
 function WalletCard({
   wallet,
-  isActive,
 }: {
   wallet: {
     id: string;
@@ -242,6 +243,7 @@ function WalletCard({
     purchasedPrice: unknown;
     totalSessions: number;
     remainingSessions: number;
+    createdAt: Date;
     startDate: Date;
     expiryDate: Date | null;
     status: WalletStatus;
@@ -255,22 +257,12 @@ function WalletCard({
     }[];
     sessions: SessionRow[];
   };
-  isActive: boolean;
 }) {
   // ── canonical：全部走 wallet-availability helper，與首頁 / my-plans 上方 / booking form 一致 ──
   const pendingCount = walletPendingCount(wallet);
   const availableToBook = walletAvailableToBook(wallet);
   // 已使用 / 已註銷 由 WalletSession ledger 推導（含 BACKFILLED 補登；VOIDED 獨立呈現）
   const { used: usedCount, voided: voidedCount } = ledgerUsage(wallet.sessions);
-
-  // 出席/未到 visit log（純呈現；BACKFILLED 補登無 booking，不在此列）
-  const usedBookings = wallet.bookings.filter(
-    (b) => !b.isMakeup && (b.bookingStatus === "COMPLETED" || b.bookingStatus === "NO_SHOW")
-  );
-
-  const progressPct = wallet.totalSessions > 0
-    ? Math.round(((wallet.totalSessions - wallet.remainingSessions) / wallet.totalSessions) * 100)
-    : 0;
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
@@ -290,16 +282,6 @@ function WalletCard({
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="mt-3 h-2 w-full rounded-full bg-earth-100">
-        <div
-          className={`h-2 rounded-full transition-all ${
-            isActive ? "bg-primary-500" : "bg-earth-400"
-          }`}
-          style={{ width: `${progressPct}%` }}
-        />
-      </div>
-
       {/* 堂數明細 */}
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-earth-700">
         <span>已使用 <strong className="text-earth-900">{usedCount}</strong></span>
@@ -312,40 +294,10 @@ function WalletCard({
         )}
       </div>
 
-      {/* Session usage grid */}
-      {wallet.totalSessions > 0 && usedBookings.length > 0 && (
-        <div className="mt-4">
-          <p className="mb-2 text-sm font-semibold text-earth-700">使用紀錄</p>
-          <div className="flex flex-wrap gap-2">
-            {usedBookings.map((b, i) => {
-              const dateLabel = new Date(b.bookingDate).toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
-              const isNoShow = b.bookingStatus === "NO_SHOW";
-              const isDeducted = isNoShow && b.noShowPolicy === "DEDUCTED";
-              return (
-                <div
-                  key={i}
-                  className={`flex h-9 min-w-[3.5rem] items-center justify-center rounded-md px-2 text-sm font-medium ${
-                    isNoShow
-                      ? isDeducted
-                        ? "bg-red-100 text-red-700"
-                        : "bg-amber-100 text-amber-800"
-                      : "bg-green-100 text-green-800"
-                  }`}
-                  title={`${dateLabel} ${b.slotTime} ${
-                    isNoShow ? (isDeducted ? "未到(扣堂)" : "未到(不扣堂)") : "出席"
-                  }`}
-                >
-                  {dateLabel}
-                  {isNoShow && <span className="ml-1">{isDeducted ? "!" : "↩"}</span>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      <PlanUsageGrid progress={walletPlanProgress(wallet)} unitLabel="堂" />
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-earth-700">
-        <span>{new Date(wallet.startDate).toLocaleDateString("zh-TW")} ~ {wallet.expiryDate ? new Date(wallet.expiryDate).toLocaleDateString("zh-TW") : "無期限"}</span>
+        <span>購買 {toLocalDateStr(wallet.createdAt)} · NT$ {Number(wallet.purchasedPrice).toLocaleString()} · 到期 {wallet.expiryDate ? new Date(wallet.expiryDate).toLocaleDateString("zh-TW") : "無期限"}</span>
         <span className={`rounded-md px-2 py-0.5 text-sm font-medium ${
           wallet.status === "ACTIVE"
             ? "bg-green-50 text-green-700"

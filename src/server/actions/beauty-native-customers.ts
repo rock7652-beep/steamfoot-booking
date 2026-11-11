@@ -1,4 +1,5 @@
 "use server";
+import {beautyPlanProgress} from "@/server/beauty/plan-progress";
 import {beautyReadStep,traceBeautyRead} from "@/server/beauty/read-timing";
 import {withBeautyReadScope,withBeautyCheckoutScope} from '@/server/beauty/request-scope';
 import {permissionRequestSession} from '@/lib/permission-request-session';
@@ -45,6 +46,19 @@ async function scope(permission:'wallet.read'|'booking.read'|'transaction.read'|
  return {...a,people,customerWhere,ids:people.map(p=>p.id)};
 }
 function customerExists(s:{ids:string[]},customerId:string){if(!s.ids.includes(customerId))throw new AppError('NOT_FOUND','找不到本店可查看的顧客');}
+export async function readBeautyNativeCardProgress(input:unknown){
+ try{
+  const d=z.object({cardId:id,customerId:id,expectedStoreId:id}).parse(input);
+  const s=await scope('wallet.read',{cardId:d.cardId});customerExists(s,d.customerId);
+  const bookingActor=await beautyManager('booking.read');
+  if(s.storeId!==d.expectedStoreId||bookingActor.storeId!==s.storeId||bookingActor.userId!==s.userId)throw new AppError('FORBIDDEN','門市或權限已變更');
+  return {success:true as const,data:await beautyPrisma.$transaction(async tx=>{
+   const card=await tx.beautyCard.findFirst({where:{id:d.cardId,storeId:s.storeId,memberIds:{has:d.customerId}}});
+   if(!card)throw new AppError('FORBIDDEN','無法查看此方案');
+   return {progress:await beautyPlanProgress(tx,s.storeId,card,s.ids),purchasedAt:card.createdAt.toISOString(),price:card.listPrice,shared:card.memberIds.length>1};
+  },{isolationLevel:'RepeatableRead'})};
+ }catch(error){return failure(error);}
+}
 export async function browseBeautyNativeCards(input:unknown){
  return withBeautyReadScope(()=>browseBeautyNativeCardsCore(input));
 }

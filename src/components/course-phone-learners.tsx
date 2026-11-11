@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { loadCoursePhoneSummary } from "@/server/actions/course-phone-summary";
-import { LessonProgressGrid } from "@/components/admin/lesson-progress-grid";
+import {CoursePlanDateGrid} from "@/components/course-plan-date-grid";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 
 type Summary = Awaited<ReturnType<typeof loadCoursePhoneSummary>>;
@@ -17,7 +17,7 @@ function Plan({ card }: { card: Learner["cards"][number] }) {
       {card.expiresAt?<span>{toLocalDateStr(new Date(card.expiresAt))} 到期</span>:card.activationDays?<span>首次上課起 {card.activationDays} 天</span>:null}
       {(card.closed||card.expired)&&<span>{card.closed?'已結束':'已到期'}</span>}
     </p>}
-    {card.grid && <LessonProgressGrid voided={(card.grid.voidedDates??[]).map((date,index)=>({id:`void:${card.id}:${index}`,date}))} total={card.grid.total} completed={card.grid.dates.map((date,index)=>({id:`${card.id}:${index}`,date}))} columns={Math.min(card.grid.total,card.grid.total % 5 === 0 ? 5 : 4)} showSummary={false} gridClassName="cp-phone-grid" />}
+    {card.grid && <CoursePlanDateGrid grid={card.grid} cardId={card.id}/>}
     {card.shared&&card.unit==="SESSION"&&!card.grid&&<p className="cp-muted">共用方案使用日期請洽門市核對</p>}
     {card.held>0&&<p className="cp-muted cp-phone-plan-held">已預約 {card.held} {unit} · 可再約 {card.available} {unit}</p>}
   </section>;
