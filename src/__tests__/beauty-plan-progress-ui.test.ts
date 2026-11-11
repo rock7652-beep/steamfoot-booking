@@ -50,8 +50,8 @@ it('reuses a native background read on open and invalidates it after a plan chan
 });
 
 it('reuses authorized initial member progress without another request when the plans view mounts',async()=>{
- const value=reply();let cached:typeof value|undefined;
- const reader={get:vi.fn(()=>cached),seed:vi.fn((v:typeof value)=>{cached=v;}),read:vi.fn(async()=>cached!),refresh:vi.fn(async()=>value)};
+ const value=reply();let cached:Parameters<NonNullable<import('@/components/beauty/plan-progress').BeautyProgressReader['seed']>>[0]|undefined;
+ const reader={get:vi.fn(()=>cached),seed:vi.fn((v:NonNullable<typeof cached>)=>{cached=v;}),read:vi.fn(async()=>cached!),refresh:vi.fn(async()=>value)};
  await act(async()=>root.render(el(BeautyPlanProgress,{reader,cardId:'card',scope:'member-store-v1',slug:'shop',initialData:value,initialReadAt:Date.now()})));
  expect(reader.seed).toHaveBeenCalledWith(value,'card','shop');expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(10);expect(host.textContent).not.toContain('讀取使用紀錄中');expect(reader.refresh).not.toHaveBeenCalled();
 });

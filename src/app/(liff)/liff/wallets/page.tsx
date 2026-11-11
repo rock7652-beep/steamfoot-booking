@@ -19,7 +19,7 @@ import { WalletsList } from "./wallets-list";
  *   - server action `fetchLiffWallets` 自走 requireSession + canonical resolver
  *   - PR-E2 起 store context 缺失時不再靜默 fallback zhubei
  *
- * 不在此檔做：
+ * 資料範圍：
  *   - 只讀已登入會員的授權方案，不寫 DB
  *   - 不取消 / 不續約 / 不購買 / 不付款
  *   - 不動 wallet status（read-only）

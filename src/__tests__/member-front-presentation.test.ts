@@ -27,10 +27,10 @@ it('does not reserve an empty announcement region when the server confirms none'
  expect(host.querySelector('[data-image-announcements]')).toBeNull();expect(fetch).not.toHaveBeenCalled();
 });
 it('removes empty or duplicate-only disclosure controls instead of opening a blank region',async()=>{
- await act(async()=>root.render(h(CustomerBookingRow,{when:'11/11 10:00',status:'已完成',description:'按摩 · 技師甲',expandable:false},h('p',null,'按摩 · 技師甲 · 已完成'))));
+ await act(async()=>root.render(h(CustomerBookingRow,{when:'11/11 10:00',status:'已完成',description:'按摩 · 技師甲',expandable:false,children:null},h('p',null,'按摩 · 技師甲 · 已完成'))));
  expect(host.querySelector('[data-customer-booking-row]')?.tagName).toBe('ARTICLE');expect(host.querySelector('summary')).toBeNull();expect(host.textContent?.match(/已完成/g)).toHaveLength(1);expect(host.textContent?.match(/按摩/g)).toHaveLength(1);
 });
 it('keeps unique booking actions accessible through an in-place disclosure',async()=>{
- const save=vi.fn();await act(async()=>root.render(h(CustomerBookingRow,{when:'11/11 10:00',status:'已預約',description:'按摩 · 技師甲',expandable:true},h('button',{onClick:save},'取消預約'))));
+ const save=vi.fn();await act(async()=>root.render(h(CustomerBookingRow,{when:'11/11 10:00',status:'已預約',description:'按摩 · 技師甲',expandable:true,children:null},h('button',{onClick:save},'取消預約'))));
  const details=host.querySelector('details')!;await act(async()=>details.querySelector('summary')!.click());expect(details.open).toBe(true);await act(async()=>host.querySelector('button')!.click());expect(save).toHaveBeenCalledTimes(1);
 });
