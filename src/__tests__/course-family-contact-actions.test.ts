@@ -1,7 +1,7 @@
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({manager:vi.fn(),find:vi.fn(),lookup:vi.fn(),list:vi.fn(),create:vi.fn(),update:vi.fn(),auditFind:vi.fn(),auditCreate:vi.fn(),limit:vi.fn(),count:vi.fn()}));
+const m=vi.hoisted(()=>({manager:vi.fn(),find:vi.fn(),lookup:vi.fn(),lock:vi.fn(),list:vi.fn(),create:vi.fn(),update:vi.fn(),auditFind:vi.fn(),auditCreate:vi.fn(),limit:vi.fn(),count:vi.fn()}));
 vi.mock('@/lib/auth',()=>({auth:vi.fn()}));
-vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.find,findMany:m.list,updateMany:m.update},$transaction:async(run:(tx:unknown)=>unknown)=>run({$queryRaw:vi.fn(),customer:{findFirst:m.lookup,count:m.count,create:m.create},auditLog:{findUnique:m.auditFind,create:m.auditCreate}})}}));
+vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.find,findMany:m.list,updateMany:m.update},$transaction:async(run:(tx:unknown)=>unknown)=>run({$queryRaw:m.lock,customer:{findFirst:(args:{where:{id?:unknown}})=>typeof args.where.id==='string'?m.find(args):m.lookup(args),count:m.count,create:m.create,updateMany:m.update},auditLog:{findUnique:m.auditFind,create:m.auditCreate}})}}));
 vi.mock('@/lib/course-db',()=>({coursePrisma:{}}));
 vi.mock('@/lib/addons-db',()=>({addonsPrisma:{}}));
 vi.mock('@/lib/session',()=>({requireSession:vi.fn(),getCurrentUser:vi.fn(),requireStaffSession:vi.fn()}));
@@ -35,6 +35,43 @@ it('does not convert an existing contact-only learner back to a personal-phone i
  m.find.mockResolvedValue({phone:'',contactPhone:'0912345678'});m.update.mockResolvedValue({count:1});
  expect(await saveCourseCustomer({...base,id:'child',sharedContactPhone:undefined})).toMatchObject({success:true});
  expect(m.update.mock.calls[0][0]).toMatchObject({where:{id:'child',storeId:'store'},data:{phone:'',contactPhone:'0912345678'}});
+});
+it.each(['personal','contact'])('updates an existing learner to a shared guardian number already stored as %s data',async kind=>{
+ m.find.mockResolvedValue({phone:'0912345678',contactPhone:null});
+ m.lookup.mockResolvedValue({id:'sibling',[kind==='personal'?'phone':'contactPhone']:'0987654321'});
+ m.update.mockResolvedValue({count:1});
+ const expectedUpdatedAt='2026-11-11T01:00:00.000Z';
+ expect(await saveCourseCustomer({...base,id:'child',phone:'0987-654-321',expectedUpdatedAt})).toMatchObject({success:true,data:{id:'child'}});
+ expect(m.lookup).toHaveBeenCalledWith({where:{storeId:'store',id:{not:'child'},OR:[{phone:'0987654321'},{contactPhone:'0987654321'}]},select:{id:true}});
+ expect(m.lock).toHaveBeenCalledOnce();
+ expect(m.update).toHaveBeenCalledWith(expect.objectContaining({where:{id:'child',storeId:'store',mergedIntoCustomerId:null,updatedAt:new Date(expectedUpdatedAt)},data:expect.objectContaining({phone:'',contactPhone:'0987654321'})}));
+ expect(m.create).not.toHaveBeenCalled();
+});
+it('keeps an unchanged personal phone and its linked identity when another learner shares that contact',async()=>{
+ m.find.mockResolvedValue({phone:base.phone,contactPhone:null,userId:'member'});m.update.mockResolvedValue({count:1});
+ expect(await saveCourseCustomer({...base,id:'child'})).toMatchObject({success:true});
+ expect(m.lookup).not.toHaveBeenCalled();
+ expect(m.update.mock.calls[0][0].data).toMatchObject({phone:base.phone,contactPhone:null});
+});
+it('keeps a changed personal phone when the authorized store has no collision',async()=>{
+ m.find.mockResolvedValue({phone:'0900000000',contactPhone:null});m.lookup.mockResolvedValue(null);m.update.mockResolvedValue({count:1});
+ expect(await saveCourseCustomer({...base,id:'child'})).toMatchObject({success:true});
+ expect(m.update.mock.calls[0][0].data).toMatchObject({phone:base.phone,contactPhone:null});
+});
+it.each(['userId','lineUserId','googleId','lineBindingCode'])('does not discard %s when automatically detecting a shared phone',async field=>{
+ m.find.mockResolvedValue({phone:'0900000000',contactPhone:null,[field]:'linked'});
+ expect(await saveCourseCustomer({...base,id:'child'})).toMatchObject({success:false,error:expect.stringContaining('已連結會員身分')});
+ expect(m.update).not.toHaveBeenCalled();
+});
+it('rechecks identity bindings inside the store lock before converting contact data',async()=>{
+ m.find.mockResolvedValueOnce({phone:'0900000000',contactPhone:null}).mockResolvedValueOnce({phone:'0900000000',contactPhone:null,userId:'new-link'});
+ expect(await saveCourseCustomer({...base,id:'child'})).toMatchObject({success:false,error:expect.stringContaining('已連結會員身分')});
+ expect(m.update).not.toHaveBeenCalled();
+});
+it('preserves stale-edit rejection for shared phone corrections',async()=>{
+ m.find.mockResolvedValue({phone:'0900000000',contactPhone:null});m.update.mockResolvedValue({count:0});
+ expect(await saveCourseCustomer({...base,id:'child',expectedUpdatedAt:'2026-11-11T01:00:00.000Z'})).toMatchObject({success:false,error:expect.stringContaining('顧客資料已有更新')});
+ expect(m.create).not.toHaveBeenCalled();
 });
 it('keeps tenant permission and quota checks ahead of writes',async()=>{
  m.manager.mockRejectedValueOnce(new Error('not authorized'));

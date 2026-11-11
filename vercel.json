@@ -58,6 +58,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/course-existing-guardian-phone-20261111": false,
       "fix/course-referral-inline-20261111": false,
       "feat/course-fee-groups-20261111": false,
       "fix/course-student-overlay-progress-20261110": false,
