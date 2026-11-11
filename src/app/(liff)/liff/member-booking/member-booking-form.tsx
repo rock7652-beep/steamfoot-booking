@@ -724,7 +724,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
                 <option value="">{liffMessages.memberBooking.preferredWalletAuto}</option>
                 {planWallets.map(wallet => (
                   <option key={wallet.id} value={wallet.id} disabled={!walletCoversDate(wallet)}>
-                    {wallet.planName}
+                    {wallet.planName} · 可用 {wallet.availableToBook} 堂 · {wallet.expiryDate ? `${wallet.expiryDate.replaceAll("-", "/")} 到期` : "無期限"}
                   </option>
                 ))}
               </select>

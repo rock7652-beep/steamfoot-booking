@@ -58,12 +58,10 @@ export function WithdrawalForm({ action, returnPath }: FormProps) {
           />
         </div>
         <div className="min-w-0">
-          <label className={labelCls}>原因（必填）</label>
+          <label className={labelCls}>原因（選填）</label>
           <input
             type="text"
             name="reason"
-            required
-            minLength={1}
             maxLength={100}
             className={textInputCls}
             placeholder="例如：老闆領現存銀行"

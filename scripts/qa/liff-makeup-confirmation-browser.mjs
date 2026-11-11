@@ -7,9 +7,9 @@ import assert from 'node:assert/strict';
 import postcss from 'postcss';
 import tailwind from '@tailwindcss/postcss';
 const require = createRequire(import.meta.url);
-const { chromium } = require('playwright');
+const { chromium } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
 const root = process.cwd();
-const output = path.join(root, 'artifacts/liff-makeup-confirmation-20261102');
+const output = path.resolve(process.env.QA_OUTPUT_DIR || 'artifacts/liff-plan-selection-20261111/steam');
 mkdirSync(output, { recursive: true });
 const mocks = {
   'next/navigation': `const router={replace:()=>{throw Error('Unexpected redirect')}};export const useRouter=()=>router;`,
@@ -26,13 +26,14 @@ await build({stdin:{contents:`import React from 'react';import{createRoot}from'r
 const css = await postcss([tailwind({base:root})]).process(readFileSync('src/app/globals.css','utf8'),{from:path.join(root,'src/app/globals.css')});
 writeFileSync(path.join(output,'fixture.css'),css.css);
 writeFileSync(path.join(output,'index.html'),`<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIFF 補課券隔離預覽</title><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script>window.qa={credits:1,calls:[],wallets:[{id:'wallet-a',planName:'暖暖蒸足 10 堂方案',availableToBook:3,expiryDate:'2026-11-10'},{id:'wallet-b',planName:'暖暖蒸足 10 堂方案',availableToBook:5,expiryDate:'2026-12-31'}]};const RealDate=Date;window.Date=class extends RealDate{constructor(...a){super(...(a.length?a:['2026-11-02T10:00:00+08:00']))}static now(){return new RealDate('2026-11-02T10:00:00+08:00').getTime()}};</script><script src="fixture.js"></script></body></html>`);
-const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH || '/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 const results=[];const errors=[];
 const wallets=[
  {id:'wallet-a',planName:'暖暖蒸足 10 堂方案',availableToBook:3,expiryDate:'2026-11-10'},
  {id:'wallet-b',planName:'暖暖蒸足 10 堂方案',availableToBook:5,expiryDate:'2026-12-31'},
 ];
 const scenarios=[
+ {name:'three-plans-selected',credits:0,people:1,wallets:[{id:'wallet-single',planName:'單次',availableToBook:1,expiryDate:'2026-12-12'}, {id:'wallet-eight',planName:'10堂',availableToBook:8,expiryDate:'2026-12-12'}, {id:'wallet-four',planName:'10堂',availableToBook:4,expiryDate:'2027-03-05'}],choose:'wallet-four'},
  {name:'makeup',credits:1,people:1},
  {name:'mixed',credits:1,people:3},
  {name:'plan',credits:0,people:1},
@@ -78,9 +79,12 @@ try {
    }
    const shouldShowSelector=!!scenario.wallets&&scenario.name!=='exhausted-wallet'&&!scenario.initialPeople;
    assert.equal(await selector.count(),Number(shouldShowSelector));
-   if(shouldShowSelector){
-    assert.equal(await selector.locator('option[value="wallet-b"]').innerText(),'暖暖蒸足 10 堂方案');
+   if(shouldShowSelector && scenario.name !== 'three-plans-selected'){
+    assert.equal(await selector.locator('option[value="wallet-b"]').innerText(),'暖暖蒸足 10 堂方案 · 可用 5 堂 · 2026/12/31 到期');
     if(scenario.choose==='wallet-b')assert.match(await page.locator('#preferred-wallet-details').innerText(),/可用 5 堂.*2026\/12\/31/);
+   }
+   if(scenario.name === 'three-plans-selected'){
+    assert.deepEqual(await selector.locator('option').allTextContents(),['自動選擇（最早到期優先）','單次 · 可用 1 堂 · 2026/12/12 到期','10堂 · 可用 8 堂 · 2026/12/12 到期','10堂 · 可用 4 堂 · 2027/03/05 到期']);
    }
    await submit.waitFor();
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Horizontal overflow');

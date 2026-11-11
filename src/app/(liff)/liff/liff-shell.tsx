@@ -2,7 +2,7 @@
 import { StoreImageAnnouncements } from "@/components/image-announcements/carousel";
 import { FrontendAccountMenu } from "@/components/frontend-account-menu";
 
-import { courseMemberReturnPath } from "@/lib/course-delivery-links";
+import { liffMemberPortalPath } from "@/lib/liff/member-portal-path";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { MemberPortalHeader } from "@/components/member-portal-header";
 
@@ -231,10 +231,11 @@ export function LiffShell({
         if (cancelled) return;
 
         if (body.status === "session_created") {
-          // Course uses the same authenticated mobile portal in LINE and browsers.
-          // Branch before legacy summaries/work routing to avoid steamfoot/SPA data.
-          if (memberDataSource === "course") {
-            window.location.replace(courseMemberReturnPath(storeSlug, bookingIntent ? "?courseView=schedule" : window.location.search, true));
+          // Course and Beauty use their own authenticated member portals.
+          // Route before Steam summaries/work access so module data stays separate.
+          const memberPortalPath = liffMemberPortalPath(memberDataSource, storeSlug, window.location.search, bookingIntent);
+          if (memberPortalPath) {
+            window.location.replace(memberPortalPath);
             return;
           }
           const { memberContext, workAccess } = await measureLiffClientPhase("home_access", () => fetchLiffHomeAccess());

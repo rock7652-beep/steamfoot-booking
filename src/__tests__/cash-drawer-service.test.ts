@@ -296,17 +296,17 @@ describe("addCashDrawerEntry", () => {
     ).rejects.toThrow(/必須大於 0/);
   });
 
-  it("reason 空白拒絕", async () => {
+  it.each([undefined, "", "   "])("CASH_WITHDRAWAL accepts an optional reason (%s)", async reason => {
     mockSessionFindUnique.mockResolvedValue(makeSession());
-    await expect(
-      addCashDrawerEntry({
-        sessionId: "sess-1",
-        type: "CASH_WITHDRAWAL",
-        amount: 100,
-        reason: "   ",
-        actorUserId: USER_OWNER,
-      }),
-    ).rejects.toThrow(/原因必填/);
+    mockEntryCreate.mockResolvedValue({id:"entry-1"});
+    await addCashDrawerEntry({sessionId:"sess-1",type:"CASH_WITHDRAWAL",amount:100,reason,actorUserId:USER_OWNER});
+    expect(mockEntryCreate).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({reason:"",direction:"OUT",createdByUserId:USER_OWNER})}));
+  });
+
+  it.each(["CASH_DEPOSIT", "CASH_ADJUSTMENT"] as const)("%s still requires a reason", async type => {
+    mockSessionFindUnique.mockResolvedValue(makeSession());
+    await expect(addCashDrawerEntry({sessionId:"sess-1",type,direction:"IN",amount:100,reason:"   ",actorUserId:USER_OWNER})).rejects.toThrow(/原因必填/);
+    expect(mockEntryCreate).not.toHaveBeenCalled();
   });
 
   it("CASH_WITHDRAWAL 自動 OUT", async () => {

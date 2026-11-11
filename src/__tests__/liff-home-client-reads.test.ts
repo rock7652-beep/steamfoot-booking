@@ -18,7 +18,7 @@ import {STEAMFOOT_INDUSTRY_MODULE} from '@/lib/industry-modules';
 let root:Root,host:HTMLDivElement;
 beforeEach(()=>{vi.clearAllMocks();vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true);m.init.mockResolvedValue({});m.token.mockReturnValue('isolated-test-token');m.exchange.mockResolvedValue({status:'session_created',displayName:'測試會員'});m.access.mockResolvedValue({memberContext:{status:'signed_in',displayName:'測試會員',stores:[]},workAccess:{status:'no_access'}});host=document.createElement('div');document.body.append(host);root=createRoot(host)});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals()});
-async function render(){await act(async()=>root.render(React.createElement(LiffShell,{storeSlug:'isolated',storeName:'隔離店',liffId:'isolated-liff',contactUrl:'',healthAssessmentEnabled:false,terminology:STEAMFOOT_INDUSTRY_MODULE.customer,memberDataSource:'steamfoot'})))}
+async function render(memberDataSource: 'steamfoot'|'course'|'beauty' = 'steamfoot', bookingIntent = false){await act(async()=>root.render(React.createElement(LiffShell,{storeSlug:'isolated',storeName:'隔離店',liffId:'isolated-liff',contactUrl:'',healthAssessmentEnabled:false,terminology:STEAMFOOT_INDUSTRY_MODULE.customer,memberDataSource,bookingIntent})))}
 it('renders announcements while the single summary request is pending',async()=>{
  m.summary.mockReturnValue(new Promise(()=>{}));await render();
  expect(m.exchange).toHaveBeenCalledTimes(1);expect(m.access).toHaveBeenCalledTimes(1);expect(m.summary).toHaveBeenCalledTimes(1);
@@ -29,4 +29,22 @@ it('does not start authenticated reads if LINE exchange fails',async()=>{
 });
 it('does not start access or summary reads before session verification completes',async()=>{
  m.exchange.mockReturnValue(new Promise(()=>{}));await render();expect(m.access).not.toHaveBeenCalled();expect(m.summary).not.toHaveBeenCalled();
+});
+
+it.each([
+ ['course',false,'/s/isolated/book?memberEntry=liff'],
+ ['course',true,'/s/isolated/book?memberEntry=liff&view=schedule'],
+ ['beauty',false,'/s/isolated/beauty'],
+ ['beauty',true,'/s/isolated/beauty?view=book'],
+] as const)('routes verified %s members (booking %s) before any Steam reads',async(moduleName,intent,path)=>{
+ const replace=vi.fn();vi.stubGlobal('window',{location:{search:'',replace}});
+ await render(moduleName,intent);
+ expect(m.exchange).toHaveBeenCalledWith({idToken:'isolated-test-token',storeSlug:'isolated'});
+ expect(replace).toHaveBeenCalledExactlyOnceWith(path);
+ expect(m.access).not.toHaveBeenCalled();expect(m.summary).not.toHaveBeenCalled();
+});
+it('does not redirect Beauty members before a verified session',async()=>{
+ const replace=vi.fn();vi.stubGlobal('window',{location:{search:'',replace}});
+ m.exchange.mockResolvedValue({status:'expired'});await render('beauty',true);
+ expect(replace).not.toHaveBeenCalled();expect(m.access).not.toHaveBeenCalled();expect(m.summary).not.toHaveBeenCalled();
 });

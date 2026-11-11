@@ -6,6 +6,8 @@ import {
 } from "@/lib/store-resolver";
 import { liffMessages } from "@/lib/liff/messages";
 import { MemberBookingForm } from "./member-booking-form";
+import { LiffShell } from "../liff-shell";
+import { readLiffPublicContext } from "@/server/queries/liff-public-context";
 
 /**
  * /s/[storeSlug]/liff/member-booking — LIFF 顧客自助會員方案預約頁 (PR-G3)
@@ -46,6 +48,16 @@ export default async function LiffMemberBookingPage() {
   const liffId = await resolveCentralMemberLiffId(storeSlug);
   if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} storeSlug={presentation.slug} />;
+  }
+
+  const context = await readLiffPublicContext(storeSlug);
+  if (!context) notFound();
+  if (context.industry.id !== "steamfoot") {
+    return <LiffShell
+      storeSlug={presentation.slug} storeName={presentation.name} liffId={liffId}
+      contactUrl={presentation.contactUrl} healthAssessmentEnabled={context.healthEnabled}
+      terminology={context.industry.customer} memberDataSource={context.industry.id} bookingIntent
+    />;
   }
 
   return (

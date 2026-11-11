@@ -115,7 +115,7 @@
 | `type` | Enum | `CASH_WITHDRAWAL` / `CASH_DEPOSIT` / `CASH_ADJUSTMENT` |
 | `amount` | Decimal | 金額（正數） |
 | `direction` | Enum | `IN` / `OUT`（方便加總） |
-| `reason` | String | 原因（必填） |
+| `reason` | String | 提領原因選填；未填存空字串。補入與調整原因必填。 |
 | `note` | String? | 備註 |
 | `createdByStaffId` | String | 操作員 |
 | `createdAt` | DateTime | 建立時間 |

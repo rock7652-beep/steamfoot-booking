@@ -508,3 +508,20 @@ it("keeps fully reserved remaining sessions in active plans without increasing a
   const spent = {status:"ACTIVE",availableToBook:0,remainingSessions:0,expiryDate:"2099-12-31"};
   expect(splitLiffWallets([reserved,spent])).toEqual({active:[reserved],expired:[],history:[spent]});
 });
+
+it('keeps three usable Steam wallets distinct, including duplicate names and a SINGLE plan', async () => {
+  vi.useFakeTimers();vi.setSystemTime(new Date('2026-11-11T10:00:00+08:00'));
+  try {
+    mockRequireSession.mockResolvedValue(CUSTOMER_USER);mockGetCanonicalId.mockResolvedValue(CANONICAL_CUSTOMER_ID);mockMakeupFindMany.mockResolvedValue([]);
+    const wallet=(id:string,name:string,available:number,expiry:string,category='PACKAGE')=>rawWallet({id,status:'ACTIVE',plan:{name,category},remainingSessions:available,expiryDate:new Date(expiry+'T00:00:00Z'),sessions:Array.from({length:available},()=>({status:'AVAILABLE'}))});
+    mockWalletFindMany.mockResolvedValue([
+      wallet('single','單次',1,'2026-12-12','SINGLE'),wallet('eight','10堂',8,'2026-12-12'),wallet('four','10堂',4,'2027-03-05'),
+      {...wallet('used','單次',0,'2026-12-12','SINGLE'),status:'USED_UP',sessions:[{status:'COMPLETED'}]},
+    ]);
+    const result=await fetchLiffWallets();expect(result.status).toBe('ok');
+    if(result.status!=='ok')throw Error('wallet query failed');
+    expect(result.active.map(w=>[w.id,w.availableToBook])).toEqual([['single',1],['eight',8],['four',4]]);
+    expect(result.history.map(w=>w.id)).toEqual(['used']);expect(result.makeupCredits).toEqual([]);
+    expect(mockWalletFindMany).toHaveBeenCalledWith(expect.objectContaining({where:{customerId:CANONICAL_CUSTOMER_ID,storeId:CUSTOMER_USER.storeId}}));
+  } finally {vi.useRealTimers();}
+});
