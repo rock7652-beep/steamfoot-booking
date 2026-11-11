@@ -9,6 +9,7 @@ import { courseDisplayName } from "@/lib/course-template-presentation";
 import { courseSessionAdjustmentRecords } from "@/server/services/course-session-adjustment-records";
 import { activeSessionAdjustments } from "@/lib/plan-session-adjustment";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
+import { readCoursePurchaseSummaries } from '@/server/queries/course-purchase-summaries';
 
 export async function loadCoursePhoneSummary() {
   try {
@@ -24,7 +25,10 @@ export async function loadCoursePhoneSummary() {
         coursePrisma.courseBooking.findMany({ where: { storeId: actor.storeId, customerId: learner.id, session: { startsAt: { lt: now } } }, select, orderBy: [{ session: { startsAt: "desc" } }, { id: "asc" }], take: 20 }),
       ]);
       const cardIds = cards.map(card => card.id);
-      const adjustments = await courseSessionAdjustmentRecords(coursePrisma, actor.storeId, cardIds);
+      const [adjustments,purchases] = await Promise.all([
+        courseSessionAdjustmentRecords(coursePrisma, actor.storeId, cardIds),
+        readCoursePurchaseSummaries(actor.storeId,learner.id,cardIds),
+      ]);
       const grids = await readCoursePhonePlanGrids(actor.storeId, learner.id, cardIds, adjustments);
       const lessons = (rows: typeof upcoming) => rows.map(row => ({ id: row.id, name: courseDisplayName(row.session.nameSnapshot), startsAt: row.session.startsAt.toISOString(),
         dateOnly: false, quantity: 1, unitLabel: "堂",
@@ -36,7 +40,7 @@ export async function loadCoursePhoneSummary() {
         return [{ id: record.id, name: card.name, startsAt: date.toISOString(), dateOnly: true, quantity: record.quantity, unitLabel: card.unit === "SESSION" ? "堂" : "點", status: "已出席（補登）" }];
       });
       const combinedHistory = [...lessons(history), ...backfills].sort((a, b) => b.startsAt.localeCompare(a.startsAt) || a.id.localeCompare(b.id)).slice(0, 20);
-      return { ...learner, cards: cards.map(card => ({ id: card.id, name: card.name, unit: card.unit, remaining: card.remaining, available: card.available, held: card.held, shared: card.members.length > 1, closed: card.closed, expired: card.expired, grid: grids.get(card.id) ?? null })), upcoming: lessons(upcoming), history: combinedHistory };
+      return { ...learner, cards: cards.map(card => ({ id: card.id, name: card.name, unit: card.unit, remaining: card.remaining, available: card.available, held: card.held, shared: card.members.length > 1, closed: card.closed, expired: card.expired, grid: grids.get(card.id) ?? null, purchase:purchases.get(card.id)??null })), upcoming: lessons(upcoming), history: combinedHistory };
     }));
     // Reads span core/course DBs. Do not return collected data if the staff
     // revokes authority or changes group membership while these reads run.

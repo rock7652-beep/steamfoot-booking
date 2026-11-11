@@ -268,3 +268,14 @@ it('個人課程卡精簡重複確認與說明，保留金額及店家請假規�
  expect(button('查看明細 ⌄')).toBeUndefined();expect(button('收合明細 ⌃')).toBeUndefined();expect(button('確認會到')).toBeUndefined();
  expect(host.textContent).toContain('體驗 NT$ 480');expect(host.textContent).toContain('攜帶室內鞋');expect(host.textContent).not.toContain('體驗不使用方案額度');expect(host.textContent).not.toContain('取消截止');expect(host.textContent).not.toContain('共 1 人');expect(host.textContent).toContain('請假請洽店家');expect(button('取消')).toBeUndefined();expect(button('改時段')).toBeUndefined();
 });
+
+it('keeps customer plan facts visible without the internal balance-adjustment ledger',async()=>{
+ const data={...props(),initialView:'plans'} as unknown as CoursePortalData;
+ data.cards[0].unit='SESSION';data.cards[0].remaining=8;data.cards[0].available=8;
+ data.cards[0].entries=[{id:'grant',kind:'GRANT',points:10,createdAt:'2099-01-01T02:00:00Z'},{id:'void',kind:'VOID',points:1,createdAt:'2099-01-20T02:00:00Z'},{id:'reverse',kind:'RELEASE',points:1,createdAt:'2099-01-20T02:00:00Z'}];
+ data.cards[0].purchases=[{id:'order',points:10,price:4800,createdAt:'2099-01-01T02:00:00Z',status:'CONFIRMED'}];
+ data.cards[0].grid={total:10,dates:['2099-01-02T02:00:00Z','2099-01-09T02:00:00Z']};
+ await act(async()=>root.render(el(CoursePortalClient,data)));
+ expect(host.querySelector('.cp-plan')?.textContent).toContain('剩餘 8 堂');expect(host.querySelector('.cp-plan')?.textContent).toContain('1/1');expect(host.querySelector('.cp-plan')?.textContent).toContain('方案金額 NT$ 4,800');
+ expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(10);expect(host.querySelectorAll('[data-completed="true"]')).toHaveLength(2);expect(host.querySelector('.cp-ledger')).toBeNull();expect(host.textContent).not.toContain('其他堂數異動');
+});

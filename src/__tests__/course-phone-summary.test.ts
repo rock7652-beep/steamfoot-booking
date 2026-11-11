@@ -1,16 +1,18 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ member: vi.fn(), group: vi.fn(), cards: vi.fn(), bookings: vi.fn(), grids: vi.fn(), adjustments: vi.fn() }));
+const m = vi.hoisted(() => ({ member: vi.fn(), group: vi.fn(), cards: vi.fn(), bookings: vi.fn(), grids: vi.fn(), adjustments: vi.fn(), purchases: vi.fn() }));
 vi.mock("@/server/services/course-access", () => ({ courseMember: m.member }));
 vi.mock("@/server/services/course-phone-view", () => ({ readCoursePhoneLearners: m.group }));
 vi.mock("@/server/queries/course-members", () => ({ getCourseCards: m.cards }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseBooking: { findMany: m.bookings } } }));
 vi.mock("@/server/queries/course-phone-plan-grids", () => ({ readCoursePhonePlanGrids: m.grids }));
 vi.mock("@/server/services/course-session-adjustment-records", () => ({ courseSessionAdjustmentRecords: m.adjustments }));
+vi.mock("@/server/queries/course-purchase-summaries", () => ({ readCoursePurchaseSummaries: m.purchases }));
 import { loadCoursePhoneSummary } from "@/server/actions/course-phone-summary";
 beforeEach(() => {
   vi.resetAllMocks();
   m.grids.mockResolvedValue(new Map());
   m.adjustments.mockResolvedValue([]);
+  m.purchases.mockResolvedValue(new Map());
   m.member.mockResolvedValue({ storeId: "store", user: { id: "member" } });
   m.group.mockResolvedValue({ status: "phone_group", learners: [{ id: "a", name: "孩子 A" }, { id: "b", name: "孩子 B" }] });
   m.cards.mockImplementation(async (_store: string, customer: string) => [{ id: `card-${customer}`, name: "鋼琴", unit: "SESSION", remaining: customer === "a" ? 8 : 5, available: 4, held: 1, allowShared: false, members: [{ name: "不應出現的其他人" }], entries: [{ note: "內部備註" }] }]);
@@ -60,4 +62,11 @@ it("removes a corrected backfill on the next read and limits the combined histor
   m.adjustments.mockResolvedValue(Array.from({length:25},(_,i)=>({...record,id:`manual-${i}`})));
   const many=await loadCoursePhoneSummary();if(!many.success)throw Error('summary failed');
   expect(many.learners[0].history).toHaveLength(20);expect(many.learners[0].history.every(row=>row.id.startsWith('manual-'))).toBe(true);
+});
+
+it('adds only the authorized learner purchase date and agreed amount, rechecking the grant after the read',async()=>{
+ m.purchases.mockImplementation(async(_store:string,id:string)=>new Map([[`card-${id}`,{date:'2026-11-01T02:00:00Z',amount:id==='a'?4800:3600}]]));
+ const result=await loadCoursePhoneSummary();if(!result.success)throw Error('summary failed');
+ expect(result.learners[0].cards[0].purchase).toEqual({date:'2026-11-01T02:00:00Z',amount:4800});expect(result.learners[1].cards[0].purchase?.amount).toBe(3600);
+ expect(m.purchases.mock.calls).toEqual([['store','a',['card-a']],['store','b',['card-b']]]);expect(m.group).toHaveBeenCalledTimes(2);
 });

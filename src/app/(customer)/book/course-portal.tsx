@@ -111,7 +111,7 @@ async function readCoursePortal(requestedMonth: string | undefined, preview: Fro
     ? await coursePrisma.courseWaitlistSetting.findUnique({ where: { storeId } })
     : null;
   const waitlistEnabled = waitlistFeature && (waitlistSetting?.enabled ?? false);
-  const cards = memberEnabled ? (await timing.measure("cards", () => getCourseCards(storeId, customer.id))).filter(card => !musicStore || card.unit === "SESSION") : [];
+  const cards = memberEnabled ? (await timing.measure("cards", () => getCourseCards(storeId, customer.id, {where:{},entries:false}))).filter(card => !musicStore || card.unit === "SESSION") : [];
   const memberRecordsPromise = memberEnabled ? getCourseMemberRecords(storeId,customer.id,musicStore) : Promise.resolve([]);
   const [planHistory,planGrids] = await Promise.all([timing.measure("plan_history", () => getCoursePlanHistory(storeId, customer.id, cards.map(card => card.id), now)), timing.measure("plan_grids",()=>readCoursePhonePlanGrids(storeId,customer.id,cards.map(card=>card.id)))]);
   // Independent opening rights are visible only to their own learner. Shared
@@ -384,7 +384,7 @@ async function readCoursePortal(requestedMonth: string | undefined, preview: Fro
     // Shared membership grants names and shared balance, never another member's contact/profile fields.
     cards: cards.map(card => ({ ...card, grid:planGrids.get(card.id)??null, members: courseCardPublicMembers(card.members), history: planHistory.find(history => history.cardId === card.id) ?? { createdAt: null, count: 0, lessons: [] },
       // Only this customer's existing purchase records may appear beside a shared card.
-      purchases: orders.filter(order => order.cardId === card.id).map(order => ({ id: order.id, points: order.points, createdAt: order.createdAt.toISOString(), status: order.status })),
+      purchases: orders.filter(order => order.cardId === card.id).map(order => ({ id: order.id, points: order.points, price:order.price, createdAt: order.createdAt.toISOString(), status: order.status })),
     })),
     bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
     plans:plans.map(p=>({id:p.id,name:p.name,points:p.points,price:p.price,unit:p.unit,validDays:p.validDays,...({sportsMode:p.sportsMode,sportsSubjectId:p.sportsSubjectId,sportsCost:p.sportsCost} as Partial<{sportsMode:string;sportsSubjectId:string|null;sportsCost:number|null}>),templateIds:p.templateIds,termSessionIds:p.termSessionIds})),

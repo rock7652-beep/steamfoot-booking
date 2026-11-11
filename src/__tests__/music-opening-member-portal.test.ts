@@ -196,7 +196,7 @@ describe("member portal opening-makeup visibility", () => {
   it("returns an own independent reservation without a card or reserver link and hides source identifiers", async () => {
     const result = await loadCoursePortal("2026-10");
 
-    expect(m.cards).toHaveBeenCalledWith(storeId, customerId);
+    expect(m.cards).toHaveBeenCalledWith(storeId, customerId, {where:{},entries:false});
     expect(result.bookings).toHaveLength(1);
     expect(result.bookings[0]).toMatchObject({
       id: "own-opening", customerId, openingMakeup: true, cost: 0, unit: "SESSION",

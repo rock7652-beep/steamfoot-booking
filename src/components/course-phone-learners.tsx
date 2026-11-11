@@ -12,8 +12,9 @@ function Plan({ card }: { card: Learner["cards"][number] }) {
   const unit = card.unit === "SESSION" ? "堂" : "點";
   return <section className="cp-phone-plan" aria-label={card.name}>
     <h4>{card.name}{card.shared && <span className="cp-muted"> · 共用</span>}</h4>
-    {card.grid && <LessonProgressGrid total={card.grid.total} completed={card.grid.dates.map((date,index)=>({id:`${card.id}:${index}`,date}))} columns={Math.min(card.grid.total,card.grid.total % 5 === 0 ? 5 : 4)} showSummary={false} gridClassName="cp-phone-grid" />}
-    <p className="cp-muted">剩餘 {card.remaining} {unit} · 已預約 {card.held} {unit} · 可再約 {card.available} {unit}{card.closed ? " · 已結束" : card.expired ? " · 已到期" : ""}</p>
+    {card.purchase&&<p className="cp-muted">購買 {toLocalDateStr(new Date(card.purchase.date))} · 方案金額 NT$ {card.purchase.amount.toLocaleString()}</p>}
+    {card.grid && <LessonProgressGrid voided={(card.grid.voidedDates??[]).map((date,index)=>({id:`void:${card.id}:${index}`,date}))} total={card.grid.total} completed={card.grid.dates.map((date,index)=>({id:`${card.id}:${index}`,date}))} columns={Math.min(card.grid.total,card.grid.total % 5 === 0 ? 5 : 4)} showSummary={false} gridClassName="cp-phone-grid" />}
+    <p className="cp-muted">剩餘 {card.remaining} {unit}{card.held>0?` · 已預約 ${card.held} ${unit} · 可再約 ${card.available} ${unit}`:''}{card.closed ? " · 已結束" : card.expired ? " · 已到期" : ""}</p>
   </section>;
 }
 

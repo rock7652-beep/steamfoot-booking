@@ -34,16 +34,18 @@ export async function loadCourseCardProgress(input:unknown){
     courseSessionAdjustmentRecords(tx,storeId,[card.id]),
    ]);
    const backfills=activeSessionAdjustments(adjustments).filter(r=>r.operation==='BACKFILL');
-   const ids=[...new Set([...card.members.map(m=>m.customerId),...bookings.map(b=>b.customerId),...backfills.map(r=>r.customerId)].filter((id):id is string=>!!id))];
+   const voids=activeSessionAdjustments(adjustments).filter(r=>r.operation==='VOID');
+   const ids=[...new Set([...card.members.map(m=>m.customerId),...bookings.map(b=>b.customerId),...backfills.map(r=>r.customerId),...voids.map(r=>r.customerId)].filter((id):id is string=>!!id))];
    const people=await prisma.customer.findMany({where:{...visibility,storeId,id:{in:ids},mergedIntoCustomerId:null},select:{id:true,name:true}});
    const visible=new Map(people.map(p=>[p.id,p.name]));
    if(ids.some(id=>!visible.has(id))||bookings.some(b=>!b.customerId))return unavailable('此共用方案含其他學員的紀錄，請查看你有權限讀取的完整紀錄。');
    if(bookings.length>2000||bookings.some(b=>b.pointCost!==1)||backfills.some(r=>!r.occurredOn||!parseTaipeiDateTime(r.occurredOn,'00:00')))return unavailable('部分上課資料需核對，請查看完整紀錄。');
-   if(bookings.length+backfills.reduce((sum,r)=>sum+r.quantity,0)>total)return unavailable('上課筆數與方案總堂數待核對，請查看完整紀錄。');
+   if(voids.some(r=>!Number.isSafeInteger(r.quantity)||r.quantity<1||!Number.isFinite(Date.parse(r.recordedAt)))||bookings.length+backfills.reduce((sum,r)=>sum+r.quantity,0)+voids.reduce((sum,r)=>sum+r.quantity,0)>total)return unavailable('使用紀錄與方案總堂數待核對，請查看完整紀錄。');
    const completed:CompletedLesson[]=[...bookings.map(b=>({id:b.id,date:b.session.startsAt.toISOString(),customerName:visible.get(b.customerId!)!,courseName:courseDisplayName(b.session.nameSnapshot)})),...backfills.flatMap(r=>Array.from({length:r.quantity},(_,i)=>({id:`${r.id}:${i}`,date:parseTaipeiDateTime(r.occurredOn!,'00:00')!.toISOString(),customerName:visible.get(r.customerId)!})))];
    if(completed.length>total)return unavailable('上課筆數與方案總堂數待核對，請查看完整紀錄。');
    completed.sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
-   return {success:true as const,data:{available:true as const,total,completed,shared:ids.length>1}};
+   const voided:CompletedLesson[]=voids.flatMap(r=>Array.from({length:r.quantity},(_,i)=>({id:`void:${r.id}:${i}`,date:r.recordedAt,customerName:visible.get(r.customerId)!})));
+   return {success:true as const,data:{available:true as const,total,completed,voided,shared:ids.length>1}};
   },{isolationLevel:'RepeatableRead'});
  }catch(error){const r=handleActionError(error);return {success:false as const,error:r.success?'讀取失敗，請重試':r.error};}
 }

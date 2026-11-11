@@ -96,3 +96,8 @@ it("does not read family data in read-only preview even when the revision change
   await act(async () => root.render(el(CoursePhoneLearners, { scope: "preview", revision: 2, disabled: true },'預覽摘要')));
   expect(m.summary).not.toHaveBeenCalled();expect(host.textContent).toBe('預覽摘要');
 });
+it('shows the four customer plan facts and a dated void marker without an adjustment ledger',async()=>{
+ const data=balanceSummary(7);Object.assign(data.learners[0].cards[0],{purchase:{date:'2026-10-27T02:00:00Z',amount:4800},grid:{total:8,dates:['2026-11-03T02:00:00Z'],voidedDates:['2026-11-10T16:00:00Z']}});
+ m.summary.mockResolvedValue(data);await act(async()=>root.render(el(CoursePhoneLearners,{scope:'store:four-facts'})));
+ expect(host.textContent).toContain('購買 2026-10-27 · 方案金額 NT$ 4,800');expect(host.textContent).toContain('剩餘 7 堂');expect(host.textContent).not.toContain('已預約 0');expect(host.querySelector('[data-voided="true"]')?.textContent).toBe('註銷11/11');expect(host.querySelector('.cp-ledger')).toBeNull();
+});
