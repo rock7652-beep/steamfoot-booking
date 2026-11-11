@@ -1,0 +1,122 @@
+[
+  {
+    "profile": "FITNESS",
+    "mode": "ASSIGNED",
+    "width": 1366,
+    "height": 900,
+    "dialogs": 0,
+    "actions": 1,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "profile": "FITNESS",
+    "mode": "ASSIGNED",
+    "width": 768,
+    "height": 1024,
+    "dialogs": 0,
+    "actions": 1,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "profile": "FITNESS",
+    "mode": "ASSIGNED",
+    "width": 390,
+    "height": 844,
+    "dialogs": 0,
+    "actions": 1,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "profile": "FITNESS",
+    "mode": "OPEN",
+    "width": 1366,
+    "height": 900,
+    "dialogs": 1,
+    "actions": 0,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "profile": "FITNESS",
+    "mode": "OPEN",
+    "width": 768,
+    "height": 1024,
+    "dialogs": 1,
+    "actions": 0,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "profile": "FITNESS",
+    "mode": "OPEN",
+    "width": 390,
+    "height": 844,
+    "dialogs": 1,
+    "actions": 0,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "profile": "MUSIC",
+    "mode": "ASSIGNED",
+    "width": 1366,
+    "height": 900,
+    "dialogs": 0,
+    "actions": 1,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "profile": "MUSIC",
+    "mode": "ASSIGNED",
+    "width": 768,
+    "height": 1024,
+    "dialogs": 0,
+    "actions": 1,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "profile": "MUSIC",
+    "mode": "ASSIGNED",
+    "width": 390,
+    "height": 844,
+    "dialogs": 0,
+    "actions": 1,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "profile": "MUSIC",
+    "mode": "OPEN",
+    "width": 1366,
+    "height": 900,
+    "dialogs": 1,
+    "actions": 0,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "profile": "MUSIC",
+    "mode": "OPEN",
+    "width": 768,
+    "height": 1024,
+    "dialogs": 1,
+    "actions": 0,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "profile": "MUSIC",
+    "mode": "OPEN",
+    "width": 390,
+    "height": 844,
+    "dialogs": 1,
+    "actions": 0,
+    "overflow": false,
+    "errors": []
+  }
+]

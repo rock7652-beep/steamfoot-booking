@@ -743,3 +743,23 @@ it.each([false,true])('renders the calendar-preloaded full roster on first rende
 });
 
 it('keeps a cancelled single beauty appointment visible after removing its list filters',async()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const data=preparedRoster('cancelled-single');data.roster[0].status='CANCELLED';const source:import('@/app/(dashboard)/dashboard/courses/roster-source').CourseRosterSource={compactSingle:true,read:async()=>({success:true,data}),note:vi.fn(),actions:()=>[],labels:{list:'預約名單',pending:'待服務',attended:'已完成',unit:'次'}};const host=document.createElement('div');document.body.append(host);const root=createRoot(host);try{await act(async()=>root.render(createElement(CourseRoster,{source,sportsNative:true,initialSnapshot:{sessionId:'single-beauty',data},sessionId:'single-beauty',capacity:0,canCreate:false,canEdit:true})));expect(host.textContent).toContain('已預讀學員');expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeNull();expect(host.textContent).not.toContain('尚未加入學員');}finally{await act(async()=>root.unmount());host.remove();}});
+
+it.each(["ASSIGNED","OPEN"])("manager add learner confirmation follows the authoritative %s mode",async enrollmentMode=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ vi.clearAllMocks();
+ const data=preparedRoster();data.session.enrollmentMode=enrollmentMode;data.customers=[{id:"new-student",name:"待加入學員",phone:"0911111111"}];
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,json:async()=>({success:true,data})}));
+ m.load.mockReset();m.load.mockResolvedValue({success:true,data});m.create.mockResolvedValue({success:false,error:"合成測試停止，未寫入資料"});
+ const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"assigned-capacity",capacity:1,canCreate:true,canEdit:true,sportsNative:true,view:"member-booking"})));
+  const input=host.querySelector<HTMLInputElement>('input[placeholder*="姓名"]')!;expect(input).toBeTruthy();
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"待加入");input.dispatchEvent(new Event("input",{bubbles:true}));});
+  const learner=[...host.querySelectorAll("button")].find(button=>button.textContent?.includes("待加入學員"));expect(learner).toBeTruthy();
+  await act(async()=>learner!.click());
+  await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+  if(enrollmentMode==="ASSIGNED"){expect(confirm).not.toHaveBeenCalled();expect(m.create).toHaveBeenCalledWith(expect.objectContaining({allowOverCapacity:false,customerId:"new-student",autoCard:true}));}
+  else {expect(confirm).toHaveBeenCalledOnce();expect(m.create).not.toHaveBeenCalled();}
+ }finally{confirm.mockRestore();await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
+});

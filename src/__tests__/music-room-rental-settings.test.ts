@@ -29,22 +29,23 @@ const props = {
 };
 
 
-it("music room editing uses the shared rental settings, preserves capacity and retains failed edits", async()=>{
+it.each(["MUSIC","FITNESS"] as const)("%s room editing keeps shared rental settings, unlimited capacity and failed drafts", async businessProfile=>{
  updateRoom.mockResolvedValue({success:false,error:"儲存失敗，輸入已保留"});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
-  await act(async()=>root.render(createElement(CourseWorkspace,props)));
-  expect([...host.querySelectorAll("thead th")].map(th=>th.textContent)).toEqual(["空間名稱","分類","開放租借","每小時租金","狀態","操作"]);
-  expect([...host.querySelectorAll("tbody button")].map(b=>b.textContent)).toEqual(["A","編輯","⋯"]);
-  await act(async()=>[...host.querySelectorAll<HTMLButtonElement>("tbody button")].find(b=>b.textContent==="編輯")!.click());
+  await act(async()=>root.render(createElement(CourseWorkspace,{...props,businessProfile})));
+  expect([...host.querySelectorAll("thead th")].map(th=>th.textContent)).toEqual(["空間名稱","分類","開放租借","每小時租金",...(businessProfile==="MUSIC"?["狀態"]:[]),"操作"]);
+  expect([...host.querySelectorAll("tbody button")].map(b=>b.textContent)).toContain("A");
+  await act(async()=>[...host.querySelectorAll<HTMLButtonElement>("tbody button")].find(b=>b.textContent===(businessProfile==="MUSIC"?"編輯":"A"))!.click());
   const form=document.querySelector<HTMLFormElement>("#course-edit-form") ?? document.querySelector<HTMLFormElement>("form")!;
+  expect(form.querySelector('[name="roomCapacity"]')).toBeNull();
   const enabled=form.querySelector<HTMLInputElement>('[name="rentalEnabled"]')!;
   expect(enabled.checked).toBe(false);
   await act(async()=>enabled.click());
   const rate=form.querySelector<HTMLInputElement>('[name="rentalHourlyRate"]')!;
   await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(rate,"900");rate.dispatchEvent(new Event("input",{bubbles:true}));});
   await act(async()=>form.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
-  expect(updateRoom).toHaveBeenCalledWith(expect.objectContaining({id:"room",capacity:10,rentalEnabled:true,rentalHourlyRate:900,rentalBufferMinutes:10}));
+  expect(updateRoom).toHaveBeenCalledWith(expect.objectContaining({id:"room",capacity:null,rentalEnabled:true,rentalHourlyRate:900,rentalBufferMinutes:10}));
   expect(rate.value).toBe("900");expect(enabled.checked).toBe(true);expect(host.textContent).toContain("輸入已保留");
  }finally{await act(async()=>root.unmount());host.remove();}
 });

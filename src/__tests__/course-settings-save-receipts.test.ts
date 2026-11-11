@@ -67,17 +67,16 @@ it("rejects cross-store requests before transactions; committed saves survive ca
  expect(await saveCoursePointPlan({...plan,receipt})).toMatchObject({success:true,syncWarning:true});
 });
 
-it("confirms a lost room edit once and protects capacity and cross-store writes",async()=>{
+it("confirms unlimited room edits once and protects revisions and cross-store writes",async()=>{
  const {courseRoomInput,courseRoomRevision}=await import("@/lib/course-room-input");
  let room={...courseRoomInput.parse({name:"教室",capacity:10}),id:"room",storeId:"store",isActive:true};
  m.room.mockImplementation(async()=>room);
  m.updateRoom.mockImplementation(async({data})=>{room={...room,...data};return {count:1};});
  const input={...courseRoomInput.parse(room),name:"更新教室",capacity:8,id:"room",expectedRevision:courseRoomRevision(room),...receipt};
- const first=await saveCourseRoomSettings(input);expect(first).toMatchObject({success:true,data:{name:"更新教室",capacity:8}});
- expect(await saveCourseRoomSettings(input)).toEqual(first);expect(m.updateRoom).toHaveBeenCalledTimes(1);expect(m.roomUse).toHaveBeenCalledTimes(1);
+ const first=await saveCourseRoomSettings(input);expect(first).toMatchObject({success:true,data:{name:"更新教室",capacity:null}});
+ expect(await saveCourseRoomSettings(input)).toEqual(first);expect(m.updateRoom).toHaveBeenCalledTimes(1);expect(m.roomUse).not.toHaveBeenCalled();
  expect((await saveCourseRoomSettings({...input,name:"過期編輯"})).success).toBe(false);
- m.roomUse.mockRejectedValueOnce(new Error("已排課容量超過上限"));
- expect((await saveCourseRoomSettings({...input,capacity:1,expectedRevision:courseRoomRevision(room)})).success).toBe(false);expect(m.updateRoom).toHaveBeenCalledTimes(1);
+ expect((await saveCourseRoomSettings({...input,capacity:1,expectedRevision:courseRoomRevision(room)})).success).toBe(true);expect(m.updateRoom).toHaveBeenCalledTimes(2);
  m.transaction.mockClear();expect((await saveCourseRoomSettings({...input,expectedStoreId:"other"})).success).toBe(false);expect(m.transaction).not.toHaveBeenCalled();
 });
 it("does not report committed room edits as failures when cache invalidation fails",async()=>{

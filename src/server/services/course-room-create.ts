@@ -17,6 +17,7 @@ export async function createCourseRoomWithReceipt(input: unknown) {
     const { user, storeId } = await courseManager("booking.create");
     authMs = Math.round(performance.now() - started);
     const { expectedStoreId, requestKey, ...data } = courseRoomCreateInput.parse(input);
+    data.capacity = null; // Music/fitness spaces have no participant limit.
     if (storeId !== expectedStoreId) throw new AppError("CONFLICT", "店舖已切換，請回原店確認空間後再操作。");
     const id = `room_${createHash("sha256").update(JSON.stringify([storeId, user.id, requestKey])).digest("hex")}`;
     const databaseStarted = performance.now();

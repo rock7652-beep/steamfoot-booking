@@ -51,3 +51,7 @@ it("store and actor are part of the receipt identity", async () => {
   const second = await createCourseRoomWithReceipt({ ...input, expectedStoreId: "store-b" });
   expect(second.room.id).not.toBe(first.room.id); expect(rows.size).toBe(2);
 });
+
+it("ignores stale room-capacity input and persists an unlimited space",async()=>{
+ const result=await createCourseRoomWithReceipt({...input,capacity:1});expect(result.room.capacity).toBeNull();expect(m.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({capacity:null})}));
+});

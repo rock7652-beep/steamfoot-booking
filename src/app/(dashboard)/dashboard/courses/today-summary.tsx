@@ -1,3 +1,6 @@
+import {courseEnrollmentMode} from "@/lib/course-capacity";
+import {withCourseCalendarRead} from "@/server/services/course-calendar-read-scope";
+import {readSportsSessionRule} from "@/server/services/sports-staging-schedule";
 import { CourseTodayList } from "./today-list";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -31,11 +34,14 @@ export async function CourseTodaySummary() {
       endsAt: true,
       coachId: true,
       capacity: true,
+      enrollmentMode:true,
+      bookingAudience:true,
       room: { select: { name: true } },
       bookings: { select: { status: true, customerId: true } },
     },
     orderBy: { startsAt: "asc" },
   });
+  const modes=await withCourseCalendarRead(storeId,sessions.map(s=>s.id),()=>Promise.all(sessions.map(async s=>courseEnrollmentMode(s,(await readSportsSessionRule(coursePrisma,storeId,s.id))?.enrollment))));
   const coaches = await prisma.staff.findMany({
     where: {
       storeId,
@@ -75,7 +81,8 @@ export async function CourseTodaySummary() {
       <CourseTodayList music={music}
         canCreate={canCreate}
         canEdit={canEdit}
-        sessions={sessions.map((s) => ({
+        sessions={sessions.map((s,index) => ({
+          enrollmentMode:modes[index],
           id: s.id,
           nameSnapshot: s.nameSnapshot,
           startsAt: s.startsAt.toISOString(),

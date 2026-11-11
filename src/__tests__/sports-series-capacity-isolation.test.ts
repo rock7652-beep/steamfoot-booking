@@ -12,9 +12,9 @@ const base={storeId:actor.storeId,templateId:"template",roomId:"room",coachId:"c
 const good={...base,id:"good",requestKey:"good",learnerSnapshot:[]};
 const bad={...base,id:"bad",requestKey:"bad",startsAt:new Date("2026-11-02T05:00Z"),endsAt:new Date("2026-11-02T06:00Z"),learnerSnapshot:[{customerId:"one"},{customerId:"two"}]};
 const rule={perpetual:true,frequency:"WEEKLY",enrollment:"OPEN",planId:"p",students:[],trialPrice:0};
-function fixture(rules:typeof good[]){
+function fixture(rules:typeof good[],enrollment="OPEN"){
  const create=vi.fn().mockImplementation(async({data})=>({id:data.requestKey+data.requestIndex,...data}));
- const query=vi.fn().mockImplementation(async(parts:TemplateStringsArray)=>parts.join("").includes("SELECT r.payload")?[{payload:rule}]:rules);
+ const query=vi.fn().mockImplementation(async(parts:TemplateStringsArray)=>parts.join("").includes("SELECT r.payload")?[{payload:{...rule,enrollment}}]:rules);
  return {$queryRaw:query,courseSession:{findUnique:vi.fn().mockResolvedValue(null),findFirst:vi.fn().mockResolvedValue(null),findMany:vi.fn().mockResolvedValue([]),create},courseRental:{findFirst:vi.fn().mockResolvedValue(null)}};
 }
 beforeEach(()=>vi.clearAllMocks());
@@ -39,4 +39,10 @@ it.each([new AppError("FORBIDDEN","permission"),new AppError("VALIDATION","other
 it("still rejects a real room/coach conflict instead of skipping it",async()=>{
  const tx=fixture([good]);tx.courseSession.findFirst.mockResolvedValueOnce({id:"occupied"} as never);
  await expect(materializeSportsMonth(tx as unknown as Prisma.TransactionClient,actor,"2026-11-09","2026-11-09")).rejects.toThrow("時段有衝突");expect(tx.courseSession.create).not.toHaveBeenCalled();
+});
+
+it("materializes an assigned series with more students than its legacy capacity",async()=>{
+ const tx=fixture([bad] as typeof good[],"ASSIGNED");
+ await expect(materializeSportsMonth(tx as unknown as Prisma.TransactionClient,actor,"2026-11-09","2026-11-16")).resolves.toBeUndefined();
+ expect(tx.courseSession.create).toHaveBeenCalledTimes(2);expect(attachSportsSessionRules).toHaveBeenCalledWith(expect.anything(),actor,"bad",expect.objectContaining({enrollment:"ASSIGNED",students:[{customerId:"one",cardId:null},{customerId:"two",cardId:null}]}),expect.anything());
 });

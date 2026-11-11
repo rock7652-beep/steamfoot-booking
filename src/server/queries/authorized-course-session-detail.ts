@@ -1,3 +1,4 @@
+import {courseEnrollmentMode} from "@/lib/course-capacity";
 import 'server-only';
 import {z} from 'zod';
 import {coursePrisma} from '@/lib/course-db';
@@ -104,7 +105,7 @@ export async function readAuthorizedCourseSessionDetail({user,storeId}:Awaited<R
           canCorrect: canCorrectTrial,
           customers: trialCustomers,
         },
-        session: { ...await (await import("@/server/services/course-add-ons")).readCourseAddOnSessionFields(user,storeId,sessionId,session.template.musicSubject?.isActive===false?null:session.template.musicSubjectId), templateId:session.templateId,compatibleTemplateIds:nativeSports?teachingTemplates:compatibleTemplateIds,startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && waitlistPolicy.waitlistEnabled, waitlistStopMinutes: waitlistPolicy.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
+        session: { ...await (await import("@/server/services/course-add-ons")).readCourseAddOnSessionFields(user,storeId,sessionId,session.template.musicSubject?.isActive===false?null:session.template.musicSubjectId), ...({enrollmentMode:courseEnrollmentMode(session,sportsRule?.enrollment)} as {enrollmentMode?:string}),templateId:session.templateId,compatibleTemplateIds:nativeSports?teachingTemplates:compatibleTemplateIds,startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && waitlistPolicy.waitlistEnabled, waitlistStopMinutes: waitlistPolicy.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
         cards: cards.filter((card) => (!musicStore || card.unit === "SESSION")&&(!sportsRule||cardRights(card).eligible)).map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],

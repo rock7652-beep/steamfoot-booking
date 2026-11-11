@@ -1,3 +1,4 @@
+import {courseHasSeatLimit} from "@/lib/course-capacity";
 import {persistCustomerBookingGoods,type BookingGoodsTx} from "./customer-booking-goods";
 import type {CustomerBookingGoodsInput} from "@/lib/customer-booking-goods";
 import {assertCourseSchedulingMode} from "./course-scheduling-modes";
@@ -312,9 +313,11 @@ export async function reserveCourseInTransaction(
     else assertCourseSelfBookingEnabled(rule);
   }
   let entitlementCost: number | null = null;
+  let seatLimit = courseHasSeatLimit(session ?? {});
   {
     const {readSportsSessionRule}=await import('./sports-staging-schedule');
     const sessionRule=await readSportsSessionRule(tx,storeId,input.sessionId);
+    seatLimit = courseHasSeatLimit(session ?? {}, sessionRule?.enrollment);
     if((sessionRule?.enrollment==="OPEN"||sessionRule?.enrollment==="ASSIGNED")&&!options.memberReschedule)assertCourseSchedulingMode(rule,sessionRule.enrollment);
     if(input.companionIndex&&sessionRule?.enrollment==='ASSIGNED')return fail('指定學員課程不使用同行預約');
     if(actor.customerId&&sessionRule?.enrollment==='ASSIGNED')return fail('本堂僅限店家指定學員，不開放自行選課');
@@ -446,7 +449,7 @@ export async function reserveCourseInTransaction(
     }) : Promise.resolve({_sum:{pointCost:0}}),
   ]);
   if (duplicate) return fail("此上課人已預約本堂課");
-  if (occupied >= session.capacity && !(input.allowOverCapacity && !actor.customerId)) return fail("本堂課已滿班，請由店長確認加人");
+  if (seatLimit && occupied >= session.capacity && !(input.allowOverCapacity && !actor.customerId)) return fail("本堂課已滿班，請由店長確認加人");
   if (input.customerId) {
     const overlap = await tx.courseBooking.findFirst({where:{storeId,customerId:input.customerId,status:{not:"CANCELLED"},session:{cancelledAt:null,releasedAt:null,startsAt:{lt:session.endsAt},endsAt:{gt:session.startsAt}}},select:{id:true}});
     if(overlap) return fail("學員同時段已有課程，請先調整上課時間");
@@ -710,7 +713,9 @@ export async function correctCourseAttendance(
       tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, status: { not: "CANCELLED" } } }),
       b.customerId ? tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, customerId: b.customerId, status: { not: "CANCELLED" } } }) : Promise.resolve(0),
     ]);
-    if (occupied >= b.session.capacity) return fail("本堂課名額已滿，無法恢復請假；請先處理名額");
+    const {readSportsSessionRule}=await import("./sports-staging-schedule");
+    const sessionRule=await readSportsSessionRule(tx,actor.storeId,b.sessionId);
+    if (courseHasSeatLimit(b.session,sessionRule?.enrollment) && occupied >= b.session.capacity) return fail("本堂課名額已滿，無法恢復請假；請先處理名額");
     if (duplicate) return fail("此學員已有本堂課預約，無法重複恢復");
     if (b.card && !courseCardCoversDate(b.card, actor.storeId, b.session.startsAt)) return fail("方案不涵蓋本堂日期，無法恢復請假");
   }

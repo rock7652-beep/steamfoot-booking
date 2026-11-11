@@ -173,17 +173,19 @@ const database = () => { if (!db) throw new Error("Explicit isolated database re
     expect(await database().courseBooking.findUnique({where:{id:rows[1].id}})).toMatchObject({status:"RESERVED",cardId:null});
   });
 
-  it("store locking prevents two automatic selections from overselling the final place", async () => {
+  it.each(["ASSIGNED","OPEN"] as const)("concurrent %s enrollment follows the class seat policy without overspending cards", async mode => {
     const f = await fixture(), s = await f.session(0, 3, f.template.id, 1);
-    await f.card(); await f.card(f.other);
-    await database().$executeRaw`INSERT INTO "SportsStagingSessionRule" VALUES (${s.id},${f.storeId},'SINGLE','ASSIGNED',NULL,0,'{}')`;
+    await f.card(f.learner,mode); await f.card(f.other,mode);
+    await database().$executeRaw`INSERT INTO "SportsStagingSessionRule" VALUES (${s.id},${f.storeId},'SINGLE',${mode},NULL,0,'{}')`;
+    const rule={...f.rule,enrollment:mode,students:mode==="OPEN"?[]:f.rule.students};
     const attempts = await Promise.allSettled([f.learner, f.other].map(customerId => f.run(async tx => {
-      const picked = await findSportsCard(tx, f.storeId, customerId, [s], f.rule);
+      const picked = await findSportsCard(tx, f.storeId, customerId, [s], rule);
       return reserveCourseInTransaction(tx, f.actor, { sessionId: s.id, cardId: picked!.card.id, customerId, requestKey: randomUUID() }, null);
     })));
-    expect(attempts.filter(r => r.status === "fulfilled")).toHaveLength(1);
-    expect(await database().courseBooking.count({ where: { sessionId: s.id } })).toBe(1);
-    expect(await database().coursePointEntry.count({ where: { storeId: f.storeId, kind: "RESERVE" } })).toBe(1);
+    const expected=mode==="ASSIGNED"?2:1;
+    expect(attempts.filter(r => r.status === "fulfilled")).toHaveLength(expected);
+    expect(await database().courseBooking.count({ where: { sessionId: s.id } })).toBe(expected);
+    expect(await database().coursePointEntry.count({ where: { storeId: f.storeId, kind: "RESERVE" } })).toBe(expected);
   });
 
   it("automatic single-booking retries keep the original card after its balance or expiry changes",async()=>{

@@ -7,7 +7,7 @@ import { InlineRosterNoteEditor, type InlineRosterNote } from "./inline-roster-n
 import styles from "./roster-reminders.module.css";
 
 /** Shared roster reminders: two lines, separate 44px actions, full text on demand. */
-export function RosterReminders({ customerId, name, serviceNote, notes, canEdit, canEditNote = false, onOpen, onEdit, inlineNote, usualLabel = "店內", className = "", sports = false }: {
+export function RosterReminders({ customerId, name, serviceNote, notes, canEdit, canEditNote = false, onOpen, onEdit, inlineNote, usualLabel = "店內", className = "", sports = false,quietEmpty=false }: {
   customerId?: string;
   name: string;
   serviceNote?: string | null;
@@ -19,7 +19,7 @@ export function RosterReminders({ customerId, name, serviceNote, notes, canEdit,
   inlineNote?: InlineRosterNote;
   usualLabel?: string;
   className?: string;
-  sports?: boolean;
+  sports?: boolean;quietEmpty?:boolean;
 }) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
@@ -28,13 +28,13 @@ export function RosterReminders({ customerId, name, serviceNote, notes, canEdit,
   return <><div className={`${styles.reminders} ${className}`} onClick={event => event.stopPropagation()} data-roster-reminders data-sports-roster-reminders={sports || undefined}>
     <button type="button" className={styles.overview} aria-label={`${name} 標籤與備註`} onClick={onOpen ?? (() => setOpen(true))}>
       <span className={styles.summaryLine}>
-        {customerId ? <CustomerLabels customerId={customerId} displayOnly variant="summary" maxVisible={5} /> : <span className="text-earth-400">無標籤</span>}
+        {customerId ? <CustomerLabels customerId={customerId} displayOnly hideEmpty={quietEmpty} variant="summary" maxVisible={5} /> : quietEmpty?null:<span className="text-earth-400">無標籤</span>}
       </span>
       <span className={styles.noteLine}>
         {sessionNote && <span className={`${styles.notePart} font-medium text-earth-900`}><span className={styles.noteSource}>本次<span className="sr-only">備註</span>：</span><span className={styles.noteText}>{sessionNote}</span></span>}
         {sessionNote && usualNote && <span aria-hidden="true" className="shrink-0 text-earth-300">｜</span>}
         {usualNote && <span className={`${styles.notePart} text-earth-600`}><span className={styles.noteSource}>{usualLabel}<span className="sr-only">備註</span>：</span><span className={styles.noteText}>{usualNote}</span></span>}
-        {!sessionNote && !usualNote && <span className="text-earth-400">尚無備註</span>}
+        {!quietEmpty && !sessionNote && !usualNote && <span className="text-earth-400">尚無備註</span>}
       </span>
     </button>
     <span className={styles.actionSlot}>

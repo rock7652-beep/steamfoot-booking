@@ -1,4 +1,5 @@
 "use server";
+import {courseHasSeatLimit} from "@/lib/course-capacity";
 import {courseChargeSnapshot} from "@/lib/course-charge-settings";
 import {resolveScheduleCharge} from "@/server/services/course-charge";
 import {assertCourseSchedulingMode} from "@/server/services/course-scheduling-modes";
@@ -156,9 +157,7 @@ export async function updateCourseRoom(input: unknown) {
     await courseTransaction(storeId, async tx => {
       const existing = await tx.courseRoom.findFirst({where:{id:data.id,storeId},select:{capacity:true}});
       if (!existing) throw new AppError("NOT_FOUND","找不到本店教室");
-      if (data.capacity !== null && (existing.capacity === null || data.capacity < existing.capacity)) {
-        await assertNoCourseResourceUse(tx, storeId, {roomId:data.id,capacity:data.capacity});
-      }
+      data.capacity = null;
       const {id,...fields}=data;
       const result = await tx.courseRoom.updateMany({where:{id,storeId},data:fields});
       if (!result.count) throw new AppError("NOT_FOUND","找不到本店教室");
@@ -177,6 +176,7 @@ export async function updateCourseRoom(input: unknown) {
 export async function saveCourseRoomSettings(input:unknown) {
   try {
     const {id,expectedStoreId,expectedRevision,requestKey,...fields}=courseRoomEditInput.parse(input);
+    fields.capacity = null; // Space capacity never limits music/fitness classes.
     void requestKey; // Transport keeps the exact edit payload for an ambiguous retry.
     const {storeId}=await writableStore("booking.update");
     if(storeId!==expectedStoreId)throw new AppError("CONFLICT","目前門市已切換，請重新開啟空間設定。");
@@ -187,8 +187,6 @@ export async function saveCourseRoomSettings(input:unknown) {
         if(JSON.stringify(courseRoomInput.parse(previous))===JSON.stringify(fields))return previous;
         throw new AppError("CONFLICT","空間已有更新，輸入已保留。請核對目前資料後再編輯。");
       }
-      if(fields.capacity!==null&&(previous.capacity===null||fields.capacity<previous.capacity))
-        await assertNoCourseResourceUse(tx,storeId,{roomId:id,capacity:fields.capacity});
       const updated=await tx.courseRoom.updateMany({where:{id,storeId,...courseRoomInput.parse(previous),isActive:previous.isActive},data:fields});
       if(!updated.count)throw new AppError("CONFLICT","空間已有更新，請重新核對。");
       return tx.courseRoom.findFirstOrThrow({where:{id,storeId}});
@@ -319,7 +317,9 @@ export async function updateCourseSession(input: unknown) {
             "CONFLICT",
             "新日期超過已預約方案期限，尚未修改排課",
           );
-        if (data.capacity < bookings.filter(booking=>booking.status!=="CANCELLED").length)
+        const {readSportsSessionRule}=await import("@/server/services/sports-staging-schedule");
+        const capacityRule=await readSportsSessionRule(tx,storeId,session.id);
+        if (courseHasSeatLimit(session,capacityRule?.enrollment) && data.capacity < bookings.filter(booking=>booking.status!=="CANCELLED").length)
           throw new AppError("CONFLICT", "人數上限不能少於已預約人數");
         if (bookings.length && (data.pointCost !== session.pointCost || (data.templateId && data.templateId !== session.templateId)))
           throw new AppError(
@@ -405,10 +405,10 @@ export async function updateCourseSession(input: unknown) {
 export async function createCourseRoom(input: unknown) {
   try {
     const { storeId } = await writableStore();
-    const { name, category, capacity, details, equipment, location, rentalEnabled, rentalHourlyRate, rentalBufferMinutes } = courseRoomInput
+    const { name, category, details, equipment, location, rentalEnabled, rentalHourlyRate, rentalBufferMinutes } = courseRoomInput
       .parse(typeof input === "string" ? { name: input } : input);
     const room = await coursePrisma.courseRoom.create({
-      data: { name, category, capacity, details, equipment, location, storeId, rentalEnabled, rentalHourlyRate, rentalBufferMinutes },
+      data: { name, category, capacity:null, details, equipment, location, storeId, rentalEnabled, rentalHourlyRate, rentalBufferMinutes },
       select: { id: true, name: true },
     });
     kickCoachNotifications(storeId);revalidatePath("/dashboard/courses");
@@ -541,7 +541,7 @@ export async function createCourseSchedule(input: unknown) {
     }
     if(data.learners.some(learner=>!learner.customerId&&(learner.cardId!==null||!learner.participantKey||!learner.customerName)))throw new AppError("VALIDATION","體驗者資料不完整");
     if(new Set(data.learners.map(learner=>learner.customerId??learner.participantKey)).size!==data.learners.length)throw new AppError("VALIDATION","同一學員不能重複加入");
-    if(data.learners.length>data.capacity)throw new AppError("VALIDATION","學員人數超過課程名額");
+    if(courseHasSeatLimit(data,data.sportsStaging?.enrollment)&&data.learners.length>data.capacity)throw new AppError("VALIDATION","學員人數超過課程名額");
     const sportsTrialLearners=!!data.sportsStaging&&data.isTrial&&data.learners.length>0;
     const enrollmentFingerprint=musicScheduling||sportsTrialLearners?createHash("sha256").update(JSON.stringify({mode:data.enrollmentMode??data.sportsStaging?.enrollment,learners:data.learners.map(row=>({customerId:row.customerId,participantKey:row.participantKey,cardId:row.cardId,trialPrice:row.trialPrice,customerName:row.customerName,customerPhone:row.customerPhone,sharedContactPhone:row.sharedContactPhone})).sort((a,b)=>(a.customerId??a.participantKey??"").localeCompare(b.customerId??b.participantKey??""))})).digest("hex"):null;
     const limits=data.learners.length ? await (await import("@/lib/feature-gate")).getStoreLimitsByStoreId(storeId) : null;
@@ -1162,7 +1162,7 @@ export async function previewCourseSchedule(input: unknown) {
       assertCourseSessionsFitHours(coursePrisma, storeId, dates),
       assertCourseDutyCoverage(coursePrisma, storeId, dates.map(r => ({ ...r, coachId: d.coachId }))),
     ]);
-    const [conflicts, room, targetTemplate] = await Promise.all([
+    const [conflicts, targetTemplate] = await Promise.all([
       coursePrisma.courseSession.findMany({
         where: {
           storeId,
@@ -1179,10 +1179,6 @@ export async function previewCourseSchedule(input: unknown) {
           ],
         },
         select: { startsAt: true, endsAt: true, roomId: true, coachId: true, nameSnapshot: true },
-      }),
-      coursePrisma.courseRoom.findFirst({
-        where: { id: d.roomId, storeId },
-        select: { capacity: true },
       }),
       coursePrisma.courseTemplate.findFirst({ where: { id: d.templateId, storeId }, select: { musicScheduleMode: true, musicSubjectId:true } }),
     ]);
@@ -1218,10 +1214,7 @@ export async function previewCourseSchedule(input: unknown) {
             resource: [c.roomId === d.roomId ? "教室" : "", c.coachId === d.coachId ? "授課人員" : ""].filter(Boolean).join("及"),
           })),
         })),
-        capacityWarning:
-          !targetTemplate?.musicSubjectId && room?.capacity && d.capacity > room.capacity
-            ? `排課 ${d.capacity} 人超過教室容納 ${room.capacity} 人，請確認容量`
-            : null,
+        capacityWarning: null,
       },
     };
   } catch (e) {
@@ -1290,6 +1283,8 @@ export async function updateCourseSeries(input: unknown) {
       }));
       if(d.templateId&&d.templateId!==source.templateId){const {ensureMusicTeachingItem}=await import("@/server/services/music-teaching-item");await ensureMusicTeachingItem(tx,storeId,d.templateId);}
       for (const change of changes) {
+        const {readSportsSessionRule}=await import("@/server/services/sports-staging-schedule");
+        const capacityRule=await readSportsSessionRule(tx,storeId,change.session.id);
         await assertCourseResources(tx,storeId,{...d,templateId:d.templateId ?? change.session.templateId},change.session);
         for (const booking of change.session.bookings) {
           const issue = musicOpeningSessionChangeIssue(storeId,{...booking,session:{startsAt:change.session.startsAt}},change.startsAt);
@@ -1307,7 +1302,7 @@ export async function updateCourseSeries(input: unknown) {
             "新日期超過已預約方案期限，整批尚未修改",
           );
         if (
-          change.session.bookings.filter(booking=>booking.status!=="CANCELLED").length > d.capacity ||
+          (courseHasSeatLimit(change.session,capacityRule?.enrollment) && change.session.bookings.filter(booking=>booking.status!=="CANCELLED").length > d.capacity) ||
           (change.session.bookings.length &&
             (change.session.pointCost !== d.pointCost || (d.templateId && d.templateId !== change.session.templateId)))
         )
