@@ -68,7 +68,7 @@ export function OperationHistoryButton({
               {items && items.length > 0 && (
                 <ol className="divide-y divide-earth-100">
                   {items.map((item) => (
-                    <li key={item.id} className="py-3 first:pt-0 last:pb-0">
+                    <li key={item.id} className="admin-striped-row py-3 first:pt-0 last:pb-0">
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                         <p className="text-sm font-medium text-earth-900">{auditSummary({...item,targetType},item.targetLabel)}</p>
                         <time className="text-sm tabular-nums text-earth-500">{formatTime(item.createdAt)}</time>

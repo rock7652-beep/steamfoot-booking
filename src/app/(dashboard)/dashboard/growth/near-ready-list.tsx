@@ -23,7 +23,7 @@ export function NearReadyList({ scores, showAll }: Props) {
         const isExpanded = expandedId === s.customerId;
 
         return (
-          <div key={s.customerId} className="py-2.5 first:pt-0 last:pb-0">
+          <div key={s.customerId} className="admin-striped-row py-2.5 first:pt-0 last:pb-0">
             <button
               type="button"
               className="flex w-full items-center gap-3 text-left"

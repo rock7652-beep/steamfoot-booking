@@ -1,0 +1,75 @@
+{
+  "fixtureOnly": true,
+  "realComponents": [
+    "CustomersTable",
+    "DataTable",
+    "RosterTable",
+    "CourseStaffList"
+  ],
+  "substitutes": [
+    "navigation links",
+    "customer label metadata"
+  ],
+  "syntheticRows": 30,
+  "checks": [
+    "steamfoot customer stripes",
+    "fitness customer stripes",
+    "music customer stripes",
+    "beauty customer stripes",
+    "white/tint full rows",
+    "sticky action color",
+    "hover",
+    "selected priority",
+    "warning/inactive priority",
+    "sort/filter/page resets",
+    "hidden rows ignored",
+    "group expand stable",
+    "calendar excluded",
+    "no external requests"
+  ],
+  "sizes": [
+    {
+      "name": "desktop",
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "name": "wide",
+      "width": 1920,
+      "height": 1080,
+      "overflow": false
+    },
+    {
+      "name": "ipad-landscape",
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "name": "ipad-portrait",
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    },
+    {
+      "name": "narrow",
+      "width": 600,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844,
+      "overflow": false
+    },
+    {
+      "name": "small-mobile",
+      "width": 360,
+      "height": 800,
+      "overflow": false
+    }
+  ],
+  "errors": []
+}
