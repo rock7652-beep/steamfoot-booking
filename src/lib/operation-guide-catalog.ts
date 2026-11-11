@@ -1,5 +1,5 @@
 import { planActivationGuideDetail } from "./operation-guide-plan-activation";
-import {sessionAdjustmentGuide,steamSessionCorrectionGuide} from './operation-guide-session-adjustment';
+import {sessionAdjustmentGuide} from './operation-guide-session-adjustment';
 import {retiredSpaCatalogGuides} from "./operation-guide-retired-spa";
 import type { OperationGuide, GuideCategory } from "./operation-guide-types";
 
@@ -140,7 +140,6 @@ export const guideCategories = catalogGuideCategories.filter(category => categor
 
 export const additionalGuides: OperationGuide[] = [
   sessionAdjustmentGuide,
-  steamSessionCorrectionGuide,
   {
     "id": "S01",
     "category": "start",

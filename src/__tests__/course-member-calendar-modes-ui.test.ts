@@ -50,7 +50,7 @@ it.each([[true,true],[true,false],[false,true],[false,false]])("keeps existing p
 it("keeps authorized proxy bookings separate from unrelated shared-card members",async()=>{
  const data=props();data.bookings[1].reserverCustomerId="child";
  await act(async()=>root.render(createElement(CoursePortalClient,data)));
- expect(host.querySelectorAll(".cp-booking-card")).toHaveLength(2);expect(host.querySelector(".cp-days .shared")).not.toBeNull();
+ expect(host.querySelectorAll("[data-customer-booking-row]")).toHaveLength(2);expect(host.querySelector(".cp-days .shared")).not.toBeNull();
  await click("我的");expect(host.textContent).toContain("課程與繳費");expect(host.textContent).toContain("共卡成員");expect(host.textContent).toContain("健康紀錄");
  await click("課程與繳費");expect(host.querySelector('.cp-nav button[aria-current="page"]')?.textContent).toBe("我的");
 });
@@ -75,14 +75,15 @@ it("merges tuition and balance into one card and makes the purchased two periods
  expect(host.querySelector(".cp-plan-held")?.textContent).toContain("已預約 1 堂｜可再約 6 堂");
  expect(host.querySelector(".cp-plan-row")?.textContent).toContain("方案金額 NT$ 6,400");expect(host.querySelector(".cp-plan-row")?.textContent).toContain("首次上課起 70 天");
  await act(async()=>host.querySelector<HTMLElement>(".cp-plan-row")!.click());
- expect(host.querySelectorAll(".cp-member-records-embedded")).toHaveLength(1);expect(host.querySelectorAll(".cp-member-period")).toHaveLength(2);
- expect(host.querySelector(".cp-plan-body")?.textContent).toContain("未收 NT$ 3,200");expect(host.querySelectorAll(".cp-plan-history")).toHaveLength(0);
+ expect(host.querySelectorAll(".cp-member-records-embedded")).toHaveLength(0);expect(host.querySelectorAll(".cp-member-period")).toHaveLength(0);
+ expect(host.querySelector(".cp-plan-row")?.textContent).toContain("方案金額 NT$ 6,400");expect(host.querySelector(".cp-plan-body")?.textContent).not.toContain("未收 NT$ 3,200");expect(host.querySelectorAll(".cp-plan-history [data-lesson]")).toHaveLength(1);
 });
 it("keeps multiple payments for one card together while distinct same-name cards remain separate",async()=>{
  const data=paymentProps();data.memberRecords!.push({...data.memberRecords![0],id:"renew",lessonsAvailable:false,periods:[],lessons:[]});
  data.cards.push({...data.cards[0],id:"other-card",purchases:[]});
  await act(async()=>root.render(createElement(CoursePortalClient,data)));
- expect(host.querySelectorAll(".cp-plan")).toHaveLength(2);expect(host.querySelectorAll(".cp-member-purchase")).toHaveLength(2);
+ expect(host.querySelectorAll(".cp-plan")).toHaveLength(2);expect(host.querySelectorAll(".cp-member-purchase")).toHaveLength(0);
+ expect(host.querySelectorAll(".cp-plan-row")[0].textContent).toContain("方案金額 NT$ 6,400");
  expect(host.querySelectorAll(".cp-payment-summary")).toHaveLength(0);
 });
 
@@ -91,14 +92,14 @@ it("shows renewal periods 3 and 4 on the member portal while matching local less
  await act(async()=>root.render(createElement(CoursePortalClient,data)));
  expect(host.querySelector(".cp-plan-row")?.textContent).toContain("第 2 次購課・第 3–4 期");
  await act(async()=>host.querySelector<HTMLElement>(".cp-plan-row")!.click());
- const periods=host.querySelectorAll(".cp-member-period");
- expect(periods[0].querySelector("summary")?.textContent).toContain("第 3 期");
- expect(periods[0].textContent).toContain("已出席");expect(periods[1].querySelector("summary")?.textContent).toContain("第 4 期");
+ expect(host.querySelectorAll(".cp-member-period")).toHaveLength(0);
+ expect(host.querySelector(".cp-plan-row")?.textContent).toContain("購買 2 期・共 8 堂");
+ expect(host.querySelector(".cp-plan-history")?.textContent).toContain("吉他");
 });
 it("retains shared-card lessons and orders without an accessible card",async()=>{
  const data=paymentProps();data.cards[0].history={cardId:"card",createdAt:date,count:2,lessons:[...data.cards[0].history!.lessons,{id:"family-class",name:"家人瑜珈",startsAt:date,customerId:"family",customerName:"家人",status:"已出席",used:1}]};
  data.memberRecords!.push({...data.memberRecords![0],id:"pending",cardId:null,status:"PENDING",lessonsAvailable:false,periods:[],lessons:[]});
  await act(async()=>root.render(createElement(CoursePortalClient,data)));
  expect(host.querySelectorAll(".cp-plan")).toHaveLength(1);expect(host.querySelectorAll(".cp-payment-summary")).toHaveLength(1);
- expect(host.querySelector(".cp-plan-history")?.textContent).toContain("家人瑜珈");expect(host.querySelectorAll(".cp-plan-history [data-lesson]")).toHaveLength(1);
+ expect(host.querySelector(".cp-plan-history")?.textContent).toContain("家人瑜珈");expect(host.querySelectorAll(".cp-plan-history [data-lesson]")).toHaveLength(2);
 });

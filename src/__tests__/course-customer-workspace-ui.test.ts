@@ -260,5 +260,5 @@ it('uses the native module progress reader in the customer overview instead of t
  const progress=vi.fn(()=>createElement('p',null,'美業完整方案格子'));
  const source={cardProgress:progress,browseCards:vi.fn().mockResolvedValue({success:true,rows:[card],hasMore:false}),bookings:vi.fn().mockResolvedValue({success:true,data:[],hasMore:false}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,source,previewStoreId:'beauty-store'})));
- expect(host.textContent).toContain('美業完整方案格子');expect(progress).toHaveBeenCalledWith(expect.objectContaining({id:'beauty-progress'}),expect.objectContaining({customerId:'person'}));
+ await vi.waitFor(()=>expect(host.textContent).toContain('美業完整方案格子')); expect(progress).toHaveBeenCalledWith(expect.objectContaining({id:'beauty-progress'}),expect.objectContaining({customerId:'person'}));
 });
