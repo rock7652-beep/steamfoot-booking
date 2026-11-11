@@ -20,4 +20,3 @@ const beautyData={store:{id:'beauty',slug:'synthetic',name:'合成店家'},canWo
 const beautyPreview={selection:{},memberId:'member',progress:async()=>({success:true,data:{progress:{available:true,total:6,completed:[{id:'used',date}],voided:[]},purchasedAt:'2026-10-20T02:00Z',price:3000,shared:false}})} as unknown as Parameters<typeof BeautyPortal>[0]['preview'];
 const mode=new URLSearchParams(window.location.search).get('module');
 createRoot(document.getElementById('root')!).render(mode==='music'||mode==='sports'?<CoursePortalClient {...courseData(mode==='music')}/>:mode==='beauty'?<BeautyPortal data={beautyData} initialView="cards" preview={beautyPreview}/>:<Fixture/>);
-
