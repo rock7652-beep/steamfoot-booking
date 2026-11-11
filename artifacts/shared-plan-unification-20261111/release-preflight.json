@@ -8,7 +8,8 @@
     "review suspected duplicate course backfills",
     "customer plan facts, actual expiry and dated void slots",
     "one canonical grid per shared plan; preserve original fee name",
-    "store referral destination in course settings"
+    "store referral destination in course settings",
+    "align direct booking-window title with peer setting titles (16px); style-only follow-up"
   ],
   "validation": {
     "affectedTests": 227,
@@ -20,7 +21,8 @@
     },
     "typescript": "passed",
     "eslint": "passed",
-    "syntheticRwd": "passed at 390/768/1366 widths; referral entry at 768/1366"
+    "syntheticRwd": "passed at 390/768/1366 widths; referral entry at 768/1366",
+    "settingsTypography": "Actual component synthetic previews passed at 768/1024/1366; ESLint passed; semantic TypeScript unchanged"
   },
   "ciFix": "Update session adjustment acceptance counter from 11 to 14 to match three added scenarios",
   "publication": {

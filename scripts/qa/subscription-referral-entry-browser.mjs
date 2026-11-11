@@ -39,12 +39,13 @@ await build({
     });
   } }],
 });
+const componentCss=readFileSync(path.join(output,"fixture.css"),"utf8");
 const css = await postcss([tailwind({ base: root })]).process(readFileSync("src/app/globals.css", "utf8"), { from: path.join(root, "src/app/globals.css") });
-writeFileSync(path.join(output, "fixture.css"), css.css);
+writeFileSync(path.join(output, "fixture.css"), css.css+"\n"+componentCss);
 
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 const results=[];
-try{for(const [width,height] of [[1366,900],[768,1024]]){
+try{for(const [width,height] of [[1366,900],[1024,768],[768,1024]]){
  const page=await browser.newPage({viewport:{width,height}}),errors=[];
  page.on('pageerror',error=>errors.push(error.message));
  await page.route('**/*',route=>route.request().isNavigationRequest()?route.fulfill({contentType:'text/html',body:'<!doctype html><html><meta name="viewport" content="width=device-width,initial-scale=1"><body><div id="root"></div></body></html>'}):route.abort());
@@ -56,5 +57,13 @@ try{for(const [width,height] of [[1366,900],[768,1024]]){
  if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw new Error('Overflow');
  if(errors.length)throw new Error(errors.join('\n'));
  await page.screenshot({path:path.join(output,`referral-${width}.png`),fullPage:true});
- results.push({width,height,href,errors});await page.close();
+ await page.getByRole('button',{name:'營業與預約',exact:true}).click();
+ const booking=page.locator('section[aria-label="營業與預約"]');await booking.waitFor();
+ const typography=await booking.evaluate(section=>({titles:[...section.querySelectorAll('h2,h3,legend')].filter(el=>el.getClientRects().length&&!el.classList.contains('sr-only')).map(el=>({text:el.textContent,size:getComputedStyle(el).fontSize})),buttons:[...section.querySelectorAll('button')].filter(el=>el.textContent==='修改'&&el.getClientRects().length).map(el=>getComputedStyle(el).fontSize)}));
+ if(!typography.titles.some(row=>row.text==='預約開放期限')||typography.titles.some(row=>row.size!=='16px'))throw new Error('Setting titles have inconsistent sizes: '+JSON.stringify(typography));
+ if(typography.buttons.some(size=>size!=='14px'))throw new Error('Setting action sizes inconsistent');
+ if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw new Error('Booking settings overflow');
+ await page.screenshot({path:path.join(output,`booking-type-${width}.png`),fullPage:true});
+ if(errors.length)throw new Error(errors.join('\n'));
+ results.push({width,height,href,typography,errors});await page.close();
 }writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results));}finally{await browser.close();}

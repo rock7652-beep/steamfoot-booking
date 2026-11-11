@@ -106,7 +106,7 @@ export function BookableUntilForm({
   return (
     <section className={`${styles.root} ${direct ? "border-b border-earth-100" : "rounded-xl border border-earth-200 bg-white px-4 py-3 shadow-sm"}`}>
       <header className={direct ? styles.statusRow : "flex flex-wrap items-center justify-between gap-3"}>
-        <h2 className="text-sm font-semibold text-earth-900">預約開放期限</h2>
+        <h2 className={direct ? "text-base font-semibold text-primary-900" : "text-sm font-semibold text-earth-900"}>預約開放期限</h2>
         <p className="min-w-0 text-sm tabular-nums text-earth-600">
           {savedMode === "fixed" && savedDate
             ? `開放至 ${formatDateZh(savedDate)}`

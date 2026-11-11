@@ -23,7 +23,7 @@ function Fixture() {
       <CourseSettingsWorkspace storeId="synthetic-store" name="運動與音樂課程設定合成測試店" planLabel="合成方案"
         address="" mapUrl="" lineOfficialUrl="" bankName="" bankCode="" bankAccountNumber=""
         bookingLeadMinutes={10} cancellationLeadMinutes={30} music={music}
-        subscriptionReferralHref="/dashboard/settings/subscription-referrals" canEdit={false} canPayment={false} canStaff={false} canPlans={false}
+        subscriptionReferralHref="/dashboard/settings/subscription-referrals" today="2026-11-11" canHours canEdit={true} canPayment={false} canStaff={false} canPlans={false}
         canReminders={allowed} canReferralShare={allowed} canDigitalButler={allowed}
         panelContent={<label className="block p-6">未儲存草稿<input aria-label="未儲存草稿" className="min-h-11 max-w-full border px-3" defaultValue="草稿" /></label>} />
     </FeaturePresentationProvider>
