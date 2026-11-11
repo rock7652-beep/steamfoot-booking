@@ -7,6 +7,7 @@ import {activeSessionAdjustments,type SessionAdjustmentInput,type SessionAdjustm
 import type {PlanManagementActor} from './plan-management-command';
 import {courseSessionAdjustmentRecords} from './course-session-adjustment-records';
 import {musicAdjustmentSlots,syncMusicAdjustmentActivation} from './music-session-adjustment';
+import {reviewCourseBackfill} from './course-backfill-review';
 
 /** courseTransaction holds the same Store lock as reservations and attendance. */
 export async function adjustCourseSessions(tx:Prisma.TransactionClient,a:PlanManagementActor,d:SessionAdjustmentInput,customerName:string) {
@@ -28,8 +29,10 @@ export async function adjustCourseSessions(tx:Prisma.TransactionClient,a:PlanMan
     if(d.quantity>card.remaining-(held._sum.pointCost??0))throw new AppError('BUSINESS_RULE','可用堂數不足，已預約占用的額度不能調整');
     if(d.operation==='BACKFILL'&&card.expiresAt&&d.occurredOn!>toLocalDateStr(card.expiresAt))throw new AppError('VALIDATION','上課日期超過方案有效期限');
   }
+  const duplicateReview=await reviewCourseBackfill(tx,a,d,records);
   const remaining=card.remaining+(d.operation==='REVERSE'?d.quantity:-d.quantity);
   const record:SessionAdjustmentRecord={id,cardId:card.id,customerId:d.customerId,customerName,operation:d.operation,quantity:d.quantity,occurredOn:d.operation==='BACKFILL'?d.occurredOn!:null,reason:d.reason,recordedAt:new Date().toISOString(),actorName:a.name??'管理人員',reversalOf:original?.id??null,remainingBefore:card.remaining,remainingAfter:remaining};
+  if(duplicateReview)record.duplicateConfirmed=true;
   if(d.operation!=='REVERSE')record.slots=await musicAdjustmentSlots(tx,a.storeId,card,d.customerId,d.quantity,records);
   const activation=d.operation==='BACKFILL'||original?.operation==='BACKFILL'?await syncMusicAdjustmentActivation(tx,a.storeId,card,[...records,record]):{};
   await tx.coursePointCard.update({where:{id:card.id},data:{remaining,...activation}});

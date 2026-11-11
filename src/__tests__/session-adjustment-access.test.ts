@@ -9,6 +9,7 @@ vi.mock('@/server/beauty/session-adjustment',()=>({adjustBeautySessions:m.beauty
 vi.mock('@/lib/db',()=>({prisma:{customer:{findMany:m.people}}}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
 vi.mock('@/lib/session',()=>({requireSession:m.session}));
+import {BackfillReviewRequired} from '@/server/services/course-backfill-review';
 import {saveCourseSessionAdjustment} from '@/server/actions/course-session-adjustment';
 import {saveBeautySessionAdjustment} from '@/server/actions/beauty-session-adjustment';
 const input={expectedStoreId:'store',requestKey:'00000000-0000-4000-8000-000000000001',cardId:'card',customerId:'learner',operation:'VOID',quantity:1,expectedRemaining:10,expectedExpiresAt:'2027-12-31T15:59:59.999Z'};
@@ -38,3 +39,10 @@ for(const [module,save] of [['course',saveCourseSessionAdjustment],['beauty',sav
     try{expect(await save(data)).toMatchObject({success:false});expect(m.courseAdjust).not.toHaveBeenCalled();expect(m.beautyAdjust).not.toHaveBeenCalled();}finally{input.expectedStoreId='store';}
   });
 }
+
+it('returns a structured duplicate review only after full course manager authorization',async()=>{
+ const review={token:'a'.repeat(64),date:'2026-01-02',existingQuantity:1};m.courseAdjust.mockRejectedValue(new BackfillReviewRequired(review));
+ expect(await saveCourseSessionAdjustment({...input,operation:'BACKFILL',occurredOn:'2026-01-02'})).toEqual({success:false,error:'當天已有扣堂紀錄，請先核對是否為同一堂課。',duplicateReview:review});
+ m.people.mockResolvedValue([]);m.courseAdjust.mockClear();const denied=await saveCourseSessionAdjustment({...input,operation:'BACKFILL',occurredOn:'2026-01-02'});
+ expect(denied.success).toBe(false);expect(denied).not.toHaveProperty('duplicateReview');expect(m.courseAdjust).not.toHaveBeenCalled();
+});

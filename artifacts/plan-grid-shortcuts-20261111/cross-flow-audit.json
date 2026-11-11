@@ -81,6 +81,8 @@
   "followUp": {
     "F2": "本機修正與回歸驗證通過，尚未發布",
     "F3": "本機修正與回歸驗證通過，尚未發布",
-    "evidence": "../course-phone-sync-20261111/validation.json"
+    "evidence": "../course-phone-sync-20261111/validation.json",
+    "F1": "音樂／運動疑似重複補登提醒已在本機完成，交易與 UI 驗證通過，尚未發布",
+    "F1Evidence": "../backfill-review-20261111/validation.json"
   }
 }
