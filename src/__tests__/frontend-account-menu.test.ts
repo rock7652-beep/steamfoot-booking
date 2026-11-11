@@ -74,3 +74,12 @@ describe("shared frontend account menu", () => {
     await submit(); expect(mock.logout).not.toHaveBeenCalled();
   });
 });
+
+it("marks LIFF logout explicitly so the existing account menu also stays signed out", async () => {
+  await render({ logoutEntry: "liff" }); await submit();
+  expect(mock.logout.mock.calls[0][0].get("logoutEntry")).toBe("liff");
+});
+it("retains the existing destination contract for other frontend portals", async () => {
+  await render(); await submit();
+  expect(mock.logout.mock.calls[0][0].get("logoutEntry")).toBeNull();
+});

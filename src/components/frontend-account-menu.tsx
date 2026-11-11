@@ -7,10 +7,11 @@ import { clearOperationState } from "@/lib/operation-state";
 import styles from "./frontend-account-menu.module.css";
 
 /** One account location for member and work portals. Authorization stays server-side. */
-export function FrontendAccountMenu({ storeSlug, name, readOnly = false, onBeforeLogout, children }: {
+export function FrontendAccountMenu({ storeSlug, name, readOnly = false, logoutEntry, onBeforeLogout, children }: {
   storeSlug: string;
   name?: string | null;
   readOnly?: boolean;
+  logoutEntry?: "liff";
   onBeforeLogout?: () => boolean;
   children?: ReactNode;
 }) {
@@ -48,6 +49,7 @@ export function FrontendAccountMenu({ storeSlug, name, readOnly = false, onBefor
         try { clearOperationState(sessionStorage); } catch { /* Storage may be unavailable in embedded browsers. */ }
       }} className={styles.logout}>
         <input type="hidden" name="storeSlug" value={storeSlug} />
+        {logoutEntry && <input type="hidden" name="logoutEntry" value={logoutEntry} />}
         <LogoutButton disabled={readOnly} clearStateOnClick={false} className={styles.logoutButton} iconSize={18} />
       </form>
     </div>
