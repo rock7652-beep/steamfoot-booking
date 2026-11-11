@@ -78,6 +78,16 @@ try{
   await page.setViewportSize(size);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Whole page overflow');
   assert(await page.locator('[data-fee-group]').count()===3,'Missing groups');
+  assert(await page.getByRole('heading',{name:'收費方式',exact:true}).count()===1,'Page title must appear once');
+  assert(await page.getByRole('heading',{name:'全部教學項目／收費方式',exact:true}).count()===0,'Duplicate heading remains');
+  const header=page.locator('[data-page-header]');
+  const back=header.getByRole('link',{name:'返回教學項目',exact:true});
+  const h=await header.boundingBox(),b=await back.boundingBox(),title=await header.getByRole('heading').boundingBox();
+  assert(h&&b&&title&&Math.abs(b.x+b.width-(h.x+h.width))<=1,'Back link must align to upper right');
+  assert(Math.abs(b.y+b.height/2-(title.y+title.height/2))<=1,'Back link must share the title row');
+  const tabs=await page.getByRole('navigation',{name:'方案管理分區'}).boundingBox();
+  assert(tabs&&tabs.y-(h.y+h.height)<=16,'Extra heading row still consumes vertical space');
+
   await page.screenshot({path:path.join(output,`sports-${size.width}.png`),fullPage:true});results.push({...size,passed:true});
  }
  const scope=page.getByLabel('教學項目篩選',{exact:true});
@@ -95,10 +105,11 @@ try{
  assert(await page.getByRole('button',{name:'瑜伽10堂',exact:true}).count()===1,'Closing editor lost list');
  await page.getByRole('link',{name:'返回教學項目',exact:true}).click();
  await page.getByRole('button',{name:'收費方式',exact:true}).first().click();
- await page.getByRole('heading',{name:'舞蹈（基礎課程）／收費方式',exact:true}).waitFor();
+ await page.getByRole('heading',{name:'收費方式',exact:true}).waitFor();
+ assert(await page.getByLabel('教學項目篩選',{exact:true}).inputValue()==='A','Returning from teaching item lost subject');
  // Reset via a fresh isolated mount, then test deep link and pending review.
  await load('?subjectId=A');
- assert(await page.getByRole('heading',{name:'舞蹈（基礎課程）／收費方式',exact:true}).count()===1,'Deep link lost context');
+ assert(await page.getByLabel('教學項目篩選',{exact:true}).inputValue()==='A','Deep link lost subject context');
  assert(await page.locator('[data-fee-group]').evaluateAll(rows=>new Set(rows.map(r=>r.getAttribute('data-fee-group'))).size)===1,'Deep link mixed scopes');
  await page.getByLabel('教學項目篩選',{exact:true}).selectOption('__pending_fee_subject__');
  const pendingMenu=page.getByRole('button',{name:'舊方案待核對操作',exact:true});
@@ -117,6 +128,6 @@ try{
  await page.getByLabel('搜尋',{exact:true}).fill('找不到的方案');
  await page.getByText('沒有符合條件的方案，請調整搜尋或篩選。',{exact:true}).waitFor();
  assert(errors.length===0,errors.join('\n'));
- writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,checks:['A/B/unknown isolation','grouped music','direct link heading','new fee subject prefill','pending review entry','empty search'],errors},null,2));
+ writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,checks:['A/B/unknown isolation','grouped music','direct link scope','single title and inline return action','new fee subject prefill','pending review entry','empty search'],errors},null,2));
  console.log(JSON.stringify({output,results,errors}));
 }finally{await browser.close();}
