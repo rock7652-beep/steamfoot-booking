@@ -166,7 +166,7 @@ export function CustomerDetailDrawerContent({
           </h2>{!readOnly && canEditNote && <button type="button" onClick={() => setView("edit")} aria-label="編輯顧客資料" className="min-h-11 min-w-11 rounded text-sm text-primary-700">✎</button>}</div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-earth-500">
             {phoneDisplay !== "—" && <CustomerPhoneLink phone={customer.phone}/>}
-            <CustomerProfileConnection label={customerProfileLineLabel(customer.lineLinkStatus,customer.lineName)} onManage={()=>switchTab("profile","line")}/>
+            <CustomerProfileConnection label={customerProfileLineLabel(customer.lineLinkStatus,customer.lineName,customer.lineUserId)} onManage={()=>switchTab("profile","line")}/>
           </div>
           </div><div className="flex flex-wrap items-center gap-2"><CustomerLabels maxVisible={2} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
           <div>

@@ -446,7 +446,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${lineNotificationTone}`}
         >
-          系統通知：{lineNotificationLabel(lineNotificationStatus)}
+          LINE 通知：{lineNotificationLabel(lineNotificationStatus)}
         </span>
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${talentStageColor}`}
@@ -845,7 +845,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             {simplified ? (
               <dl className="space-y-3 text-base">
                 <div className="flex flex-wrap justify-between gap-2"><dt className="text-earth-500">LINE 綁定</dt><dd className="text-earth-800">{customer.lineLinkStatus === "LINKED" ? "已綁定" : "未綁定"}</dd></div>
-                <div className="flex flex-wrap justify-between gap-2"><dt className="text-earth-500">系統通知</dt><dd className="text-earth-800">{lineNotificationLabel(lineNotificationStatus)}</dd></div>
+                <div className="flex flex-wrap justify-between gap-2"><dt className="text-earth-500">LINE 通知</dt><dd className="text-earth-800">{lineNotificationLabel(lineNotificationStatus)}</dd></div>
               </dl>
             ) : (<>
             {/* Status badges */}
@@ -865,7 +865,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 </span>
               )}
               <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${lineNotificationTone}`}>
-                系統通知：{lineNotificationLabel(lineNotificationStatus)}
+                LINE 通知：{lineNotificationLabel(lineNotificationStatus)}
               </span>
               {customer.user ? (
                 <span className="rounded bg-primary-50 px-1.5 py-0.5 text-[11px] font-medium text-primary-700">
