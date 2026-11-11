@@ -166,10 +166,24 @@ export async function saveCourseCustomer(input: unknown,module:"course"|"beauty"
     };
     let customerId = data.id ?? "";
     if (data.id) {
-      const result = await prisma.customer.updateMany({
+      const update = {
         where: { id: data.id, storeId, mergedIntoCustomerId: null, ...(data.expectedUpdatedAt ? {updatedAt:new Date(data.expectedUpdatedAt)} : {}) },
         data: profile,
-      });
+      };
+      const result = module === 'course' ? await prisma.$transaction(async tx => {
+        // Serialize phone changes with learner creation, and re-read identity
+        // bindings before converting a personal phone to a guardian contact.
+        await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${storeId} FOR UPDATE`;
+        const current = await tx.customer.findFirst({where:{id:data.id,storeId,mergedIntoCustomerId:null},select:{phone:true,contactPhone:true,userId:true,lineUserId:true,googleId:true,lineBindingCode:true}});
+        if (!current) throw new AppError('NOT_FOUND','找不到本店學員');
+        let shared = data.sharedContactPhone ?? (!current.phone && !!current.contactPhone);
+        if (!shared && data.phone !== (current.phone || current.contactPhone)) {
+          const collision = await tx.customer.findFirst({where:{storeId,id:{not:data.id},OR:[{phone:data.phone},{contactPhone:data.phone}]},select:{id:true}});
+          shared = !!collision;
+        }
+        if (shared && (current.userId || current.lineUserId || current.googleId || current.lineBindingCode)) throw new AppError('CONFLICT','已連結會員身分的手機不能改為共用聯絡電話，請另外建立孩子的學員資料');
+        return tx.customer.updateMany({...update,data:{...profile,...courseCustomerPhoneFields(data.phone,shared)}});
+      }) : await prisma.customer.updateMany(update);
       if (!result.count) throw new AppError(data.expectedUpdatedAt?"CONFLICT":"NOT_FOUND", data.expectedUpdatedAt?"顧客資料已有更新，輸入已保留。請核對目前資料後再編輯。":"找不到本店顧客");
     } else {
       const { getStoreLimitsByStoreId } = await import("@/lib/feature-gate");

@@ -11,7 +11,7 @@ vi.mock("@/lib/manager-visibility",()=>({assertStoreAccess:m.access,getStoreFilt
 vi.mock("@/lib/feature-gate",()=>({checkCurrentStoreFeature:vi.fn()}));
 vi.mock("@/lib/revalidation",()=>({revalidatePlans:m.refresh}));
 vi.mock("@/server/actions/spa-resources",()=>({spaResourceStore:async()=>{await m.guard();return "s";}}));
-vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:async()=>null},customer:{findUnique:m.customer,findFirst:m.customer,updateMany:m.compareCustomer,update:m.legacy},servicePlan:{findUnique:m.plan,findFirst:vi.fn(),updateMany:m.comparePlan,update:m.legacy},storeModuleInstallation:{findUnique:async()=>({status:"ACTIVE"})}}}));
+vi.mock("@/lib/db",()=>({prisma:{$transaction:async(f:(tx:unknown)=>unknown)=>f({$queryRaw:vi.fn(),customer:{findFirst:m.customer,updateMany:m.compareCustomer}}),storeFeatureEntitlement:{findFirst:async()=>null},customer:{findUnique:m.customer,findFirst:m.customer,updateMany:m.compareCustomer,update:m.legacy},servicePlan:{findUnique:m.plan,findFirst:vi.fn(),updateMany:m.comparePlan,update:m.legacy},storeModuleInstallation:{findUnique:async()=>({status:"ACTIVE"})}}}));
 vi.mock("@/lib/spa-db",()=>({spaPrisma:{$transaction:async(f:(tx:unknown)=>unknown)=>f({$executeRaw:vi.fn(),spaTreatment:{findFirst:async()=>({id:"t"})},spaPackage:{findFirst:m.plan,updateMany:m.compareSpa,update:m.legacy}})}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{courseTemplate:{count:async()=>1}}}));
 vi.mock("@/server/services/course-access",()=>({courseManager:async()=>({storeId:"s",user:await m.guard()}),courseTransaction:async(s:string,f:(tx:unknown)=>unknown)=>f({$queryRaw:async()=>[],courseTemplate:{count:async()=>1},coursePointPlan:{findFirst:m.plan,updateMany:m.compareCourse}})}));

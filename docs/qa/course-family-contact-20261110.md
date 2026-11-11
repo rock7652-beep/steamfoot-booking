@@ -30,3 +30,13 @@
 - 瀏覽器使用本機 Vite 隔離 fixture 與模擬 action；驗桌機 1366／1920、iPad 1024×768／768×1024、440px 窄容器。不宣稱正式登入、真機或正式帳務／LINE 通知驗收。
 
 課程名額與四模組補登另保留本聊天前兩批修改與驗證，不把家庭聯絡功能視為其正式發布證據。需要權限核對的部署、正式 migration 與真實資料操作留待發布安排。
+
+## 2026-11-11 既有學員電話修改補正
+
+基準 `8488c00a`；本節為工作區修正，尚未發布或修改正式學員資料。既有新增流程已有自動辨識共用電話，但編輯流程直接更新個人手機，修改為同店另一學員已使用的號碼時會撞唯一索引，誤顯示「電話資料已有更新」。
+
+課程編輯現在沿用新增流程的 Store 列鎖，在交易內重新讀取學員身分與同店電話。電話有變動且與其他資料的個人手機或聯絡電話相同時，未綁定身分的學員自動使用 contactPhone，保留原學員 ID。未更動的個人手機不因其他學員共用而被轉換；既有聯絡專用學員維持原模式。會員／LINE／Google／綁定碼保護、門市範圍及 expectedUpdatedAt 條件維持；美業不套用課程共用電話規則。不新增欄位、UI 或 migration。
+
+本機驗證：`course-family-contact-actions`、`course-family-contact.pg`、`form-version-actions`、`music-preview-customer-quotas`、`course-family-contact-ui` 共 5 檔 45 項通過。資料庫案例實際執行既有 migration、重現重複手機錯誤，再驗證改為聯絡電話後兩位學員與預約 ID 保留；僅為合成資料，未驗正式站登入或正式資料修改。
+
+變更檔案 ESLint 與 `git diff --check` 通過。全專案 TypeScript 檢查首次遇到 Node 預設 4 GB heap 上限；使用 `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit --incremental false` 重跑通過。無 UI 變更，未建立部署預覽或觸發正式建置。
