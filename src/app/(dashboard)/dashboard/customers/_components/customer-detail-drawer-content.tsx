@@ -229,7 +229,7 @@ export function CustomerDetailDrawerContent({
                         <div className="break-words text-sm font-semibold text-earth-900">
                           {w.plan.name}
                         </div>
-                        <p className="text-sm text-earth-600">方案金額 NT$ {w.purchasedPrice.toLocaleString("zh-TW")}</p>
+                        <p className="text-sm text-earth-600">{w.purchasedPrice == null ? "方案金額待核對" : `方案金額 NT$ ${w.purchasedPrice.toLocaleString("zh-TW")}`}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-500">
                           <strong className="tabular-nums text-primary-900">
                             {expired || w.status === "EXPIRED" ? "已到期" : w.status === "CANCELLED" ? "已取消" : w.status === "USED_UP" ? "已用完" : `可預約 ${available} 堂`}
