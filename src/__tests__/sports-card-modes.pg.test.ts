@@ -175,7 +175,7 @@ const database = () => { if (!db) throw new Error("Explicit isolated database re
 
   it.each(["ASSIGNED","OPEN"] as const)("concurrent %s enrollment follows the class seat policy without overspending cards", async mode => {
     const f = await fixture(), s = await f.session(0, 3, f.template.id, 1);
-    await f.card(f.learner,mode); await f.card(f.other,mode);
+    await f.card(f.learner,"ASSIGNED"); await f.card(f.other,"ASSIGNED");
     await database().$executeRaw`INSERT INTO "SportsStagingSessionRule" VALUES (${s.id},${f.storeId},'SINGLE',${mode},NULL,0,'{}')`;
     const rule={...f.rule,enrollment:mode,students:mode==="OPEN"?[]:f.rule.students};
     const attempts = await Promise.allSettled([f.learner, f.other].map(customerId => f.run(async tx => {
