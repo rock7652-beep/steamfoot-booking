@@ -537,7 +537,7 @@ export type AddEntryInput = {
   type: CashDrawerEntryType;
   direction?: CashDrawerDirection; // 只在 CASH_ADJUSTMENT 時必填
   amount: number | Prisma.Decimal;
-  reason: string;
+  reason?: string;
   note?: string;
   actorUserId: string;
 };
@@ -554,7 +554,8 @@ export async function addCashDrawerEntry(input: AddEntryInput): Promise<CashDraw
   if (amount.lte(ZERO)) {
     throw new AppError("VALIDATION", "金額必須大於 0");
   }
-  if (!input.reason || input.reason.trim().length === 0) {
+  const reason = input.reason?.trim() ?? "";
+  if (input.type !== "CASH_WITHDRAWAL" && !reason) {
     throw new AppError("VALIDATION", "原因必填");
   }
   const direction = resolveDirectionForType(input.type, input.direction);
@@ -569,7 +570,7 @@ export async function addCashDrawerEntry(input: AddEntryInput): Promise<CashDraw
       type: input.type,
       direction,
       amount,
-      reason: input.reason,
+      reason,
       note: input.note,
       createdByUserId: input.actorUserId,
     },

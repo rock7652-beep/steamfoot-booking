@@ -154,3 +154,18 @@ describe("cash_drawer action gates", () => {
     expect(mockCloseCashDrawer).not.toHaveBeenCalled();
   });
 });
+
+describe("withdrawal optional reason", () => {
+  it.each([undefined, "", "   "])("accepts a withdrawal reason of %s after authorization", async reason => {
+    const {addCashDrawerEntryAction}=await import("@/server/actions/cash-drawer");
+    const result=await addCashDrawerEntryAction({sessionId:SESSION_ID,type:"CASH_WITHDRAWAL",amount:100,...(reason===undefined?{}:{reason})});
+    expect(result.success).toBe(true);
+    expect(mockRequireWritablePermission).toHaveBeenCalledWith("cashDrawer.entry");
+    expect(mockAddCashDrawerEntry).toHaveBeenCalledWith(expect.objectContaining({reason:"",amount:100,type:"CASH_WITHDRAWAL",actorUserId:"user-1"}));
+  });
+  it.each(["CASH_DEPOSIT","CASH_ADJUSTMENT"] as const)("still rejects %s without a reason", async type => {
+    const {addCashDrawerEntryAction}=await import("@/server/actions/cash-drawer");
+    const result=await addCashDrawerEntryAction({sessionId:SESSION_ID,type,direction:"IN",amount:100});
+    expect(result.success).toBe(false);expect(mockAddCashDrawerEntry).not.toHaveBeenCalled();
+  });
+});

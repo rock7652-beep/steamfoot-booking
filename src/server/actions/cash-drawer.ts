@@ -51,8 +51,12 @@ const addEntrySchema = z.object({
   type: z.enum(["CASH_WITHDRAWAL", "CASH_DEPOSIT", "CASH_ADJUSTMENT"]),
   direction: z.enum(["IN", "OUT"]).optional(),
   amount: z.number().positive("金額必須大於 0"),
-  reason: z.string().min(1, "原因必填"),
+  reason: z.string().trim().optional().default(""),
   note: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.type !== "CASH_WITHDRAWAL" && !data.reason) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["reason"], message: "原因必填" });
+  }
 });
 
 const closeSchema = z.object({
@@ -197,7 +201,7 @@ export async function getCurrentCashDrawerAction(
 
 /** 新增手動異動（提領 / 補入 / 調整） */
 export async function addCashDrawerEntryAction(
-  input: z.infer<typeof addEntrySchema>,
+  input: z.input<typeof addEntrySchema>,
 ): Promise<ActionResult<{ entryId: string }>> {
   try {
     const user = await requireWritablePermission("cashDrawer.entry");

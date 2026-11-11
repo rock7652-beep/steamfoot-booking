@@ -1,0 +1,168 @@
+{
+  "synthetic": true,
+  "actualLINE": false,
+  "actualBackend": false,
+  "results": [
+    {
+      "module": "fitness",
+      "width": 360,
+      "choices": [
+        "十堂方案 · 可用 8堂 · 2026-12-12 到期",
+        "十堂方案 · 可用 1堂 · 2026-12-31 到期",
+        "十堂方案 · 可用 4堂 · 2027-03-05 到期"
+      ],
+      "selected": "card-2",
+      "submitted": "card-2",
+      "mockedActions": true,
+      "noOverflow": true
+    },
+    {
+      "module": "fitness",
+      "width": 390,
+      "choices": [
+        "十堂方案 · 可用 8堂 · 2026-12-12 到期",
+        "十堂方案 · 可用 1堂 · 2026-12-31 到期",
+        "十堂方案 · 可用 4堂 · 2027-03-05 到期"
+      ],
+      "selected": "card-2",
+      "submitted": "card-2",
+      "mockedActions": true,
+      "noOverflow": true
+    },
+    {
+      "module": "fitness",
+      "width": 768,
+      "choices": [
+        "十堂方案 · 可用 8堂 · 2026-12-12 到期",
+        "十堂方案 · 可用 1堂 · 2026-12-31 到期",
+        "十堂方案 · 可用 4堂 · 2027-03-05 到期"
+      ],
+      "selected": "card-2",
+      "submitted": "card-2",
+      "mockedActions": true,
+      "noOverflow": true
+    },
+    {
+      "module": "fitness",
+      "width": 1366,
+      "choices": [
+        "十堂方案 · 可用 8堂 · 2026-12-12 到期",
+        "十堂方案 · 可用 1堂 · 2026-12-31 到期",
+        "十堂方案 · 可用 4堂 · 2027-03-05 到期"
+      ],
+      "selected": "card-2",
+      "submitted": "card-2",
+      "mockedActions": true,
+      "noOverflow": true
+    },
+    {
+      "module": "music",
+      "width": 360,
+      "choices": [
+        "十堂方案 · 可用 8堂 · 2026-12-12 到期",
+        "十堂方案 · 可用 1堂 · 2026-12-31 到期",
+        "十堂方案 · 可用 4堂 · 2027-03-05 到期"
+      ],
+      "selected": "card-2",
+      "submitted": "card-2",
+      "mockedActions": true,
+      "noOverflow": true
+    },
+    {
+      "module": "music",
+      "width": 390,
+      "choices": [
+        "十堂方案 · 可用 8堂 · 2026-12-12 到期",
+        "十堂方案 · 可用 1堂 · 2026-12-31 到期",
+        "十堂方案 · 可用 4堂 · 2027-03-05 到期"
+      ],
+      "selected": "card-2",
+      "submitted": "card-2",
+      "mockedActions": true,
+      "noOverflow": true
+    },
+    {
+      "module": "music",
+      "width": 768,
+      "choices": [
+        "十堂方案 · 可用 8堂 · 2026-12-12 到期",
+        "十堂方案 · 可用 1堂 · 2026-12-31 到期",
+        "十堂方案 · 可用 4堂 · 2027-03-05 到期"
+      ],
+      "selected": "card-2",
+      "submitted": "card-2",
+      "mockedActions": true,
+      "noOverflow": true
+    },
+    {
+      "module": "music",
+      "width": 1366,
+      "choices": [
+        "十堂方案 · 可用 8堂 · 2026-12-12 到期",
+        "十堂方案 · 可用 1堂 · 2026-12-31 到期",
+        "十堂方案 · 可用 4堂 · 2027-03-05 到期"
+      ],
+      "selected": "card-2",
+      "submitted": "card-2",
+      "mockedActions": true,
+      "noOverflow": true
+    },
+    {
+      "module": "beauty",
+      "width": 360,
+      "choices": [
+        "十堂方案 · 可用 8 次 · 2026-12-12 到期",
+        "十堂方案 · 可用 1 次 · 2026-12-31 到期",
+        "十堂方案 · 可用 4 次 · 2027-03-05 到期",
+        "單次消費 · NT$ 900"
+      ],
+      "selected": "card-2",
+      "submitted": "card-2",
+      "mockedActions": true,
+      "noOverflow": true
+    },
+    {
+      "module": "beauty",
+      "width": 390,
+      "choices": [
+        "十堂方案 · 可用 8 次 · 2026-12-12 到期",
+        "十堂方案 · 可用 1 次 · 2026-12-31 到期",
+        "十堂方案 · 可用 4 次 · 2027-03-05 到期",
+        "單次消費 · NT$ 900"
+      ],
+      "selected": "card-2",
+      "submitted": "card-2",
+      "mockedActions": true,
+      "noOverflow": true
+    },
+    {
+      "module": "beauty",
+      "width": 768,
+      "choices": [
+        "十堂方案 · 可用 8 次 · 2026-12-12 到期",
+        "十堂方案 · 可用 1 次 · 2026-12-31 到期",
+        "十堂方案 · 可用 4 次 · 2027-03-05 到期",
+        "單次消費 · NT$ 900"
+      ],
+      "selected": "card-2",
+      "submitted": "card-2",
+      "mockedActions": true,
+      "noOverflow": true
+    },
+    {
+      "module": "beauty",
+      "width": 1366,
+      "choices": [
+        "十堂方案 · 可用 8 次 · 2026-12-12 到期",
+        "十堂方案 · 可用 1 次 · 2026-12-31 到期",
+        "十堂方案 · 可用 4 次 · 2027-03-05 到期",
+        "單次消費 · NT$ 900"
+      ],
+      "selected": "card-2",
+      "submitted": "card-2",
+      "mockedActions": true,
+      "noOverflow": true
+    }
+  ],
+  "errors": []
+}

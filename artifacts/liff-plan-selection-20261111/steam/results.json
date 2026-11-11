@@ -1,0 +1,896 @@
+{
+  "synthetic": true,
+  "actualLINE": false,
+  "actualBackend": false,
+  "errors": [],
+  "results": [
+    {
+      "width": 360,
+      "name": "three-plans-selected",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-single",
+          "planName": "單次",
+          "availableToBook": 1,
+          "expiryDate": "2026-12-12"
+        },
+        {
+          "id": "wallet-eight",
+          "planName": "10堂",
+          "availableToBook": 8,
+          "expiryDate": "2026-12-12"
+        },
+        {
+          "id": "wallet-four",
+          "planName": "10堂",
+          "availableToBook": 4,
+          "expiryDate": "2027-03-05"
+        }
+      ],
+      "choose": "wallet-four",
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": "wallet-four"
+    },
+    {
+      "width": 360,
+      "name": "makeup",
+      "credits": 1,
+      "people": 1,
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 360,
+      "name": "mixed",
+      "credits": 1,
+      "people": 3,
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 360,
+      "name": "plan",
+      "credits": 0,
+      "people": 1,
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 360,
+      "name": "server-updated",
+      "credits": 1,
+      "people": 1,
+      "actualCredits": 0,
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 360,
+      "name": "two-plans-auto",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 360,
+      "name": "two-plans-selected",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-b",
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": "wallet-b"
+    },
+    {
+      "width": 360,
+      "name": "two-plans-mixed",
+      "credits": 1,
+      "people": 3,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-b",
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": "wallet-b"
+    },
+    {
+      "width": 360,
+      "name": "date-invalidates-selection",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-a",
+      "changeDate": true,
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 360,
+      "name": "makeup-covers-after-selection",
+      "credits": 1,
+      "people": 1,
+      "initialPeople": 2,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-b",
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 360,
+      "name": "exhausted-wallet",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 0,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 390,
+      "name": "three-plans-selected",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-single",
+          "planName": "單次",
+          "availableToBook": 1,
+          "expiryDate": "2026-12-12"
+        },
+        {
+          "id": "wallet-eight",
+          "planName": "10堂",
+          "availableToBook": 8,
+          "expiryDate": "2026-12-12"
+        },
+        {
+          "id": "wallet-four",
+          "planName": "10堂",
+          "availableToBook": 4,
+          "expiryDate": "2027-03-05"
+        }
+      ],
+      "choose": "wallet-four",
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": "wallet-four"
+    },
+    {
+      "width": 390,
+      "name": "makeup",
+      "credits": 1,
+      "people": 1,
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 390,
+      "name": "mixed",
+      "credits": 1,
+      "people": 3,
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 390,
+      "name": "plan",
+      "credits": 0,
+      "people": 1,
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 390,
+      "name": "server-updated",
+      "credits": 1,
+      "people": 1,
+      "actualCredits": 0,
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 390,
+      "name": "two-plans-auto",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 390,
+      "name": "two-plans-selected",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-b",
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": "wallet-b"
+    },
+    {
+      "width": 390,
+      "name": "two-plans-mixed",
+      "credits": 1,
+      "people": 3,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-b",
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": "wallet-b"
+    },
+    {
+      "width": 390,
+      "name": "date-invalidates-selection",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-a",
+      "changeDate": true,
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 390,
+      "name": "makeup-covers-after-selection",
+      "credits": 1,
+      "people": 1,
+      "initialPeople": 2,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-b",
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 390,
+      "name": "exhausted-wallet",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 0,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 768,
+      "name": "three-plans-selected",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-single",
+          "planName": "單次",
+          "availableToBook": 1,
+          "expiryDate": "2026-12-12"
+        },
+        {
+          "id": "wallet-eight",
+          "planName": "10堂",
+          "availableToBook": 8,
+          "expiryDate": "2026-12-12"
+        },
+        {
+          "id": "wallet-four",
+          "planName": "10堂",
+          "availableToBook": 4,
+          "expiryDate": "2027-03-05"
+        }
+      ],
+      "choose": "wallet-four",
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": "wallet-four"
+    },
+    {
+      "width": 768,
+      "name": "makeup",
+      "credits": 1,
+      "people": 1,
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 768,
+      "name": "mixed",
+      "credits": 1,
+      "people": 3,
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 768,
+      "name": "plan",
+      "credits": 0,
+      "people": 1,
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 768,
+      "name": "server-updated",
+      "credits": 1,
+      "people": 1,
+      "actualCredits": 0,
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 768,
+      "name": "two-plans-auto",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 768,
+      "name": "two-plans-selected",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-b",
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": "wallet-b"
+    },
+    {
+      "width": 768,
+      "name": "two-plans-mixed",
+      "credits": 1,
+      "people": 3,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-b",
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": "wallet-b"
+    },
+    {
+      "width": 768,
+      "name": "date-invalidates-selection",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-a",
+      "changeDate": true,
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 768,
+      "name": "makeup-covers-after-selection",
+      "credits": 1,
+      "people": 1,
+      "initialPeople": 2,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-b",
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 768,
+      "name": "exhausted-wallet",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 0,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 1366,
+      "name": "three-plans-selected",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-single",
+          "planName": "單次",
+          "availableToBook": 1,
+          "expiryDate": "2026-12-12"
+        },
+        {
+          "id": "wallet-eight",
+          "planName": "10堂",
+          "availableToBook": 8,
+          "expiryDate": "2026-12-12"
+        },
+        {
+          "id": "wallet-four",
+          "planName": "10堂",
+          "availableToBook": 4,
+          "expiryDate": "2027-03-05"
+        }
+      ],
+      "choose": "wallet-four",
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": "wallet-four"
+    },
+    {
+      "width": 1366,
+      "name": "makeup",
+      "credits": 1,
+      "people": 1,
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 1366,
+      "name": "mixed",
+      "credits": 1,
+      "people": 3,
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 1366,
+      "name": "plan",
+      "credits": 0,
+      "people": 1,
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 1366,
+      "name": "server-updated",
+      "credits": 1,
+      "people": 1,
+      "actualCredits": 0,
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 1366,
+      "name": "two-plans-auto",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 1366,
+      "name": "two-plans-selected",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-b",
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": "wallet-b"
+    },
+    {
+      "width": 1366,
+      "name": "two-plans-mixed",
+      "credits": 1,
+      "people": 3,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-b",
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": "wallet-b"
+    },
+    {
+      "width": 1366,
+      "name": "date-invalidates-selection",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-a",
+      "changeDate": true,
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 1366,
+      "name": "makeup-covers-after-selection",
+      "credits": 1,
+      "people": 1,
+      "initialPeople": 2,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 5,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "choose": "wallet-b",
+      "cancelDoesNotSubmit": true,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    },
+    {
+      "width": 1366,
+      "name": "exhausted-wallet",
+      "credits": 0,
+      "people": 1,
+      "wallets": [
+        {
+          "id": "wallet-a",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 3,
+          "expiryDate": "2026-11-10"
+        },
+        {
+          "id": "wallet-b",
+          "planName": "暖暖蒸足 10 堂方案",
+          "availableToBook": 0,
+          "expiryDate": "2026-12-31"
+        }
+      ],
+      "cancelDoesNotSubmit": false,
+      "submitCount": 1,
+      "noOverflow": true,
+      "submittedPreferredWallet": null
+    }
+  ]
+}
