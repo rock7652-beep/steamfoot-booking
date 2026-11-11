@@ -8,7 +8,7 @@ let phase=0;
 function summary():Awaited<ReturnType<typeof loadCoursePhoneSummary>>{
  if(phase===3)return {success:true,sharedPlans:[],learners:[]};
  if(phase===5){
- const card={id:'shared-card',name:'共用鋼琴十堂方案',unit:'SESSION' as const,remaining:7,held:0,available:7,shared:true,closed:false,expired:false,expiresAt:null,activationDays:null,purchase:null,grid:{total:10,dates:['2026-11-01T02:00:00Z','2026-11-02T02:00:00Z','2026-11-03T02:00:00Z']}};
+ const card={id:'shared-card',name:'鋼琴十堂方案',unit:'SESSION' as const,remaining:7,held:0,available:7,shared:true,closed:false,expired:false,expiresAt:null,activationDays:null,purchase:null,grid:{total:10,dates:['2026-11-01T02:00:00Z','2026-11-02T02:00:00Z','2026-11-03T02:00:00Z']}};
  return {success:true,learners:['A','B'].map(name=>({id:name,name:'孩子 '+name,cards:[card],upcoming:[],history:[]})),sharedPlans:[{card,learnerNames:['孩子 A','孩子 B']}]};
  }
  const backfilled=phase===1,voided=phase===4;
