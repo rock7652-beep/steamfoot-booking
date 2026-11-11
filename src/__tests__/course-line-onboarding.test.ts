@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => {
   const tx = {
+    $queryRaw: vi.fn(), auditLog: { create: vi.fn() },
     account: { findUnique: vi.fn(), create: vi.fn() },
-    customer: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
-    customerIdentityLink: { findMany: vi.fn(), create: vi.fn() },
-    user: { create: vi.fn() },
+    customer: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
+    customerIdentityLink: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
+    user: { create: vi.fn(), findUnique: vi.fn() },
   };
   return { tx, transaction: vi.fn(), resolve: vi.fn(), complete: vi.fn(), recovery: vi.fn(),
     account: { findUnique: vi.fn() }, store: { findUnique: vi.fn() },
@@ -31,6 +32,9 @@ beforeEach(() => {
   mocks.tx.customer.findFirst.mockResolvedValue(null);
   mocks.tx.customerIdentityLink.findMany.mockResolvedValue([]);
   mocks.tx.user.create.mockResolvedValue({ id: "new-user" });
+  mocks.tx.user.findUnique.mockResolvedValue(null);
+  mocks.tx.customerIdentityLink.findFirst.mockResolvedValue(null);
+  mocks.tx.customer.updateMany.mockResolvedValue({ count: 1 });
   mocks.tx.customer.create.mockResolvedValue({ id: "new-member" });
   mocks.account.findUnique.mockResolvedValue({ userId: "central-user", user: { status: "ACTIVE" } });
   mocks.store.findUnique.mockResolvedValue({ industryModule: "COURSE" });
@@ -40,7 +44,7 @@ beforeEach(() => {
 
 describe("existing course member Login recovery", () => {
   const verifiedInput = { ...input, channelId: "verified-channel" };
-  beforeEach(() => { mocks.tx.customer.findMany.mockResolvedValue([{ id: "original-member" }]); });
+  beforeEach(() => { mocks.tx.customer.findMany.mockResolvedValue([{ id: "original-member", name: "Member", phone: input.phone, userId: "original-user", identityLinks: [] }]); });
   it("queues the verified Login for staff review without creating a duplicate member", async () => {
     expect(await onboardOrRecoverCourseLineMember(verifiedInput)).toEqual({ status: "login_review_pending", verificationCode: "ABC123" });
     expect(mocks.recovery).toHaveBeenCalledWith(verifiedInput);
@@ -136,4 +140,52 @@ it("creates an independent provider identity without writing the legacy LINE sub
   expect(mocks.tx.account.create).toHaveBeenCalledWith({ data: expect.objectContaining({ provider: identityProvider }) });
   expect(mocks.tx.customer.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lineUserId: null }) }));
   expect(mocks.tx.customerIdentityLink.create).toHaveBeenCalledWith({ data: expect.objectContaining({ provider: identityProvider, storeId: input.storeId }) });
+});
+
+const unowned = { id: "precreated", name: input.name, phone: input.phone, userId: null,
+  lineUserId: null, googleId: null, lineBindingCode: null, mergedIntoCustomerId: null, identityLinks: [] };
+describe("single precreated course learner first activation", () => {
+  beforeEach(() => { mocks.tx.customer.findMany.mockResolvedValue([unowned]); });
+  it.each(["line", "line-provider:901"])("activates the same learner for verified provider %s without staff review or a group grant", async identityProvider => {
+    expect(await onboardOrRecoverCourseLineMember({ ...input, identityProvider, channelId: "verified" })).toEqual({ status: "ok" });
+    expect(mocks.tx.customer.create).not.toHaveBeenCalled();
+    expect(mocks.complete).not.toHaveBeenCalled(); expect(mocks.recovery).not.toHaveBeenCalled();
+    expect(mocks.tx.customer.updateMany).toHaveBeenCalledWith({ where: expect.objectContaining({ id: unowned.id, userId: null, identityLinks: { none: {} } }), data: expect.objectContaining({ userId: "new-user" }) });
+    expect(mocks.tx.account.create).toHaveBeenCalledWith({ data: expect.objectContaining({ provider: identityProvider }) });
+    expect(mocks.tx.customerIdentityLink.create).toHaveBeenCalledWith({ data: expect.objectContaining({ customerId: unowned.id, provider: identityProvider }) });
+    expect(mocks.tx.auditLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({ targetId: unowned.id, action: "FIRST_LINE_LOGIN_NAME_PHONE_MATCH" }) });
+    const updated=mocks.tx.customer.updateMany.mock.calls[0][0].data;
+    expect(updated).not.toHaveProperty("name"); expect(updated).not.toHaveProperty("phone");
+    if(identityProvider!=="line")expect(updated).not.toHaveProperty("lineUserId");
+  });
+  it.each([
+    ["name mismatch", { name: "Someone else" }], ["already owned", { userId: "owner" }],
+    ["Google identity", { googleId: "google" }], ["binding in progress", { lineBindingCode: "code" }],
+    ["other LINE", { lineUserId: "different" }], ["merged record", { mergedIntoCustomerId: "kept" }],
+    ["scoped identity", { identityLinks: [{ id: "link" }] }], ["contact only", { phone: "" }],
+  ])("keeps %s on the review path without writes", async (_label, fields) => {
+    mocks.tx.customer.findMany.mockResolvedValue([{ ...unowned, ...fields }]);
+    expect(await onboardCourseLineMember(input)).toEqual({ status: "identity_review_required" });
+    expect(mocks.tx.user.create).not.toHaveBeenCalled(); expect(mocks.tx.customer.updateMany).not.toHaveBeenCalled();
+  });
+  it("does not activate a phone group even when one name matches", async () => {
+    mocks.tx.customer.findMany.mockResolvedValue([unowned, { ...unowned, id: "sibling", phone: "", name: "Sibling" }]);
+    expect(await onboardCourseLineMember(input)).toEqual({ status: "identity_review_required" });
+    expect(mocks.tx.user.create).not.toHaveBeenCalled();
+    expect(mocks.tx.customer.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ OR: expect.arrayContaining([{ phone: "", contactPhone: input.phone }]) }) }));
+  });
+  it.each(["phoneOwner", "providerLink"])("blocks an existing %s", async conflict => {
+    (conflict === "phoneOwner" ? mocks.tx.user.findUnique : mocks.tx.customerIdentityLink.findFirst).mockResolvedValue({ id: "existing" });
+    expect(await onboardCourseLineMember(input)).toEqual({ status: "identity_review_required" });
+    expect(mocks.tx.user.create).not.toHaveBeenCalled();
+  });
+  it("does not complete activation when its conditional claim loses the race", async () => {
+    mocks.tx.customer.updateMany.mockResolvedValue({ count: 0 });
+    expect(await onboardCourseLineMember(input)).toEqual({ status: "service_unavailable" });
+    expect(mocks.tx.account.create).not.toHaveBeenCalled(); expect(mocks.tx.customerIdentityLink.create).not.toHaveBeenCalled();
+  });
+  it("does not report success if the atomic audit fails", async () => {
+    mocks.tx.auditLog.create.mockRejectedValue(new Error("audit unavailable"));
+    expect(await onboardCourseLineMember(input)).toEqual({ status: "service_unavailable" });
+  });
 });

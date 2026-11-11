@@ -5,7 +5,7 @@
  *
  * 流程 (plan §1.1 + §3.4)：
  *   1. mount → initLiff(liffId) + getIDToken() + getProfile().displayName (預填姓名)
- *   2. 課程先輸入聯絡電話；既有學員送門市確認，新電話才填學員姓名。
+ *   2. 課程先輸入電話；單一未綁定名單／新電話再填姓名，多人或身分衝突送門市確認。
  *      其他模組維持姓名 / 手機表單。
  *   3. submit → submitOnboarding(...) (server action)
  *      - ok → refreshLiffSession verifies and creates the session
@@ -227,7 +227,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl, first
         <h1 className="mt-2 text-2xl font-semibold text-earth-900">
           {firstRegistration ? "加入本店會員" : liffMessages.onboarding.title}
         </h1>
-        <p className="mt-2 text-sm text-earth-600">{coursePhoneBinding ? needsName ? "填寫學員姓名，完成首次登記。" : "輸入學員聯絡電話，連結本店課程資料。" : firstRegistration ? "填寫姓名與手機，完成會員登記。" : liffMessages.onboarding.body}</p>
+        <p className="mt-2 text-sm text-earth-600">{coursePhoneBinding ? needsName ? "填寫學員姓名，確認本店資料。" : "輸入學員聯絡電話，連結本店課程資料。" : firstRegistration ? "填寫姓名與手機，完成會員登記。" : liffMessages.onboarding.body}</p>
       </header>
 
       {state.kind === "initializing" && (

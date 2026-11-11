@@ -6,8 +6,8 @@ import { completeAuthorizedFirstStoreLogin } from "./store-member-connection";
 import { requestLiffLoginRecovery } from "./liff-login-recovery";
 
 /** Called only after verifying the token and this course store's channel.
- * Existing members use a staff-reviewed Login proof, never the OA subject or
- * supplied phone alone. Independent providers retain their own onboarding. */
+ * A unique, unowned learner can complete name-and-phone first activation.
+ * Existing identities and phone groups retain their reviewed Login path. */
 export async function onboardOrRecoverCourseLineMember(input: Parameters<typeof onboardCourseLineMember>[0] & {
   channelId: string;
 }) {
@@ -73,13 +73,16 @@ export async function onboardCourseLineMember(input: {
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Store" WHERE "id" = ${input.storeId} FOR UPDATE`;
       const account = await tx.account.findUnique({
         where: { provider_providerAccountId: { provider: identityProvider, providerAccountId: input.lineUserId } },
         select: { userId: true, user: { select: { status: true } } },
       });
       const candidates = await tx.customer.findMany({
-        where: { storeId: input.storeId, OR: [{ phone }, ...(identityProvider === "line" ? [{ lineUserId: input.lineUserId }] : [])] },
-        select: { id: true }, take: 2,
+        where: { storeId: input.storeId, OR: [{ phone }, { phone: "", contactPhone: phone }, ...(identityProvider === "line" ? [{ lineUserId: input.lineUserId }] : [])] },
+        select: { id: true, name: true, phone: true, userId: true, lineUserId: true,
+          googleId: true, lineBindingCode: true, mergedIntoCustomerId: true,
+          identityLinks: { select: { id: true } } }, take: 2,
       });
       const links = await tx.customerIdentityLink.findMany({
         where: { storeId: input.storeId, OR: [
@@ -90,7 +93,41 @@ export async function onboardCourseLineMember(input: {
       const legacyMember = account ? await tx.customer.findFirst({
         where: { storeId: input.storeId, userId: account.userId }, select: { id: true },
       }) : null;
-      // Matching a supplied name/phone is not authorization to take a record.
+      const candidate = candidates.length === 1 ? candidates[0] : null;
+      if (candidate && !account && !links.length && !legacyMember &&
+          candidate.phone === phone && candidate.name.trim() === input.name.trim() && input.name.trim() &&
+          !candidate.userId && !candidate.googleId && !candidate.lineBindingCode &&
+          !candidate.mergedIntoCustomerId && !candidate.identityLinks.length &&
+          (!candidate.lineUserId || (identityProvider === "line" && candidate.lineUserId === input.lineUserId))) {
+        const [phoneOwner, providerLink] = await Promise.all([
+          tx.user.findUnique({ where: { phone_role: { phone, role: "CUSTOMER" } }, select: { id: true } }),
+          tx.customerIdentityLink.findFirst({ where: { provider: identityProvider, providerAccountId: input.lineUserId }, select: { id: true } }),
+        ]);
+        if (phoneOwner || providerLink) return { status: "identity_review_required" as const };
+        const user = await tx.user.create({ data: {
+          name: candidate.name, phone, role: "CUSTOMER", status: "ACTIVE",
+        }, select: { id: true } });
+        const claimed = await tx.customer.updateMany({ where: {
+          id: candidate.id, storeId: input.storeId, phone, name: candidate.name,
+          userId: null, lineUserId: candidate.lineUserId, googleId: null, lineBindingCode: null,
+          mergedIntoCustomerId: null, identityLinks: { none: {} },
+        }, data: { userId: user.id, authSource: "LINE", lineLinkStatus: "LINKED", lineLinkedAt: new Date(),
+          ...(identityProvider === "line" ? { lineUserId: input.lineUserId } : {}),
+        } });
+        if (claimed.count !== 1) throw new Error("COURSE_FIRST_LOGIN_RECORD_CHANGED");
+        await tx.account.create({ data: { userId: user.id, provider: identityProvider,
+          providerAccountId: input.lineUserId, type: "oauth" } });
+        await tx.customerIdentityLink.create({ data: { userId: user.id, storeId: input.storeId,
+          customerId: candidate.id, provider: identityProvider,
+          providerAccountId: input.lineUserId, lineUserId: input.lineUserId } });
+        await tx.auditLog.create({ data: { actorUserId: user.id, storeId: input.storeId,
+          module: "COURSE", targetType: "Customer", targetId: candidate.id,
+          action: "FIRST_LINE_LOGIN_NAME_PHONE_MATCH",
+          afterJson: { existingCustomerActivated: true, identityProvider },
+        } });
+        return { status: "ok" as const };
+      }
+      // Name/phone never replaces an owned identity or grants a phone group.
       if (candidates.length || links.length || legacyMember || (account && account.user.status !== "ACTIVE")) {
         return { status: "identity_review_required" as const };
       }
