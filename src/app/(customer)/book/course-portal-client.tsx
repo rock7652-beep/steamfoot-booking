@@ -1,4 +1,5 @@
 "use client";
+import {CustomerBookingList,CustomerBookingRow} from "@/components/customer-booking-row";
 import {CoursePlanDateGrid} from "@/components/course-plan-date-grid";
 import {CustomerBookingGoodsField} from "@/components/add-ons/customer-booking-goods";
 import {bookingGoodsInput,type CustomerBookingGoodsDraft} from "@/lib/customer-booking-goods";
@@ -144,7 +145,6 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
     [history, setHistory] = useState(false),
     [cardHistory, setCardHistory] = useState(false),
     [expandedPlanHistory, setExpandedPlanHistory] = useState<Record<string, boolean>>({}),
-    [expandedPlanCards, setExpandedPlanCards] = useState<Record<string, boolean>>({}),
     [orderHistory, setOrderHistory] = useState(false),
     [roster, setRoster] = useState<string | null>(null),
     [showWorkCalendar, setShowWorkCalendar] = useState(false),
@@ -728,16 +728,12 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
     Date.parse(startsAt) - p.cancellationLeadMinutes * 60000;
   const canSelfCancel = (startsAt: string) => selfLeaveEnabled && now < cancellationCutoff(startsAt);
   const personalWaitlistSessions = p.sessions.filter(s => s.waitlistPosition != null && courseDate(s.startsAt) === selected);
-  const personalBookingCards = <>
+  const personalBookingCards = <CustomerBookingList>
 {groups.slice(0, limit).map((id) => {
                 const list = bookings.filter((b) => b.sessionId === id),
                   first = list[0];
                 return (
-                  <article className="cp-card cp-pad cp-booking-card" key={id}>
-                    <div className="cp-booking-heading">
-                      <h2><time className="cp-booking-time" dateTime={first.startsAt}>{page === "schedule" && personalCalendar ? formatTWDateTime(new Date(first.startsAt)).slice(11) : formatTWDateTime(new Date(first.startsAt))}</time><span>{first.name}</span></h2>
-                    </div>
-                    <p className="cp-booking-location">{[first.coach,first.room,list.length>1?`共 ${list.length} 人`:null].filter(Boolean).join(" · ")}</p>
+                  <CustomerBookingRow key={id} locked={pending} forceOpen={list.some(b=>b.id===cancelId)} when={<time dateTime={first.startsAt}>{formatTWDateTime(new Date(first.startsAt))}</time>} status={list.every(b=>b.status===first.status&&b.sessionCancelled===first.sessionCancelled)?first.sessionCancelled?'停課':first.status==='RESERVED'&&Date.parse(first.startsAt)<=now?'待確認出席':statusName(first.status):'多人狀態'} description={[first.name,first.coach,first.room,list.length>1?`共 ${list.length} 位學員`:first.customerName].filter(Boolean).join(' · ')}>
                     <div>
                     {list.map((b) => (
                       <div className="cp-person" key={b.id}>
@@ -798,7 +794,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                       </div>
                     ))}
                     </div>
-                  </article>
+                  </CustomerBookingRow>
                 );
               })}
               {!groups.length && !personalWaitlistSessions.length && (
@@ -809,7 +805,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
               {groups.length > limit && (
                 <button onClick={() => setLimit(limit + 20)}>顯示更多</button>
               )}
-  </>;
+  </CustomerBookingList>;
   const nextParticipants = p.nextBooking?.participants.map((participant) =>
     participant.id === p.customerId ? "本人" : participant.name,
   ) ?? [];
@@ -1057,8 +1053,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                 Number(b.held > 0) - Number(a.held > 0) || (a.expiresAt??"9999").localeCompare(b.expiresAt??"9999")
               ).map((c) => {
                 const memberRecords = p.memberRecords?.filter(r=>r.cardId===c.id) ?? [];
-                const representedLessons = new Set(memberRecords.flatMap(r=>r.lessons.map(l=>l.id)));
-                const lessons = (c.history?.lessons ?? []).filter(l=>!representedLessons.has(l.id));
+                const lessons = c.history?.lessons ?? [];
                 const expanded = !!expandedPlanHistory[c.id];
                 const recent = expanded ? lessons : lessons.slice(0, 3);
                 const months = [...new Set(recent.map(lesson => courseDate(lesson.startsAt).slice(0, 7)))];
@@ -1070,18 +1065,16 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                 const purchaseAmount = pricedPurchase?.due ?? identifyingPurchase?.price ?? pricedPurchase?.received ?? null;
                 const quantity = p.musicStore ? musicPurchasedQuantity(purchased?.termSizes) : null;
                 const planTitle = p.musicStore ? musicPurchasedTitle(c.name,purchased?.termSizes) : c.name;
-                const hasPeriodHistory = memberRecords.some(r=>r.lessonsAvailable);
                 const nearExpiry = !c.expired && !c.closed && !!c.expiresAt && Date.parse(c.expiresAt) >= now && Date.parse(c.expiresAt) - now <= 7 * 86400000;
-                return <details className="cp-card cp-pad cp-plan" key={c.id} open={expandedPlanCards[c.id] ?? lessons.length > 0} onToggle={event => { const open = event.currentTarget.open; setExpandedPlanCards(previous => previous[c.id] === open ? previous : {...previous, [c.id]: open}); }}>
-                  <summary className="cp-plan-row"><h2>{planTitle}</h2><strong>{`剩餘 ${c.remaining}`} {unit(c.unit)}</strong><span className="cp-plan-date">{quantity && <span className="cp-purchased-quantity">{purchased?.purchaseBatch?`${musicBatchLabel(purchased.purchaseBatch,purchased.periodStart,purchased.termSizes.length)}・`:""}{memberRecords.length>1?"最近":""}{quantity}</span>}{identifyingPurchase ? <>{!quantity&&(!c.grid||c.grid.total!==identifyingPurchase.points)&&<>購買 {identifyingPurchase.points} {unit(c.unit)}｜</>}<time dateTime={identifyingPurchase.createdAt}>{planDate(identifyingPurchase.createdAt)}</time> 購買{purchaseAmount!==null&&<>｜方案金額 NT$ {purchaseAmount.toLocaleString()}</>}｜</> : pricedPurchase ? <><time dateTime={pricedPurchase.date}>{planDate(pricedPurchase.date)}</time> 購買{purchaseAmount!==null&&<>｜方案金額 NT$ {purchaseAmount.toLocaleString()}</>}｜</> : c.history?.createdAt ? <><time dateTime={c.history.createdAt}>{planDate(c.history.createdAt)}</time> 開卡｜</> : null}<span className={`cp-plan-expiry${nearExpiry ? " cp-plan-near-expiry" : ""}`}>{c.musicValidityDays&&!c.musicActivatedAt&&!c.openingImported?`首次上課起 ${c.musicValidityDays} 天`:c.expiresAt?<><time dateTime={c.expiresAt}>{planDate(c.expiresAt)}</time> 到期</>:"尚未啟用"}{c.closed ? " · 已停用" : c.expired ? " · 已到期" : nearExpiry ? " · 快到期" : ""}</span></span>{c.held > 0 && <small className="cp-plan-held">已預約 {c.held} {unit(c.unit)}｜{`可再約 ${c.available}`} {unit(c.unit)}</small>}</summary>
+                return <article className="cp-card cp-pad cp-plan" key={c.id}>
+                  <div className="cp-plan-row"><h2>{planTitle}</h2><strong>{`剩餘 ${c.remaining}`} {unit(c.unit)}</strong><span className="cp-plan-date">{quantity && <span className="cp-purchased-quantity">{purchased?.purchaseBatch?`${musicBatchLabel(purchased.purchaseBatch,purchased.periodStart,purchased.termSizes.length)}・`:""}{memberRecords.length>1?"最近":""}{quantity}</span>}{identifyingPurchase ? <>{!quantity&&(!c.grid||c.grid.total!==identifyingPurchase.points)&&<>購買 {identifyingPurchase.points} {unit(c.unit)}｜</>}<time dateTime={identifyingPurchase.createdAt}>{planDate(identifyingPurchase.createdAt)}</time> 購買{purchaseAmount!==null&&<>｜方案金額 NT$ {purchaseAmount.toLocaleString()}</>}｜</> : pricedPurchase ? <><time dateTime={pricedPurchase.date}>{planDate(pricedPurchase.date)}</time> 購買{purchaseAmount!==null&&<>｜方案金額 NT$ {purchaseAmount.toLocaleString()}</>}｜</> : c.history?.createdAt ? <><time dateTime={c.history.createdAt}>{planDate(c.history.createdAt)}</time> 開卡｜</> : null}<span className={`cp-plan-expiry${nearExpiry ? " cp-plan-near-expiry" : ""}`}>{c.musicValidityDays&&!c.musicActivatedAt&&!c.openingImported?`首次上課起 ${c.musicValidityDays} 天`:c.expiresAt?<><time dateTime={c.expiresAt}>{planDate(c.expiresAt)}</time> 到期</>:"尚未啟用"}{c.closed ? " · 已停用" : c.expired ? " · 已到期" : nearExpiry ? " · 快到期" : ""}</span></span>{c.held > 0 && <small className="cp-plan-held">已預約 {c.held} {unit(c.unit)}｜{`可再約 ${c.available}`} {unit(c.unit)}</small>}</div>
                   <div className="cp-plan-body">
                   {c.grid&&<CoursePlanDateGrid grid={c.grid} cardId={c.id}/>}
                   {!c.grid&&c.unit==='SESSION'&&c.members.length>1&&<p className="cp-muted">共用方案使用日期請洽門市核對</p>}
-                  {!!memberRecords.length && <CourseMemberPaymentRecords embedded gridShown={!!c.grid} records={memberRecords} music={p.musicStore} templates={p.templates} />}
                   {!memberRecords.length && (c.purchases?.length ?? 0) > 1 && <div className="cp-plan-purchases">{c.purchases!.slice(1).map(purchase => <p key={purchase.id}>購買 {purchase.points} {unit(c.unit)}｜<time dateTime={purchase.createdAt}>{planDate(purchase.createdAt)}</time> 購買{purchase.status === "REFUNDED" ? " · 已退款登記" : purchase.status === "VOIDED" ? " · 已作廢" : ""}</p>)}</div>}
                   {!memberRecords.length && identifyingPurchase && identifyingPurchase.status !== "CONFIRMED" && <p>{identifyingPurchase.status === "REFUNDED" ? "已退款登記" : identifyingPurchase.status === "VOIDED" ? "已作廢" : "待核帳"}</p>}
-                  {!c.grid && c.members.length<=1 && !hasPeriodHistory && !lessons.length && <p className="cp-history-empty">尚無上課紀錄</p>}
-                  {!!recent.length && <section className="cp-plan-history" aria-label={`${c.name}使用紀錄`}>
+                  {!c.grid && c.members.length<=1 && !lessons.length && <p className="cp-history-empty">尚無上課紀錄</p>}
+                  {!c.grid && !!recent.length && <section className="cp-plan-history" aria-label={`${c.name}使用紀錄`}>
                     <table data-striped-list className="cp-history-list">
                       <caption>{c.grid?"詳細紀錄":"上課紀錄"}</caption>
                       <colgroup><col className="cp-history-date-column" /><col /><col className="cp-history-usage-column" /></colgroup>
@@ -1103,13 +1096,10 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                     {lessons.length > 3 && <button className="cp-history-toggle" aria-expanded={expanded} onClick={() => setExpandedPlanHistory(previous => ({...previous, [c.id]: !previous[c.id]}))}>{expanded ? "收起紀錄" : (c.history?.count ?? 0) > 100 ? "查看最近 100 筆" : `查看全部 ${c.history?.count ?? lessons.length} 筆`}</button>}
                     {expanded && (c.history?.count ?? 0) > 100 && <p>顯示最近 100 筆</p>}
                   </section>}
-                  <details className="cp-plan-content"><summary>可預約課程{c.members.length > 1 ? "／共卡成員" : ""}</summary>
-                    <p>適用：{c.sportsMode==="OPEN"?"科目待店家核對":c.templateIds.length ? p.templates.filter(t => c.templateIds.includes(t.id)).map(t => t.name).join("、") : "本店所有課程"}</p>
-                    {c.members.length > 1 && <p>授權成員（{c.members.length} 人）：{c.members.map(member => member.name).join("、")}</p>}
-                  </details>
+
 
                   </div>
-                </details>;
+                </article>;
               })}
               {!p.cards.some(c=>cardHistory || (!c.expired && !c.closed)) && <p>尚無有效方案</p>}
               {p.memberRecords?.some(r=>!p.cards.some(c=>c.id===r.cardId)) && <CourseMemberPaymentRecords records={p.memberRecords.filter(r=>!p.cards.some(c=>c.id===r.cardId))} music={p.musicStore} templates={p.templates}/>}

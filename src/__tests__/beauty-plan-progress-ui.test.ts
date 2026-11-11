@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
-import {act,createElement as el} from 'react';
+import {act,useEffect,createElement as el} from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
+vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()}),usePathname:()=>'/dashboard/beauty',useSearchParams:()=>new URLSearchParams()}));
+import {useBeautyNativePlanProgressReader} from '@/components/beauty/use-native-plan-progress-reader';
+import {PanelReadProvider,useInvalidateCustomerPlanReads} from '@/components/operations/panel-read-cache';
 import {BeautyPlanProgress} from '@/components/beauty/plan-progress';
 let host:HTMLDivElement,root:Root;
 const reply=(name='孩子甲',date='2026-11-03T02:00:00Z')=>({success:true as const,data:{progress:{available:true as const,total:10,completed:[{id:'used',date,customerName:name}],voided:[{id:'void',date:'2026-11-10T16:00:00Z'}]},purchasedAt:'2026-10-01T02:00:00Z',price:5000,shared:true}});
@@ -28,4 +31,20 @@ it('shows a failed revalidation and retries rather than leaving a stale grid vis
 it('refreshes corrected dates even when the remaining balance is unchanged',async()=>{
  const load=vi.fn().mockResolvedValue(reply());await act(async()=>root.render(el(BeautyPlanProgress,{cardId:'card',scope:'a',slug:'shop',load})));
  load.mockResolvedValue(reply('孩子甲','2026-11-05T02:00:00Z'));await act(async()=>window.dispatchEvent(new Event('focus')));expect(host.querySelector('[data-completed=true]')?.textContent).toBe('11/05');expect(host.textContent).not.toContain('11/03');
+});
+
+it('reuses a native background read on open and invalidates it after a plan change',async()=>{
+ const fetcher=vi.fn().mockResolvedValue({ok:true,json:async()=>reply()});vi.stubGlobal('fetch',fetcher);
+ let reader!:ReturnType<typeof useBeautyNativePlanProgressReader>,invalidate!:()=>void;
+ function Harness({open,customer='a',revision=0}:{open:boolean;customer?:string;revision?:number}){
+  const value=useBeautyNativePlanProgressReader('store'),clear=useInvalidateCustomerPlanReads();
+  useEffect(()=>{reader=value;invalidate=clear;},[value,clear]);
+  return open?el(BeautyPlanProgress,{storeId:'store',customerId:customer,cardId:'card',scope:customer,revision}):null;
+ }
+ const render=async(open:boolean,customer='a',revision=0)=>act(async()=>root.render(el(PanelReadProvider,null,el(Harness,{open,customer,revision}))));
+ await render(false);await reader.read('store','a','card',0);expect(fetcher).toHaveBeenCalledOnce();
+ await render(true);expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(10);expect(fetcher).toHaveBeenCalledOnce();
+ await render(false);await render(true);expect(fetcher).toHaveBeenCalledOnce();
+ await render(true,'b');expect(fetcher).toHaveBeenCalledTimes(2);
+ await act(async()=>invalidate());await render(true,'b',1);expect(fetcher).toHaveBeenCalledTimes(3);
 });

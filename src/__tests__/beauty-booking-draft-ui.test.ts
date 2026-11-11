@@ -9,13 +9,14 @@ vi.mock('@/server/actions/beauty-member-purchase-intent',()=>({prepareBeautyMemb
 vi.mock('@/components/course-health-workspace',()=>({CourseHealthWorkspace:()=>h('section',null,'健康追蹤內容')}));
 vi.mock('@/server/actions/beauty-member',()=>({saveBeautyMemberProfile:vi.fn(),saveBeautyMemberPassword:vi.fn()}));
 vi.mock('@/lib/beauty/portal-role-read',()=>({readBeautyPortalRole:m.role}));
-vi.mock('@/lib/beauty/portal-detail-read',()=>({readBeautyCardHistory:vi.fn(),readBeautyOwnIncome:vi.fn(),readBeautyWorkRecords:m.records}));
+vi.mock('@/lib/beauty/portal-detail-read',()=>({readBeautyCardProgress:vi.fn().mockResolvedValue({success:true,data:{progress:{available:true,total:5,completed:[],voided:[]},purchasedAt:"2026-10-01",price:4500,shared:false}}),readBeautyCardHistory:vi.fn(),readBeautyOwnIncome:vi.fn(),readBeautyWorkRecords:m.records}));
 vi.mock('@/server/actions/auth',()=>({logoutAction:vi.fn()}));
 vi.mock('@/components/image-announcements/carousel',()=>({StoreImageAnnouncements:()=>h('div',{'data-testid':'announcements'})}));
 vi.mock('@/components/beauty/reschedule-panel',()=>({BeautyReschedulePanel:({onSaved}:{onSaved:()=>void})=>h('button',{onClick:onSaved},'模擬改期成功')}));
 import {BeautyBookingGoods} from '@/components/beauty/booking-shared-goods';
 import {BeautyMemberBookingForm} from '@/components/beauty/member-booking-form';
 import {BeautyBookingForm} from '@/components/beauty/booking-form';
+import {readBeautyCardProgress} from '@/lib/beauty/portal-detail-read';
 import {BeautyPortal} from '@/components/beauty/portal';
 import type {BeautyPortalData} from '@/server/beauty/queries';
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
@@ -61,7 +62,7 @@ it('uses a guarded bank transfer sheet instead of a browser prompt',async()=>{
 it('exposes purchase recovery even when the store has no available plans',async()=>{
  m.intentRead.mockResolvedValue({success:true,data:null});
  const host=mount(h(BeautyPortal,{data:{...data,scopeKey:'user'} as BeautyPortalData,memberPurchaseRecoveryEnabled:true}));
- act(()=>button(host,'我的').click());act(()=>button(host,'我的方案 ›').click());await act(async()=>button(host,'查看購買申請狀態 ›').click());
+ act(()=>button(host,'我的').click());await act(async()=>button(host,'我的方案 ›').click());await act(async()=>button(host,'查看購買申請狀態 ›').click());
  expect(host.textContent).toContain('目前沒有可查到的待確認申請');
  expect(m.intentRead).toHaveBeenCalledWith({expectedStoreId:'store'});
 });
@@ -81,7 +82,7 @@ it('passes a freshly confirmed plan to booking without changing an existing draf
 it('groups companions but cancels only the selected service item through the confirmation sheet',async()=>{
  const item={startsAt:'2026-10-27T01:00:00Z',endsAt:'2026-10-27T02:00:00Z',status:'RESERVED',groupId:'group',revision:0,technicianId:'tech',cancelDeduct:false,noShowDeduct:false,notes:'',preference:'ANY',price:1000,isTrial:false,customerId:'person'};
  const withParty={...data,items:[{...item,id:'one',personName:'本人',serviceName:'做臉'},{...item,id:'two',personName:'同行者',serviceName:'按摩'}]} as BeautyPortalData;
- const host=mount(h(BeautyPortal,{data:withParty}));act(()=>button(host,'我的預約').click());expect(host.querySelectorAll('.beauty-booking-card')).toHaveLength(1);const cancellations=[...host.querySelectorAll('button')].filter(b=>b.textContent==='取消');act(()=>cancellations[1].click());const sheet=host.querySelector('[role="dialog"]') as HTMLElement;expect(sheet.querySelector('textarea')).toBeNull();await act(async()=>button(sheet,'確認取消').click());expect(m.status).toHaveBeenCalledOnce();expect(m.status.mock.calls[0]).toMatchObject(['member',{id:'two',target:'CANCELLED'}]);
+ const host=mount(h(BeautyPortal,{data:withParty}));act(()=>button(host,'我的預約').click());expect(host.querySelectorAll('[data-customer-booking-row]')).toHaveLength(1);const cancellations=[...host.querySelectorAll('button')].filter(b=>b.textContent==='取消');act(()=>cancellations[1].click());const sheet=host.querySelector('[role="dialog"]') as HTMLElement;expect(sheet.querySelector('textarea')).toBeNull();await act(async()=>button(sheet,'確認取消').click());expect(m.status).toHaveBeenCalledOnce();expect(m.status.mock.calls[0]).toMatchObject(['member',{id:'two',target:'CANCELLED'}]);
 });
 it('hides customer cancellation and rescheduling when store policy disables them',()=>{
  const item={id:'one',startsAt:'2026-10-27T01:00:00Z',endsAt:'2026-10-27T02:00:00Z',status:'RESERVED',groupId:'group',revision:0,personName:'本人',serviceName:'做臉',technicianId:'tech',cancelDeduct:false,noShowDeduct:false};
@@ -117,7 +118,7 @@ it('retries a failed submission with the same request key while preserving the s
 });
 
 it('shows five navigation icons only with health enabled and removes home booking duplication',()=>{
- const host=mount(h(BeautyPortal,{data:{...data,healthEnabled:true} as BeautyPortalData}));expect(host.querySelectorAll('nav[aria-label="主要功能"] button')).toHaveLength(5);act(()=>button(host,'健康').click());expect(host.textContent).toContain('健康追蹤內容');act(()=>button(host,'首頁').click());expect(host.querySelectorAll('.beauty-booking-card')).toHaveLength(0);
+ const host=mount(h(BeautyPortal,{data:{...data,healthEnabled:true} as BeautyPortalData}));expect(host.querySelectorAll('nav[aria-label="主要功能"] button')).toHaveLength(5);act(()=>button(host,'健康').click());expect(host.textContent).toContain('健康追蹤內容');act(()=>button(host,'首頁').click());expect(host.querySelectorAll('[data-customer-booking-row]')).toHaveLength(0);
  act(()=>roots[0].root.render(h(BeautyPortal,{data:{...data,healthEnabled:false} as BeautyPortalData})));expect(host.querySelectorAll('nav[aria-label="主要功能"] button')).toHaveLength(4);
 });
 it('keeps service and time on the first page and invalidates a chosen time when service changes',async()=>{
@@ -188,3 +189,13 @@ it('shows used trial eligibility without removing other service choices or forci
 it('keeps one shared goods cart for two member bookings paid by a shared plan, preserving the chosen time',async()=>{const goods={revision:3,groups:[{id:'drinks',title:'飲品',kind:'SHARED_GOODS' as const,subjectIds:['service'],required:false,multiple:true,options:[{id:'tea',name:'茶',price:80,duration:0,active:true}]}]};const host=mount(h(BeautyMemberBookingForm,{catalog:{...catalog,sharedGoodsCatalog:goods},slug:'test',customer:{id:'person'},cards:[{id:'card',name:'共用方案',remaining:5,held:0,expiresAt:'2099-12-31T00:00:00Z',closed:false,memberIds:['person'],serviceIds:['service'],allowShared:true}]}));set(host.querySelector('[aria-label="預約人數"]') as HTMLSelectElement,'2');await act(async()=>button(host,'查詢可用時段').click());act(()=>button(host,'09:00').click());act(()=>host.querySelector<HTMLInputElement>('[aria-label="共同商品選購"] input')!.click());act(()=>host.querySelector<HTMLButtonElement>('[aria-label="增加茶"]')!.click());expect(button(host,'09:00').getAttribute('aria-pressed')).toBe('true');act(()=>button(host,'下一步').click());expect([...host.querySelectorAll('[aria-label="預約摘要"] article')].filter(row=>row.textContent?.includes('共用方案 · 使用 1 次'))).toHaveLength(2);expect(host.textContent).toContain('NT$ 160');expect(host.textContent).toContain('茶 × 2');act(()=>button(host,'返回修改').click());expect(host.querySelector('output')!.textContent).toBe('2');act(()=>button(host,'下一步').click());await act(async()=>button(host,'確認預約').click());expect(m.book.mock.calls[0][1]).toMatchObject({people:[{cardId:'card'},{cardId:'card'}],sharedGoods:{revision:3,selections:[{id:'tea',quantity:2}]}});expect(host.textContent).toContain('預約成功');});
 
 it('lets customers clear retained goods when the catalog closes instead of crashing or blocking the form permanently',()=>{const clear=vi.fn(),host=mount(h(BeautyBookingGoods,{catalog:null,selections:[{id:'retired',quantity:2}],onChange:clear}));expect(host.querySelector('[role="alert"]')?.textContent).toContain('商品已更新');act(()=>button(host,'取消商品選購').click());expect(clear).toHaveBeenCalledExactlyOnceWith([]);});
+
+it('preloads member plan dates before opening plans and reuses them with the price above the grid',async()=>{
+ vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-21T02:00:00Z'));
+ const card={id:'card',name:'五次方案',remaining:5,held:0,expiresAt:'2090-01-01T00:00Z',closed:false,memberIds:['person'],serviceIds:['service'],allowShared:false};
+ const host=mount(h(BeautyPortal,{data:{...data,cards:[card]} as BeautyPortalData}));
+ await act(async()=>{await vi.advanceTimersByTimeAsync(1600);});expect(readBeautyCardProgress).toHaveBeenCalledExactlyOnceWith('card','test');
+ act(()=>button(host,'我的').click());await act(async()=>button(host,'我的方案 ›').click());
+ expect(readBeautyCardProgress).toHaveBeenCalledOnce();expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(5);expect(host.querySelector('[data-lesson-slot]')?.closest('details')).toBeNull();
+ expect(host.querySelector('article.cp-plan')?.textContent).toContain('方案金額 NT$ 4,500');
+});

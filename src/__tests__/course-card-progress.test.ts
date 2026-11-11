@@ -1,5 +1,6 @@
 import {beforeEach,it,expect,vi} from 'vitest';
-const m=vi.hoisted(()=>({actor:vi.fn(),customer:vi.fn(),people:vi.fn(),card:vi.fn(),bookings:vi.fn(),adjustments:vi.fn(),transaction:vi.fn(),visibility:vi.fn()}));
+const m=vi.hoisted(()=>({actor:vi.fn(),tuition:vi.fn(),purchases:vi.fn(),customer:vi.fn(),people:vi.fn(),card:vi.fn(),bookings:vi.fn(),adjustments:vi.fn(),transaction:vi.fn(),visibility:vi.fn()}));
+vi.mock('@/server/services/music-tuition',()=>({readMusicTuition:m.tuition}));
 vi.mock('@/server/services/course-access',()=>({courseManagerRead:m.actor}));
 vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.customer,findMany:m.people}}}));
 vi.mock('@/lib/course-db',()=>({coursePrisma:{$transaction:m.transaction}}));
@@ -10,11 +11,11 @@ import {loadCourseCardProgress} from '@/server/actions/course-card-progress';
 const input={cardId:'card',customerId:'student',expectedStoreId:'store'};
 const card={id:'card',unit:'SESSION',requestKey:'purchase',musicOpeningStateRequired:false,members:[{customerId:'student'}],entries:[{points:10}]};
 const lesson=(id='b1',date='2026-11-03T08:30:00Z',customerId='student')=>({id,customerId,customerName:'學員',pointCost:1,session:{startsAt:new Date(date),nameSnapshot:'舞蹈'}});
-beforeEach(()=>{vi.clearAllMocks();m.actor.mockResolvedValue({storeId:'store',user:{id:'owner',role:'OWNER',staffId:null}});m.customer.mockResolvedValue({id:'student'});m.people.mockResolvedValue([{id:'student',name:'學員'}]);m.visibility.mockReturnValue({storeId:'store'});m.card.mockResolvedValue(card);m.bookings.mockResolvedValue([lesson()]);m.adjustments.mockResolvedValue([]);m.transaction.mockImplementation(async fn=>fn({coursePointCard:{findFirst:m.card},courseBooking:{findMany:m.bookings}}));});
+beforeEach(()=>{m.tuition.mockResolvedValue(new Map());m.purchases.mockResolvedValue([]);vi.clearAllMocks();m.actor.mockResolvedValue({storeId:'store',user:{id:'owner',role:'OWNER',staffId:null}});m.customer.mockResolvedValue({id:'student'});m.people.mockResolvedValue([{id:'student',name:'學員'}]);m.visibility.mockReturnValue({storeId:'store'});m.card.mockResolvedValue(card);m.bookings.mockResolvedValue([lesson()]);m.adjustments.mockResolvedValue([]);m.transaction.mockImplementation(async fn=>fn({coursePointCard:{findFirst:m.card},courseBooking:{findMany:m.bookings},coursePurchase:{findMany:m.purchases}}));});
 it('按實際卡片授予堂數與已出席日期產生進度，不讀方案商品的預設堂數',async()=>{
  m.bookings.mockResolvedValue([lesson('b2','2026-11-10T08:30:00Z'),lesson()]);
  const r=await loadCourseCardProgress(input);expect(r).toMatchObject({success:true,data:{available:true,total:10,shared:false,completed:[{id:'b1',date:'2026-11-03T08:30:00.000Z'},{id:'b2',date:'2026-11-10T08:30:00.000Z'}]}});
- expect(m.actor.mock.calls.map(c=>c[0])).toEqual(['wallet.read','customer.read','booking.read']);
+ expect(m.actor.mock.calls.map(c=>c[0])).toEqual(['wallet.read','customer.read','booking.read','transaction.read']);
  expect(m.bookings).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:'store',cardId:'card',status:'ATTENDED',pointCost:{gt:0},bookingKind:{not:'OPENING_MAKEUP'}}}));
  expect(m.transaction).toHaveBeenCalledWith(expect.any(Function),{isolationLevel:'RepeatableRead'});
 });
@@ -43,4 +44,14 @@ it('keeps void operation dates separate from attendance and removes the gray slo
  const original={id:'void',cardId:'card',customerId:'student',operation:'VOID',quantity:2,recordedAt:'2026-11-10T16:00:00Z',occurredOn:null,reversalOf:null};m.adjustments.mockResolvedValue([original]);
  expect(await loadCourseCardProgress(input)).toMatchObject({success:true,data:{available:true,completed:[{id:'b1'}],voided:[{date:'2026-11-10T16:00:00Z'},{date:'2026-11-10T16:00:00Z'}]}});
  m.adjustments.mockResolvedValue([original,{...original,id:'reverse',operation:'REVERSE',reversalOf:'void'}]);expect(await loadCourseCardProgress(input)).toMatchObject({success:true,data:{available:true,voided:[]}});
+});
+
+it('uses the purchased tuition amount above the grid even when only part has been received',async()=>{
+ m.purchases.mockResolvedValue([{id:'order',price:500,createdAt:new Date('2026-10-01T02:00Z')}]);m.tuition.mockResolvedValue(new Map([['order',{due:3000}]]));
+ expect(await loadCourseCardProgress(input)).toMatchObject({success:true,data:{available:true,purchasePrice:3000,purchasedAt:'2026-10-01T02:00:00.000Z'}});
+ expect(m.purchases.mock.calls[0][0].where).toMatchObject({storeId:'store',cardId:'card',status:'CONFIRMED',voidedAt:null,customerId:{in:['student']}});
+});
+it('does not query or expose purchase amounts without financial read permission',async()=>{
+ m.actor.mockImplementation(async permission=>{if(permission==='transaction.read')throw Error('denied');return{storeId:'store',user:{id:'owner'}};});
+ expect(await loadCourseCardProgress(input)).toMatchObject({success:true,data:{available:true,canReadPrice:false,purchasePrice:null}});expect(m.purchases).not.toHaveBeenCalled();
 });

@@ -84,7 +84,7 @@ describe("student booking switch portal", () => {
     data.bookings = [{ ...data.sessions[0], id:"booking",sessionId:"session",status:"RESERVED",customerId:"member",customerName:"本人",operatorName:"本人",cost:2,unit:"POINT",planName:"方案",notes:"",expiresAt:"2099-12-31" }] as unknown as CoursePortalData["bookings"];
     await render({...data,initialView:"bookings"} as unknown as typeof data);
     await click("取消"); expect(dialog()).toBeNull();
-    expect(host.querySelector(".cp-booking-card")?.textContent?.match(/取消截止/g)).toHaveLength(1);
+    expect(host.querySelector("[data-customer-booking-row]")?.textContent?.match(/取消截止/g)).toHaveLength(1);
     expect(host.querySelector('.cp-inline-confirm')?.closest('[inert]')).toBeNull();
     m.cancel.mockResolvedValueOnce({success:false,error:"預約已變更"});
     await click("確認取消");
@@ -278,4 +278,25 @@ it('keeps customer plan facts visible without the internal balance-adjustment le
  await act(async()=>root.render(el(CoursePortalClient,data)));
  expect(host.querySelector('.cp-plan')?.textContent).toContain('剩餘 8 堂');expect(host.querySelector('.cp-plan')?.textContent).toContain('1/1');expect(host.querySelector('.cp-plan')?.textContent).toContain('方案金額 NT$ 4,800');
  expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(10);expect(host.querySelectorAll('[data-completed="true"]')).toHaveLength(2);expect(host.querySelector('.cp-ledger')).toBeNull();expect(host.textContent).not.toContain('其他堂數異動');
+});
+
+it.each([false,true])('keeps the member plan grid open with its purchased price above it (%s music)',async musicStore=>{
+ const base=props();
+ await render({...base,musicStore,initialView:'plans',cards:[{...base.cards[0],unit:'SESSION',grid:{total:10,dates:[],completed:[]},purchases:[{id:'paid-plan',createdAt:'2099-01-01T02:00Z',price:3000,points:10,status:'CONFIRMED'}]}]} as unknown as typeof base);
+ const slot=host.querySelector('[data-lesson-slot]');expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(10);expect(slot?.closest('details')).toBeNull();
+ const card=slot?.closest('article');expect(card?.textContent).toContain('方案金額 NT$ 3,000');expect(card?.querySelector('.cp-plan-row')?.textContent).toContain('3,000');
+ expect(card?.textContent).not.toContain('可預約課程');expect(card?.textContent).not.toContain('繳費明細');expect(card?.querySelector('summary')).toBeNull();
+});
+
+it.each([false,true])('removes repeated payment/course accordions even with actual member records (%s music)',async musicStore=>{
+ const base=props();
+ const records=[{id:'paid-plan',cardId:'card',name:'十堂方案',date:'2099-01-01T02:00Z',status:'CONFIRMED',termSizes:[10],templateIds:[],points:10,unit:'SESSION',due:3000,received:3000,periods:[],receipts:[],refunds:[],lessonsAvailable:true,lessons:[{id:'used',date:'2099-01-02T02:00Z',name:'鋼琴',learner:'本人',status:'已出席',period:null,ordinal:null,used:1,unit:'SESSION'}]}];
+ await render({...base,musicStore,initialView:'plans',memberRecords:records,cards:[{...base.cards[0],unit:'SESSION',grid:{total:10,dates:['2099-01-02T02:00Z'],completed:[{id:'used',date:'2099-01-02T02:00Z'}]},purchases:[{id:'paid-plan',createdAt:'2099-01-01T02:00Z',price:3000,points:10,status:'CONFIRMED'}]}]} as unknown as typeof base);
+ const card=host.querySelector('article.cp-plan')!;expect(card.textContent).toContain('方案金額 NT$ 3,000');expect(card.textContent).not.toContain('繳費明細');expect(card.textContent).not.toContain('可預約課程');expect(card.querySelectorAll('details')).toHaveLength(0);expect(card.querySelectorAll('[data-lesson-slot]')).toHaveLength(10);
+ await act(async()=>card.querySelector<HTMLHeadingElement>('h2')!.click());expect(card.querySelector('[data-lesson-slot]')?.closest('details')).toBeNull();expect(card.querySelectorAll('[data-lesson-slot]')).toHaveLength(10);
+});
+
+it('keeps point balances and the usage list while removing repeated plan sections',async()=>{
+ const base=props();await render({...base,initialView:'plans',cards:[{...base.cards[0],history:{count:1,createdAt:'2099-01-01T02:00Z',lessons:[{id:'used',name:'瑜珈',startsAt:'2099-01-02T02:00Z',customerId:'member',customerName:'本人',status:'已出席',used:2}]}}]} as unknown as typeof base);
+ const card=host.querySelector('article.cp-plan')!;expect(card.textContent).toContain('剩餘 10 點');expect(card.textContent).toContain('瑜珈');expect(card.textContent).toContain('2 點');expect(card.querySelectorAll('[data-lesson-slot]')).toHaveLength(0);expect(card.querySelectorAll('[data-lesson]')).toHaveLength(1);expect(card.textContent).not.toContain('可預約課程');
 });

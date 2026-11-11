@@ -1,4 +1,5 @@
 "use server";
+import {readMusicTuition} from "@/server/services/music-tuition";
 import {z} from 'zod';
 import {prisma} from '@/lib/db';
 import {coursePrisma} from '@/lib/course-db';
@@ -12,7 +13,8 @@ import {parseTaipeiDateTime} from '@/lib/date-utils';
 import {AppError,handleActionError} from '@/lib/errors';
 import type {CompletedLesson} from '@/components/admin/lesson-progress-grid';
 
-const unavailable=(reason:string)=>({success:true as const,data:{available:false as const,reason}});
+type PurchaseInfo={canReadPrice:boolean;purchasePrice:number|null;purchasedAt:string|null};
+const unavailable=(reason:string,purchase?:PurchaseInfo)=>({success:true as const,data:{available:false as const,reason,...purchase}});
 export async function loadCourseCardProgress(input:unknown){
  try{
   const d=z.object({cardId:z.string().min(1).max(100),customerId:z.string().min(1).max(100),expectedStoreId:z.string().min(1).max(100),dataScope:z.enum(['operational','legacy']).optional()}).parse(input);
@@ -22,10 +24,22 @@ export async function loadCourseCardProgress(input:unknown){
   const visibility=getManagerCustomerWhere(user.role,user.staffId,storeId);
   const customer=await prisma.customer.findFirst({where:{...visibility,storeId,id:d.customerId,mergedIntoCustomerId:null},select:{id:true}});
   if(!customer)throw new AppError('NOT_FOUND','找不到可查看的本店學員');
+  const priceActor=await courseManagerRead("transaction.read").catch(()=>null);
+  const canReadPrice=priceActor?.storeId===storeId&&priceActor?.user.id===user.id;
   return await coursePrisma.$transaction(async tx=>{
    const card=await tx.coursePointCard.findFirst({where:{id:d.cardId,storeId,AND:[musicCardWhere(storeId,d.dataScope)],OR:[{members:{some:{customerId:d.customerId,storeId}}},{bookings:{some:{customerId:d.customerId,storeId}}}]},select:{id:true,unit:true,requestKey:true,musicOpeningStateRequired:true,members:{select:{customerId:true}},entries:{where:{kind:'GRANT'},select:{points:true}}}});
    if(!card)throw new AppError('NOT_FOUND','找不到此學員的本店方案');
-   if(card.unit!=='SESSION')return unavailable('點數方案請查看完整使用紀錄。');
+   const readPurchase=async(ids:string[]):Promise<PurchaseInfo>=>{
+    const purchases=canReadPrice?await tx.coursePurchase.findMany({where:{storeId,cardId:card.id,status:'CONFIRMED',voidedAt:null,customerId:{in:ids}},select:{id:true,price:true,createdAt:true},orderBy:{createdAt:'asc'}}):[];
+    const tuition=await readMusicTuition(tx,storeId,purchases.map(p=>p.id));
+    return {canReadPrice,purchasePrice:purchases.length?purchases.reduce((sum,p)=>sum+(tuition.get(p.id)?.due??p.price),0):null,purchasedAt:purchases[0]?.createdAt.toISOString()??null};
+   };
+   if(card.unit!=='SESSION'){
+    const ids=[...new Set([d.customerId,...card.members.map(member=>member.customerId)])];
+    const people=await prisma.customer.findMany({where:{...visibility,storeId,id:{in:ids},mergedIntoCustomerId:null},select:{id:true}});
+    if(ids.some(id=>!people.some(person=>person.id===id)))return unavailable('此共用方案的金額需由有權限的人員核對。');
+    return unavailable('',await readPurchase(ids));
+   }
    if(card.musicOpeningStateRequired||card.requestKey.startsWith('yjy-'))return unavailable('來源方案請由完整紀錄核對上課進度。');
    const total=card.entries.reduce((sum,e)=>sum+e.points,0);
    if(!Number.isInteger(total)||total<1||total>2000)return unavailable('方案總堂數待核對，請查看完整紀錄。');
@@ -45,7 +59,8 @@ export async function loadCourseCardProgress(input:unknown){
    if(completed.length>total)return unavailable('上課筆數與方案總堂數待核對，請查看完整紀錄。');
    completed.sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
    const voided:CompletedLesson[]=voids.flatMap(r=>Array.from({length:r.quantity},(_,i)=>({id:`void:${r.id}:${i}`,date:r.recordedAt,customerName:visible.get(r.customerId)!})));
-   return {success:true as const,data:{available:true as const,total,completed,voided,shared:ids.length>1}};
+   const purchase=await readPurchase(ids);
+   return {success:true as const,data:{available:true as const,total,completed,voided,shared:ids.length>1,...purchase}};
   },{isolationLevel:'RepeatableRead'});
  }catch(error){const r=handleActionError(error);return {success:false as const,error:r.success?'讀取失敗，請重試':r.error};}
 }

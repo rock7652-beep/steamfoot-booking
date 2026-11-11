@@ -10,6 +10,7 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { formatPaymentMethod, formatTransactionType, formatBookingType } from "@/lib/data-export-labels";
 import type { SessionRow } from "@/components/wallet-session-detail";
 import type { ActionResult } from "@/types";
+import type {WalletSessionCorrectionRecord} from '@/lib/wallet-session-correction';
 
 export type CustomerPanelRecord = { id: string; date: Date; label: string; status: string; amount?: number; payment?: string; note?: string | null };
 export type CustomerPanelRecords = { rows: CustomerPanelRecord[]; hasMore: boolean; page: number };
@@ -59,8 +60,9 @@ export async function getCustomerPanelWalletSessions(customerId:string,walletId:
     const storeId=storeIdForViewContext(await getActiveStoreForRead(user),context);
     const customer=await prisma.customer.findFirst({where:{id:customerId,...getStoreFilter(userForViewContext(user,context),storeId),mergedIntoCustomerId:null},select:{id:true,storeId:true,user:{select:{status:true}}}});
     if(!customer || customer.user?.status === "SUSPENDED")throw new AppError("NOT_FOUND","顧客不存在");
-    const wallet=await prisma.customerPlanWallet.findFirst({where:{id:walletId,customerId:customer.id,storeId:customer.storeId},select:{sessions:{orderBy:{sessionNo:"asc"},select:{id:true,sessionNo:true,status:true,reservedAt:true,completedAt:true,voidedAt:true,voidReason:true,booking:{select:{bookingDate:true,slotTime:true}},voidedByStaff:{select:{displayName:true}}}}}});
+    const wallet=await prisma.customerPlanWallet.findFirst({where:{id:walletId,customerId:customer.id,storeId:customer.storeId},select:{sessions:{orderBy:{sessionNo:"asc"},select:{id:true,sessionNo:true,status:true,updatedAt:true,reservedAt:true,completedAt:true,voidedAt:true,voidReason:true,booking:{select:{bookingDate:true,slotTime:true}},voidedByStaff:{select:{displayName:true}}}}}});
     if(!wallet)throw new AppError("NOT_FOUND","方案不存在");
-    return {success:true as const,data:wallet.sessions};
+    const corrections=await prisma.auditLog.findMany({where:{storeId:customer.storeId,targetType:'WalletSession',targetId:{in:wallet.sessions.map(s=>s.id)},action:'WALLET_SESSION_CORRECTION'},orderBy:[{createdAt:'desc'},{id:'desc'}],select:{targetId:true,afterJson:true}});
+    return {success:true as const,data:wallet.sessions.map(session=>({...session,corrections:corrections.filter(row=>row.targetId===session.id).flatMap(row=>{const data=row.afterJson as {record?:WalletSessionCorrectionRecord}|null;return data?.record?[data.record]:[];})}))};
   }catch(error){return handleActionError(error);}
 }

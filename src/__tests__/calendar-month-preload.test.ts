@@ -63,3 +63,12 @@ it('preloads settled search results while the search field retains focus, but st
  await act(async()=>root.render(React.createElement(SearchHarness,{})));await tick(1500);expect(reader.read).toHaveBeenCalledExactlyOnceWith('student');}
  finally{input.remove();}
 });
+
+it('covers customers beyond the first five and refreshes expired entries while the list remains idle',async()=>{
+ const cached=new Map<string,number>();const read=vi.fn(async(id:string)=>{cached.set(id,Date.now()+1000);});
+ const reader={read,get:(id:string)=>(cached.get(id)??0)>Date.now()};
+ function List({blocked=false}:{blocked?:boolean}){useIdleReadPreload({enabled:true,keys:Array.from({length:20},(_,i)=>String(i)),blocked,reader,startDelayMs:250,gapMs:0,concurrency:2,repeatAfterMs:2000});return null;}
+ await act(async()=>root.render(React.createElement(List)));await tick(300);expect(read.mock.calls.map(call=>call[0])).toEqual(Array.from({length:20},(_,i)=>String(i)));
+ await tick(2100);expect(read).toHaveBeenCalledTimes(40);
+ await act(async()=>root.render(React.createElement(List,{blocked:true})));await tick(5000);expect(read).toHaveBeenCalledTimes(40);
+});

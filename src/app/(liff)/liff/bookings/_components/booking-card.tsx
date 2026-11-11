@@ -8,7 +8,8 @@
  */
 
 import { liffMessages } from "@/lib/liff/messages";
-import { STATUS_COLOR, STATUS_LABEL } from "@/lib/booking-constants";
+import {CustomerBookingRow} from "@/components/customer-booking-row";
+import { STATUS_LABEL } from "@/lib/booking-constants";
 import type { LiffBookingRow } from "@/server/actions/liff-my-bookings";
 import {
   canCancelBooking,
@@ -51,47 +52,9 @@ export function BookingCard({
   const showCancelControl = tab === "upcoming" && !isCancelled && !!onRequestCancel;
   const canCancel = showCancelControl ? canCancelBooking(booking) : false;
   return (
-    <div
-      className={`flex flex-col gap-2 rounded-xl border border-earth-200 bg-white px-4 py-3 shadow-sm ${
-        isCancelled ? "opacity-60" : ""
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-base font-semibold text-earth-900">{dateLabel}</p>
-          <p className="mt-0.5 text-lg font-bold tabular-nums text-earth-800">
-            {booking.slotTime}
-          </p>
-        </div>
-        <span
-          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-            STATUS_COLOR[booking.bookingStatus] ?? "bg-gray-100 text-gray-700"
-          }`}
-        >
-          {STATUS_LABEL[booking.bookingStatus] ?? booking.bookingStatus}
-        </span>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1.5">
-        {booking.serviceName ? (
-          <div className="w-full text-sm text-earth-700">
-            <p className="font-medium text-earth-900">{booking.serviceName}</p>
-            <p className="mt-1 text-xs text-earth-500">
-              {booking.endTime ? `${booking.slotTime}–${booking.endTime} · ` : ""}
-              {booking.staffName ?? "待確認人員"} · {booking.locationName ?? "待安排位置"}
-            </p>
-          </div>
-        ) : (
-          <span className="rounded-md bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-700">
-            {liffTypeLabel(booking.bookingType, booking.isMakeup)}
-          </span>
-        )}
-      </div>
-
+    <CustomerBookingRow when={`${dateLabel} ${booking.slotTime}${booking.endTime?`–${booking.endTime}`:''}`} status={STATUS_LABEL[booking.bookingStatus]??booking.bookingStatus} description={[booking.serviceName??liffTypeLabel(booking.bookingType,booking.isMakeup),booking.staffName,booking.locationName].filter(Boolean).join(' · ')}>
       {showCancelControl && !canCancel && <p className="text-sm text-earth-500">{liffMessages.cancelBooking.cardHint}</p>}
       {tab === "upcoming" && !isCancelled && (
-        <details className="border-t border-earth-100 pt-2">
-          <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-primary-700">預約明細與操作 ⌄</summary>
           <div className="flex flex-col gap-2">
           {/* PR-D2 保留 hint —— 取消 ≠ 改時間，hint 仍然語義正確（per D4A-2 拍板選項 a）*/}
           <p className="text-xs text-earth-500">
@@ -188,9 +151,9 @@ export function BookingCard({
               </button>
             </>
           )}
-        </div></details>
+        </div>
       )}
-    </div>
+    </CustomerBookingRow>
   );
 }
 

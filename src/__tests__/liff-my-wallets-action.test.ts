@@ -80,6 +80,8 @@ const CANONICAL_CUSTOMER_ID = "cust-canonical";
 
 function rawWallet(overrides: Partial<{
   id: string;
+  purchasedPrice:number;
+  createdAt:Date;
   totalSessions: number;
   remainingSessions: number;
   startDate: Date;
@@ -87,7 +89,7 @@ function rawWallet(overrides: Partial<{
   status: string;
   plan: { name: string; category: string };
   bookings: Array<{ bookingStatus: string; isMakeup: boolean }>;
-  sessions: Array<{ id?: string; status: string; completedAt?: Date | null; booking?: { id: string; customerId: string; storeId: string; bookingDate: Date; slotTime: string; bookingStatus: string } | null }>;
+  sessions: Array<{ id?: string; status: string; completedAt?: Date | null; voidedAt?: Date | null; booking?: { id: string; customerId: string; storeId: string; bookingDate: Date; slotTime: string; bookingStatus: string } | null }>;
 }> = {}) {
   return {
     id: "wlt-default",
@@ -241,7 +243,7 @@ describe("fetchLiffWallets action (PR-E2)", () => {
         "startDate",
         "status",
         "totalSessions",
-        "usageRecords",
+        "usageProgress", "usageRecords",
         "usedCount",
         "voidedCount",
       ]);
@@ -472,6 +474,12 @@ describe("isExpiringSoon — pure helper (PR-E2)", () => {
 });
 
  describe("wallet actual usage projection", () => {
+  it("projects the purchased price, Taiwan purchase date and dated grid from the same wallet",async()=>{
+    mockRequireSession.mockResolvedValue(CUSTOMER_USER);mockGetCanonicalId.mockResolvedValue(CANONICAL_CUSTOMER_ID);mockMakeupFindMany.mockResolvedValue([]);
+    mockWalletFindMany.mockResolvedValue([rawWallet({purchasedPrice:2990,createdAt:new Date("2026-10-19T16:30Z"),totalSessions:3,remainingSessions:1,sessions:[{id:"used",status:"BACKFILLED",completedAt:new Date("2026-11-02T16:30Z")},{id:"void",status:"VOIDED",voidedAt:new Date("2026-11-03T16:30Z")},{id:"free",status:"AVAILABLE"}]})]);
+    const result=await fetchLiffWallets();if(result.status!=="ok")throw Error("unexpected failure");
+    expect([...result.active,...result.expired,...result.history][0]).toMatchObject({purchaseAmount:2990,purchasedAt:"2026-10-20",usageProgress:{available:true,total:3,completed:[{id:"used",date:"2026-11-02T16:30:00.000Z"}],voided:[{id:"void",date:"2026-11-03T16:30:00.000Z"}]}});
+  });
   it("groups actual ledger debits by booking, excludes reserved/voided and cross-customer relations", async () => {
     mockRequireSession.mockResolvedValue(CUSTOMER_USER);
     mockGetCanonicalId.mockResolvedValue(CANONICAL_CUSTOMER_ID);
@@ -487,6 +495,7 @@ describe("isExpiringSoon — pure helper (PR-E2)", () => {
     expect(result.status).toBe("ok");
     if(result.status !== "ok") throw Error("unexpected failure");
     const wallet = [...result.active,...result.expired,...result.history][0];
+    expect(wallet.usageProgress).toMatchObject({available:false});
     expect(wallet.usageRecords).toEqual([
       {id:"booking-use",date:"2026-09-18",time:"11:15",label:"蒸足",sessions:2,status:"已完成"},
       {id:"s6",date:null,time:null,label:"補登使用",sessions:1,status:"補登"},

@@ -1,0 +1,17 @@
+import {beforeEach,it,expect,vi} from 'vitest';
+vi.mock('server-only',()=>({}));
+const m=vi.hoisted(()=>({permission:vi.fn(),read:vi.fn(),store:vi.fn(),module:vi.fn(),transaction:vi.fn(),customer:vi.fn(),core:vi.fn(),query:vi.fn(),revalidate:vi.fn()}));
+vi.mock('next/cache',()=>({revalidatePath:m.revalidate}));
+vi.mock('@/lib/permissions',()=>({requireWritablePermission:m.permission,requirePermission:m.read}));
+vi.mock('@/lib/store',()=>({resolveWriteStoreId:m.store}));
+vi.mock('@/lib/industry-module-server',()=>({requireSteamfootStore:m.module}));
+vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:()=>({})}));
+vi.mock('@/lib/db',()=>({prisma:{$transaction:m.transaction}}));
+vi.mock('@/server/services/wallet-session-correction',()=>({correctWalletSession:m.core}));
+import {correctSteamWalletSession} from '@/server/actions/wallet-session-correction';
+const input={expectedStoreId:'store',requestKey:'00000000-0000-4000-8000-000000000001',walletId:'wallet',customerId:'customer',sessionId:'session',expectedStatus:'VOIDED',expectedUpdatedAt:'2026-11-11T02:00:00.000Z',reason:'填錯'};
+beforeEach(()=>{vi.resetAllMocks();m.permission.mockResolvedValue({id:'owner',role:'OWNER',staffId:'staff',name:'店長'});m.store.mockResolvedValue('store');m.query.mockResolvedValue([{id:'store'}]);m.customer.mockResolvedValue({id:'customer'});m.core.mockResolvedValue({id:'correction',remainingAfter:10});m.transaction.mockImplementation(async work=>work({$queryRaw:m.query,customer:{findFirst:m.customer}}));});
+it('requires write/read permissions and a live Steam store/customer, then uses a serializable transaction',async()=>{expect(await correctSteamWalletSession(input)).toMatchObject({success:true});expect(m.permission).toHaveBeenCalledWith('wallet.adjust');expect(m.read.mock.calls.map(c=>c[0])).toEqual(['customer.read','wallet.read']);expect(m.module).toHaveBeenCalledWith('store');expect(m.transaction.mock.calls[0][1]).toEqual({isolationLevel:'Serializable'});expect(m.revalidate).toHaveBeenCalledWith('/liff/wallets');});
+it.each(['permission','read','module','store','paused','customer'])('rejects %s before changing any quota',async kind=>{if(kind==='permission')m.permission.mockRejectedValue(Error('denied'));if(kind==='read')m.read.mockRejectedValue(Error('denied'));if(kind==='module')m.module.mockRejectedValue(Error('wrong module'));if(kind==='store')m.store.mockResolvedValue('other');if(kind==='paused')m.query.mockResolvedValue([]);if(kind==='customer')m.customer.mockResolvedValue(null);expect(await correctSteamWalletSession(input)).toMatchObject({success:false});expect(m.core).not.toHaveBeenCalled();});
+it('reports a committed correction as successful even when revalidation fails',async()=>{m.revalidate.mockImplementation(()=>{throw Error('refresh failed');});expect(await correctSteamWalletSession(input)).toMatchObject({success:true,syncWarning:true});expect(m.core).toHaveBeenCalledOnce();});
+it('marks a lost database reply as uncertain without claiming success',async()=>{m.transaction.mockRejectedValue(Error('connection lost'));expect(await correctSteamWalletSession(input)).toMatchObject({success:false,uncertain:true});});

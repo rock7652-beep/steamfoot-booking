@@ -12,3 +12,17 @@ export const sessionAdjustmentGuide:OperationGuide={
   modules:['course','beauty'],permission:'wallet.adjust',additionalPermissions:['wallet.read','customer.read'],feature:'plan_management',
   sources:['src/components/admin/plan-session-adjustment.tsx','src/server/actions/course-session-adjustment.ts','src/server/actions/beauty-session-adjustment.ts'],verification:'source-reviewed',kind:'howto',
 };
+
+export const steamSessionCorrectionGuide:OperationGuide={
+  id:'STEAM-SESSION-CORRECTION',category:'plans',title:'蒸足補登或註銷填錯，如何更正返還？',
+  summary:'在顧客方案的「使用明細與更正」選擇原補登或註銷紀錄，填寫原因後返還一堂。',
+  answer:'顧客管理開啟顧客資料，在原方案展開「使用明細與更正」，按該堂「更正返還」，核對原日期、填寫更正原因，再按「確認更正返還」。',
+  path:'顧客管理 → 顧客總覽 → 方案 → 使用明細與更正',
+  steps:['展開原方案的「使用明細與更正」，找到填錯的補登或註銷堂次。','點該堂「更正返還」，核對原日期並填寫更正原因。','按「確認更正返還」，核對餘額增加一堂、格子恢復空白；需修正使用日期時再補登正確日期。'],
+  important:'僅處理未綁定預約的手動補登或註銷；實際預約的出席須從原預約更正。整份已註銷方案不能重新啟用。',
+  success:'方案返還一堂，原日期、原因與操作者保留在更正紀錄中；原收款不變。',
+  details:['每次更正返還一堂；多堂補登可逐堂核對更正。','補登格與註銷灰格在更正後恢復空白，顧客前台顯示更新後的使用日期與餘額，不顯示內部更正原因。','已到期方案的更正不延長期限；整份已註銷方案不能用此功能重新開通。','結果待確認時按「重試確認結果」，沿用原請求；勿另建相同更正。','本操作不新增或改寫收款、退款、薪資及業績。'],
+  keywords:'蒸足 更正返還 補登 註銷堂數 單堂 原日期 原因 格子 空白 返還 顧客管理',
+  modules:['steamfoot'],permission:'wallet.adjust',additionalPermissions:['wallet.read','customer.read'],feature:'plan_management',
+  sources:['src/components/admin/wallet-session-correction-form.tsx','src/server/actions/wallet-session-correction.ts','src/server/services/wallet-session-correction.ts'],verification:'source-reviewed',kind:'howto',
+};

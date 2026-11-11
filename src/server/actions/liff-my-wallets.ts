@@ -32,6 +32,9 @@ import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
 /** LIFF「我的方案」單筆 row 顯示用 payload — server compute 後送 client，
  *  client 不再做 availability / ledger 計算（避免分散兩處）。 */
 export interface LiffWalletRow {
+  usageProgress?: import("@/lib/plan-usage-progress").PlanUsageProgress;
+  purchaseAmount?: number;
+  purchasedAt?: string;
   id: string;
   planName: string;
   /** TRIAL / PACKAGE / SINGLE — UI 分組 / icon 用 */

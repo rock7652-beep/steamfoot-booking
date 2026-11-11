@@ -7,6 +7,7 @@
  * `Tab` type export 在這檔，給 BookingsList main + BookingCard 共用。
  */
 
+import {CustomerBookingList} from "@/components/customer-booking-row";
 import Link from "next/link";
 import { liffMessages } from "@/lib/liff/messages";
 import type { LiffBookingRow } from "@/server/actions/liff-my-bookings";
@@ -56,10 +57,9 @@ export function ReadyView({
       {displayed.length === 0 ? (
         <EmptyState tab={tab} bookingHref={bookingHref} />
       ) : (
-        <ul className="flex flex-col gap-3">
+        <CustomerBookingList>
           {displayed.map((b) => (
-            <li key={b.id}>
-              <BookingCard
+              <BookingCard key={b.id}
                 booking={b}
                 tab={tab}
                 storeName={storeName}
@@ -68,9 +68,8 @@ export function ReadyView({
                 storeAddress={storeAddress}
                 storeMapUrl={storeMapUrl}
               />
-            </li>
           ))}
-        </ul>
+        </CustomerBookingList>
       )}
 
     </>

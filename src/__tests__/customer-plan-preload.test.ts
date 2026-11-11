@@ -82,7 +82,54 @@ it('never preloads progress without booking access or for a different module ada
  const load=vi.fn().mockResolvedValue({success:true,rows:[{id:'card',unit:'SESSION'}],hasMore:false});
  await render({load,canReadCards:true,canReadBookings:true,storeId:'store'});await preload.reader.read('student');expect(m.progress).not.toHaveBeenCalled();
 });
-it('caps background progress requests at five cards per learner',async()=>{
- m.cards.mockResolvedValue({success:true,rows:Array.from({length:20},(_,i)=>({id:String(i),unit:'SESSION'})),hasMore:false});
- await render({canReadCards:true,canReadBookings:true,storeId:'store'});await preload.reader.read('student');expect(m.progress.mock.calls.map(call=>call[0].cardId)).toEqual(['0','1','2','3','4']);
+it('caps background progress requests at the displayed twenty-card page',async()=>{
+ m.cards.mockResolvedValue({success:true,rows:Array.from({length:40},(_,i)=>({id:String(i),unit:'SESSION'})),hasMore:false});
+ await render({canReadCards:true,canReadBookings:true,storeId:'store'});await preload.reader.read('student');expect(m.progress.mock.calls.map(call=>call[0].cardId)).toEqual(Array.from({length:20},(_,i)=>String(i)));
+});
+
+it('preloads a module adapter through its own authorized progress port with the matching revision',async()=>{
+ const load=vi.fn().mockResolvedValue({success:true,rows:[{id:'beauty-card',unit:'SESSION'},{id:'points',unit:'POINT'}],hasMore:false});
+ const preloadCardProgress=vi.fn().mockResolvedValue({success:true});
+ await render({load,preloadCardProgress,canReadCards:true,canReadBookings:true,revision:3});await preload.reader.read('customer');
+ expect(preloadCardProgress).toHaveBeenCalledExactlyOnceWith('customer','beauty-card',3);expect(m.progress).not.toHaveBeenCalled();
+ preloadCardProgress.mockClear();await render({load,preloadCardProgress,canReadCards:true,canReadBookings:false,revision:4});await preload.reader.read('customer');expect(preloadCardProgress).not.toHaveBeenCalled();
+});
+
+it('does not report the customer preload complete while dated grids are still loading',async()=>{
+ m.cards.mockResolvedValue({success:true,rows:[{id:'sessions',unit:'SESSION'}],hasMore:false});
+ let finish!:(value:unknown)=>void;m.progress.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ await render({canReadCards:true,canReadBookings:true,storeId:'store-A'});
+ const background=preload.reader.read('student');await vi.waitFor(()=>expect(m.progress).toHaveBeenCalledOnce());
+ expect(preload.reader.get('student')).toBe(false);
+ finish({success:true,data:{available:true,total:10,completed:[],voided:[],shared:false}});await background;
+ expect(preload.reader.get('student')).toBe(true);
+});
+
+it('checks the module grid cache before marking a beauty preload ready',async()=>{
+ const load=vi.fn().mockResolvedValue({success:true,rows:[{id:'beauty-card',unit:'SESSION'}],hasMore:false});
+ let finish!:()=>void;let completed=false;
+ const preloadCardProgress=vi.fn().mockImplementation(()=>new Promise<void>(resolve=>{finish=()=>{completed=true;resolve();};}));
+ const getCardProgress=vi.fn(()=>completed?{success:true}:undefined);
+ await render({load,preloadCardProgress,getCardProgress,canReadCards:true,canReadBookings:true,revision:2});
+ const background=preload.reader.read('customer');await vi.waitFor(()=>expect(preloadCardProgress).toHaveBeenCalledOnce());
+ expect(preload.reader.get('customer')).toBe(false);expect(getCardProgress).toHaveBeenCalledWith('customer','beauty-card',2);
+ finish();await background;expect(preload.reader.get('customer')).toBe(true);
+});
+
+it('preloads active and historical plan blocks without waiting for unrelated music workspaces',async()=>{
+ m.cards.mockImplementation(async(args:{history:boolean})=>({success:true,rows:[{id:args.history?'historical':'active',unit:'SESSION'}],hasMore:false}));
+ m.progress.mockResolvedValue({success:true,data:{available:true,total:10,completed:[],voided:[],shared:false}});
+ await render({music:true,canReadCards:true,canReadBookings:true,canReadTransactions:true,storeId:'store-A'});
+ await preload.visibleReader.read('student');expect(preload.visibleReader.get('student')).toBe(true);
+ expect(m.cards.mock.calls.map(call=>call[0].history)).toEqual([false,true]);expect(m.progress.mock.calls.map(call=>call[0].cardId)).toEqual(['active','historical']);
+ expect(m.overview).not.toHaveBeenCalled();expect(m.periods).not.toHaveBeenCalled();expect(m.orders).not.toHaveBeenCalled();
+});
+it('keeps a bounded dated-grid snapshot visible while an expired preload revalidates, but never across mutations',async()=>{
+ vi.useFakeTimers();m.cards.mockResolvedValue({success:true,rows:[{id:'sessions',unit:'SESSION'}],hasMore:false});
+ m.progress.mockResolvedValueOnce({success:true,data:{available:true,total:10,completed:[],voided:[],shared:false}});
+ const options={canReadCards:true,canReadBookings:true,storeId:'store-A'};await render(options);await preload.reader.read('student');
+ vi.advanceTimersByTime(15001);let finish!:(value:unknown)=>void;m.progress.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+ await render(options,true);expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(10);expect(host.textContent).not.toContain('讀取上課進度中');expect(m.progress).toHaveBeenCalledTimes(2);
+ await act(async()=>invalidate());await render({...options,revision:1},true);expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(0);
+ await act(async()=>finish({success:true,data:{available:true,total:10,completed:[],voided:[],shared:false}}));
 });

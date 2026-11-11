@@ -235,7 +235,7 @@ export function CourseMemberWorkspace({
     invalidateCustomerPlanReads();
     advanceCardRevision(update);
   },[invalidateCustomerPlanReads]);
-  const planPreload=useCustomerPlanPreload({load:source?.browseCards,native:sportsNative,music,canReadCards,canReadBookings,canReadTransactions,revision:cardRevision,dataScope,storeId:previewStoreId});
+  const planPreload=useCustomerPlanPreload({load:source?.browseCards,preloadCardProgress:source?.preloadCardProgress,getCardProgress:source?.getCardProgress,native:sportsNative,music,canReadCards,canReadBookings,canReadTransactions,revision:cardRevision,dataScope,storeId:previewStoreId});
   useIdleReadPreload({enabled:panel==='person'&&!!person,blocked:dirty||pending,keys:person?[person.id]:[],reader:planPreload.reader});
   const [balanceReceipts,setBalanceReceipts]=useState<{storeId:typeof previewStoreId;values:Record<string,{available:number;ids:string[]}>}>({storeId:previewStoreId,values:{}});
 
@@ -278,8 +278,8 @@ export function CourseMemberWorkspace({
   }
   function overviewProgress(value:CourseCardView) {
     if(source&&person&&canReadBookings)return source.cardProgress?.(value,{customerId:person.id,revision:cardRevision})??null;
-    if(source||!canReadBookings||!previewStoreId||!person||value.unit!=="SESSION")return null;
-    return <><CourseCardProgress showSummary={false} cardId={value.id} customerId={person.id} storeId={previewStoreId} dataScope={dataScope} revision={cardRevision}/>{canManageCards&&!value.closed&&!value.openingImported&&!value.templateRestricted&&(inlineEntry?.cardId===value.id&&inlineEntry.customerId===person.id&&inlineEntry.storeId===previewStoreId?<CourseInlinePlanManagement key={`${previewStoreId}:${person.id}:${value.id}`} storeId={previewStoreId} customerId={person.id} cardId={value.id} action={inlineEntry.action} dataScope={dataScope} revision={cardRevision} music={music} onDirtyChange={setDirty} onPending={setFormPending} onCancel={()=>{setInlineEntry(null);setDirty(false);}} onSaved={()=>{setInlineEntry(null);setDirty(false);setCardRevision(n=>n+1);publishMusicFinanceChange();router.refresh();}}/>:<PlanGridActions label={value.name} disabled={pending||formPending||dirty||!!inlineEntry} onSelect={action=>{if(canLeave()&&!dirty)setInlineEntry({storeId:previewStoreId,customerId:person.id,cardId:value.id,action});}}/>)}</>;
+    if(source||!canReadBookings||!previewStoreId||!person)return null;
+    return <><CourseCardProgress showSummary={false} cardId={value.id} customerId={person.id} storeId={previewStoreId} dataScope={dataScope} revision={cardRevision}/>{value.unit==="SESSION"&&canManageCards&&!value.closed&&!value.openingImported&&!value.templateRestricted&&(inlineEntry?.cardId===value.id&&inlineEntry.customerId===person.id&&inlineEntry.storeId===previewStoreId?<CourseInlinePlanManagement key={`${previewStoreId}:${person.id}:${value.id}`} storeId={previewStoreId} customerId={person.id} cardId={value.id} action={inlineEntry.action} dataScope={dataScope} revision={cardRevision} music={music} onDirtyChange={setDirty} onPending={setFormPending} onCancel={()=>{setInlineEntry(null);setDirty(false);}} onSaved={()=>{setInlineEntry(null);setDirty(false);setCardRevision(n=>n+1);publishMusicFinanceChange();router.refresh();}}/>:<PlanGridActions label={value.name} disabled={pending||formPending||dirty||!!inlineEntry} onSelect={action=>{if(canLeave()&&!dirty)setInlineEntry({storeId:previewStoreId,customerId:person.id,cardId:value.id,action});}}/>)}</>;
   }
   function open(value: typeof panel) {
     if (!canLeave()) return false;

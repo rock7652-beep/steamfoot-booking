@@ -93,7 +93,7 @@ export function VoidSessionButton({ sessionId, sessionNo, walletPlanName, embedd
             />
 
             <p className="mt-3 mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              提醒：註銷後堂數會立即減少，且不可復原。本操作不會自動退費——退費請另行處理。
+              註銷後堂數會立即減少；填錯可在使用明細中「更正返還」。本操作不會自動退費。
             </p>
 
             <div className="flex justify-end gap-2">

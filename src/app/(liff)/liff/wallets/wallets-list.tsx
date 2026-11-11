@@ -85,6 +85,7 @@
  *
  * Mobile-first：max-w-md。文案一律 `liffMessages.wallets.*` / `liffMessages.error.*`，不寫 inline 中文。
  */
+import {PlanUsageGrid} from "@/components/admin/plan-usage-grid";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -481,21 +482,16 @@ function WalletCard({
 
   const records = wallet.usageRecords;
   return (
-    <details className="group rounded-xl border border-earth-200 bg-white" open={records && records.length > 0 ? true : undefined}>
-      <summary className="min-h-12 cursor-pointer list-none px-4 py-3 [&::-webkit-details-marker]:hidden">
-        <div className="flex items-start justify-between gap-3">
-          <strong className="min-w-0 break-words text-base text-earth-900">{wallet.planName}</strong>
-          <strong className="shrink-0 text-base text-primary-800">{variant === "active" ? `還可預約 ${wallet.availableToBook} 堂` : statusBadge} <span aria-hidden className="inline-block transition-transform group-open:rotate-180">⌄</span></strong>
-        </div>
-        <p className="mt-1 text-sm text-earth-600">開卡 {wallet.totalSessions} 堂｜{formatDateLabel(wallet.startDate)} 開卡｜{wallet.expiryDate ? `${formatDateLabel(wallet.expiryDate)} 到期` : m.noExpiryLabel}</p>
-        {expiringSoon && <span className="mt-1 inline-block rounded bg-amber-50 px-2 py-1 text-sm text-amber-800">{m.expiringSoonBadge}</span>}
-        {wallet.pendingCount > 0 && <p className="mt-1 text-sm text-earth-600">剩餘 {wallet.remainingSessions} 堂｜已預約 {wallet.pendingCount} 堂</p>}
-      </summary>
-      <div className="border-t border-earth-100 px-4 pb-3">
-        <p className="py-3 text-sm text-earth-600">已使用 {wallet.usedCount} 堂{wallet.voidedCount > 0 ? `｜已註銷 ${wallet.voidedCount} 堂` : ""}</p>
-        {records && records.length > 0 ? <WalletUsageList records={records} /> : records ? <p className="text-sm text-earth-500">尚無使用紀錄</p> : null}
+    <article className="rounded-lg border border-earth-200 bg-white px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+        <strong className="min-w-0 break-words text-earth-900">{wallet.planName}</strong>
+        <strong className="text-primary-800">{variant === "active" ? `可預約 ${wallet.availableToBook} 堂` : statusBadge}</strong>
       </div>
-    </details>
+      <p className="text-sm text-earth-600">{wallet.purchaseAmount!=null?`NT$ ${wallet.purchaseAmount.toLocaleString('zh-TW')} · `:""}{wallet.purchasedAt?`${formatDateLabel(wallet.purchasedAt)} 購買`:`${formatDateLabel(wallet.startDate)} 開卡`} · {wallet.expiryDate ? `${formatDateLabel(wallet.expiryDate)} 到期` : m.noExpiryLabel}</p>
+      {wallet.pendingCount>0&&<p className="text-sm text-earth-600">剩餘 {wallet.remainingSessions} 堂 · 已預約 {wallet.pendingCount} 堂</p>}
+      {expiringSoon&&<p className="text-sm text-amber-800">{m.expiringSoonBadge}</p>}
+      {wallet.usageProgress?<PlanUsageGrid progress={wallet.usageProgress} unitLabel="堂"/>:records&&records.length>0?<WalletUsageList records={records}/>:<p className="text-sm text-earth-500">尚無使用紀錄</p>}
+    </article>
   );
 }
 

@@ -1,4 +1,6 @@
 import "server-only";
+import {walletPlanProgress} from "@/lib/wallet-plan-progress";
+import {unavailablePlanProgress} from "@/lib/plan-usage-progress";
 import { prisma } from "@/lib/db";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { PENDING_STATUSES } from "@/lib/booking-constants";
@@ -12,6 +14,9 @@ import { splitLiffWallets } from "@/lib/liff/my-wallets";
 /** LIFF「我的方案」單筆 row 顯示用 payload — server compute 後送 client，
  *  client 不再做 availability / ledger 計算（避免分散兩處）。 */
 export interface LiffWalletRow {
+  usageProgress?: import("@/lib/plan-usage-progress").PlanUsageProgress;
+  purchaseAmount?: number;
+  purchasedAt?: string;
   id: string;
   planName: string;
   /** TRIAL / PACKAGE / SINGLE — UI 分組 / icon 用 */
@@ -67,6 +72,8 @@ export async function readFetchLiffWallets({ storeId, customerId }: { storeId: s
   // ledgerUsage 需要的 status — 控制 wire payload。
   let rawWallets: Array<{
     id: string;
+    purchasedPrice?: number | {toString():string};
+    createdAt?: Date;
     totalSessions: number;
     remainingSessions: number;
     startDate: Date;
@@ -74,13 +81,15 @@ export async function readFetchLiffWallets({ storeId, customerId }: { storeId: s
     status: string;
     plan: { name: string; category: string };
     bookings: Array<{ bookingStatus: string; isMakeup: boolean; people: number }>;
-    sessions: Array<{ id?: string; status: string; completedAt?: Date | null; booking?: { id: string; customerId: string; storeId: string; bookingDate: Date; slotTime: string; bookingStatus: string } | null }>;
+    sessions: Array<{ id?: string; status: string; completedAt?: Date | null; voidedAt?: Date | null; booking?: { id: string; customerId: string; storeId: string; bookingDate: Date; slotTime: string; bookingStatus: string } | null }>;
   }>;
   try {
     rawWallets = await prisma.customerPlanWallet.findMany({
       where: { customerId, storeId },
       select: {
         id: true,
+        purchasedPrice: true,
+        createdAt: true,
         totalSessions: true,
         remainingSessions: true,
         startDate: true,
@@ -94,7 +103,7 @@ export async function readFetchLiffWallets({ storeId, customerId }: { storeId: s
         },
         // ledgerUsage 只需要 session.status (COMPLETED/BACKFILLED/VOIDED 分類)
         sessions: {
-          select: { id: true, status: true, completedAt: true, booking: { select: { id: true, customerId: true, storeId: true, bookingDate: true, slotTime: true, bookingStatus: true } } },
+          select: { id: true, status: true, completedAt: true, voidedAt: true, booking: { select: { id: true, customerId: true, storeId: true, bookingDate: true, slotTime: true, bookingStatus: true } } },
         },
       },
       orderBy: [
@@ -128,7 +137,12 @@ export async function readFetchLiffWallets({ storeId, customerId }: { storeId: s
         time: booking?.slotTime ?? null, label: booking ? "蒸足" : "補登使用", sessions: 1,
         status: booking?.bookingStatus === "NO_SHOW" ? "未到扣堂" : booking ? "已完成" : "補登" });
     }
+    const foreignBooking=w.sessions.some(session=>session.booking&&(session.booking.storeId!==storeId||session.booking.customerId!==customerId));
+    const usageProgress=foreignBooking?unavailablePlanProgress():walletPlanProgress({...w,sessions:w.sessions.map((session,index)=>({...session,id:session.id??String(index),completedAt:session.completedAt??null,voidedAt:session.voidedAt??null,booking:session.booking??null}))});
     return {
+      usageProgress,
+      ...(w.purchasedPrice!=null?{purchaseAmount:Number(w.purchasedPrice)}:{}),
+      ...(w.createdAt?{purchasedAt:toLocalDateStr(w.createdAt)}:{}),
       usageRecords: [...usage.values()].sort((a, b) => `${b.date ?? ""} ${b.time ?? ""}`.localeCompare(`${a.date ?? ""} ${a.time ?? ""}`)),
       id: w.id,
       planName: w.plan.name,

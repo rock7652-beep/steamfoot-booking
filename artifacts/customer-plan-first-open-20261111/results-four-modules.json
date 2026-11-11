@@ -1,0 +1,149 @@
+{
+  "environment": "actual local app and disposable loopback PostgreSQL, fresh authenticated browser per module, no network mocks",
+  "deployed": false,
+  "productionWrites": false,
+  "modules": [
+    {
+      "module": "music",
+      "checks": [
+        "active-and-history-data-prefetched-before-any-customer-hover-or-open",
+        "first-open-and-first-history-toggle-issue-no-additional-plan-read",
+        "after-expiry-retains-bounded-data-while-revalidating"
+      ],
+      "timings": [
+        {
+          "scenario": "first-open-without-intent-prefetch",
+          "ms": 447
+        },
+        {
+          "scenario": "first-history-toggle",
+          "ms": 180
+        },
+        {
+          "scenario": "extra-plan-reads-on-first-open",
+          "count": 0
+        },
+        {
+          "scenario": "open-after-fresh-cache-expiry",
+          "ms": 400
+        },
+        {
+          "scenario": "history-after-expiry",
+          "ms": 278
+        },
+        {
+          "scenario": "background-revalidations-after-expiry",
+          "count": 4
+        }
+      ],
+      "targetRow": 10
+    },
+    {
+      "module": "sports",
+      "checks": [
+        "active-and-history-data-prefetched-before-any-customer-hover-or-open",
+        "first-open-and-first-history-toggle-issue-no-additional-plan-read",
+        "after-expiry-retains-bounded-data-while-revalidating"
+      ],
+      "timings": [
+        {
+          "scenario": "first-open-without-intent-prefetch",
+          "ms": 349
+        },
+        {
+          "scenario": "first-history-toggle",
+          "ms": 158
+        },
+        {
+          "scenario": "extra-plan-reads-on-first-open",
+          "count": 0
+        },
+        {
+          "scenario": "open-after-fresh-cache-expiry",
+          "ms": 274
+        },
+        {
+          "scenario": "history-after-expiry",
+          "ms": 142
+        },
+        {
+          "scenario": "background-revalidations-after-expiry",
+          "count": 4
+        }
+      ],
+      "targetRow": 17
+    },
+    {
+      "module": "beauty",
+      "checks": [
+        "active-and-history-data-prefetched-before-any-customer-hover-or-open",
+        "first-open-and-first-history-toggle-issue-no-additional-plan-read",
+        "after-expiry-retains-bounded-data-while-revalidating"
+      ],
+      "timings": [
+        {
+          "scenario": "first-open-without-intent-prefetch",
+          "ms": 308
+        },
+        {
+          "scenario": "first-history-toggle",
+          "ms": 131
+        },
+        {
+          "scenario": "extra-plan-reads-on-first-open",
+          "count": 0
+        },
+        {
+          "scenario": "open-after-fresh-cache-expiry",
+          "ms": 279
+        },
+        {
+          "scenario": "history-after-expiry",
+          "ms": 118
+        },
+        {
+          "scenario": "background-revalidations-after-expiry",
+          "count": 4
+        }
+      ],
+      "targetRow": 17
+    },
+    {
+      "module": "steam",
+      "checks": [
+        "active-and-history-data-prefetched-before-any-customer-hover-or-open",
+        "first-open-and-first-history-toggle-issue-no-additional-plan-read",
+        "after-expiry-retains-bounded-data-while-revalidating"
+      ],
+      "timings": [
+        {
+          "scenario": "first-open-without-intent-prefetch",
+          "ms": 257
+        },
+        {
+          "scenario": "first-history-toggle",
+          "ms": 97
+        },
+        {
+          "scenario": "extra-plan-reads-on-first-open",
+          "count": 0
+        },
+        {
+          "scenario": "open-after-fresh-cache-expiry",
+          "ms": 218
+        },
+        {
+          "scenario": "history-after-expiry",
+          "ms": 152
+        },
+        {
+          "scenario": "background-revalidations-after-expiry",
+          "count": 1
+        }
+      ],
+      "targetRow": 9
+    }
+  ],
+  "errors": [],
+  "complete": true
+}
