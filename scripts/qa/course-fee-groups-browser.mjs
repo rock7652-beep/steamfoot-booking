@@ -66,6 +66,7 @@ try{
   await page.getByRole('heading',{name:/收費方式/}).waitFor();
  }
  await load();
+ assert(await page.locator('table > thead > tr > th').count()===6,'Sports catalog must retain six columns');
  const dataRows=page.locator('tbody > tr[data-row-id]');
  await page.mouse.move(0,0);
  assert(await dataRows.nth(0).evaluate(row=>getComputedStyle(row).backgroundColor)==='rgb(255, 255, 255)','White row changed');
@@ -105,6 +106,7 @@ try{
  await page.getByRole('button',{name:'核對適用科目',exact:true}).click();
  assert(await page.getByLabel('教學項目',{exact:true}).inputValue()==='','Pending plan guessed a subject');
  await load('?module=music');
+ assert(await page.locator('table > thead > tr > th').count()===5,'Grouped music catalog has one subject heading per group');
  assert(await page.locator('[data-fee-group]').count()===3,'Music missing groups');
  await page.getByLabel('適用課程篩選',{exact:true}).selectOption('B');
  assert(await page.getByRole('button',{name:'小提琴10堂',exact:true}).count()===1,'Music B missing');
