@@ -9,11 +9,11 @@
   ],
   "checks": {
     "tests": {
-      "files": 9,
-      "passed": 140
+      "files": 14,
+      "passed": 178
     },
     "eslint": "passed",
-    "typescript": "passed",
+    "typescript": "passed after main integration and isolated client regeneration",
     "browserWidths": [
       390,
       768,
@@ -23,14 +23,17 @@
     "planWidths": [
       390,
       768,
+      1024,
       1366
     ],
     "realWrites": false
   },
   "evidenceScope": "Actual component synthetic browser previews plus parent workspace integration tests with isolated transport",
   "limits": [
-    "Not deployed; production remains f03390c7",
+    "Not deployed; deployment and merge authorization pending",
     "No signed-in production UI or real LINE acceptance",
     "Native browser load failure not reproduced; recent errors for both rewritten and HQ courses paths returned none; unauthenticated exact URL redirects to login normally"
-  ]
+  ],
+  "integratedMain": "d919242b5ee6a80fd2a053476d25b5f89e28ab2f",
+  "previewPolicy": "Exact review branch auto-deployment disabled; main manual deployment policy unchanged"
 }

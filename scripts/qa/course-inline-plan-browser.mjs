@@ -46,7 +46,7 @@ writeFileSync(path.join(output, "fixture.css"), css.css+"\n"+componentCss);
 
 
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});const results=[];
-try{for(const [width,height]of [[390,844],[768,1024],[1366,900]]){
+try{for(const [width,height]of [[390,844],[768,1024],[1024,768],[1366,900]]){
  const page=await browser.newPage({viewport:{width,height}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',r=>r.request().isNavigationRequest()?r.fulfill({contentType:'text/html',body:'<!doctype html><html lang="zh-Hant"><meta name="viewport" content="width=device-width,initial-scale=1"><body><div id="root"></div></body></html>'}):r.abort());
  await page.goto('https://synthetic.invalid/hq/dashboard/courses?customerId=synthetic-learner');await page.addStyleTag({path:path.join(output,'fixture.css')});await page.addScriptTag({path:path.join(output,'fixture.js')});
