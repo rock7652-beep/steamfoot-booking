@@ -70,3 +70,14 @@ it('adds only the authorized learner purchase date and agreed amount, rechecking
  expect(result.learners[0].cards[0].purchase).toEqual({date:'2026-11-01T02:00:00Z',amount:4800});expect(result.learners[1].cards[0].purchase?.amount).toBe(3600);
  expect(m.purchases.mock.calls).toEqual([['store','a',['card-a']],['store','b',['card-b']]]);expect(m.group).toHaveBeenCalledTimes(2);
 });
+
+it.each([
+ {expiresAt:'2027-01-24T15:59:59.999Z',musicValidityDays:null,musicActivatedAt:null,openingImported:false,expectedDate:'2027-01-24T15:59:59.999Z',expectedDays:null},
+ {expiresAt:'2099-12-31T15:59:59.999Z',musicValidityDays:70,musicActivatedAt:null,openingImported:false,expectedDate:null,expectedDays:70},
+ {expiresAt:'2027-01-24T15:59:59.999Z',musicValidityDays:70,musicActivatedAt:'2026-11-15T02:00:00Z',openingImported:false,expectedDate:'2027-01-24T15:59:59.999Z',expectedDays:null},
+ {expiresAt:'2099-12-31T15:59:59.999Z',expiryKind:'NO_EXPIRY',musicValidityDays:70,musicActivatedAt:null,openingImported:true,expectedDate:null,expectedDays:null},
+])('distinguishes real expiry from activation placeholders and no-expiry cards',async state=>{
+ m.cards.mockResolvedValue([{id:'card',name:'方案',unit:'SESSION',remaining:8,available:8,held:0,members:[{id:'a'}],...state}]);
+ const result=await loadCoursePhoneSummary();if(!result.success)throw Error('summary failed');
+ expect(result.learners[0].cards[0].expiresAt).toBe(state.expectedDate);expect(result.learners[0].cards[0].activationDays).toBe(state.expectedDays);
+});

@@ -1,0 +1,35 @@
+[
+  {
+    "width": 390,
+    "height": 844,
+    "backfill": "balance and dates updated without duplicate history",
+    "correction": "date removed and balance returned",
+    "void": "dated gray marker without internal ledger",
+    "purchase": "original date and amount shown",
+    "revocation": "family data removed",
+    "openState": "preserved",
+    "errors": []
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "backfill": "balance and dates updated without duplicate history",
+    "correction": "date removed and balance returned",
+    "void": "dated gray marker without internal ledger",
+    "purchase": "original date and amount shown",
+    "revocation": "family data removed",
+    "openState": "preserved",
+    "errors": []
+  },
+  {
+    "width": 1366,
+    "height": 900,
+    "backfill": "balance and dates updated without duplicate history",
+    "correction": "date removed and balance returned",
+    "void": "dated gray marker without internal ledger",
+    "purchase": "original date and amount shown",
+    "revocation": "family data removed",
+    "openState": "preserved",
+    "errors": []
+  }
+]

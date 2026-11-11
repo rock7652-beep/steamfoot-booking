@@ -798,3 +798,16 @@
 .cp-phone-grid>li>span{border:0;border-radius:0;min-height:48px;width:100%;background:transparent;font-size:15px}
 
 .cp-phone-grid>li[data-voided="true"]{background:#f1efeb;color:#66665f}
+
+/* Compact plan facts: keep readable type and 44px date slots. */
+.cp-phone-group{padding:12px}
+.cp-phone-learner>summary{min-height:48px;padding:8px 0}
+.cp-phone-plan{padding:8px 0}
+.cp-phone-plan-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cp-phone-plan-heading h4{min-width:0;margin:0;flex:1}
+.cp-phone-plan-heading>strong{flex-shrink:0;font-size:15px}
+.cp-phone-plan .cp-phone-plan-meta{display:flex;flex-wrap:wrap;gap:2px 10px;margin:4px 0 6px}
+.cp-phone-plan .cp-phone-plan-held{margin:4px 0 0}
+.cp-phone-grid>li,.cp-phone-grid>li>span{min-height:44px}
+
+.cp-phone-group>.cp-phone-learner:first-of-type{border-top:0}

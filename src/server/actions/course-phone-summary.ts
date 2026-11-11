@@ -40,7 +40,7 @@ export async function loadCoursePhoneSummary() {
         return [{ id: record.id, name: card.name, startsAt: date.toISOString(), dateOnly: true, quantity: record.quantity, unitLabel: card.unit === "SESSION" ? "堂" : "點", status: "已出席（補登）" }];
       });
       const combinedHistory = [...lessons(history), ...backfills].sort((a, b) => b.startsAt.localeCompare(a.startsAt) || a.id.localeCompare(b.id)).slice(0, 20);
-      return { ...learner, cards: cards.map(card => ({ id: card.id, name: card.name, unit: card.unit, remaining: card.remaining, available: card.available, held: card.held, shared: card.members.length > 1, closed: card.closed, expired: card.expired, grid: grids.get(card.id) ?? null, purchase:purchases.get(card.id)??null })), upcoming: lessons(upcoming), history: combinedHistory };
+      return { ...learner, cards: cards.map(card => { const activationDays=card.expiryKind!=="NO_EXPIRY"&&card.musicValidityDays&&!card.musicActivatedAt&&!card.openingImported?card.musicValidityDays:null; return { id: card.id, name: card.name, unit: card.unit, remaining: card.remaining, available: card.available, held: card.held, shared: card.members.length > 1, closed: card.closed, expired: card.expired, grid: grids.get(card.id) ?? null, purchase:purchases.get(card.id)??null, activationDays, expiresAt:card.expiryKind==="NO_EXPIRY"||activationDays?null:card.expiresAt??null }; }), upcoming: lessons(upcoming), history: combinedHistory };
     }));
     // Reads span core/course DBs. Do not return collected data if the staff
     // revokes authority or changes group membership while these reads run.

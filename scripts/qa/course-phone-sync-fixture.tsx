@@ -8,7 +8,7 @@ let phase=0;
 function summary():Awaited<ReturnType<typeof loadCoursePhoneSummary>>{
  if(phase===3)return {success:true,learners:[]};
  const backfilled=phase===1,voided=phase===4;
- return {success:true,learners:[{id:'synthetic-child',name:'合成孩子 A',cards:[{id:'synthetic-card',name:'鋼琴八堂方案',unit:'SESSION',remaining:backfilled||voided?7:8,held:0,available:backfilled||voided?7:8,shared:false,closed:false,expired:false,purchase:{date:'2026-10-27T02:00:00Z',amount:4800},grid:{total:8,dates:backfilled?['2026-11-09T16:00:00.000Z']:[],...(voided?{voidedDates:['2026-11-10T16:00:00Z']}:{})}}],upcoming:[],history:backfilled?[{id:'synthetic-backfill',name:'鋼琴八堂方案',startsAt:'2026-11-09T16:00:00.000Z',dateOnly:true,quantity:1,unitLabel:'堂',status:'已出席（補登）'}]:[]}]};
+ return {success:true,learners:[{id:'synthetic-child',name:'合成孩子 A',cards:[{id:'synthetic-card',name:'鋼琴八堂方案',unit:'SESSION',remaining:backfilled||voided?7:8,held:0,available:backfilled||voided?7:8,shared:false,closed:false,expired:false,expiresAt:'2027-01-24T15:59:59.999Z',activationDays:null,purchase:{date:'2026-10-27T02:00:00Z',amount:4800},grid:{total:8,dates:backfilled?['2026-11-09T16:00:00.000Z']:[],...(voided?{voidedDates:['2026-11-10T16:00:00Z']}:{})}}],upcoming:[],history:backfilled?[{id:'synthetic-backfill',name:'鋼琴八堂方案',startsAt:'2026-11-09T16:00:00.000Z',dateOnly:true,quantity:1,unitLabel:'堂',status:'已出席（補登）'}]:[]}]};
 }
 Object.assign(window,{__readPhoneSummary:async()=>{const response=summary();await new Promise(resolve=>setTimeout(resolve,150));return response;}});
 function Fixture(){
