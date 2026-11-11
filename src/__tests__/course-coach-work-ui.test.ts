@@ -380,7 +380,7 @@ describe("member plan and purchase navigation", () => {
     expect(host.querySelectorAll('.cp-plan[open]')).toHaveLength(0);
     expect(host.querySelector('.cp-plan-row')?.textContent).toContain('剩餘 10 點');
     expect(host.querySelector('.cp-plan-row')?.textContent).toContain('9/1 開卡');
-    expect(host.querySelector('.cp-plan-row')?.textContent).toContain('已預約 2 點｜還可預約 8 點');
+    expect(host.querySelector('.cp-plan-row')?.textContent).toContain('已預約 2 點｜可再約 8 點');
     await click('查看已到期');
     expect(host.querySelectorAll('.cp-plan-near-expiry')).toHaveLength(1);
     expect(host.textContent).toContain('已停用');
@@ -525,7 +525,7 @@ describe("member plan and purchase navigation", () => {
     await click("收起已到期");
     expect(host.textContent).not.toContain("過期點數方案");
   });
-  it("lists actual lesson dates and times inside each plan, separately from ledger timestamps", async () => {
+  it("lists actual lesson dates and times inside each plan without exposing the internal ledger", async () => {
     const data = memberProps();
     data.cards = [{id:"card",name:"十點方案",unit:"POINT",available:8,remaining:8,held:0,expiresAt:"2026-10-20",expired:false,closed:false,members:[{id:"member",name:"本人"},{id:"family",name:"家人"}],templateIds:[],entries:[{id:"entry",kind:"CORRECT:ATTENDED:CANCELLED",points:2,createdAt:"2026-10-06T08:21:00Z"}],history:{count:2,lessons:[{id:"lesson",name:"基礎伸展",startsAt:"2026-09-18T04:00:00Z",customerName:"家人",status:"已出席",used:2},{id:"cancelled",name:"瑜珈",startsAt:"2026-09-17T02:00:00Z",customerName:"本人",status:"已取消",used:0}]}}] as unknown as CoursePortalData["cards"];
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"plans"})));
@@ -534,7 +534,8 @@ describe("member plan and purchase navigation", () => {
     expect(rows[0].textContent).toContain("基礎伸展"); expect(rows[0].textContent).toContain("家人"); expect(rows[0].textContent).toContain("2 點");
     expect(rows[1].textContent).toContain("未扣抵");
     expect(host.querySelector(".cp-history-list")?.textContent).not.toContain("2026-10-06");
-    expect(host.querySelector(".cp-ledger-list")?.textContent).toContain("2026-10-06 16:21");
+    expect(host.querySelector(".cp-ledger-list")).toBeNull();
+    expect(host.textContent).not.toContain("2026-10-06 16:21");
     expect(host.querySelector("[role=dialog]")).toBeNull();
     data.cards[0].members = [{id:"member",name:"本人"}];
     await act(async()=>root.render(createElement(CoursePortalClient,{...data,initialView:"plans"})));
