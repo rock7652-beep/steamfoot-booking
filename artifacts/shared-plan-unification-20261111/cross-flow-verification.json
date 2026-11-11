@@ -1,0 +1,75 @@
+{
+  "status": "local verification; not deployed",
+  "scope": "one shared course card, two authorized learners, one independent card",
+  "execution": "real adjustment service, receipt parser and grid projection with mocked database I/O; existing UI and authorization tests",
+  "sequence": [
+    {
+      "action": "initial",
+      "remaining": 10,
+      "attendanceCells": 0,
+      "voidCells": 0
+    },
+    {
+      "action": "A backfill 2 on 2026-01-02",
+      "remaining": 8,
+      "attendanceCells": 2,
+      "voidCells": 0
+    },
+    {
+      "action": "B backfill 1 on 2026-01-03",
+      "remaining": 7,
+      "attendanceCells": 3,
+      "voidCells": 0
+    },
+    {
+      "action": "B void 1",
+      "remaining": 6,
+      "attendanceCells": 3,
+      "voidCells": 1
+    },
+    {
+      "action": "retry same void request",
+      "remaining": 6,
+      "attendanceCells": 3,
+      "voidCells": 1
+    },
+    {
+      "action": "reverse void",
+      "remaining": 7,
+      "attendanceCells": 3,
+      "voidCells": 0
+    },
+    {
+      "action": "retry same correction and reject a second correction",
+      "remaining": 7,
+      "attendanceCells": 3,
+      "voidCells": 0
+    },
+    {
+      "action": "reverse A backfill 2",
+      "remaining": 9,
+      "attendanceCells": 1,
+      "voidCells": 0
+    }
+  ],
+  "invariants": [
+    "total cells stays 10",
+    "attendance cells + void cells + remaining stays 10 in this scenario without other adjustment kinds",
+    "independent card remains 8 and has no dated cells",
+    "only shared card updated",
+    "all five original and correction receipts preserved"
+  ],
+  "checks": {
+    "tests": {
+      "files": 7,
+      "passed": 97
+    },
+    "eslint": "passed",
+    "typescript": "passed"
+  },
+  "limits": [
+    "No production writes or deployment",
+    "No real LINE end-to-end or real PostgreSQL execution in this round",
+    "Display refresh verified in component tests, not live network acceptance"
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "status": "local release candidate; not pushed or deployed",
+  "baseline": "8488c00a5d38254f2f369e733d5510dea2321cf8",
+  "integratedHead": "05575cb3dd53b52f20ce78f22aedfcfc43b990eb",
+  "changes": [
+    "compact plan grids and backfill/void/correction shortcuts",
+    "refresh authorized phone learner summaries",
+    "review suspected duplicate course backfills",
+    "customer plan facts, actual expiry and dated void slots",
+    "one canonical grid per shared plan; preserve original fee name",
+    "store referral destination in course settings",
+    "align direct booking-window title with peer setting titles (16px); style-only follow-up"
+  ],
+  "validation": {
+    "affectedTests": 227,
+    "mainlineSubjectTests": 19,
+    "isolatedPostgres": {
+      "passed": 14,
+      "skipped": 0,
+      "disposableDatabaseDropped": true
+    },
+    "typescript": "passed",
+    "eslint": "passed",
+    "syntheticRwd": "passed at 390/768/1366 widths; referral entry at 768/1366",
+    "settingsTypography": "Actual component synthetic previews passed at 768/1024/1366; ESLint passed; semantic TypeScript unchanged"
+  },
+  "ciFix": "Update session adjustment acceptance counter from 11 to 14 to match three added scenarios",
+  "publication": {
+    "existingPr": null,
+    "pushed": false,
+    "deployed": false,
+    "requiresExplicitAuthorization": true,
+    "possibleSideEffects": "PR triggers GitHub checks; branch push may trigger Vercel Preview build; merge to main may deploy production",
+    "cost": "Cannot estimate actual Vercel build fees"
+  },
+  "limits": [
+    "No authenticated real LINE end-to-end acceptance",
+    "Two unrelated untracked screenshots left untouched",
+    "Cloudflare not involved in this local code change; no DNS or firewall changes"
+  ]
+}

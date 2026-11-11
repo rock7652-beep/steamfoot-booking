@@ -9,6 +9,7 @@ import {AppError,handleActionError} from '@/lib/errors';
 import {requireStoreFeature} from '@/lib/feature-gate';
 import {FEATURES} from '@/lib/feature-flags';
 import {settingsSaveUncertain} from '@/server/services/settings-save-error';
+import {BackfillReviewRequired} from '@/server/services/course-backfill-review';
 
 export async function saveCourseSessionAdjustment(input:unknown):Promise<SessionAdjustmentResult>{
   let committed=false;
@@ -26,5 +27,8 @@ export async function saveCourseSessionAdjustment(input:unknown):Promise<Session
     });committed=true;
     let syncWarning=false;try{revalidatePath('/dashboard/courses');revalidatePath('/courses');revalidatePath('/book');}catch{syncWarning=true;}
     return {success:true,data:result,syncWarning};
-  }catch(error){const r=handleActionError(error);return {success:false,error:r.success?'調整結果尚未確認':r.error,uncertain:committed||settingsSaveUncertain(error)};}
+  }catch(error){
+    if(error instanceof BackfillReviewRequired)return {success:false,error:error.message,duplicateReview:error.review};
+    const r=handleActionError(error);return {success:false,error:r.success?'調整結果尚未確認':r.error,uncertain:committed||settingsSaveUncertain(error)};
+  }
 }

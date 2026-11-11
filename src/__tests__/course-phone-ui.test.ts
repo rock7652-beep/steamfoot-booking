@@ -23,10 +23,10 @@ it("does not display a late previous account's learners after scope changes", as
 it("shows errors with retry and removes family data after a revoked grant is re-read", async () => {
   m.summary.mockResolvedValueOnce({ success: false, error: "請重試" }).mockResolvedValueOnce(ready("孩子 A")).mockResolvedValueOnce({ success: true, learners: [] });
   await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:member" })));
-  expect(host.querySelector('[role="alert"]')?.textContent).toBe("請重試");
+  expect(host.querySelector('[role="alert"] p')?.textContent).toBe("請重試");
   await act(async () => host.querySelector("button")!.click());
   expect(host.textContent).toContain("孩子 A");
-  await act(async () => host.querySelector("button")!.click());
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:member", revision: 1 })));
   expect(host.querySelector('[aria-label="同電話學員課程"]')).toBeNull();
 });
 it("guards double approval and ignores the old panel's late mutation response", async () => {
@@ -50,7 +50,7 @@ it("shows one collapsed learner at a time and restores the personal summary afte
   await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:compact", children: el("p", null, "原會員摘要") })));
   expect(host.textContent).not.toContain("原會員摘要");
   expect(host.querySelector("details.cp-phone-learner")?.hasAttribute("open")).toBe(false);
-  await act(async () => host.querySelector("button")!.click());
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:compact", revision: 1, children: el("p", null, "原會員摘要") })));
   expect(host.textContent).toContain("原會員摘要");
 });
 it("renders exactly eight cells with only attended dates and does not fill a future reservation", async () => {
@@ -60,4 +60,64 @@ it("renders exactly eight cells with only attended dates and does not fill a fut
   expect(cells).toHaveLength(8);
   expect([...cells].map(cell => cell.textContent)).toEqual(["11/03", "11/10", "", "", "", "", "", ""]);
   expect(host.querySelector<HTMLOListElement>(".cp-phone-grid")!.style.gridTemplateColumns).toBe("repeat(4, minmax(0, 1fr))");
+});
+
+const balanceSummary = (remaining: number) => ({ success: true, learners: [{ id: "child-a", name: "孩子 A", cards: [{ id: "card", name: "鋼琴八堂", unit: "SESSION", remaining, held: 0, available: remaining, shared: false, closed: false, expired: false, grid: { total: 8, dates: ["2026-11-10T16:00:00Z"] } }], upcoming: [], history: [{ id: "manual", name: "鋼琴八堂", startsAt: "2026-11-10T16:00:00Z", status: "已出席（補登）", dateOnly: true, quantity: 2, unitLabel: "堂" }] }] });
+it("revalidates the family balance on a new server revision and preserves the open learner", async () => {
+  m.summary.mockResolvedValueOnce(balanceSummary(8)).mockResolvedValueOnce(balanceSummary(7));
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:member", revision: 1 })));
+  const learner=host.querySelector<HTMLDetailsElement>('details.cp-phone-learner')!;learner.open=true;
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:member", revision: 2 })));
+  expect(m.summary).toHaveBeenCalledTimes(2);expect(host.textContent).toContain("剩餘 7 堂");
+  expect(host.querySelector('details.cp-phone-learner')).toBe(learner);expect(learner.open).toBe(true);
+  expect(host.textContent).not.toContain("課程紀錄");expect(host.querySelectorAll('details.cp-phone-learner details')).toHaveLength(0);
+});
+it("ignores an old in-flight revision and marks pending balances as updating", async () => {
+  let finish!:(value:unknown)=>void;
+  m.summary.mockReturnValueOnce(new Promise(resolve=>{finish=resolve;})).mockResolvedValueOnce(balanceSummary(6));
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:revision", revision: 1 })));
+  expect(host.querySelector('[aria-busy="true"]')).not.toBeNull();expect(host.querySelector('button')).toBeNull();
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:revision", revision: 2 })));
+  expect(host.textContent).toContain("剩餘 6 堂");
+  await act(async () => finish(balanceSummary(8)));
+  expect(host.textContent).not.toContain("剩餘 8 堂");expect(host.querySelector('[aria-busy="true"]')).toBeNull();
+});
+it("clears family details when an automatic reread rejects access and permits a manual retry", async () => {
+  m.summary.mockResolvedValueOnce(balanceSummary(8)).mockResolvedValueOnce({success:false,error:"電話授權已撤銷"}).mockResolvedValueOnce({success:true,learners:[]});
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:access", revision: 1 },el('p',null,'個人摘要'))));
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:access", revision: 2 },el('p',null,'個人摘要'))));
+  expect(host.textContent).not.toContain("孩子 A");expect(host.querySelector('[role="alert"]')?.textContent).toContain("電話授權已撤銷");
+  await act(async () => host.querySelector('button')!.click());
+  expect(host.textContent).toBe("個人摘要");
+});
+it("does not read family data in read-only preview even when the revision changes", async () => {
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "preview", revision: 1, disabled: true },'預覽摘要')));
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "preview", revision: 2, disabled: true },'預覽摘要')));
+  expect(m.summary).not.toHaveBeenCalled();expect(host.textContent).toBe('預覽摘要');
+});
+it('shows the four customer plan facts and a dated void marker without an adjustment ledger',async()=>{
+ const data=balanceSummary(7);Object.assign(data.learners[0].cards[0],{purchase:{date:'2026-10-27T02:00:00Z',amount:4800},grid:{total:8,dates:['2026-11-03T02:00:00Z'],voidedDates:['2026-11-10T16:00:00Z']}});
+ m.summary.mockResolvedValue(data);await act(async()=>root.render(el(CoursePhoneLearners,{scope:'store:four-facts'})));
+ expect(host.textContent).toContain('購買 2026-10-27');expect(host.querySelector('[aria-label="方案金額"]')?.textContent).toBe('NT$ 4,800');expect(host.textContent).toContain('剩餘 7 堂');expect(host.textContent).not.toContain('已預約 0');expect(host.querySelector('[data-voided="true"]')?.textContent).toBe('註銷11/11');expect(host.querySelector('.cp-ledger')).toBeNull();
+});
+
+it.each([
+ {expiresAt:'2027-01-24T15:59:59.999Z',activationDays:null,expected:'2027-01-24 到期'},
+ {expiresAt:null,activationDays:70,expected:'首次上課起 70 天'},
+ {expiresAt:null,activationDays:null,expected:null},
+])('shows only a real expiration or first-use rule without extra headings: $expected',async expiry=>{
+ const data=balanceSummary(8);Object.assign(data.learners[0].cards[0],expiry);m.summary.mockResolvedValue(data);
+ await act(async()=>root.render(el(CoursePhoneLearners,{scope:'expiry'})));
+ if(expiry.expected)expect(host.textContent).toContain(expiry.expected);else expect(host.textContent).not.toContain('到期');
+ expect(host.textContent).not.toContain('2099');expect(host.textContent).not.toContain('我的學員');expect(host.textContent).not.toContain('重新讀取');expect(host.textContent).not.toContain('課程紀錄');expect(host.textContent).not.toContain('尚無上課安排');
+ expect(host.querySelector('.cp-phone-plan-heading')?.textContent).toContain('剩餘 8 堂');
+});
+it('renders a shared card only once, while independent cards remain under their own learner',async()=>{
+ const base=balanceSummary(7),card={...base.learners[0].cards[0],id:'shared',name:'共用八堂',shared:true};
+ const childA={...base.learners[0],id:'a',name:'孩子 A',cards:[card,{...card,id:'personal-a',name:'A 個人方案',shared:false}]};
+ const childB={...base.learners[0],id:'b',name:'孩子 B',cards:[card]};
+ m.summary.mockResolvedValue({success:true,learners:[childA,childB],sharedPlans:[{card:{...card,grid:{total:8,dates:['2026-11-03T02:00Z','2026-11-04T02:00Z']}},learnerNames:['孩子 A','孩子 B']}]});
+ await act(async()=>root.render(el(CoursePhoneLearners,{scope:'store:shared'})));
+ expect(host.querySelectorAll('[aria-label="共用八堂"]')).toHaveLength(1);expect(host.querySelectorAll('[aria-label="A 個人方案"]')).toHaveLength(1);expect(host.querySelectorAll('.cp-phone-plan')).toHaveLength(2);
+ expect(host.querySelector('[aria-label="共用八堂 共用方案"] summary')?.textContent).toContain('孩子 A、孩子 B');expect(host.querySelector('[aria-label="共用八堂"]')?.querySelectorAll('[data-completed="true"]')).toHaveLength(2);
 });

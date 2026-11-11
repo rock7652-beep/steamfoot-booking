@@ -6,6 +6,7 @@ import {readFileSync} from 'node:fs';
 import {PrismaClient as CourseClient,type Prisma as CoursePrisma} from '../../generated/course-client';
 import {PrismaClient as BeautyClient,type Prisma as BeautyPrisma} from '../../generated/beauty-client';
 import {resolveBookingConcurrencyTestDatabaseUrl} from './helpers/booking-concurrency-test-db';
+import {BackfillReviewRequired} from '@/server/services/course-backfill-review';
 import {adjustCourseSessions} from '@/server/services/course-session-adjustment';
 import {adjustBeautySessions} from '@/server/beauty/session-adjustment';
 import {courseSessionAdjustmentRecords} from '@/server/services/course-session-adjustment-records';
@@ -107,4 +108,35 @@ async function beautyTx<T>(work:(tx:BeautyPrisma.TransactionClient)=>Promise<T>)
     expect(result.expiresAt).toBe(unactivated.toISOString());expect(await balance('music',card.id)).toMatchObject({remaining:10,musicActivatedAt:null,closedAt:null});
     expect(await courseTx('music',tx=>tx.coursePointCard.count({where:{requestKey:{startsWith:'music-leave-makeup:'}}}))).toBe(0);
   });
+  for(const moduleName of ['sports','music'] as const){
+    it(`${moduleName}: reopening the same date requires review, confirmed concurrent retries debit once`,async()=>{
+      const {card,d}=await fixture(moduleName);await run(moduleName,d);
+      const next={...d,requestKey:randomUUID(),quantity:1,expectedRemaining:8};
+      let review!:BackfillReviewRequired;
+      try{await run(moduleName,next);throw Error('Expected review');}catch(error){if(!(error instanceof BackfillReviewRequired))throw error;review=error;}
+      expect(review.review.existingQuantity).toBe(2);expect((await balance(moduleName,card.id)).remaining).toBe(8);expect(await history(moduleName,card.id)).toHaveLength(1);
+      const confirmed={...next,duplicateAcknowledgement:review.review.token};
+      const results=await Promise.all([run(moduleName,confirmed),run(moduleName,confirmed)]);
+      expect(results[0]).toEqual(results[1]);expect(results[0]).toMatchObject({remaining:7,record:{duplicateConfirmed:true}});expect(await history(moduleName,card.id)).toHaveLength(2);
+      await expect(run(moduleName,{...confirmed,requestKey:randomUUID(),expectedRemaining:7})).rejects.toBeInstanceOf(BackfillReviewRequired);expect((await balance(moduleName,card.id)).remaining).toBe(7);
+    });
+  }
+  it('sports: an existing attended class is detected at both Taipei day boundaries without another learner or the next day',async()=>{
+    const {card,d}=await fixture('sports');
+    await courseTx('sports',async tx=>{
+      await tx.courseCardMember.create({data:{storeId:'sports',cardId:card.id,customerId:'other'}});
+      const room=await tx.courseRoom.create({data:{storeId:'sports',name:randomUUID()}}),template=await tx.courseTemplate.create({data:{storeId:'sports',name:randomUUID(),durationMinutes:15,pointCost:1,capacity:3}});
+      for(const [date,customerId] of [['2026-01-01T16:00:00Z','learner'],['2026-01-02T15:59:59.999Z','learner'],['2026-01-02T16:00:00Z','learner'],['2026-01-01T16:00:00Z','other']]){
+        const startsAt=new Date(date),session=await tx.courseSession.create({data:{storeId:'sports',roomId:room.id,templateId:template.id,coachId:'coach',nameSnapshot:'Synthetic attended class',startsAt,endsAt:new Date(startsAt.getTime()+15*60000),pointCost:1,capacity:3,requestKey:randomUUID(),requestIndex:0,createdById:'manager'}});
+        const booking=await tx.courseBooking.create({data:{storeId:'sports',sessionId:session.id,cardId:card.id,customerId,operatorUserId:'manager',operatorName:'Manager',customerName:customerId,pointCost:1,status:'ATTENDED',requestKey:randomUUID()}});
+        await tx.coursePointEntry.create({data:{storeId:'sports',cardId:card.id,bookingId:booking.id,kind:'DEBIT',points:1,actorUserId:'manager'}});
+      }
+      await tx.coursePointCard.update({where:{id:card.id},data:{remaining:6}});
+    });
+    const next={...d,quantity:1,expectedRemaining:6};let review!:BackfillReviewRequired;
+    try{await run('sports',next);throw Error('Expected review');}catch(error){if(!(error instanceof BackfillReviewRequired))throw error;review=error;}
+    expect(review.review.existingQuantity).toBe(2);expect((await balance('sports',card.id)).remaining).toBe(6);expect(await history('sports',card.id)).toHaveLength(0);
+    expect(await run('sports',{...next,duplicateAcknowledgement:review.review.token})).toMatchObject({remaining:5});
+  });
+
 });

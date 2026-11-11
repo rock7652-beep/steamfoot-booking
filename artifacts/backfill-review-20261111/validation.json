@@ -1,0 +1,54 @@
+{
+  "scope": "F1 音樂／運動手動補登的疑似重複提醒與明確另堂確認",
+  "baseCommit": "2b8ba73c",
+  "environment": "local only; not published",
+  "behavior": [
+    "同學員、同方案、台灣同日期既有已扣堂課堂或有效補登時，後端在交易鎖內先回傳提醒，未扣堂",
+    "確認綁定操作人、完整請求與當下紀錄；改日期、數量、原因、請求或證據後須重新核對",
+    "同日多堂保留，只有明確確認另一堂才扣用；確認記錄保留",
+    "遺失回應後重試原確認請求，仍只扣一次",
+    "已更正補登與 VOID 不算當日已上課來源；更正、註銷與既有權限檢查維持原流程"
+  ],
+  "tests": {
+    "unitAndUi": 103,
+    "files": 9,
+    "postgresql": 14,
+    "typecheck": "passed",
+    "eslint": "passed",
+    "temporaryDatabase": "created on Docker loopback, removed after tests"
+  },
+  "browser": {
+    "kind": "real component with synthetic service responses; no network to services",
+    "dimensions": [
+      [
+        390,
+        844
+      ],
+      [
+        768,
+        1024
+      ],
+      [
+        1366,
+        900
+      ]
+    ],
+    "results": [
+      "warning phase zero debit",
+      "confirmed double-click one debit",
+      "confirmation preserved in adjustment history",
+      "no horizontal page overflow or browser errors"
+    ]
+  },
+  "guide": "src/lib/operation-guide-session-adjustment.ts",
+  "remaining": [
+    "F4 顧客前台更正返還原因呈現",
+    "F5 共用方案前後台格子範圍說明"
+  ],
+  "limits": [
+    "尚未發布、未做正式 LINE 真人驗收",
+    "日期只能辨識疑似重複，不代表唯一課堂識別，且僅核對同一方案",
+    "其他模組沒有因此新增後端重複補登政策",
+    "未變更正式資料、薪資、收款或通知"
+  ]
+}

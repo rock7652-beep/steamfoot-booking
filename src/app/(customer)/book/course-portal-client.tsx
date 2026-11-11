@@ -913,7 +913,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                 </>
               ) : (
                 <>
-                  <CoursePhoneLearners key={`${p.rolePreferenceKey}:${p.customerId}`} scope={`${p.prefix}:${p.rolePreferenceKey}:${p.customerId}`} disabled={!!p.readOnly}>
+                  <CoursePhoneLearners key={`${p.rolePreferenceKey}:${p.customerId}`} scope={`${p.prefix}:${p.rolePreferenceKey}:${p.customerId}`} revision={p.serverNow} disabled={!!p.readOnly}>
               <section className="cp-card cp-next">
                 <div>
                   <small>{coach ? "下一堂課" : "下一次上課"}</small>
@@ -1066,19 +1066,21 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                 const identifyingPurchase = c.purchases?.[0];
                 const purchases = memberRecords.filter(r=>r.status==="CONFIRMED"||r.status==="REFUNDED");
                 const purchased = purchases.find(r=>r.id===identifyingPurchase?.id) ?? purchases[0];
+                const pricedPurchase = memberRecords.find(record=>record.id===identifyingPurchase?.id) ?? (!identifyingPurchase?purchased:undefined);
+                const purchaseAmount = pricedPurchase?.due ?? identifyingPurchase?.price ?? pricedPurchase?.received ?? null;
                 const quantity = p.musicStore ? musicPurchasedQuantity(purchased?.termSizes) : null;
                 const planTitle = p.musicStore ? musicPurchasedTitle(c.name,purchased?.termSizes) : c.name;
                 const hasPeriodHistory = memberRecords.some(r=>r.lessonsAvailable);
                 const nearExpiry = !c.expired && !c.closed && !!c.expiresAt && Date.parse(c.expiresAt) >= now && Date.parse(c.expiresAt) - now <= 7 * 86400000;
-                const adjustments = c.entries.filter(entry => !["RESERVE", "DEBIT", "RELEASE"].includes(entry.kind));
                 return <details className="cp-card cp-pad cp-plan" key={c.id} open={expandedPlanCards[c.id] ?? lessons.length > 0} onToggle={event => { const open = event.currentTarget.open; setExpandedPlanCards(previous => previous[c.id] === open ? previous : {...previous, [c.id]: open}); }}>
-                  <summary className="cp-plan-row"><h2>{planTitle}</h2><strong>{p.memberRecords?`還可預約 ${c.available}`:`剩餘 ${c.remaining}`} {unit(c.unit)}</strong><span className="cp-plan-date">{quantity && <span className="cp-purchased-quantity">{purchased?.purchaseBatch?`${musicBatchLabel(purchased.purchaseBatch,purchased.periodStart,purchased.termSizes.length)}・`:""}{memberRecords.length>1?"最近":""}{quantity}</span>}{identifyingPurchase ? <>{!quantity&&(!c.grid||c.grid.total!==identifyingPurchase.points)&&<>購買 {identifyingPurchase.points} {unit(c.unit)}｜</>}<time dateTime={identifyingPurchase.createdAt}>{planDate(identifyingPurchase.createdAt)}</time> 購買｜</> : c.history?.createdAt ? <><time dateTime={c.history.createdAt}>{planDate(c.history.createdAt)}</time> 開卡｜</> : null}<span className={`cp-plan-expiry${nearExpiry ? " cp-plan-near-expiry" : ""}`}>{c.musicValidityDays&&!c.musicActivatedAt&&!c.openingImported?`首次上課起 ${c.musicValidityDays} 天`:c.expiresAt?<><time dateTime={c.expiresAt}>{planDate(c.expiresAt)}</time> 到期</>:"尚未啟用"}{c.closed ? " · 已停用" : c.expired ? " · 已到期" : nearExpiry ? " · 快到期" : ""}</span></span>{c.held > 0 && <small className="cp-plan-held">已預約 {c.held} {unit(c.unit)}｜{p.memberRecords?`剩餘 ${c.remaining}`:`還可預約 ${c.available}`} {unit(c.unit)}</small>}</summary>
+                  <summary className="cp-plan-row"><h2>{planTitle}</h2><strong>{`剩餘 ${c.remaining}`} {unit(c.unit)}</strong><span className="cp-plan-date">{quantity && <span className="cp-purchased-quantity">{purchased?.purchaseBatch?`${musicBatchLabel(purchased.purchaseBatch,purchased.periodStart,purchased.termSizes.length)}・`:""}{memberRecords.length>1?"最近":""}{quantity}</span>}{identifyingPurchase ? <>{!quantity&&(!c.grid||c.grid.total!==identifyingPurchase.points)&&<>購買 {identifyingPurchase.points} {unit(c.unit)}｜</>}<time dateTime={identifyingPurchase.createdAt}>{planDate(identifyingPurchase.createdAt)}</time> 購買{purchaseAmount!==null&&<>｜方案金額 NT$ {purchaseAmount.toLocaleString()}</>}｜</> : pricedPurchase ? <><time dateTime={pricedPurchase.date}>{planDate(pricedPurchase.date)}</time> 購買{purchaseAmount!==null&&<>｜方案金額 NT$ {purchaseAmount.toLocaleString()}</>}｜</> : c.history?.createdAt ? <><time dateTime={c.history.createdAt}>{planDate(c.history.createdAt)}</time> 開卡｜</> : null}<span className={`cp-plan-expiry${nearExpiry ? " cp-plan-near-expiry" : ""}`}>{c.musicValidityDays&&!c.musicActivatedAt&&!c.openingImported?`首次上課起 ${c.musicValidityDays} 天`:c.expiresAt?<><time dateTime={c.expiresAt}>{planDate(c.expiresAt)}</time> 到期</>:"尚未啟用"}{c.closed ? " · 已停用" : c.expired ? " · 已到期" : nearExpiry ? " · 快到期" : ""}</span></span>{c.held > 0 && <small className="cp-plan-held">已預約 {c.held} {unit(c.unit)}｜{`可再約 ${c.available}`} {unit(c.unit)}</small>}</summary>
                   <div className="cp-plan-body">
-                  {c.grid&&<LessonProgressGrid total={c.grid.total} completed={c.grid.dates.map((date,index)=>({id:`${c.id}:${index}`,date}))} columns={Math.min(c.grid.total,c.grid.total%5===0?5:4)} gridClassName="cp-phone-grid"/>}
+                  {c.grid&&<LessonProgressGrid voided={(c.grid.voidedDates??[]).map((date,index)=>({id:`void:${c.id}:${index}`,date}))} total={c.grid.total} completed={c.grid.dates.map((date,index)=>({id:`${c.id}:${index}`,date}))} columns={Math.min(c.grid.total,c.grid.total%5===0?5:4)} gridClassName="cp-phone-grid"/>}
+                  {!c.grid&&c.unit==='SESSION'&&c.members.length>1&&<p className="cp-muted">共用方案使用日期請洽門市核對</p>}
                   {!!memberRecords.length && <CourseMemberPaymentRecords embedded gridShown={!!c.grid} records={memberRecords} music={p.musicStore} templates={p.templates} />}
                   {!memberRecords.length && (c.purchases?.length ?? 0) > 1 && <div className="cp-plan-purchases">{c.purchases!.slice(1).map(purchase => <p key={purchase.id}>購買 {purchase.points} {unit(c.unit)}｜<time dateTime={purchase.createdAt}>{planDate(purchase.createdAt)}</time> 購買{purchase.status === "REFUNDED" ? " · 已退款登記" : purchase.status === "VOIDED" ? " · 已作廢" : ""}</p>)}</div>}
                   {!memberRecords.length && identifyingPurchase && identifyingPurchase.status !== "CONFIRMED" && <p>{identifyingPurchase.status === "REFUNDED" ? "已退款登記" : identifyingPurchase.status === "VOIDED" ? "已作廢" : "待核帳"}</p>}
-                  {!c.grid && !hasPeriodHistory && !lessons.length && <p className="cp-history-empty">尚無上課紀錄</p>}
+                  {!c.grid && c.members.length<=1 && !hasPeriodHistory && !lessons.length && <p className="cp-history-empty">尚無上課紀錄</p>}
                   {!!recent.length && <section className="cp-plan-history" aria-label={`${c.name}使用紀錄`}>
                     <table data-striped-list className="cp-history-list">
                       <caption>{c.grid?"詳細紀錄":"上課紀錄"}</caption>
@@ -1105,9 +1107,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                     <p>適用：{c.sportsMode==="OPEN"?"科目待店家核對":c.templateIds.length ? p.templates.filter(t => c.templateIds.includes(t.id)).map(t => t.name).join("、") : "本店所有課程"}</p>
                     {c.members.length > 1 && <p>授權成員（{c.members.length} 人）：{c.members.map(member => member.name).join("、")}</p>}
                   </details>
-                    {!!adjustments.length && <details className="cp-ledger"><summary>其他{unit(c.unit) === "堂" ? "堂數" : "點數"}異動</summary><ul className="cp-ledger-list">
-                      {adjustments.map(e => <li key={e.id}><time dateTime={e.createdAt}>{formatTWDateTime(new Date(e.createdAt))}</time><span>{e.kind.startsWith("CORRECT") ? `點名更正：${statusName(e.kind.split(":")[1])} → ${statusName(e.kind.split(":")[2])}` : ({GRANT:"取得額度",REFUND:"退款收回",VOID:"作廢收回"}[e.kind.split(":")[0]] ?? "額度調整")}</span><strong>{e.points} {unit(c.unit)}</strong></li>)}
-                    </ul></details>}
+
                   </div>
                 </details>;
               })}

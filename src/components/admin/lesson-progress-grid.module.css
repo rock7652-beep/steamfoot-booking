@@ -3,5 +3,5 @@
 .compactGrid { grid-template-columns: repeat(var(--lesson-narrow-columns), minmax(0, 1fr)); gap: 4px; padding-right: 0; }
 .compactGrid > li > span, .compactGrid > li > button { min-height: 44px; padding-inline: 4px; text-align: center; align-items: center; justify-content: center; }
 @container (min-width: 640px) {
-  .compactGrid { grid-template-columns: repeat(var(--lesson-wide-columns), minmax(0, 1fr)); }
+  .compactGrid { grid-template-columns: repeat(var(--lesson-wide-columns), minmax(0, 1fr)); width: min(100%, calc(var(--lesson-wide-columns) * 64px + (var(--lesson-wide-columns) - 1) * 4px)); }
 }

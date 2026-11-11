@@ -1,0 +1,21 @@
+{
+  "status": "local-only; not deployed",
+  "change": "Direct settings booking-window title now matches existing 16px semibold primary setting titles; secondary text and actions remain 14px",
+  "scope": "Shared BookableUntilForm direct settings presentation; legacy standalone title untouched",
+  "checks": {
+    "eslint": "passed",
+    "browser": [
+      1366,
+      1024,
+      768
+    ],
+    "computedTitleFontSize": "16px for all visible peer setting headings",
+    "computedModifyButtonFontSize": "14px",
+    "overflow": false,
+    "pageErrors": []
+  },
+  "limits": [
+    "Synthetic actual-component preview, not signed-in acceptance",
+    "No booking settings saved; no business rules or permissions changed"
+  ]
+}

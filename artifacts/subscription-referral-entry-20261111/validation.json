@@ -1,0 +1,19 @@
+{
+  "status": "local-only",
+  "destination": "/dashboard/settings/subscription-referrals",
+  "entry": "設定 → 系統方案與用量 → 店家推薦碼",
+  "checks": {
+    "ownerFlagPermissionGate": "passed, including non-owner, disabled flag and denied staff.view",
+    "browserWidths": [
+      768,
+      1366
+    ],
+    "touchTarget": "44px or more",
+    "overflow": false
+  },
+  "limits": [
+    "Existing referral destination and creation flow unchanged",
+    "No flags changed; no referral code generated",
+    "Not deployed"
+  ]
+}

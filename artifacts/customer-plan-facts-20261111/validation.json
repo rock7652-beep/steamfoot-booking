@@ -1,0 +1,53 @@
+{
+  "baseCommit": "d9dc41d8",
+  "environment": "local only; not published",
+  "latestUserDecision": [
+    "移除顧客前台其他堂數異動",
+    "主要顯示剩餘、購買日期、方案金額、使用日期",
+    "註銷格顯示註銷當天日期，與上課日期區分"
+  ],
+  "implementation": [
+    "前台移除 ledger，後台交易與調整紀錄保留",
+    "一般方案以剩餘堂數為主；有預約占用時才補充已預約／可再約",
+    "同電話學員只查已授權學員名下、已確認或退款的最近購買；不從共卡讀其他付款人訂單",
+    "金額採音樂約定學費或原購買金額，不採目前商品價；分次付款不冒充方案總價",
+    "補登仍顯示實際上課日期",
+    "VOID 的 recordedAt 依台灣時間轉為灰格的註銷日期；數量多堂則標示對應格數",
+    "REVERSE 後排除已註銷格；VOID 不增加已上課計數",
+    "前台卡片不再載入未使用的內部點數 ledger"
+  ],
+  "checks": {
+    "regression": {
+      "files": 17,
+      "passed": 184,
+      "log": "/tmp/customer-plan-facts-all-tests.log"
+    },
+    "typecheck": "passed",
+    "eslint": "passed",
+    "browserDimensions": [
+      [
+        390,
+        844
+      ],
+      [
+        768,
+        1024
+      ],
+      [
+        1366,
+        900
+      ]
+    ],
+    "browserResults": "browser-results.json"
+  },
+  "scope": "音樂／運動方案共用格子及顧客前台；未修改美業或蒸足的額度政策",
+  "remaining": [
+    "共用方案的前後台日期範圍仍依既有權限：後台整卡，前台個別學員；未擴大查看權限"
+  ],
+  "limits": [
+    "未發布、未做真人 LINE／LIFF 驗收",
+    "購買資料缺少時不編造零元或把開卡日期當購買日期",
+    "一張卡若有多次購買，概要顯示最近一筆，既有購課明細保留",
+    "未變更正式資料或發送通知"
+  ]
+}

@@ -47,3 +47,26 @@ it('ignores duplicate submission while pending and retains the draft on a defini
   await act(async()=>resolve({success:false,error:'堂數已更新，請核對'}));
   expect(host.textContent).toContain('堂數已更新');expect((host.querySelector('[aria-label="調整類型"]') as HTMLSelectElement).value).toBe('VOID');expect(saved).not.toHaveBeenCalled();
 });
+
+const duplicate={token:'a'.repeat(64),date:'2026-01-02',existingQuantity:1};
+it('requires an explicit second confirmation for a possible duplicate and freezes it across a lost reply',async()=>{
+  save.mockResolvedValueOnce({success:false,error:'請先核對',duplicateReview:duplicate}).mockRejectedValueOnce(Error('lost reply'));
+  await render();await set('實際上課日期','2026-01-02');await click('確認調整');
+  expect(save).toHaveBeenCalledTimes(1);expect(saved).not.toHaveBeenCalled();expect(host.textContent).toContain('疑似重複補登');expect(host.textContent).toContain('已有 1 堂扣堂紀錄');
+  expect(save.mock.calls[0][0]).not.toHaveProperty('duplicateAcknowledgement');
+  await click('確認為另一堂，仍要補登');
+  expect(save.mock.calls[1][0]).toEqual({...save.mock.calls[0][0],duplicateAcknowledgement:duplicate.token});
+  expect((host.querySelector('[aria-label="實際上課日期"]') as HTMLInputElement).disabled).toBe(true);
+  await click('重試確認結果');expect(save.mock.calls[2][0]).toEqual(save.mock.calls[1][0]);expect(saved).toHaveBeenCalledOnce();
+});
+it('changing the date after a duplicate warning removes the old confirmation and requests a fresh check',async()=>{
+  save.mockResolvedValueOnce({success:false,error:'請先核對',duplicateReview:duplicate});
+  await render();await set('實際上課日期','2026-01-02');await click('確認調整');
+  await set('實際上課日期','2026-01-03');expect(host.textContent).not.toContain('疑似重複補登');
+  await click('確認調整');expect(save.mock.calls[1][0]).toMatchObject({occurredOn:'2026-01-03'});expect(save.mock.calls[1][0]).not.toHaveProperty('duplicateAcknowledgement');
+});
+it('cancelling a duplicate review does not submit the debit',async()=>{
+  save.mockResolvedValueOnce({success:false,error:'請先核對',duplicateReview:duplicate});
+  await render();await set('實際上課日期','2026-01-02');await click('確認調整');await click('取消');
+  expect(save).toHaveBeenCalledOnce();expect(saved).not.toHaveBeenCalled();expect(host.querySelector('[aria-label="調整堂數"]')).toBeNull();
+});

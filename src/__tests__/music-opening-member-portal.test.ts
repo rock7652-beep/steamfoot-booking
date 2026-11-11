@@ -5,12 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
   account: vi.fn(), identity: vi.fn(), staffLink: vi.fn(), store: vi.fn(), config: vi.fn(),
   context: vi.fn(), hours: vi.fn(), special: vi.fn(), feature: vi.fn(), contact: vi.fn(),
-  grids:vi.fn(),income: vi.fn(), musicFeature: vi.fn(), cards: vi.fn(), sharedCardState: vi.fn(),
+  phone:vi.fn(),grids:vi.fn(),income: vi.fn(), musicFeature: vi.fn(), cards: vi.fn(), sharedCardState: vi.fn(),
   sessions: vi.fn(), bookings: vi.fn(), nextBooking: vi.fn(), nextWork: vi.fn(),
   plans: vi.fn(), orders: vi.fn(), templates: vi.fn(), bookingRule: vi.fn(),
   health: vi.fn(), healthCount: vi.fn(), coaches: vi.fn(), referral: vi.fn(), write: vi.fn(),
 }));
 
+vi.mock("@/server/services/course-phone-view",()=>({readCoursePhoneLearners:m.phone}));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 vi.mock("@/server/services/course-access", () => ({ courseAccount: m.account }));
 vi.mock("@/server/services/frontend-preview", () => ({
@@ -152,7 +153,7 @@ function bookingQueries() {
 }
 
 beforeEach(() => {
-  vi.resetAllMocks();
+  vi.resetAllMocks();m.phone.mockResolvedValue({status:"personal",learners:[]});
   vi.useFakeTimers();
   vi.setSystemTime(now);
   rows = [openingBooking()];
@@ -196,7 +197,7 @@ describe("member portal opening-makeup visibility", () => {
   it("returns an own independent reservation without a card or reserver link and hides source identifiers", async () => {
     const result = await loadCoursePortal("2026-10");
 
-    expect(m.cards).toHaveBeenCalledWith(storeId, customerId);
+    expect(m.cards).toHaveBeenCalledWith(storeId, customerId, {where:{},entries:false});
     expect(result.bookings).toHaveLength(1);
     expect(result.bookings[0]).toMatchObject({
       id: "own-opening", customerId, openingMakeup: true, cost: 0, unit: "SESSION",
@@ -332,6 +333,15 @@ it('passes only the authorized member cards into the same grid projection used b
  m.cards.mockResolvedValue([{id:'native-session-card',unit:'SESSION',members:[],expiresAt:null}]);
  m.grids.mockResolvedValue(new Map([['native-session-card',{total:10,dates:[]}]]));
  const result=await loadCoursePortal('2026-10');
- expect(m.grids).toHaveBeenCalledExactlyOnceWith(storeId,customerId,['native-session-card']);
+ expect(m.grids).toHaveBeenCalledExactlyOnceWith(storeId,customerId,['native-session-card'],undefined,[customerId]);
  expect(result.cards[0].grid).toEqual({total:10,dates:[]});
+});
+
+it('uses only verified family scope for shared plan dates and drops the grids after revocation',async()=>{
+ m.cards.mockResolvedValue([{id:'shared',unit:'SESSION',members:[],expiresAt:null}]);
+ m.grids.mockResolvedValue(new Map([['shared',{total:10,dates:['2026-11-03T02:00:00Z']}]]));
+ const group={status:'phone_group',learners:[{id:customerId,name:'本人'},{id:'sibling',name:'孩子 B'}]};m.phone.mockResolvedValue(group);
+ const before=await loadCoursePortal('2026-10');expect(before.cards[0].grid?.dates).toHaveLength(1);expect(m.grids.mock.calls.at(-1)).toEqual([storeId,customerId,['shared'],undefined,[customerId,'sibling']]);
+ m.phone.mockResolvedValueOnce(group).mockResolvedValueOnce({status:'personal',learners:[]});
+ const after=await loadCoursePortal('2026-10');expect(after.cards[0].grid).toBeNull();
 });

@@ -71,7 +71,9 @@ it("merges tuition and balance into one card and makes the purchased two periods
  expect(host.querySelectorAll(".cp-plan")).toHaveLength(1);expect(host.querySelectorAll(".cp-payment-summary")).toHaveLength(0);
  expect(host.querySelector(".cp-plan-row h2")?.textContent).toBe("吉他課・個別");
  expect(host.querySelector(".cp-plan-row")?.textContent).toContain("購買 2 期・共 8 堂");expect(host.querySelector(".cp-plan-row")?.textContent).not.toContain("1 期");
- expect(host.querySelector(".cp-plan-row")?.textContent).toContain("還可預約 6 堂");expect(host.querySelector(".cp-plan-row")?.textContent).toContain("首次上課起 70 天");
+ expect(host.querySelector(".cp-plan-row")?.textContent).toContain("剩餘 7 堂");
+ expect(host.querySelector(".cp-plan-held")?.textContent).toContain("已預約 1 堂｜可再約 6 堂");
+ expect(host.querySelector(".cp-plan-row")?.textContent).toContain("方案金額 NT$ 6,400");expect(host.querySelector(".cp-plan-row")?.textContent).toContain("首次上課起 70 天");
  await act(async()=>host.querySelector<HTMLElement>(".cp-plan-row")!.click());
  expect(host.querySelectorAll(".cp-member-records-embedded")).toHaveLength(1);expect(host.querySelectorAll(".cp-member-period")).toHaveLength(2);
  expect(host.querySelector(".cp-plan-body")?.textContent).toContain("未收 NT$ 3,200");expect(host.querySelectorAll(".cp-plan-history")).toHaveLength(0);
