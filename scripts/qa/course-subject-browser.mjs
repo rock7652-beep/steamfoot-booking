@@ -62,24 +62,24 @@ try{
  await page.addStyleTag({path:path.join(output,'fixture.css')});await page.addScriptTag({path:path.join(output,'fixture.js')});
  const assert=(value,message)=>{if(!value)throw Error(message)};
  assert(await page.getByLabel('方案適用方式',{exact:true}).count()===0,'Enrollment gate remains on plans');
- assert(await page.getByLabel('教學項目',{exact:true}).inputValue()==='A','Open-only store missing subject');
+ assert(await page.locator('form [data-subject-picker]').getByRole('checkbox',{name:'舞蹈（常態課程）',exact:true}).isChecked(),'Open-only store missing subject');
  await page.getByRole('button',{name:'核對適用科目',exact:true}).click();
- const subject=page.getByLabel('核對適用科目',{exact:true});await subject.selectOption('A');
+ const subject=page.getByRole('group',{name:'核對適用科目',exact:true});await subject.getByRole('button',{name:'全選',exact:true}).click();
  const save=page.getByRole('button',{name:'確認方案科目',exact:true});
  assert(await save.isDisabled(),'Confirmation must be explicit');
  await page.getByRole('checkbox',{name:/已核對原購買內容/}).check();
  for(const size of [{width:1440,height:900},{width:1024,height:768},{width:768,height:1024},{width:600,height:768}]){
   await page.setViewportSize(size);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Page overflow');
-  assert(await subject.inputValue()==='A','Resize lost draft');
+  assert(await subject.getByRole('checkbox',{name:'舞蹈（常態課程）',exact:true}).isChecked()&&await subject.getByRole('checkbox',{name:'舞蹈（基礎課程）',exact:true}).isChecked(),'Resize lost draft');
   await save.scrollIntoViewIfNeeded();assert(await save.isVisible()&&await save.isEnabled(),'Save inaccessible');
   await page.screenshot({path:path.join(output,`subject-${size.width}.png`),fullPage:true});results.push({...size,passed:true});
  }
  await page.evaluate(()=>{window.failSave=true});await save.click();await page.getByRole('alert').waitFor();
- assert(await subject.inputValue()==='A','Error lost selected subject');
+ assert(await subject.getByRole('checkbox',{name:'舞蹈（常態課程）',exact:true}).isChecked()&&await subject.getByRole('checkbox',{name:'舞蹈（基礎課程）',exact:true}).isChecked(),'Error lost selected subject');
  await page.evaluate(()=>{window.failSave=false;window.responseLost=true});await save.click();
  await page.getByRole('alert').filter({hasText:'結果尚未確認'}).waitFor();
- assert(await subject.isDisabled(),'Unknown response must retain the original intent');
+ assert(await subject.getByRole('checkbox').first().isDisabled(),'Unknown response must retain the original intent');
  assert(await page.getByRole('button',{name:'重新核對',exact:true}).isDisabled(),'Unknown response must not create another receipt');
  await page.evaluate(()=>{window.responseLost=false});await save.click();await page.getByRole('status',{name:''}).filter({hasText:'科目確認完成'}).waitFor();
  const calls=await page.evaluate(()=>window.qaCalls);assert(calls.length===3&&calls.every(c=>JSON.stringify(c)===JSON.stringify(calls[0])),'Retry changed receipt or snapshot');

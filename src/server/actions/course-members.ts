@@ -29,7 +29,7 @@ import {readCourseOrders} from "@/server/services/course-display-order";
 import {orderCourseRows} from "@/lib/course-display-order";
 import { createHash } from "node:crypto";
 import { quoteMusicPlanSettings, assertCoursePlanBusiness } from "@/server/services/course-plan-rules";
-import { coursePlanValues,coursePlanReceipt,savedCoursePlan } from "@/lib/course-plan-save";
+import { COURSE_PLAN_SNAPSHOT_MAX,coursePlanValues,coursePlanReceipt,savedCoursePlan } from "@/lib/course-plan-save";
 import { settingsSaveUncertain } from "@/server/services/settings-save-error";
 import { resolveMusicSubjectRule } from "@/server/services/music-subject-rule";
 import { courseBookingBrowse } from "@/lib/course-booking-browse";
@@ -223,7 +223,7 @@ export async function saveCourseCustomer(input: unknown,module:"course"|"beauty"
 
 export async function saveCoursePointPlan(input: unknown) {
   try {
-    const schema = coursePlanValues.extend({expectedSnapshot:z.string().max(30000).optional(),receipt:coursePlanReceipt.optional(),sportsSetup:sportsFeeSetup.optional(),musicTeacherIds:z.array(id).min(1).max(100).optional(),expectedMusicTeacherIds:z.array(id).max(100).optional()});
+    const schema = coursePlanValues.extend({expectedSnapshot:z.string().max(COURSE_PLAN_SNAPSHOT_MAX).optional(),receipt:coursePlanReceipt.optional(),sportsSetup:sportsFeeSetup.optional(),musicTeacherIds:z.array(id).min(1).max(100).optional(),expectedMusicTeacherIds:z.array(id).max(100).optional()});
     const { id: planId, expectedSnapshot, musicSetup, musicTeacherIds, expectedMusicTeacherIds, allowShared, receipt, sportsSetup, ...fields } = schema.parse(input);
     const hasSportsIntent=!!input&&typeof input==="object"&&Object.prototype.hasOwnProperty.call(input,"sportsMode");
     const data = { ...fields, allowShared: allowShared ?? false };
@@ -242,7 +242,7 @@ export async function saveCoursePointPlan(input: unknown) {
       if (!receipt || !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.fitness",status:"ENABLED"}})) throw new AppError("FORBIDDEN","此設定僅適用運動店");
       const {sportsEntitlementSnapshot}=await import("@/lib/sports-entitlement");sportsEntitlementSnapshot(data);
       if (data.termSessionIds.length || data.musicTerms !== null || musicSetup || sportsSetup) throw new AppError("VALIDATION","此方案不適用期課或舊收費設定");
-    } else if (data.sportsSubjectId !== null || data.sportsCost !== null) throw new AppError("VALIDATION","舊方案不可混入新模式權益");
+    } else if (data.sportsSubjectId !== null || data.sportsCost !== null || data.sportsSubjectIds.length) throw new AppError("VALIDATION","舊方案不可混入新模式權益");
     if (receipt && storeId !== receipt.expectedStoreId) throw new AppError("CONFLICT","目前門市已切換，請重新開啟方案設定。");
     const receiptId = receipt ? `plan_${createHash("sha256").update(JSON.stringify([storeId,receipt.requestKey])).digest("hex")}` : undefined;
     const saved = await courseTransaction(storeId,async tx=>{
@@ -259,6 +259,13 @@ export async function saveCoursePointPlan(input: unknown) {
         const template=await tx.courseTemplate.findFirst({where:{id:sportsTeachingTemplateId(storeId,data.sportsSubjectId!),storeId,isActive:true}});
         if(!subject||!template)throw new AppError("VALIDATION","請先在教學項目設定授課教練與課程規則");
         data.templateIds=[template.id];
+      } else if(data.sportsMode === "SUBJECTS") {
+        const {sportsTeachingTemplateId}=await import("@/server/services/sports-teaching-rule");
+        const subjects=await tx.musicSubject.findMany({where:{id:{in:data.sportsSubjectIds},storeId,isActive:true},select:{id:true}});
+        const canonicalIds=data.sportsSubjectIds.map(subject=>sportsTeachingTemplateId(storeId,subject));
+        const templates=await tx.courseTemplate.findMany({where:{storeId,id:{in:canonicalIds},isActive:true},select:{id:true,musicSubjectId:true}});
+        if(subjects.length!==data.sportsSubjectIds.length||templates.length!==canonicalIds.length||templates.some(t=>!t.musicSubjectId||t.id!==sportsTeachingTemplateId(storeId,t.musicSubjectId)))throw new AppError("VALIDATION","請先設定所選本店教學項目的有效課程與授課資格");
+        data.templateIds=canonicalIds;
       } else data.templateIds=[];
     }
     const isMusic = await isMusicCourseStore(tx, storeId);
@@ -296,7 +303,7 @@ export async function saveCoursePointPlan(input: unknown) {
     if(previous&&(previous.sportsMode??"LEGACY")!=="LEGACY"&&data.sportsMode==="LEGACY"){
       if(hasSportsIntent)throw new AppError("VALIDATION","新模式方案不可改為舊方案，請新增方案");
       if(data.unit!==previous.unit)throw new AppError("VALIDATION","請從運動收費方式修改方案計費單位");
-      data.sportsMode=previous.sportsMode as "ASSIGNED"|"OPEN";data.sportsSubjectId=previous.sportsSubjectId;data.sportsCost=previous.sportsCost;data.templateIds=previous.templateIds;
+      data.sportsMode=previous.sportsMode as "ASSIGNED"|"OPEN"|"SUBJECTS";data.sportsSubjectIds=previous.sportsSubjectIds;data.sportsSubjectId=previous.sportsSubjectId;data.sportsCost=previous.sportsCost;data.templateIds=previous.templateIds;
     }
     if(data.sportsMode==='OPEN')throw new AppError('VALIDATION','請先設定方案適用科目；既有已購卡不會隨商品修改而變更');
     if(receipt && planId && !previous)throw new AppError("NOT_FOUND","找不到本店方案");
@@ -319,7 +326,7 @@ export async function saveCoursePointPlan(input: unknown) {
       // SQL-null enums must come from the same external runtime as coursePrisma.
       // A bundled enum from another runtime serializes as JSON {} and falsely conflicts.
       const result = await tx.coursePointPlan.updateMany({
-        where: { id: planId, storeId, ...(expected ? {...expected,chargeSettings:expected.chargeSettings===null?{equals:loadCoursePrismaRuntime().Prisma.DbNull}:{equals:expected.chargeSettings},musicTermSizes:{equals:expected.musicTermSizes},templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds}} : {}) },
+        where: { id: planId, storeId, ...(expected ? {...expected,chargeSettings:expected.chargeSettings===null?{equals:loadCoursePrismaRuntime().Prisma.DbNull}:{equals:expected.chargeSettings},musicTermSizes:{equals:expected.musicTermSizes},templateIds:{equals:expected.templateIds},termSessionIds:{equals:expected.termSessionIds},sportsSubjectIds:{equals:expected.sportsSubjectIds}} : {}) },
         data:{...data,chargeSettings:data.chargeSettings??undefined},
       });
       if (!result.count) throw new AppError(expected?"CONFLICT":"NOT_FOUND", expected?"方案已有更新，輸入已保留。請核對目前資料後再編輯。":"找不到本店方案");
@@ -429,7 +436,7 @@ export async function loadCourseStudentPurchase(bookingId: string) {
     const itemTemplates = await musicItemTemplateIds(coursePrisma,storeId,booking.session.templateId);
     const [plans, customer, canDiscount, settlement, revenueStaffOptions] = await Promise.all([
       coursePrisma.coursePointPlan.findMany({
-        where: { storeId, isActive: true, unit:music?"SESSION":{in:["SESSION","POINT"]}, OR:[{templateIds:{hasSome:itemTemplates}},...(!music&&booking.session.template.musicSubjectId?[{sportsMode:"ASSIGNED",sportsSubjectId:booking.session.template.musicSubjectId}]:[])] },
+        where: { storeId, isActive: true, unit:music?"SESSION":{in:["SESSION","POINT"]}, OR:[{templateIds:{hasSome:itemTemplates}},...(!music&&booking.session.template.musicSubjectId?[{sportsMode:"ASSIGNED",sportsSubjectId:booking.session.template.musicSubjectId},{sportsMode:"SUBJECTS",sportsSubjectIds:{has:booking.session.template.musicSubjectId}}]:[])] },
         select: { id: true, name: true, unit:true, points: true, price: true, storeCost: true, validDays: true, musicTerms:true,musicTermSizes:true,musicBonusLessons:true },
         orderBy: [{ points: "asc" }, { name: "asc" }],
       }),

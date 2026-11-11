@@ -31,7 +31,7 @@ export async function loadCardSubjectReview(input:unknown){
  }catch(e){return handleActionError(e);}
 }
 export async function confirmCardSubjectAction(input:unknown){
- try{const d=scope.extend({subjectId:id,cost:z.number().int().min(1).max(10000),expectedRevision:z.string().regex(/^[a-f0-9]{64}$/),requestKey:z.string().uuid(),confirmed:z.literal(true)}).parse(input),a=await authorize(d);
+ try{const d=scope.extend({subjectId:id.optional(),subjectIds:z.array(id).min(1).max(200).refine(ids=>new Set(ids).size===ids.length).optional(),cost:z.number().int().min(1).max(10000),expectedRevision:z.string().regex(/^[a-f0-9]{64}$/),requestKey:z.string().uuid(),confirmed:z.literal(true)}).refine(d=>!!d.subjectId!==!!d.subjectIds,"請選擇適用科目").parse(input),a=await authorize(d);
  await coursePrisma.$transaction(async tx=>{await lockCourseStore(tx,a.storeId);await confirmCardSubject(tx,{storeId:a.storeId,userId:a.user.id},d);},{isolationLevel:'Serializable',timeout:15000});
  return {success:true as const};
  }catch(e){return handleActionError(e);}

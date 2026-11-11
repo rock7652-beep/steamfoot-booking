@@ -78,3 +78,30 @@ it('only gives mixed assigned rights to the persisted fixed reservation, never a
  expect(sportsBookingEnrollment({...rule,payload:{students:[]}},booking)).toBe('OPEN');
  expect(sportsBookingEnrollment(rule,{...booking,requestKey:'sports-fixed:other-session:fixed'})).toBe('OPEN');
 });
+
+
+describe('explicit multi-subject scopes',()=>{
+ const universal={...card,sportsMode:'SUBJECTS',sportsSubjectId:null,sportsSubjectIds:['yoga','dance'],sportsCost:2};
+ it.each(['OPEN','ASSIGNED',null] as const)('accepts only listed subjects with %s enrollment',enrollment=>{
+  for(const subjectId of ['yoga','dance'])expect(resolveSportsEntitlement(universal,{...lesson,subjectId,enrollment})).toEqual({eligible:true,cost:2});
+  for(const subjectId of ['piano','later-added',null])expect(resolveSportsEntitlement(universal,{...lesson,subjectId,enrollment}).eligible).toBe(false);
+ });
+ it('copies the subject scope when an order is created and when the order issues a card',()=>{
+  const plan={...universal,sportsSubjectIds:['yoga','dance']};
+  const order={unit:'POINT',...sportsEntitlementSnapshot(plan)};
+  plan.sportsSubjectIds.push('piano');
+  const granted={...card,...sportsEntitlementSnapshot(order)};
+  expect(granted).toMatchObject({sportsMode:'SUBJECTS',sportsSubjectIds:['yoga','dance']});
+  expect(resolveSportsEntitlement(granted,{...lesson,subjectId:'piano'}).eligible).toBe(false);
+ });
+ it('fails closed on incomplete, duplicate, mixed and invalid multi-subject snapshots',()=>{
+  for(const patch of [{sportsSubjectIds:[]},{sportsSubjectIds:['yoga','yoga']},{sportsSubjectIds:undefined},{sportsSubjectId:'yoga'},{unit:'SESSION',sportsCost:2},{sportsMode:'ASSIGNED',sportsSubjectId:'yoga'}]){
+   expect(()=>sportsEntitlementSnapshot({...universal,...patch})).toThrow();
+   expect(resolveSportsEntitlement({...universal,...patch},lesson).eligible).toBe(false);
+  }
+ });
+ it('keeps makeup template restrictions even within a selected subject',()=>{
+  expect(resolveSportsEntitlement({...universal,templateRestricted:true,templateIds:['original']},lesson).eligible).toBe(false);
+  expect(resolveSportsEntitlement({...universal,unit:'SESSION',sportsCost:1},lesson)).toEqual({eligible:true,cost:1});
+ });
+});

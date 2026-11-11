@@ -26,6 +26,7 @@ import type { PurchaseIntentTransport } from "@/lib/purchase-intent-coordinator"
 import type { SportsSnapshot, SportsLesson } from "@/lib/sports-staging-types";
 type Subject = { id: string; name: string; category: string; active: boolean };
 type Fee = {
+  subjects?: string[];
   id: string;
   subject: string;
   name: string;
@@ -127,7 +128,7 @@ function SportsStagingWorkspaceContent({
   const [draft, setDraft] = useState({
     subject: initial.subjects[0]?.id ?? "",
     fee:
-      initial.fees.find((f) => f.subject === initial.subjects[0]?.id)?.id ?? "",
+      initial.fees.find((f) => (f.subject === initial.subjects[0]?.id||f.subjects?.includes(initial.subjects[0]?.id)))?.id ?? "",
     kind: "每週固定",
     mode: "指定學員",
     date: addTaiwanDuration(initial.date, 1, "DAY"),
@@ -481,7 +482,7 @@ function SportsStagingWorkspaceContent({
                           </td>
                           <td>{s.category || "未分類"}</td>
                           <td>
-                            {fees.filter((f) => f.subject === s.id).length} 種
+                            {fees.filter((f) => (f.subject === s.id||f.subjects?.includes(s.id))).length} 種
                           </td>
                           <td>
                             <span className="pill">
@@ -890,7 +891,7 @@ function SportsStagingWorkspaceContent({
                           patch({
                             subject: e.target.value,
                             fee:
-                              fees.find((f) => f.subject === e.target.value)
+                              fees.find((f) => (f.subject === e.target.value||f.subjects?.includes(e.target.value)))
                                 ?.id ?? "",
                             students: [],
                           })

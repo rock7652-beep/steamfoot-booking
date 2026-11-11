@@ -64,6 +64,10 @@ const database=()=>{if(!db)throw Error('Explicit test database required');return
   for(const statement of ddl.split(';').map(s=>s.trim()).filter(Boolean))await database().$executeRawUnsafe(statement);
   await database().courseTemplate.create({data:{id:'template',storeId:'store',name:'Synthetic dance',durationMinutes:90,pointCost:1,capacity:8}});
   await database().musicSubject.create({data:{id:'subject',storeId:'store',name:'Synthetic teaching item'}});
+  await database().musicSubject.create({data:{id:'subject-B',storeId:'store',name:'Synthetic B'}});
+  await database().musicSubject.create({data:{id:'foreign',storeId:'other',name:'Foreign'}});
+  await database().musicSubject.create({data:{id:'inactive',storeId:'store',name:'Inactive',isActive:false}});
+  await database().courseTemplate.create({data:{id:sportsTeachingTemplateId('store','subject-B'),storeId:'store',musicSubjectId:'subject-B',name:'Synthetic B',durationMinutes:60,pointCost:1,capacity:8}});
   await database().courseTemplate.create({data:{id:sportsTeachingTemplateId('store','subject'),storeId:'store',musicSubjectId:'subject',name:'Synthetic assigned dance',durationMinutes:90,pointCost:1,capacity:8}});
  },30000);
  afterAll(async()=>{if(created)await database().$executeRawUnsafe(`DROP SCHEMA "${schemaName}" CASCADE`);await db?.$disconnect();});
@@ -72,7 +76,7 @@ const database=()=>{if(!db)throw Error('Explicit test database required');return
   m.transaction.mockImplementation(async(_store,work)=>database().$transaction(work));m.term.mockResolvedValue([]);
   m.music.mockResolvedValue({storeId:'store'});
  });
- async function fixture(sportsMode:'LEGACY'|'ASSIGNED'='LEGACY'){
+ async function fixture(sportsMode:'LEGACY'|'ASSIGNED'|'SUBJECTS'='LEGACY'){
   return database().coursePointPlan.create({data:{storeId:'store',name:randomUUID(),points:10,price:5800,storeCost:0,validDays:90,unit:'SESSION',templateIds:[sportsMode==='LEGACY'?'template':sportsTeachingTemplateId('store','subject')],customerPurchasable:true,sportsMode,sportsSubjectId:sportsMode==='ASSIGNED'?'subject':null,sportsCost:sportsMode==='ASSIGNED'?1:null}});
  }
  function edit(plan:Awaited<ReturnType<typeof fixture>>,customerPurchasable:boolean){
@@ -128,4 +132,29 @@ const database=()=>{if(!db)throw Error('Explicit test database required');return
    expect(JSON.parse(output)).toEqual({bundled:0,native:1});
   }finally{rmSync(directory,{recursive:true,force:true});}
  });
+ it('saves explicit multiple subjects through the real action and replays the same snapshot after a lost reply',async()=>{
+  const plan=await fixture('ASSIGNED');
+  const input={...edit(plan,false),sportsMode:'SUBJECTS',sportsSubjectId:null,sportsSubjectIds:['subject','subject-B']};
+  const saved=await saveCoursePointPlan(input);
+  expect(saved,JSON.stringify(saved)).toMatchObject({success:true,data:{sportsMode:'SUBJECTS',sportsSubjectIds:['subject','subject-B'],sportsSubjectId:null,sportsCost:1,templateIds:['subject','subject-B'].map(id=>sportsTeachingTemplateId('store',id))}});
+  expect(await saveCoursePointPlan(input)).toEqual(saved);
+  const current=await database().coursePointPlan.findUniqueOrThrow({where:{id:plan.id}});
+  expect(await saveCoursePointPlan({...edit(current,true),name:'Updated multi '+randomUUID()})).toMatchObject({success:true,data:{sportsSubjectIds:['subject','subject-B'],customerPurchasable:true}});
+ });
+ it('rejects foreign, inactive, empty and duplicate subject scopes with no partial plan update',async()=>{
+  const plan=await fixture('ASSIGNED');
+  for(const scopes of [['subject','foreign'],['subject','inactive'],[],['subject','subject']]){
+   expect(await saveCoursePointPlan({...edit(plan,false),sportsMode:'SUBJECTS',sportsSubjectId:null,sportsSubjectIds:scopes})).toMatchObject({success:false});
+   expect(await database().coursePointPlan.findUniqueOrThrow({where:{id:plan.id}})).toEqual(plan);
+  }
+ });
+ it('rejects stale multi-subject edits without overwriting a newer scope',async()=>{
+  let plan=await fixture('ASSIGNED');
+  plan=await database().coursePointPlan.update({where:{id:plan.id},data:{sportsMode:'SUBJECTS',sportsSubjectId:null,sportsSubjectIds:['subject','subject-B']}});
+  const stale=edit(plan,false);
+  await database().coursePointPlan.update({where:{id:plan.id},data:{sportsMode:'ASSIGNED',sportsSubjectId:'subject',sportsSubjectIds:[]}});
+  expect(await saveCoursePointPlan(stale)).toMatchObject({success:false,error:'方案已有更新，輸入已保留。請核對目前資料後再編輯。'});
+  expect(await database().coursePointPlan.findUniqueOrThrow({where:{id:plan.id}})).toMatchObject({sportsMode:'ASSIGNED',sportsSubjectId:'subject',sportsSubjectIds:[],customerPurchasable:true});
+ });
+
 });

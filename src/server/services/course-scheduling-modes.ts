@@ -10,7 +10,7 @@ export async function assertCoursePlanMode(
   storeId: string,
   mode?: string | null,
 ) {
-  if (mode !== "OPEN" && mode !== "ASSIGNED") return;
+  if (mode !== "OPEN" && mode !== "ASSIGNED" && mode !== "SUBJECTS") return;
   const rule = await tx.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}});
   if(!coursePlanModeAllowed(rule,mode))throw new AppError("FORBIDDEN",mode==="OPEN"?"請先設定方案適用科目，再提供購買或指派":"店家尚未開放排課，請核對設定");
 }

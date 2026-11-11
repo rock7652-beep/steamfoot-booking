@@ -1,0 +1,139 @@
+{
+  "environment": "isolated local workspace; no formal database or deployment writes",
+  "baseCommit": "8488c00a5d38254f2f369e733d5510dea2321cf8",
+  "headerCommit": "cd36fb7f",
+  "fullRegression": {
+    "command": "vitest run --maxWorkers=2 --testTimeout=20000 --hookTimeout=60000",
+    "passedFiles": 1759,
+    "skippedFiles": 34,
+    "passedTests": 16570,
+    "skippedTests": 318,
+    "seconds": 425.16,
+    "note": "Explicit external-database suites skip without opt-in; the new large-snapshot test file was added after full-suite discovery and is covered by the supplemental targeted run."
+  },
+  "supplemental": {
+    "command": "vitest run course-multi-subject-snapshot course-settings-save-route fitness-plan-form course-single-charge-ui --testTimeout=20000",
+    "passedFiles": 4,
+    "passedTests": 48,
+    "note": "Includes both new snapshot limit tests."
+  },
+  "postgres": {
+    "success": true,
+    "total": 61,
+    "passed": 61,
+    "pending": 0,
+    "files": [
+      {
+        "name": "course-mixed-enrollment.pg.test.ts",
+        "status": "passed",
+        "cases": 29
+      },
+      {
+        "name": "course-plan-save.pg.test.ts",
+        "status": "passed",
+        "cases": 9
+      },
+      {
+        "name": "sports-card-modes.pg.test.ts",
+        "status": "passed",
+        "cases": 23
+      }
+    ]
+  },
+  "finalMigrationAndRights": {
+    "success": true,
+    "total": 23,
+    "passed": 23,
+    "pending": 0,
+    "files": [
+      {
+        "name": "sports-card-modes.pg.test.ts",
+        "status": "passed",
+        "cases": 23
+      }
+    ]
+  },
+  "typecheck": {
+    "command": "NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit --incremental --tsBuildInfoFile /tmp/fee-multi-final.tsbuildinfo",
+    "exitCode": 0
+  },
+  "lint": {
+    "changedSources": true,
+    "exitCode": 0
+  },
+  "UI": {
+    "catalogAndEditor": {
+      "synthetic": true,
+      "results": [
+        {
+          "width": 1366,
+          "height": 900,
+          "passed": true
+        },
+        {
+          "width": 1920,
+          "height": 1080,
+          "passed": true
+        },
+        {
+          "width": 1024,
+          "height": 768,
+          "passed": true
+        },
+        {
+          "width": 768,
+          "height": 1024,
+          "passed": true
+        },
+        {
+          "width": 600,
+          "height": 800,
+          "passed": true
+        }
+      ],
+      "checks": [
+        "A/B/unknown isolation",
+        "grouped music",
+        "direct link scope",
+        "single title and inline return action",
+        "new fee subject prefill",
+        "pending review entry",
+        "empty search",
+        "multi subject select all/clear/search/resize/save intent"
+      ],
+      "errors": []
+    },
+    "cardReview": {
+      "passedSizes": [
+        "1440x900",
+        "1024x768",
+        "768x1024",
+        "600x768"
+      ],
+      "unknownReplyRetryPreservesRequest": true,
+      "noPageErrors": true
+    }
+  },
+  "initialAttempts": {
+    "typecheckDefaultHeap": "Node default 4GB heap exhausted; recovered with explicit 8GB limit.",
+    "firstFullSuite": "Stopped after outdated single-select UI assertions and two CPU-contention 5s timeouts. Updated assertions for checkbox controls; isolated timeout rerun and final bounded full-suite run passed."
+  },
+  "notVerified": [
+    "formal production DDL",
+    "hosted build/remote CI for this branch",
+    "formal deployment",
+    "real-device browser",
+    "authenticated formal end-to-end sale/booking"
+  ],
+  "productionStatus": "not published; no automatic conversion of existing cards",
+  "isolatedGeneratedClient": {
+    "rootSharedClientRestored": true,
+    "snapshotModelsInOwnClient": 3,
+    "passedCases": 32,
+    "success": true,
+    "files": [
+      "course-plan-save.pg.test.ts",
+      "sports-card-modes.pg.test.ts"
+    ]
+  }
+}

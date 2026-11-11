@@ -72,7 +72,7 @@ it("new assigned plans select their own coach without repeating global qualifica
  expect(host.querySelector('[aria-label="方案適用方式"]')).toBeNull();
  expect(host.querySelector('[data-fee-coaches]')).toBeNull();
  expect(host.querySelector('[aria-label="教師計酬方式"]')).toBeNull();
- await act(async()=>host.querySelector<HTMLInputElement>('fieldset:not([hidden]) input[type="checkbox"]')!.click());
+ await act(async()=>Array.from(host.querySelectorAll('label')).find(l=>l.textContent==='教練')!.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
  await act(async()=>{const kind=host.querySelector<HTMLSelectElement>('[aria-label="收費類型"]')!;kind.value='plan';kind.dispatchEvent(new Event('change',{bubbles:true}));});
  await select('計費方式','POINT');
  const cost=host.querySelector<HTMLInputElement>('[aria-label="每堂使用額度"]')!;
@@ -83,8 +83,8 @@ it("open-only stores still require a subject and save subject-scoped rights",asy
  m.sportsSave.mockResolvedValue({success:false,error:"保留輸入"});
  await mount({sportsData:{...sportsData,schedulingModes:{selfBookingEnabled:true,assignedSchedulingEnabled:false}},subjects:[{id:"subject",name:"瑜珈",category:"",isActive:true}]});
  expect(host.querySelector('[aria-label="方案適用方式"]')).toBeNull();
- expect(host.querySelector('[aria-label="教學項目"]')).not.toBeNull();
- await act(async()=>host.querySelector<HTMLInputElement>('fieldset:not([hidden]) input[type="checkbox"]')!.click());
+ expect(host.querySelector('[aria-label="適用教學項目"]')).not.toBeNull();
+ await act(async()=>Array.from(host.querySelectorAll('label')).find(l=>l.textContent==='教練')!.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
  await submit();expect(m.sportsSave.mock.calls[0][0]).toMatchObject({sportsMode:"ASSIGNED",subject:"subject",cost:1});
 });
 

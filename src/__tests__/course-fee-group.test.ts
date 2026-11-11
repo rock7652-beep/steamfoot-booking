@@ -33,3 +33,11 @@ describe('catalog scope presentation',()=>{
  });
  it('lists unresolved music fees separately',()=>expect(courseFeeGroup({templateIds:['deleted']},templates,subjects,true).pending).toBe(true));
 });
+
+it('groups explicit multi-subject fees under their actual scope, never a template alias',()=>{
+ const plan={sportsMode:'SUBJECTS',sportsSubjectIds:['B','A'],templateIds:['tA','tB']};
+ const group=courseFeeGroup(plan,templates,subjects,false);
+ expect(group.subjectIds).toEqual(['A','B']);expect(group.name).toBe('基礎課程、零基礎成芭');
+ expect(courseFeeMatches(group,'A',plan)).toBe(true);expect(courseFeeMatches(group,'B',plan)).toBe(true);expect(courseFeeMatches(group,'C',plan)).toBe(false);
+ expect(courseFeeGroup({...plan,sportsSubjectIds:['A','deleted']},templates,subjects,false).pending).toBe(true);
+});

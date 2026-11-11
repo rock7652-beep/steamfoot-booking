@@ -7,7 +7,7 @@ import {CardSubjectReview} from '../../src/app/(dashboard)/dashboard/courses/car
 const qa=window as unknown as {qaCalls:unknown[];qaAction:(name:string,...args:unknown[])=>Promise<unknown>;failSave:boolean;responseLost:boolean};
 qa.qaCalls=[];
 qa.qaAction=async(name,...args)=>{
- if(name==='loadCardSubjectReview')return {success:true,data:{revision:'a'.repeat(64),subjects:[{id:'A',name:'舞蹈（常態課程）'}],name:'舞蹈 20 堂',remaining:19,unit:'SESSION',reserved:0,shared:false}};
+ if(name==='loadCardSubjectReview')return {success:true,data:{revision:'a'.repeat(64),subjects:[{id:'A',name:'舞蹈（常態課程）'},{id:'B',name:'舞蹈（基礎課程）'}],name:'舞蹈 20 堂',remaining:19,unit:'SESSION',reserved:0,shared:false}};
  if(name==='confirmCardSubjectAction'){qa.qaCalls.push(args[0]);if(qa.responseLost)throw Error('Lost reply');return qa.failSave?{success:false,error:'方案或預約已變更，請重新核對'}:{success:true};}
  throw Error('Unexpected backend call '+name);
 };
