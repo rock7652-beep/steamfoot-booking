@@ -11,11 +11,11 @@ export type SessionAdjustmentPort={
 };
 const field='min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm';
 const button='min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50';
-export function PlanSessionAdjustment({storeId,card,port,unitLabel,onPending,onDirtyChange,onSaved,onCancel}:{
+export function PlanSessionAdjustment({storeId,card,port,unitLabel,onPending,onDirtyChange,onSaved,onCancel,initialOperation='BACKFILL'}:{
   storeId:string;card:ManagedPlan;port:SessionAdjustmentPort;unitLabel:string;
-  onPending:(pending:boolean)=>void;onDirtyChange?:(dirty:boolean)=>void;onSaved:()=>void;onCancel:()=>void;
+  onPending:(pending:boolean)=>void;onDirtyChange?:(dirty:boolean)=>void;onSaved:()=>void;onCancel:()=>void;initialOperation?:'BACKFILL'|'VOID';
 }){
-  const [operation,setOperation]=useState<SessionAdjustmentInput['operation']>('BACKFILL');
+  const [operation,setOperation]=useState<SessionAdjustmentInput['operation']>(initialOperation);
   const [quantity,setQuantity]=useState('1'),[date,setDate]=useState(''),[reason,setReason]=useState('');
   const [customerId,setCustomerId]=useState(port.members.length===1?port.members[0].id:'');
   const [original,setOriginal]=useState<SessionAdjustmentRecord|null>(null);

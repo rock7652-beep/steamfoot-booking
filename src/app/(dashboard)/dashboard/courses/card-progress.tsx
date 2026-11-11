@@ -4,7 +4,7 @@ import {useCourseCardProgressReader} from '@/components/admin/use-course-card-pr
 import {LessonProgressGrid,type CompletedLesson} from '@/components/admin/lesson-progress-grid';
 import type {loadCourseCardProgress} from '@/server/actions/course-card-progress';
 import {toLocalDateStr} from '@/lib/date-utils';
-export function CourseCardProgress({cardId,customerId,storeId,dataScope,revision=0}:{cardId:string;customerId:string;storeId:string;dataScope?:'operational'|'legacy';revision?:number}){
+export function CourseCardProgress({cardId,customerId,storeId,dataScope,revision=0,showSummary=true}:{cardId:string;customerId:string;storeId:string;dataScope?:'operational'|'legacy';revision?:number;showSummary?:boolean}){
  const reader=useCourseCardProgressReader(storeId,revision);
  const [retry,setRetry]=useState(0),[selected,setSelected]=useState<CompletedLesson|null>(null);
  const key=JSON.stringify([storeId,cardId,customerId,dataScope,revision,retry]);
@@ -15,5 +15,5 @@ export function CourseCardProgress({cardId,customerId,storeId,dataScope,revision
  if(!result.success)return <p role="alert" className="py-3 text-sm text-red-700">{result.error}<button type="button" className="min-h-11 px-3 underline" onClick={()=>{reader.invalidate({cardId,customerId,expectedStoreId:storeId,dataScope});setRetry(n=>n+1);}}>重試</button></p>;
  if(!result.data.available)return <p className="py-3 text-sm text-earth-600">{result.data.reason}</p>;
  const activeLesson=result.data.completed.find(lesson=>lesson.id===selected?.id);
- return <div className="my-4 space-y-2">{result.data.shared&&<p className="text-sm text-earth-600">共用方案 · 以下為整份方案的上課進度</p>}<LessonProgressGrid compact total={result.data.total} completed={result.data.completed} onSelect={setSelected}/>{activeLesson&&<p role="status" className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-900">{toLocalDateStr(new Date(activeLesson.date))} · {activeLesson.customerName} · {activeLesson.courseName??'已上課'}</p>}</div>;
+ return <div className={showSummary?"my-4 space-y-2":"my-1 space-y-1"}>{result.data.shared&&<p className="text-sm text-earth-600">共用方案 · 以下為整份方案的上課進度</p>}<LessonProgressGrid compact showSummary={showSummary} total={result.data.total} completed={result.data.completed} onSelect={setSelected}/>{activeLesson&&<p role="status" className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-900">{toLocalDateStr(new Date(activeLesson.date))} · {activeLesson.customerName} · {activeLesson.courseName??'已上課'}</p>}</div>;
 }
