@@ -1,6 +1,6 @@
 // Fee-list release review uses an isolated local UI preview only.
 // Stop connected build providers before any database work on this branch.
-if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].some(ref=>["feat/course-fee-groups-20261111","feat/course-multi-subject-fees-20261111"].includes(ref))) {
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].some(ref=>["feat/course-fee-groups-20261111","feat/course-multi-subject-fees-20261111","fix/course-review-image-build-inputs-20261111"].includes(ref))) {
   throw new Error("Fee-list review cannot deploy or execute migrations; use the isolated local preview.");
 }
 

@@ -53,17 +53,29 @@ export function archiveProductionReviewImages(root,paths){
  for(const path of files)unlinkSync(resolve(base,path));
  return {archive,count:files.length};
 }
+export function archiveProductionReviewInputs(env,root){
+ assertProductionPackaging(env,resolve(root));
+ const paths=[],directory=join(root,'artifacts');
+ function visit(dir){for(const entry of readdirSync(dir,{withFileTypes:true})){
+  const full=join(dir,entry.name),path=relative(root,full).split(sep).join('/');
+  if(entry.isDirectory())visit(full);
+  else if(reviewScreenshot.test(path))paths.push(path);
+ }}
+ if(existsSync(directory))visit(directory);
+ return archiveProductionReviewImages(root,paths);
+}
 export function pruneProductionTraces(root){
  if(!existsSync(join(root,'.next/BUILD_ID')))throw Error('Completed build required');
- const plan=inspectProductionPackage(root);if(!plan.withinSafetyBudget)throw Error(`Proxy remains above the production packaging safety budget: ${JSON.stringify(plan)}`);
+ const plan=inspectProductionPackage(root);
+ if(plan.reviewScreenshots.length)throw Error('Review images must be archived before Next.js tracing, not after it');
+ if(!plan.withinSafetyBudget)throw Error(`Proxy remains above the production packaging safety budget: ${JSON.stringify(plan)}`);
  function visit(directory){for(const entry of readdirSync(directory,{withFileTypes:true})){
   const p=join(directory,entry.name);if(entry.isDirectory()&&!['node_modules','cache'].includes(entry.name))visit(p);
   else if(entry.isFile()&&entry.name.endsWith('.nft.json'))pruneProductionNft(p,root);
  }}
  visit(join(root,'.next'));
  const archive=prepareReferralQaEngineFiles(root,'Production PostgreSQL');
- const review=archiveProductionReviewImages(root,plan.reviewScreenshots);
- return {...plan,filesModified:true,unusedProviderStubs:archive.moved,originalEnginesBackedUpOutsideBuildRoot:true,backupDirectory:archive.archive,reviewImagesArchived:review.count,reviewImageArchive:review.archive};
+ return {...plan,filesModified:true,unusedProviderStubs:archive.moved,originalEnginesBackedUpOutsideBuildRoot:true,backupDirectory:archive.archive};
 }
 if(process.argv[1]===fileURLToPath(import.meta.url)){
  const root=resolve(import.meta.dirname,'..');const args=process.argv.slice(2).join(' ');

@@ -204,7 +204,8 @@
       "fix/course-copy-density-20261110": false,
       "fix/assigned-unlimited-20261111": false,
       "fix/course-single-first-login-20261111": false,
-      "feat/course-multi-subject-fees-20261111": false
+      "feat/course-multi-subject-fees-20261111": false,
+      "fix/course-review-image-build-inputs-20261111": false
     }
   }
 }
