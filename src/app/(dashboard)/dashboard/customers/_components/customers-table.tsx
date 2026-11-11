@@ -9,7 +9,8 @@ import { formatTWTime, toLocalDateStr } from "@/lib/date-utils";
 import { remainingSessionsState } from "@/lib/remaining-sessions-label";
 import {
   getLineNotificationStatus,
-  type LineNotificationStatus,
+  lineNotificationShortLabel,
+  lineNotificationExplanation,
 } from "@/lib/line-notification-status";
 
 /**
@@ -96,19 +97,6 @@ interface Props {
  * 顯示用完整電話 — 後台列表店長需能撥打辨識顧客，不遮罩。
  * OAuth 佔位（`_oauth_line_xxx`）或空值回 `—`。
  */
-function lineNotificationShortLabel(status: LineNotificationStatus): string {
-  switch (status) {
-    case "enabled":
-      return "已開啟";
-    case "disabled":
-      return "未開啟";
-    case "error":
-      return "異常";
-    case "needs_review":
-      return "需確認";
-  }
-}
-
 export function CustomersTable({
   rows,
   searchQuery,
@@ -197,7 +185,7 @@ export function CustomersTable({
     },
     {
       key: "lineNotification",
-      header: <span className="whitespace-nowrap">系統通知</span>,
+      header: <span className="whitespace-nowrap" title="本店 LINE 通知連結；會員登入與家長查看權限另行核對">LINE 通知</span>,
       width: "w-24",
       noLink: true,
       accessor: (c) => {
@@ -214,7 +202,7 @@ export function CustomersTable({
                 ? "text-amber-700"
                 : "text-red-700";
         return (
-          <span className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-medium ${tone}`}>
+          <span title={lineNotificationExplanation(status)} aria-label={`LINE 通知：${lineNotificationShortLabel(status)}。${lineNotificationExplanation(status)}`} className={`whitespace-nowrap rounded px-1.5 py-0.5 text-sm font-medium ${tone}`}>
             {lineNotificationShortLabel(status)}
           </span>
         );

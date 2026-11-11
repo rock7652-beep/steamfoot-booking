@@ -40,3 +40,11 @@
 本機驗證：`course-family-contact-actions`、`course-family-contact.pg`、`form-version-actions`、`music-preview-customer-quotas`、`course-family-contact-ui` 共 5 檔 45 項通過。資料庫案例實際執行既有 migration、重現重複手機錯誤，再驗證改為聯絡電話後兩位學員與預約 ID 保留；僅為合成資料，未驗正式站登入或正式資料修改。
 
 變更檔案 ESLint 與 `git diff --check` 通過。全專案 TypeScript 檢查首次遇到 Node 預設 4 GB heap 上限；使用 `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit --incremental false` 重跑通過。無 UI 變更，未建立部署預覽或觸發正式建置。
+
+## 2026-11-11 LINE 通知標示補正
+
+承接正式電話修改修正後的使用回報，基準為 `bcda9c5c`。本輪僅修正呈現：舊 LINE 識別存在但通知狀態未確認時，改列「待核對」，不再直接視作通知錯誤；真正 BLOCKED 明示「已封鎖」。共用顧客清單與詳情入口統一稱「LINE 通知」，連結狀態不等同已啟用發送、實際登入或家長查看權限。未連結的孩子不因媽媽能登入就改寫為已連結；沒有修改正式身分、電話群組授權或通知啟用設定。後台 C07 指南同步說明。
+
+本機合成資料 Preview 使用實際 CustomersTable、CustomerProfileConnection 與狀態函式，僅標籤及導航使用替身；禁止正式交易。390、768、1024、1366px 均無頁面水平溢出，表格保留區塊內橫向捲動，通知狀態字級 14px；展開、切換尺寸、切換學員均驗證。證據存於 `/workspace/scratch/line-notification-preview/`。此為 Chromium 模擬尺寸，沒有正式會員登入或通知送達驗收。
+
+相關回歸共 5 檔 56 項通過。既有管理入口／展開回歸不含 JSX，將副檔名由 `.test.tsx` 改為 `.test.ts`，使預設 Vitest 與 CI 也能收錄；清單與詳情使用相同證據判定。通知判定不寫資料，程式檢查通過。正式發佈狀態另以 PR／部署紀錄為準，本機 Preview 不代表已上線。

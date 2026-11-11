@@ -3,6 +3,7 @@
 import {useState,type ReactNode} from "react";
 import {CustomerPhoneLink} from "@/components/customer-detail-fields";
 import {ExclusiveMenu} from "./exclusive-menu";
+import {getLineNotificationStatus,lineNotificationShortLabel} from "@/lib/line-notification-status";
 
 /** Shared profile chrome; permissions, reads and writes stay with each module. */
 export function CustomerProfileHeader({name,labelledById,busy,editing,onEdit,onBack,onClose,more}:{
@@ -41,17 +42,17 @@ export function CustomerOverviewBody({next,cards,attribution,note,details,action
 /** Read detailed connection status only on intent, without equating Login and delivery. */
 export function CustomerProfileConnection({label,children,onManage}:{label:string;children?:ReactNode;onManage?:()=>void}) {
   const [open,setOpen]=useState(false);
-  if(onManage)return <button type="button" onClick={onManage} className="min-h-11 min-w-0 break-words py-2 text-left text-sm text-primary-700">LINE 身分：{label} · 管理</button>;
+  if(onManage)return <button type="button" onClick={onManage} className="min-h-11 min-w-0 break-words py-2 text-left text-sm text-primary-700">LINE 通知：{label} · 管理</button>;
   return <details className="min-w-0 text-sm" open={open} onToggle={event=>setOpen(event.currentTarget.open)}>
-    <summary className="min-h-11 cursor-pointer py-2 text-primary-700">LINE 身分：{label} · 管理</summary>
+    <summary className="min-h-11 cursor-pointer py-2 text-primary-700">LINE 通知：{label} · 管理</summary>
     {open&&children}
   </details>;
 }
 
 /** A stored display name alone does not prove that this store's LINE is linked. */
-export function customerProfileLineLabel(status:string|null|undefined,name?:string|null) {
-  if(status==="LINKED")return name?.trim()?`已連結（${name.trim()}）`:"已連結";
-  if(status==="UNLINKED")return "未連結";
-  if(status==="BLOCKED")return "已封鎖";
-  return "待核對";
+export function customerProfileLineLabel(status:string|null|undefined,name:string|null|undefined,lineUserId:string|null|undefined) {
+  if(!status||!["LINKED","UNLINKED","BLOCKED"].includes(status))return "待核對";
+  const notification=getLineNotificationStatus({lineLinkStatus:status,lineUserId});
+  if(notification==="enabled"&&name?.trim())return `已連結（${name.trim()}）`;
+  return lineNotificationShortLabel(notification);
 }
