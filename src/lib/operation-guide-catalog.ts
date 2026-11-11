@@ -1,5 +1,10 @@
+import { dailyOperationGuides20261111 } from "./operation-guide-daily-20261111";
+import {dailyOperationGuides20261106} from './operation-guide-daily-20261106';
+import {dailyOperationGuides20261105} from './operation-guide-daily-20261105';
+import {dailyOperationGuides20261104} from './operation-guide-daily-20261104';
+import {dailyOperationGuides20261103} from './operation-guide-daily-20261103';
+import { sessionAdjustmentGuide } from './operation-guide-session-adjustment';
 import { planActivationGuideDetail } from "./operation-guide-plan-activation";
-import {sessionAdjustmentGuide} from './operation-guide-session-adjustment';
 import {retiredSpaCatalogGuides} from "./operation-guide-retired-spa";
 import type { OperationGuide, GuideCategory } from "./operation-guide-types";
 
@@ -139,6 +144,11 @@ const catalogGuideCategories: GuideCategory[] = [
 export const guideCategories = catalogGuideCategories.filter(category => category.id !== "spa");
 
 export const additionalGuides: OperationGuide[] = [
+  ...dailyOperationGuides20261111,
+...dailyOperationGuides20261106,
+...dailyOperationGuides20261105,
+...dailyOperationGuides20261104,
+...dailyOperationGuides20261103,
   sessionAdjustmentGuide,
   {
     "id": "S01",
@@ -239,12 +249,12 @@ export const additionalGuides: OperationGuide[] = [
     "success": "當日清單出現正確的預約，沒有重複新增。",
     "keywords": "代約 新預約 新增 右側視窗 新增補課 未儲存 日期保留 iPad 手機 窄畫面 載入 重試",
     "details": [
-      "已知摘要會先顯示；時段、方案與容量等仍須等最新資料載入。顯示讀取失敗時先重試，不要憑舊畫面送出。",
-      "新增補課沿用同一右側表單，仍需有效補課資格。",
-      "具新增預約權限的後台人員可切到過去月份補登實際服務，已過時段仍按實際剩餘容量選擇；請核對顧客與服務日期，補登不代表已完成服務或收款。顧客自行預約仍受時間限制。",
-      "旋轉、縮放或切換預覽尺寸不應清除草稿；未儲存關閉會先詢問，送出中不能關閉，失敗保留輸入。",
-      "容量、方案、值班與權限仍由原流程檢查；跨店唯讀不能新增。"
-    ],
+  "已知摘要會先顯示；時段、方案與容量等仍須等最新資料載入。顯示讀取失敗時先重試，不要憑舊畫面送出。",
+  "新增補課沿用同一右側表單，仍需有效補課資格。",
+  "具新增預約權限的後台人員可切到過去月份補登實際服務，已過時段仍按實際剩餘容量選擇；請核對顧客與服務日期，補登不代表已完成服務或收款。顧客自行預約仍受時間限制。",
+  "旋轉、縮放或切換預覽尺寸不應清除草稿；未儲存關閉會先詢問，送出中不能關閉，失敗保留輸入。",
+  "容量、方案、值班與權限仍由原流程檢查；跨店唯讀不能新增。"
+],
     "modules": [
       "steamfoot"
     ],
@@ -275,15 +285,17 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "「撥打」只開啟裝置的電話功能，不會改預約狀態；沒有電話時顯示「未留電話」。",
     "success": "當日清單顯示正確預約；點電話不會誤開詳情或更改資料。",
-    "keywords": "月曆 今天 明天 查詢 今日預約 當日預約 精簡清單 緊湊名單 舊iPad 平板 所屬店長 顧客電話 直接撥打 未留電話 預約中 已完成 未到 補課 未收款 狀態統計 手機 篩選獨立一列 管理時段 剩餘堂數 方案名稱 到期日 方案待核對 無到期限制 更多操作 購買方案 單次 改時間 取消預約",
+    "keywords": "月曆 今天 明天 查詢 今日預約 當日預約 精簡清單 緊湊名單 舊iPad 平板 所屬店長 顧客電話 直接撥打 未留電話 預約中 已完成 未到 補課 未收款 狀態統計 手機 篩選獨立一列 管理時段 剩餘堂數 方案名稱 到期日 方案待核對 無到期限制 更多操作 購買方案 單次 改時間 取消預約 本月預約 整月統計 人次 取消筆數 待服務 篩選不改統計",
     "details": [
-      "手機與 iPad 窄寬度會重排月份、篩選與主要操作；平板橫直向及舊 iPad 會優先壓縮欄距與文字，月曆、聯絡、方案、備註與時段管理不得因版面縮小消失。",
-      "點電話不會開詳情或改狀態；號碼錯誤請回顧客資料修正。所屬店長顯示帳號的店內名稱，不能據此改派顧客。",
-      "未收款篩選包含待處理體驗與單次預約。自動更新目前為每 60 秒，編輯、批次或個別操作期間可能暫停。",
-      "月曆待到店的逐人方案摘要會顯示「剩 X 堂・方案名稱・到期日」，不再只顯示預留 1 堂；沒有到期限制會明列「無到期限制」。這是顯示恢復，內部仍保留本次預約，另按完成才正式扣堂，不能把剩餘堂數都當成可再預約堂數。",
-      "摘要顯示「方案待核對」或「到期日待確認」時，先開原預約與方案核對，不當成零堂、無期限或已扣堂。已完成者另顯示已扣 1 堂；同組多人摘要以分隔顯示，體驗待處理與方案扣堂分開看。",
-      "「⋯」只縮短進入既有操作的路徑，仍會讀取權威明細並顯示原確認畫面；購買方案、切換單次、改時間、未到與取消都不會因點選選單就直接送出。可見項目依預約類型、狀態與權限顯示。"
-    ],
+  "手機與 iPad 窄寬度會重排月份、篩選與主要操作；平板橫直向及舊 iPad 會優先壓縮欄距與文字，月曆、聯絡、方案、備註與時段管理不得因版面縮小消失。",
+  "點電話不會開詳情或改狀態；號碼錯誤請回顧客資料修正。所屬店長顯示帳號的店內名稱，不能據此改派顧客。",
+  "未收款篩選包含待處理體驗與單次預約。自動更新目前為每 60 秒，編輯、批次或個別操作期間可能暫停。",
+  "月曆待到店的逐人方案摘要會顯示「剩 X 堂・方案名稱・到期日」，不再只顯示預留 1 堂；沒有到期限制會明列「無到期限制」。這是顯示恢復，內部仍保留本次預約，另按完成才正式扣堂，不能把剩餘堂數都當成可再預約堂數。",
+  "摘要顯示「方案待核對」或「到期日待確認」時，先開原預約與方案核對，不當成零堂、無期限或已扣堂。已完成者另顯示已扣 1 堂；同組多人摘要以分隔顯示，體驗待處理與方案扣堂分開看。",
+  "「⋯」只縮短進入既有操作的路徑，仍會讀取權威明細並顯示原確認畫面；購買方案、切換單次、改時間、未到與取消都不會因點選選單就直接送出。可見項目依預約類型、狀態與權限顯示。",
+  "上方「本月預約」統計目前月份的預約筆數與人次，並分列已完成、待服務、取消及未到；這是整月數字，不隨下方姓名、人員或狀態篩選縮小。切換月份後核對標示月份與資料一致。",
+  "取消以整筆預約計筆數；已完成、待服務及未到以人次計。多人逐人預約依各位置狀態統計，已移除位置不計入；不能把預約筆數、人次、取消筆數或收款金額相加比較。"
+],
     "modules": [
       "steamfoot"
     ],
@@ -506,7 +518,7 @@ export const additionalGuides: OperationGuide[] = [
     "category": "hours",
     "title": "臨時增開、關閉或重開時段怎麼做？",
     "summary": "當日時段管理可增開或調整單一時段，不必為一天的變動修改整週設定。",
-    "path": "預約管理 → 當日時段管理",
+    "path": "預約管理 → 選擇日期 → 管理時段 → 新增當日時段",
     "steps": [
       "選要處理的日期，開啟「管理時段」；公休日也能直接新增當日時段，不必先修改營業時間。",
       "選擇新增時段，或對既有時段關閉／重新開放；需要調整名額時可用加減按鈕或輸入數字。",
@@ -515,7 +527,12 @@ export const additionalGuides: OperationGuide[] = [
     "important": "公休日只開放明確加開的時間，不改每週設定；關閉最後一個加開時段後恢復公休。已存在的預約保留，需另外處理；有啟用排班聯動時仍須安排值班。進修日不開放加開。",
     "success": "當日時段開放狀態符合設定。",
     "keywords": "加開 增開 公休 公休日 臨時時段 關閉 重開 當日時段 已調整 名額 0 已額滿",
-    "details": [],
+    "details": [
+  "固定及特殊公休日均可只加開指定時間；進修日、營業設定未完成及原有權限／容量限制仍會阻擋。",
+  "新增時間先加入草稿，核對名額後按確認並儲存；若失敗保留草稿，不能當成已開放。",
+  "儲存後重讀當日時段及月份摘要；看到「時段已儲存，畫面更新失敗」時只按更新核對原結果，不再送一份新增。",
+  "將特殊日期或複製日期明確重新設為公休時，作用日期原加開會清除；既有預約保留，不能把關閉時段當取消預約。"
+],
     "modules": [
       "steamfoot"
     ],
@@ -523,7 +540,11 @@ export const additionalGuides: OperationGuide[] = [
     "feature": null,
     "sources": [
       "src/app/(dashboard)/dashboard/bookings/day-slot-manager.tsx"
-    ],
+    ,
+"src/server/actions/business-hours.ts",
+"src/lib/business-hours-resolver.ts",
+"src/app/(dashboard)/dashboard/bookings/bookings-manager.tsx"
+],
     "verification": "source-reviewed",
     "kind": "howto",
     "answer": "當日時段管理可增開或調整單一時段，不必為一天的變動修改整週設定。"
@@ -622,21 +643,23 @@ export const additionalGuides: OperationGuide[] = [
     "id": "C03",
     "category": "customers",
     "title": "顧客姓名或電話填錯，怎麼修正？",
-    "summary": "顧客視窗先顯示姓名、標籤、基本資料與重要備註；需要修改時再展開編輯，儲存後同一位顧客與清單同步更新。",
+    "summary": "蒸足顧客視窗以分頁查看總覽、紀錄與基本／健康資料；姓名旁的編輯入口可更正基本資料。",
     "path": "顧客管理 → 點選顧客 → 編輯基本資料",
     "steps": [
-      "從顧客清單開啟正確顧客，先核對姓名、標籤、所屬資訊與基本資料摘要。",
-      "點基本資料的編輯入口，修改需要更正的欄位後儲存；送出中不要關閉或連按。",
-      "留在同一位顧客核對更新後資料，再核對背景清單的姓名、電話或備註已同步。"
-    ],
+  "從顧客清單開啟正確顧客，先核對姓名、電話與標籤；歸屬及店內備註在「總覽」，其他基本資料在「基本／健康資料」。",
+  "點姓名旁「編輯顧客資料」鉛筆，修改需要更正的欄位後儲存；送出中不要關閉或連按。",
+  "留在同一位顧客核對更新後資料，再核對背景清單的姓名、電話或備註已同步。"
+],
     "important": "更正聯絡資料不等於重新綁定 LINE；若遇到電話衝突，保留提示再處理。",
     "success": "目前顧客視窗與背景清單都顯示正確資料，搜尋與篩選仍保留。",
-    "keywords": "名字 手機 更正 編輯 顧客右側視窗 基本資料 摘要 標籤 重要備註 清單同步 保留搜尋 保留篩選 重新整理",
+    "keywords": "名字 手機 更正 編輯 顧客右側視窗 基本資料 摘要 標籤 重要備註 清單同步 保留搜尋 保留篩選 重新整理 總覽 基本／健康資料 分頁 姓名旁鉛筆 LINE身分 管理 LINE身分 管理 LINE身分 管理 LINE身分 管理",
     "details": [
-      "儲存成功會失效並重讀目前顧客，再在背景更新清單；不必關閉重開，也不要因短暫舊值重複修改。",
-      "關閉顧客視窗只移除目前顧客參數，不會清掉原搜尋、分頁或篩選；瀏覽器上一頁／下一頁可依網址重開對應顧客。",
-      "總部跨店查看為唯讀，不會顯示編輯。"
-    ],
+  "儲存成功會失效並重讀目前顧客，再在背景更新清單；不必關閉重開，也不要因短暫舊值重複修改。",
+  "關閉顧客視窗只移除目前顧客參數，不會清掉原搜尋、分頁或篩選；瀏覽器上一頁／下一頁可依網址重開對應顧客。",
+  "總部跨店查看為唯讀，不會顯示編輯。",
+  "蒸足分頁依權限提供「總覽／預約紀錄／消費紀錄／基本／健康資料」。切換分頁保留該分頁原捲動位置；要看完整量測歷史仍使用健康紀錄入口，不把最近一次摘要當作全部歷史。",
+  "蒸足姓名／聯絡區可直接看「LINE 身分：…・管理」；點管理會切到基本／健康資料並定位管理區，未儲存或處理中仍受保護。LINE 名稱不代表已連結，登入身分與本店通知分開核對。"
+],
     "modules": [
       "steamfoot",
       "spa"
@@ -666,12 +689,14 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "預約次數與消費筆數不同；只有已關聯此顧客的店內收入才會出現在消費紀錄。",
     "success": "",
-    "keywords": "歷史 歷次 過往紀錄 展開 進階查看 消費 紀錄 篩選 合計 方案 零售 服務 退款 付款方式",
+    "keywords": "歷史 歷次 過往紀錄 展開 進階查看 消費 紀錄 篩選 合計 方案 零售 服務 退款 付款方式 分頁 上一頁 下一頁 過往 全部 重試原頁",
     "details": [
-      "方案交易、退款與店內手動收入會依各自日期合併排序；支出不列為顧客消費。",
-      "店內收入若未選關聯顧客，不會事後依姓名或備註猜測歸戶。",
-      "蒸足多人首次體驗按每位已完成者計入本人到店紀錄與最近到店日，不必等整組結束；未建檔同行不會冒用預約人的紀錄。已服務後退款也不會抹掉服務事實。"
-    ],
+  "方案交易、退款與店內手動收入會依各自日期合併排序；支出不列為顧客消費。",
+  "店內收入若未選關聯顧客，不會事後依姓名或備註猜測歸戶。",
+  "蒸足多人首次體驗按每位已完成者計入本人到店紀錄與最近到店日，不必等整組結束；未建檔同行不會冒用預約人的紀錄。已服務後退款也不會抹掉服務事實。",
+  "蒸足預約紀錄可選「過往／全部」；清單先列日期、時間／服務／人數及狀態，點原列才看付款或備註。消費紀錄先列日期、項目與金額，不能把展開或翻頁當成交易操作。",
+  "切換顧客、紀錄範圍或資料修訂會重新讀取；單純切回分頁保留原頁碼。讀取失敗按「重試」查原請求頁，不用重建預約或收入；完整資料頁的進階篩選不套用到此分頁。"
+],
     "modules": [
       "steamfoot",
       "spa"
@@ -679,12 +704,14 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "customer.read",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
-      "src/app/(dashboard)/dashboard/customers/[id]/records/page.tsx",
-      "src/app/(dashboard)/dashboard/customers/[id]/records/customer-consumption-filters.tsx",
-      "src/server/queries/customer-list-helpers.ts",
-      "src/server/queries/booking-participant-facts.ts"
-    ],
+  "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
+  "src/app/(dashboard)/dashboard/customers/[id]/records/page.tsx",
+  "src/app/(dashboard)/dashboard/customers/[id]/records/customer-consumption-filters.tsx",
+  "src/server/queries/customer-list-helpers.ts",
+  "src/server/queries/booking-participant-facts.ts",
+  "src/app/(dashboard)/dashboard/customers/_components/customer-detail-drawer-content.tsx",
+  "src/app/(dashboard)/dashboard/customers/_components/customer-panel-records.tsx"
+],
     "verification": "source-reviewed",
     "kind": "howto",
     "answer": "顧客資料頁分開列出預約與消費紀錄；消費可依期間、類型、付款方式及文字篩選。"
@@ -845,27 +872,30 @@ export const additionalGuides: OperationGuide[] = [
     "id": "D03",
     "category": "plans",
     "title": "在哪裡看剩餘堂數與到期日？",
-    "summary": "顧客摘要先列有效方案與剩餘；要看已預約、可再預約、效期或逐堂狀態，再從該卡的管理入口展開。",
-    "path": "顧客管理 → 顧客資料 → 方案",
+    "summary": "蒸足顧客「總覽」直接列方案的剩餘、已約、可約與到期日；逐堂狀態及調整從管理方案進入。",
+    "path": "顧客管理 → 顧客資料 → 總覽 → 方案／管理方案",
     "steps": [
-      "找到顧客目前有效方案摘要，核對方案名稱、剩餘與到期日。",
-      "在「總覽」直接核對剩餘、已約、可約堂數與到期日；要調整或查逐堂狀態，再點「管理方案」。",
-      "有多張方案時逐張核對，不只看合計。"
-    ],
+  "找到顧客目前有效方案摘要，核對方案名稱、剩餘與到期日。",
+  "在「總覽」先看「可預約 X 堂」與到期日，再核對剩餘及有值時顯示的「預約保留」；逐堂狀態或調整從「管理方案」進入。",
+  "有多張方案時逐張核對，不只看合計。"
+],
     "important": "已預約堂數占用可預約額度；畫面提示明細不一致時先查紀錄。",
     "success": "",
-    "keywords": "持有方案 方案摘要 管理方案 剩餘 可用 可預約 效期",
-    "details": [],
+    "keywords": "持有方案 方案摘要 管理方案 剩餘 可用 可預約 效期 總覽 已約 可約 下次使用 新購方案 可預約 預約保留 計算口徑 可預約 預約保留 計算口徑 可預約 預約保留 計算口徑 可預約 預約保留 計算口徑",
+    "details": [
+  "剩餘包含已保留但尚未完成的堂數；可約另扣已約堂數，兩者不是同一個數字。總覽摘要不表示已扣堂，實際完成仍按原流程。"
+],
     "modules": [
       "steamfoot"
     ],
     "permission": "wallet.read",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/customers/[id]/assign-plan-form.tsx",
-      "src/app/(dashboard)/dashboard/customers/[id]/extend-wallet-expiry-form.tsx",
-      "src/app/(dashboard)/dashboard/customers/[id]/adjust-wallet-form.tsx"
-    ],
+  "src/app/(dashboard)/dashboard/customers/[id]/assign-plan-form.tsx",
+  "src/app/(dashboard)/dashboard/customers/[id]/extend-wallet-expiry-form.tsx",
+  "src/app/(dashboard)/dashboard/customers/[id]/adjust-wallet-form.tsx",
+  "src/app/(dashboard)/dashboard/customers/_components/customer-detail-drawer-content.tsx"
+],
     "verification": "source-reviewed",
     "kind": "howto",
     "answer": "剩餘堂數不一定全都能再預約，還要扣除已被預約保留的堂數，並確認到期日。"
@@ -1189,39 +1219,42 @@ export const additionalGuides: OperationGuide[] = [
     "summary": "提醒面板依通知對象分頁；顧客通知以完整設定列顯示，店長通知先選收件人，發送紀錄另有入口。",
     "path": "設定 → 通知與顧客經營 → 提醒管理",
     "steps": [
-      "開啟提醒管理；桌機在設定側邊面板、手機在滿版面板操作。",
-      "選顧客通知、店長通知或技師／老師／教練通知（依模組與門市稱呼顯示）；發送紀錄位於右側。顧客通知直接列出預約、關懷、方案，工單開通時才顯示取件提醒。",
-      "店長通知先選「通知收件人」，再調整這位人員的個別開關；各列可展開預覽。開關各自儲存，數位管家不受個人 LINE 偏好影響。顧客通知一次展開一列，切換時保留草稿；文字須儲存才生效，取消會還原。實際發送結果另從發送紀錄查。"
-    ],
+  "開啟提醒管理；桌機在設定側邊面板、手機在滿版面板操作。",
+  "選顧客通知、店長通知或技師／老師／教練通知（依模組與門市稱呼顯示）；發送紀錄位於右側。顧客通知直接列出預約、關懷、方案，工單開通時才顯示取件提醒。",
+  "店長通知先選「通知收件人」，再調整這位人員的個別開關；各列可展開預覽。開關各自儲存，數位店長不受個人 LINE 偏好影響。顧客通知一次展開一列，切換時保留草稿；文字須儲存才生效，取消會還原。實際發送結果另從發送紀錄查。"
+],
     "important": "顧客與店長是不同收件對象；開啟前先核對。預覽按鈕不跳轉業務操作、不發 LINE，不需為了看樣式建立真實預約或收款。",
     "success": "各分頁的設定符合預期。",
-    "keywords": "LINE 通知 開關 提醒 設定側邊面板 顧客提醒 店長通知 工單待取件 發送紀錄 提醒類型 下拉選單 預約前 體驗後 方案使用 查看訊息預覽 通知類型 通知分類 設定提醒 收合 精簡列 Email 額度 Flex 示範資料 9種",
+    "keywords": "LINE 通知 開關 提醒 設定側邊面板 顧客提醒 店長通知 工單待取件 發送紀錄 提醒類型 下拉選單 預約前 體驗後 方案使用 查看訊息預覽 通知類型 通知分類 設定提醒 收合 精簡列 Email 額度 Flex 示範資料 9種 核准恢復時間 舊事件不補發 數位店長 最新消息 歷史訊息",
     "details": [
-      planActivationGuideDetail,
-      "編輯列收合時會保留草稿；切換分頁或關閉面板前，請先儲存需要保留的內容。正在儲存時，切換或關閉會先阻擋。一般表單依序送出；店長通知的不同個別開關各自儲存，只鎖定正在處理的同一項。若失敗會保留未送出的畫面值並顯示錯誤，不要把畫面切換當成成功。顯示摘要不等於已送出任何通知。",
-      "蒸足的店長預覽列出 9 種示範：當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、要求真人客服、真人客服催辦、待確認付款、服務未完成、每日待辦摘要。實際發送仍依門市業務事件與收件人偏好，不會因切換預覽而啟用。",
-      "預覽類型數不等於個別開關數；真人客服催辦共用「要求真人客服」開關。運動／音樂店長預覽是適用的 7 種，入口與差異見 C123。",
-      "預覽只供查看卡片內容與風格；實際 LINE 排版、門市及按鈕目的地仍須在 LINE 核對，不能以預覽代替送達驗收。",
-      "店長通知的進階區另有 LINE 額度 Email 通知；它寄給本店啟用中老闆的登入信箱，與下方店長 LINE 綁定及個別提醒開關不同，操作見 F13。",
-      "切換提醒分頁只讀該分頁需要的資料；畫面保留讀取回饋，關閉設定視窗會回原設定位置，不必等待整個後台重新載入。空白或讀取中不代表設定被刪除。"
-    ],
+  "LINE 外發改依核准切換時間控管：時間未設定、格式無效或尚未到時仍停送；已恢復也只送符合時間及偏好的新事件，不補送舊佇列。LINE 入站身分處理另行核對，不能因沒有回覆就重複綁定；見 F14。",
+  planActivationGuideDetail,
+  "編輯列收合時會保留草稿；切換分頁或關閉面板前，請先儲存需要保留的內容。正在儲存時，切換或關閉會先阻擋。一般表單依序送出；店長通知的不同個別開關各自儲存，只鎖定正在處理的同一項。若失敗會保留未送出的畫面值並顯示錯誤，不要把畫面切換當成成功。顯示摘要不等於已送出任何通知。",
+  "蒸足的店長預覽列出 9 種示範：當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、要求真人客服、真人客服催辦、待確認付款、服務未完成、每日待辦摘要。實際發送仍依門市業務事件與收件人偏好，不會因切換預覽而啟用。",
+  "預覽類型數不等於個別開關數；真人客服催辦共用「要求真人客服」開關。運動／音樂店長預覽是適用的 7 種，入口與差異見 C123。",
+  "預覽只供查看卡片內容與風格；實際 LINE 排版、門市及按鈕目的地仍須在 LINE 核對，不能以預覽代替送達驗收。",
+  "店長通知的進階區另有 LINE 額度 Email 通知；它寄給本店啟用中老闆的登入信箱，與下方店長 LINE 綁定及個別提醒開關不同，操作見 F13。",
+  "切換提醒分頁只讀該分頁需要的資料；畫面保留讀取回饋，關閉設定視窗會回原設定位置，不必等待整個後台重新載入。空白或讀取中不代表設定被刪除。" ,
+"頂欄後台訊息改稱「數位店長」，最新消息／歷史訊息與已讀規則見 DM01。它與本頁 LINE 預覽分開；LINE 預覽仍可能保留「數位管家新名單」等事件名稱，不可把面板已讀當作 LINE 送達。"
+],
     "modules": [
-      "steamfoot",
-      "spa"
-    ],
+  "steamfoot",
+  "spa"
+],
     "permission": "business_hours.manage",
     "feature": "line_reminder",
     "sources": [
-      "src/app/(dashboard)/dashboard/reminders/page.tsx",
-      "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
-      "src/app/(dashboard)/dashboard/reminders/line-notification-recipients-card.tsx",
-      "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
-      "src/lib/manager-notification-preview.ts",
-      "src/lib/manager-notification-preferences.ts",
-      "src/app/(dashboard)/dashboard/reminders/reminder-section-picker.tsx",
-      "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
-      "src/app/(dashboard)/dashboard/reminders/reminder-panel-reader.tsx"
-    ],
+  "src/app/(dashboard)/dashboard/reminders/page.tsx",
+  "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
+  "src/app/(dashboard)/dashboard/reminders/line-notification-recipients-card.tsx",
+  "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
+  "src/lib/manager-notification-preview.ts",
+  "src/lib/manager-notification-preferences.ts",
+  "src/app/(dashboard)/dashboard/reminders/reminder-section-picker.tsx",
+  "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
+  "src/app/(dashboard)/dashboard/reminders/reminder-panel-reader.tsx",
+  "src/lib/line-delivery-pause.ts"
+],
     "verification": "source-reviewed",
     "kind": "howto",
     "answer": "顧客提醒、店長通知與發送紀錄分開；修改其中一邊不代表另一邊已開啟，也不代表訊息已送達。"
@@ -1232,11 +1265,7 @@ export const additionalGuides: OperationGuide[] = [
     "title": "當日臨時預約，要怎麼通知店長？",
     "summary": "蒸足的當日預約店長通知需開啟對應設定，並確認收件人已完成 LINE 綁定。",
     "path": "提醒管理 → 店長通知",
-    "steps": [
-      "在店長通知找到正確收件人，確認 LINE 已綁定並開啟「接收 LINE 通知」。",
-      "選擇「通知收件人」，核對這位人員的「當日新預約」開關；變更後等待「已儲存」。",
-      "要看卡片樣式時展開「當日新預約」列的「預覽」；實際發送結果從發送紀錄核對。"
-    ],
+    "steps": ["在店長通知選擇「通知收件人」，核對本店 LINE 通知與此人的接收設定。","核對所選人員的當日新預約開關，等待已儲存。","在該通知列展開預覽查看示範卡片；預覽不發LINE、不建立真實預約，發送結果另查紀錄。"],
     "important": "接收人需完成本店 LINE 綁定；示範預覽不發送通知，也不能測試綁定或送達，不要為看樣式新增真實預約。",
     "success": "開關與收件人正確，能追查通知結果。",
     "keywords": "當天 臨時預約 店長通知 當日新預約 查看訊息預覽 通知類型 Flex 示範資料",
@@ -1266,60 +1295,66 @@ export const additionalGuides: OperationGuide[] = [
     "id": "F04",
     "category": "care",
     "title": "LINE 沒收到通知，先檢查什麼？",
-    "summary": "先找發送紀錄：沒有紀錄時查是否符合觸發條件；有失敗紀錄時依錯誤原因處理。",
+    "summary": "先分辨系統切換時間、店家與個人開關、事件時間及發送紀錄；未收到不直接重綁或重送。",
     "path": "提醒管理 → 發送紀錄",
     "steps": [
-      "用發送紀錄確認該訊息是成功、失敗還是尚未發送。",
-      "核對正確門市、通知規則、發送時間及收件身分；店長通知再查該收件人的 LINE 綁定、接收總開關與個別偏好。",
-      "若失敗，保留原因，檢查綁定與官方帳號狀態後處理；收到 LINE 額度 Email 時，另確認是分店或共用 LINE、剩餘額度及每日失敗摘要。"
-    ],
+  "先核對系統是否已過核准恢復時間、該事件是否為切換後的新事件，再查本店與個人開關及發送紀錄。",
+  "用發送紀錄確認該訊息是成功、失敗還是尚未發送。",
+  "核對正確門市、通知規則、發送時間及收件身分；店長通知再查該收件人的 LINE 綁定、接收總開關與個別偏好。",
+  "若失敗，保留原因，檢查綁定與官方帳號狀態後處理；收到 LINE 額度 Email 時，另確認是分店或共用 LINE、剩餘額度及每日失敗摘要。"
+],
     "important": "沒有紀錄與發送失敗不是同一件事；不要直接重複發送。預覽看起來正確或發送紀錄顯示成功，不代表本人已在 LINE 看見或點過連結。",
     "success": "",
-    "keywords": "收不到 漏發 失敗 紀錄 體驗預約 通知尚未完成 LINE 額度 Email 80% 95% 用完 每日失敗摘要 共用LINE 分店LINE 通知已連結 店長 Flex 文字 重試 保存卡片 收件人偏好 登入前持續有效 撤銷登入授權 會員登入待確認 確認通知連結 允許重新登入 LINE 通知設定完成 簡短回覆",
+    "keywords": "LINE 健康清單 正式店 未設定 收不到 漏發 失敗 紀錄 體驗預約 通知尚未完成 LINE 額度 Email 80% 95% 用完 每日失敗摘要 共用LINE 分店LINE 通知已連結 店長 Flex 文字 重試 保存卡片 收件人偏好 登入前持續有效 撤銷登入授權 會員登入待確認 確認通知連結 允許重新登入 LINE 通知設定完成 簡短回覆 系統暫停 全站停送 推播 回覆 delivery_paused 核准恢復時間 舊事件不補發",
     "details": [
-      "新版店長自動通知的 9 種店務事件使用 Flex 卡片；系統重試沿用該次已保存的卡片內容。舊紀錄若沒有保存卡片，仍以原文字重試，所以舊通知顯示文字不一定是異常。",
-      "上述卡片範圍是當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、真人客服要求與催辦、待確認付款、服務未完成／出席待處理及每日待辦。週報、LINE 綁定回覆與顧客手動訊息不在此範圍；原觸發規則不因卡片樣式改變。",
-      "課程顧客收到的改期、取消、確認會到與續購提醒是另一種用途，請看 C167；不要拿店長示範卡片測試顧客操作。",
-      "公開體驗完成頁的「體驗預約成功」與 LINE 通知狀態是兩件事。若預約已成功但通知尚未完成，不要重複預約；先依 F12 核對完成頁顯示的狀態。",
-      "加入官方 LINE、送出電話或開啟設定連結都不等於通知已成功。以完成頁的「LINE 通知已連結」、LINE 回覆「通知設定完成」及後續發送紀錄分別核對。",
-      "通知設定完成不代表會員已能登入。蒸足顧客登入時若出現確認碼，請在顧客資料的「本店會員與 LINE」核對本人、手機及同一組確認碼，再按「已核對本人與確認碼，允許重新登入」。請顧客重新進入會員專區完成登入；後台顯示已授權時，仍不代表顧客已登入。",
-      "尚未核對的登入申請逾時時，請顧客重新提交，由店家核對新的確認碼。透過會員登入確認完成本人核對後，指定 LINE 身分的授權會持續有效到完成登入，或由有權限人員撤銷；不因等待天數失效。不要反覆設定通知、重新註冊或解除原 LINE 綁定。",
-      "後台的會員資料、登入與通知分列；「已核對本人，確認通知連結」只處理 LINE 通知，「允許重新登入」只授權登入恢復，兩者不能互相代替。工單待取件通知也不能把登入申請當成有效通知收件連結。",
-      "若 LINE 對話當時正在回答數位管家問題，電話格式正確但選單不接受輸入時，系統會改回報綁定結果；不要因原選單錯誤就反覆送出電話。",
-      "課程門市共用同一官方 LINE 時，通知連結仍須保留門市；未知好友或一般聊天不會猜門市、建立顧客或跨店綁定。",
-      "使用中央 LINE Login 的課程門市，既有學員通知已綁定但尚無登入連結時，可在會員登入提交資料取得確認碼。後台顧客資料的「本店會員與 LINE」會列出會員登入待確認，由具顧客修改權限者核對本人與同碼，再允許重新登入；完成後沿用原學員與方案。獨立 LINE Provider 仍走該店原核對流程。",
-      "蒸足一般聊天室直接送出手機可設定本店通知，不再要求會員確認碼；它只匹配唯一顧客並處理通知對象，不建立登入帳號。查無資料、同電話多筆或已有其他有效 LINE 時仍要店長核對，不能反覆重綁。",
-      "後台的「會員已連結／本店通知尚未確認」是不同摘要，不能單憑文字推定本次登入成功或通知故障；仍核對發送紀錄與實際通道。工單本店 QR 連結及課程共享官方 LINE 保留自己的確認流程。",
-      "蒸足一般手機通知綁定成功，現在簡短回覆「LINE 通知設定完成！」並提醒保持好友且未封鎖，不再附登入處理步驟；不是漏掉核准。通知成功不代表已登入，登入問題另外由後台核對本人，不反覆綁定通知。",
-      "LINE 額度 Email 的每日失敗摘要是紀錄數，可能含重試，不等於未收到訊息的顧客人數。寄信服務接受、發送紀錄成功與本人實際收信／閱讀仍是三件事；操作見 F13。"
-    ],
+  "LINE 外發改依核准切換時間控管：時間未設定、格式無效或尚未到時仍停送；已恢復也只送符合時間及偏好的新事件，不補送舊佇列。LINE 入站身分處理另行核對，不能因沒有回覆就重複綁定；見 F14。",
+  "公開體驗已先驗證 LINE 且身分能安全對應時，可沿用已驗證身分銜接首次會員登入；仍有衝突、不同 Provider 或未完成設定時須門市核對，不能只憑電話接管。入口核對與通知連結排錯見 F12；不要求所有顧客都重輸電話或人工核准。",
+  "LINE 官方帳號健康清單也列出未設定獨立 LINE 的正式音樂、運動與美業店，未設定不等於已完成串接。查看目前店狀態仍受權限、提醒功能及門市範圍限制；檢測不發顧客訊息，正常連線不代表每筆通知已送達。",
+  "新版店長自動通知的 9 種店務事件使用 Flex 卡片；系統重試沿用該次已保存的卡片內容。舊紀錄若沒有保存卡片，仍以原文字重試，所以舊通知顯示文字不一定是異常。",
+  "上述卡片範圍是當日新預約、新體驗預約、VIP 續購需求、數位管家新名單、真人客服要求與催辦、待確認付款、服務未完成／出席待處理及每日待辦。週報、LINE 綁定回覆與顧客手動訊息不在此範圍；原觸發規則不因卡片樣式改變。",
+  "課程顧客收到的改期、取消、確認會到與續購提醒是另一種用途，請看 C167；不要拿店長示範卡片測試顧客操作。",
+  "公開體驗完成頁的「體驗預約成功」與 LINE 通知狀態是兩件事。若預約已成功但通知尚未完成，不要重複預約；先依 F12 核對完成頁顯示的狀態。",
+  "加入官方 LINE、送出電話或開啟設定連結都不等於通知已成功。以完成頁的「LINE 通知已連結」、LINE 回覆「通知設定完成」及後續發送紀錄分別核對。",
+  "通知設定完成不代表會員已能登入。蒸足顧客登入時若出現確認碼，請在顧客資料的「本店會員與 LINE」核對本人、手機及同一組確認碼，再按「已核對本人與確認碼，允許重新登入」。請顧客重新進入會員專區完成登入；後台顯示已授權時，仍不代表顧客已登入。",
+  "尚未核對的登入申請逾時時，請顧客重新提交，由店家核對新的確認碼。透過會員登入確認完成本人核對後，指定 LINE 身分的授權會持續有效到完成登入，或由有權限人員撤銷；不因等待天數失效。不要反覆設定通知、重新註冊或解除原 LINE 綁定。",
+  "後台的會員資料、登入與通知分列；「已核對本人，確認通知連結」只處理 LINE 通知，「允許重新登入」只授權登入恢復，兩者不能互相代替。工單待取件通知也不能把登入申請當成有效通知收件連結。",
+  "若 LINE 對話當時正在回答數位管家問題，電話格式正確但選單不接受輸入時，系統會改回報綁定結果；不要因原選單錯誤就反覆送出電話。",
+  "課程門市共用同一官方 LINE 時，通知連結仍須保留門市；未知好友或一般聊天不會猜門市、建立顧客或跨店綁定。",
+  "蒸足一般聊天室直接送出手機可設定本店通知，不再要求會員確認碼；它只匹配唯一顧客並處理通知對象，不建立登入帳號。查無資料、同電話多筆或已有其他有效 LINE 時仍要店長核對，不能反覆重綁。",
+  "後台的「會員已連結／本店通知尚未確認」是不同摘要，不能單憑文字推定本次登入成功或通知故障；仍核對發送紀錄與實際通道。工單本店 QR 連結及課程共享官方 LINE 保留自己的確認流程。",
+  "蒸足一般手機通知綁定成功，現在簡短回覆「LINE 通知設定完成！」並提醒保持好友且未封鎖，不再附登入處理步驟；不是漏掉核准。通知成功不代表已登入，登入問題另外由後台核對本人，不反覆綁定通知。",
+  "LINE 額度 Email 的每日失敗摘要是紀錄數，可能含重試，不等於未收到訊息的顧客人數。寄信服務接受、發送紀錄成功與本人實際收信／閱讀仍是三件事；操作見 F13。",
+  "使用中央 LINE Login 的課程門市，既有學員通知已綁定但尚無登入連結時，可在會員登入提交資料取得確認碼。後台顧客資料的「本店會員與 LINE」會列出會員登入待確認，由具顧客修改權限者核對本人與同碼，再允許重新登入；完成後沿用原學員與方案。獨立 LINE Provider 仍走該店原核對流程。"
+],
     "modules": [
-      "steamfoot",
-      "spa",
-      "course"
-    ],
+  "steamfoot",
+  "course",
+  "beauty"
+],
     "permission": "business_hours.manage",
     "feature": "line_reminder",
     "sources": [
-      "src/app/(dashboard)/dashboard/reminders/page.tsx",
-      "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
-      "src/app/api/line/webhook/route.ts",
-      "src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx",
-      "src/server/services/configured-course-line-webhook.ts",
-      "src/server/services/manager-notification-delivery.ts",
-      "src/lib/manager-notification-preferences.ts",
-      "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
-      "docs/manager-line-flex-inventory.md",
-      "src/components/admin/store-member-connection-panel.tsx",
-      "src/server/services/liff-login-recovery.ts",
-      "src/server/services/store-member-connection.ts",
-      "src/server/services/work-order-ready-notification.ts",
-      "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
-      "src/server/services/line-quota-monitor.ts"
-    ],
+  "src/app/(dashboard)/dashboard/reminders/page.tsx",
+  "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
+  "src/app/api/line/webhook/route.ts",
+  "src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx",
+  "src/server/services/configured-course-line-webhook.ts",
+  "src/server/services/manager-notification-delivery.ts",
+  "src/lib/manager-notification-preferences.ts",
+  "src/app/(dashboard)/dashboard/reminders/manager-notification-preview.tsx",
+  "docs/manager-line-flex-inventory.md",
+  "src/components/admin/store-member-connection-panel.tsx",
+  "src/server/services/liff-login-recovery.ts",
+  "src/server/services/store-member-connection.ts",
+  "src/server/services/work-order-ready-notification.ts",
+  "src/app/(dashboard)/dashboard/reminders/line-quota-email-setting.tsx",
+  "src/server/services/line-quota-monitor.ts",
+  "src/lib/line-delivery-pause.ts",
+  "src/lib/line.ts"
+],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
-    "answer": "先找發送紀錄：沒有紀錄時查是否符合觸發條件；有失敗紀錄時依錯誤原因處理。"
+    "answer": "系統切換時間與店家總開關、個人偏好分開；入站綁定可獨立處理，不能只憑有無回覆判斷原業務結果。"
   },
   {
     "id": "F06",
@@ -2248,7 +2283,7 @@ export const additionalGuides: OperationGuide[] = [
     "important": "匯出內容不含健康評估、內部備註、LINE／Messenger ID 或憑證。",
     "success": "下載到 Excel 檔，內容符合所選類型與期間。",
     "keywords": "匯出 Excel 報表 下載 交易 預約 方案",
-    "details": [
+    "details": ["下載前先核對門市、期間、類型、狀態及日期口徑摘要；舊資料匯出網址會轉入報表匯出，保留原查詢。唯讀視角不能下載；功能未開通或無權限不代表沒有資料，錯誤就地顯示，勿反覆提交。",
       "若有顧客匯出權限，也可選顧客資料；此時日期指顧客建立期間，不是到店或消費期間。"
     ],
     "modules": [
@@ -2689,21 +2724,20 @@ export const additionalGuides: OperationGuide[] = [
     "title": "體驗預約成功，但 LINE 通知尚未完成怎麼辦？",
     "summary": "先保留已成功的預約，再依完成頁顯示的通知狀態處理；通知未完成不代表時段沒有保留。",
     "answer": "先保留已成功的預約，再依完成頁顯示的通知狀態處理；通知未完成不代表時段沒有保留。",
-    "path": "公開體驗預約完成頁 → LINE 通知狀態",
+    "path": "設定 → 店家資料 → 公開預約 LINE 入口；顧客管理 → 會員與 LINE 資料；發送紀錄",
     "steps": [
-      "先確認完成頁顯示「體驗預約成功」，並記下日期、時間、人數與門市；不要為了補通知重新預約。",
-      "若顯示「LINE 通知已連結」，不必再輸入電話；請顧客保持該門市官方 LINE 為好友且未封鎖。",
-      "若顯示通知尚未完成並提供「開啟 LINE 完成通知設定」，請顧客在 24 小時內用自己的手機開啟，送出自動帶入的驗證訊息；看到「通知設定完成」才算完成。",
-      "若畫面要求聯繫門市，或 LINE 回覆連結失效、身分衝突、暫時無法完成，保留畫面與預約資料，由店家核對；不要解除既有綁定或新建同名顧客。"
+      "先在後台核對原體驗預約的門市、顧客與日期；體驗預約成功但通知尚未完成時，不重複新增預約。",
+      "到設定的公開預約 LINE 入口核對本店連結；使用複製連結分享或放圖文選單。尚未設定時先完成本店 OA 設定，不借其他店連結。",
+      "在顧客資料核對會員登入與本店通知連結，並查發送紀錄；身分衝突交由門市核對本人，不解除既有綁定或新建同名顧客。"
     ],
-    "important": "專屬通知設定連結只能由顧客本人使用，不可轉傳。預約提醒及體驗後關懷仍受店家開關、發送時間、好友與封鎖狀態影響。",
-    "success": "完成頁顯示已連結，或 LINE 回覆「通知設定完成」；預約資料仍維持原日期與時段。",
-    "keywords": "體驗預約成功 通知尚未完成 LINE 通知已連結 通知設定完成 24 小時 專屬連結 不用再輸入電話 身分衝突",
+    "important": "LINE 通知已連結、通知設定完成、會員已登入與訊息已送達是不同結果；店家須分別核對，不以電話或好友狀態當成身分證明。",
+    "success": "本店入口與原預約可對應；失敗只處理原預約的通知連結，沒有重複預約或覆寫其他會員。",
+    "keywords": "體驗預約成功 通知尚未完成 LINE 通知已連結 通知設定完成 公開預約 LINE 入口 複製連結 圖文選單 身分衝突 門市核對",
     "details": [
-      "竹北、新竹與台中的已設定 LINE 體驗入口，會在驗證門市與 LINE 身分後回傳明確通知狀態；電話仍在表單填一次，不需再到官方 LINE 輸入。一般公開表單仍可預約，但只有加入好友或填電話，不足以證明通知綁定完成。",
-      "一次性 24 小時設定連結只在系統判定可安全設定時提供。既有顧客尚未綁定或身分不一致時，系統不會只憑電話產生可覆蓋綁定的連結，而是顯示需要門市協助。",
-      "連結失效、已使用或不適用本店時，若先前已看到通知設定完成，不必重做；否則請店家核對。LINE 已屬於其他顧客時，原綁定不會被改寫。",
-      "通知設定成功不等於訊息已發送。實際提醒與隔日關懷需另外查看店家設定、觸發條件及發送紀錄；不要為測試單一顧客而啟動全店群發。"
+      "共用入口優先驗證 LINE 再預約，既有分享網址沿用本店設定。新客已驗證且能安全對應的通知身分可銜接首次會員登入；跨 Provider 或既有衝突仍保留核對，不會只憑電話產生可覆蓋綁定的連結，不能保證所有人直接登入。",
+      "總部可在門市詳情核對公開預約 LINE 入口。複製受瀏覽器限制時，使用畫面提供的手動複製欄位；不要自行拼接另一家店或中央帳號的連結。",
+      "通知連結暫時失敗會保留已成功預約，只重試原請求；一次性憑證過期時由原流程重新取得，不重建同筆預約。舊連結僅作歷史核對，不提供前台逐步教學。",
+      "通知設定成功不等於訊息已發送。實際提醒與隔日關懷另看店家開關、觸發條件及發送紀錄；不要為測試而群發。"
     ],
     "modules": [
       "steamfoot"
@@ -2715,7 +2749,10 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx",
       "src/server/actions/public-trial-booking.ts",
       "src/server/services/trial-notification-binding.ts",
-      "src/app/api/line/webhook/route.ts"
+      "src/app/api/line/webhook/route.ts",
+      "src/components/settings/public-booking-link-row.tsx",
+      "src/server/services/public-trial-login-customer.ts",
+      "src/server/services/verified-notification-first-login.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting"
