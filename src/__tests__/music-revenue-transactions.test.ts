@@ -18,7 +18,7 @@ it("updates authoritative rows in place, preserves the draft and ignores older r
   id:"same",storeId:"synthetic",customerId:"learner",planId:"plan",name:"方案商品1期",
   date:"2026/10/16",customerName:"測試學員",unit:"SESSION",points:8,remaining:2,price,status:"CONFIRMED",
   musicTermSizes:[4,4],musicBonusLessons:0,musicManualBonus:0,musicJoinSessionId:null,
-  sportsMode:"LEGACY",sportsSubjectId:null,sportsCost:null,termSessionIds:[],templateIds:[],validDays:70,
+  sportsMode:"LEGACY",sportsSubjectIds:[],sportsSubjectId:null,sportsCost:null,termSessionIds:[],templateIds:[],validDays:70,
   transferLastFive:"",transferLastFour:null,requestKey:"fixture",cardId:"card",note:"",
   createdAt:new Date("2026-10-16T00:00:00Z"),confirmedAt:new Date("2026-10-16T00:00:00Z"),confirmedBy:null,
   voidedAt:null,voidedBy:null,voidReason:null,revenueStaffId:null,

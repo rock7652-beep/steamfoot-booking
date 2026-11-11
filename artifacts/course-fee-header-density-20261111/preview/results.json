@@ -1,0 +1,40 @@
+{
+  "synthetic": true,
+  "results": [
+    {
+      "width": 1366,
+      "height": 900,
+      "passed": true
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "passed": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "passed": true
+    },
+    {
+      "width": 600,
+      "height": 800,
+      "passed": true
+    }
+  ],
+  "checks": [
+    "A/B/unknown isolation",
+    "grouped music",
+    "direct link scope",
+    "single title and inline return action",
+    "new fee subject prefill",
+    "pending review entry",
+    "empty search"
+  ],
+  "errors": []
+}

@@ -173,6 +173,7 @@ export async function loadSportsStaging(formOnly = false, scheduleOptionsOnly = 
         subject: p.sportsSubjectId??t?.musicSubjectId ?? t?.id ?? "",
         chargeSettings:p.chargeSettings,
         sportsMode:p.sportsMode,
+        subjects:p.sportsSubjectIds,
         name: p.name,
         unit: p.unit === "POINT" ? "點數" : "堂數",
         amount: p.points,
@@ -391,7 +392,8 @@ export async function saveSportsFee(input: unknown) {
         compensation: sportsCompensation.optional(),
         expectedCompensation: sportsCompensation.nullable().optional(),
         id: id.optional(),
-        sportsMode:z.enum(["LEGACY","ASSIGNED","OPEN"]).default("LEGACY"),
+        sportsMode:z.enum(["LEGACY","ASSIGNED","OPEN","SUBJECTS"]).default("LEGACY"),
+        subjectIds:z.array(id).min(1).max(200).refine(ids=>new Set(ids).size===ids.length,"教學項目不可重複").optional(),
         subject: id.optional(),
         name: z.string().trim().min(1).max(80),
         unit: z.enum(["點數", "堂數"]),
@@ -407,6 +409,8 @@ export async function saveSportsFee(input: unknown) {
       })
       .parse(input);
     const { storeId } = await actor("plans.edit");
+    if(d.subjectIds){d.sportsMode=d.subjectIds.length===1?"ASSIGNED":"SUBJECTS";d.subject=d.subjectIds[0];}
+    if(d.sportsMode==='SUBJECTS'&&!d.subjectIds)throw new AppError('VALIDATION','請選擇適用教學項目');
     if(d.sportsMode==='OPEN')throw new AppError('VALIDATION','請選擇方案適用科目；開放選課與指定學員不再區分方案');
     const base: Partial<z.infer<typeof coursePlanValues>> = d.snapshot
       ? coursePlanValues.parse(JSON.parse(d.snapshot))
@@ -431,7 +435,8 @@ export async function saveSportsFee(input: unknown) {
       templateIds: d.sportsMode==="LEGACY"&&preservesTeaching?base.templateIds??[]:[],
       sportsMode:d.sportsMode,
       sportsSubjectId:d.sportsMode==="ASSIGNED"?d.subject??null:null,
-      sportsCost:d.sportsMode==="ASSIGNED"?(d.unit==="堂數"?1:d.cost):null,
+      sportsSubjectIds:d.sportsMode==="SUBJECTS"?[...d.subjectIds!].sort():[],
+      sportsCost:(d.sportsMode==="ASSIGNED"||d.sportsMode==="SUBJECTS")?(d.unit==="堂數"?1:d.cost):null,
       sportsSetup: d.sportsMode==="LEGACY"&&!preservesTeaching?{
         compensation: d.compensation,
         expectedCompensation: d.expectedCompensation,

@@ -2,12 +2,15 @@ import {courseChargeSettings} from "./course-charge-settings";
 import { z } from "zod";
 import { musicSubjectRuleSchema } from "@/lib/music-subject-rule";
 const id=z.string().min(1).max(100);
+// Current scope plus template and provider snapshots must fit when all 200 items are selected.
+export const COURSE_PLAN_SNAPSHOT_MAX=80000;
 export const coursePlanValues = z
       .object({
         id: id.optional(),
         chargeSettings:courseChargeSettings.nullable().default(null),
-        sportsMode: z.enum(["LEGACY", "ASSIGNED", "OPEN"]).default("LEGACY"),
+        sportsMode: z.enum(["LEGACY", "ASSIGNED", "OPEN", "SUBJECTS"]).default("LEGACY"),
         sportsSubjectId: id.nullable().default(null),
+        sportsSubjectIds:z.array(id).max(200).default([]),
         sportsCost: z.number().int().min(1).max(10000).nullable().default(null),
         musicSetup: musicSubjectRuleSchema.optional(),
         name: z.string().trim().min(1).max(80),
@@ -27,5 +30,5 @@ export const coursePlanValues = z
       });
 
 export const coursePlanReceipt=z.object({expectedStoreId:id,requestKey:z.string().uuid()});
-export const coursePlanSaveInput=coursePlanValues.extend({expectedSnapshot:z.string().max(30000).optional()}).merge(coursePlanReceipt).refine(row=>!row.id||!!row.expectedSnapshot);
-export const savedCoursePlan=coursePlanValues.omit({musicSetup:true}).extend({sportsMode:z.enum(["LEGACY","ASSIGNED","OPEN"]).optional(),sportsSubjectId:id.nullable().optional(),sportsCost:z.number().int().min(1).max(10000).nullable().optional(),id,lowBalanceEnabled:z.boolean(),lowBalanceThreshold:z.number().nullable()});
+export const coursePlanSaveInput=coursePlanValues.extend({expectedSnapshot:z.string().max(COURSE_PLAN_SNAPSHOT_MAX).optional()}).merge(coursePlanReceipt).refine(row=>!row.id||!!row.expectedSnapshot);
+export const savedCoursePlan=coursePlanValues.omit({musicSetup:true}).extend({sportsMode:z.enum(["LEGACY","ASSIGNED","OPEN","SUBJECTS"]).optional(),sportsSubjectId:id.nullable().optional(),sportsSubjectIds:z.array(id).max(200).optional(),sportsCost:z.number().int().min(1).max(10000).nullable().optional(),id,lowBalanceEnabled:z.boolean(),lowBalanceThreshold:z.number().nullable()});

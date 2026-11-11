@@ -411,7 +411,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
     trail.current = [];
     requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, 0)));
   }
-  const rightsFor = (s:Session,c:{planId?:string;id:string;unit:string;templateIds:string[];sportsMode?:string;sportsSubjectId?:string|null;sportsCost?:number|null;templateRestricted?:boolean}) => resolveSportsEntitlement({...c,planId:c.planId??c.id},{templateId:s.templateId,subjectId:s.sportsSubjectId??null,pointCost:s.cost,enrollment:s.sportsEnrollment==="OPEN"?"OPEN":s.sportsEnrollment==="ASSIGNED"?"ASSIGNED":null,legacyPlanId:s.sportsPlanId??null,compatibleTemplateIds:s.compatibleTemplateIds});
+  const rightsFor = (s:Session,c:{planId?:string;id:string;unit:string;templateIds:string[];sportsMode?:string;sportsSubjectId?:string|null;sportsSubjectIds?:string[];sportsCost?:number|null;templateRestricted?:boolean}) => resolveSportsEntitlement({...c,planId:c.planId??c.id},{templateId:s.templateId,subjectId:s.sportsSubjectId??null,pointCost:s.cost,enrollment:s.sportsEnrollment==="OPEN"?"OPEN":s.sportsEnrollment==="ASSIGNED"?"ASSIGNED":null,legacyPlanId:s.sportsPlanId??null,compatibleTemplateIds:s.compatibleTemplateIds});
   const eligible = (s: Session) =>
     p.cards
       .filter(

@@ -30,3 +30,14 @@ it('subject-scoped plans work with either enrollment mode while old unscoped pro
  expect(coursePlanModeAllowed({selfBookingEnabled:false,assignedSchedulingEnabled:false},'ASSIGNED')).toBe(false);
  expect(coursePlanModeAllowed({selfBookingEnabled:true,assignedSchedulingEnabled:true},'OPEN')).toBe(false);
 });
+it('multi-subject plans obey the same current store scheduling gate on client and server',async()=>{
+ const {coursePlanModeAllowed}=await import('@/lib/course-scheduling-modes');
+ const {assertCoursePlanMode}=await import('@/server/services/course-scheduling-modes');
+ for(const [open,assigned] of [[true,true],[true,false],[false,true],[false,false]]){
+  const rule={selfBookingEnabled:open,assignedSchedulingEnabled:assigned};
+  const tx={courseBookingRule:{findUnique:async()=>rule}};
+  expect(coursePlanModeAllowed(rule,'SUBJECTS')).toBe(open||assigned);
+  if(open||assigned)await expect(assertCoursePlanMode(tx,'store','SUBJECTS')).resolves.toBeUndefined();
+  else await expect(assertCoursePlanMode(tx,'store','SUBJECTS')).rejects.toThrow('尚未開放排課');
+ }
+});

@@ -14,6 +14,9 @@ import {courseTransaction} from "@/server/services/course-access";
 import { lockCourseStore } from "@/server/services/course-store-lock";
 
 // Authorization/environment boundary only: business reads/writes and store locks use PostgreSQL.
+vi.mock("@/server/services/plan-activation-enqueue",()=>({enqueuePlanActivation:vi.fn()}));
+vi.mock("@/server/services/plan-activation-notification-kick",()=>({kickPlanActivationNotifications:vi.fn()}));
+vi.mock("@/server/services/course-sale-allocation",()=>({courseSaleSnapshot:async()=>({storeCostSnapshot:0,developerProfitSnapshot:0,developerNameSnapshot:null,revenueStaffId:null})}));
 vi.mock("@/lib/sports-native-preview", () => ({ sportsNativePreview: () => true }));
 vi.mock("@/lib/sports-staging", () => ({ requireSportsStaging: vi.fn(), sportsStagingEnabled: () => true }));
 vi.mock("@/server/services/sports-production-readiness", () => ({ sportsRulesAvailable: async () => true, assertSportsProductionReady: vi.fn(), assertSportsBookingReadReady: vi.fn() }));
@@ -29,6 +32,8 @@ const db = scoped ? new PrismaClient({ datasourceUrl: scoped.toString() }) : nul
 const database = () => { if (!db) throw new Error("Explicit isolated database required"); return db; };
 
 (url ? describe : describe.skip)("sports card modes — isolated PostgreSQL", () => {
+  let migrationAccessBefore:unknown;
+  const migrationAccess=()=>database().$queryRawUnsafe(`SELECT relname,relrowsecurity,relforcerowsecurity,relacl::text FROM pg_class WHERE relnamespace='${schema}'::regnamespace AND relname IN ('CoursePointPlan','CoursePointCard','CoursePurchase') ORDER BY relname`);
   beforeAll(async () => {
     vi.mocked(courseTransaction).mockImplementation(async(storeId,work)=>database().$transaction(async tx=>{await lockCourseStore(tx,storeId);return work(tx);}));
     await database().$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
@@ -37,10 +42,18 @@ const database = () => { if (!db) throw new Error("Explicit isolated database re
     for (const sql of ddl.split(";").map(s => s.trim()).filter(Boolean)) await database().$executeRawUnsafe(sql);
     // Rehearse the exact additive candidate against the complete generated schema.
     await database().$transaction(async tx=>{
-      for(const table of ["CoursePointPlan","CoursePurchase","CoursePointCard"])await tx.$executeRawUnsafe(`ALTER TABLE "${table}" DROP COLUMN "sportsMode", DROP COLUMN "sportsSubjectId", DROP COLUMN "sportsCost"`);
+      for(const table of ["CoursePointPlan","CoursePurchase","CoursePointCard"])await tx.$executeRawUnsafe(`ALTER TABLE "${table}" DROP COLUMN "sportsMode", DROP COLUMN "sportsSubjectId", DROP COLUMN "sportsCost", DROP COLUMN "sportsSubjectIds"`);
       const candidate=readFileSync("scripts/sql/sports-entitlement-candidate.sql","utf8").replace(/^--.*$/gm,"").replaceAll("public.",`"${schema}".`);
       for(const sql of candidate.split(";").map(s=>s.trim()).filter(s=>s&&s!=="BEGIN"&&s!=="COMMIT"))await tx.$executeRawUnsafe(sql);
     });
+    // Rehearse the new additive migration with populated old snapshots, no conversion.
+    await database().$executeRawUnsafe(`INSERT INTO "CoursePointPlan" (id,"storeId",name,points,"validDays","sportsMode","sportsSubjectId","sportsCost") VALUES ('migration-plan','migration-store','Old scoped plan',20,90,'ASSIGNED','old-A',2)`);
+    await database().$executeRawUnsafe(`INSERT INTO "CoursePointCard" (id,"storeId","planId","nameSnapshot",remaining,"expiresAt","requestKey","sportsMode") VALUES ('migration-card','migration-store','migration-plan','Old unscoped card',19,'2099-02-08','old-purchase','OPEN')`);
+    await database().$executeRawUnsafe(`INSERT INTO "CoursePurchase" (id,"storeId","customerId","planId",name,unit,points,price,"validDays","templateIds","transferLastFive","requestKey") VALUES ('migration-order','migration-store','old-learner','migration-plan','Old purchase','POINT',20,8550,90,ARRAY[]::text[],'','old-order')`);
+    for(const table of ['CoursePointPlan','CoursePointCard','CoursePurchase'])await database().$executeRawUnsafe(`ALTER TABLE \"${table}\" ENABLE ROW LEVEL SECURITY`);
+    migrationAccessBefore=await migrationAccess();
+    const migration=readFileSync('supabase/migrations/20261111050549_course_multi_subject_entitlements.sql','utf8').replace(/^--.*$/gm,'').replaceAll('public.',`"${schema}".`);
+    await database().$transaction(async tx=>{for(const sql of migration.split(';').map(s=>s.trim()).filter(s=>s&&s!=='BEGIN'&&s!=='COMMIT'))await tx.$executeRawUnsafe(sql);});
     await database().$executeRawUnsafe('CREATE TABLE "Store" (id text PRIMARY KEY,"industryModule" text NOT NULL DEFAULT \'COURSE\',"operatingStatus" text NOT NULL DEFAULT \'ACTIVE\')');
     await database().$executeRawUnsafe('CREATE TABLE "Customer" (id text PRIMARY KEY,"storeId" text,name text,"mergedIntoCustomerId" text)');
     await database().$executeRawUnsafe('CREATE TABLE "Staff" (id text PRIMARY KEY,"storeId" text,status text,"displayName" text,"courseCoachEnabled" boolean,"courseQualificationsConfirmed" boolean,"courseQualifiedTemplateIds" text[],"updatedAt" timestamptz DEFAULT now())');
@@ -286,4 +299,124 @@ const database = () => { if (!db) throw new Error("Explicit isolated database re
     expect((await database().coursePointCard.findUnique({where:{id:second.id}}))?.remaining).toBe(9);
     expect(await database().coursePointEntry.count({where:{storeId:f.storeId,kind:"DEBIT"}})).toBe(2);
   });
+  async function multiFixture(remaining=10,cost=2) {
+    const f=await fixture();
+    const makeSubject=async(name:string)=>{
+      const subject=await database().musicSubject.create({data:{storeId:f.storeId,name}});
+      const template=await database().courseTemplate.create({data:{id:sportsTeachingTemplateId(f.storeId,subject.id),storeId:f.storeId,musicSubjectId:subject.id,name,durationMinutes:60,pointCost:7,capacity:8}});
+      return {subject,template};
+    };
+    const b=await makeSubject('B'),c=await makeSubject('C'),initial=await f.card(f.learner,'ASSIGNED',cost,remaining);
+    const rights={sportsMode:'SUBJECTS',sportsSubjectId:null,sportsSubjectIds:[f.subject.id,b.subject.id].sort(),sportsCost:cost,templateIds:[f.template.id,b.template.id]};
+    await database().coursePointPlan.update({where:{id:initial.planId},data:rights});
+    const card=await database().coursePointCard.update({where:{id:initial.id},data:rights});
+    const lesson=async(index:number,templateId=f.template.id,enrollment='OPEN')=>{
+      const session=await f.session(index,7,templateId);
+      await database().$executeRaw`INSERT INTO "SportsStagingSessionRule" VALUES (${session.id},${f.storeId},'SINGLE',${enrollment},NULL,0,'{}')`;
+      return session;
+    };
+    const reserve=(sessionId:string,customerId=f.learner,cardId=card.id)=>f.run(tx=>reserveCourseInTransaction(tx,f.actor,{sessionId,customerId,cardId,requestKey:randomUUID()},null));
+    return {...f,b,c,createCard:f.card,card,rights,lesson,reserve};
+  }
+
+  it('multi-subject migration preserves populated legacy, assigned and old OPEN snapshots',async()=>{
+    expect(await migrationAccess()).toEqual(migrationAccessBefore);
+    expect(await database().coursePointPlan.findUniqueOrThrow({where:{id:'migration-plan'}})).toMatchObject({sportsMode:'ASSIGNED',sportsSubjectId:'old-A',sportsCost:2,points:20,sportsSubjectIds:[]});
+    expect(await database().coursePointCard.findUniqueOrThrow({where:{id:'migration-card'}})).toMatchObject({sportsMode:'OPEN',remaining:19,expiresAt:new Date('2099-02-08'),sportsSubjectIds:[]});
+    expect(await database().coursePurchase.findUniqueOrThrow({where:{id:'migration-order'}})).toMatchObject({sportsMode:'LEGACY',points:20,price:8550,sportsSubjectIds:[]});
+    for(const table of ['CoursePointPlan','CoursePointCard','CoursePurchase']){
+      const target=table==='CoursePointPlan'?'migration-plan':table==='CoursePointCard'?'migration-card':'migration-order';
+      await expect(database().$executeRawUnsafe(`UPDATE "${table}" SET "sportsMode"='SUBJECTS',"sportsSubjectId"=NULL,"sportsCost"=1,"sportsSubjectIds"=ARRAY[]::text[] WHERE id='${target}'`)).rejects.toThrow();
+      await expect(database().$executeRawUnsafe(`UPDATE "${table}" SET "sportsSubjectIds"=ARRAY['hidden-A'] WHERE id='${target}'`)).rejects.toThrow();
+    }
+  });
+
+  it.each(['OPEN','ASSIGNED'])('multi-subject A+B card spends the same balance in %s lessons, with its persisted point cost',async enrollment=>{
+    const f=await multiFixture();
+    for(const [index,template] of [f.template,f.b.template].entries()){
+      const session=await f.lesson(index,template.id,enrollment),booking=await f.reserve(session.id);
+      await f.run(tx=>settleCourseBooking(tx,f.actor,booking.id,'ATTENDED'));
+      await f.run(tx=>settleCourseBooking(tx,f.actor,booking.id,'ATTENDED'));
+      expect(await database().courseBooking.findUniqueOrThrow({where:{id:booking.id}})).toMatchObject({cardId:f.card.id,pointCost:2,status:'ATTENDED'});
+      expect(await database().coursePointEntry.count({where:{bookingId:booking.id,kind:'DEBIT'}})).toBe(1);
+    }
+    expect((await database().coursePointCard.findUniqueOrThrow({where:{id:f.card.id}})).remaining).toBe(6);
+  });
+
+  it('multi-subject C, foreign store and nonmember requests cannot spend A+B',async()=>{
+    const f=await multiFixture(),c=await f.lesson(0,f.c.template.id),a=await f.lesson(1),foreign=await fixture(),outside=await foreign.session(0);
+    await expect(f.reserve(c.id)).rejects.toThrow('科目不符');
+    await expect(f.reserve(a.id,f.other)).rejects.toThrow();
+    await expect(f.reserve(outside.id)).rejects.toThrow();
+    expect(await database().coursePointEntry.count({where:{cardId:f.card.id}})).toBe(0);
+    expect((await database().coursePointCard.findUniqueOrThrow({where:{id:f.card.id}})).remaining).toBe(10);
+  });
+
+  it('one remaining shared balance cannot be reserved simultaneously in A and B',async()=>{
+    const f=await multiFixture(2),a=await f.lesson(0),b=await f.lesson(1,f.b.template.id);
+    await database().courseCardMember.create({data:{cardId:f.card.id,storeId:f.storeId,customerId:f.other}});
+    const results=await Promise.allSettled([f.reserve(a.id),f.reserve(b.id,f.other)]);
+    expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);
+    expect(await database().courseBooking.count({where:{cardId:f.card.id,status:'RESERVED'}})).toBe(1);
+    const booking=await database().courseBooking.findFirstOrThrow({where:{cardId:f.card.id}});
+    await f.run(tx=>settleCourseBooking(tx,f.actor,booking.id,'ATTENDED'));
+    expect((await database().coursePointCard.findUniqueOrThrow({where:{id:f.card.id}})).remaining).toBe(0);
+  });
+
+  it('multi-subject correction and cancellation restore only the original shared card once',async()=>{
+    const f=await multiFixture(),a=await f.lesson(0),b=await f.lesson(1,f.b.template.id);
+    const first=await f.reserve(a.id),second=await f.reserve(b.id);
+    await f.run(tx=>settleCourseBooking(tx,f.actor,first.id,'ATTENDED'));
+    await f.run(tx=>correctCourseAttendance(tx,f.actor,first.id,'RESERVED','ATTENDED',{suppressNotice:true}));
+    await f.run(tx=>correctCourseAttendance(tx,f.actor,first.id,'RESERVED','ATTENDED',{suppressNotice:true}));
+    for(const booking of [first,second])await f.run(tx=>settleCourseBooking(tx,f.actor,booking.id,'CANCELLED'));
+    expect((await database().coursePointCard.findUniqueOrThrow({where:{id:f.card.id}})).remaining).toBe(10);
+    expect(await database().courseBooking.count({where:{cardId:f.card.id,status:'RESERVED'}})).toBe(0);
+  });
+
+  it('multi-subject batch selection checks every lesson, including a disallowed later C',async()=>{
+    const f=await multiFixture(),a=await f.lesson(0),b=await f.lesson(1,f.b.template.id),c=await f.lesson(2,f.c.template.id);
+    expect((await f.run(tx=>findSportsCard(tx,f.storeId,f.learner,[a,b],{enrollment:'OPEN',planId:null},f.card.id)))?.card.id).toBe(f.card.id);
+    expect(await f.run(tx=>findSportsCard(tx,f.storeId,f.learner,[a,c],{enrollment:'OPEN',planId:null},f.card.id))).toBeNull();
+  });
+
+  it('old OPEN card can be explicitly reviewed for multiple subjects without changing paid balance or expiry',async()=>{
+    const {readSubjectReviewCard,cardSubjectRevision,confirmCardSubject}=await import('@/server/services/course-card-subject');
+    const f=await multiFixture(),old=await f.createCard(f.learner,'OPEN',1,19),before=await f.run(tx=>readSubjectReviewCard(tx,f.storeId,old.id));
+    const input={cardId:old.id,customerId:f.learner,subjectIds:f.rights.sportsSubjectIds,cost:1,expectedRevision:cardSubjectRevision(before),requestKey:randomUUID()};
+    const foreign=await fixture();
+    await expect(f.run(tx=>confirmCardSubject(tx,f.actor,{...input,subjectIds:[f.subject.id,foreign.subject.id]}))).rejects.toThrow('本店有效科目');
+    await f.run(tx=>confirmCardSubject(tx,f.actor,input));await f.run(tx=>confirmCardSubject(tx,f.actor,input));
+    expect(await database().coursePointCard.findUniqueOrThrow({where:{id:old.id}})).toMatchObject({sportsMode:'SUBJECTS',sportsSubjectIds:f.rights.sportsSubjectIds,remaining:19,expiresAt:old.expiresAt});
+    expect(await database().coursePointEntry.count({where:{cardId:old.id}})).toBe(0);
+  });
+
+  it('multi-subject checkout snapshots survive later product edits and do not acquire newly selected C',async()=>{
+    const {assignCourseWithCheckout}=await import('@/server/services/course-assignment-checkout');
+    const f=await multiFixture();
+    const purchase=await f.run(tx=>assignCourseWithCheckout(tx,f.actor,{planId:f.card.planId,customerId:f.learner,expiresDate:'2099-12-31',requestKey:randomUUID(),expectedListPrice:0,expectedStoreCost:0,revenueStaffId:'',discountKind:'AMOUNT',discountValue:0,paymentMethod:'OTHER',transferLastFour:''}));
+    expect(purchase).toMatchObject({sportsMode:'SUBJECTS',sportsSubjectIds:f.rights.sportsSubjectIds});
+    await database().coursePointPlan.update({where:{id:f.card.planId},data:{sportsSubjectIds:[f.subject.id,f.c.subject.id],templateIds:[f.template.id,f.c.template.id]}});
+    const issued=await database().coursePointCard.findUniqueOrThrow({where:{id:purchase.cardId!}});
+    expect(issued).toMatchObject({sportsSubjectIds:f.rights.sportsSubjectIds,remaining:10});
+    const b=await f.lesson(0,f.b.template.id),c=await f.lesson(1,f.c.template.id);
+    await f.reserve(b.id,f.learner,issued.id);
+    await expect(f.reserve(c.id,f.learner,issued.id)).rejects.toThrow('科目不符');
+    expect((await database().coursePurchase.findUniqueOrThrow({where:{id:purchase.id}})).sportsSubjectIds).toEqual(f.rights.sportsSubjectIds);
+  });
+
+  it('multi-subject fee teacher union never substitutes for the actual lesson qualification',async()=>{
+    const {resolveScheduleCharge,assertChargeProviders}=await import('@/server/services/course-charge');
+    const f=await multiFixture(),teacherA=randomUUID();
+    await database().$executeRaw`UPDATE "Staff" SET "courseQualificationsConfirmed"=true,"courseQualifiedTemplateIds"=${[f.template.id,f.b.template.id]}::text[] WHERE id=${f.coachId}`;
+    await database().$executeRaw`INSERT INTO "Staff" (id,"storeId",status,"courseCoachEnabled","courseQualificationsConfirmed","courseQualifiedTemplateIds") VALUES (${teacherA},${f.storeId},'ACTIVE',true,true,${[f.template.id]}::text[])`;
+    const settings={kind:'plan' as const,durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:[f.coachId,teacherA]};
+    await database().coursePointPlan.update({where:{id:f.card.planId},data:{chargeSettings:settings}});
+    await expect(f.run(tx=>assertChargeProviders(tx,f.storeId,f.rights.templateIds,settings))).resolves.toBeUndefined();
+    const input={chargePlanId:f.card.planId,templateId:f.b.template.id,coachId:f.coachId,isTrial:false,open:true,defaultTrialPrice:0,durationMinutes:60,sports:true};
+    expect(await f.run(tx=>resolveScheduleCharge(tx,f.storeId,input))).toMatchObject({snapshot:{planId:f.card.planId}});
+    await expect(f.run(tx=>resolveScheduleCharge(tx,f.storeId,{...input,coachId:teacherA}))).rejects.toThrow('具教學項目資格');
+    await expect(f.run(tx=>resolveScheduleCharge(tx,f.storeId,{...input,templateId:f.c.template.id}))).rejects.toThrow('不適用');
+  });
+
 });

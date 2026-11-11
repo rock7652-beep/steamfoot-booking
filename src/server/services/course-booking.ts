@@ -646,7 +646,7 @@ async function grantCourseNoShowMakeup(
     data: {
       storeId: actor.storeId,
       planId: booking.card.planId,
-      ...sportsEntitlementSnapshot({ ...booking.card, ...(booking.card.sportsMode === "ASSIGNED" ? { sportsCost: booking.pointCost } : {}) }),
+      ...sportsEntitlementSnapshot({ ...booking.card, ...((booking.card.sportsMode === "ASSIGNED"||booking.card.sportsMode === "SUBJECTS") ? { sportsCost: booking.pointCost } : {}) }),
       nameSnapshot: sportsFixed?"固定課待補課":`補課券（${COURSE_MAKEUP_VALID_DAYS}日）`,
       unit: booking.card.unit,
       templateIds: [booking.session.templateId],

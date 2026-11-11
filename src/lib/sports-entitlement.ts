@@ -21,6 +21,7 @@ export function sportsBookingEnrollment(
 export type SportsEntitlementFields = {
   sportsMode?: string;
   sportsSubjectId?: string | null;
+  sportsSubjectIds?: string[];
   sportsCost?: number | null;
   unit: string;
 };
@@ -29,16 +30,18 @@ const entitlement = z.discriminatedUnion("sportsMode", [
   z.object({ sportsMode: z.literal("LEGACY"), sportsSubjectId: z.null(), sportsCost: z.null() }),
   z.object({ sportsMode: z.literal("ASSIGNED"), sportsSubjectId: z.string().min(1).max(100), sportsCost: z.number().int().min(1).max(10000) }),
   z.object({ sportsMode: z.literal("OPEN"), sportsSubjectId: z.null(), sportsCost: z.null() }),
+  z.object({ sportsMode: z.literal("SUBJECTS"), sportsSubjectId: z.null(), sportsCost: z.number().int().min(1).max(10000), sportsSubjectIds: z.array(z.string().min(1).max(100)).min(1).max(200).refine(ids=>new Set(ids).size===ids.length,"適用科目不可重複") }),
 ]);
 
+function parseRights(source:SportsEntitlementFields) {
+  if(source.sportsMode!=="SUBJECTS"&&source.sportsSubjectIds?.length)throw new Error("單科目或既有方案不可混入多科目權益");
+  return entitlement.parse({sportsMode:source.sportsMode??"LEGACY",sportsSubjectId:source.sportsSubjectId??null,sportsCost:source.sportsCost??null,...(source.sportsMode==="SUBJECTS"?{sportsSubjectIds:source.sportsSubjectIds}:{} )});
+}
+
 export function sportsEntitlementSnapshot(source: SportsEntitlementFields) {
-  const snapshot = entitlement.parse({
-    sportsMode: source.sportsMode ?? "LEGACY",
-    sportsSubjectId: source.sportsSubjectId ?? null,
-    sportsCost: source.sportsCost ?? null,
-  });
+  const snapshot = parseRights(source);
   if (!["POINT", "SESSION"].includes(source.unit)) throw new Error("不支援的課卡單位");
-  if (snapshot.sportsMode === "ASSIGNED" && source.unit === "SESSION" && snapshot.sportsCost !== 1)
+  if ((snapshot.sportsMode === "ASSIGNED"||snapshot.sportsMode==="SUBJECTS") && source.unit === "SESSION" && snapshot.sportsCost !== 1)
     throw new Error("堂數方案每次使用 1 堂");
   return snapshot;
 }
@@ -59,11 +62,7 @@ type Lesson = {
  */
 export function resolveSportsEntitlement(card: Card, lesson: Lesson):
   { eligible: true; cost: number } | { eligible: false; reason: string } {
-  const parsed = entitlement.safeParse({
-    sportsMode: card.sportsMode ?? "LEGACY",
-    sportsSubjectId: card.sportsSubjectId ?? null,
-    sportsCost: card.sportsCost ?? null,
-  });
+  const parsed = (()=>{try{return {success:true as const,data:parseRights(card)};}catch{return {success:false as const};}})();
   if (!parsed.success || !["POINT", "SESSION"].includes(card.unit))
     return { eligible: false, reason: "課卡權益資料無效，請聯絡店家核對" };
   if (card.templateRestricted && !card.templateIds.includes(lesson.templateId))
@@ -83,9 +82,9 @@ export function resolveSportsEntitlement(card: Card, lesson: Lesson):
     if (card.templateIds.length && !card.templateIds.includes(lesson.templateId))
       return { eligible: false, reason: "此方案不適用本堂課" };
     cost = card.unit === "SESSION" ? 1 : lesson.pointCost;
-  } else if (rights.sportsMode === "ASSIGNED") {
+  } else if (rights.sportsMode === "ASSIGNED"||rights.sportsMode==="SUBJECTS") {
     // ASSIGNED is the persisted subject/cost snapshot, not an enrollment gate.
-    if (!lesson.subjectId || lesson.subjectId !== rights.sportsSubjectId)
+    if (!lesson.subjectId || !(rights.sportsMode==="SUBJECTS"?rights.sportsSubjectIds.includes(lesson.subjectId):lesson.subjectId === rights.sportsSubjectId))
       return { eligible: false, reason: "方案科目不符" };
     cost = rights.sportsCost;
     if (card.unit === "SESSION" && cost !== 1)

@@ -4,7 +4,7 @@ import {MUSIC_OPENING_BRANCH} from './music-opening-preview-scope.mjs';
 import {assertMusicNativeReleaseEnvironment,MUSIC_RELEASE_BRANCH} from './music-native-workflow-scope.mjs';
 import {purchaseIntentAccessPreflight} from './purchase-intent-release-preflight.mjs';
 const tables=['CourseScheduleSeries','CourseMusicTuition','CourseMusicReceipt','CourseMusicLessonAssignment','CourseMusicOpeningState','CourseMusicOpeningMakeupEntitlement'];
-const columns={CourseBookingRule:['assignedSchedulingEnabled'],CourseSession:['scheduleType','scheduleFrequency','enrollmentMode','enrollmentFingerprint','rescheduleShadowHidden','bookingAudience'],CoursePointCard:['musicOpeningStateRequired'],CourseBooking:['musicOpeningMakeupEntitlementId','musicOpeningTermKey','musicOpeningLessonOrdinal','musicOpeningSourceLessonKey']};
+const columns={CourseBookingRule:['assignedSchedulingEnabled'],CourseSession:['scheduleType','scheduleFrequency','enrollmentMode','enrollmentFingerprint','rescheduleShadowHidden','bookingAudience'],CoursePointPlan:['sportsSubjectIds'],CoursePurchase:['sportsSubjectIds'],CoursePointCard:['musicOpeningStateRequired','sportsSubjectIds'],CourseBooking:['musicOpeningMakeupEntitlementId','musicOpeningTermKey','musicOpeningLessonOrdinal','musicOpeningSourceLessonKey']};
 export async function runMusicNativeSchemaPreflight(env=process.env){
  const target=assertMusicNativeReleaseEnvironment(env);
  if(target==='production'&&env.COURSE_PURCHASE_QA_STORE_SCOPE==='1')throw Error('Production purchase intent scope invalid');
@@ -16,6 +16,8 @@ export async function runMusicNativeSchemaPreflight(env=process.env){
   if(objects.rows.length!==tables.length||objects.rows.some(row=>!row.relrowsecurity))throw Error('Music release tables/RLS not ready');
   const found=await client.query('SELECT table_name,column_name FROM information_schema.columns WHERE table_schema=\'public\' AND table_name=ANY($1::text[])',[Object.keys(columns)]);
   for(const [table,names] of Object.entries(columns))for(const name of names)if(!found.rows.some(r=>r.table_name===table&&r.column_name===name))throw Error('Music release columns not ready');
+  const scopes=await client.query(`SELECT conname FROM pg_constraint WHERE connamespace='public'::regnamespace AND convalidated AND conname=ANY($1::text[]) AND pg_get_constraintdef(oid) LIKE '%SUBJECTS%' AND pg_get_constraintdef(oid) LIKE '%sportsSubjectIds%'`,[['CoursePointPlan_sports_entitlement_check','CoursePurchase_sports_entitlement_check','CoursePointCard_sports_entitlement_check']]);
+  if(scopes.rows.length!==3)throw Error('Course multi-subject constraints not ready');
   const privileges=await client.query('SELECT count(*)::int AS n FROM information_schema.role_table_grants WHERE table_schema=\'public\' AND table_name=ANY($1::text[]) AND grantee=ANY($2::text[])',[tables,['PUBLIC','anon','authenticated']]);
   if(privileges.rows[0].n!==0)throw Error('Music release private grants not ready');
   const functions=await client.query(`SELECT proname,prosecdef FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname=ANY($1::text[])`,[['music_lesson_assignment_guard','music_lesson_assignment_release']]);
