@@ -1,5 +1,6 @@
 "use client";
 
+import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import { useId, useCallback, useState, useMemo, useRef, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "sonner";
@@ -94,6 +95,8 @@ export function CustomersListWithDrawer({
   const [detail, setDetail] = useState<DrawerDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const detailPreload=useMemo(()=>({read:(id:string)=>cache.load(id),get:(id:string)=>cache.get(id)}),[cache]);
+  useIdleReadPreload({enabled:true,blocked:!!openId,keys:rows.map(row=>row.id),reader:detailPreload,startDelayMs:250,gapMs:0,concurrency:2,repeatAfterMs:10_000,allowFocusedInput:true});
   const [focus, setFocus] = useState<"plan" | null>(null);
 
   // 競態防護：只套用「最後一次請求」的結果（快速連點不同顧客時）
@@ -147,11 +150,13 @@ export function CustomersListWithDrawer({
       setOpenId(customerId);
       setLoadError(null);
       setFocus(f);
-      const cached = cache.get(customerId);
+      const fresh = cache.get(customerId);
+      const cached = fresh ?? cache.peek(customerId);
       if (cached) {
         setDetail(cached);
-        setLoading(false);
-        requestGate.invalidate(); // 取消在途請求，避免覆蓋 cache
+        setLoading(!fresh);
+        if(fresh)requestGate.invalidate(); // Fresh prefetched data needs no extra read.
+        else void fetchDetail(customerId);
       } else {
         setDetail(null);
         void fetchDetail(customerId);

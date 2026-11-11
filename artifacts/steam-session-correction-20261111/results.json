@@ -1,0 +1,45 @@
+{
+  "environment": "actual local Next.js application, normal owner login, disposable loopback PostgreSQL",
+  "productionWrites": false,
+  "deployed": false,
+  "checks": [
+    {
+      "name": "normal-owner-login-and-original-eight-session-balance"
+    },
+    {
+      "name": "backfill-correction-updates-grid-and-balance-in-place"
+    },
+    {
+      "name": "lost-committed-reply-retries-identical-command"
+    },
+    {
+      "name": "void-correction-updates-grid-and-balance-in-place"
+    },
+    {
+      "name": "original-dates-reasons-operators-retained-and-visible"
+    },
+    {
+      "name": "fresh-key-cannot-correct-the-same-generation-again"
+    },
+    {
+      "name": "changed-store-command-rejected"
+    },
+    {
+      "name": "concurrent-commands-return-one-session-only-and-winner-replay-is-idempotent"
+    },
+    {
+      "name": "used-up-plan-restored-without-changing-expiry"
+    },
+    {
+      "name": "closed-plan-cannot-be-reactivated"
+    },
+    {
+      "name": "all-original-financial-records-unchanged"
+    },
+    {
+      "name": "desktop-ipad-mobile-reopen-keeps-corrected-grid-and-audit"
+    }
+  ],
+  "errors": [],
+  "complete": true
+}

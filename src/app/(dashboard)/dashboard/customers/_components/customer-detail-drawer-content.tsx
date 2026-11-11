@@ -229,6 +229,7 @@ export function CustomerDetailDrawerContent({
                         <div className="break-words text-sm font-semibold text-earth-900">
                           {w.plan.name}
                         </div>
+                        <p className="text-sm text-earth-600">{w.purchasedPrice == null ? "方案金額待核對" : `方案金額 NT$ ${w.purchasedPrice.toLocaleString("zh-TW")}`}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-earth-500">
                           <strong className="tabular-nums text-primary-900">
                             {expired || w.status === "EXPIRED" ? "已到期" : w.status === "CANCELLED" ? "已取消" : w.status === "USED_UP" ? "已用完" : `可預約 ${available} 堂`}
@@ -242,11 +243,11 @@ export function CustomerDetailDrawerContent({
                             <span>無期限</span>
                           )}
                         </div>
-                        <p className="mt-1 flex flex-wrap gap-x-3 text-sm tabular-nums text-earth-600"><span>剩餘 {remaining} 堂</span>{reserved > 0 && <span>預約保留 {reserved} 堂</span>}</p>
+                        {reserved > 0 && <p className="mt-1 flex flex-wrap gap-x-3 text-sm tabular-nums text-earth-600"><span>剩餘 {remaining} 堂</span><span>預約保留 {reserved} 堂</span></p>}
                       </div>
                     </div>
-                    <details className="group shrink-0 max-w-full open:w-full">
-                      <summary aria-label={`${w.plan.name}方案操作`} className="inline-flex w-fit min-h-11 cursor-pointer list-none items-center rounded-md border border-earth-200 px-3 text-sm font-medium text-primary-700 hover:bg-earth-50">管理方案</summary>
+                    <div className="w-full min-w-0">
+                      {customer.canReadWallets&&customer.canReadBookings&&<CustomerPanelSessions key={`${w.id}-${revision}`} storeId={w.storeId} customerId={customer.id} walletId={w.id} totalSessions={w.totalSessions} remainingSessions={remaining} initialProgress={w.usageProgress} planName={w.plan.name} canVoid={!readOnly && customer.canAdjustWallet && w.status!=='CANCELLED'} onMutated={handleMutated} />}
                       <div className="flex flex-wrap gap-2 border-t border-earth-100 py-2 mt-2 [&_button]:min-h-11">
                       {!readOnly && customer.canAssignPlan && plans.some((plan) => plan.id === w.plan.id && plan.category !== "TRIAL") ? (
                         <button
@@ -262,9 +263,8 @@ export function CustomerDetailDrawerContent({
                         {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && available > 0 && <BackfillUsedSessionsForm controlledOpen={activeEditor === `${w.id}:backfill`} onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:backfill` : null);}} walletId={w.id} available={available} reserved={reserved} startDateLocal={toLocalDateStr(w.startDate)} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
                         {!readOnly && customer.canAdjustWallet && w.expiryDate && (w.status === "ACTIVE" || w.status === "EXPIRED") && <ExtendWalletExpiryForm controlledOpen={activeEditor === `${w.id}:expiry`} onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:expiry` : null);}} walletId={w.id} currentExpiry={toLocalDateStr(w.expiryDate)} expired={expired} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
                         {!readOnly && customer.canAdjustWallet && <SteamPlanClose wallet={w} onSaved={handleMutated}/> }
-                        <CustomerPanelSessions key={`${w.id}-${revision}`} customerId={customer.id} walletId={w.id} planName={w.plan.name} canVoid={!readOnly && customer.canAdjustWallet} onMutated={handleMutated} />
                       </div>
-                    </details>
+                    </div>
                   </li>
                 );
               })}

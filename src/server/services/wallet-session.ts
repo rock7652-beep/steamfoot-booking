@@ -17,7 +17,7 @@
  *   RESERVED  ──releaseSessions──▶ AVAILABLE
  *   RESERVED  ──completeSessions──▶ COMPLETED
  *   COMPLETED ──uncompleteSessions──▶ RESERVED
- *   AVAILABLE ──voidAvailableSession──▶ VOIDED  (不可逆，店長手動)
+ *   AVAILABLE ──voidAvailableSession──▶ VOIDED  (店長手動；更正由獨立稽核流程處理)
  */
 
 import type { Prisma, WalletSession } from "@prisma/client";
@@ -476,7 +476,7 @@ export async function reReserveSession(
 }
 
 // ──────────────────────────────────────────────────────────────
-// voidAvailableSession — 店長手動註銷單堂（AVAILABLE → VOIDED，不可逆）
+// voidAvailableSession — 店長手動註銷單堂（AVAILABLE → VOIDED；更正由獨立稽核流程處理）
 //
 // Guards：
 //   - 必須 status=AVAILABLE（COMPLETED/RESERVED/VOIDED 拒絕）

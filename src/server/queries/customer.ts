@@ -1,3 +1,5 @@
+import {unavailablePlanProgress} from "@/lib/plan-usage-progress";
+import {walletPlanProgress} from "@/lib/wallet-plan-progress";
 import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
 import { customerLabelFilterIds } from "@/server/services/customer-label-filter";
 import { prisma } from "@/lib/db";
@@ -448,9 +450,9 @@ export async function getCustomerDrawerDetailForUser(
   customerId: string,
   activeStoreId?: string | null,
 ) {
-  const [canReadBookings, canBook, canAssignPlan, canAdjustWallet] = await Promise.all([
+  const [canReadBookings, canBook, canAssignPlan, canAdjustWallet,canReadWallets] = await Promise.all([
     checkPermission(user.role,user.staffId,"booking.read"), checkPermission(user.role,user.staffId,"booking.create"),
-    checkPermission(user.role,user.staffId,"wallet.create"), checkPermission(user.role,user.staffId,"wallet.adjust"),
+    checkPermission(user.role,user.staffId,"wallet.create"), checkPermission(user.role,user.staffId,"wallet.adjust"),checkPermission(user.role,user.staffId,"wallet.read"),
   ]);
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, ...getStoreFilter(user, activeStoreId) },
@@ -469,7 +471,7 @@ export async function getCustomerDrawerDetailForUser(
       planWallets: {
         include: {
           plan: { select: { id: true, name: true, sessionCount: true } },
-          sessions: { select: { status: true } },
+          sessions: { select: { status: true,...(canReadBookings&&canReadWallets?{id:true,completedAt:true,voidedAt:true,booking:{select:{bookingDate:true,storeId:true,customerId:true}}}: {}) } },
           bookings: { select: { bookingStatus: true, isMakeup: true, people: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -494,7 +496,7 @@ export async function getCustomerDrawerDetailForUser(
   const bookingDays = enumerateBookableDates(toLocalDateStr(), resolveBookableUntilDate(config?.bookableUntilDate));
   // The drawer crosses the Server Action boundary; Prisma Decimal is not an
   // RSC-serializable value. Keep the ledger untouched and return display data.
-  const drawerCustomer = { ...customer, planWallets: customer.planWallets.map(wallet => ({ ...wallet, purchasedPrice: Number(wallet.purchasedPrice) })) };
+  const drawerCustomer = { ...customer,canReadWallets,planWallets: customer.planWallets.map(wallet => ({ ...wallet,sessions:wallet.sessions?.map(session=>({status:session.status})), ...(canReadBookings&&canReadWallets?{usageProgress:wallet.sessions.some(session=>session.booking&&(session.booking.storeId!==customer.storeId||session.booking.customerId!==customer.id))?unavailablePlanProgress():walletPlanProgress({...wallet,sessions:wallet.sessions.map((session,index)=>({...session,id:session.id??String(index),completedAt:session.completedAt??null,voidedAt:session.voidedAt??null,booking:session.booking??null}))})}:{}),purchasedPrice: Number(wallet.purchasedPrice) })) };
   const canReadConsumption = user.role !== "CUSTOMER" && await checkPermission(user.role, user.staffId, "transaction.read");
   if (!canReadConsumption) return { ...drawerCustomer, canReadBookings, canBook, canAssignPlan, bookingDays, recentConsumption: null, canAdjustWallet };
   const [transactions, cashbookEntries] = await Promise.all([

@@ -71,7 +71,7 @@ describe("own independent opening makeup in the member portal", () => {
     expect(host.querySelector(".cp-next")?.textContent).toContain("期初補課・請由店家處理");
     expect(host.querySelector(".cp-next")?.textContent).toContain("共 1 位");
     await click("查看");
-    expect(host.querySelector(".cp-booking-card")?.textContent).toContain("期初補課（獨立權益，請由店家處理）");
+    expect(host.querySelector("[data-customer-booking-row]")?.textContent).toContain("期初補課（獨立權益，請由店家處理）");
     expectNoOpeningMutation();
     expect(host.textContent).toContain("獨立補課權益，不使用方案額度");
     expect(host.textContent).not.toContain("0 堂");

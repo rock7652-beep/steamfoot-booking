@@ -811,3 +811,11 @@
 .cp-phone-grid>li,.cp-phone-grid>li>span{min-height:44px}
 
 .cp-phone-group>.cp-phone-learner:first-of-type{border-top:0}
+
+/* Plan facts and dates stay visible; only secondary actions can expand. */
+.course-portal article.cp-plan > .cp-plan-row { display:flex;flex-wrap:wrap;gap:4px 10px;cursor:default;min-height:0; }
+.course-portal article.cp-plan > .cp-plan-row::after { content:none; }
+.course-portal article.cp-plan > .cp-plan-row > h2 { flex:1;min-width:0; }
+.course-portal article.cp-plan > .cp-plan-row > .cp-plan-date { flex-basis:100%;white-space:normal; }
+.course-portal article.cp-plan > .cp-plan-row > span { white-space:normal; }
+.course-portal article.cp-plan > .cp-plan-row > span:not(.cp-plan-date) { flex-basis:100%; }

@@ -40,7 +40,7 @@ import {CourseMemberWorkspace} from "@/app/(dashboard)/dashboard/courses/member-
 import {CoursePurchaseIntentProvider} from "@/app/(dashboard)/dashboard/courses/purchase-recovery";
 let host:HTMLDivElement,root:Root;
 const props={view:"customers" as const,templates:[],people:[{id:"person",name:"測試學員",phone:"0900000000",email:null,gender:null,birthday:"",height:null,lineName:null,serviceNote:null,address:null,notes:null,emergencyContactName:null,emergencyContactPhone:null}],plans:[],cards:[],canEdit:true,canCreate:true,canManageStaff:false,canAssign:true,canReadBookings:true,canReadTransactions:true,healthEnabled:true,customerRows:[],canReadCards:true,assignmentStaff:[],canAssignManager:false};
-const click=async(text:string)=>{const b=[...host.querySelectorAll("button")].find(b=>b.textContent===text||b.getAttribute("aria-label")===text);expect(b,text).toBeTruthy();await act(async()=>b!.click());};
+const click=async(text:string)=>{const find=()=>[...host.querySelectorAll("button")].find(b=>b.textContent===text||b.getAttribute("aria-label")===text);await vi.waitFor(()=>expect(find(),text).toBeTruthy());await act(async()=>find()!.click());};
 beforeEach(()=>{vi.clearAllMocks();m.browse.mockResolvedValue({success:true,rows:[],hasMore:false});vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[],hasMore:false,totals:[]});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();});
 it("preserves the edit draft across tabs and closes without redundant confirmation",async()=>{
@@ -238,7 +238,7 @@ it.each(['調整期限','註銷方案'])('opens %s below the existing grid witho
  m.browse.mockResolvedValue({success:true,rows:[card],hasMore:false});vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[card],hasMore:false} as never);
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,previewStoreId:'store',canManageCards:true})));
  m.replace.mockClear();const url=window.location.href,panels=host.querySelectorAll('aside').length;
- const more=[...host.querySelectorAll('button')].find(button=>button.getAttribute('aria-label')==='鋼琴十堂 更多操作')!;expect(more).toBeTruthy();await act(async()=>more.click());
+ await click('鋼琴十堂 更多操作');
  await act(async()=>[...document.querySelectorAll('button')].find(button=>button.textContent===action)!.click());
  expect(host.querySelector('[aria-label="同頁方案操作"]')).not.toBeNull();expect(host.querySelector('[data-grid]')).not.toBeNull();expect(host.querySelectorAll('aside')).toHaveLength(panels);
  if(action==='調整期限')expect(host.querySelector('[aria-label="新到期日"]')).not.toBeNull();else expect(host.textContent).toContain('收回剩餘 10 堂');
@@ -250,7 +250,7 @@ it('rechecks the current card status before exposing an inline financial form',a
  const card={id:'now-closed-card',name:'已更新方案',unit:'SESSION',remaining:10,held:0,available:10,expiresAt:null,closed:false,expired:false,members:[{id:'person',name:'測試學員'}],entries:[],templateIds:[]};
  m.browse.mockResolvedValue({success:true,rows:[card],hasMore:false});vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[{...card,closed:true}],hasMore:false,totals:[]} as never);
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,previewStoreId:'store',canManageCards:true})));
- await act(async()=>[...host.querySelectorAll('button')].find(button=>button.getAttribute('aria-label')==='已更新方案 更多操作')!.click());
+ await click('已更新方案 更多操作');
  await act(async()=>[...document.querySelectorAll('button')].find(button=>button.textContent==='調整期限')!.click());
  expect(host.textContent).toContain('方案狀態已變更');expect(host.querySelector('[aria-label="新到期日"]')).toBeNull();expect(m.management).not.toHaveBeenCalled();expect(m.adjust).not.toHaveBeenCalled();
 });
@@ -260,5 +260,5 @@ it('uses the native module progress reader in the customer overview instead of t
  const progress=vi.fn(()=>createElement('p',null,'美業完整方案格子'));
  const source={cardProgress:progress,browseCards:vi.fn().mockResolvedValue({success:true,rows:[card],hasMore:false}),bookings:vi.fn().mockResolvedValue({success:true,data:[],hasMore:false}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,source,previewStoreId:'beauty-store'})));
- expect(host.textContent).toContain('美業完整方案格子');expect(progress).toHaveBeenCalledWith(expect.objectContaining({id:'beauty-progress'}),expect.objectContaining({customerId:'person'}));
+ await vi.waitFor(()=>expect(host.textContent).toContain('美業完整方案格子')); expect(progress).toHaveBeenCalledWith(expect.objectContaining({id:'beauty-progress'}),expect.objectContaining({customerId:'person'}));
 });

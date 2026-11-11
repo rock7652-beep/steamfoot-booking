@@ -1763,7 +1763,8 @@ model CustomerPlanWallet {
 //   RESERVED  ──cancelBooking / NO_SHOW(NOT_DEDUCTED)──▶ AVAILABLE
 //   RESERVED  ──markCompleted / NO_SHOW(DEDUCTED)──▶ COMPLETED
 //   COMPLETED ──revertBookingStatus──▶ RESERVED
-//   AVAILABLE ──voidWalletSession──▶ VOIDED  (店長手動，不可逆)
+//   AVAILABLE ──voidWalletSession──▶ VOIDED  (店長手動)
+//   BACKFILLED / VOIDED ──correctSteamWalletSession──▶ AVAILABLE (保留原紀錄的更正返還)
 //
 // 不允許：RESERVED / COMPLETED / VOIDED 直接 void。
 // ============================================================

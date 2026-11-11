@@ -13,6 +13,8 @@ import type {CustomerProfileWriter} from './course-profile-forms';
 import type {CustomerSearchOption} from '@/lib/customer-search-index';
 export type CourseCustomerSource={staffAction?:{label:string;available:(customerId:string)=>boolean;open:(customerId:string)=>void};onSchedule?:(customerId:string,onCreated:()=>void)=>void;defaultPaymentMethod?:"CASH";purchaseService?:(props:{customerId?:string;onGuard:(dirty:boolean,pending:boolean)=>void;onSaved:()=>void;onClose:()=>void})=>ReactNode;cardManagement?:(card:CourseCardView,callbacks:{onSaved:()=>void;onPending:(value:boolean)=>void;onDirtyChange:(dirty:boolean)=>void})=>ReactNode;automaticAllocation?:boolean;confirmDiscard?:boolean;previewEnabled?:boolean;
  purchaseCompleted?:()=>void;
+ getCardProgress?:(customerId:string,cardId:string,revision:number)=>unknown;
+ preloadCardProgress?:(customerId:string,cardId:string,revision:number)=>Promise<unknown>;
  cardProgress?:(card:CourseCardView,context:{customerId:string;revision:number})=>ReactNode;
  automaticPurchaseCompletion?:boolean;
  support?:(id:string)=>Promise<{success:true;data:{membership:Extract<Awaited<ReturnType<typeof loadMemberConnectionAction>>,{success:true;canConfirm:boolean}>;advanced:Extract<Awaited<ReturnType<typeof getCustomerPanelAdvanced>>,{success:true}>}}|{success:false;error:string}>;

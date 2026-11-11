@@ -38,3 +38,10 @@ it("returns plain wallet prices without changing the original Decimal or hiding 
   expect(Object.getPrototypeOf(result.planWallets[0])).toBe(Object.prototype);
   expect(Prisma.Decimal.isDecimal(wallet.purchasedPrice)).toBe(true);
 });
+
+it('includes a complete dated grid in the prefetched customer response',async()=>{
+ m.permission.mockResolvedValue(true);m.transactions.mockResolvedValue([]);m.cashbook.mockResolvedValue([]);
+ m.customer.mockResolvedValue({id:'customer',storeId:'store',mergedIntoCustomerId:null,user:null,planWallets:[{id:'wallet',purchasedPrice:new Prisma.Decimal(3000),totalSessions:2,remainingSessions:1,sessions:[{id:'used',status:'COMPLETED',completedAt:new Date('2026-11-02T02:00Z'),voidedAt:null,booking:null},{id:'free',status:'AVAILABLE',completedAt:null,voidedAt:null,booking:null}]}]});
+ const result=await getCustomerDrawerDetailForUser({role:'OWNER',staffId:'staff'} as never,'customer','store');
+ expect(result.planWallets[0].usageProgress).toMatchObject({available:true,total:2,completed:[{date:'2026-11-02T02:00:00.000Z'}]});
+});

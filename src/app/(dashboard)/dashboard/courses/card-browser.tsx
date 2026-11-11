@@ -12,7 +12,7 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
 export type CardBrowseState = { search: string; history: boolean; page: number };
-export function CourseCardBrowser({load,reservations,renderProgress,sessionUnitLabel="堂", overview=false, showOverviewTotals=false, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
+function CardBrowserContent({load,reservations,renderProgress,sessionUnitLabel="堂", overview=false, showOverviewTotals=false, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
   showOverviewTotals?:boolean;overview?:boolean;dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
   onSelect:(card:CourseCardView)=>void;renderProgress?:(card:CourseCardView)=>ReactNode;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
 }) {
@@ -33,7 +33,8 @@ export function CourseCardBrowser({load,reservations,renderProgress,sessionUnitL
     }).catch(()=>{if(active)setResult({key,customerId,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},delay);
     return ()=>{active=false;clearTimeout(timer);};
   },[customerId,dataScope,state,key,browseReader,snapshot,revision]);
-  const cached=browseReader.get({customerId,dataScope,...state});
+  const fresh=browseReader.get({customerId,dataScope,...state});
+  const cached=fresh??browseReader.peek({customerId,dataScope,...state});
   const ready=result?.key===key||!!cached;
   const visible=result?.key===key?result:cached?.success?{key,customerId,rows:cached.rows,hasMore:cached.hasMore,totals:cached.totals}:result?.customerId===customerId?result:null;
   const renderRows=()=>visible?.rows.map(c=>{
@@ -58,7 +59,7 @@ export function CourseCardBrowser({load,reservations,renderProgress,sessionUnitL
             <td>{compact && <ExclusiveMenu label={`${c.name} 操作`} triggerText="⋯"><button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>onSelect(c)}>查看堂數明細</button></ExclusiveMenu>}{!compact && <button type="button" aria-label={`查看 ${c.name} 明細`} onPointerEnter={()=>detailReader.prefetch({cardId:c.id,dataScope})} onFocus={()=>detailReader.prefetch({cardId:c.id,dataScope})} onTouchStart={()=>detailReader.prefetch({cardId:c.id,dataScope})} onClick={()=>onSelect(c)} className="min-h-11 min-w-11 text-primary-700 underline">明細</button>}</td>
           </tr>;
         });
-  return <section className={overview?"space-y-1":"space-y-3"}>
+  return <section aria-busy={!!cached&&!fresh&&result?.key!==key} className={overview?"space-y-1":"space-y-3"}>
     {overview&&showOverviewTotals&&!state.history&&ready&&visible?.totals&&visible.totals.reduce((n,t)=>n+t.count,0)>1&&<div aria-label="有效方案合計" className="rounded-lg bg-primary-50 px-3 py-2 text-sm"><p className="font-semibold">有效方案合計 · {visible.totals.reduce((n,t)=>n+t.count,0)} 個</p>{visible.totals.map(total=><p key={total.unit}>剩餘 {total.remaining} {total.unit==="SESSION"?sessionUnitLabel:"點"} · 預約保留 {total.held} · 可用 {total.available}</p>)}</div>}
     {!overview && customerId && ready && visible?.totals && (!native||visible.rows.length>0) && <div aria-label="有效方案合計" className="space-y-1 rounded-lg bg-primary-50 px-3 py-2 text-sm"><p className="font-semibold">有效方案合計 · {visible.totals.reduce((sum,total)=>sum+total.count,0)} 個</p>{(!native||visible.totals.some(t=>t.count>0))&&<p>{courseBalanceText(visible.totals)}</p>}{!compact && <p className="text-earth-600">{sharedCardState!=="HIDDEN"&&"共卡為共同餘額；"}各方案期限與適用課程分開計算。</p>}</div>}
     {(!overview||state.search||state.page>0||visible?.hasMore||(visible?.rows.length??0)>5)&&<div className="flex flex-wrap items-center gap-2">
@@ -75,6 +76,22 @@ export function CourseCardBrowser({load,reservations,renderProgress,sessionUnitL
         {ready && !visible?.rows.length && <p className="py-3 text-sm text-earth-500">{state.search ? "沒有符合的方案" : state.history ? "尚無到期或停用方案" : "尚無有效方案"}</p>}
       {(state.page>0 || visible?.hasMore) && <nav aria-label="持有方案分頁" className="flex flex-wrap items-center justify-end gap-3 text-sm"><span>第 {state.page+1} 頁 · 每頁 20 筆</span><button className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40" disabled={!state.page} onClick={()=>onChange({...state,page:state.page-1})}>上一頁</button><button className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40" disabled={!visible?.hasMore} onClick={()=>onChange({...state,page:state.page+1})}>下一頁</button></nav>}
     </fieldset>}
-    {overview&&<div className="flex flex-wrap items-start gap-x-4"><button type="button" className="min-h-11 text-sm text-earth-600" onClick={()=>onChange({search:"",page:0,history:!state.history})}>{state.history?"返回有效方案":"歷史方案"}</button><details className="min-w-0 text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">額度說明</summary><p className="max-w-prose pb-2">可用額度已扣除預約保留，並依效期與使用限制核對。下次預約不一定已保留本方案額度，實際使用時仍須核對適用方案。</p></details></div>}
+
   </section>;
+}
+
+/** History supplements the active overview; it must never replace its cards or grids. */
+export function CourseCardBrowser(props:Parameters<typeof CardBrowserContent>[0]) {
+ const scope=JSON.stringify([props.customerId,props.dataScope]);
+ const [history,setHistory]=useState({scope,open:false,state:{search:"",history:true,page:0}});
+ if(!props.overview)return <CardBrowserContent {...props}/>;
+ const current=history.scope===scope?history:{scope,open:false,state:{search:"",history:true,page:0}};
+ return <>
+  <CardBrowserContent {...props} state={{...props.state,history:false}}/>
+  <div className="flex flex-wrap items-start gap-x-4">
+   <button type="button" className="min-h-11 text-sm text-earth-600" aria-expanded={current.open} onClick={()=>setHistory({...current,open:!current.open})}>{current.open?"收合歷史方案":"歷史方案"}</button>
+   <details className="min-w-0 text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">額度說明</summary><p className="max-w-prose pb-2">可用額度已扣除預約保留，並依效期與使用限制核對。下次預約不一定已保留本方案額度，實際使用時仍須核對適用方案。</p></details>
+  </div>
+  {current.open&&<section aria-label="歷史方案" className="space-y-1 border-t border-earth-100 pt-2"><h3 className="text-sm font-semibold">歷史方案</h3><CardBrowserContent {...props} snapshot={undefined} showOverviewTotals={false} state={current.state} onChange={state=>setHistory({...current,state:{...state,history:true}})}/></section>}
+ </>;
 }

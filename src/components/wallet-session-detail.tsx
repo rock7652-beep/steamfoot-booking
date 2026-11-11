@@ -9,6 +9,7 @@
 
 import { formatTWTime } from "@/lib/date-utils";
 import type { WalletSessionStatus } from "@prisma/client";
+import type {WalletSessionCorrectionRecord} from '@/lib/wallet-session-correction';
 
 const STATUS_LABEL: Record<WalletSessionStatus, string> = {
   AVAILABLE: "可使用",
@@ -36,6 +37,8 @@ export interface SessionRow {
   voidReason: string | null;
   booking: { bookingDate: Date; slotTime: string } | null;
   voidedByStaff?: { displayName: string } | null;
+  updatedAt?: Date;
+  corrections?: WalletSessionCorrectionRecord[];
 }
 
 interface Props {
@@ -45,6 +48,7 @@ interface Props {
     walletId: string;
     walletPlanName: string;
     renderButton: (session: SessionRow) => React.ReactNode;
+    renderCorrection?: (session:SessionRow)=>React.ReactNode;
   };
 }
 
@@ -71,7 +75,7 @@ export function WalletSessionDetail({ sessions, adminVoid }: Props) {
             <th className="px-2 py-2 text-left">註銷日期</th>
             {showAdminCols && (
               <>
-                <th className="px-2 py-2 text-left">註銷原因</th>
+                <th className="px-2 py-2 text-left">原因</th>
                 <th className="px-2 py-2 text-left">操作者</th>
                 <th className="px-2 py-2 text-center">操作</th>
               </>
@@ -127,6 +131,8 @@ export function WalletSessionDetail({ sessions, adminVoid }: Props) {
                   <td className="px-2 py-1 text-center">
                     {s.status === "AVAILABLE" ? (
                       adminVoid!.renderButton(s)
+                    ) : !s.booking && s.updatedAt && (s.status==='BACKFILLED'||s.status==='VOIDED') && adminVoid?.renderCorrection ? (
+                      adminVoid.renderCorrection(s)
                     ) : (
                       <span className="text-[11px] text-earth-300">—</span>
                     )}

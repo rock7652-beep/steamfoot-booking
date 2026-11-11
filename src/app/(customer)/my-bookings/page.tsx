@@ -1,3 +1,4 @@
+import {CustomerBookingList,CustomerBookingRow} from "@/components/customer-booking-row";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { getStoreContext } from "@/lib/store-context";
@@ -10,7 +11,6 @@ import { AppLink as Link } from "@/components/app-link";
 import type { PlanCategory } from "@prisma/client";
 import {
   STATUS_LABEL,
-  STATUS_COLOR,
   BOOKING_TYPE_LABEL,
   isBookingPast,
   PENDING_STATUSES,
@@ -336,53 +336,9 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
           )}
         </div>
       ) : (
-        <div className="rounded-2xl border border-earth-200 bg-white overflow-hidden">
-          {displayed.map((b, idx) => (
-            <div
-              key={b.id}
-              className={`px-4 py-4 ${
-                idx > 0 ? "border-t border-earth-100" : ""
-              } ${b.bookingStatus === "CANCELLED" ? "opacity-60" : ""}`}
-            >
-              <div className="flex items-start gap-3">
-                {/* Date + time */}
-                <div className="flex-shrink-0">
-                  <div className="text-base font-semibold text-earth-900">
-                    {new Date(b.bookingDate).toLocaleDateString("zh-TW", {
-                      month: "numeric",
-                      day: "numeric",
-                      weekday: "short",
-                    })}
-                  </div>
-                  <div className="mt-1 text-lg font-bold text-primary-700">{b.slotTime}</div>
-                </div>
-
-                {/* Info tags */}
-                <div className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-earth-700 min-w-0">
-                  {b.people > 1 && <span className="font-medium">{b.people}位</span>}
-                  {b.people > 1 && <span className="text-earth-400">·</span>}
-                  <span className="truncate">{BOOKING_TYPE_LABEL[b.bookingType] ?? b.bookingType}</span>
-                  {b.isMakeup && (
-                    <span className="rounded-md bg-amber-100 px-2 py-0.5 text-sm font-semibold text-amber-800">
-                      補課
-                    </span>
-                  )}
-                  {b.revenueStaff && (
-                    <span className="hidden sm:flex items-center gap-1">
-                      <span
-                        className="inline-block h-2 w-2 rounded-full"
-                        style={{ backgroundColor: b.revenueStaff.colorCode }}
-                      />
-                      <span className="text-sm">{b.revenueStaff.displayName}</span>
-                    </span>
-                  )}
-                </div>
-
-                {/* Status + action */}
-                <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                  <span className={`rounded-full px-2.5 py-1 text-sm font-semibold ${STATUS_COLOR[b.bookingStatus] ?? ""}`}>
-                    {STATUS_LABEL[b.bookingStatus] ?? b.bookingStatus}
-                  </span>
+        <CustomerBookingList>
+          {displayed.map((b) => (
+            <CustomerBookingRow key={b.id} when={`${new Date(b.bookingDate).toLocaleDateString("zh-TW", {year:"numeric",month:"2-digit",day:"2-digit",timeZone:"Asia/Taipei"})} ${b.slotTime}`} status={STATUS_LABEL[b.bookingStatus]??b.bookingStatus} description={[BOOKING_TYPE_LABEL[b.bookingType]??b.bookingType,b.people>1?`${b.people} 位`:null,b.isMakeup?'補課':null,b.revenueStaff?.displayName].filter(Boolean).join(' · ')}>
                   {(b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED") && (() => {
                     const dateStr = new Date(b.bookingDate).toISOString().slice(0, 10);
                     const [h, m] = b.slotTime.split(":").map(Number);
@@ -400,7 +356,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
                         {canReschedule && (
                           <Link
                             href={`${prefix}/my-bookings/${b.id}/reschedule`}
-                            className="flex min-h-[32px] items-center rounded-md px-2 text-sm font-medium text-primary-700 hover:bg-primary-50 hover:underline"
+                            className="flex min-h-[44px] items-center rounded-md px-2 text-sm font-medium text-primary-700 hover:bg-primary-50 hover:underline"
                           >
                             更改時間
                           </Link>
@@ -408,7 +364,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
                         {canCancel ? (
                           <Link
                             href={`${prefix}/my-bookings/${b.id}/cancel`}
-                            className="flex min-h-[32px] items-center rounded-md px-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:underline"
+                            className="flex min-h-[44px] items-center rounded-md px-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:underline"
                           >
                             取消
                           </Link>
@@ -423,11 +379,9 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
                       </div>
                     );
                   })()}
-                </div>
-              </div>
-            </div>
+            </CustomerBookingRow>
           ))}
-        </div>
+        </CustomerBookingList>
       )}
     </div>
   );

@@ -71,11 +71,13 @@ it("keeps historical TRIAL wallets visible but offers renewal only for an availa
   const customer = {
     id: "customer", storeId: "store", name: "驗收顧客", phone: null, lineUserId: null, lineLinkStatus: "UNLINKED", authSource: "MANUAL",
     canAssignPlan:true, canBook:true, canReadBookings:true,
-    customerStage: "ACTIVE", planWallets: [wallet("trial", "歷史體驗課"), wallet("package", "10堂")],
+    customerStage: "ACTIVE", planWallets: [wallet("trial", "歷史體驗課"), {...wallet("package", "10堂"),purchasedPrice:0}],
     _count: { planWallets: 2, sponsoredCustomers: 0, bookings: 1 }, createdAt: new Date(), updatedAt: new Date(),
   } as unknown as React.ComponentProps<typeof CustomerDetailDrawerContent>["customer"];
   await act(async () => root.render(React.createElement(CustomerDetailDrawerContent, { customer, plans, canDiscount: false, canAssign: false, canEditNote: false, staffOptions: [], onClose: vi.fn(), onMutated: vi.fn(), titleId: "customer-title" })));
   expect(host.textContent).toContain("歷史體驗課");
+  expect(host.textContent).toContain("方案金額待核對");
+  expect(host.textContent).toContain("方案金額 NT$ 0");
   const renewal = Array.from(host.querySelectorAll("button")).filter(button => button.textContent?.includes("續購"));
   expect(renewal).toHaveLength(1);
   expect(renewal[0].closest("li")?.textContent).toContain("10堂");

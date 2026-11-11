@@ -14,3 +14,5 @@ export function beautyServiceTime(startsAt:string,endsAt:string){
  const a=formatTWDateTime(new Date(startsAt)),b=formatTWDateTime(new Date(endsAt));
  return `${a.slice(11)}–${a.slice(0,10)===b.slice(0,10)?b.slice(11):b}`;
 }
+
+export function memberAppointmentEnd(items:readonly {endsAt:string}[]){return items.reduce((latest,item)=>Date.parse(item.endsAt)>Date.parse(latest)?item.endsAt:latest,items[0]?.endsAt??'');}

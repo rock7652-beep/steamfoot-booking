@@ -93,3 +93,25 @@ it('uses a confirmed purchase projection once and never displays it for a differ
  const render=async(customerId:string)=>act(async()=>{root.render(createElement(CourseCardBrowser,{customerId,revision:1,snapshot,state:{search:'',history:false,page:0},onChange:vi.fn(),onSelect:vi.fn()}));await Promise.resolve();});
  try{await render('customer-a');expect(mocks.browse).not.toHaveBeenCalled();await render('customer-b');await act(async()=>{await new Promise(r=>setTimeout(r,30));});expect(mocks.browse).toHaveBeenCalledWith(expect.objectContaining({customerId:'customer-b'}));}finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it('expands history below the same active card and never replaces its grid',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const card=(id:string,expired=false)=>({id,name:id,unit:'SESSION',remaining:2,held:0,available:expired?0:2,closed:false,expired,expiresAt:'2027-01-01',members:[],entries:[]});
+ mocks.browse.mockImplementation(async(input:{history?:boolean})=>({success:true,rows:[card(input.history?'Historical plan':'Active plan',!!input.history)],hasMore:false}));
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseCardBrowser,{overview:true,customerId:'learner',state:{search:'',history:false,page:0},onChange:vi.fn(),onSelect:vi.fn(),renderProgress:c=>createElement('div',{'data-grid':c.id},'Dates for '+c.id)})));
+  await act(async()=>{await new Promise(r=>setTimeout(r,40));});
+  const original=host.querySelector('[data-grid="Active plan"]');expect(original).not.toBeNull();
+  await act(async()=>{[...host.querySelectorAll('button')].find(b=>b.textContent==='歷史方案')!.click();});
+  // The active grid stays mounted even while history is still loading.
+  expect(host.querySelector('[data-grid="Active plan"]')).toBe(original);
+  await act(async()=>{await new Promise(r=>setTimeout(r,40));});
+  expect(host.querySelector('[data-grid="Historical plan"]')).not.toBeNull();
+  expect(host.querySelector('[data-grid="Active plan"]')).toBe(original);
+  await act(async()=>{[...host.querySelectorAll('button')].find(b=>b.textContent==='收合歷史方案')!.click();});
+  expect(host.querySelector('[data-grid="Historical plan"]')).toBeNull();
+  expect(host.querySelector('[data-grid="Active plan"]')).toBe(original);
+  expect(mocks.browse.mock.calls.filter(([input])=>!input.history)).toHaveLength(1);
+ }finally{await act(async()=>root.unmount());host.remove();}
+});

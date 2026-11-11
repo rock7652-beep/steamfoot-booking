@@ -405,7 +405,7 @@ export async function adjustRemainingSessions(
 // 限制：
 //   - 必須 AVAILABLE 才可註銷（COMPLETED / RESERVED / VOIDED 拒絕）
 //   - 已綁定預約 (RESERVED) 需先取消預約
-//   - 註銷不可逆，不會自動產生退費 Transaction（退費另由財務模組處理）
+//   - 填錯由獨立 correctSteamWalletSession 更正返還並保留原紀錄；退費另由財務模組處理
 //
 // 副作用：
 //   - WalletSession.status = VOIDED, voidedAt/voidReason/voidedByStaffId
