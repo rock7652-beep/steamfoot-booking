@@ -1,15 +1,15 @@
 import "server-only";
 import { coursePrisma } from "@/lib/course-db";
 import { courseSessionAdjustmentRecords } from "@/server/services/course-session-adjustment-records";
-import { activeSessionAdjustments } from "@/lib/plan-session-adjustment";
+import { activeSessionAdjustments, type SessionAdjustmentRecord } from "@/lib/plan-session-adjustment";
 import { dayRange } from "@/lib/date-utils";
 
 /** Display only. Caller derives the learner/card IDs from a verified member
  * session or phone grant (rechecked after reading). Never infer attendance from a
  * reservation or reconstruct a purchased quantity from the current balance. */
-export async function readCoursePhonePlanGrids(storeId: string, customerId: string, cardIds: string[]) {
+export async function readCoursePhonePlanGrids(storeId: string, customerId: string, cardIds: string[], adjustments?: SessionAdjustmentRecord[]) {
   if (!cardIds.length) return new Map<string, { total: number; dates: string[] }>();
-  const [cards, adjustments] = await Promise.all([
+  const [cards, records] = await Promise.all([
     coursePrisma.coursePointCard.findMany({
       where: { storeId, id: { in: cardIds }, unit: "SESSION", musicOpeningStateRequired: false, members: { some: { storeId, customerId } } },
       select: { id: true, entries: { where: { kind: "GRANT" }, select: { points: true } }, bookings: {
@@ -18,9 +18,9 @@ export async function readCoursePhonePlanGrids(storeId: string, customerId: stri
         orderBy: [{ session: { startsAt: "asc" } }, { id: "asc" }], take: 501,
       } },
     }),
-    courseSessionAdjustmentRecords(coursePrisma, storeId, cardIds),
+    adjustments ?? courseSessionAdjustmentRecords(coursePrisma, storeId, cardIds),
   ]);
-  const manual = activeSessionAdjustments(adjustments).filter(row => row.customerId === customerId && row.operation === "BACKFILL" && row.occurredOn);
+  const manual = activeSessionAdjustments(records).filter(row => row.customerId === customerId && row.operation === "BACKFILL" && row.occurredOn);
   const result = new Map<string, { total: number; dates: string[] }>();
   for (const card of cards) {
     const total = card.entries.reduce((sum, entry) => sum + entry.points, 0);

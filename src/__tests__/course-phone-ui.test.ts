@@ -61,3 +61,38 @@ it("renders exactly eight cells with only attended dates and does not fill a fut
   expect([...cells].map(cell => cell.textContent)).toEqual(["11/03", "11/10", "", "", "", "", "", ""]);
   expect(host.querySelector<HTMLOListElement>(".cp-phone-grid")!.style.gridTemplateColumns).toBe("repeat(4, minmax(0, 1fr))");
 });
+
+const balanceSummary = (remaining: number) => ({ success: true, learners: [{ id: "child-a", name: "孩子 A", cards: [{ id: "card", name: "鋼琴八堂", unit: "SESSION", remaining, held: 0, available: remaining, shared: false, closed: false, expired: false, grid: { total: 8, dates: ["2026-11-10T16:00:00Z"] } }], upcoming: [], history: [{ id: "manual", name: "鋼琴八堂", startsAt: "2026-11-10T16:00:00Z", status: "已出席（補登）", dateOnly: true, quantity: 2, unitLabel: "堂" }] }] });
+it("revalidates the family balance on a new server revision and preserves the open learner", async () => {
+  m.summary.mockResolvedValueOnce(balanceSummary(8)).mockResolvedValueOnce(balanceSummary(7));
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:member", revision: 1 })));
+  const learner=host.querySelector<HTMLDetailsElement>('details.cp-phone-learner')!;learner.open=true;
+  const history=host.querySelector<HTMLDetailsElement>('details.cp-phone-history')!;history.open=true;
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:member", revision: 2 })));
+  expect(m.summary).toHaveBeenCalledTimes(2);expect(host.textContent).toContain("剩餘 7 堂");
+  expect(host.querySelector('details.cp-phone-learner')).toBe(learner);expect(learner.open).toBe(true);expect(history.open).toBe(true);
+  expect(history.textContent).toContain("2026-11-11 · 鋼琴八堂 · 已出席（補登） · 2 堂");expect(history.textContent).not.toContain("00:00");
+});
+it("ignores an old in-flight revision and marks pending balances as updating", async () => {
+  let finish!:(value:unknown)=>void;
+  m.summary.mockReturnValueOnce(new Promise(resolve=>{finish=resolve;})).mockResolvedValueOnce(balanceSummary(6));
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:revision", revision: 1 })));
+  expect(host.querySelector('[aria-busy="true"]')).not.toBeNull();expect(host.querySelector('button')!.disabled).toBe(true);
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:revision", revision: 2 })));
+  expect(host.textContent).toContain("剩餘 6 堂");
+  await act(async () => finish(balanceSummary(8)));
+  expect(host.textContent).not.toContain("剩餘 8 堂");expect(host.querySelector('[aria-busy="true"]')).toBeNull();
+});
+it("clears family details when an automatic reread rejects access and permits a manual retry", async () => {
+  m.summary.mockResolvedValueOnce(balanceSummary(8)).mockResolvedValueOnce({success:false,error:"電話授權已撤銷"}).mockResolvedValueOnce({success:true,learners:[]});
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:access", revision: 1 },el('p',null,'個人摘要'))));
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "store:access", revision: 2 },el('p',null,'個人摘要'))));
+  expect(host.textContent).not.toContain("孩子 A");expect(host.querySelector('[role="alert"]')?.textContent).toContain("電話授權已撤銷");
+  await act(async () => host.querySelector('button')!.click());
+  expect(host.textContent).toBe("個人摘要");
+});
+it("does not read family data in read-only preview even when the revision changes", async () => {
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "preview", revision: 1, disabled: true },'預覽摘要')));
+  await act(async () => root.render(el(CoursePhoneLearners, { scope: "preview", revision: 2, disabled: true },'預覽摘要')));
+  expect(m.summary).not.toHaveBeenCalled();expect(host.textContent).toBe('預覽摘要');
+});

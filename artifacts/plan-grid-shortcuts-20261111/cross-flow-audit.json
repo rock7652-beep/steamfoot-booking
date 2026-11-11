@@ -1,0 +1,86 @@
+{
+  "scope": "補登、註銷、更正、音樂／運動前後台同步；美業共用調整服務回歸",
+  "baseCommit": "6fad20b773e7e9746a43846408af22232b67ddfe",
+  "environment": "本機程式核對、模擬元件測試、Docker loopback 獨立暫存 PostgreSQL 資料庫；正式資料未操作、未發布",
+  "checks": {
+    "regression": {
+      "passed": 84,
+      "log": "/tmp/plan-shortcuts-cross-audit-tests.log"
+    },
+    "postgresql": {
+      "passed": 11,
+      "log": "/tmp/plan-shortcuts-cross-audit-pg.log",
+      "databaseRemoved": true
+    },
+    "diagnostics": {
+      "newObservations": 2,
+      "passedIncludingExisting": 30,
+      "log": "/tmp/plan-shortcuts-cross-audit-observations.log",
+      "temporarySourcesRestored": true
+    }
+  },
+  "confirmedProtections": [
+    "同一 requestKey 重試不重複扣堂",
+    "同店交易鎖與舊餘額衝突檢查",
+    "已預約占用額度不可註銷／補登扣用",
+    "更正保留原紀錄且同筆不能重複返還",
+    "VOID 不作出席日期投影",
+    "已更正 BACKFILL 不作有效出席投影",
+    "隔離資料庫驗證原收款保留與交易失敗全數回滾"
+  ],
+  "findings": [
+    {
+      "id": "F1",
+      "priority": "high",
+      "title": "新操作無法辨認同一堂被重複補登",
+      "evidence": "新 requestKey 與更新後 expectedRemaining 可對相同日期再次扣堂；補登無 bookingId 對應。日期相同本身不能直接拒絕，可能一天上多堂。",
+      "source": "src/server/services/course-session-adjustment.ts:14",
+      "recommendation": "已有課堂優先修正原課堂出席；歷史補登先提示已記錄的同日使用，不直接以日期禁止合法多堂。"
+    },
+    {
+      "id": "F2",
+      "priority": "high",
+      "title": "同電話學員摘要未隨父層刷新重讀",
+      "evidence": "同 scope 的父層重渲染仍保留 8 堂，按重新讀取後才變為 7 堂；父層 timer/router.refresh 不改變此 scope。",
+      "source": "src/components/course-phone-learners.tsx:24",
+      "recommendation": "讓摘要跟隨有效資料版本／回到頁面時失效重讀，保留編輯草稿與權限重核。"
+    },
+    {
+      "id": "F3",
+      "priority": "medium",
+      "title": "我的學員課程紀錄漏列歷史補登",
+      "evidence": "格子合併 BACKFILL，但 phone summary history 只查 CourseBooking；補登服務不建立 CourseBooking。",
+      "source": "src/server/actions/course-phone-summary.ts:21",
+      "recommendation": "以授權範圍合併有效手動補登；更正後排除原補登。"
+    },
+    {
+      "id": "F4",
+      "priority": "medium",
+      "title": "顧客方案頁不易追溯更正返還",
+      "evidence": "有效補登投影排除被更正的原筆；其他堂數異動又排除 RELEASE，故手動返還缺少前台可讀原因。",
+      "source": "src/app/(customer)/book/course-portal-client.tsx:1073",
+      "recommendation": "顯示經授權的簡短更正返還異動，勿直接公開內部操作備註。"
+    },
+    {
+      "id": "F5",
+      "priority": "medium",
+      "title": "共用方案前後台格子範圍不同",
+      "evidence": "後台進度涵蓋整份方案；前台總格數用整卡 GRANT，但日期只列目前學員。屬顯示口徑差異，不能據此擴大查看權。",
+      "sources": [
+        "src/server/actions/course-card-progress.ts:30",
+        "src/server/queries/course-phone-plan-grids.ts:16"
+      ],
+      "recommendation": "區分全方案餘額與本人上課日期；若需跨學員整卡紀錄，必須依既有授權處理。"
+    }
+  ],
+  "limits": [
+    "未執行正式 LINE 真機端到端驗收",
+    "診斷用 mock 驗證特定 UI／服務分支，不代表所有真實資料通過",
+    "以上缺口尚未修復；未新增欄位、修改扣堂政策或正式部署"
+  ],
+  "followUp": {
+    "F2": "本機修正與回歸驗證通過，尚未發布",
+    "F3": "本機修正與回歸驗證通過，尚未發布",
+    "evidence": "../course-phone-sync-20261111/validation.json"
+  }
+}

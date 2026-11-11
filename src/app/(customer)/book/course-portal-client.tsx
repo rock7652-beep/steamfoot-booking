@@ -913,7 +913,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                 </>
               ) : (
                 <>
-                  <CoursePhoneLearners key={`${p.rolePreferenceKey}:${p.customerId}`} scope={`${p.prefix}:${p.rolePreferenceKey}:${p.customerId}`} disabled={!!p.readOnly}>
+                  <CoursePhoneLearners key={`${p.rolePreferenceKey}:${p.customerId}`} scope={`${p.prefix}:${p.rolePreferenceKey}:${p.customerId}`} revision={p.serverNow} disabled={!!p.readOnly}>
               <section className="cp-card cp-next">
                 <div>
                   <small>{coach ? "下一堂課" : "下一次上課"}</small>

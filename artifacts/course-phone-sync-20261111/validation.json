@@ -1,0 +1,59 @@
+{
+  "scope": [
+    "F2 同電話學員摘要隨頁面版本重讀",
+    "F3 合併授權學員有效補登至課程紀錄"
+  ],
+  "sourceBase": "6fad20b7",
+  "environment": "local only; not published",
+  "regression": {
+    "files": 13,
+    "passed": 147,
+    "log": "/tmp/plan-phone-sync-regression.log"
+  },
+  "typecheck": {
+    "passed": true,
+    "command": "NODE_OPTIONS=--max-old-space-size=12288 ./node_modules/.bin/tsc --noEmit --incremental false"
+  },
+  "lint": {
+    "passed": true,
+    "log": "/tmp/plan-phone-sync-final-lint.log"
+  },
+  "preview": {
+    "kind": "real component and cache with synthetic server responses; no network requests to services",
+    "dimensions": [
+      [
+        390,
+        844
+      ],
+      [
+        768,
+        1024
+      ],
+      [
+        1366,
+        900
+      ]
+    ],
+    "checks": [
+      "補登餘額、日期格與紀錄一致",
+      "更正後原補登移除、餘額返還",
+      "保留展開學員及紀錄",
+      "撤銷查看後清除家庭資料",
+      "舊版本及舊帳號晚到回應不覆蓋新資料",
+      "沒有頁面橫向溢出或瀏覽器錯誤"
+    ]
+  },
+  "refreshBehavior": "沿用前台每60秒與回到頁面的既有刷新（15秒節流），以 serverNow 觸發摘要失效重讀；不是即時推播。",
+  "privacy": "前台不回傳內部原因或操作人，僅合併目前已授權的學員與卡片；讀完再次核對授權。",
+  "remaining": [
+    "F1 同堂重新建立補登的辨識",
+    "F4 前台更正返還原因呈現",
+    "F5 共用方案格子範圍說明"
+  ],
+  "limitations": [
+    "尚未正式部署",
+    "未做真人 LINE／LIFF 端到端驗收",
+    "未改動扣堂、出席或薪資交易規則",
+    "未改動正式資料或發送通知"
+  ]
+}
