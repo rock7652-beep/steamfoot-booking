@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { resolveVerifiedLineCustomer } from "./verified-line-customer";
 import { completeAuthorizedFirstStoreLogin } from "./store-member-connection";
+import { activateUnlinkedStoreMemberInTransaction } from "./precreated-first-line-login";
 import { requestLiffLoginRecovery } from "./liff-login-recovery";
 
 /** Called only after verifying the token and this course store's channel.
@@ -80,9 +81,7 @@ export async function onboardCourseLineMember(input: {
       });
       const candidates = await tx.customer.findMany({
         where: { storeId: input.storeId, OR: [{ phone }, { phone: "", contactPhone: phone }, ...(identityProvider === "line" ? [{ lineUserId: input.lineUserId }] : [])] },
-        select: { id: true, name: true, phone: true, userId: true, lineUserId: true,
-          googleId: true, lineBindingCode: true, mergedIntoCustomerId: true,
-          identityLinks: { select: { id: true } } }, take: 2,
+        select: { id: true }, take: 2,
       });
       const links = await tx.customerIdentityLink.findMany({
         where: { storeId: input.storeId, OR: [
@@ -93,39 +92,12 @@ export async function onboardCourseLineMember(input: {
       const legacyMember = account ? await tx.customer.findFirst({
         where: { storeId: input.storeId, userId: account.userId }, select: { id: true },
       }) : null;
-      const candidate = candidates.length === 1 ? candidates[0] : null;
-      if (candidate && !account && !links.length && !legacyMember &&
-          candidate.phone === phone && candidate.name.trim() === input.name.trim() && input.name.trim() &&
-          !candidate.userId && !candidate.googleId && !candidate.lineBindingCode &&
-          !candidate.mergedIntoCustomerId && !candidate.identityLinks.length &&
-          (!candidate.lineUserId || (identityProvider === "line" && candidate.lineUserId === input.lineUserId))) {
-        const [phoneOwner, providerLink] = await Promise.all([
-          tx.user.findUnique({ where: { phone_role: { phone, role: "CUSTOMER" } }, select: { id: true } }),
-          tx.customerIdentityLink.findFirst({ where: { provider: identityProvider, providerAccountId: input.lineUserId }, select: { id: true } }),
-        ]);
-        if (phoneOwner || providerLink) return { status: "identity_review_required" as const };
-        const user = await tx.user.create({ data: {
-          name: candidate.name, phone, role: "CUSTOMER", status: "ACTIVE",
-        }, select: { id: true } });
-        const claimed = await tx.customer.updateMany({ where: {
-          id: candidate.id, storeId: input.storeId, phone, name: candidate.name,
-          userId: null, lineUserId: candidate.lineUserId, googleId: null, lineBindingCode: null,
-          mergedIntoCustomerId: null, identityLinks: { none: {} },
-        }, data: { userId: user.id, authSource: "LINE", lineLinkStatus: "LINKED", lineLinkedAt: new Date(),
-          ...(identityProvider === "line" ? { lineUserId: input.lineUserId } : {}),
-        } });
-        if (claimed.count !== 1) throw new Error("COURSE_FIRST_LOGIN_RECORD_CHANGED");
-        await tx.account.create({ data: { userId: user.id, provider: identityProvider,
-          providerAccountId: input.lineUserId, type: "oauth" } });
-        await tx.customerIdentityLink.create({ data: { userId: user.id, storeId: input.storeId,
-          customerId: candidate.id, provider: identityProvider,
-          providerAccountId: input.lineUserId, lineUserId: input.lineUserId } });
-        await tx.auditLog.create({ data: { actorUserId: user.id, storeId: input.storeId,
-          module: "COURSE", targetType: "Customer", targetId: candidate.id,
-          action: "FIRST_LINE_LOGIN_NAME_PHONE_MATCH",
-          afterJson: { existingCustomerActivated: true, identityProvider },
-        } });
-        return { status: "ok" as const };
+      if (candidates.length === 1 && !account && !links.length && !legacyMember) {
+        const activation = await activateUnlinkedStoreMemberInTransaction(tx, {
+          storeId: input.storeId, lineUserId: input.lineUserId, name: input.name,
+          phone, course: true, identityProvider,
+        });
+        if (activation === "activated") return { status: "ok" as const };
       }
       // Name/phone never replaces an owned identity or grants a phone group.
       if (candidates.length || links.length || legacyMember || (account && account.user.status !== "ACTIVE")) {
