@@ -1,7 +1,7 @@
 import {musicPlanItems} from "./music-catalog";
 
 export const PENDING_FEE_SUBJECT = "__pending_fee_subject__";
-type Fee = {sportsMode?:string;sportsSubjectId?:string|null;templateIds:string[]};
+type Fee = {sportsMode?:string;sportsSubjectId?:string|null;sportsSubjectIds?:string[];templateIds:string[]};
 type Subject = {id:string;name:string};
 type Template = Subject & {musicSubjectId?:string|null};
 export type CourseFeeGroup = {id:string;name:string;subjectIds:string[];pending:boolean};
@@ -10,11 +10,11 @@ export type CourseFeeGroup = {id:string;name:string;subjectIds:string[];pending:
 export function courseFeeGroup(plan:Fee,templates:Template[],subjects:Subject[],music:boolean):CourseFeeGroup {
   const pending={id:PENDING_FEE_SUBJECT,name:"待核對科目",subjectIds:[],pending:true};
   if(!music&&plan.sportsMode==="OPEN")return pending;
-  const items=music?musicPlanItems(plan.templateIds,templates,subjects):
+  const items=music?musicPlanItems(plan.templateIds,templates,subjects):plan.sportsMode==="SUBJECTS"?subjects.filter(s=>plan.sportsSubjectIds?.includes(s.id)):
     plan.sportsMode==="ASSIGNED"?subjects.filter(s=>s.id===plan.sportsSubjectId):
     subjects.filter(s=>plan.templateIds.some(id=>id===s.id||templates.some(t=>t.id===id&&t.musicSubjectId===s.id)));
   // A partially unresolved legacy scope must not appear to have a complete mapping.
-  if(!items.length||(!music&&plan.sportsMode!=="ASSIGNED"&&plan.templateIds.some(id=>!subjects.some(s=>s.id===id||templates.some(t=>t.id===id&&t.musicSubjectId===s.id))))||
+  if(!items.length||(plan.sportsMode==="SUBJECTS"&&items.length!==new Set(plan.sportsSubjectIds??[]).size)||(!music&&plan.sportsMode!=="ASSIGNED"&&plan.sportsMode!=="SUBJECTS"&&plan.templateIds.some(id=>!subjects.some(s=>s.id===id||templates.some(t=>t.id===id&&t.musicSubjectId===s.id))))||
     (music&&plan.templateIds.some(id=>!templates.some(t=>t.id===id))))return pending;
   const ordered=[...items].sort((a,b)=>a.id.localeCompare(b.id));
   const ids=ordered.map(s=>s.id);

@@ -402,7 +402,7 @@ async function readCoursePortal(requestedMonth: string | undefined, preview: Fro
       purchases: orders.filter(order => order.cardId === card.id).map(order => ({ id: order.id, points: order.points, price:order.price, createdAt: order.createdAt.toISOString(), status: order.status })),
     })),
     bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
-    plans:plans.map(p=>({id:p.id,name:p.name,points:p.points,price:p.price,unit:p.unit,validDays:p.validDays,...({sportsMode:p.sportsMode,sportsSubjectId:p.sportsSubjectId,sportsCost:p.sportsCost} as Partial<{sportsMode:string;sportsSubjectId:string|null;sportsCost:number|null}>),templateIds:p.templateIds,termSessionIds:p.termSessionIds})),
+    plans:plans.map(p=>({id:p.id,name:p.name,points:p.points,price:p.price,unit:p.unit,validDays:p.validDays,...({sportsMode:p.sportsMode,sportsSubjectId:p.sportsSubjectId,sportsSubjectIds:p.sportsSubjectIds,sportsCost:p.sportsCost} as Partial<{sportsMode:string;sportsSubjectId:string|null;sportsSubjectIds?:string[];sportsCost:number|null}>),templateIds:p.templateIds,termSessionIds:p.termSessionIds})),
     templates,
     hours,
     special: special.map((s) => ({

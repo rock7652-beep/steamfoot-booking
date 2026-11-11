@@ -30,6 +30,7 @@ export type SportsFee = {
   sportsMode?:string;
   id: string;
   subject: string;
+  subjects?:string[];
   name: string;
   unit: string;
   amount: number;

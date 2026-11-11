@@ -905,7 +905,7 @@ export function CourseRoster({
           (!item.openingImported || item.openingReservable === true) &&
           item.expiresAt !== null &&
           item.available >=
-            (item.sportsMode==="ASSIGNED"?item.sportsCost??1:item.unit === "SESSION" ? 1 : session?.pointCost ?? 1) &&
+            ((item.sportsMode==="ASSIGNED"||item.sportsMode==="SUBJECTS")?item.sportsCost??1:item.unit === "SESSION" ? 1 : session?.pointCost ?? 1) &&
           (!session || item.expiresAt >= session.startsAt),
       )
       .sort((a, b) => (a.expiresAt ?? "9999").localeCompare(b.expiresAt ?? "9999"));
@@ -974,7 +974,7 @@ export function CourseRoster({
           }
           const chosenCard=cards.find(card=>card.id===cardId);
           if(musicLayout&&chosenCard?.openingImported&&!chosenCard.openingReservable){setMessage("請先核對可用方案與來源堂次");return;}
-          const totalCost=enrollmentSessions.reduce((total,item)=>total+(chosenCard?.sportsMode==="ASSIGNED"?chosenCard.sportsCost??1:chosenCard?.unit==="SESSION"?1:item.pointCost),0);
+          const totalCost=enrollmentSessions.reduce((total,item)=>total+((chosenCard?.sportsMode==="ASSIGNED"||chosenCard?.sportsMode==="SUBJECTS")?chosenCard.sportsCost??1:chosenCard?.unit==="SESSION"?1:item.pointCost),0);
           if(enrollmentScope==="FUTURE" && !sportsNative && !musicLayout && (enrollmentLoading || !enrollmentSessions.length || !chosenCard || chosenCard.available<totalCost || enrollmentSessions.some(item=>!chosenCard.expiresAt||item.startsAt>chosenCard.expiresAt))){setMessage("請確認後續日期與方案額度、有效期限");return;}
           const allowOverCapacity = enrollmentScope==="FUTURE" ? enrollmentSessions.some(item=>item.full) : seatLimited && occupiedCount >= capacity;
           if(allowOverCapacity && !window.confirm(`所選課程已滿班（本堂 ${occupiedCount}/${capacity} 人）${waitlist.length ? `，另有 ${waitlist.length} 位候補` : ""}。確認超額加入這位學員？`)) return;
@@ -1095,7 +1095,7 @@ export function CourseRoster({
         {customerId && !makeupForBookingId && enrollmentSessions.length>1 && <fieldset className="rounded-lg border border-earth-200 p-3 text-sm">
           <legend>加入範圍</legend>
           <div className="flex flex-wrap gap-2"><button type="button" aria-pressed={enrollmentScope==="SINGLE"} className={button} onClick={()=>setEnrollmentScope("SINGLE")}>僅本堂</button><button type="button" aria-pressed={enrollmentScope==="FUTURE"} className={button} onClick={()=>setEnrollmentScope("FUTURE")}>本堂及後續 · {enrollmentSessions.length} 堂</button></div>
-          {enrollmentScope==="FUTURE" && <><p className="mt-2">已排定 {enrollmentSessions.length} 堂，已加入、已停課或已取消的堂次不重複加入。</p><ul className="mt-1 max-h-28 overflow-auto text-xs text-earth-600">{enrollmentSessions.map(item=><li key={item.id}>{formatTWDateTime(new Date(item.startsAt))}{item.full?" · 已滿班":""}</li>)}</ul>{sportsNative?<p className="mt-2">系統核對整批課程的適用權益、額度與效期後才加入，不會拆卡。</p>:<p className="mt-2">需要 {enrollmentSessions.reduce((sum,item)=>sum+(cards.find(card=>card.id===cardId)?.sportsMode==="ASSIGNED"?cards.find(card=>card.id===cardId)?.sportsCost??1:cards.find(card=>card.id===cardId)?.unit==="SESSION"?1:item.pointCost),0)} {cards.find(card=>card.id===cardId)?.unit==="SESSION"?"堂":"點"} · 可用 {cards.find(card=>card.id===cardId)?.available ?? "—"}</p>}</>}
+          {enrollmentScope==="FUTURE" && <><p className="mt-2">已排定 {enrollmentSessions.length} 堂，已加入、已停課或已取消的堂次不重複加入。</p><ul className="mt-1 max-h-28 overflow-auto text-xs text-earth-600">{enrollmentSessions.map(item=><li key={item.id}>{formatTWDateTime(new Date(item.startsAt))}{item.full?" · 已滿班":""}</li>)}</ul>{sportsNative?<p className="mt-2">系統核對整批課程的適用權益、額度與效期後才加入，不會拆卡。</p>:<p className="mt-2">需要 {enrollmentSessions.reduce((sum,item)=>sum+(["ASSIGNED","SUBJECTS"].includes(cards.find(card=>card.id===cardId)?.sportsMode??"")?cards.find(card=>card.id===cardId)?.sportsCost??1:cards.find(card=>card.id===cardId)?.unit==="SESSION"?1:item.pointCost),0)} {cards.find(card=>card.id===cardId)?.unit==="SESSION"?"堂":"點"} · 可用 {cards.find(card=>card.id===cardId)?.available ?? "—"}</p>}</>}
         </fieldset>}
         {enrollmentLoading && <p role="status" className="text-xs text-earth-500">確認後續堂次中…</p>}
         {customerId && (

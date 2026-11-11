@@ -61,7 +61,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
     const originalExpiry = opening.kind === "NATIVE" ? c.expiresAt : opening.kind === "OPENING" && opening.record.expiresAt ? new Date(opening.record.expiresAt) : null;
     const expired = originalExpiry !== null && originalExpiry.getTime() < Date.now();
     return {
-      ...({planId:c.planId,sportsMode:c.sportsMode,sportsSubjectId:c.sportsSubjectId,sportsCost:c.sportsCost,templateRestricted:c.requestKey?.startsWith("no-show-makeup:")??false} as Partial<{planId:string;sportsMode:string;sportsSubjectId:string|null;sportsCost:number|null;templateRestricted:boolean}>),
+      ...({planId:c.planId,sportsMode:c.sportsMode,sportsSubjectId:c.sportsSubjectId,sportsSubjectIds:c.sportsSubjectIds,sportsCost:c.sportsCost,templateRestricted:c.requestKey?.startsWith("no-show-makeup:")??false} as Partial<{planId:string;sportsMode:string;sportsSubjectId:string|null;sportsSubjectIds?:string[];sportsCost:number|null;templateRestricted:boolean}>),
       id: c.id,
       ...({sessionAdjustments:adjustments.filter(r=>r.cardId===c.id)} as {sessionAdjustments?:SessionAdjustmentRecord[]}),
       ...(c.createdAt ? {createdAt:c.createdAt.toISOString()} : {}),

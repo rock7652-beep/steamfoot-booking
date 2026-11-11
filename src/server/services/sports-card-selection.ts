@@ -11,6 +11,14 @@ export async function findSportsCard(tx: Prisma.TransactionClient, storeId: stri
   rule: { enrollment: string; planId: string | null }, explicitCardId?: string | null, excludeBookingId?:string, ordinaryOnly=false, existingReservation?:{cardId:string;cost:number}) {
   const template = await tx.courseTemplate.findFirst({ where: { id: sessions[0].templateId, storeId }, select: { musicSubjectId: true } });
   const compatibleTemplateIds=await readSportsTeachingTemplates(tx,storeId,template?.musicSubjectId);
+  const subjects = new Map([[sessions[0].templateId, template?.musicSubjectId ?? null]]);
+  const compatible = new Map([[sessions[0].templateId, compatibleTemplateIds]]);
+  for (const id of new Set(sessions.map(s => s.templateId))) {
+    if (subjects.has(id)) continue;
+    const item = await tx.courseTemplate.findFirst({where:{id,storeId},select:{musicSubjectId:true}});
+    subjects.set(id,item?.musicSubjectId??null);
+    compatible.set(id,await readSportsTeachingTemplates(tx,storeId,item?.musicSubjectId));
+  }
   const now = new Date();
   const last = new Date(Math.max(now.getTime(), ...sessions.map(s => s.startsAt.getTime())));
   const cards = await tx.coursePointCard.findMany({
@@ -29,9 +37,9 @@ export async function findSportsCard(tx: Prisma.TransactionClient, storeId: stri
     // snapshot. This option is internal, never accepted from a client request.
     const preserve=existingReservation&&explicitCardId===existingReservation.cardId&&card.id===existingReservation.cardId&&card.sportsMode==='OPEN'&&Number.isSafeInteger(existingReservation.cost)&&existingReservation.cost>0;
     const costs = sessions.map(s => preserve?{eligible:true as const,cost:existingReservation!.cost}:resolveSportsEntitlement({ ...card, templateRestricted: card.requestKey.startsWith("no-show-makeup:") }, {
-      templateId: s.templateId, subjectId: template?.musicSubjectId ?? null, pointCost: s.pointCost,
+      templateId: s.templateId, subjectId: subjects.get(s.templateId) ?? null, pointCost: s.pointCost,
       enrollment: rule.enrollment === "ASSIGNED" ? "ASSIGNED" : rule.enrollment === "OPEN" ? "OPEN" : null,
-      legacyPlanId: rule.planId,compatibleTemplateIds,
+      legacyPlanId: rule.planId,compatibleTemplateIds:compatible.get(s.templateId),
     }));
     if (costs.some(c => !c.eligible)) continue;
     const total = costs.reduce((n, c) => n + (c.eligible ? c.cost : 0), 0);

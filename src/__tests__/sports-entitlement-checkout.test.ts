@@ -23,6 +23,7 @@ beforeEach(() => {
 it.each([
   { sportsMode: "LEGACY", sportsSubjectId: null, sportsCost: null },
   { sportsMode: "ASSIGNED", sportsSubjectId: "yoga", sportsCost: 2 },
+  { sportsMode: "SUBJECTS", sportsSubjectId: null, sportsSubjectIds: ["yoga", "dance"], sportsCost: 2 },
   { sportsMode: "OPEN", sportsSubjectId: null, sportsCost: null },
 ])("copies $sportsMode rights into both the granted card and confirmed purchase", async rights => {
   planFind.mockResolvedValue({ id: "plan", storeId: "store", name: "方案", points: 10, price: 1000, validDays: 30, unit: "POINT", templateIds: [], storeCost: 0, ...rights });

@@ -1,11 +1,14 @@
 // Build artifacts only. No database clients, credentials, migrations or deployed settings.
-import {readFileSync,statSync,readdirSync,existsSync,writeFileSync} from 'node:fs';
+import {readFileSync,statSync,lstatSync,realpathSync,readdirSync,existsSync,writeFileSync,mkdirSync,mkdtempSync,copyFileSync,unlinkSync,constants} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {createHash} from 'node:crypto';
 import {resolve,dirname,relative,sep,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {prepareReferralQaEngineFiles} from './prune-referral-qa-trace.mjs';
 const unused=/^node_modules\/@prisma\/client\/runtime\/query_engine_bg\.(cockroachdb|mysql|sqlite|sqlserver)\.wasm-base64\.(js|mjs)$/;
 // QA screenshots are already excluded by next.config.ts route tracing.
-// Proxy traces ignore those globs; remove only these review images, never runtime assets.
+// Proxy traces ignore those globs. Vercel may retrace after postbuild, so archive
+// only these review images outside the ephemeral build root, never runtime assets.
 const reviewScreenshot=/^artifacts\/.*\.(?:png|jpe?g|webp)$/i;
 export function assertProductionPackaging(env,root){
  if(env.VERCEL!=='1'||env.VERCEL_ENV!=='production'||env.VERCEL_PROJECT_ID!=='prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR'||env.VERCEL_GIT_COMMIT_REF!=='main'||env.VERCEL_GIT_REPO_OWNER!=='rock7652-beep'||env.VERCEL_GIT_REPO_SLUG!=='steamfoot-booking'||env.WORKERS_CI_BRANCH||env.CF_PAGES_BRANCH||env.SUBSCRIPTION_REFERRAL_QA||env.MARKETING_PUBLICATION_LOCAL_QA||!/^\/vercel\/path[0-9]+$/.test(root))throw Error('Production packaging requires the exact production main project and Vercel build sandbox');
@@ -30,9 +33,42 @@ export function pruneProductionNft(file,root){
  if(files.length!==data.files.length)writeFileSync(file,JSON.stringify({...data,files}));
  return data.files.length-files.length;
 }
+export function archiveProductionReviewImages(root,paths){
+ const base=realpathSync(root),files=[...new Set(paths)];
+ // Validate every source before modifying anything. Symlinks and paths outside
+ // the exact artifacts image scope never become build packaging candidates.
+ for(const path of files){
+  const full=resolve(base,path);
+  if(!reviewScreenshot.test(path)||relative(base,full).split(sep).join('/')!==path||!lstatSync(full).isFile()||lstatSync(full).isSymbolicLink()||relative(base,realpathSync(full)).split(sep).join('/')!==path)throw Error('Review image archive scope mismatch');
+ }
+ const archive=mkdtempSync(join(tmpdir(),'production-review-images-'));
+ for(const path of files){
+  const source=resolve(base,path),destination=join(archive,path);
+  mkdirSync(dirname(destination),{recursive:true});copyFileSync(source,destination,constants.COPYFILE_EXCL);
+  const hash=file=>createHash('sha256').update(readFileSync(file)).digest('hex');
+  if(hash(source)!==hash(destination))throw Error('Review image archive verification failed');
+ }
+ // Git sources remain intact; only the completed, strictly scoped platform
+ // build sandbox loses these files. Preserve a byte-exact recovery archive.
+ for(const path of files)unlinkSync(resolve(base,path));
+ return {archive,count:files.length};
+}
+export function archiveProductionReviewInputs(env,root){
+ assertProductionPackaging(env,resolve(root));
+ const paths=[],directory=join(root,'artifacts');
+ function visit(dir){for(const entry of readdirSync(dir,{withFileTypes:true})){
+  const full=join(dir,entry.name),path=relative(root,full).split(sep).join('/');
+  if(entry.isDirectory())visit(full);
+  else if(reviewScreenshot.test(path))paths.push(path);
+ }}
+ if(existsSync(directory))visit(directory);
+ return archiveProductionReviewImages(root,paths);
+}
 export function pruneProductionTraces(root){
  if(!existsSync(join(root,'.next/BUILD_ID')))throw Error('Completed build required');
- const plan=inspectProductionPackage(root);if(!plan.withinSafetyBudget)throw Error(`Proxy remains above the production packaging safety budget: ${JSON.stringify(plan)}`);
+ const plan=inspectProductionPackage(root);
+ if(plan.reviewScreenshots.length)throw Error('Review images must be archived before Next.js tracing, not after it');
+ if(!plan.withinSafetyBudget)throw Error(`Proxy remains above the production packaging safety budget: ${JSON.stringify(plan)}`);
  function visit(directory){for(const entry of readdirSync(directory,{withFileTypes:true})){
   const p=join(directory,entry.name);if(entry.isDirectory()&&!['node_modules','cache'].includes(entry.name))visit(p);
   else if(entry.isFile()&&entry.name.endsWith('.nft.json'))pruneProductionNft(p,root);

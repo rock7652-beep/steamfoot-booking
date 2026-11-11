@@ -439,7 +439,6 @@ export function CourseMemberWorkspace({
   },[completedPurchaseKey,automaticCompletionScope]);
   const groupedFees=(music||sportsNative)&&!catalogSource;
   const feeGroups=new Map(plans.map(p=>[p.id,courseFeeGroup(p,templates,subjects,music)]));
-  const selectedFeeSubject=subjects.find(s=>s.id===templateFilter)??templates.find(t=>t.id===templateFilter);
   const order=useCourseDisplayOrder("plan",plans,displayOrder,(!catalogSource||!!catalogSource.order)&&canEdit&&!search&&status==="all"&&templateFilter==="all"&&purchaseFilter==="all"&&sharedFilter==="all"&&!hideTestData&&!busyIds.length,p=>groupedFees?JSON.stringify([p.isActive,feeGroups.get(p.id)!.id]):p.isActive,catalogSource?.order);
   const filteredPlans = plans
     .filter(
@@ -487,10 +486,6 @@ export function CourseMemberWorkspace({
   return (
     <>
       {!panelOnly&&<>
-      {groupedFees&&view==="plans"&&planArea==="catalog"&&<div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <h2 className="min-w-0 break-words text-lg font-semibold text-primary-900">{templateFilter===PENDING_FEE_SUBJECT?"待核對科目／收費方式":selectedFeeSubject?`${selectedFeeSubject.name}／收費方式`:templateFilter==="all"?"全部教學項目／收費方式":"找不到教學項目／收費方式"}</h2>
-        <DashboardLink href="/dashboard/courses?view=catalog" className={button}>返回教學項目</DashboardLink>
-      </div>}
       {!panel&&confirmedPurchase}
       {!panel&&notice==="結帳完成，方案已加入"&&purchased&&<div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800"><span>{notice}</span>{canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>{music||sportsNative?"安排課程":"前往課表"}</DashboardLink>}</div>}
       {view === "plans" && !compactCatalog && <div className="flex flex-wrap items-center gap-3">

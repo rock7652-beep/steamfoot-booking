@@ -78,6 +78,16 @@ try{
   await page.setViewportSize(size);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Whole page overflow');
   assert(await page.locator('[data-fee-group]').count()===3,'Missing groups');
+  assert(await page.getByRole('heading',{name:'收費方式',exact:true}).count()===1,'Page title must appear once');
+  assert(await page.getByRole('heading',{name:'全部教學項目／收費方式',exact:true}).count()===0,'Duplicate heading remains');
+  const header=page.locator('[data-page-header]');
+  const back=header.getByRole('link',{name:'返回教學項目',exact:true});
+  const h=await header.boundingBox(),b=await back.boundingBox(),title=await header.getByRole('heading').boundingBox();
+  assert(h&&b&&title&&Math.abs(b.x+b.width-(h.x+h.width))<=1,'Back link must align to upper right');
+  assert(Math.abs(b.y+b.height/2-(title.y+title.height/2))<=1,'Back link must share the title row');
+  const tabs=await page.getByRole('navigation',{name:'方案管理分區'}).boundingBox();
+  assert(tabs&&tabs.y-(h.y+h.height)<=16,'Extra heading row still consumes vertical space');
+
   await page.screenshot({path:path.join(output,`sports-${size.width}.png`),fullPage:true});results.push({...size,passed:true});
  }
  const scope=page.getByLabel('教學項目篩選',{exact:true});
@@ -85,26 +95,30 @@ try{
  assert(await page.getByRole('button',{name:'瑜伽10堂',exact:true}).count()===1,'A fee missing');
  assert(await page.getByRole('button',{name:'零基礎成芭10堂',exact:true}).count()===0,'B leaked into A');
  assert(await page.getByRole('button',{name:'舊方案待核對',exact:true}).count()===0,'Unknown leaked into A');
+ await page.setViewportSize({width:1366,height:900});
  await page.getByRole('button',{name:'＋新增收費方式',exact:true}).click();
- assert(await page.getByLabel('教學項目',{exact:true}).inputValue()==='A','New fee did not inherit scope');
+ if(!await page.getByRole('group',{name:'適用教學項目',exact:true}).isVisible())await page.getByRole('button',{name:'授課設定',exact:true}).click();
+ assert(await page.getByRole('group',{name:'適用教學項目',exact:true}).getByRole('checkbox',{name:'舞蹈（基礎課程）',exact:true}).isChecked(),'New fee did not inherit scope');
  await page.screenshot({path:path.join(output,'new-fee-scope.png'),fullPage:true});
  await page.setViewportSize({width:768,height:1024});
- assert(await page.getByLabel('教學項目',{exact:true}).inputValue()==='A','Resize lost selected subject');
+ if(!await page.getByRole('group',{name:'適用教學項目',exact:true}).isVisible())await page.getByRole('button',{name:'授課設定',exact:true}).click();
+ assert(await page.getByRole('group',{name:'適用教學項目',exact:true}).getByRole('checkbox',{name:'舞蹈（基礎課程）',exact:true}).isChecked(),'Resize lost selected subject');
  await page.getByRole('button',{name:'關閉',exact:true}).click();
  assert(await scope.inputValue()==='A','Closing editor lost filter');
  assert(await page.getByRole('button',{name:'瑜伽10堂',exact:true}).count()===1,'Closing editor lost list');
  await page.getByRole('link',{name:'返回教學項目',exact:true}).click();
  await page.getByRole('button',{name:'收費方式',exact:true}).first().click();
- await page.getByRole('heading',{name:'舞蹈（基礎課程）／收費方式',exact:true}).waitFor();
+ await page.getByRole('heading',{name:'收費方式',exact:true}).waitFor();
+ assert(await page.getByLabel('教學項目篩選',{exact:true}).inputValue()==='A','Returning from teaching item lost subject');
  // Reset via a fresh isolated mount, then test deep link and pending review.
  await load('?subjectId=A');
- assert(await page.getByRole('heading',{name:'舞蹈（基礎課程）／收費方式',exact:true}).count()===1,'Deep link lost context');
+ assert(await page.getByLabel('教學項目篩選',{exact:true}).inputValue()==='A','Deep link lost subject context');
  assert(await page.locator('[data-fee-group]').evaluateAll(rows=>new Set(rows.map(r=>r.getAttribute('data-fee-group'))).size)===1,'Deep link mixed scopes');
  await page.getByLabel('教學項目篩選',{exact:true}).selectOption('__pending_fee_subject__');
  const pendingMenu=page.getByRole('button',{name:'舊方案待核對操作',exact:true});
  await pendingMenu.scrollIntoViewIfNeeded();await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await pendingMenu.click();
  await page.getByRole('button',{name:'核對適用科目',exact:true}).click();
- assert(await page.getByLabel('教學項目',{exact:true}).inputValue()==='','Pending plan guessed a subject');
+ assert(await page.locator('[data-subject-picker] input[type=checkbox]:checked').count()===0,'Pending plan guessed a subject');
  await load('?module=music');
  assert(await page.locator('table > thead > tr > th').count()===5,'Grouped music catalog has one subject heading per group');
  assert(await page.locator('[data-fee-group]').count()===3,'Music missing groups');
@@ -116,7 +130,36 @@ try{
  await page.getByRole('button',{name:'清除篩選',exact:true}).click();
  await page.getByLabel('搜尋',{exact:true}).fill('找不到的方案');
  await page.getByText('沒有符合條件的方案，請調整搜尋或篩選。',{exact:true}).waitFor();
+ // Verify the real native fee editor emits an explicit multi-subject snapshot.
+ await load();await page.setViewportSize({width:1366,height:900});
+ await page.getByRole('button',{name:'＋新增收費方式',exact:true}).click();
+ await page.getByLabel('名稱 *',{exact:true}).fill('舞蹈通用課卡10堂');
+ await page.getByLabel('收費類型',{exact:true}).selectOption('plan');
+ await page.getByLabel('總堂數 *',{exact:true}).fill('10');
+ await page.getByLabel('售價 *',{exact:true}).fill('4500');
+ const picker=page.getByRole('group',{name:'適用教學項目',exact:true});
+ if(!await picker.isVisible())await page.getByRole('button',{name:'授課設定',exact:true}).click();
+ await picker.getByRole('button',{name:'全選',exact:true}).click();
+ assert(await picker.locator('input[type=checkbox]:checked').count()===2,'All subjects not selected');
+ await picker.getByLabel('搜尋教學項目',{exact:true}).fill('基礎');
+ await picker.getByRole('button',{name:'清除',exact:true}).click();
+ assert(await picker.locator('input[type=checkbox]:checked').count()===0,'Clear must remove hidden selections too');
+ await picker.getByRole('button',{name:'全選',exact:true}).click();
+ await picker.getByLabel('搜尋教學項目',{exact:true}).fill('');
+ await page.getByRole('checkbox',{name:'合成老師',exact:true}).check();
+ for(const size of [{width:1366,height:900},{width:1024,height:768},{width:768,height:1024},{width:600,height:800}]){
+  await page.setViewportSize(size);
+  if(!await picker.isVisible())await page.getByRole('button',{name:'授課設定',exact:true}).click();
+  assert(await picker.locator('input[type=checkbox]:checked').count()===2,'Resize lost multi-subject draft');
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Multi-subject editor overflow');
+  await page.screenshot({path:path.join(output,`multi-subject-${size.width}.png`),fullPage:true});
+ }
+ await page.getByRole('button',{name:'儲存',exact:true}).click();
+ await page.waitForFunction(()=>window.qaCalls.length===1);
+ const saved=await page.evaluate(()=>window.qaCalls[0]);
+ assert(saved.sportsMode==='SUBJECTS'&&JSON.stringify(saved.subjectIds)==='["A","B"]'&&saved.amount===10,'Save lost explicit scope or shared quantity');
+ assert(saved.chargeSettings.providerIds.includes('teacher'),'Save lost qualified provider');
  assert(errors.length===0,errors.join('\n'));
- writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,checks:['A/B/unknown isolation','grouped music','direct link heading','new fee subject prefill','pending review entry','empty search'],errors},null,2));
+ writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,results,checks:['A/B/unknown isolation','grouped music','direct link scope','single title and inline return action','new fee subject prefill','pending review entry','empty search','multi subject select all/clear/search/resize/save intent'],errors},null,2));
  console.log(JSON.stringify({output,results,errors}));
 }finally{await browser.close();}

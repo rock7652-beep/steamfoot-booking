@@ -29,7 +29,7 @@ it('sports keeps subject and trial pricing independent of enrollment',async()=>{
  const provider=[...document.querySelectorAll('fieldset')].find(f=>f.firstElementChild?.tagName==='LEGEND'&&f.firstElementChild.textContent?.includes('此收費'))!.querySelector<HTMLInputElement>('input')!;
  act(()=>provider.click());
  expect(document.querySelector('[aria-label="方案適用方式"]')).toBeNull();
- expect(document.querySelector('[aria-label="教學項目"]')).not.toBeNull();
+ expect(document.querySelector('[aria-label="適用教學項目"]')).not.toBeNull();
  await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  expect(m.sports.mock.calls[0][0]).toMatchObject({sportsMode:'ASSIGNED',subject:'subject',amount:1,unit:'堂數',chargeSettings:{trialPrice:200,trialDuration:30,providerIds:['teacher']}});
 });
@@ -58,7 +58,9 @@ it('keeps store cost outside disclosure and retains it when switching fee sectio
 });
 it('reveals the teaching section when an invalid required field is in that section',()=>{
  mount(false,{selfBookingEnabled:false,assignedSchedulingEnabled:true});
- act(()=>document.querySelector<HTMLSelectElement>('select[aria-label="教學項目"]')!.dispatchEvent(new Event('invalid',{bubbles:false,cancelable:true})));
+ act(()=>{const kind=document.querySelector<HTMLSelectElement>('[aria-label="收費類型"]')!;kind.value='plan';kind.dispatchEvent(new Event('change',{bubbles:true}));});
+ act(()=>{const unit=[...document.querySelectorAll('label')].find(l=>l.firstChild?.textContent==='計費方式')!.querySelector('select')!;unit.value='POINT';unit.dispatchEvent(new Event('change',{bubbles:true}));});
+ act(()=>input('每堂使用額度').dispatchEvent(new Event('invalid',{bubbles:false,cancelable:true})));
  expect([...document.querySelectorAll('nav button')].find(b=>b.textContent==='授課設定')!.getAttribute('aria-pressed')).toBe('true');
 });
 

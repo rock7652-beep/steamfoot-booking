@@ -67,15 +67,17 @@ jobs:
           npx vitest run src/__tests__/course-mixed-enrollment.pg.test.ts
           src/__tests__/sports-card-modes.pg.test.ts
           --no-file-parallelism --reporter=default --reporter=json --outputFile=mixed-course-pg-results.json
-      - name: Require all 42 database scenarios without skips
+      - name: Require all 52 database scenarios without skips
         run: |
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
             const r = JSON.parse(readFileSync("mixed-course-pg-results.json", "utf8"));
-            if (!r.success || r.numTotalTests !== 42 || r.numPassedTests !== 42 || r.numPendingTests !== 0) {
-              throw new Error("Expected all 42 mixed enrollment and sports card database scenarios");
+            if (!r.success || r.numTotalTests !== 52 || r.numPassedTests !== 52 || r.numPendingTests !== 0) {
+              throw new Error("Expected all 52 mixed enrollment and sports card database scenarios");
             }
           '
+      - name: Verify multi-subject fee revisions on real PostgreSQL
+        run: npx vitest run src/__tests__/course-plan-save.pg.test.ts
       - name: Verify single learner first login on real PostgreSQL
         run: npx vitest run src/__tests__/course-single-first-login.pg.test.ts
       - name: Verify existing music and sports purchase, attendance and restoration

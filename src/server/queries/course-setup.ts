@@ -42,7 +42,7 @@ export const getCourseSetup = cache(async function getCourseSetup(storeId:string
   const [activeTemplates,activeSubjects,linkedPlans]=await Promise.all([
     coursePrisma.courseTemplate.findMany({where:{storeId,isActive:true,visibility:{not:"OFF"},...(native?{musicSubject:{isActive:true}}:{})},select:{id:true}}),
     native?coursePrisma.musicSubject.findMany({where:{storeId,isActive:true},select:{id:true}}):[],
-    native?coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{templateIds:true,sportsMode:true,sportsSubjectId:true,sportsCost:true,unit:true}}):[],
+    native?coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{templateIds:true,sportsMode:true,sportsSubjectId:true,sportsSubjectIds:true,sportsCost:true,unit:true}}):[],
   ]);
   const ids=new Set(activeTemplates.map(t=>t.id));
   const subjectIds=new Set(activeSubjects.map(s=>s.id));
@@ -51,7 +51,7 @@ export const getCourseSetup = cache(async function getCourseSetup(storeId:string
     if ((p.sportsMode??"LEGACY")==="LEGACY") return p.templateIds.some(id=>ids.has(id));
     try {
       const rights=sportsEntitlementSnapshot(p);
-      return rights.sportsMode==="OPEN" || rights.sportsMode==="ASSIGNED" && subjectIds.has(rights.sportsSubjectId);
+      return rights.sportsMode==="SUBJECTS"?rights.sportsSubjectIds.some(id=>subjectIds.has(id)):rights.sportsMode==="OPEN" || rights.sportsMode==="ASSIGNED" && subjectIds.has(rights.sportsSubjectId);
     } catch { return false; }
   });
   const qualifiedCoaches=staff.filter(s=>s.courseQualifiedTemplateIds.some(id=>ids.has(id))).length;

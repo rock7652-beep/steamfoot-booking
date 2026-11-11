@@ -17,7 +17,7 @@ export async function resolveScheduleCharge(tx:Prisma.TransactionClient,storeId:
   if(input.requireSelection){
    const subjectId=musicTeachingSubjectId(input.templateId)??(await tx.courseTemplate.findFirst({where:{storeId,id:input.templateId},select:{musicSubjectId:true}}))?.musicSubjectId;
    const related=subjectId?await tx.courseTemplate.findMany({where:{storeId,musicSubjectId:subjectId},select:{id:true}}):[{id:input.templateId}];
-   const plans=await tx.coursePointPlan.findMany({where:{storeId,isActive:true,...(input.sports?{sportsMode:{not:'OPEN'}}:{}),OR:[{templateIds:{hasSome:related.map(t=>t.id)}},...(subjectId?[{sportsMode:'ASSIGNED' as const,sportsSubjectId:subjectId}]:[])]},select:{chargeSettings:true}});
+   const plans=await tx.coursePointPlan.findMany({where:{storeId,isActive:true,...(input.sports?{sportsMode:{not:'OPEN'}}:{}),OR:[{templateIds:{hasSome:related.map(t=>t.id)}},...(subjectId?[{sportsMode:'ASSIGNED' as const,sportsSubjectId:subjectId},{sportsMode:'SUBJECTS' as const,sportsSubjectIds:{has:subjectId}}]:[])]},select:{chargeSettings:true}});
    if(plans.some(p=>courseChargeSettings.safeParse(p.chargeSettings).success))throw new AppError('VALIDATION','請選擇本次收費方式');
   }
   return null;
@@ -29,7 +29,7 @@ export async function resolveScheduleCharge(tx:Prisma.TransactionClient,storeId:
  const virtualSubject=musicTeachingSubjectId(input.templateId);
  const template=virtualSubject?{id:input.templateId,musicSubjectId:virtualSubject}:await tx.courseTemplate.findFirst({where:{storeId,id:input.templateId},select:{id:true,musicSubjectId:true}});
  const allowed=await tx.courseTemplate.findMany({where:{storeId,id:{in:plan.templateIds}},select:{id:true,musicSubjectId:true}});
- if(!template||!(plan.sportsMode==='ASSIGNED'&&plan.sportsSubjectId?plan.sportsSubjectId===template.musicSubjectId:allowed.some(t=>t.id===template.id||t.musicSubjectId&&t.musicSubjectId===template.musicSubjectId)))throw new AppError('VALIDATION','此收費方式不適用所選教學項目');
+ if(!template||!(plan.sportsMode==='SUBJECTS'?!!template.musicSubjectId&&plan.sportsSubjectIds.includes(template.musicSubjectId):plan.sportsMode==='ASSIGNED'&&plan.sportsSubjectId?plan.sportsSubjectId===template.musicSubjectId:allowed.some(t=>t.id===template.id||t.musicSubjectId&&t.musicSubjectId===template.musicSubjectId)))throw new AppError('VALIDATION','此收費方式不適用所選教學項目');
  if(!settings.providerIds.includes(input.coachId))throw new AppError('VALIDATION','此收費方式未開放所選授課人員');
  await assertChargeProviders(tx,storeId,virtualSubject?allowed.map(t=>t.id):[input.templateId],{...settings,providerIds:[input.coachId]});
  const quote=quoteCourseCharge(settings,input.isTrial,input.open,input.defaultTrialPrice);
