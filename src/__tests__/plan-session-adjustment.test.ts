@@ -121,8 +121,9 @@ it('keeps a shared plan balance and dated grid consistent across both learners, 
   const grids=await readCoursePhonePlanGrids('store','learner',['card',ownCard.id],records,['learner','child-b']);
   const grid=grids.get('card')!;
   expect(grid.total).toBe(10);
+  expect(grid.completed?.map(row=>row.date)).toEqual(grid.dates);
   expect(grid.dates.length+(grid.voidedDates?.length??0)+f.card.remaining).toBe(10);
-  expect(grids.get(ownCard.id)).toEqual({total:8,dates:[]});expect(ownCard.remaining).toBe(8);
+  expect(grids.get(ownCard.id)).toEqual({total:8,dates:[],completed:[]});expect(ownCard.remaining).toBe(8);
   for(const [arg] of f.tx.coursePointCard.update.mock.calls)expect(arg).toMatchObject({where:{id:'card'}});
   return grid;
  };
