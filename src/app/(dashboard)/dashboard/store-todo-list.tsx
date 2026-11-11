@@ -96,7 +96,7 @@ export function StoreTodoList({
       ) : null}
       <ul className="divide-y divide-earth-100">
         {visible.map((item) => (
-          <li key={item.id}>
+          <li key={item.id} className="admin-striped-row">
             <TodoRow
               item={item}
               readOnly={readOnly}

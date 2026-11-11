@@ -31,6 +31,7 @@ import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { courseDisplayText } from "@/lib/course-display-text";
 import {musicTeachingKey} from "@/lib/music-teaching-item";
 import {musicPlanItems} from "@/lib/music-catalog";
+import {courseFeeGroup,courseFeeMatches,PENDING_FEE_SUBJECT} from "@/lib/course-fee-group";
 import { isMusicPreviewPage, publishMusicFinanceChange } from "@/lib/music-finance-sync";
 import {CHECKOUT_OUTCOME_UNCONFIRMED,musicCheckoutTransport} from "@/lib/music-checkout-transport";
 import { CoursePurchaseRecoveryNotice, useCoursePurchaseRecovery } from "./purchase-recovery";
@@ -429,18 +430,22 @@ export function CourseMemberWorkspace({
   useEffect(()=>{
     if(completedPurchaseKey)void recoverCompletedPurchase(automaticCompletionScope);
   },[completedPurchaseKey,automaticCompletionScope]);
-  const order=useCourseDisplayOrder("plan",plans,displayOrder,(!catalogSource||!!catalogSource.order)&&canEdit&&!search&&status==="all"&&templateFilter==="all"&&purchaseFilter==="all"&&sharedFilter==="all"&&!hideTestData&&!busyIds.length,p=>p.isActive,catalogSource?.order);
+  const groupedFees=(music||sportsNative)&&!catalogSource;
+  const feeGroups=new Map(plans.map(p=>[p.id,courseFeeGroup(p,templates,subjects,music)]));
+  const selectedFeeSubject=subjects.find(s=>s.id===templateFilter)??templates.find(t=>t.id===templateFilter);
+  const order=useCourseDisplayOrder("plan",plans,displayOrder,(!catalogSource||!!catalogSource.order)&&canEdit&&!search&&status==="all"&&templateFilter==="all"&&purchaseFilter==="all"&&sharedFilter==="all"&&!hideTestData&&!busyIds.length,p=>groupedFees?JSON.stringify([p.isActive,feeGroups.get(p.id)!.id]):p.isActive,catalogSource?.order);
   const filteredPlans = plans
     .filter(
       (p) =>
-        p.id===savedPlanId || (!hideTestData||!isCourseTestData(p.name)) && (p.name + " " + (music?musicPlanItems(p.templateIds,templates,subjects).map(s=>s.name).join(" "):templates.filter(t=>p.templateIds.includes(t.id)).map(t=>`${t.category} ${t.name}`).join(" "))).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
-        (templateFilter === "all" || p.sportsMode==="OPEN" || p.sportsSubjectId===templateFilter || p.templateIds.includes(templateFilter) || p.templateIds.some(id=>templates.find(t=>t.id===id)?.musicSubjectId===templateFilter)) &&
+        (!groupedFees||courseFeeMatches(feeGroups.get(p.id)!,templateFilter,p)) && (p.id===savedPlanId || (!hideTestData||!isCourseTestData(p.name)) && (p.name + " " + (groupedFees?feeGroups.get(p.id)!.name:music?musicPlanItems(p.templateIds,templates,subjects).map(s=>s.name).join(" "):templates.filter(t=>p.templateIds.includes(t.id)).map(t=>`${t.category} ${t.name}`).join(" "))).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) &&
+        (groupedFees || templateFilter === "all" || p.sportsMode==="OPEN" || p.sportsSubjectId===templateFilter || p.templateIds.includes(templateFilter) || p.templateIds.some(id=>templates.find(t=>t.id===id)?.musicSubjectId===templateFilter)) &&
         (status === "all" || p.isActive === (status === "active")) &&
         (music || purchaseFilter === "all" || (p.customerPurchasable !== false) === (purchaseFilter === "customer")) &&
         (music || sharedFilter === "all" || !!p.allowShared === (sharedFilter === "allowed")) &&
-        (music || planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION"),
+        (music || planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION")),
     )
-    .sort((a, b) => Number(b.isActive) - Number(a.isActive)||order.compare(a,b));
+    .sort((a, b) => Number(b.isActive) - Number(a.isActive)||(groupedFees?(Number(feeGroups.get(a.id)!.pending)-Number(feeGroups.get(b.id)!.pending)||feeGroups.get(a.id)!.name.localeCompare(feeGroups.get(b.id)!.name,"zh-TW")):0)||order.compare(a,b));
+  const feeColumnCount=groupedFees&&music?5:6;
   const activeFilteredPlans=filteredPlans.filter(p=>p.isActive),inactiveFilteredPlans=filteredPlans.filter(p=>!p.isActive);
   const inactiveForced=status==="inactive"||!!search||templateFilter!=="all"||planUnit!=="all"||purchaseFilter!=="all"||sharedFilter!=="all";
   const inactiveExpanded=inactiveForced||showInactive||inactiveFilteredPlans.some(p=>p.id===savedPlanId);
@@ -470,11 +475,15 @@ export function CourseMemberWorkspace({
   const planFilters=view === "plans" && planArea === "catalog" && !music && (<>
           <select aria-label="購買方式篩選" className={`${field} ${sportsData?"!w-36":"max-w-44"}`} value={purchaseFilter} onChange={e=>{setSelected([]);setPurchaseFilter(e.target.value);setPage(0);}}><option value="all">全部購買方式</option><option value="customer">顧客可購買</option><option value="backend">僅後台指派</option></select>
           {sharingVisible && <select aria-label="共卡篩選" className={`${field} ${sportsData?"!w-32":"max-w-40"}`} value={sharedFilter} onChange={e=>{setSelected([]);setSharedFilter(e.target.value);setPage(0);}}><option value="all">全部共卡設定</option><option value="allowed">允許共卡</option><option value="disabled">不允許共卡</option></select>}
-          {(search.trim() || status !== "all" || planUnit !== "all" || purchaseFilter !== "all" || sharedFilter !== "all") && <button type="button" className={button} onClick={()=>{setSelected([]);setSearch("");setStatus("all");setPlanUnit("all");setPurchaseFilter("all");setSharedFilter("all");setPage(0);}}>清除篩選</button>}
+          {(search.trim() || status !== "all" || templateFilter!=="all" || planUnit !== "all" || purchaseFilter !== "all" || sharedFilter !== "all") && <button type="button" className={button} onClick={()=>{setSelected([]);setSearch("");setStatus("all");setTemplateFilter("all");setPlanUnit("all");setPurchaseFilter("all");setSharedFilter("all");setPage(0);}}>清除篩選</button>}
         </>);
   return (
     <>
       {!panelOnly&&<>
+      {groupedFees&&view==="plans"&&planArea==="catalog"&&<div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <h2 className="min-w-0 break-words text-lg font-semibold text-primary-900">{templateFilter===PENDING_FEE_SUBJECT?"待核對科目／收費方式":selectedFeeSubject?`${selectedFeeSubject.name}／收費方式`:templateFilter==="all"?"全部教學項目／收費方式":"找不到教學項目／收費方式"}</h2>
+        <DashboardLink href="/dashboard/courses?view=catalog" className={button}>返回教學項目</DashboardLink>
+      </div>}
       {!panel&&confirmedPurchase}
       {!panel&&notice==="結帳完成，方案已加入"&&purchased&&<div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800"><span>{notice}</span>{canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>{music||sportsNative?"安排課程":"前往課表"}</DashboardLink>}</div>}
       {view === "plans" && !compactCatalog && <div className="flex flex-wrap items-center gap-3">
@@ -517,8 +526,9 @@ export function CourseMemberWorkspace({
           </select>
         )}
         {view === "plans" && planArea === "catalog" && !music && !compactCatalog && <select className={`${field} ${sportsData?"!w-32":"max-w-40"}`} aria-label="方案單位" value={planUnit} onChange={e=>{setSelected([]);setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
+        {music&&(search.trim()||status!=="all"||templateFilter!=="all")&&<button type="button" className={button} onClick={()=>{setSelected([]);setSearch("");setStatus("all");setTemplateFilter("all");setPage(0);}}>清除篩選</button>}
         {!compactCatalog&&planFilters}
-        {view === "plans" && planArea === "catalog" && (music || sportsData) && <select aria-label={sportsData?`${subjectLabel}篩選`:"適用課程篩選"} className={`${field} ${sportsData?"!w-44":"max-w-72"}`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">{sportsData?`全部${subjectLabel}`:"全部課程"}</option>{((music||sportsData)?subjects:templates).map(t=><option key={t.id} value={t.id}>{music?t.name:`${t.category || "未分類"} · ${t.name}`}</option>)}</select>}
+        {view === "plans" && planArea === "catalog" && (music || sportsData) && <select aria-label={sportsData?`${subjectLabel}篩選`:"適用課程篩選"} className={`${field} ${sportsData?"!w-44":"max-w-72"}`} value={templateFilter} onChange={e=>{setSelected([]);setTemplateFilter(e.target.value);setPage(0);}}><option value="all">{sportsData?`全部${subjectLabel}`:"全部課程"}</option>{groupedFees&&<option value={PENDING_FEE_SUBJECT}>待核對科目</option>}{((music||sportsData)?subjects:templates).map(t=><option key={t.id} value={t.id}>{music||groupedFees?t.name:`${t.category || "未分類"} · ${t.name}`}</option>)}</select>}
         {view==="plans"&&planArea==="catalog"&&canEdit&&catalogSource?.form.servicePricing&&<button type="button" className={button} disabled={!confirmedPrices.rows.length} onClick={()=>{if(open('service-price'))setPricingId(confirmedPrices.rows.find(row=>row.id===templateFilter)?.id??confirmedPrices.rows[0]?.id??'');}}>一般／體驗設定</button>}
         {canCreate && (view!=="plans"||!sportsNative||activeModes?.selfBookingEnabled!==false||activeModes?.assignedSchedulingEnabled!==false) && (view === "customers" || planArea === "catalog") && (
           <button
@@ -530,7 +540,7 @@ export function CourseMemberWorkspace({
               } else preparePlan(null);
             }}
           >
-            ＋新增{view === "customers" ? music ? "學員" : "顧客" : music ? "收費方式" : "方案"}
+            ＋新增{view === "customers" ? music ? "學員" : "顧客" : music||groupedFees ? "收費方式" : "方案"}
           </button>
         )}
         {canAssign && ((view === "customers"&&!sportsNative) || (view === "plans"&&planArea === "cards")) && (
@@ -570,23 +580,24 @@ export function CourseMemberWorkspace({
         <table data-striped-list className={`${music ? "min-w-[740px]" : "min-w-[1000px] table-fixed"} w-full text-left text-sm`}>
           <thead className={` bg-earth-50`}>
             <tr>
-              {(music ? ["科目類別", "收費名稱", "課堂數", "收費金額", "狀態", "操作"] : ["方案／適用課程", "額度", "售價", "有效天數", "購買方式", "操作"]).map((h) => (
-                <th key={h} className={`whitespace-nowrap px-3 py-2 font-medium ${!music ? ({"方案／適用課程":"w-[40%]","額度":"w-[10%]","售價":"w-[16%]","有效天數":"w-[12%]","購買方式":"w-[16%]"} as Record<string,string>)[h] ?? "" : ""} ${!music&&h==="操作"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
+              {(music ? [...(groupedFees?[]:["科目類別"]), "收費名稱", "課堂數", "收費金額", "狀態", "操作"] : [groupedFees?"收費名稱":"方案／適用課程", "額度", "售價", "有效天數", "購買方式", "操作"]).map((h) => (
+                <th key={h} className={`whitespace-nowrap px-3 py-2 font-medium ${!music ? ({"收費名稱":"w-[40%]","方案／適用課程":"w-[40%]","額度":"w-[10%]","售價":"w-[16%]","有效天數":"w-[12%]","購買方式":"w-[16%]"} as Record<string,string>)[h] ?? "" : ""} ${!music&&h==="操作"?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
                   {h}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className={` divide-y divide-earth-100`}>
-            {!filteredPlans.length && <tr data-list-divider><td colSpan={6} className="px-6 py-1 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
+            {!filteredPlans.length && <tr data-list-divider><td colSpan={feeColumnCount} className="px-6 py-1 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
             {visiblePlans.map((p,index) => (
                   <Fragment key={p.id}>
-                  {!p.isActive&&(index===0||visiblePlans[index-1]?.isActive)&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={6} className="px-3 py-1"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
+                  {!p.isActive&&(index===0||visiblePlans[index-1]?.isActive)&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={feeColumnCount} className="px-3 py-1"><button type="button" disabled={inactiveForced} className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600 disabled:cursor-default" onClick={()=>{setSelected([]);setShowInactive(v=>!v);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>{inactiveForced?"篩選結果":inactiveExpanded?"收合":"展開"}</span></button></td></tr>}
+                  {groupedFees&&(index===0||feeGroups.get(visiblePlans[index-1].id)!.id!==feeGroups.get(p.id)!.id||visiblePlans[index-1].isActive!==p.isActive)&&<tr data-list-divider data-fee-group={feeGroups.get(p.id)!.id} className={feeGroups.get(p.id)!.pending?"bg-amber-50 text-amber-900":"bg-primary-50 text-primary-900"}><th scope="rowgroup" colSpan={feeColumnCount} className="px-3 py-2 text-left"><span className="font-semibold">{feeGroups.get(p.id)!.name}</span><span className="ml-2 font-normal text-earth-600">（{filteredPlans.filter(row=>row.isActive===p.isActive&&feeGroups.get(row.id)!.id===feeGroups.get(p.id)!.id).length} 筆）</span></th></tr>}
                   <tr
                     {...order.rowProps(p.id)}
                     className={` ${p.isActive ? "" : "bg-earth-50/80 text-earth-400"}`}
                   >
-                    {music ? <><td className="px-3 py-1">{planItems(p).map(s=>s.name).join("、") || "待確認對應"}</td><td className="min-w-0 px-3 py-1"><div className="flex items-center gap-2">{canEdit&&order.handle(p.id,p.name)}{canEdit&&<input type="checkbox" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" className="min-h-11 text-left font-medium text-primary-900 hover:underline" onClick={()=>preparePlan(p,!canEdit)}>{p.name}</button></div></td></> : <td className="px-3 py-1"><div className="flex min-h-11 items-center gap-2">{canEdit && order.handle(p.id,p.name)}{canEdit && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" aria-label={p.name} data-plan-name={p.name} className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 text-left hover:underline" onClick={()=>preparePlan(p,!canEdit)}><span className="block w-full truncate font-medium text-primary-900" title={p.name}>{p.name}</span>{sportsNative&&!coursePlanModeAllowed(activeModes,p.sportsMode)&&<span className="text-sm text-earth-500">模式已關閉・保留紀錄</span>}<span className="block w-full max-w-96 truncate text-sm text-earth-700" title={p.sportsMode==="OPEN"?"科目待核對":p.sportsMode==="ASSIGNED"?`適用科目 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "全部課程"}>{p.sportsMode==="OPEN"?"科目待核對":p.sportsMode==="ASSIGNED"?`適用科目 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "全部課程"}</span></button>{sharingVisible && p.allowShared && <CourseSharedCardIndicator name={p.name} onOpen={()=>preparePlan(p,true)}/>}</div></td>}
+                    {music ? <>{!groupedFees&&<td className="px-3 py-1">{planItems(p).map(s=>s.name).join("、") || "待確認對應"}</td>}<td className="min-w-0 px-3 py-1"><div className="flex items-center gap-2">{canEdit&&order.handle(p.id,p.name)}{canEdit&&<input type="checkbox" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" className="min-h-11 text-left font-medium text-primary-900 hover:underline" onClick={()=>preparePlan(p,!canEdit)}>{p.name}</button></div></td></> : <td className="px-3 py-1"><div className="flex min-h-11 items-center gap-2">{canEdit && order.handle(p.id,p.name)}{canEdit && <input type="checkbox" className="shrink-0" aria-label={`選取 ${p.name}`} disabled={busyIds.includes(p.id)} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<button type="button" aria-label={p.name} data-plan-name={p.name} className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 text-left hover:underline" onClick={()=>preparePlan(p,!canEdit)}><span className={`block w-full font-medium text-primary-900 ${groupedFees?"break-words":"truncate"}`} title={p.name}>{p.name}</span>{sportsNative&&!groupedFees&&!coursePlanModeAllowed(activeModes,p.sportsMode)&&<span className="text-sm text-earth-500">模式已關閉・保留紀錄</span>}{!groupedFees&&<span className="block w-full max-w-96 truncate text-sm text-earth-700" title={p.sportsMode==="OPEN"?"科目待核對":p.sportsMode==="ASSIGNED"?`適用科目 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "全部課程"}>{p.sportsMode==="OPEN"?"科目待核對":p.sportsMode==="ASSIGNED"?`適用科目 · ${subjects.find(s=>s.id===p.sportsSubjectId)?.name??"指定項目"}`:p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(courseTemplateLabel).join("、") || "指定課程" : "全部課程"}</span>}</button>{sharingVisible && p.allowShared && <CourseSharedCardIndicator name={p.name} onOpen={()=>preparePlan(p,true)}/>}</div></td>}
                     <td className={` whitespace-nowrap px-3 py-1`}>{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
                     <td className={` whitespace-nowrap px-3 py-1`}>NT$ {p.price.toLocaleString("zh-TW")}{!music && p.price > 0 && <p className="text-xs text-earth-500">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? "堂" : "點"}</p>}</td>
                     {!music && <>
@@ -595,12 +606,12 @@ export function CourseMemberWorkspace({
                     </>}
                     {music&&(<td className={` px-3 py-1`}><span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${p.isActive ? "bg-emerald-50 text-emerald-700" : "bg-earth-100 text-earth-500"}`}>{p.isActive ? "上架" : "下架"}</span></td>)}
                     <td className={`whitespace-nowrap px-3 py-1 align-middle ${!music?"w-[72px] min-w-[72px] max-w-[72px] text-center":""}`}>
-                      {canEdit && <div className="flex items-center justify-center"><ExclusiveMenu quiet triggerText="⋯" label={`${p.name}操作`}><button type="button" className="min-h-11 w-full px-3 text-left text-sm" disabled={busyIds.includes(p.id)} onClick={()=>preparePlan(p)}>編輯</button><CourseStatusButton driver={catalogSource?.status} quiet kind="plan" id={p.id} disabled={busyIds.includes(p.id)} active={p.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/></ExclusiveMenu></div>}
+                      {canEdit && <div className="flex items-center justify-center"><ExclusiveMenu quiet triggerText="⋯" label={`${p.name}操作`}><button type="button" className="min-h-11 w-full px-3 text-left text-sm" disabled={busyIds.includes(p.id)} onClick={()=>preparePlan(p)}>{groupedFees&&feeGroups.get(p.id)!.pending?"核對適用科目":"編輯"}</button><CourseStatusButton driver={catalogSource?.status} quiet kind="plan" id={p.id} disabled={busyIds.includes(p.id)} active={p.isActive} onApplied={applyStatus} onPendingChange={setStatusBusy}/></ExclusiveMenu></div>}
                     </td>
                   </tr>
                   </Fragment>
                 ))}
-            {!inactiveExpanded&&inactiveFilteredPlans.length>0&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={6} className="px-3 py-1"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>展開</span></button></td></tr>}
+            {!inactiveExpanded&&inactiveFilteredPlans.length>0&&<tr data-list-divider className="border-y border-earth-200 bg-earth-100"><td colSpan={feeColumnCount} className="px-3 py-1"><button type="button" className="flex min-h-9 w-full items-center justify-between text-left font-medium text-earth-600" onClick={()=>{setSelected([]);setShowInactive(true);}}><span>下架方案（{inactiveFilteredPlans.length}）</span><span>展開</span></button></td></tr>}
           </tbody>
         </table>
       </div> : canReadCards ? <CourseCardBrowser compact={music} dataScope={dataScope} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} sharedCardState={music ? "ENABLED" : sharedCardState} canReadBookings={canReadBookings} state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
@@ -749,7 +760,7 @@ export function CourseMemberWorkspace({
 </>}
             {panel === "plan" && !planReadOnly && (
 
-              <CoursePlanDraftForm catalog={catalogSource?.form} subjectLabel={subjectLabel} sportsData={sportsData} storeId={previewStoreId??""} onUncertain={setFormUncertain} key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} musicTeachers={musicTeachers} canEditMusicTeachers={canEditMusicTeachers} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all" ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
+              <CoursePlanDraftForm catalog={catalogSource?.form} subjectLabel={subjectLabel} sportsData={sportsData} storeId={previewStoreId??""} onUncertain={setFormUncertain} key={plan?.id??"new"} plan={plans.find(p=>p.id===plan?.id)??plan} templates={templates} subjects={subjects} musicTeachers={musicTeachers} canEditMusicTeachers={canEditMusicTeachers} termSessions={termSessions} profitEnabled={profitEnabled} music={music} sharedCardState={sharedCardState} initialTemplateId={templateFilter === "all"||templateFilter===PENDING_FEE_SUBJECT ? undefined : templateFilter} onPending={setFormPending} onSaved={finishDraftForm} onDirtyChange={setDirty} />
 
             )}
             {panel === "assign" && source?.purchaseService && <label className="mb-3 block">消費類型<select aria-label="消費類型" className={field} value={servicePurchase?"service":"plan"} disabled={pending||formPending||formUncertain} onChange={e=>{setServicePurchase(e.target.value==="service");setDirty(false);setError("");}}><option value="plan">多次方案</option><option value="service">單次／體驗</option></select></label>}

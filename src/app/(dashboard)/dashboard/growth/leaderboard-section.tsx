@@ -242,7 +242,7 @@ function GrowthTab({
                 <Link
                   key={r.customerId}
                   href={`/dashboard/customers/${r.customerId}`}
-                  className="flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-earth-50"
+                  className="admin-striped-row flex items-center justify-between rounded-lg px-3 py-2 transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <RankBadge rank={i + 1} />
@@ -321,7 +321,7 @@ function RankList({
         <Link
           key={item.id}
           href={`/dashboard/customers/${item.id}`}
-          className="flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-earth-50"
+          className="admin-striped-row flex items-center justify-between rounded-lg px-3 py-2 transition-colors"
         >
           <div className="flex items-center gap-2">
             <RankBadge rank={i + 1} />

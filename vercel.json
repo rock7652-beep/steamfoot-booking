@@ -58,6 +58,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "feat/course-fee-groups-20261111": false,
       "fix/course-student-overlay-progress-20261110": false,
       "fix/course-schedule-progress-ui-20261110": false,
       "fix/silverlily-calendar-transaction-timeout-20261110": false,

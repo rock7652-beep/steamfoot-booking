@@ -4,13 +4,13 @@ import assert from 'node:assert/strict';
 const out=process.env.STRIPED_QA_OUTPUT??'/tmp/steamfoot-striped-lists';mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:'/usr/bin/chromium',args:['--no-sandbox']});
 const errors=[],checks=[];
-const white='rgb(255, 255, 255)',tint='rgb(245, 243, 238)',hover='rgb(236, 232, 223)',selected='rgb(220, 232, 225)';
+const white='rgb(255, 255, 255)',tint='rgb(251, 250, 248)',hover='rgb(247, 245, 241)',selected='rgb(220, 232, 225)';
 // Read the settled CSS color after the existing 150ms row transition.
 const color=async locator=>{await new Promise(resolve=>setTimeout(resolve,180));return locator.evaluate(node=>getComputedStyle(node).backgroundColor);};
 try{
  const page=await browser.newPage({viewport:{width:1366,height:900},locale:'zh-TW'});page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
- await page.goto('http://127.0.0.1:4198',{waitUntil:'networkidle'});
+ await page.goto(process.env.STRIPED_QA_URL??'http://127.0.0.1:4198',{waitUntil:'networkidle'});
  await page.getByRole('heading',{name:'顧客管理',exact:true}).waitFor();
  const table=page.locator('[data-fixture=customers] table'),bodyRows=table.locator('tbody > tr');await bodyRows.first().waitFor();await page.mouse.move(0,0);
  assert.equal(await bodyRows.count(),10);assert.equal(await color(bodyRows.nth(0)),white);assert.equal(await color(bodyRows.nth(1)),tint);

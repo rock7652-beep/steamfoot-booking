@@ -45,7 +45,7 @@ export function HealthHistoryList({
         {visibleRecords.map(({ record, recordId }, index) => (
           <div
             key={`${record.measuredAt}-${index}`}
-            className="px-3 py-3 text-xs"
+            className="admin-striped-row px-3 py-3 text-xs"
           >
             <div className="flex items-center justify-between gap-3">
               <p className="font-medium text-earth-800">
