@@ -40,7 +40,7 @@ export function ImageAnnouncementCarousel({ items, storeSlug, preview = false }:
             {/* All slides share one grid cell. The tallest reserves space so
                 different image proportions do not move the booking list. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={announcementImageUrl(storeSlug, item.id, preview)} alt="" className={styles.image} />
+            <img src={announcementImageUrl(storeSlug, item.id, preview)} alt="" loading="eager" fetchPriority={selected ? "high" : "low"} decoding="async" className={styles.image} />
           </button>;
         })}
       </div>
@@ -65,8 +65,8 @@ export function ImageAnnouncementCarousel({ items, storeSlug, preview = false }:
 }
 
 /** Public image-only data. No member data or shared authenticated read cache. */
-export function StoreImageAnnouncements({ storeSlug, preview = false }: { storeSlug: string; preview?: boolean }) {
-  const [data, setData] = useState<{ slug: string; items: ImageAnnouncement[] } | null>(null);
+export function StoreImageAnnouncements({ storeSlug, preview = false, initialItems }: { storeSlug: string; preview?: boolean; initialItems?: ImageAnnouncement[] }) {
+  const [data, setData] = useState<{ slug: string; preview:boolean; initialItems?:ImageAnnouncement[]; items: ImageAnnouncement[] } | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     let sequence = 0;
@@ -76,15 +76,16 @@ export function StoreImageAnnouncements({ storeSlug, preview = false }: { storeS
         const response = await fetch(announcementImageUrl(storeSlug, "list", preview), { cache: "no-store", signal: controller.signal });
         if (response.ok) {
           const result = await response.json();
-          if (!controller.signal.aborted && request === sequence) setData({ slug: storeSlug, items: result.items });
+          if (!controller.signal.aborted && request === sequence) setData({ slug: storeSlug, preview, initialItems, items: result.items });
         }
       } catch { /* Optional announcements must not interrupt booking. */ }
     }
-    void load();
+    if (!initialItems) void load();
     const timer = setInterval(() => { if (!document.hidden) void load(); }, 60_000);
     const refresh = () => { if (!document.hidden) void load(); };
     document.addEventListener("visibilitychange", refresh);
     return () => { controller.abort(); clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
-  }, [storeSlug, preview]);
-  return data?.slug === storeSlug ? <ImageAnnouncementCarousel key={`${storeSlug}:${preview}`} items={data.items} storeSlug={storeSlug} preview={preview} /> : null;
+  }, [storeSlug, preview, initialItems]);
+  const items=data?.slug===storeSlug&&data.preview===preview&&data.initialItems===initialItems?data.items:initialItems;
+  return items ? <ImageAnnouncementCarousel key={`${storeSlug}:${preview}`} items={items} storeSlug={storeSlug} preview={preview} /> : null;
 }

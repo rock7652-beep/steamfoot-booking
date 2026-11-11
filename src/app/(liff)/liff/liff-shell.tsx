@@ -122,6 +122,7 @@ type State =
   | { kind: "service_unavailable" };
 
 interface LiffShellProps {
+  announcementItems?: import("@/lib/image-announcements").ImageAnnouncement[];
   storeName: string;
   storeSlug: string;
   liffId: string;
@@ -149,6 +150,7 @@ export type MemberHomeSummary = {
 };
 
 export function LiffShell({
+  announcementItems,
   storeName,
   storeSlug,
   liffId,
@@ -355,6 +357,7 @@ export function LiffShell({
       {state.kind === "signed_in" && (
         <>
         <WelcomeBack
+          announcementItems={announcementItems}
           storeSlug={storeSlug}
           displayName={state.displayName}
           memberSummary={memberSummary}
@@ -497,13 +500,14 @@ type WelcomeBackProps = {
   hasWorkAccess?: boolean;
   compactHome?: boolean;
   previewAnnouncements?: boolean;
+  announcementItems?: import("@/lib/image-announcements").ImageAnnouncement[];
 };
 
 export function WelcomeBack(props: WelcomeBackProps) {
   // Public announcements do not depend on private membership summaries.
   // Keep one stable mount while those summaries load or fail.
   return <>
-    <StoreImageAnnouncements storeSlug={props.storeSlug} preview={props.previewAnnouncements ?? false} />
+    <StoreImageAnnouncements storeSlug={props.storeSlug} preview={props.previewAnnouncements ?? false} initialItems={props.announcementItems} />
     <MemberHomeContent {...props} />
   </>;
 }

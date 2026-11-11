@@ -52,8 +52,7 @@ export function BookingCard({
   const showCancelControl = tab === "upcoming" && !isCancelled && !!onRequestCancel;
   const canCancel = showCancelControl ? canCancelBooking(booking) : false;
   return (
-    <CustomerBookingRow when={`${dateLabel} ${booking.slotTime}${booking.endTime?`–${booking.endTime}`:''}`} status={STATUS_LABEL[booking.bookingStatus]??booking.bookingStatus} description={[booking.serviceName??liffTypeLabel(booking.bookingType,booking.isMakeup),booking.staffName,booking.locationName].filter(Boolean).join(' · ')}>
-      {showCancelControl && !canCancel && <p className="text-sm text-earth-500">{liffMessages.cancelBooking.cardHint}</p>}
+    <CustomerBookingRow expandable={tab === "upcoming" && !isCancelled} when={`${dateLabel} ${booking.slotTime}${booking.endTime?`–${booking.endTime}`:''}`} status={STATUS_LABEL[booking.bookingStatus]??booking.bookingStatus} description={[booking.serviceName??liffTypeLabel(booking.bookingType,booking.isMakeup),booking.staffName,booking.locationName].filter(Boolean).join(' · ')}>
       {tab === "upcoming" && !isCancelled && (
           <div className="flex flex-col gap-2">
           {/* PR-D2 保留 hint —— 取消 ≠ 改時間，hint 仍然語義正確（per D4A-2 拍板選項 a）*/}

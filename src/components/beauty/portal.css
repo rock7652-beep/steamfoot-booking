@@ -50,3 +50,12 @@
 .beauty-portal .personal-income-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border-top:1px solid #e9ece6}
 .beauty-portal .personal-income-description{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere}
 .beauty-portal .personal-income-amount{flex-shrink:0;font-variant-numeric:tabular-nums;max-width:48%;overflow-wrap:anywhere;text-align:right}
+
+/* Member booking density preserves 44px controls and the existing text size. */
+.beauty-portal .beauty-member-participant {display:grid;gap:8px;padding:10px 12px;margin-bottom:10px}
+.beauty-portal .beauty-member-participant h2,.beauty-portal .beauty-member-participant p {margin:0}
+.beauty-portal .beauty-member-participant>label {display:grid;grid-template-columns:72px minmax(0,1fr);gap:8px;align-items:center}
+.beauty-portal .beauty-technician-choices {display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
+.beauty-portal [data-customer-booking-row] .beauty-booking-row {padding-block:0}
+.beauty-portal .beauty-member-participant select {min-width:0;width:100%}
+.beauty-portal .beauty-member-participant details>summary {padding-block:0}

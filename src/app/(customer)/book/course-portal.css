@@ -819,3 +819,11 @@
 .course-portal article.cp-plan > .cp-plan-row > .cp-plan-date { flex-basis:100%;white-space:normal; }
 .course-portal article.cp-plan > .cp-plan-row > span { white-space:normal; }
 .course-portal article.cp-plan > .cp-plan-row > span:not(.cp-plan-date) { flex-basis:100%; }
+
+/* Month navigation and today share one row, even in a narrow member preview. */
+.cp-calendar-toolbar {display:flex;align-items:center;gap:4px;padding:4px;min-width:0}
+.cp-calendar-toolbar .cp-month {flex:1;min-width:0;padding:0;grid-template-columns:44px minmax(0,1fr) 44px}
+.cp-calendar-toolbar .cp-context {padding:0;flex:0 0 auto;gap:4px}
+.cp-calendar-toolbar .cp-context>span {display:none}
+.cp-calendar-toolbar .cp-context button {min-width:44px;padding-inline:8px;white-space:nowrap}
+.cp-plan-group {display:contents}

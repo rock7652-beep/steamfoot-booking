@@ -1,0 +1,74 @@
+{
+  "environment": "Real local app, normal owner login, dedicated loopback PostgreSQL; synthetic images. Image delivery is deliberately held and then continued to the real server.",
+  "productionWrites": false,
+  "deployed": false,
+  "modules": [
+    {
+      "module": "steam",
+      "checks": [
+        "server-provided-announcements-no-list-fetch-and-no-height-shift-after-image-load",
+        "steam-grid-and-history-below-active-plans",
+        "no-document-overflow-390-768-1366"
+      ],
+      "timings": [
+        {
+          "scenario": "first-home-with-images",
+          "ms": 1060,
+          "includesDevelopmentCompilation": true
+        }
+      ]
+    },
+    {
+      "module": "beauty",
+      "checks": [
+        "server-provided-announcements-no-list-fetch-and-no-height-shift-after-image-load",
+        "beauty-first-plans-view-uses-initial-authorized-grid-with-no-progress-fetch",
+        "history-control-follows-active-plans-and-expansion-preserves-active",
+        "real-booking-history-renders-compact-list",
+        "beauty-booking-compact-form-retains-44px-controls",
+        "no-document-overflow-390-768-1366"
+      ],
+      "timings": [
+        {
+          "scenario": "first-home-with-images",
+          "ms": 1472,
+          "includesDevelopmentCompilation": true
+        }
+      ]
+    },
+    {
+      "module": "music",
+      "checks": [
+        "server-provided-announcements-no-list-fetch-and-no-height-shift-after-image-load",
+        "history-control-follows-active-plans-and-expansion-preserves-active",
+        "month-arrows-and-today-share-one-row-at-390",
+        "no-document-overflow-390-768-1366"
+      ],
+      "timings": [
+        {
+          "scenario": "first-home-with-images",
+          "ms": 1203,
+          "includesDevelopmentCompilation": true
+        }
+      ]
+    },
+    {
+      "module": "sports",
+      "checks": [
+        "server-provided-announcements-no-list-fetch-and-no-height-shift-after-image-load",
+        "history-control-follows-active-plans-and-expansion-preserves-active",
+        "month-arrows-and-today-share-one-row-at-390",
+        "no-document-overflow-390-768-1366"
+      ],
+      "timings": [
+        {
+          "scenario": "first-home-with-images",
+          "ms": 1207,
+          "includesDevelopmentCompilation": true
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "complete": true
+}

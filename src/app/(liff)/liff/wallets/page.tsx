@@ -1,3 +1,5 @@
+import {fetchLiffWallets} from '@/server/actions/liff-my-wallets';
+import {getCurrentUser} from '@/lib/session';
 import { notFound } from "next/navigation";
 import { resolveCentralMemberLiffId, resolveStorePresentation, resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import { liffMessages } from "@/lib/liff/messages";
@@ -18,7 +20,7 @@ import { WalletsList } from "./wallets-list";
  *   - PR-E2 起 store context 缺失時不再靜默 fallback zhubei
  *
  * 不在此檔做：
- *   - 不查 DB / 不寫 DB
+ *   - 只讀已登入會員的授權方案，不寫 DB
  *   - 不取消 / 不續約 / 不購買 / 不付款
  *   - 不動 wallet status（read-only）
  */
@@ -41,10 +43,12 @@ export default async function LiffMyWalletsPage() {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
   const industryModule = await getStoreIndustryModule(presentation.id);
-  const webUser = null;
+  const webUser = await getCurrentUser();
+  const initialWallets = webUser?.role==='CUSTOMER'&&webUser.storeId===presentation.id&&webUser.storeSlug===storeSlug ? await fetchLiffWallets() : undefined;
 
   return (
     <WalletsList
+      initialWallets={initialWallets?.status === "ok" ? initialWallets : undefined}
       storeSlug={presentation.slug}
       storeName={presentation.name}
       liffId={liffId}

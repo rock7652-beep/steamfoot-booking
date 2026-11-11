@@ -1,3 +1,5 @@
+import {readInitialAnnouncements} from '@/server/services/image-announcements';
+import {beautyCardProgressForActor} from './portal-details';
 import {readBeautyPublicCalendar} from "./public-calendar";
 import {beautyRentalSnapshots} from './rental-snapshots';
 import {beautyReadStep} from './read-timing';
@@ -156,9 +158,19 @@ export async function beautyPortalForActor(a:BeautyActor,work:boolean,month=toLo
     cards.length ? beautyPrisma.beautyAppointment.groupBy({by:['cardId'],where:{storeId:a.storeId,cardId:{in:cards.map(c=>c.id)},status:'RESERVED'},_count:{id:true}}) : [],
     work ? [] : prisma.customer.findMany({where:{storeId:a.storeId,id:{in:memberIds},mergedIntoCustomerId:null},select:{id:true,name:true,phone:true}}),
   ]);
+  const announcementItems = await readInitialAnnouncements(a.storeId);
+  const initialPlanProgress: Record<string, {success:true;data:Awaited<ReturnType<typeof beautyCardProgressForActor>>}> = {};
+  // Bounded, authorized first-page data. Remaining plans are preloaded by the member page.
+  const firstCards=[...cards].sort((x,y)=>Number(!!x.closedAt||x.expiresAt<=new Date())-Number(!!y.closedAt||y.expiresAt<=new Date())).slice(0,20);
+  for(let i=0;i<firstCards.length;i+=2) await Promise.all(firstCards.slice(i,i+2).map(async card=>{
+    try { initialPlanProgress[card.id]={success:true,data:await beautyCardProgressForActor(a,card.id)}; } catch { /* Each card retains its authorized retry. */ }
+  }));
+  const initialPlanProgressAt=Date.now();
   const usedTrials=!work&&customer?await beautyPrisma.beautyAppointment.findMany({where:{storeId:a.storeId,isTrial:true,status:{not:'CANCELLED'},OR:[{customerId:customer.id},...(customer.phone?[{personPhone:customer.phone}]:[])]},select:{serviceId:true},distinct:['serviceId']}):[];
   return {
     ...catalog,
+    ...(announcementItems ? {announcementItems} : {}),
+    ...(Object.keys(initialPlanProgress).length ? {initialPlanProgress,initialPlanProgressAt} : {}),
     trialUsedServiceIds:usedTrials.map(row=>row.serviceId),
     scopeKey:a.userId??`preview:${a.customerId??a.technicianId}`,
     readVersion:crypto.randomUUID(),

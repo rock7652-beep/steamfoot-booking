@@ -1,3 +1,4 @@
+import {readInitialAnnouncements} from '@/server/services/image-announcements';
 import "server-only";
 import { cache } from "react";
 import { OperationTiming } from "@/lib/operation-timing";
@@ -17,6 +18,7 @@ export const readLiffPublicContext = cache(async (slug: string) => {
     const healthEnabled = industry.features.healthAssessment
       ? await timing.measure("health_feature", () => hasStoreFeature(store.id, FEATURES.AI_HEALTH_SUMMARY).catch(() => false))
       : false;
-    return { store, industry, healthEnabled };
+    const announcementItems=await readInitialAnnouncements(store.id);
+    return { store, industry, healthEnabled, ...(announcementItems?{announcementItems}:{}) };
   } finally { timing.finish(); }
 });

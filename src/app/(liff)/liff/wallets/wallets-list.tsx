@@ -8,7 +8,7 @@
  *   2. ready → call fetchLiffWallets → 分 3 個 section 顯示
  *
  * 範圍（per PR-E2 拍板）：
- *   ✅ 三段 section：有效方案 / 已過期 / 歷史方案
+ *   ✅ 有效方案與補課券 / 下方歷史方案
  *   ✅ Hero 大字「可預約 X 堂」(walletAvailableToBook，非 raw remainingSessions)
  *   ✅ 拆分小字：方案剩餘 R/T + 待到店 / 已使用 / 已註銷
  *   ✅ 7 天內到期 badge
@@ -30,7 +30,7 @@
  *   2. ready → call fetchLiffWallets → 分 3 個 section 顯示
  *
  * 範圍（per PR-E2 拍板）：
- *   ✅ 三段 section：有效方案 / 已過期 / 歷史方案
+ *   ✅ 有效方案與補課券 / 下方歷史方案
  *   ✅ Hero 大字「可預約 X 堂」(walletAvailableToBook，非 raw remainingSessions)
  *   ✅ 拆分小字：方案剩餘 R/T + 待到店 / 已使用 / 已註銷
  *   ✅ 7 天內到期 badge
@@ -51,7 +51,7 @@
  *   2. ready → call fetchLiffWallets → 分 3 個 section 顯示
  *
  * 範圍（per PR-E2 拍板）：
- *   ✅ 三段 section：有效方案 / 已過期 / 歷史方案
+ *   ✅ 有效方案與補課券 / 下方歷史方案
  *   ✅ Hero 大字「可預約 X 堂」(walletAvailableToBook，非 raw remainingSessions)
  *   ✅ 拆分小字：方案剩餘 R/T + 待到店 / 已使用 / 已註銷
  *   ✅ 7 天內到期 badge
@@ -72,7 +72,7 @@
  *   2. ready → call fetchLiffWallets → 分 3 個 section 顯示
  *
  * 範圍（per PR-E2 拍板）：
- *   ✅ 三段 section：有效方案 / 已過期 / 歷史方案
+ *   ✅ 有效方案與補課券 / 下方歷史方案
  *   ✅ Hero 大字「可預約 X 堂」(walletAvailableToBook，非 raw remainingSessions)
  *   ✅ 拆分小字：方案剩餘 R/T + 待到店 / 已使用 / 已註銷
  *   ✅ 7 天內到期 badge
@@ -121,11 +121,12 @@ interface Props {
   contactUrl: string;
   dataSource: IndustryModuleId;
   allowBrowserSession?: boolean;
+  initialWallets?: Extract<import("@/server/actions/liff-my-wallets").FetchLiffWalletsResult,{status:"ok"}>;
 }
 
-export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSource, allowBrowserSession = false }: Props) {
+export function WalletsList({ initialWallets, storeSlug, storeName, liffId, contactUrl, dataSource, allowBrowserSession = false }: Props) {
   const router = useRouter();
-  const [state, setState] = useState<State>({ kind: "initializing" });
+  const [state, setState] = useState<State>(initialWallets?{kind:"ready",...initialWallets,consumption:[]}:{kind:"initializing"});
 
   useEffect(() => {
     let cancelled = false;
@@ -340,18 +341,10 @@ export function WalletReadyView({
               ))}
             </Section>
           )}
-          {expired.length > 0 && (
-            <Section title={liffMessages.wallets.expiredSectionTitle} dim collapsible count={expired.length}>
-              {expired.map((w) => (
-                <WalletCard key={w.id} wallet={w} variant="expired" />
-              ))}
-            </Section>
-          )}
-          {history.length > 0 && (
-            <Section title={liffMessages.wallets.historySectionTitle} dim collapsible count={history.length}>
-              {history.map((w) => (
-                <WalletCard key={w.id} wallet={w} variant="history" />
-              ))}
+          {expired.length + history.length > 0 && (
+            <Section title="歷史方案" dim collapsible count={expired.length + history.length}>
+              {expired.map(w=><WalletCard key={w.id} wallet={w} variant="expired"/>)}
+              {history.map(w=><WalletCard key={w.id} wallet={w} variant="history"/>)}
             </Section>
           )}
           {makeupCredits.length > 0 && (
