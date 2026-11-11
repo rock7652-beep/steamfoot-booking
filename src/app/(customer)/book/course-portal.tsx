@@ -21,6 +21,7 @@ import { getCourseCards } from "@/server/queries/course-members";
 import { getCourseMemberRecords } from "@/server/queries/course-member-records";
 import { readCoursePhonePlanGrids } from "@/server/queries/course-phone-plan-grids";
 import { getCoursePlanHistory } from "@/server/queries/course-plan-history";
+import { readCoursePhoneLearners } from '@/server/services/course-phone-view';
 import { CoursePortalClient } from "./course-portal-client";
 import { monthRange, toLocalMonthStr, parseTaipeiDateTime, dayRange, toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
 import { hasStoreFeature } from "@/lib/feature-gate";
@@ -112,8 +113,18 @@ async function readCoursePortal(requestedMonth: string | undefined, preview: Fro
     : null;
   const waitlistEnabled = waitlistFeature && (waitlistSetting?.enabled ?? false);
   const cards = memberEnabled ? (await timing.measure("cards", () => getCourseCards(storeId, customer.id, {where:{},entries:false}))).filter(card => !musicStore || card.unit === "SESSION") : [];
+  let gridLearners=[customer.id],phoneGrantSnapshot:string|null=null;
+  // A read-only preview must not borrow the real actor's family grant.
+  if(!access&&memberEnabled){
+    try{
+      const group=await readCoursePhoneLearners();
+      if(group.status==='phone_group'&&group.learners.some(learner=>learner.id===customer.id)){
+        gridLearners=group.learners.map(learner=>learner.id);phoneGrantSnapshot=JSON.stringify(group.learners);
+      }
+    }catch{/* Personal scope remains available without a usable family grant. */}
+  }
   const memberRecordsPromise = memberEnabled ? getCourseMemberRecords(storeId,customer.id,musicStore) : Promise.resolve([]);
-  const [planHistory,planGrids] = await Promise.all([timing.measure("plan_history", () => getCoursePlanHistory(storeId, customer.id, cards.map(card => card.id), now)), timing.measure("plan_grids",()=>readCoursePhonePlanGrids(storeId,customer.id,cards.map(card=>card.id)))]);
+  const [planHistory,planGrids] = await Promise.all([timing.measure("plan_history", () => getCoursePlanHistory(storeId, customer.id, cards.map(card => card.id), now)), timing.measure("plan_grids",()=>readCoursePhonePlanGrids(storeId,customer.id,cards.map(card=>card.id),undefined,gridLearners))]);
   // Independent opening rights are visible only to their own learner. Shared
   // cards/reserver identity never grant access to another learner's entitlement.
   const memberBookingAccess = {
@@ -352,6 +363,10 @@ async function readCoursePortal(requestedMonth: string | undefined, preview: Fro
   }) : [];
   const rolePreferenceKey = coursePortalRoleCookie(user.id, storeId);
   const initialRole = access ? (access.role === "work" ? "coach" as const : "member" as const) : resolveCoursePortalRole((await cookies()).get(rolePreferenceKey)?.value, memberEnabled, !!link);
+  if(phoneGrantSnapshot){
+    try{const current=await readCoursePhoneLearners();if(current.status!=='phone_group'||JSON.stringify(current.learners)!==phoneGrantSnapshot)planGrids.clear();}
+    catch{planGrids.clear();}
+  }
   return {
     personnelLabel,
     storeId,

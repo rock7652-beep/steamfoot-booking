@@ -7,23 +7,31 @@ import { dayRange } from "@/lib/date-utils";
 /** Display only. Caller derives the learner/card IDs from a verified member
  * session or phone grant (rechecked after reading). Never infer attendance from a
  * reservation or reconstruct a purchased quantity from the current balance. */
-export async function readCoursePhonePlanGrids(storeId: string, customerId: string, cardIds: string[], adjustments?: SessionAdjustmentRecord[]) {
+export async function readCoursePhonePlanGrids(storeId: string, customerId: string, cardIds: string[], adjustments?: SessionAdjustmentRecord[], authorizedLearnerIds?: string[]) {
   if (!cardIds.length) return new Map<string, { total: number; dates: string[]; voidedDates?: string[] }>();
+  const allowed=new Set(authorizedLearnerIds??[customerId]);
+  if(!allowed.has(customerId))return new Map<string, {total:number;dates:string[];voidedDates?:string[]}>();
   const [cards, records] = await Promise.all([
     coursePrisma.coursePointCard.findMany({
-      where: { storeId, id: { in: cardIds }, unit: "SESSION", musicOpeningStateRequired: false, members: { some: { storeId, customerId } } },
-      select: { id: true, entries: { where: { kind: "GRANT" }, select: { points: true } }, bookings: {
-        where: { storeId, customerId, status: "ATTENDED", absenceKind: null, session: { cancelledAt: null } },
-        select: { id: true, pointCost: true, session: { select: { startsAt: true } } },
+      where: { storeId, id: { in: cardIds }, unit: "SESSION", musicOpeningStateRequired: false, members: { some: { storeId, customerId:authorizedLearnerIds?{in:[...allowed]}:customerId } } },
+      select: { id: true, members:{select:{customerId:true}}, entries: { where: { kind: "GRANT" }, select: { points: true } }, bookings: {
+        where: { storeId, ...(authorizedLearnerIds?{}:{customerId}), status: "ATTENDED", absenceKind: null, session: { cancelledAt: null } },
+        select: { id: true, customerId:true, pointCost: true, session: { select: { startsAt: true } } },
         orderBy: [{ session: { startsAt: "asc" } }, { id: "asc" }], take: 501,
       } },
     }),
     adjustments ?? courseSessionAdjustmentRecords(coursePrisma, storeId, cardIds),
   ]);
-  const manual = activeSessionAdjustments(records).filter(row => row.customerId === customerId && row.operation === "BACKFILL" && row.occurredOn);
-  const voids=activeSessionAdjustments(records).filter(row=>row.customerId===customerId&&row.operation==='VOID');
+  const active=activeSessionAdjustments(records);
+  const manual = active.filter(row => allowed.has(row.customerId) && row.operation === "BACKFILL" && row.occurredOn);
+  const voids=active.filter(row=>allowed.has(row.customerId)&&row.operation==='VOID');
   const result = new Map<string, { total: number; dates: string[]; voidedDates?: string[] }>();
   for (const card of cards) {
+    // Never present one learner's dates as the complete shared-plan grid. All
+    // members and all dated usage must be within the verified viewer scope.
+    if(card.members?.some(member=>!allowed.has(member.customerId))||
+      (authorizedLearnerIds&&card.bookings.some(row=>!row.customerId||!allowed.has(row.customerId)))||
+      active.some(row=>row.cardId===card.id&&(row.operation==='BACKFILL'||row.operation==='VOID')&&!allowed.has(row.customerId)))continue;
     const total = card.entries.reduce((sum, entry) => sum + entry.points, 0);
     if (!Number.isSafeInteger(total) || total < 1 || total > 500 || card.bookings.length > 500) continue;
     const uses = [

@@ -11,11 +11,20 @@ import { activeSessionAdjustments } from "@/lib/plan-session-adjustment";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
 import { readCoursePurchaseSummaries } from '@/server/queries/course-purchase-summaries';
 
+type PrivateCard=Awaited<ReturnType<typeof getCourseCards>>[number];
+type Grid={total:number;dates:string[];voidedDates?:string[]};
+type Purchase={date:string;amount:number};
+function publicCard(card:PrivateCard,grid:Grid|null,purchase:Purchase|null){
+  const activationDays=card.expiryKind!=="NO_EXPIRY"&&card.musicValidityDays&&!card.musicActivatedAt&&!card.openingImported?card.musicValidityDays:null;
+  return {id:card.id,name:card.name,unit:card.unit,remaining:card.remaining,available:card.available,held:card.held,shared:card.members.length>1,closed:card.closed,expired:card.expired,grid,purchase,activationDays,expiresAt:card.expiryKind==="NO_EXPIRY"||activationDays?null:card.expiresAt??null};
+}
+type SharedPlan={card:ReturnType<typeof publicCard>;learnerNames:string[]};
+
 export async function loadCoursePhoneSummary() {
   try {
     const actor = await courseMember();
     const group = await readCoursePhoneLearners();
-    if (group.status !== "phone_group") return { success: true as const, learners: [] };
+    if (group.status !== "phone_group") return { success: true as const, learners: [],sharedPlans:[] as SharedPlan[] };
     const now = new Date();
     const learners = await Promise.all(group.learners.map(async learner => {
       const select = { id: true, status: true, absenceKind: true, session: { select: { nameSnapshot: true, startsAt: true, cancelledAt: true } } } as const;
@@ -40,13 +49,31 @@ export async function loadCoursePhoneSummary() {
         return [{ id: record.id, name: card.name, startsAt: date.toISOString(), dateOnly: true, quantity: record.quantity, unitLabel: card.unit === "SESSION" ? "堂" : "點", status: "已出席（補登）" }];
       });
       const combinedHistory = [...lessons(history), ...backfills].sort((a, b) => b.startsAt.localeCompare(a.startsAt) || a.id.localeCompare(b.id)).slice(0, 20);
-      return { ...learner, cards: cards.map(card => { const activationDays=card.expiryKind!=="NO_EXPIRY"&&card.musicValidityDays&&!card.musicActivatedAt&&!card.openingImported?card.musicValidityDays:null; return { id: card.id, name: card.name, unit: card.unit, remaining: card.remaining, available: card.available, held: card.held, shared: card.members.length > 1, closed: card.closed, expired: card.expired, grid: grids.get(card.id) ?? null, purchase:purchases.get(card.id)??null, activationDays, expiresAt:card.expiryKind==="NO_EXPIRY"||activationDays?null:card.expiresAt??null }; }), upcoming: lessons(upcoming), history: combinedHistory };
+      return { ...learner, cards: cards.map(card => publicCard(card,grids.get(card.id)??null,purchases.get(card.id)??null)), upcoming: lessons(upcoming), history: combinedHistory };
     }));
+    const counts=new Map<string,number>();
+    for(const learner of learners)for(const card of learner.cards)counts.set(card.id,(counts.get(card.id)??0)+1);
+    const sharedIds=[...new Set(learners.flatMap(learner=>learner.cards.filter(card=>card.shared||(counts.get(card.id)??0)>1).map(card=>card.id)))];
+    const sharedPlans:SharedPlan[]=[];
+    if(sharedIds.length){
+      const allowed=group.learners.map(learner=>learner.id);
+      const currentCards=await getCourseCards(actor.storeId,undefined,{where:{id:{in:sharedIds},members:{some:{storeId:actor.storeId,customerId:{in:allowed}}}},entries:false});
+      if(currentCards.length!==sharedIds.length)throw new AppError('CONFLICT','共用方案已更新，請重新讀取');
+      const grids=await readCoursePhonePlanGrids(actor.storeId,allowed[0],sharedIds,undefined,allowed);
+      for(const card of currentCards){
+        const owners=learners.filter(learner=>learner.cards.some(value=>value.id===card.id));
+        if(owners.some(owner=>!card.members.some(member=>member.id===owner.id)))throw new AppError('CONFLICT','共用方案成員已更新，請重新讀取');
+        const purchases=owners.flatMap(owner=>{const purchase=owner.cards.find(value=>value.id===card.id)?.purchase;return purchase?[purchase]:[];});
+        // Multiple payer snapshots cannot establish one plan price. Keep it
+        // unknown instead of adding receipts or borrowing another payer's data.
+        sharedPlans.push({card:{...publicCard(card,grids.get(card.id)??null,purchases.length===1?purchases[0]:null),shared:true},learnerNames:owners.map(owner=>owner.name)});
+      }
+    }
     // Reads span core/course DBs. Do not return collected data if the staff
     // revokes authority or changes group membership while these reads run.
     const current = await readCoursePhoneLearners();
     if (current.status !== "phone_group" || JSON.stringify(current.learners) !== JSON.stringify(group.learners)) throw new AppError("CONFLICT", "電話綁定或學員資料已更新，請重新讀取");
-    return { success: true as const, learners };
+    return { success: true as const, learners,sharedPlans };
   } catch (error) {
     const result = handleActionError(error);
     return { success: false as const, error: result.success ? "目前無法讀取學員課程" : result.error };

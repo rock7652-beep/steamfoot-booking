@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {CourseSettingsWorkspaceEntry} from '@/app/(dashboard)/dashboard/courses/non-calendar-view-entries';
-const m = vi.hoisted(() => ({ config: vi.fn(), store: vi.fn(), feature: vi.fn(), view: vi.fn(), usage: vi.fn(), rule: vi.fn() }));
+const m = vi.hoisted(() => ({ config: vi.fn(), store: vi.fn(), feature: vi.fn(), view: vi.fn(), usage: vi.fn(), rule: vi.fn(), permission: vi.fn(), user: vi.fn() }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("not found"); }, redirect: () => { throw new Error("redirect"); } }));
-vi.mock("@/lib/session", () => ({ getCurrentUser: async () => ({ role: "OWNER", staffId: "staff" }) }));
-vi.mock("@/lib/permissions", () => ({ checkPermission: async () => true }));
+vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
+vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: async () => "a" }));
 vi.mock("@/lib/store-view-context-server", () => ({ resolveStoreViewContextFromCookie: m.view }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: async () => "course" }));
@@ -23,7 +23,7 @@ async function props() {
  return find(tree)!;
 }
 beforeEach(() => {
-  vi.resetAllMocks(); m.config.mockResolvedValue(null); m.store.mockResolvedValue({ name: "A", plan: "GROWTH", currentSubscription: null, subscriptions: [] }); m.feature.mockResolvedValue(false); m.view.mockResolvedValue(null); m.usage.mockResolvedValue({ metrics: [] });
+  vi.resetAllMocks(); m.user.mockResolvedValue({role:"OWNER",staffId:"staff"}); m.permission.mockResolvedValue(true); m.config.mockResolvedValue(null); m.store.mockResolvedValue({ name: "A", plan: "GROWTH", currentSubscription: null, subscriptions: [] }); m.feature.mockResolvedValue(false); m.view.mockResolvedValue(null); m.usage.mockResolvedValue({ metrics: [] });
 });
 describe("course settings server summaries", () => {
   it("uses central defaults without inventing an inactive trial or fake subscription", async () => {
@@ -56,4 +56,17 @@ it("starts feature and permitted usage reads while shop configuration is pending
  const pending = CourseSharedHub({ view: "settings" });
  try { await vi.waitFor(() => { expect(m.feature).toHaveBeenCalledWith("a", FEATURES.LINE_REMINDER); expect(m.usage).toHaveBeenCalled(); }, { timeout: 1000, interval: 5 }); }
  finally { finish(null); await pending; }
+});
+
+it("exposes the existing store referral destination only when enabled and permitted",async()=>{
+ vi.stubEnv('SUBSCRIPTION_REFERRALS_ENABLED','true');
+ try{
+ expect((await props()).subscriptionReferralHref).toBe('/dashboard/settings/subscription-referrals');
+ m.permission.mockImplementation(async (_role,_staff,permission)=>permission!=='staff.view');
+ expect((await props()).subscriptionReferralHref).toBeUndefined();
+ m.permission.mockResolvedValue(true);m.user.mockResolvedValue({role:'PARTNER',staffId:'partner'});
+ expect((await props()).subscriptionReferralHref).toBeUndefined();
+ m.user.mockResolvedValue({role:'OWNER',staffId:'staff'});vi.stubEnv('SUBSCRIPTION_REFERRALS_ENABLED','false');
+ expect((await props()).subscriptionReferralHref).toBeUndefined();
+ }finally{vi.unstubAllEnvs();}
 });

@@ -112,3 +112,12 @@ it.each([
  expect(host.textContent).not.toContain('2099');expect(host.textContent).not.toContain('我的學員');expect(host.textContent).not.toContain('重新讀取');expect(host.textContent).not.toContain('課程紀錄');expect(host.textContent).not.toContain('尚無上課安排');
  expect(host.querySelector('.cp-phone-plan-heading')?.textContent).toContain('剩餘 8 堂');
 });
+it('renders a shared card only once, while independent cards remain under their own learner',async()=>{
+ const base=balanceSummary(7),card={...base.learners[0].cards[0],id:'shared',name:'共用八堂',shared:true};
+ const childA={...base.learners[0],id:'a',name:'孩子 A',cards:[card,{...card,id:'personal-a',name:'A 個人方案',shared:false}]};
+ const childB={...base.learners[0],id:'b',name:'孩子 B',cards:[card]};
+ m.summary.mockResolvedValue({success:true,learners:[childA,childB],sharedPlans:[{card:{...card,grid:{total:8,dates:['2026-11-03T02:00Z','2026-11-04T02:00Z']}},learnerNames:['孩子 A','孩子 B']}]});
+ await act(async()=>root.render(el(CoursePhoneLearners,{scope:'store:shared'})));
+ expect(host.querySelectorAll('[aria-label="共用八堂"]')).toHaveLength(1);expect(host.querySelectorAll('[aria-label="A 個人方案"]')).toHaveLength(1);expect(host.querySelectorAll('.cp-phone-plan')).toHaveLength(2);
+ expect(host.querySelector('[aria-label="共用八堂 共用方案"] summary')?.textContent).toContain('孩子 A、孩子 B');expect(host.querySelector('[aria-label="共用八堂"]')?.querySelectorAll('[data-completed="true"]')).toHaveLength(2);
+});

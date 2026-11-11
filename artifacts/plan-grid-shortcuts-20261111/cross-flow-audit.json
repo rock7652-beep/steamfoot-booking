@@ -76,7 +76,7 @@
   "limits": [
     "未執行正式 LINE 真機端到端驗收",
     "診斷用 mock 驗證特定 UI／服務分支，不代表所有真實資料通過",
-    "以上缺口尚未修復；未新增欄位、修改扣堂政策或正式部署"
+    "本檔 findings 為當時盤點，後續修正依 followUp 記錄；未正式部署或執行 LINE 真機驗收。"
   ],
   "followUp": {
     "F2": "本機修正與回歸驗證通過，尚未發布",
@@ -86,6 +86,8 @@
     "F1Evidence": "../backfill-review-20261111/validation.json",
     "F4": "依最新決策移除顧客前台其他堂數異動，改以四項方案資訊與灰色註銷日期格呈現；後台完整紀錄保留。本機驗證通過，尚未發布。",
     "F4Evidence": "../customer-plan-facts-20261111/validation.json",
-    "compactPreview": "../customer-plan-density-20261111/validation.json"
+    "compactPreview": "../customer-plan-density-20261111/validation.json",
+    "F5": "依使用者確認，一份共用方案只顯示一組格子，合併授權學員的有效使用日期；獨立購買的方案仍各自保留。使用紀錄超出授權範圍時不顯示不完整格子，提示門市核對。本機回歸與三尺寸合成預覽通過，尚未發布。",
+    "F5Evidence": "../shared-plan-unification-20261111/validation.json"
   }
 }

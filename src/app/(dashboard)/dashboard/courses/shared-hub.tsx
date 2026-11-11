@@ -8,6 +8,7 @@ import { CourseSettingsPanelContent } from "./settings-panel-content";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
@@ -90,6 +91,7 @@ async function readCourseSharedHub({view, panel, panelQuery}:{view:CourseHubView
         canReferralShare={canPayment && !readOnly}
         canUnassignedPlans={canPlans && await checkPermission(user.role,user.staffId,"customer.read")}
         subscriptionSummary={canPayment ? subscriptionSummary : undefined}
+        subscriptionReferralHref={process.env.SUBSCRIPTION_REFERRALS_ENABLED === "true" && getEffectiveActorRole(user) === "OWNER" && await checkPermission(user.role,user.staffId,"staff.view") ? "/dashboard/settings/subscription-referrals" : undefined}
         today={toLocalDateStr()}
         trialSettings={{ trialEnabled: config?.trialEnabled ?? TRIAL_DEFAULTS.trialEnabled, trialDefaultPrice: Number(config?.trialDefaultPrice ?? TRIAL_DEFAULTS.trialDefaultPrice), trialAllowPriceEdit: config?.trialAllowPriceEdit ?? TRIAL_DEFAULTS.trialAllowPriceEdit, trialMinPrice: Number(config?.trialMinPrice ?? TRIAL_DEFAULTS.trialMinPrice), trialMaxPrice: Number(config?.trialMaxPrice ?? TRIAL_DEFAULTS.trialMaxPrice) }}
         bookingOpensAt={config?.bookingOpensAt?.toISOString()??null}

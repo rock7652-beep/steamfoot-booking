@@ -27,7 +27,7 @@ it("projects separate balances and courses with strict tenant/learner predicates
 });
 it("never queries another learner without a phone grant", async () => {
   m.group.mockResolvedValue({ status: "personal", learners: [{ id: "a", name: "孩子 A" }] });
-  expect(await loadCoursePhoneSummary()).toEqual({ success: true, learners: [] });
+  expect(await loadCoursePhoneSummary()).toEqual({ success: true, learners: [],sharedPlans:[] });
   expect(m.cards).not.toHaveBeenCalled(); expect(m.bookings).not.toHaveBeenCalled();
 });
 it("discards course data if revocation or membership changes during the read", async () => {
@@ -77,7 +77,22 @@ it.each([
  {expiresAt:'2027-01-24T15:59:59.999Z',musicValidityDays:70,musicActivatedAt:'2026-11-15T02:00:00Z',openingImported:false,expectedDate:'2027-01-24T15:59:59.999Z',expectedDays:null},
  {expiresAt:'2099-12-31T15:59:59.999Z',expiryKind:'NO_EXPIRY',musicValidityDays:70,musicActivatedAt:null,openingImported:true,expectedDate:null,expectedDays:null},
 ])('distinguishes real expiry from activation placeholders and no-expiry cards',async state=>{
+ m.group.mockResolvedValue({status:'phone_group',learners:[{id:'a',name:'孩子 A'}]});
  m.cards.mockResolvedValue([{id:'card',name:'方案',unit:'SESSION',remaining:8,available:8,held:0,members:[{id:'a'}],...state}]);
  const result=await loadCoursePhoneSummary();if(!result.success)throw Error('summary failed');
  expect(result.learners[0].cards[0].expiresAt).toBe(state.expectedDate);expect(result.learners[0].cards[0].activationDays).toBe(state.expectedDays);
+});
+
+it('returns one canonical shared plan with the whole authorized group grid and one shared balance',async()=>{
+ const card={id:'shared',name:'共用十堂',unit:'SESSION',remaining:7,available:7,held:0,members:[{id:'a'},{id:'b'}],expiresAt:'2027-01-24T15:59:59.999Z'};
+ m.cards.mockResolvedValue([card]);m.purchases.mockImplementation(async(_store:string,id:string)=>new Map(id==='a'?[['shared',{date:'2026-10-27T02:00:00Z',amount:4800}]]:[]));
+ m.grids.mockImplementation(async(_store:string,id:string,_cards:string[],_records:unknown,allowed?:string[])=>new Map([['shared',{total:10,dates:allowed?['2026-11-01T02:00:00Z','2026-11-02T02:00:00Z','2026-11-03T02:00:00Z']:[id==='a'?'2026-11-01T02:00:00Z':'2026-11-03T02:00:00Z']}]]));
+ const result=await loadCoursePhoneSummary();if(!result.success)throw Error('summary failed');
+ expect(result.sharedPlans).toHaveLength(1);expect(result.sharedPlans[0]).toMatchObject({learnerNames:['孩子 A','孩子 B'],card:{id:'shared',remaining:7,purchase:{amount:4800},grid:{total:10,dates:expect.any(Array)}}});expect(result.sharedPlans[0].card.grid?.dates).toHaveLength(3);
+ expect(m.grids.mock.calls.at(-1)).toEqual(['store','a',['shared'],undefined,['a','b']]);
+ expect(m.cards.mock.calls.at(-1)).toEqual(['store',undefined,{where:{id:{in:['shared']},members:{some:{storeId:'store',customerId:{in:['a','b']}}}},entries:false}]);
+});
+it('fails closed if shared-card membership changes during the read',async()=>{
+ m.cards.mockResolvedValueOnce([{id:'shared',name:'共用',unit:'SESSION',remaining:7,available:7,held:0,members:[{id:'a'},{id:'b'}]}]).mockResolvedValueOnce([{id:'shared',name:'共用',unit:'SESSION',remaining:7,available:7,held:0,members:[{id:'a'},{id:'b'}]}]).mockResolvedValueOnce([]);
+ expect(await loadCoursePhoneSummary()).toMatchObject({success:false});
 });

@@ -1,0 +1,30 @@
+{
+  "status": "local-only",
+  "policy": "一份方案，一組格子；各自購買仍分開",
+  "checks": {
+    "tests": {
+      "files": 6,
+      "passed": 99
+    },
+    "typescript": "passed",
+    "eslint": "passed",
+    "browserWidths": [
+      390,
+      768,
+      1366
+    ],
+    "sharedGrid": "one canonical 10-slot grid, three authorized usage dates, remaining seven",
+    "regressions": [
+      "backfill",
+      "correction",
+      "dated void",
+      "purchase metadata",
+      "grant revocation"
+    ],
+    "permissions": "reject incomplete shared grids outside verified viewer scope; recheck phone grants after reads"
+  },
+  "limits": [
+    "Synthetic browser evidence only; no authenticated LINE end-to-end acceptance",
+    "No push, PR, deployment, production data change or referral-code generation"
+  ]
+}

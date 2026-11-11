@@ -267,3 +267,13 @@ it("only publishes the saved store profile after confirmation, preserving the gu
   expect(receive).toHaveBeenCalledOnce();expect(receive).toHaveBeenCalledWith({name:"已設定店家",address:defaults.address,shopPhone:"測試電話"});
  }finally{unsubscribe();}
 });
+
+it("links store referral codes from system plan settings only when supplied by the server",async()=>{
+ window.history.replaceState(null,'','/s/a/admin/dashboard/courses?view=settings&section=subscription');
+ await render({...defaults,subscriptionReferralHref:'/dashboard/settings/subscription-referrals'});
+ const section=host.querySelector('section[aria-label="系統方案與用量"]')!;
+ expect(section.textContent).toContain('店家推薦碼');
+ expect(section.querySelector('a[aria-label="開啟店家推薦碼"]')?.getAttribute('href')).toContain('/dashboard/settings/subscription-referrals');
+ await render(defaults);expect(section.textContent).not.toContain('店家推薦碼');
+ expect(m.save).not.toHaveBeenCalled();
+});
