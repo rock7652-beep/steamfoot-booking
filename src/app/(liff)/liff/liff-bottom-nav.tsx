@@ -52,7 +52,7 @@ export function LiffBottomNavView({ base, activeKey, healthAssessmentEnabled, li
         {items.map(({ key, label, href }) => {
           const active = activeKey === key;
           return (
-            <Link key={key} href={links?.[key] ?? href} prefetch={false} aria-current={active ? "page" : undefined}
+            <Link key={key} href={links?.[key] ?? href} prefetch={key === "wallets"} aria-current={active ? "page" : undefined}
               className={`flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 text-xs focus-visible:outline-2 focus-visible:outline-primary-600 ${active ? "font-semibold text-primary-700" : "text-earth-500 hover:text-primary-700"}`}>
               <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round"><path d={icons[key]} /></svg>
               <span>{label}</span>

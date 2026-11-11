@@ -26,7 +26,7 @@
 .slides {
   display: grid;
   min-width: 0;
-  height: clamp(176px, 26svh, 290px);
+  height: clamp(160px, 24svh, 240px);
   background: transparent;
 }
 .carousel button.preview.current {
@@ -51,7 +51,7 @@
 }
 @media (min-width: 768px) {
   .slides {
-    height: clamp(220px, 30svh, 360px);
+    height: clamp(180px, 26svh, 280px);
   }
 }
 .dots button.dotButton,

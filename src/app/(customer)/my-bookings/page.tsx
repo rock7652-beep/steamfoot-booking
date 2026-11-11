@@ -338,7 +338,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
       ) : (
         <CustomerBookingList>
           {displayed.map((b) => (
-            <CustomerBookingRow key={b.id} when={`${new Date(b.bookingDate).toLocaleDateString("zh-TW", {year:"numeric",month:"2-digit",day:"2-digit",timeZone:"Asia/Taipei"})} ${b.slotTime}`} status={STATUS_LABEL[b.bookingStatus]??b.bookingStatus} description={[BOOKING_TYPE_LABEL[b.bookingType]??b.bookingType,b.people>1?`${b.people} 位`:null,b.isMakeup?'補課':null,b.revenueStaff?.displayName].filter(Boolean).join(' · ')}>
+            <CustomerBookingRow key={b.id} expandable={b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED"} when={`${new Date(b.bookingDate).toLocaleDateString("zh-TW", {year:"numeric",month:"2-digit",day:"2-digit",timeZone:"Asia/Taipei"})} ${b.slotTime}`} status={STATUS_LABEL[b.bookingStatus]??b.bookingStatus} description={[BOOKING_TYPE_LABEL[b.bookingType]??b.bookingType,b.people>1?`${b.people} 位`:null,b.isMakeup?'補課':null,b.revenueStaff?.displayName].filter(Boolean).join(' · ')}>
                   {(b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED") && (() => {
                     const dateStr = new Date(b.bookingDate).toISOString().slice(0, 10);
                     const [h, m] = b.slotTime.split(":").map(Number);

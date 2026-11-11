@@ -385,7 +385,7 @@ describe("member plan and purchase navigation", () => {
     expect(host.querySelector('.cp-plan-row')?.textContent).toContain('剩餘 10 點');
     expect(host.querySelector('.cp-plan-row')?.textContent).toContain('9/1 開卡');
     expect(host.querySelector('.cp-plan-row')?.textContent).toContain('已預約 2 點｜可再約 8 點');
-    await click('查看已到期');
+    await click('歷史方案');
     expect(host.querySelectorAll('.cp-plan-near-expiry')).toHaveLength(1);
     expect(host.textContent).toContain('已停用');
   });
@@ -528,9 +528,9 @@ describe("member plan and purchase navigation", () => {
     await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,initialRole:"member",initialView:"plans",cards:[card("有效堂數方案",false,"SESSION"),card("過期點數方案",true,"POINT")] as unknown as CoursePortalData["cards"]})));
     expect(host.textContent).toContain("有效堂數方案");
     expect(host.textContent).not.toContain("過期點數方案");
-    await click("查看已到期");
+    await click("歷史方案");
     expect(host.textContent).toContain("過期點數方案");
-    await click("收起已到期");
+    await click("歷史方案");
     expect(host.textContent).not.toContain("過期點數方案");
   });
   it("lists actual lesson dates and times inside each plan without exposing the internal ledger", async () => {
@@ -622,7 +622,7 @@ describe("member plan and purchase navigation", () => {
     const card=(id:string,held:number,expired=false)=>({id,name:id,unit:"POINT",available:8,remaining:10,held,expired,closed:false,expiresAt:"2026-10-20",members:[],entries:[],templateIds:[]});
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"plans",cards:[card("其他方案",0),card("已到期",0,true),card("目前使用",2)] as unknown as CoursePortalData["cards"]})));
     expect([...host.querySelectorAll('.cp-plan h2')].map(el=>el.textContent)).toEqual(["目前使用","其他方案"]);
-    await click("查看已到期");
+    await click("歷史方案");
     expect([...host.querySelectorAll('.cp-plan h2')].map(el=>el.textContent)).toEqual(["目前使用","其他方案","已到期"]);
   });
   it("shows pending orders first and exposes completed orders only in history", async () => {

@@ -16,7 +16,8 @@ import { getIndustryModule, type IndustryModuleId } from "@/lib/industry-modules
 import type { FetchLiffBookingsResult } from "@/server/actions/liff-my-bookings";
 import type { FetchLiffWalletsResult } from "@/server/actions/liff-my-wallets";
 
-export function PreviewMemberScreen({ bookings, wallets, moduleId, name, storeName, storeSlug, href, view, profile, healthSummary, healthEnabled }: {
+export function PreviewMemberScreen({ announcementItems, bookings, wallets, moduleId, name, storeName, storeSlug, href, view, profile, healthSummary, healthEnabled }: {
+  announcementItems?: import("@/lib/image-announcements").ImageAnnouncement[];
   bookings: FetchLiffBookingsResult; wallets: FetchLiffWalletsResult; moduleId: IndustryModuleId; name: string;
   storeName: string; storeSlug: string; href: string; view: string; profile: LiffCustomerProfile; healthSummary: HealthSummary | null; healthEnabled: boolean;
 }) {
@@ -30,7 +31,7 @@ export function PreviewMemberScreen({ bookings, wallets, moduleId, name, storeNa
     {view === "health" && healthSummary ? <HealthPreviewView storeSlug={storeSlug} storeName={storeName} summary={healthSummary} /> : view === "profile" ? <ProfileReadyView profile={profile} /> :
     view === "bookings" ? <ReadyView upcoming={bookings.upcoming} history={bookings.history} tab={tab} onTabChange={setTab} storeName={storeName} storeSlug={storeSlug} onRequestCancel={() => window.alert("預覽中不會儲存")} contactUrl="" storeAddress="" storeMapUrl="" bookingHref="/preview-unavailable" />
       : view === "wallets" ? <WalletReadyView {...wallets} readOnly consumption={[]} storeSlug={storeSlug} contactUrl="" dataSource={moduleId} />
-      : <WelcomeBack storeSlug={storeSlug} displayName={name} memberDataSource={moduleId} terminology={getIndustryModule(moduleId).customer} healthAssessmentEnabled={healthEnabled} memberLinks={links} bookingHref="/preview-unavailable" memberSummary={{ walletsStatus: "ok", activeWallets: wallets.active, makeupCredits: wallets.makeupCredits, upcomingBookings: bookings.upcoming, nextBooking: bookings.upcoming[0] ?? null, healthSummary, referralShare: null }} compactHome previewAnnouncements />}
+      : <WelcomeBack announcementItems={announcementItems} storeSlug={storeSlug} displayName={name} memberDataSource={moduleId} terminology={getIndustryModule(moduleId).customer} healthAssessmentEnabled={healthEnabled} memberLinks={links} bookingHref="/preview-unavailable" memberSummary={{ walletsStatus: "ok", activeWallets: wallets.active, makeupCredits: wallets.makeupCredits, upcomingBookings: bookings.upcoming, nextBooking: bookings.upcoming[0] ?? null, healthSummary, referralShare: null }} compactHome previewAnnouncements />}
   </main>
   <LiffBottomNavView base={`/s/${storeSlug}/liff`} activeKey={view} healthAssessmentEnabled={healthEnabled} links={{ home: `${href}&view=home`, bookings: links.bookings, wallets: links.wallets, profile: links.profile, health: `${href}&view=health` }} />
   </LiffMemberFrame>;

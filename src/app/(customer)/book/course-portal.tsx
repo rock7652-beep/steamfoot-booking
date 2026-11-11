@@ -1,3 +1,4 @@
+import {readInitialAnnouncements} from '@/server/services/image-announcements';
 import { OperationTiming } from "@/lib/operation-timing";
 import { coursePersonnelText } from "@/lib/course-personnel-label";
 import { readCoursePersonnelLabel } from "@/server/services/course-personnel-label";
@@ -367,7 +368,9 @@ async function readCoursePortal(requestedMonth: string | undefined, preview: Fro
     try{const current=await readCoursePhoneLearners();if(current.status!=='phone_group'||JSON.stringify(current.learners)!==phoneGrantSnapshot)planGrids.clear();}
     catch{planGrids.clear();}
   }
+  const announcementItems = await readInitialAnnouncements(storeId,!!preview);
   return {
+    ...(announcementItems ? {announcementItems} : {}),
     personnelLabel,
     storeId,
     rolePreferenceKey,

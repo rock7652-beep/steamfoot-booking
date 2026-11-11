@@ -1,3 +1,4 @@
+import {readInitialAnnouncements} from '@/server/services/image-announcements';
 import {BeautyPreviewPortal} from "@/components/beauty/preview-portal";
 import {loadBeautyPreview} from "@/server/beauty/frontend-preview";
 import { getNativeHealthSummary } from "@/lib/native-health-service";
@@ -43,7 +44,7 @@ export default async function FrontendPreviewPage({ searchParams }: { searchPara
     const lineStatus = customer.lineLinkStatus === "LINKED" && customer.lineUserId ? "linked" as const : customer.lineLinkStatus === "UNLINKED" && !customer.lineUserId ? "unlinked" as const : "needs_help" as const;
     const profile = { id: customer.id, name: customer.name, phone: customer.phone, email: customer.email, lineStatus, lineName: customer.lineName, lineUserIdMasked: lineStatus === "linked" && customer.lineUserId && customer.lineUserId.length >= 7 ? `U******${customer.lineUserId.slice(-4)}` : null, storeName: store.name, storeSlug: store.slug };
     const [bookings, wallets] = await Promise.all([readFetchLiffBookings(context), readFetchLiffWallets(context)]);
-    content = <PreviewMemberScreen bookings={bookings} wallets={wallets} moduleId={access.moduleId} name={access.name} storeName={store.name} storeSlug={store.slug} href={href} view={p.view ?? "home"} profile={profile} healthSummary={healthSummary} healthEnabled={healthEnabled} />;
+    content = <PreviewMemberScreen announcementItems={await readInitialAnnouncements(access.storeId,true) ?? undefined} bookings={bookings} wallets={wallets} moduleId={access.moduleId} name={access.name} storeName={store.name} storeSlug={store.slug} href={href} view={p.view ?? "home"} profile={profile} healthSummary={healthSummary} healthEnabled={healthEnabled} />;
   }
   return <ReadOnlyPreviewBoundary><header className="sticky top-0 z-40 border-b border-amber-200 bg-amber-50 px-3 text-sm text-amber-900">
     <div className="flex min-h-11 items-center justify-between gap-2">

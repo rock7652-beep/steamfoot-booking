@@ -172,8 +172,7 @@ describe("guide catalogue", () => {
     const guide = operationGuides.find(g => g.id === "C07")!;
     expect(guide.details.join(" ")).toContain("不會恢復效期、增加堂數");
     const source = readFileSync("src/app/(liff)/liff/wallets/wallets-list.tsx", "utf8");
-    expect(source).toContain("dim collapsible count={expired.length}");
-    expect(source).toContain("dim collapsible count={history.length}");
+    expect(source).toContain('title="歷史方案" dim collapsible count={expired.length + history.length}');
     expect(source.slice(source.indexOf("function Section("), source.indexOf("function WalletCard("))).not.toMatch(/<details[^>]*\bopen(?:[\s=>])/);
   });
   it("keeps health comparison guidance gated and separates dates from conclusions", () => {

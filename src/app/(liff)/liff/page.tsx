@@ -54,6 +54,7 @@ export default async function LiffEntryPage({ searchParams }: {
 
   return (
     <LiffShell
+      announcementItems={context.announcementItems}
       storeName={presentation.name}
       storeSlug={presentation.slug}
       liffId={liffId}

@@ -13,3 +13,5 @@
 .row[open] > .summary .chevron { transform:rotate(180deg); }
 .body { min-width:0; border-top:1px solid #e7e5e4; padding:8px 12px; font-size:14px; overflow-wrap:anywhere; }
 .body a,.body button { min-height:44px; }
+
+.row > .staticSummary {grid-template-columns:minmax(0,1fr);cursor:default}
