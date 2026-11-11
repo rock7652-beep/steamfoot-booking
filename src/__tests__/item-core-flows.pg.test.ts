@@ -95,7 +95,7 @@ let beautyContext:{storeId:string;actor:{storeId:string;userId:string;manager:bo
  },30000);
  afterAll(async()=>{if(created)await db().$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`);await course?.$disconnect();await beauty?.$disconnect();});
 
- it.each(['sports','music'] as const)('%s: arrange unpaid → purchase twice → aggregate → legacy A2 binding → FIFO A1 → restore; no duplicate income',async kind=>{
+ it.each(['sports','music'] as const)('%s: arrange unpaid → purchase twice → aggregate → preserve valid sports binding or reconcile music → restore; no duplicate income',async kind=>{
   const storeId=`${kind}-${randomUUID()}`,customerId=randomUUID(),actor={storeId,userId:randomUUID(),name:'合成店長'};
   await db().$executeRaw`INSERT INTO "Store" (id,"industryModule") VALUES (${storeId},'COURSE')`;
   await db().$executeRaw`INSERT INTO "Customer" VALUES (${customerId},${storeId},'合成學員','0900000000',NULL,NULL)`;
@@ -130,9 +130,9 @@ let beautyContext:{storeId:string;actor:{storeId:string;userId:string;manager:bo
   const history=await db().coursePointEntry.findMany({where:{storeId}});
   await courseRun(storeId,tx=>settleCourseBooking(tx,actor,booking.id,'ATTENDED'));
   await courseRun(storeId,tx=>settleCourseBooking(tx,actor,booking.id,'ATTENDED'));
-  expect(await db().courseBooking.findUnique({where:{id:booking.id}})).toMatchObject({cardId:purchases[0].cardId,status:'ATTENDED'});
-  expect((await db().coursePointCard.findUnique({where:{id:purchases[0].cardId!}}))?.remaining).toBe(9);
-  expect((await db().coursePointCard.findUnique({where:{id:purchases[1].cardId!}}))?.remaining).toBe(20);
+  expect(await db().courseBooking.findUnique({where:{id:booking.id}})).toMatchObject({cardId:purchases[kind==='sports'?1:0].cardId,status:'ATTENDED'});
+  expect((await db().coursePointCard.findUnique({where:{id:purchases[0].cardId!}}))?.remaining).toBe(kind==='sports'?10:9);
+  expect((await db().coursePointCard.findUnique({where:{id:purchases[1].cardId!}}))?.remaining).toBe(kind==='sports'?19:20);
   for(const entry of history)expect(await db().coursePointEntry.findUnique({where:{id:entry.id}})).toEqual(entry);
   await courseRun(storeId,tx=>correctCourseAttendance(tx,actor,booking.id,'RESERVED','ATTENDED',{suppressNotice:true}));
   await courseRun(storeId,tx=>correctCourseAttendance(tx,actor,booking.id,'RESERVED','ATTENDED',{suppressNotice:true}));
@@ -196,11 +196,15 @@ let beautyContext:{storeId:string;actor:{storeId:string;userId:string;manager:bo
   const snapshot=await db().courseBooking.findUniqueOrThrow({where:{id:booking.id}});
   const history=await db().coursePointEntry.findMany({where:{storeId},orderBy:{id:'asc'}});
   await expect(courseRun(storeId,async tx=>{
+   // A valid sports binding is preserved. Expire it inside this transaction to
+   // exercise the fallback and prove both the rebinding and expiry roll back.
+   if(kind==='sports')await tx.coursePointCard.update({where:{id:later.id},data:{expiresAt:new Date('2020-01-01')}});
    await reconcileCourseItemCard(tx,actor,booking.id,kind==='sports'?'SPORTS':'MUSIC');
    expect((await tx.courseBooking.findUniqueOrThrow({where:{id:booking.id}})).cardId).not.toBe(later.id);
    throw Error('Injected failure after reconciliation');
   })).rejects.toThrow('Injected failure');
   expect(await db().courseBooking.findUnique({where:{id:booking.id}})).toEqual(snapshot);
+  expect((await db().coursePointCard.findUniqueOrThrow({where:{id:later.id}})).expiresAt).toEqual(later.expiresAt);
   expect(await db().coursePointEntry.findMany({where:{storeId},orderBy:{id:'asc'}})).toEqual(history);
   for(const status of ['CANCELLED','ATTENDED'] as const){
    await db().courseBooking.update({where:{id:booking.id},data:{status}});

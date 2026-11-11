@@ -73,7 +73,7 @@ export function resolveSportsEntitlement(card: Card, lesson: Lesson):
   if (rights.sportsMode === "LEGACY") {
     // Assigned lesson rights follow its teaching item, not the fee package
     // selected when scheduling. Aliases are verified in the same store by DB.
-    if(lesson.enrollment === "ASSIGNED" && lesson.subjectId &&
+    if(lesson.subjectId &&
        card.templateIds.some(id=>lesson.compatibleTemplateIds?.includes(id)))
       return {eligible:true,cost:card.unit === "SESSION"?1:lesson.pointCost};
     if (lesson.enrollment && !lesson.legacyPlanId)
@@ -84,15 +84,16 @@ export function resolveSportsEntitlement(card: Card, lesson: Lesson):
       return { eligible: false, reason: "此方案不適用本堂課" };
     cost = card.unit === "SESSION" ? 1 : lesson.pointCost;
   } else if (rights.sportsMode === "ASSIGNED") {
-    if (lesson.enrollment !== "ASSIGNED" || lesson.subjectId !== rights.sportsSubjectId)
-      return { eligible: false, reason: "請使用本教學項目的指定學員方案" };
+    // ASSIGNED is the persisted subject/cost snapshot, not an enrollment gate.
+    if (!lesson.subjectId || lesson.subjectId !== rights.sportsSubjectId)
+      return { eligible: false, reason: "方案科目不符" };
     cost = rights.sportsCost;
     if (card.unit === "SESSION" && cost !== 1)
       return { eligible: false, reason: "堂數方案每次使用 1 堂" };
   } else {
-    if (lesson.enrollment !== "OPEN")
-      return { eligible: false, reason: "通用卡僅適用開放選課" };
-    cost = card.unit === "SESSION" ? 1 : lesson.pointCost;
+    // Old OPEN snapshots contain no subject. Staff must explicitly confirm
+    // their scope before a new reservation can consume them.
+    return { eligible: false, reason: "方案科目待核對，請由店家確認" };
   }
   if (!Number.isSafeInteger(cost) || cost < 1)
     return { eligible: false, reason: "本堂扣抵規則無效，請聯絡店家核對" };

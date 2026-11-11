@@ -17,7 +17,7 @@ import {CourseCatalogNameField,CourseCatalogDurationField} from "./catalog-field
 import type {CatalogStatusDriver} from "@/lib/course-catalog-driver";
 import {ScheduleMonthGrid} from "@/components/admin/schedule-month-grid";
 
-import {coursePlanModeAllowed,type CourseSchedulingModes} from "@/lib/course-scheduling-modes";
+import {courseSchedulingModeAllowed,type CourseSchedulingModes} from "@/lib/course-scheduling-modes";
 import {useSportsCalendarState,useSportsCalendarDate,useSportsCalendarScroll,calendarMode,calendarString} from "@/components/admin/use-sports-calendar-state";
 import {CalendarMonthBoundary,calendarMonthReady} from "@/components/admin/calendar-month-boundary";
 import {applySportsMovePatches} from "@/lib/sports-move-patch";
@@ -2610,7 +2610,7 @@ export function CourseWorkspace({
               : courseDialog.kind === "member-booking"
                 ? "＋ 學員預約"
                 : "＋ 新顧客／體驗客";
-          const dialogModeAllowed=!sportsNative||coursePlanModeAllowed(activeSchedulingModes,dialogSession.sportsEnrollment);
+          const dialogModeAllowed=!sportsNative||(!dialogSession.sportsEnrollment||courseSchedulingModeAllowed(activeSchedulingModes,dialogSession.sportsEnrollment as "OPEN"|"ASSIGNED"));
           const rosterContent=(kind:"roster"|"member-booking"|"trial-booking")=>(<CourseRoster storeId={storeId??undefined}
                   sportsNative={sportsNative}
                   key={`${dialogSession.id}-${kind}`}

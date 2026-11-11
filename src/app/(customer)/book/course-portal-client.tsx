@@ -411,7 +411,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
     trail.current = [];
     requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, 0)));
   }
-  const rightsFor = (s:Session,c:{planId?:string;id:string;unit:string;templateIds:string[];sportsMode?:string;sportsSubjectId?:string|null;sportsCost?:number|null;templateRestricted?:boolean}) => resolveSportsEntitlement({...c,planId:c.planId??c.id},{templateId:s.templateId,subjectId:s.sportsSubjectId??null,pointCost:s.cost,enrollment:s.sportsEnrollment==="OPEN"?"OPEN":s.sportsEnrollment==="ASSIGNED"?"ASSIGNED":null,legacyPlanId:s.sportsPlanId??null});
+  const rightsFor = (s:Session,c:{planId?:string;id:string;unit:string;templateIds:string[];sportsMode?:string;sportsSubjectId?:string|null;sportsCost?:number|null;templateRestricted?:boolean}) => resolveSportsEntitlement({...c,planId:c.planId??c.id},{templateId:s.templateId,subjectId:s.sportsSubjectId??null,pointCost:s.cost,enrollment:s.sportsEnrollment==="OPEN"?"OPEN":s.sportsEnrollment==="ASSIGNED"?"ASSIGNED":null,legacyPlanId:s.sportsPlanId??null,compatibleTemplateIds:s.compatibleTemplateIds});
   const eligible = (s: Session) =>
     p.cards
       .filter(
@@ -1102,7 +1102,7 @@ function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: 
                     {expanded && (c.history?.count ?? 0) > 100 && <p>顯示最近 100 筆</p>}
                   </section>}
                   <details className="cp-plan-content"><summary>可預約課程{c.members.length > 1 ? "／共卡成員" : ""}</summary>
-                    <p>適用：{c.sportsMode==="OPEN"?"本店開放選課":c.templateIds.length ? p.templates.filter(t => c.templateIds.includes(t.id)).map(t => t.name).join("、") : "本店所有課程"}</p>
+                    <p>適用：{c.sportsMode==="OPEN"?"科目待店家核對":c.templateIds.length ? p.templates.filter(t => c.templateIds.includes(t.id)).map(t => t.name).join("、") : "本店所有課程"}</p>
                     {c.members.length > 1 && <p>授權成員（{c.members.length} 人）：{c.members.map(member => member.name).join("、")}</p>}
                   </details>
                     {!!adjustments.length && <details className="cp-ledger"><summary>其他{unit(c.unit) === "堂" ? "堂數" : "點數"}異動</summary><ul className="cp-ledger-list">

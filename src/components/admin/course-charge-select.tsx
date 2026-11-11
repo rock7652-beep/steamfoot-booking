@@ -12,7 +12,7 @@ export function CourseChargeSelect({templateId,trial,open=false,sports=false,onC
  useEffect(()=>{let current=true;onReady(false);onChange(null);if(!templateId)return;
  reader.read(templateId).then(result=>{if(!current)return;setError(null);if(!result.success){setError({key:readKey,message:result.error??'收費方式讀取失敗'});return;}
  if(trial&&open)onDefaultPrice?.(result.defaultTrialPrice);
- const available=result.rows.filter(r=>!sports||r.open===open);
+ const available=result.rows.filter(r=>!sports||!r.open);
  const rows=available.filter(r=>!trial||result.enabled&&(open||r.open||r.settings.kind==='single'&&r.settings.trialPrice!==null)).map(r=>({...r,trialPrice:trial?(open||r.open?result.defaultTrialPrice:r.settings.trialPrice):null}));
  setData({key:readKey,rows,hasRows:available.length>0});setSelected(rows.length===1?rows[0].id:'');
  }).catch(()=>{if(current)setError({key:readKey,message:'收費方式讀取失敗'});});return()=>{current=false;};

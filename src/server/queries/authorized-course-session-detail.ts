@@ -54,7 +54,7 @@ export async function readAuthorizedCourseSessionDetail({user,storeId}:Awaited<R
           musicItemTemplateIds(coursePrisma, storeId, session.templateId),
           musicStore ? "ENABLED" as const : getCourseSharedCardState(storeId),
         ]));
-        const teachingTemplates=sportsRule?.enrollment==="ASSIGNED"?await (await import("@/server/services/sports-teaching-templates")).readSportsTeachingTemplates(coursePrisma,storeId,session.template.musicSubjectId):[];
+        const teachingTemplates=await (await import("@/server/services/sports-teaching-templates")).readSportsTeachingTemplates(coursePrisma,storeId,session.template.musicSubjectId);
         return {permissions, session, musicStore, waitlistSetting, nativeSports, waitlistRows, sportsRule, waitlistPolicy, compatibleTemplateIds, sharedCardState, teachingTemplates};
       })(),
     ]);
@@ -105,7 +105,7 @@ export async function readAuthorizedCourseSessionDetail({user,storeId}:Awaited<R
           canCorrect: canCorrectTrial,
           customers: trialCustomers,
         },
-        session: { ...await (await import("@/server/services/course-add-ons")).readCourseAddOnSessionFields(user,storeId,sessionId,session.template.musicSubject?.isActive===false?null:session.template.musicSubjectId), ...({enrollmentMode:courseEnrollmentMode(session,sportsRule?.enrollment)} as {enrollmentMode?:string}),templateId:session.templateId,compatibleTemplateIds:sportsRule?.enrollment==="ASSIGNED"?teachingTemplates:compatibleTemplateIds,startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && waitlistPolicy.waitlistEnabled, waitlistStopMinutes: waitlistPolicy.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
+        session: { ...await (await import("@/server/services/course-add-ons")).readCourseAddOnSessionFields(user,storeId,sessionId,session.template.musicSubject?.isActive===false?null:session.template.musicSubjectId), ...({enrollmentMode:courseEnrollmentMode(session,sportsRule?.enrollment)} as {enrollmentMode?:string}),templateId:session.templateId,compatibleTemplateIds:nativeSports?teachingTemplates:compatibleTemplateIds,startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId, waitlistEnabled: !!waitlistSetting?.enabled && waitlistPolicy.waitlistEnabled, waitlistStopMinutes: waitlistPolicy.waitlistStopMinutes ?? waitlistSetting?.autoPromoteStopMinutes ?? 240 },
         cards: cards.filter((card) => (!musicStore || card.unit === "SESSION")&&(!sportsRule||cardRights(card).eligible)).map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],

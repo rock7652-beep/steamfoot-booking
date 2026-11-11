@@ -298,6 +298,7 @@ export async function saveCoursePointPlan(input: unknown) {
       if(data.unit!==previous.unit)throw new AppError("VALIDATION","請從運動收費方式修改方案計費單位");
       data.sportsMode=previous.sportsMode as "ASSIGNED"|"OPEN";data.sportsSubjectId=previous.sportsSubjectId;data.sportsCost=previous.sportsCost;data.templateIds=previous.templateIds;
     }
+    if(data.sportsMode==='OPEN')throw new AppError('VALIDATION','請先設定方案適用科目；既有已購卡不會隨商品修改而變更');
     if(receipt && planId && !previous)throw new AppError("NOT_FOUND","找不到本店方案");
     // Hidden/locked controls may be omitted by a form. Preserve an existing choice.
     if (previous && !isMusic && allowShared === undefined) data.allowShared = previous.allowShared;

@@ -322,7 +322,7 @@ export async function reserveCourseInTransaction(
     if(input.companionIndex&&sessionRule?.enrollment==='ASSIGNED')return fail('指定學員課程不使用同行預約');
     if(actor.customerId&&sessionRule?.enrollment==='ASSIGNED')return fail('本堂僅限店家指定學員，不開放自行選課');
     if (card && session && !(await isMusicCourseStore(tx,storeId))) {
-      const compatibleTemplateIds=sessionRule?.enrollment==="ASSIGNED"?await (await import("./sports-teaching-templates")).readSportsTeachingTemplates(tx,storeId,session.template.musicSubjectId):[];
+      const compatibleTemplateIds=await (await import("./sports-teaching-templates")).readSportsTeachingTemplates(tx,storeId,session.template.musicSubjectId);
       const rights = resolveSportsEntitlement(
         { ...card, templateRestricted: card.requestKey?.startsWith("no-show-makeup:") ?? false },
         { templateId: session.templateId, subjectId: session.template.musicSubjectId ?? null,

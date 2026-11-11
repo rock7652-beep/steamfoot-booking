@@ -82,6 +82,6 @@ it.each([false,true])("distinguishes an unpaid music receivable from a fully dis
 it('rejects a disabled open-selection purchase before any card or money mutation',async()=>{
  tx.coursePointPlan.findFirst.mockResolvedValue({id:'plan',name:'通用卡',sportsMode:'OPEN',unit:'POINT',price:1000,storeCost:0,validDays:90});
  tx.courseBookingRule.findUnique.mockResolvedValue({selfBookingEnabled:false,assignedSchedulingEnabled:true});
- await expect(assignCourseWithCheckout(db,actor,input)).rejects.toThrow('已關閉開放選課');
+ await expect(assignCourseWithCheckout(db,actor,input)).rejects.toThrow('請先設定方案適用科目');
  expect(tx.coursePointCard.create).not.toHaveBeenCalled();expect(tx.coursePurchase.create).not.toHaveBeenCalled();
 });
