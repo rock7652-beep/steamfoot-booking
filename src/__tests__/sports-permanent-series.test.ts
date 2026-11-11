@@ -15,7 +15,7 @@ it.each(["sports-fixed:s:student","schedule:0:student","free-rejoin"])("mixed at
  const update=vi.fn();
  const tx={coursePurchase:{findMany:vi.fn().mockResolvedValue([])},courseTemplate:{findFirst:vi.fn().mockResolvedValue({musicSubjectId:"subject"}),findMany:vi.fn().mockResolvedValue([{id:"template"}])},$queryRaw:vi.fn().mockResolvedValue([rule]),courseBooking:{findFirst:vi.fn().mockResolvedValue({id:"booking",bookingKind:"UNPAID",cardId:null,requestKey,sessionId:"s",customerId:"student",session}),update},coursePointCard:{findMany:vi.fn().mockResolvedValue([{...card,id:"assigned",sportsMode:"ASSIGNED",sportsSubjectId:"subject",sportsCost:2},{...card,id:"open",sportsMode:"OPEN",sportsSubjectId:null,sportsCost:null}])}};
  await bindSportsAttendanceCard(tx as unknown as Prisma.TransactionClient,actor,"booking");
- expect(update).toHaveBeenCalledWith({where:{id:"booking"},data:expect.objectContaining({cardId:requestKey==="free-rejoin"?"open":"assigned",pointCost:requestKey==="free-rejoin"?3:2})});
+ expect(update).toHaveBeenCalledWith({where:{id:"booking"},data:expect.objectContaining({cardId:"assigned",pointCost:2})});
 });
 describe("運動持續固定課",()=>{
  it("多年後仍占時段，查日曆不決定系列壽命",()=>{

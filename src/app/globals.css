@@ -108,8 +108,8 @@ body {
 @layer components {
   :root {
     --list-row-white: #ffffff;
-    --list-row-tint: #f5f3ee;
-    --list-row-hover: #ece8df;
+    --list-row-tint: #fbfaf8;
+    --list-row-hover: #f7f5f1;
   }
   :where(table[data-striped-list] > tbody > tr:not([hidden]):not([data-list-divider])),
   :where(.admin-striped-row:not([hidden])) {

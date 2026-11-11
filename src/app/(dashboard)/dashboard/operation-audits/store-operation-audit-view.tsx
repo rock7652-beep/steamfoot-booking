@@ -28,7 +28,7 @@ export async function StoreOperationAuditView({ storeId, dateFrom, dateTo, page 
         <span>時間</span><span>操作人員</span><span>操作內容</span><span />
       </div>
       <div className="divide-y divide-earth-100">
-        {result.items.length === 0 ? <p className="px-3 py-6 text-sm text-earth-500">指定期間尚無操作紀錄</p> : result.items.map((item, index) => <details key={item.id} className="group px-3 open:bg-primary-50/40">
+        {result.items.length === 0 ? <p className="px-3 py-6 text-sm text-earth-500">指定期間尚無操作紀錄</p> : result.items.map((item, index) => <details key={item.id} className="admin-striped-row group px-3 open:bg-primary-50/40">
           <summary className="grid min-h-11 cursor-pointer list-none grid-cols-[96px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 py-2 text-sm [&::-webkit-details-marker]:hidden @[640px]:grid-cols-[96px_150px_minmax(0,1fr)_20px]">
             <time dateTime={new Date(item.createdAt).toISOString()} className="col-start-1 row-start-1 whitespace-nowrap tabular-nums text-earth-500">{auditTimeLabel(new Date(item.createdAt), index > 0 ? new Date(result.items[index - 1].createdAt) : undefined)}</time>
             <span className="col-start-2 row-start-1 min-w-0 break-words text-earth-700">{item.actorNameSnapshot ?? item.actor.name}</span>

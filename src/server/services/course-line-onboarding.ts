@@ -3,11 +3,12 @@ import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { resolveVerifiedLineCustomer } from "./verified-line-customer";
 import { completeAuthorizedFirstStoreLogin } from "./store-member-connection";
+import { activateUnlinkedStoreMemberInTransaction } from "./precreated-first-line-login";
 import { requestLiffLoginRecovery } from "./liff-login-recovery";
 
 /** Called only after verifying the token and this course store's channel.
- * Existing members use a staff-reviewed Login proof, never the OA subject or
- * supplied phone alone. Independent providers retain their own onboarding. */
+ * A unique, unowned learner can complete name-and-phone first activation.
+ * Existing identities and phone groups retain their reviewed Login path. */
 export async function onboardOrRecoverCourseLineMember(input: Parameters<typeof onboardCourseLineMember>[0] & {
   channelId: string;
 }) {
@@ -73,12 +74,13 @@ export async function onboardCourseLineMember(input: {
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Store" WHERE "id" = ${input.storeId} FOR UPDATE`;
       const account = await tx.account.findUnique({
         where: { provider_providerAccountId: { provider: identityProvider, providerAccountId: input.lineUserId } },
         select: { userId: true, user: { select: { status: true } } },
       });
       const candidates = await tx.customer.findMany({
-        where: { storeId: input.storeId, OR: [{ phone }, ...(identityProvider === "line" ? [{ lineUserId: input.lineUserId }] : [])] },
+        where: { storeId: input.storeId, OR: [{ phone }, { phone: "", contactPhone: phone }, ...(identityProvider === "line" ? [{ lineUserId: input.lineUserId }] : [])] },
         select: { id: true }, take: 2,
       });
       const links = await tx.customerIdentityLink.findMany({
@@ -90,7 +92,14 @@ export async function onboardCourseLineMember(input: {
       const legacyMember = account ? await tx.customer.findFirst({
         where: { storeId: input.storeId, userId: account.userId }, select: { id: true },
       }) : null;
-      // Matching a supplied name/phone is not authorization to take a record.
+      if (candidates.length === 1 && !account && !links.length && !legacyMember) {
+        const activation = await activateUnlinkedStoreMemberInTransaction(tx, {
+          storeId: input.storeId, lineUserId: input.lineUserId, name: input.name,
+          phone, course: true, identityProvider,
+        });
+        if (activation === "activated") return { status: "ok" as const };
+      }
+      // Name/phone never replaces an owned identity or grants a phone group.
       if (candidates.length || links.length || legacyMember || (account && account.user.status !== "ACTIVE")) {
         return { status: "identity_review_required" as const };
       }

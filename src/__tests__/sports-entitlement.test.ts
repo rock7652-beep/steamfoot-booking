@@ -9,14 +9,14 @@ describe("sports entitlement purchase snapshots and deduction", () => {
     expect(resolveSportsEntitlement(card, lesson)).toEqual({ eligible: true, cost: 2 });
     expect(resolveSportsEntitlement({ ...card, planId: "package-b", sportsCost: 4 }, lesson)).toEqual({ eligible: true, cost: 4 });
   });
-  it("rejects another subject and assigned rights used for open enrollment", () => {
+  it("rejects another subject and accepts the same subject for open enrollment", () => {
     expect(resolveSportsEntitlement(card, { ...lesson, subjectId: "dance" }).eligible).toBe(false);
-    expect(resolveSportsEntitlement(card, { ...lesson, enrollment: "OPEN" }).eligible).toBe(false);
+    expect(resolveSportsEntitlement(card, { ...lesson, enrollment: "OPEN" }).eligible).toBe(true);
   });
-  it("uses one universal card across open subjects, charging each course's rule", () => {
+  it("requires explicit subject review for old unscoped open cards", () => {
     const universal = { ...card, sportsMode: "OPEN", sportsSubjectId: null, sportsCost: null };
-    expect(resolveSportsEntitlement(universal, { ...lesson, enrollment: "OPEN" })).toEqual({ eligible: true, cost: 3 });
-    expect(resolveSportsEntitlement(universal, { ...lesson, enrollment: "OPEN", subjectId: "dance", pointCost: 2 })).toEqual({ eligible: true, cost: 2 });
+    expect(resolveSportsEntitlement(universal, { ...lesson, enrollment: "OPEN" })).toMatchObject({ eligible: false });
+    expect(resolveSportsEntitlement(universal, { ...lesson, enrollment: "OPEN", subjectId: "dance", pointCost: 2 })).toMatchObject({ eligible: false });
     expect(resolveSportsEntitlement(universal, lesson).eligible).toBe(false);
     expect(resolveSportsEntitlement(universal, { ...lesson, enrollment: null }).eligible).toBe(false);
   });
@@ -64,7 +64,7 @@ it('assigned legacy lesson-count packages follow verified teaching item rather t
  expect(resolveSportsEntitlement({planId:'unknown',unit:'SESSION',sportsMode:'LEGACY',templateIds:[]},lesson).eligible).toBe(false);
  expect(resolveSportsEntitlement({planId:'points',unit:'POINT',sportsMode:'LEGACY',templateIds:['old-10']},lesson)).toEqual({eligible:true,cost:1});
  expect(resolveSportsEntitlement({planId:'makeup',unit:'SESSION',sportsMode:'LEGACY',templateIds:['old-10'],templateRestricted:true},lesson).eligible).toBe(false);
- expect(resolveSportsEntitlement({planId:'ten',unit:'SESSION',sportsMode:'LEGACY',templateIds:['old-10']},{...lesson,enrollment:'OPEN'}).eligible).toBe(false);
+ expect(resolveSportsEntitlement({planId:'ten',unit:'SESSION',sportsMode:'LEGACY',templateIds:['old-10']},{...lesson,enrollment:'OPEN'}).eligible).toBe(true);
 });
 
 

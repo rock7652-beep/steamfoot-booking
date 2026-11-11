@@ -28,3 +28,11 @@ it('permits the service journey candidate only under the same QA project, databa
  expect(assertCompactOperationsPreview(candidate)).toBe(true);
  for(const patch of [{VERCEL_ENV:'production'},{VERCEL_PROJECT_ID:'production-project'},{BEAUTY_NOTIFICATIONS_ENABLED:'1'},{DATABASE_URL:url.replace('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf')},{DIRECT_URL:url.replace('steamfoot_compact_qa_20261103','postgres')},{LINE_CHANNEL_ACCESS_TOKEN:'synthetic-token'}])expect(()=>assertCompactOperationsPreview({...candidate,...patch})).toThrow();
 });
+
+it('keeps subject entitlement preview confined to its synthetic store, project, role and disabled delivery configuration',async()=>{
+ const {COURSE_SUBJECT_PREVIEW_BRANCH,courseSubjectSportsPreview}=await import('../../scripts/compact-operations-preview-scope.mjs');
+ const candidate={...env,VERCEL_GIT_COMMIT_REF:COURSE_SUBJECT_PREVIEW_BRANCH};
+ expect(courseSubjectSportsPreview('addons-qa-fitness',candidate)).toBe(true);
+ expect(courseSubjectSportsPreview('real-store',candidate)).toBe(false);
+ for(const patch of [{VERCEL_ENV:'production'},{VERCEL_PROJECT_ID:'production-project'},{DATABASE_URL:url.replace('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf')},{DIRECT_URL:url.replace('steamfoot_compact_qa_20261103','postgres')},{LINE_CHANNEL_ACCESS_TOKEN:'synthetic-token'},{BEAUTY_NOTIFICATIONS_ENABLED:'1'}])expect(()=>courseSubjectSportsPreview('addons-qa-fitness',{...candidate,...patch})).toThrow();
+});

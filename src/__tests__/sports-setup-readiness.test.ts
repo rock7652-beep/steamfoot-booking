@@ -34,15 +34,15 @@ it("restores subject completion only after a coach qualifies for an active teach
  expect(completed.steps.every(s=>s.done)).toBe(true);
 });
 
-it("recognizes an open universal card without any template binding",async()=>{
+it("requires subject review for an old unscoped open card",async()=>{
  m.plans=[{templateIds:[],sportsMode:"OPEN",sportsSubjectId:null,sportsCost:null,unit:"POINT"}];
- expect((await getCourseSetup("sports-live-flow-store","owner")).steps.every(s=>s.done)).toBe(true);
+ expect((await getCourseSetup("sports-live-flow-store","owner")).steps.every(s=>s.done)).toBe(false);
 });
 
 it("allows the universal-card step to be complete before teaching items are configured",async()=>{
  m.plans=[{templateIds:[],sportsMode:"OPEN",unit:"SESSION"}];m.subjects=[];m.templates=[];
  const setup=await getCourseSetup("sports-live-flow-store","owner");
- expect(setup.steps.find(s=>s.id==="plan")?.done).toBe(true);
+ expect(setup.steps.find(s=>s.id==="plan")?.done).toBe(false);
  expect(setup.steps.find(s=>s.id==="course")?.done).toBe(false);
  expect(setup.steps.every(s=>s.done)).toBe(false);
 });

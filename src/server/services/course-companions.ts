@@ -32,7 +32,7 @@ export async function changeCompanionUsage(tx: Prisma.TransactionClient, actor: 
     if (isMusicOpeningMakeupBooking(booking)) return fail(MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
     return booking;
   }
-  const booking = await tx.courseBooking.findFirst({where: {id: input.bookingId, storeId: actor.storeId}, include: {session: true, card: true, trialPayments: {where: {status: "SUCCESS"}}}});
+  const booking = await tx.courseBooking.findFirst({where: {id: input.bookingId, storeId: actor.storeId}, include: {session: {include:{template:{select:{musicSubjectId:true}}}}, card: true, trialPayments: {where: {status: "SUCCESS"}}}});
   if (booking && isMusicOpeningMakeupBooking(booking)) return fail(MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
   if (!booking?.companionIndex || !booking.reserverCustomerId || !booking.reserverCardId || booking.status === "CANCELLED" || booking.session.cancelledAt)
     return fail("找不到可變更的同行預約");
@@ -57,7 +57,8 @@ export async function changeCompanionUsage(tx: Prisma.TransactionClient, actor: 
   }
   const sportsRule=await readSportsSessionRule(tx,actor.storeId,booking.sessionId);
   if(sportsRule?.enrollment==="ASSIGNED")return fail("指定學員課程不使用同行預約");
-  const rights=card?resolveSportsEntitlement({...card,templateRestricted:card.requestKey?.startsWith("no-show-makeup:")??false},{templateId:booking.session.templateId,subjectId:null,pointCost:booking.session.pointCost,enrollment:sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null}):null;
+  const compatibleTemplateIds=await (await import("./sports-teaching-templates")).readSportsTeachingTemplates(tx,actor.storeId,booking.session.template.musicSubjectId);
+  const rights=card?resolveSportsEntitlement({...card,templateRestricted:card.requestKey?.startsWith("no-show-makeup:")??false},{templateId:booking.session.templateId,subjectId:booking.session.template.musicSubjectId??null,pointCost:booking.session.pointCost,enrollment:sportsRule?.enrollment==="OPEN"?"OPEN":null,legacyPlanId:sportsRule?.planId??null,compatibleTemplateIds}):null;
   if(rights&&!rights.eligible)return fail(rights.reason);
   const pointCost = card ? card.id===booking.cardId?booking.pointCost:rights?.eligible?rights.cost:0 : 0;
   const trialPrice = input.mode === "TRIAL" ? input.trialPrice ?? 0 : null;

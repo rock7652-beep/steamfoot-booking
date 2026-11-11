@@ -118,3 +118,14 @@ it("shows a sibling's confirmation on its shared phone anchor while respecting u
   expect(await readCoursePhoneConnection(sibling.id)).toMatchObject({ anchorCustomerId: anchor.id, learnerCount: 2, canConfirm: false, pending: [{ id: "request" }] });
   expect(m.pending.mock.calls[0][0].where).toMatchObject({ storeId: "store", customerId: anchor.id, status: "PENDING", phone });
 });
+
+it("asks a single unowned learner for a name without requesting staff confirmation or exposing their name", async () => {
+  m.rows.mockResolvedValue([anchor]);
+  expect(await requestCoursePhoneLogin(input)).toEqual({ status: "needs_name" });
+  expect(m.requestUpsert).not.toHaveBeenCalled(); expect(m.userCreate).not.toHaveBeenCalled();
+});
+it.each([{userId:"existing"},{googleId:"google"},{lineBindingCode:"pending"},{lineUserId:"other"},{identityLinks:[{userId:"member"}]}])("keeps a single learner with existing identity evidence on review: %j",async evidence=>{
+ m.rows.mockResolvedValue([{...anchor,...evidence}]);
+ expect(await requestCoursePhoneLogin(input)).toMatchObject({status:"login_review_pending"});
+ expect(m.userCreate).not.toHaveBeenCalled();expect(m.upsertGrant).not.toHaveBeenCalled();
+});

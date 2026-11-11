@@ -9,13 +9,13 @@ vi.mock('@/components/operations/panel-read-cache',()=>({usePanelReader:()=>m}))
 Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
 let root:ReturnType<typeof createRoot>;
 afterEach(()=>{act(()=>root?.unmount());document.body.replaceChildren();vi.clearAllMocks();});
-it('uses the store default and limits sports open selection to open fees',async()=>{
+it('uses the store default with subject-scoped fees for open selection and excludes unscoped legacy fees',async()=>{
  const settings={kind:'single',durationMinutes:60,trialPrice:0,trialDuration:20,providerIds:['teacher']};
  m.read.mockResolvedValue({success:true,enabled:true,defaultTrialPrice:499,rows:[{id:'assigned',name:'指定課',open:false,price:800,settings},{id:'open',name:'通用單次',open:true,price:900,settings:{...settings,trialPrice:null,trialDuration:null}}]});
  const onChange=vi.fn(),onReady=vi.fn(),onDefaultPrice=vi.fn();const host=document.createElement('div');document.body.append(host);root=createRoot(host);
  await act(async()=>root.render(h(CourseChargeSelect,{templateId:'t',trial:true,open:true,sports:true,onChange,onReady,onDefaultPrice})));
- expect(host.textContent).toContain('沿用店家預設體驗費 $499');expect(host.textContent).not.toContain('指定課');
- expect(onDefaultPrice).toHaveBeenCalledWith(499);expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({id:'open',trialPrice:499}));expect(onReady).toHaveBeenLastCalledWith(true);
+ expect(host.textContent).toContain('沿用店家預設體驗費 $499');expect(host.textContent).not.toContain('通用單次');
+ expect(onDefaultPrice).toHaveBeenCalledWith(499);expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({id:'assigned',trialPrice:499}));expect(onReady).toHaveBeenLastCalledWith(true);
 });
 it('does not expose a previous mode quote while a new mode is loading',async()=>{
  const settings={kind:'single',durationMinutes:60,trialPrice:0,trialDuration:20,providerIds:['teacher']};

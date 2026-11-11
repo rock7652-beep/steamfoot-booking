@@ -26,11 +26,12 @@ it("opens the existing detail action with an accessible complete name without ho
 
 it("keeps six sports table columns with one inline detail indicator and no hidden filter effect", () => {
   const source=readFileSync("src/app/(dashboard)/dashboard/courses/member-workspace.tsx","utf8");
-  expect(source).toContain('["方案／適用課程", "額度", "售價", "有效天數", "購買方式", "操作"]');
+  expect(source).toContain('[groupedFees?"收費名稱":"方案／適用課程", "額度", "售價", "有效天數", "購買方式", "操作"]');
   expect(source).not.toContain('"購買方式", "共卡", "操作"');
   expect(source).toContain('sharingVisible && p.allowShared && <CourseSharedCardIndicator');
   expect(source).toContain('sharedCardState === "HIDDEN" ? "all" : savedSharedFilter');
-  expect(source).toContain('colSpan={6}');
+  expect(source).toContain('const feeColumnCount=groupedFees&&music?5:6;');
+  expect(source).toContain('colSpan={feeColumnCount}');
   expect(source).toContain('overflow-x-auto rounded-lg');
   expect(source).toContain('if (!sharingEnabled) { e.preventDefault(); return; }');
   expect(source).toContain('<CourseCardSummary card={card} sessionUnitLabel={source?.sessionUnitLabel}/>' );

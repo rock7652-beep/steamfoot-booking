@@ -103,7 +103,7 @@ let created=false;
   const create=async()=>{boundary.storeId=storeId;const result=await createCourseSchedule(input);expect(result).toMatchObject({success:true});return db().courseSession.findFirstOrThrow({where:{storeId,requestKey:input.requestKey}});};
   const member=(customerId:string)=>({...actor,userId:`member:${customerId}`,customerId});
   const card=async(customerId:string,assigned=false,remaining=20)=>{
-   const rights=kind==="sports"?{sportsMode:assigned?"ASSIGNED":"OPEN",sportsSubjectId:assigned?subject.id:null,sportsCost:assigned?2:null}:{};
+   const rights=kind==="sports"?{sportsMode:"ASSIGNED",sportsSubjectId:subject.id,sportsCost:assigned?2:3}:{};
    const plan=await db().coursePointPlan.create({data:{storeId,name:"合成方案"+randomUUID(),unit:kind==="music"?"SESSION":"POINT",points:20,price:1000,validDays:365,templateIds:kind==="music"?[template.id]:[],...rights,...(kind==="music"?{musicTerms:1,musicTermSizes:[20]}:{})}});
    return db().coursePointCard.create({data:{storeId,planId:plan.id,nameSnapshot:plan.name,unit:plan.unit,templateIds:plan.templateIds,remaining,expiresAt:new Date("2100-01-01"),requestKey:randomUUID(),...rights,...(kind==="music"?{musicTermSizes:[20]}:{}),members:{create:{customerId}},entries:{create:{kind:"GRANT",points:20,actorUserId:actor.userId}}}});
   };
@@ -114,7 +114,7 @@ let created=false;
  for(const kind of ["sports","music"] as const){
   it.each(["OPEN","ASSIGNED","MIXED"] as const)(`${kind}: regular single classes ignore charge selection even with configured fees (%s)`,async mode=>{
    const f=await fixture(kind,3);
-   await db().coursePointPlan.create({data:{storeId:f.storeId,name:"已設定的單次收費",unit:"SESSION",points:1,price:800,validDays:30,templateIds:[f.template.id],...(kind==="sports"?{sportsMode:mode==="ASSIGNED"?"ASSIGNED":"OPEN",sportsSubjectId:f.template.musicSubjectId}:{}),chargeSettings:{kind:"single",durationMinutes:90,trialPrice:300,trialDuration:30,providerIds:[f.input.coachId]}}});
+   await db().coursePointPlan.create({data:{storeId:f.storeId,name:"已設定的單次收費",unit:"SESSION",points:1,price:800,validDays:30,templateIds:[f.template.id],...(kind==="sports"?{sportsMode:"ASSIGNED",sportsSubjectId:f.template.musicSubjectId,sportsCost:1}:{}),chargeSettings:{kind:"single",durationMinutes:90,trialPrice:300,trialDuration:30,providerIds:[f.input.coachId]}}});
    if(kind==="music"){
     f.input.enrollmentMode=mode==="ASSIGNED"?"ASSIGNED":"OPEN";
     if(mode==="OPEN")f.input.learners=[];
@@ -213,14 +213,15 @@ let created=false;
    expect(await run(f.storeId,tx=>promoteCourseWaitlistForSession(tx,f.storeId,s.id))).toHaveLength(1);
   });
  }
- it("sports: a cancelled fixed learner rejoining publicly needs an open card, including at attendance",async()=>{
+ it("sports: a cancelled fixed learner can rejoin publicly with the same subject card; unscoped cards require review",async()=>{
   const f=await fixture("sports",1),s=await f.create(),assigned=await f.card(f.fixed,true),open=await f.card(f.fixed);
   const original=await db().courseBooking.findFirstOrThrow({where:{sessionId:s.id}});
   await run(f.storeId,tx=>settleCourseBooking(tx,f.member(f.fixed),original.id,"STUDENT_LEAVE",undefined,{suppressNotice:true}));
-  await expect(f.reserve(s.id,f.fixed,assigned.id)).rejects.toThrow("指定學員方案");
-  const joined=await f.reserve(s.id,f.fixed,open.id);await run(f.storeId,tx=>settleCourseBooking(tx,f.actor,joined.id,"ATTENDED"));
-  expect(await db().coursePointCard.findUnique({where:{id:assigned.id}})).toMatchObject({remaining:20});
-  expect(await db().coursePointCard.findUnique({where:{id:open.id}})).toMatchObject({remaining:17});
+  await db().coursePointCard.update({where:{id:open.id},data:{sportsMode:"OPEN",sportsSubjectId:null,sportsCost:null}});
+  await expect(f.reserve(s.id,f.fixed,open.id)).rejects.toThrow("科目待核對");
+  const joined=await f.reserve(s.id,f.fixed,assigned.id);await run(f.storeId,tx=>settleCourseBooking(tx,f.actor,joined.id,"ATTENDED"));
+  expect(await db().coursePointCard.findUnique({where:{id:assigned.id}})).toMatchObject({remaining:18});
+  expect(await db().coursePointCard.findUnique({where:{id:open.id}})).toMatchObject({remaining:20});
  });
  it("sports: permanent mixed series materializes the fixed roster but keeps public seats empty",async()=>{
   const f=await fixture("sports",3);f.input.sportsStaging={...f.input.sportsStaging!,perpetual:true,frequency:"WEEKLY"};

@@ -24,8 +24,12 @@ describe('single charge pricing and attendance classification',()=>{
   expect(quote).toMatchObject({duration:20,trialPrice:0,snapshot:{isTrial:true,price:800,storeCost:350,settings:{trialStoreCost:120}}});
   expect(tx.coursePointPlan.findFirst).toHaveBeenCalledWith({where:{storeId:'store',id:'fee',isActive:true}});
   await expect(resolveScheduleCharge(tx as unknown as Prisma.TransactionClient,'store',{...input,coachId:'other'})).rejects.toThrow('未開放');
-  tx.coursePointPlan.findFirst.mockResolvedValue({id:'fee',name:'通用單次',price:800,storeCost:350,templateIds:[],sportsMode:'OPEN',chargeSettings:{...settings,providerIds:['teacher','other-subject-teacher']}});
+  tx.coursePointPlan.findFirst.mockResolvedValue({id:'fee',name:'同科目單次',price:800,storeCost:350,templateIds:[],sportsMode:'ASSIGNED',sportsSubjectId:'piano',chargeSettings:{...settings,providerIds:['teacher','other-subject-teacher']}});
   await expect(resolveScheduleCharge(tx as unknown as Prisma.TransactionClient,'store',{...input,open:true,sports:true})).resolves.toMatchObject({trialPrice:499});
+  tx.coursePointPlan.findFirst.mockResolvedValue({id:'fee',name:'B',price:800,storeCost:350,templateIds:['template'],sportsMode:'ASSIGNED',sportsSubjectId:'B',chargeSettings:settings});
+  await expect(resolveScheduleCharge(tx as unknown as Prisma.TransactionClient,'store',{...input,open:true,sports:true})).rejects.toThrow('不適用所選教學項目');
+  tx.coursePointPlan.findFirst.mockResolvedValue({id:'fee',name:'old open',price:800,storeCost:350,templateIds:[],sportsMode:'OPEN',chargeSettings:settings});
+  await expect(resolveScheduleCharge(tx as unknown as Prisma.TransactionClient,'store',{...input,open:true,sports:true})).rejects.toThrow('核對收費方式適用科目');
   tx.coursePointPlan.findFirst.mockResolvedValue({id:'fee',name:'鋼琴單次',price:800,storeCost:350,templateIds:['template'],sportsMode:'LEGACY',chargeSettings:settings});
   tx.$queryRaw.mockResolvedValue([{id:'teacher',qualificationIds:['unrelated']}]);
   await expect(resolveScheduleCharge(tx as unknown as Prisma.TransactionClient,'store',input)).rejects.toThrow('資格');
