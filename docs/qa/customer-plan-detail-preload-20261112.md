@@ -16,3 +16,5 @@
 收尾證據：11 檔／164 項相關測試通過。另以真實 RosterCustomerPanel＋CourseMemberWorkspace，在 1366×900、1920×1080、1024×768、768×1024 的隔離名單預覽，先完成 1 次 bundle，再點擊指定方案；10 格／1 日期直接顯示，沒有學員、詳情或進度讀取占位，也沒有第二次名單請求。相同腳本的分頁、滑鼠／鍵盤排序與教師分頁回歸仍通過。腳本 course-management-cleanup-browser.mjs、截圖 /tmp/course-management-cleanup-browser/roster-detail-*.png。沒有使用正式資料或正式寫入。
 
 合計／無指定卡入口補驗：名單學員預讀不再限於綁卡列；原生方案清單預讀帶入同一 storeId 與 booking.read 能力，使其 reader 鍵與學員視窗一致。姓名操作的 intent 同時準備該課次的顧客視窗。3 檔／75 項回歸與變更 ESLint 通過。
+
+擴大驗收補齊：course-growth-panel-loading 的課程 harness 原本仍使用舊 TTL 0 reader，與真實詳情入口已不一致；改用同一完整詳情 reader，重開期望沿用有效快照，保留在途去重、錯誤／空卡重試、換卡晚到隔離，營運顧客抽屜原規則不變。該檔及詳情快照 2 檔／13 項與 ESLint 通過。
