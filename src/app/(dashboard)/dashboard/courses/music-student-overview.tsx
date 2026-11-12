@@ -5,13 +5,14 @@ import { studentMakeupsHref, studentCourseHref } from "@/lib/music-student-navig
 import { useEffect, useState } from "react";
 import { DashboardLink } from "@/components/dashboard-link";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
-import { loadMusicStudentWorkspace } from "@/server/actions/music-student-workspace";
+import type { loadMusicStudentWorkspace } from "@/server/actions/music-student-workspace";
+import { readCustomerOverview } from "@/lib/customer-support-read-client";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 
 type Result = Awaited<ReturnType<typeof loadMusicStudentWorkspace>>;
 export function MusicStudentOverview({ customerId, tab,revision=0,showBalance=true }: {showBalance?:boolean;revision?:number; customerId: string; tab: string; legacy?: boolean }) {
   const params = useSearchParams();
-  const reader = usePanelReader("music-student-workspace", loadMusicStudentWorkspace,String(revision),15_000);
+  const reader = usePanelReader("music-student-workspace", readCustomerOverview,String(revision),15_000);
   const [result, setResult] = useState<{ id: string; value: Result } | null>(null);
   const [retry, setRetry] = useState(0);
   const includeTuition = tab === "payments";

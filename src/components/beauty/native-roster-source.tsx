@@ -37,10 +37,10 @@ export function BeautyNativeRoster({allowPreparedSnapshot=true,onSnapshotInvalid
  const planProgress=useBeautyNativePlanProgressReader(data.storeId);
  const preloadCardProgress=useCallback((customerId:string,cardId:string,revision:number)=>planProgress.read(data.storeId,customerId,cardId,revision),[planProgress,data.storeId]);
  const getCardProgress=useCallback((customerId:string,cardId:string,revision:number)=>planProgress.get(data.storeId,customerId,cardId,revision),[planProgress,data.storeId]);
- const customerPlans=useCustomerPlanPreload({load:customerReaders.browseCards,support:customerReaders.support,storeId:data.storeId,preloadCardDetails:true,canReadCards:data.access.planAccess,canReadBookings:true,preloadCardProgress,getCardProgress});
+ const customerPlans=useCustomerPlanPreload({bookings:customerReaders.bookings,load:customerReaders.browseCards,support:customerReaders.support,storeId:data.storeId,preloadCardDetails:true,canReadCards:data.access.planAccess,canReadBookings:true,preloadCardProgress,getCardProgress});
  const customerPreload=customerPlans.visibleReader;
  const prefetchCustomer=customerPlans.prefetch;
- useIdleReadPreload({enabled:data.access.customerAccess,blocked:busy||technicianBusy||rosterBusy||!!expanded||!!suspended,keys:[...new Set(data.items.filter(row=>bookingId?row.groupId===selectedGroupId:toLocalDateStr(new Date(row.startsAt))===data.date).flatMap(row=>row.customerId?[row.customerId]:[]))].slice(0,5),reader:customerPreload});
+ useIdleReadPreload({enabled:data.access.customerAccess,blocked:busy||technicianBusy||rosterBusy||!!expanded||!!suspended,keys:[...new Set(data.items.filter(row=>bookingId?row.groupId===selectedGroupId:toLocalDateStr(new Date(row.startsAt))===data.date).flatMap(row=>row.customerId?[row.customerId]:[]))].slice(0,20),reader:customerPreload});
  const fullReader=usePanelReader('beauty-roster-full',readBeautyRoster,readerScope,0);
  const versionReader=usePanelReader('beauty-roster-version',syncBeautyRoster,readerScope,0);
  const read=useCallback((id:string)=>fullReader.read(id,data.storeId),[fullReader,data.storeId]);

@@ -1,30 +1,33 @@
 "use client";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
-import {useEffect,useId,useState} from "react";
+import {useEffect,useId,useState,useRef} from "react";
 import {useRouter,useSearchParams} from "next/navigation";
+import {useStudentMakeupsReader} from "@/components/admin/use-customer-support-readers";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
 import {ModalPanel} from "@/components/admin/modal-panel";
-import {loadMusicStudentMakeups,loadMusicMakeupScheduleOptions,createMusicStudentMakeupSchedule} from "@/server/actions/music-student-makeups";
+import {loadMusicMakeupScheduleOptions,createMusicStudentMakeupSchedule} from "@/server/actions/music-student-makeups";
 import {createCourseBooking} from "@/server/actions/course-members";
 import {formatTWDateTime,toLocalDateStr} from "@/lib/date-utils";
 import type {MusicLeaveWorkspace} from "@/server/queries/music-leave-workspace";
 
-type Data=NonNullable<Extract<Awaited<ReturnType<typeof loadMusicStudentMakeups>>,{success:true}>["data"]>;
+type Data=NonNullable<Extract<Awaited<ReturnType<typeof import("@/server/actions/music-student-makeups").loadMusicStudentMakeups>>,{success:true}>["data"]>;
 type Options=Extract<Awaited<ReturnType<typeof loadMusicMakeupScheduleOptions>>,{success:true}>["data"];
 const field="min-h-11 min-w-0 rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-sm";
 export function StudentMakeupStatus({customerId,revision="",compact=false,onUpdated,onPendingChange}:{customerId:string;revision?:string;compact?:boolean;onUpdated?:()=>void;onPendingChange?:(value:boolean)=>void}){
  const title=useId(),params=useSearchParams(),router=useRouter();
  const scope=params.get("dataScope")==="legacy"?"legacy":"operational";
- const reader=usePanelReader("music-student-makeups",loadMusicStudentMakeups);
+ const reader=useStudentMakeupsReader();
+ const lastRevision=useRef(revision);
  const [data,setData]=useState<{customerId:string;value:Data|null}|null>(null),[error,setError]=useState(""),[tick,setTick]=useState(0),[open,setOpen]=useState(false),[busy,setBusy]=useState(false);
- useEffect(()=>{let active=true;reader.invalidate(customerId,scope);void reader.read(customerId,scope).then(r=>{if(!active)return;if(r.success){setData({customerId,value:r.data??null});setError("");}else setError(r.error??"補課紀錄讀取失敗");}).catch(()=>{if(active)setError("補課紀錄讀取失敗");});return()=>{active=false;};},[customerId,scope,revision,tick,reader]);
+ useEffect(()=>{if(lastRevision.current!==revision){reader.invalidate(customerId,scope);lastRevision.current=revision;}let active=true;void reader.read(customerId,scope).then(r=>{if(!active)return;if(r.success){setData({customerId,value:r.data??null});setError("");}else setError(r.error??"補課紀錄讀取失敗");}).catch(()=>{if(active)setError("補課紀錄讀取失敗");});return()=>{active=false;};},[customerId,scope,revision,tick,reader]);
  useEffect(()=>{onPendingChange?.(busy);return()=>onPendingChange?.(false);},[busy,onPendingChange]);
- const value=data?.customerId===customerId?data.value:null;
- if(error)return <button type="button" className="min-h-11 text-sm text-amber-800" onClick={()=>setTick(n=>n+1)}>補課紀錄：重試</button>;
+ const cached=reader.get(customerId,scope)??reader.peek(customerId,scope);
+ const value=data?.customerId===customerId?data.value:cached?.success?cached.data:null;
+ if(error)return <button type="button" className="min-h-11 text-sm text-amber-800" onClick={()=>{reader.invalidate(customerId,scope);setTick(n=>n+1);}}>補課紀錄：重試</button>;
  if(!value?.rows.length)return null;
  const pending=value.rows.filter(r=>r.state==="待安排").length,scheduled=value.rows.filter(r=>r.state==="已安排").length,issues=value.rows.filter(r=>r.state==="需處理"||r.state==="補課曠課").length;
  const summary=[pending?`待補 ${pending}`:"",scheduled?`已排補 ${scheduled}`:"",issues?`待核對 ${issues}`:""].filter(Boolean).join("・");
- const records=<StudentMakeupRecords data={value} scope={scope} onPending={setBusy} onUpdated={()=>{setTick(n=>n+1);onUpdated?.();router.refresh();}}/>;
+ const records=<StudentMakeupRecords data={value} scope={scope} onPending={setBusy} onUpdated={()=>{reader.invalidate(customerId,scope);setTick(n=>n+1);onUpdated?.();router.refresh();}}/>;
  if(compact&&!summary)return null;
  return <>
   {compact?<button type="button" className="inline-flex min-h-11 items-center text-left text-sm text-primary-700" onClick={()=>setOpen(true)} aria-label={`${value.customerName}：${summary}`}><span className="rounded bg-primary-50 px-1.5 py-0.5">{summary}</span></button>:<section aria-label="學員請假與補課" className="flex flex-wrap items-center gap-x-3 border-y border-earth-100 py-1 text-sm"><h3 className="font-semibold">補課</h3><span className={summary?"text-primary-700":"text-earth-500"}>{summary||"歷史紀錄"}</span><button type="button" className="ml-auto min-h-11 text-primary-700" onClick={()=>setOpen(true)} aria-label={`${value.customerName}：查看補課`}>查看</button></section>}

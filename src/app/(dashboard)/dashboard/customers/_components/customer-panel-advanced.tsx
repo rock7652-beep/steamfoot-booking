@@ -1,20 +1,20 @@
 "use client";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { usePanelReader } from "@/components/operations/panel-read-cache";
+import { useCustomerAdvancedReader } from "@/components/admin/use-customer-support-readers";
 import type { getCustomerPanelAdvanced } from "@/server/actions/customer-panel-advanced";
-import { readCustomerPanelAdvanced } from "@/lib/customer-support-read-client";
 import { LineBindingSection } from "../[id]/line-binding-section";
 import { CustomerStageForm } from "../[id]/customer-stage-form";
 import { formatTWTime } from "@/lib/date-utils";
 import { CUSTOMER_FOLLOW_UP_RESULT_LABEL } from "@/lib/customer-follow-up";
 type Data=Extract<Awaited<ReturnType<typeof getCustomerPanelAdvanced>>,{success:true}>["data"];
 export function CustomerPanelAdvanced({customerId,readOnly,canEdit,onMutated,embedded=false,active=false,managerSimple=false,initial}:{initial?:{customerId:string;value:Data};managerSimple?:boolean;embedded?:boolean;active?:boolean;customerId:string;readOnly:boolean;canEdit:boolean;onMutated:()=>void}) {
-  const reader = usePanelReader("customer-support", readCustomerPanelAdvanced);
+  const reader = useCustomerAdvancedReader();
   const [revision, setRevision] = useState(0);
   const [result, setResult] = useState<{ customerId: string; data?: Data; error?: string } | null>(()=>initial?.customerId===customerId?{customerId,data:initial.value}:null);
   const [requested, setRequested] = useState(false);
   const generation = useRef(0);
-  const visible = result?.customerId === customerId ? result : null;
+  const cached = reader.get(customerId) ?? reader.peek(customerId);
+  const visible = result?.customerId === customerId ? result : cached?.success ? {customerId, data:cached.data} : null;
   const data = visible?.data ?? null;
   const error = visible?.error ?? "";
   const loading = (requested || ((embedded || managerSimple) && active)) && !visible;

@@ -6,7 +6,7 @@ const m=vi.hoisted(()=>({read:vi.fn(),invalidate:vi.fn(),create:vi.fn(),createNe
 vi.mock("next/navigation",()=>({useSearchParams:()=>new URLSearchParams(),useRouter:()=>({refresh:m.refresh})}));
 vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn(),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:m.createNew}));
 vi.mock("@/server/actions/course-members",()=>({createCourseBooking:m.create}));
-vi.mock("@/components/operations/panel-read-cache",()=>{const reader={read:m.read,invalidate:m.invalidate},options={read:m.options,invalidate:m.invalidate};return {usePanelReader:(key:string)=>key==="music-student-makeups"?reader:options};});
+vi.mock("@/components/operations/panel-read-cache",()=>{const reader={read:m.read,invalidate:m.invalidate,get:()=>undefined,peek:()=>undefined},options={read:m.options,invalidate:m.invalidate};return {usePanelReader:(key:string)=>key==="music-student-makeups"?reader:options};});
 vi.mock("@/components/admin/modal-panel",()=>({ModalPanel:({open,children}:{open:boolean;children:React.ReactNode})=>open?createElement("div",{role:"dialog"},children):null}));
 import {StudentMakeupStatus} from "@/app/(dashboard)/dashboard/courses/student-makeup-status";
 const row={id:"original-leave",customerId:"student",customerName:"測試學員",name:"吉他",date:"2026-10-01T10:00:00Z",state:"待安排",issue:null,cardId:"ordinary",separate:false,booking:null,sessions:[{id:"target-session",date:"2026-10-20T10:00:00Z",name:"吉他"}]};

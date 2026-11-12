@@ -3,6 +3,7 @@ import React,{act} from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({cards:vi.fn(),native:vi.fn(),periods:vi.fn(),overview:vi.fn(),orders:vi.fn(),progress:vi.fn(),next:vi.fn()}));
+vi.mock('@/lib/customer-support-read-client',async importOriginal=>({...await importOriginal<typeof import('@/lib/customer-support-read-client')>(),readCustomerOverview:m.overview}));
 vi.mock('@/server/actions/course-members',()=>({loadCourseCustomerBookings:m.next}));
 vi.mock('@/server/actions/course-browse',()=>({browseCourseCards:m.cards}));
 vi.mock('@/lib/course-card-read-client',()=>({readNativeCourseCards:m.cards,readCourseCardProgress:m.progress}));
@@ -18,7 +19,7 @@ let invalidate:()=>void;
 let root:Root,host:HTMLDivElement,preload:ReturnType<typeof useCustomerPlanPreload>,reader:ReturnType<typeof useCustomerCardReader>;
 type Options=Parameters<typeof useCustomerPlanPreload>[0];
 function Parent({options,open}:{options:Options;open:boolean}){const value=useCustomerPlanPreload(options),clear=useInvalidateCustomerPlanReads();React.useEffect(()=>{preload=value;invalidate=clear;},[value,clear]);return open?React.createElement(Child,{options}):null;}
-function Child({options}:{options:Options}){const value=useCustomerCardReader(options);React.useEffect(()=>{reader=value;},[value]);return options.storeId?React.createElement(React.Fragment,null,React.createElement(CourseCardProgress,{storeId:options.storeId,customerId:"student",cardId:"sessions",revision:options.revision}),!options.music&&!options.load&&options.canReadBookings&&React.createElement(CustomerNextBooking,{customerId:"student",revision:options.revision})):null;}
+function Child({options}:{options:Options}){const value=useCustomerCardReader(options);React.useEffect(()=>{reader=value;},[value]);return options.storeId?React.createElement(React.Fragment,null,React.createElement(CourseCardProgress,{storeId:options.storeId,customerId:"student",cardId:"sessions",revision:options.revision}),!options.music&&!options.load&&options.canReadBookings&&React.createElement(CustomerNextBooking,{customerId:"student",revision:options.revision,storeId:options.storeId})):null;}
 async function render(options:Options,open=false,store='A',instance='panel'){await act(async()=>root.render(React.createElement(PanelReadProvider,{key:store},React.createElement(Parent,{key:instance,options,open}))));}
 beforeEach(()=>{vi.clearAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement('div');root=createRoot(host);for(const fn of Object.values(m))fn.mockResolvedValue({success:true,rows:[],data:[],hasMore:false});});
 afterEach(async()=>{await act(async()=>root.unmount());vi.useRealTimers();});
@@ -185,4 +186,21 @@ it('prepares visible source support even if a no-support reader was mounted firs
  const support=vi.fn().mockResolvedValue({success:true,data:{membership:{},advanced:{data:{}}}});
  await render({...options,support} as unknown as Options);
  await preload.visibleReader.read('customer');expect(support).toHaveBeenCalledOnce();expect(preload.visibleReader.get('customer')).toBe(true);
+});
+
+it('prepares all twenty visible details, including plans beyond the old five-card limit',async()=>{
+ const load=vi.fn(async(input:{cardId?:string})=>({success:true,rows:input.cardId?[{id:input.cardId}]:Array.from({length:21},(_,i)=>({id:`plan-${i}`})),hasMore:false}));
+ await render({load:load as unknown as NonNullable<Options['load']>,preloadCardDetails:true,storeId:'beauty',canReadCards:true});
+ await preload.visibleReader.read('customer');
+ expect(load.mock.calls.filter(([arg])=>arg.cardId).map(([arg])=>arg.cardId)).toEqual(Array.from({length:20},(_,i)=>`plan-${i}`));
+ expect(preload.visibleReader.get('customer')).toBe(true);
+});
+it('prepares a beauty next service even without wallet permission and reuses the same store scope',async()=>{
+ const load=vi.fn(),bookings=vi.fn().mockResolvedValue({success:true,data:[],hasMore:false});
+ const options={load,bookings,preloadCardDetails:true,storeId:'beauty',canReadCards:false,canReadBookings:true};
+ await render(options);await preload.visibleReader.read('student');
+ expect(bookings).toHaveBeenCalledExactlyOnceWith('student',0,{mode:'upcoming'});expect(load).not.toHaveBeenCalled();
+ await act(async()=>root.render(React.createElement(PanelReadProvider,{key:'A'},React.createElement(React.Fragment,null,React.createElement(Parent,{key:'panel',options,open:false}),React.createElement(CustomerNextBooking,{customerId:'student',load:bookings,serviceMode:true,storeId:'beauty',preloadSource:true})))));
+ expect(host.textContent).not.toContain('讀取下次預約');expect(bookings).toHaveBeenCalledOnce();
+ await act(async()=>invalidate());await preload.visibleReader.read('student');expect(bookings).toHaveBeenCalledTimes(2);
 });

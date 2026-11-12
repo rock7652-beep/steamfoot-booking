@@ -8,11 +8,11 @@ import {formatTWDateTime} from "@/lib/date-utils";
 import type {CustomerBookingHistoryReader} from "./customer-bookings";
 
 /** Reuses the permission-checked booking reader; no guesses from the visible calendar. */
-export function CustomerNextBooking({customerId,load=loadCourseCustomerBookings,serviceMode=false,revision=0}:{
-  customerId:string;load?:CustomerBookingHistoryReader;serviceMode?:boolean;revision?:number;
+export function CustomerNextBooking({customerId,load=loadCourseCustomerBookings,serviceMode=false,revision=0,storeId="",preloadSource=false}:{
+  customerId:string;load?:CustomerBookingHistoryReader;serviceMode?:boolean;revision?:number;storeId?:string;preloadSource?:boolean;
 }) {
   const syncRevision=useMusicDataRevision();
-  const reader=useCustomerNextBookingReader(revision,load,serviceMode);
+  const reader=useCustomerNextBookingReader(revision,load,serviceMode,storeId,preloadSource);
   const [result,setResult]=useState<{key:string;value:Awaited<ReturnType<CustomerBookingHistoryReader>>}|null>(null);
   const [retry,setRetry]=useState(0);
   const key=JSON.stringify([customerId,revision,syncRevision,retry]);

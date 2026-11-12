@@ -7,5 +7,5 @@ import {CUSTOMER_PLAN_PRELOAD_TTL} from './customer-plan-read-policy';
 type DetailReader=ReturnType<typeof usePanelReader<Parameters<typeof browseCourseCards>,Awaited<ReturnType<typeof browseCourseCards>>>>;
 export function useCourseCardDetailReader(load?:typeof browseCourseCards,storeId='',revision=0,preloadSource=false):DetailReader{
  const fetcher:typeof browseCourseCards=load??readNativeCourseCards;
- return usePanelReader(load?'module-card':'course-card',fetcher,load&&!preloadSource?'':JSON.stringify([storeId,revision]),load&&!preloadSource?0:CUSTOMER_PLAN_PRELOAD_TTL);
+ return usePanelReader(load?'module-card':'course-card',fetcher,load&&!preloadSource?'':JSON.stringify([storeId,revision]),load&&!preloadSource?0:CUSTOMER_PLAN_PRELOAD_TTL,400);
 }

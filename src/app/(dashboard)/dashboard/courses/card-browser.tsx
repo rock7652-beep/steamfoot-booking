@@ -39,7 +39,7 @@ function CardBrowserContent({load,preloadDetails=false,reservations,renderProgre
   const ready=result?.key===key||!!cached;
   const visible=result?.key===key?result:cached?.success?{key,customerId,rows:cached.rows,hasMore:cached.hasMore,totals:cached.totals}:result?.customerId===customerId?result:null;
   const detailPreload=useMemo(()=>({read:(id:string)=>detailReader.read({cardId:id,dataScope}),get:(id:string)=>detailReader.get({cardId:id,dataScope})}),[detailReader,dataScope]);
-  useIdleReadPreload({enabled:!!customerId&&(!load||preloadDetails),blocked:false,keys:visible?.rows.slice(0,5).map(card=>card.id)??[],reader:detailPreload,startDelayMs:0,gapMs:0,concurrency:2});
+  useIdleReadPreload({enabled:!!customerId&&(!load||preloadDetails),blocked:false,keys:visible?.rows.slice(0,20).map(card=>card.id)??[],reader:detailPreload,startDelayMs:0,gapMs:0,concurrency:2});
   const renderRows=()=>visible?.rows.map(c=>{
           const unit=c.unit==="SESSION"?sessionUnitLabel:"點";
           const inactive=c.closed||c.expired;

@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ connection: vi.fn(), advanced: vi.fn() }));
+const mocks = vi.hoisted(() => ({ connection: vi.fn(), advanced: vi.fn(),phone:vi.fn(),makeups:vi.fn(),overview:vi.fn() }));
 vi.mock("@/server/actions/store-member-connection", () => ({ loadMemberConnectionAction: mocks.connection }));
 vi.mock("@/server/actions/customer-panel-advanced", () => ({ getCustomerPanelAdvanced: mocks.advanced }));
+vi.mock("@/server/actions/course-phone-view",()=>({loadCoursePhoneConnection:mocks.phone}));
+vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:mocks.makeups}));
+vi.mock("@/server/actions/music-student-workspace",()=>({loadMusicStudentWorkspace:mocks.overview}));
 import { GET } from "@/app/(dashboard)/dashboard/customer-support-read/route";
 import { readCustomerPanelAdvanced, readMemberConnection } from "@/lib/customer-support-read-client";
 
@@ -49,4 +52,12 @@ describe("customer support read route", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response("", { status: 403 }));
     await expect(readMemberConnection("a")).rejects.toThrow("顧客資料讀取失敗");
   });
+});
+
+it.each([["phone","phone"],["makeups","makeups"],["overview","overview"]] as const)("delegates %s to the existing authorized read, preserving denials",async(kind,key)=>{
+ mocks[key].mockResolvedValue({success:false,error:"不可檢視"});
+ const response=await GET(new Request(`https://example.test/hq/dashboard/customer-support-read?kind=${kind}&customerId=other-store&dataScope=legacy`));
+ expect(await response.json()).toEqual({success:false,error:"不可檢視"});
+ expect(response.headers.get("cache-control")).toBe("private, no-store");
+ expect(mocks[key]).toHaveBeenCalledWith("other-store",...(kind==="makeups"?["legacy"]:kind==="overview"?[false]:[]));
 });
