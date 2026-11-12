@@ -42,3 +42,5 @@
 本節畫面已以合併版本真正元件重新產生，執行腳本為 `scripts/qa/universal-card-combined-browser.mjs`；三個尺寸、18／20、適用範圍文字及無水平溢出皆通過。仍為合成資料、無後端連線，不是登入後業務驗收。另維持授課資格／方案計酬兩分頁的獨立合成畫面證據。
 
 原交接修正本身不需 migration；與 #1554 合併後需安裝舊約定快照 migration。隔離 Preview 資料庫已安裝並核對；正式安裝／發布紀錄另外維護於 [限定安裝紀錄](course-provider-agreement-installation-20261112.md)。
+
+合併提交 `fc1879d679c237f9858c9ec6d0dd22c78b4234e6` 的 GitHub CI `43183902956`：Typecheck、ESLint、Targeted tests、Full Vitest baseline 全部成功；完整 1,787 檔／16,830 測試通過，34 檔／321 測試跳過。三套隔離 PostgreSQL workflow 成功。另加卡片／學員投影 7 檔／80 測試通過。Preview 打包限制與修正見限定安裝紀錄。

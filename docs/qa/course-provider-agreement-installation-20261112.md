@@ -19,3 +19,7 @@ Migration SHA256：`6c11a30f461f92b49be311e5e358588cfddf4d0cd9a6fb0913f1ce78ca89
 5. 正式驗收限唯讀查詢、路由與畫面；不建立測試購課、預約、扣堂或通知。
 
 不退回會忽略新資格規則／舊卡約定的舊程式，不刪快照或重算歷史計酬；需要修正時保留資料向前修復。
+
+## 合併版 Preview 打包修正
+
+`fc1879d6` 的 Preview `dpl_BwxrNYQktmjxaALjudSArDauVarQ` 已通過隔離／通知停發、編譯、TypeScript 及 Next build，但平台最後拒絕 253.21 MB middleware（上限 250 MB）。新增僅適用本分支、同專案、隔離 DB 且 `/vercel/pathN` 的 Preview 打包程序：建置前把 artifacts 驗收圖片逐檔核對 SHA256 並保存至 build root 外；建置後沿用原有 PostgreSQL 打包檢查及未使用 provider 排除。public 圖片、證書、文件、JSON、QA 腳本、runtime 檔案均保留；正式打包 guard 不變，不調高預算或略過平台限制。相關 3 檔／39 項測試及 ESLint 通過。

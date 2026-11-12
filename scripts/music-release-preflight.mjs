@@ -46,6 +46,12 @@ export async function musicBuildPreflight(env=process.env){
   console.info('[production-review-inputs]',JSON.stringify({archived:archive.count,backupOutsideBuildRoot:true,archive:archive.archive}));
  }
 
+ if(env.VERCEL_ENV==='preview'&&env.VERCEL_GIT_COMMIT_REF==='fix/teaching-item-qualifications-20261112'){
+  const {archiveTeachingPreviewInputs}=await import('./teaching-preview-packaging.mjs');
+  const archive=archiveTeachingPreviewInputs(env,resolve(import.meta.dirname,'..'));
+  console.info('[teaching-preview-review-inputs]',JSON.stringify({archived:archive.count,backupOutsideBuildRoot:true}));
+ }
+
  if(env.VERCEL_ENV==='production'&&env.ADDONS_DATABASE_URL){
   const {execFileSync}=await import('node:child_process');
   execFileSync(process.execPath,['--conditions=react-server','--import','tsx',fileURLToPath(new URL('./addons-production-readiness.ts',import.meta.url))],{env,stdio:'inherit'});
