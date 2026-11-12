@@ -22,6 +22,7 @@ export type CourseRosterSource={
  read:(id:string)=>Promise<{success:true;data:CourseRosterData}|{success:false;error:string}>;
  note:typeof saveCourseRosterNote;
  batch?:typeof updateCourseRosterBatch;
+ onPreload?:(row:NativeRosterBooking)=>void;
  onOpen?:(row:NativeRosterBooking)=>void;
  actions:(row:NativeRosterBooking)=>{label:string;onSelect:()=>void;danger?:boolean}[];
  batchAction?:{label:string;selectable:(row:NativeRosterBooking)=>boolean;onSubmit:(rows:NativeRosterBooking[])=>void};

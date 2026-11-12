@@ -13,12 +13,12 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
 export type CardBrowseState = { search: string; history: boolean; page: number };
-function CardBrowserContent({load,reservations,renderProgress,sessionUnitLabel="堂", overview=false, showOverviewTotals=false, storeId, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
-  storeId?:string;showOverviewTotals?:boolean;overview?:boolean;dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
+function CardBrowserContent({load,preloadDetails=false,reservations,renderProgress,sessionUnitLabel="堂", overview=false, showOverviewTotals=false, storeId, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
+  preloadDetails?:boolean;storeId?:string;showOverviewTotals?:boolean;overview?:boolean;dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
   onSelect:(card:CourseCardView)=>void;renderProgress?:(card:CourseCardView)=>ReactNode;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
 }) {
   const browseReader = useCustomerCardReader({load,native,revision,storeId,canReadBookings});
-  const detailReader = useCourseCardDetailReader(load,storeId,revision);
+  const detailReader = useCourseCardDetailReader(load,storeId,revision,preloadDetails);
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;totals?:CourseBalanceTotal[];error?:string}|null>(null);
   const previousSearch = useRef(state.search);
@@ -39,7 +39,7 @@ function CardBrowserContent({load,reservations,renderProgress,sessionUnitLabel="
   const ready=result?.key===key||!!cached;
   const visible=result?.key===key?result:cached?.success?{key,customerId,rows:cached.rows,hasMore:cached.hasMore,totals:cached.totals}:result?.customerId===customerId?result:null;
   const detailPreload=useMemo(()=>({read:(id:string)=>detailReader.read({cardId:id,dataScope}),get:(id:string)=>detailReader.get({cardId:id,dataScope})}),[detailReader,dataScope]);
-  useIdleReadPreload({enabled:!!customerId&&!load,blocked:false,keys:visible?.rows.slice(0,5).map(card=>card.id)??[],reader:detailPreload,startDelayMs:0,gapMs:0,concurrency:2});
+  useIdleReadPreload({enabled:!!customerId&&(!load||preloadDetails),blocked:false,keys:visible?.rows.slice(0,5).map(card=>card.id)??[],reader:detailPreload,startDelayMs:0,gapMs:0,concurrency:2});
   const renderRows=()=>visible?.rows.map(c=>{
           const unit=c.unit==="SESSION"?sessionUnitLabel:"點";
           const inactive=c.closed||c.expired;

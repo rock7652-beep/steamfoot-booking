@@ -171,3 +171,18 @@ it('preloads the sports next-booking block with the visible plans',async()=>{
  expect(host.textContent).not.toContain('讀取下次預約');expect(m.next).toHaveBeenCalledOnce();
  await act(async()=>invalidate());expect(preload.visibleReader.get('student')).toBe(false);
 });
+it('prepares complete Beauty details through the same explicitly enabled source and store scope',async()=>{
+ const load=vi.fn().mockResolvedValue({success:true,rows:[{id:'beauty-card',unit:'SESSION'}],hasMore:false});
+ await render({load,storeId:'beauty-store',canReadCards:true,preloadCardDetails:true});
+ await preload.visibleReader.read('customer');
+ expect(load).toHaveBeenCalledWith({cardId:'beauty-card',dataScope:undefined});expect(load).toHaveBeenCalledTimes(2);
+ expect(preload.visibleReader.get('customer')).toBe(true);
+ await preload.visibleReader.read('customer');expect(load).toHaveBeenCalledTimes(2);
+});
+it('prepares visible source support even if a no-support reader was mounted first',async()=>{
+ const options={canReadCards:false,storeId:'same-store'};
+ await render(options);
+ const support=vi.fn().mockResolvedValue({success:true,data:{membership:{},advanced:{data:{}}}});
+ await render({...options,support} as unknown as Options);
+ await preload.visibleReader.read('customer');expect(support).toHaveBeenCalledOnce();expect(preload.visibleReader.get('customer')).toBe(true);
+});

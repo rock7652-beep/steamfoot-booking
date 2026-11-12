@@ -17,6 +17,8 @@
 | 蒸足新增／補課 | steam-booking-form | intent 在途預讀、TTL 0 完整表單（包含名額），提交後失效；切換日期亦讀取最新名額 |
 | 美業公開體驗日期與時段 | 第一頁確認服務與聯絡資料，第二頁點日期自動讀取時段；營業及特殊公休由已授權店家 catalog 投影為公開開放狀態，公休淡化不可選，不以滿額當公休。選日／返回取消舊讀取世代，失敗保留資料原頁重試；第三頁才核對到店與提醒資訊，送出仍沿用原後端資格、衝突與原請求檢查 |
 | 體驗新增 | trial-booking-form、steam-day-slots | 表單 intent 預讀；時段 TTL 0，日期／關閉世代保護 |
+| 蒸足預約內顧客 | steamfoot-customer-context → scoped customers/panel-read GET → 原 getCustomerPanelContext | 預約詳情開啟後以 2 併發準備前 5 位及 intent；同 booking／slots 修訂的 15 秒展示資料供 inline 直接使用，摘要與方案日期格同份回應；HTTP 日期還原，重試／修改失效，原權限與交易檢查不變 |
+| 美業原生顧客／方案 | module-card-browse／module-card／beauty-card-progress／module-customer-support | 名單與顧客工作區共用真實同店 reader，前 5 份完整詳情 2 併發，15 秒展示與有界舊快照；姓名 intent、操作開始／完成及修訂清除；會員與 LINE 支援只預讀已授權顯示資料，不授權交易或身分綁定 |
 | 一般顧客 | customer-detail | 清單姓名／電話／同門市標籤直接顯示，intent 預讀、15 秒快取；頁面 rows／pathname 修訂隔離、修改後失效，現有 request gate；摘要無寫入操作 |
 | SPA 顧客列表 | spa-customer-profile | 15 秒 bounded 快取，server rows 修訂及修改 callback 失效 |
 | SPA 查看顧客 | spa-customer-drawer | intent 預讀僅去重在途讀取，完成後再開取得最新；修改 callback 重讀與列表 refresh |

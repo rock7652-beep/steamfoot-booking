@@ -60,10 +60,18 @@ const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless
 const results=[],errors=[];
 try{
  for(const size of [{width:1366,height:900},{width:1024,height:768},{width:768,height:1024}]){
-  const page=await browser.newPage({viewport:size});let reads=0,progressReads=0;
+  const page=await browser.newPage({viewport:size});let reads=0,progressReads=0,beautyReads=0;const beautyOps=[];
   page.on('pageerror',error=>errors.push(error.message));
   await page.route('**/*',async route=>{
    if(route.request().isNavigationRequest())return route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="zh-Hant"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'});
+   if(route.request().url().includes('/api/beauty/customer-read')){
+    beautyReads++;const body=route.request().postDataJSON();beautyOps.push([body.operation,body.input]);
+    if(body.store!=='synthetic')throw Error('Beauty store scope missing');
+    if(body.operation==='cards')return route.fulfill({json:{success:true,rows:[{id:'card',name:'合成十堂方案',unit:'SESSION',remaining:9,available:9,held:0,members:[{name:'合成學員'}],entries:[],expiresAt:'2027-02-01T00:00:00Z'}],hasMore:false}});
+    if(body.operation==='progress')return route.fulfill({json:{success:true,data:{purchasedAt:'2026-11-10T08:00:00Z',price:8000,progress:{available:true,total:10,completed:[{id:'lesson',date:'2026-11-12T08:00:00Z'}],voided:[]}}}});
+    if(body.operation==='support')return route.fulfill({json:{success:true,data:{membership:{success:true},advanced:{success:true,data:{customer:{followUps:[],lineLinkedAt:null,lineBindingCodeCreatedAt:null}}}}}});
+    throw Error('Unexpected Beauty read');
+   }
    if(route.request().url().includes('/card-read?')){reads++;await new Promise(resolve=>setTimeout(resolve,80));return route.fulfill({json:{success:true,rows:[{id:'card',name:'合成十堂方案',unit:'SESSION',remaining:9,available:9,held:0,members:[{name:'合成學員'}],expiresAt:'2027-02-01T00:00:00Z'}],hasMore:false,progress:[{cardId:'card',result:{success:true,data:{available:true,total:10,completed:[{id:'lesson',date:'2026-11-12T08:00:00Z',customerName:'合成學員'}],shared:false,canReadPrice:true,purchasePrice:8000,purchasedAt:'2026-11-10T08:00:00Z'}}}]}});}
    if(route.request().url().includes('/card-progress-read?'))progressReads++;
    return route.abort();
@@ -96,6 +104,14 @@ try{
    await page.getByRole('button',{name:'關閉',exact:true}).click();
    results.push({...size,music,reads,progressReads});
   }
+  await page.getByRole('button',{name:'美業',exact:true}).click();
+  await page.getByRole('button',{name:'預讀',exact:true}).click();await page.getByRole('button',{name:'預讀完成'}).waitFor();
+  const beautyPrepared=beautyReads;
+  await page.getByRole('button',{name:'開啟顧客'}).click();await page.locator('[data-lesson-slot]').first().waitFor();
+  await page.getByRole('button',{name:/合成十堂方案/}).click();await page.getByRole('region',{name:'方案詳情'}).waitFor();
+  if(beautyReads!==beautyPrepared||await page.getByText(/讀取方案詳細資料中|讀取使用紀錄中/).count())throw Error('Beauty detail did not reuse the prepared resource');
+  await page.screenshot({path:path.join(output,`detail-beauty-${size.width}x${size.height}.png`)});
+  results.push({...size,module:'beauty',beautyReads,beautyOps,preparedDetail:true});
   await page.close();
  }
  if(errors.length)throw Error(errors.join('\n'));

@@ -13,7 +13,7 @@ export const useMusicDataRevision = () => useContext(MusicRevision);
 type Cache<T> = ReturnType<typeof createClientReadCache<T>>;
 type Registry = Map<string, Cache<unknown>>;
 const Context = createContext<Registry | null>(null);
-const customerPlanNamespaces = new Set(['course-roster-customer','course-customer-next','module-customer-next','course-card-progress','course-card-browse','module-card-browse','course-card','module-card','music-periods','music-student-workspace','purchases','beauty-customer-detail','beauty-card-progress']);
+const customerPlanNamespaces = new Set(['steamfoot-customer-context','module-customer-support','course-roster-customer','course-customer-next','module-customer-next','course-card-progress','course-card-browse','module-card-browse','course-card','module-card','music-periods','music-student-workspace','purchases','beauty-customer-detail','beauty-card-progress']);
 function clearCustomerPlanReads(registry: Registry) {
   for (const [key, cache] of registry) {
     if (customerPlanNamespaces.has(JSON.parse(key)[0])) cache.clear();

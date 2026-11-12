@@ -4,10 +4,10 @@ import {useCourseCardDetailReader} from "@/components/admin/use-course-card-deta
 import type { browseCourseCards } from "@/server/actions/course-browse";
 import type { CourseCardView } from "./member-workspace";
 
-export function useCardDetail(open: boolean, cardId: string, opening: number,loadOrScope?:typeof browseCourseCards|"operational"|"legacy",fresh=false,initialData?:CourseCardView,scope?:{storeId?:string;revision?:number}) {
+export function useCardDetail(open: boolean, cardId: string, opening: number,loadOrScope?:typeof browseCourseCards|"operational"|"legacy",fresh=false,initialData?:CourseCardView,scope?:{storeId?:string;revision?:number;preloadSource?:boolean}) {
   const load=typeof loadOrScope==="function"?loadOrScope:undefined;
   const dataScope=typeof loadOrScope==="string"?loadOrScope:undefined;
-  const reader = useCourseCardDetailReader(load,scope?.storeId,scope?.revision);
+  const reader = useCourseCardDetailReader(load,scope?.storeId,scope?.revision,scope?.preloadSource);
   const [revision, setRevision] = useState(0);
   const key = JSON.stringify([cardId, opening, revision, dataScope,scope?.storeId,scope?.revision]);
   // A roster bundle is a fresh, permission-checked read for this exact opening.
