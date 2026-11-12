@@ -18,10 +18,11 @@ it('inspects without deploying, applies once, preserves original cards and rates
   CREATE TABLE _prisma_migrations(id text,migration_name text,checksum text,finished_at timestamptz,rolled_back_at timestamptz,applied_steps_count int);
   CREATE TABLE "CoursePointPlan"(id text,"storeId" text,"chargeSettings" jsonb,"templateIds" text[]);
   CREATE TABLE "CoursePointCard"(id text,"storeId" text,"planId" text,remaining int,"expiresAt" timestamptz);
-  CREATE TABLE "CourseCompensation"(id text,"storeId" text,"templateId" text,"staffId" text,rules jsonb);
+  CREATE TABLE "CourseCompensation"("storeId" text,"templateId" text,"staffId" text,rules jsonb,revision int DEFAULT 1,"updatedAt" timestamptz DEFAULT now(),PRIMARY KEY("storeId","templateId","staffId"));
   CREATE TABLE "CourseTeacherCompensationSetting"("storeId" text,"staffId" text,"subjectRules" jsonb,revision int,"updatedAt" timestamptz,PRIMARY KEY("storeId","staffId"));
   CREATE TABLE "StoreFeatureEntitlement"("storeId" text,"featureKey" text,status text);
   CREATE TABLE "Staff"(id text,"storeId" text);
+  INSERT INTO "CourseCompensation"("storeId","templateId","staffId",rules) VALUES('s','t','teacher','[{"mode":"SHARE","value":70}]');
   INSERT INTO "CoursePointPlan" VALUES('p','s','{"kind":"plan","durationMinutes":50,"trialPrice":null,"trialDuration":null,"providerIds":["teacher"]}',ARRAY['t']);
   INSERT INTO "CoursePointCard" VALUES('c','s','p',20,'2099-01-01');`);
   const client={query:async(sql:string)=>sql.startsWith('SELECT current_database()')?{rows:[{database:'postgres',role:'postgres'}]}:db.query(sql)};
