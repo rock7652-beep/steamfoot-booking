@@ -23,3 +23,5 @@ Migration SHA256：`6c11a30f461f92b49be311e5e358588cfddf4d0cd9a6fb0913f1ce78ca89
 ## 合併版 Preview 打包修正
 
 `fc1879d6` 的 Preview `dpl_BwxrNYQktmjxaALjudSArDauVarQ` 已通過隔離／通知停發、編譯、TypeScript 及 Next build，但平台最後拒絕 253.21 MB middleware（上限 250 MB）。新增僅適用本分支、同專案、隔離 DB 且 `/vercel/pathN` 的 Preview 打包程序：建置前把 artifacts 驗收圖片逐檔核對 SHA256 並保存至 build root 外；建置後沿用原有 PostgreSQL 打包檢查及未使用 provider 排除。public 圖片、證書、文件、JSON、QA 腳本、runtime 檔案均保留；正式打包 guard 不變，不調高預算或略過平台限制。相關 3 檔／39 項測試及 ESLint 通過。
+
+正式 main `b93d76dc1d0970cfebddbd20d97c74b48c077ee6` 的首次 inspect workflow `43187122351` 在唯讀檢查停止，沒有執行 migration：原計酬摘要誤按不存在的 id 排序。後續改用實際 `(storeId,templateId,staffId)` 複合鍵，測試移除虛構 id 並加入原費率資料；2 檔／7 測試、ESLint 通過，正式庫修正版唯讀 SQL 成功。診斷只可輸出標準 SQLSTATE，不輸出錯誤訊息或連線資料。此補修不變更應用程式、migration SQL 或 checksum。

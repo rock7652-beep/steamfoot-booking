@@ -24,7 +24,7 @@ export function stageMigration(){
 }
 const ledgerSql='SELECT migration_name,checksum,finished_at,rolled_back_at,applied_steps_count,md5(to_jsonb(m)::text) AS digest FROM public._prisma_migrations m ORDER BY id';
 const cardSql=`SELECT count(*)::int AS count,md5(coalesce(jsonb_agg(to_jsonb(card)-'chargeSettingsSnapshot' ORDER BY id)::text,'[]')) AS digest FROM "CoursePointCard" card`;
-const feesSql=`SELECT md5(coalesce(jsonb_agg(to_jsonb(fee) ORDER BY id)::text,'[]')) AS digest FROM "CourseCompensation" fee`;
+const feesSql=`SELECT md5(coalesce(jsonb_agg(to_jsonb(fee) ORDER BY "storeId","templateId","staffId")::text,'[]')) AS digest FROM "CourseCompensation" fee`;
 const readinessSql=`SELECT
  EXISTS(SELECT FROM information_schema.columns WHERE table_schema='public' AND table_name='CoursePointCard' AND column_name='chargeSettingsSnapshot' AND data_type='jsonb') AS column_ready,
  to_regclass('public."CoursePointCard_storeId_planId_idx"') IS NOT NULL AS index_ready,
@@ -70,4 +70,4 @@ async function main(){
   console.log(JSON.stringify({...result,sourceCommit:process.env.GITHUB_SHA,migration:MIGRATION,checksum:CHECKSUM,verifiedTls:true}));
  }finally{await client.end();}
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(error=>{console.error(JSON.stringify({failure:error.message?.match(/^[A-Z_]+$/)?error.message:'INSTALLATION_FAILED'}));process.exitCode=1;});
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(error=>{console.error(JSON.stringify({failure:error.message?.match(/^[A-Z_]+$/)?error.message:'INSTALLATION_FAILED',databaseCode:/^[0-9A-Z]{5}$/.test(error.code??'')?error.code:undefined}));process.exitCode=1;});
