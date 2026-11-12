@@ -4,7 +4,7 @@ import {toast} from "sonner";
 import {saveCourseDisplayOrder} from "@/server/actions/course-display-order";
 import {emptyCourseOrder,moveCourseRow,orderCourseRows,type CourseOrderWriter,type CourseOrderKind,type CourseOrderSnapshot} from "@/lib/course-display-order";
 
-export function useCourseDisplayOrder<T extends {id:string}>(kind:CourseOrderKind,source:T[],initial:CourseOrderSnapshot=emptyCourseOrder,enabled=true,group:(row:T)=>boolean|string=()=>true,write:CourseOrderWriter=saveCourseDisplayOrder) {
+export function useCourseDisplayOrder<T extends {id:string}>(kind:CourseOrderKind,source:T[],initial:CourseOrderSnapshot=emptyCourseOrder,enabled=true,group:(row:T)=>boolean|string=()=>true,write:CourseOrderWriter=saveCourseDisplayOrder,isVisible:(row:T)=>boolean=()=>true) {
   const [saved,setSaved]=useState(initial);
   const [pendingId,setPendingId]=useState<string|null>(null);
   const [error,setError]=useState<{id:string;message:string;retry?:()=>void}|null>(null);
@@ -63,7 +63,7 @@ export function useCourseDisplayOrder<T extends {id:string}>(kind:CourseOrderKin
   }
   function adjacent(id:string,offset:number){
     const row=source.find(r=>r.id===id);
-    const same=rows.filter(r=>row&&group(r)===group(row));
+    const same=rows.filter(r=>row&&group(r)===group(row)&&isVisible(r));
     return same[same.findIndex(r=>r.id===id)+offset]?.id;
   }
   return {rows,busy,compare:(a:T,b:T)=>(ranks.get(a.id)??0)-(ranks.get(b.id)??0),rowProps:(id:string)=>({"data-course-order":kind,"data-row-id":id}),handle:(id:string,name:string)=><span className="inline-flex max-w-48 shrink-0 flex-wrap items-center gap-1 align-middle">

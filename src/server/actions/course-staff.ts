@@ -46,15 +46,18 @@ export async function readCourseStaffTeaching(staffId: string) {
     const { user, storeId } = await courseManagerRead("staff.view");
     if (!["OWNER", "MANAGER", "ADMIN"].includes(user.role)) throw new AppError("FORBIDDEN", "無人員管理權限");
     id.parse(staffId);
-    const nativeSports=(await sportsNativePreview(storeId));
-    const canReadFees=await canMusicFinance(user,storeId,"teacher.compensation.read",staffId) && (!nativeSports || await checkPermission(user.role,user.staffId,"teacher.compensation.read"));
-    const staff = await prisma.staff.findFirst({ where: { id: staffId, storeId } });
+    const [nativeSports,staff,financeAllowed]=await Promise.all([
+      sportsNativePreview(storeId),
+      prisma.staff.findFirst({where:{id:staffId,storeId}}),
+      canMusicFinance(user,storeId,"teacher.compensation.read",staffId),
+    ]);
+    const canReadFees=financeAllowed && (!nativeSports || await checkPermission(user.role,user.staffId,"teacher.compensation.read"));
     if (!staff) throw new AppError("NOT_FOUND", "找不到本店人員");
-    const [fees,settings]=canReadFees ? await Promise.all([
+    const [fees,settings,defaults]=canReadFees ? await Promise.all([
       prisma.$queryRaw<Array<{templateId: string; rules: CompensationRule[]; revision: number}>>`SELECT "templateId", rules, revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
       prisma.$queryRaw<MusicTeacherSettings[]>`SELECT "defaultRatio"::float8 AS "defaultRatio","subjectRules",revision FROM "CourseTeacherCompensationSetting" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`,
-    ]) : [[],[]] as const;
-    const defaults=canReadFees && nativeSports ? await prisma.$queryRaw<Array<{templateId:string;rules:CompensationRule[];revision:number}>>`SELECT "templateId",rules,revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=''` : [];
+      nativeSports ? prisma.$queryRaw<Array<{templateId:string;rules:CompensationRule[];revision:number}>>`SELECT "templateId",rules,revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=''` : Promise.resolve([]),
+    ]) : [[],[],[]] as [{templateId:string;rules:CompensationRule[];revision:number}[],MusicTeacherSettings[],{templateId:string;rules:CompensationRule[];revision:number}[]];
     const data={ defaults, version: staff.updatedAt.toISOString(), qualificationIds: staff.courseQualifiedTemplateIds, fees, musicSettings:settings[0]??{defaultRatio:null,subjectRules:{},revision:0} };
     return { success: true as const, ...data };
   } catch (e) { const result = handleCourseActionError(e); return { success: false as const, error: result.error ?? "讀取失敗" }; }

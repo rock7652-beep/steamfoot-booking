@@ -9,7 +9,8 @@
 | 運動／舞蹈新增排課 | sports-schedule-options → scoped GET → loadSportsStaging(true, true) | 先用已授權課表的教學項目／老師／教室顯示表單，不預載整店卡片或餘額；選項以 keyed panel reader 15 秒短暫預讀／在途去重。最新選項成功前禁止提交及新增顧客，回讀不覆蓋已填時段；錯誤原視窗重試。外部模組已有 props 則直接使用。提交仍核對當下權限、設定、衝突及額度 |
 | 音樂／運動／美業上課或預約名單 | 當前課表範圍預先完成完整名單 → 同權限工作區資料 | 依使用者要求，進入課表及換月份時先完成全範圍明細，不把點擊作為正常首次讀取起點；開窗直接初始化完整名單、付款／用量／餘額／候補與教師狀態。無全域或持久化財務快取；帳號／店別／權限範圍隔離。異動開始作廢課表持有資料，完成後重讀；所有提交仍做即時後端授權、版本與額度檢查。讀取失敗不得將不完整資料標為準備完成，合法舊入口保留獨立 TTL 0 reader 與錯誤處理 |
 | 音樂學員課程／逐期紀錄 | music-periods → music-period-read GET | 獨立讀取且no-store，沿用逐期資格、customer.read及booking.read／wallet.read檢查；只讀取原紀錄，取消／補課／更正保留原action；Date欄位在傳輸後還原，關閉與換學員晚到隔離 |
-| 原生運動顧客持有方案 | course-card-browse → scoped card-read GET | 共用 panel reader、方案清單 TTL 15 秒（方案詳情維持 TTL 0）及關閉／換人晚到隔離；清單首 5 位顧客於閒置時依序預讀，姓名 pointer／focus／touch intent 優先預讀，同鍵在途共用；首頁未篩選時，以同一份全量權威卡投影算合計、只回傳20列，歷史／搜尋／換頁仍獨立查全量合計；原服務兩項權限與可見範圍不變 |
+| 原生運動顧客持有方案 | course-card-browse → scoped card-read GET | 共用 panel reader、方案清單 TTL 15 秒（方案詳情維持 TTL 0）及關閉／換人晚到隔離；清單當頁顧客於閒置時以兩位併發預讀，姓名 pointer／focus／touch intent 優先預讀，同鍵在途共用；具上課紀錄權限時，card-read 一併讀取當頁日期格，先安裝同門市／學員的進度快取才提供方案列，避免開窗後逐卡再請求；總覽下次預約／音樂概況同步預讀，歷史方案與其他分頁保持按需載入；購課／扣堂後一併失效，舊讀取不得重新安裝進度；首頁未篩選時，以同一份全量權威卡投影算合計、只回傳20列，歷史／搜尋／換頁仍獨立查全量合計；原服務兩項權限與可見範圍不變 |
+| 運動／音樂名單內學員方案 | course-roster-customer → 原有各授權查詢並行 | 同一次讀取先核對本店課次／學員／綁定課卡，再並行取得學員視窗、課卡、日期格；首次快照直接呈現，不連續另發課卡／進度請求；重開、重試、修訂重新讀取。沿用各原生 loader 權限、TTL 0 與晚到隔離，不以快照授權交易 |
 | 運動／音樂名單原地繳費 | course-purchase-options → scoped GET → 共用購課選項服務 | 獨立於 Server Action 操作佇列，panel reader TTL 0、同門市預約／購課與收款權限重新核對；關閉／切課晚到隔離，成功購買仍由權威名單重讀，不把選項當餘額 |
 | 美業核對收款／恢復狀態 | beauty-service-collection → collection-read POST → 原 quote／intent read | 名單隨同權限資料帶入完整收費摘要，付款方式立即可選；同一視窗直接採用已授權名單的完整報價；背景 panel reader TTL 0 核對，報價變動或錯誤即阻擋，既有未確認收款請求仍須先恢復核對。純讀取使用 READ ONLY／RepeatableRead，不排入 Store 寫入鎖；送出仍依版本、已收款及原請求核對。唯讀 HTTP 避免 Next Action layout 回傳，仍逐次核對店家／權限／功能／對象；寫入保留原 action。班表座標不作工作區重掛載識別，明確切換對象仍關閉舊財務視窗，晚到讀取不得回填 |
 | 預約詳情 | booking-detail-cache → client-read-cache | 先摘要／有限舊值，每次 authoritative revalidate；修改後失效 |
@@ -25,7 +26,7 @@
 | 預約管理現金收支 | quick-cashbook | 獨立 GET /api/cashbook/quick，共用既有後端授權及餘額服務，避免讀取 Server Action 的頁面回應；TTL 0，門市及頁碼納入讀取鍵；pointer／focus／touch intent 在途去重；換頁隱藏舊金額，失敗原頁重試；關閉與寫入成功清除資源，晚到回應隔離 |
 | 課程堂數方案上課格子 | course-card-progress → GET card-progress-read → loadCourseCardProgress | 沿用方案清單的 15 秒有界顯示快取；顧客列表結果穩定後允許搜尋框保留焦點時閒置預讀，編輯／視窗開啟時仍暫停；姓名 intent 預讀時，先取得方案，再每位最多預讀 5 張堂數卡的日期格、每次最多 2 張並行。音樂與運動方案清單均走既有 GET card-read，日期格走獨立唯讀 GET，避開 Server Action 操作佇列。開窗首個 render 直接採用同門市／修訂／課卡／學員的有效結果；過期、購課或教務更新後重讀，失敗原位重試。資料讀取仍重新核對 wallet.read／customer.read／booking.read、門市、學員及課卡關係。RepeatableRead 讀實際 GRANT、已出席與有效補登，不從剩餘額度或同名方案推算；換卡／換店／修訂隔離舊回應。共用方案需完整使用人可見性，否則保留可見範圍的完整紀錄。無寫入或通知 |
 | 課程學員方案 | course-card | 已帶入摘要先顯示，完整卡片 TTL 0；pointer／focus／touch intent 在途去重；視窗內重試、開啟世代與 active cleanup，完整讀取成功後才可修改 |
-| 課程職員授課設定 | course-staff-teaching | 分頁需要時 TTL 0；feesReady 保留編輯草稿，重試重新讀取 |
+| 課程職員授課設定 | course-staff-teaching | 原生運動／音樂開窗即讀取、pointer／focus／touch intent 共用在途請求，staff-teaching-read GET 避開 Server Action 排隊；維持 TTL 0 授權與費率修訂查詢，feesReady 保留編輯草稿，重試重新讀取；工作／LINE 與時間／已排課程分頁不重複掛載時間編輯器 |
 | 課程同行使用方式 | course-companion | TTL 0，版本保護與 expectedUpdatedAt 寫入檢查 |
 | SPA 預約服務／人員 | spa-providers | TTL 0，選項 key 與 active cleanup 防止舊回應 |
 | SPA 快速預約、一般新增服務欄位 | spa-availability | TTL 0，同鍵在途去重，requestId 防止舊回應 |

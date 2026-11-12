@@ -1209,7 +1209,7 @@ export function CourseWorkspace({
                     onTouchStart={prefetchSportsSchedule}
                     onClick={()=>openSchedule()}
                   >
-                    {calendarSource?"新增預約":"＋ 排課"}
+                    {calendarSource?"新增預約":"排課"}
                   </button>
                 )}
               </div>
@@ -1440,11 +1440,11 @@ export function CourseWorkspace({
             </button>}
             {canCreate && (
               <button
-                className={businessProfile === "MUSIC" ? `${primary} ml-auto order-first` : "min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800 disabled:opacity-50"}
+                className="ml-auto min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800 disabled:opacity-50"
                 disabled={pending}
                 onClick={() => open("catalog")}
               >
-                ＋ {view === "rooms" ? "新增空間" : catalogSource?"新增服務項目":"新增課程"}
+                {view === "rooms" ? "新增空間" : catalogSource?"新增服務項目":"新增課程"}
               </button>
             )}
           </div>
@@ -1770,7 +1770,7 @@ export function CourseWorkspace({
                             >
                               {rental ? "租借資訊" : session.displayBookings ? `所屬 ${session.displayBookings.length}｜全班 ${scheduleRosterBookings(session.bookings).length}` : `上課名單 ${scheduleRosterBookings(session.bookings).length}`}
                             </button>
-                            {canCreate && !rental && <ExclusiveMenu label="新增預約" triggerText="＋預約" quiet>
+                            {canCreate && !rental && <ExclusiveMenu label="新增預約" triggerText="新增預約" quiet>
                               <div className="grid gap-1">
                                 <button type="button" className="min-h-11 rounded px-3 text-left text-sm text-primary-700 hover:bg-primary-50" onClick={()=>{setPanel(null);setCourseDialog({sessionId:session.id,kind:"member-booking"});}}>學員預約</button>
                                 <button type="button" className="min-h-11 rounded px-3 text-left text-sm text-primary-700 hover:bg-primary-50" onClick={()=>{setPanel(null);setCourseDialog({sessionId:session.id,kind:"trial-booking"});}}>體驗預約</button>
@@ -2530,7 +2530,7 @@ export function CourseWorkspace({
                   onClick={()=>openSchedule()}
                   disabled={pending}
                 >
-                  ＋ 新增排課
+                  新增排課
                 </button>
               </footer>
             )}
@@ -2608,8 +2608,8 @@ export function CourseWorkspace({
             courseDialog.kind === "roster"
               ? businessProfile === "MUSIC" ? "課程詳情" : "上課名單"
               : courseDialog.kind === "member-booking"
-                ? "＋ 學員預約"
-                : "＋ 新顧客／體驗客";
+                ? "學員預約"
+                : "新顧客／體驗客";
           const dialogModeAllowed=!sportsNative||(!dialogSession.sportsEnrollment||courseSchedulingModeAllowed(activeSchedulingModes,dialogSession.sportsEnrollment as "OPEN"|"ASSIGNED"));
           const rosterContent=(kind:"roster"|"member-booking"|"trial-booking")=>(<CourseRoster storeId={storeId??undefined}
                   sportsNative={sportsNative}
@@ -2690,7 +2690,7 @@ export function CourseWorkspace({
                       {sportsNative?(checkingMove?"核對中…":"✂ 剪下"):"✂ 剪下"}
                     </button>
                   )}
-                  {!rentalDialog && (courseDialog.kind === "roster"||sportsNative) && canCreate && dialogModeAllowed && <><button type="button" disabled={inlineBusy} className={sportsNative?button:primary} onClick={()=>changeBooking("member-booking",dialogSession.id)}>{sportsNative?"＋學員":"＋加入學員"}</button><button type="button" disabled={inlineBusy} className={button} onClick={()=>changeBooking("trial-booking",dialogSession.id)}>＋體驗客</button></>}
+                  {!rentalDialog && (courseDialog.kind === "roster"||sportsNative) && canCreate && dialogModeAllowed && <><button type="button" disabled={inlineBusy} className={sportsNative?button:primary} onClick={()=>changeBooking("member-booking",dialogSession.id)}>{sportsNative?"新增學員":"加入學員"}</button><button type="button" disabled={inlineBusy} className={button} onClick={()=>changeBooking("trial-booking",dialogSession.id)}>新增體驗客</button></>}
                   {(monthlyReturnHref(params.toString())||params.get("returnStudentId"))&&<DashboardLink className={button} aria-disabled={inlineBusy||pending} onClick={e=>{if(inlineBusy||pending)e.preventDefault();}} href={monthlyReturnHref(params.toString())??studentReturnHref(params.get("returnStudentId")!,params.get("returnStudentQuery")??"")}>{monthlyReturnHref(params.toString())?"返回月結":"返回學員"}</DashboardLink>}
                   <button type="button" className={button} disabled={inlineBusy} onClick={() => { setMoveChoice(null); closeRentalDialog(); }}>關閉</button>
                 </div>

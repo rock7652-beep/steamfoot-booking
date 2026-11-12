@@ -1,6 +1,7 @@
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({read:vi.fn(),fetch:vi.fn()}));
 vi.mock('@/server/queries/course-card-browser',()=>({readCourseCards:m.read}));
+vi.mock('@/server/actions/course-card-progress',()=>({loadCourseCardProgress:vi.fn()}));
 import {GET} from '@/app/(dashboard)/dashboard/courses/card-read/route';
 import {readCourseCardProgress,readNativeCourseCards} from '@/lib/course-card-read-client';
 beforeEach(()=>{vi.resetAllMocks();vi.stubGlobal('fetch',m.fetch);vi.stubGlobal('window',{location:{pathname:'/s/own-store/admin/dashboard/courses'}});});
@@ -19,7 +20,7 @@ it.each(['','?args=broken','?args='+('a'.repeat(4001))])('rejects malformed tran
 });
 it.each([true,false])('delegates every valid read to the authorization service without caching (%s)',async success=>{
  const input={customerId:'learner',page:1},result=success?{success:true,rows:[],hasMore:false}:{success:false,error:'其他門市'};m.read.mockResolvedValue(result);
- const r=await GET(new Request('https://example.test/dashboard/courses/card-read?args='+encodeURIComponent(JSON.stringify(input))));expect(await r.json()).toEqual(result);expect(m.read).toHaveBeenCalledWith(input);expect(r.headers.get('cache-control')).toBe('private, no-store');expect(r.headers.get('vary')).toBe('Cookie');
+ const r=await GET(new Request('https://example.test/dashboard/courses/card-read?args='+encodeURIComponent(JSON.stringify(input))));expect(await r.json()).toEqual(result);expect(m.read).toHaveBeenCalledWith(input,false,undefined,true);expect(r.headers.get('cache-control')).toBe('private, no-store');expect(r.headers.get('vary')).toBe('Cookie');
 });
 
 it('reads date grids through the HQ store path outside the Server Action queue',async()=>{

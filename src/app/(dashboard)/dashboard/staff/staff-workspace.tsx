@@ -212,7 +212,7 @@ export function StaffWorkspace({
             >
               清除篩選
             </button>}
-            {canManage && <button type="button" onClick={() => setEditor({ type: "create" })} className="min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800">＋ 新增人員</button>}
+            {canManage && <button type="button" onClick={() => setEditor({ type: "create" })} className="ml-auto min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800">新增人員</button>}
           </div>
           <p className="text-sm text-earth-500">
             共 {filteredPeople.length} 位{filteredPeople.length!==people.length&&`／全部 ${people.length} 位`}

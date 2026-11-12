@@ -2,7 +2,8 @@
 import React,{act} from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({cards:vi.fn(),native:vi.fn(),periods:vi.fn(),overview:vi.fn(),orders:vi.fn(),progress:vi.fn()}));
+const m=vi.hoisted(()=>({cards:vi.fn(),native:vi.fn(),periods:vi.fn(),overview:vi.fn(),orders:vi.fn(),progress:vi.fn(),next:vi.fn()}));
+vi.mock('@/server/actions/course-members',()=>({loadCourseCustomerBookings:m.next}));
 vi.mock('@/server/actions/course-browse',()=>({browseCourseCards:m.cards}));
 vi.mock('@/lib/course-card-read-client',()=>({readNativeCourseCards:m.cards,readCourseCardProgress:m.progress}));
 vi.mock('@/lib/music-period-read-client',()=>({readMusicPeriods:m.periods}));
@@ -10,13 +11,14 @@ vi.mock('@/server/actions/music-student-workspace',()=>({loadMusicStudentWorkspa
 vi.mock('@/server/actions/course-customer-history',()=>({loadCourseCustomerPurchases:m.orders}));
 vi.mock('next/navigation',()=>({useRouter:()=>({refresh:vi.fn()}),usePathname:()=>'/dashboard/courses',useSearchParams:()=>new URLSearchParams()}));
 import {PanelReadProvider,useInvalidateCustomerPlanReads} from '@/components/operations/panel-read-cache';
+import {CustomerNextBooking} from '@/app/(dashboard)/dashboard/courses/customer-next-booking';
 import {CourseCardProgress} from '@/app/(dashboard)/dashboard/courses/card-progress';
 import {useCustomerPlanPreload,useCustomerCardReader} from '@/components/admin/use-customer-plan-preload';
 let invalidate:()=>void;
 let root:Root,host:HTMLDivElement,preload:ReturnType<typeof useCustomerPlanPreload>,reader:ReturnType<typeof useCustomerCardReader>;
 type Options=Parameters<typeof useCustomerPlanPreload>[0];
 function Parent({options,open}:{options:Options;open:boolean}){const value=useCustomerPlanPreload(options),clear=useInvalidateCustomerPlanReads();React.useEffect(()=>{preload=value;invalidate=clear;},[value,clear]);return open?React.createElement(Child,{options}):null;}
-function Child({options}:{options:Options}){const value=useCustomerCardReader(options);React.useEffect(()=>{reader=value;},[value]);return options.storeId?React.createElement(CourseCardProgress,{storeId:options.storeId,customerId:"student",cardId:"sessions",revision:options.revision}):null;}
+function Child({options}:{options:Options}){const value=useCustomerCardReader(options);React.useEffect(()=>{reader=value;},[value]);return options.storeId?React.createElement(React.Fragment,null,React.createElement(CourseCardProgress,{storeId:options.storeId,customerId:"student",cardId:"sessions",revision:options.revision}),!options.music&&!options.load&&options.canReadBookings&&React.createElement(CustomerNextBooking,{customerId:"student",revision:options.revision})):null;}
 async function render(options:Options,open=false,store='A',instance='panel'){await act(async()=>root.render(React.createElement(PanelReadProvider,{key:store},React.createElement(Parent,{key:instance,options,open}))));}
 beforeEach(()=>{vi.clearAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement('div');root=createRoot(host);for(const fn of Object.values(m))fn.mockResolvedValue({success:true,rows:[],data:[],hasMore:false});});
 afterEach(async()=>{await act(async()=>root.unmount());vi.useRealTimers();});
@@ -116,13 +118,13 @@ it('checks the module grid cache before marking a beauty preload ready',async()=
  finish();await background;expect(preload.reader.get('customer')).toBe(true);
 });
 
-it('preloads active and historical plan blocks without waiting for unrelated music workspaces',async()=>{
+it('prioritizes the visible active plans without reading collapsed history, periods or payments',async()=>{
  m.cards.mockImplementation(async(args:{history:boolean})=>({success:true,rows:[{id:args.history?'historical':'active',unit:'SESSION'}],hasMore:false}));
  m.progress.mockResolvedValue({success:true,data:{available:true,total:10,completed:[],voided:[],shared:false}});
  await render({music:true,canReadCards:true,canReadBookings:true,canReadTransactions:true,storeId:'store-A'});
  await preload.visibleReader.read('student');expect(preload.visibleReader.get('student')).toBe(true);
- expect(m.cards.mock.calls.map(call=>call[0].history)).toEqual([false,true]);expect(m.progress.mock.calls.map(call=>call[0].cardId)).toEqual(['active','historical']);
- expect(m.overview).not.toHaveBeenCalled();expect(m.periods).not.toHaveBeenCalled();expect(m.orders).not.toHaveBeenCalled();
+ expect(m.cards.mock.calls.map(call=>call[0].history)).toEqual([false]);expect(m.progress.mock.calls.map(call=>call[0].cardId)).toEqual(['active']);
+ expect(m.overview).toHaveBeenCalledExactlyOnceWith('student',false);expect(m.periods).not.toHaveBeenCalled();expect(m.orders).not.toHaveBeenCalled();
 });
 it('keeps a bounded dated-grid snapshot visible while an expired preload revalidates, but never across mutations',async()=>{
  vi.useFakeTimers();m.cards.mockResolvedValue({success:true,rows:[{id:'sessions',unit:'SESSION'}],hasMore:false});
@@ -132,4 +134,39 @@ it('keeps a bounded dated-grid snapshot visible while an expired preload revalid
  await render(options,true);expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(10);expect(host.textContent).not.toContain('讀取上課進度中');expect(m.progress).toHaveBeenCalledTimes(2);
  await act(async()=>invalidate());await render({...options,revision:1},true);expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(0);
  await act(async()=>finish({success:true,data:{available:true,total:10,completed:[],voided:[],shared:false}}));
+});
+
+it.each([false,true])('opens native customer grids from the bundled read without extra progress requests (music=%s)',async music=>{
+ const result={success:true,data:{available:true,total:8,completed:[],shared:false}};
+ m.cards.mockResolvedValue({success:true,rows:[{id:'sessions',unit:'SESSION'}],hasMore:false,progress:[{cardId:'sessions',result}]});
+ const options={music,canReadCards:true,canReadBookings:true,storeId:'store-A'};
+ await render(options);await act(async()=>preload.visibleReader.read('student'));
+ expect(m.cards).toHaveBeenCalledExactlyOnceWith({customerId:'student',dataScope:undefined,search:'',history:false,page:0},'store-A');
+ await render(options,true);
+ expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(8);
+ expect(host.textContent).not.toContain('讀取上課進度');expect(m.progress).not.toHaveBeenCalled();expect(m.cards).toHaveBeenCalledOnce();
+});
+it('does not reinstall bundled grids after a mutation invalidates an in-flight customer read',async()=>{
+ let finish!:(value:unknown)=>void;
+ m.cards.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ const options={canReadCards:true,canReadBookings:true,storeId:'store-A'};
+ await render(options);
+ // Read through the card port so the test isolates the bundle installation.
+ await render(options,true);
+ const reading=reader.read({customerId:'student',search:'',history:false,page:0});await Promise.resolve();
+ await act(async()=>invalidate());
+ finish({success:true,rows:[{id:'sessions',unit:'SESSION'}],hasMore:false,progress:[{cardId:'sessions',result:{success:true,data:{available:true,total:99,completed:[],shared:false}}}]});
+ await reading;
+ await render(options,false);await render(options,true);
+ expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(0);
+});
+
+it('preloads the sports next-booking block with the visible plans',async()=>{
+ await render({canReadCards:true,canReadBookings:true,storeId:'store-A'});
+ await preload.visibleReader.read('student');
+ expect(m.next).toHaveBeenCalledExactlyOnceWith('student',0,{mode:'upcoming'});
+ expect(preload.visibleReader.get('student')).toBe(true);
+ await render({canReadCards:true,canReadBookings:true,storeId:'store-A'},true);
+ expect(host.textContent).not.toContain('讀取下次預約');expect(m.next).toHaveBeenCalledOnce();
+ await act(async()=>invalidate());expect(preload.visibleReader.get('student')).toBe(false);
 });

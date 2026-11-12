@@ -18,13 +18,15 @@ vi.mock("@/server/actions/course-card-reservations",()=>({loadCourseCardReservat
 vi.mock("@/server/actions/course-browse",()=>({browseCourseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),searchCourseCustomers:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),loadCourseCustomerSearchIndex:vi.fn().mockResolvedValue({success:true,rows:[],complete:true})}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
 vi.mock("@/server/actions/course-checkout-status",()=>({getCourseCheckoutCashStatus:vi.fn().mockResolvedValue({success:true,status:"OPEN"})}));
-const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn(),courseAssign:vi.fn(),sportsSave:vi.fn(),browse:vi.fn(),management:vi.fn(),adjust:vi.fn(),replace:vi.fn()}));
+const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn(),courseAssign:vi.fn(),sportsSave:vi.fn(),browse:vi.fn(),management:vi.fn(),adjust:vi.fn(),replace:vi.fn(),order:vi.fn()}));
 vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh,replace:m.replace}),useSearchParams:()=>new URLSearchParams("customerId=person")}));
 vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({children,width,fitContent,maxHeight}:{children:unknown;width:number;fitContent:boolean;maxHeight?:number})=>createElement("aside",{"data-width":width,"data-max-height":maxHeight,"data-fit-content":String(fitContent)},children as never)}));
 vi.mock("@/components/customer-attribution-form",()=>({CustomerAttributionForm:()=>null}));
 vi.mock("@/server/actions/course-customer-attribution",()=>({saveCourseCustomerAttribution:vi.fn(),searchCourseReferrerCandidates:vi.fn()}));
 vi.mock("@/server/actions/course-members",()=>({saveCourseCustomer:m.save,saveCoursePointPlan:vi.fn(),assignCoursePointCard:m.courseAssign,setCourseCardMembers:vi.fn(),loadCourseCustomerBookings:vi.fn().mockResolvedValue({success:true,data:[],hasMore:false}),loadMusicJoinOptions:vi.fn().mockResolvedValue({success:true,options:[]})}));
 vi.mock("@/server/actions/course-purchase-intent",()=>({prepareCoursePurchaseIntent:vi.fn(),getCoursePurchaseIntent:vi.fn(),getPendingCoursePurchaseIntent:vi.fn(),cancelCoursePurchaseIntent:vi.fn(),acknowledgeCoursePurchaseIntent:vi.fn()}));
+vi.mock("@/server/actions/course-display-order",()=>({saveCourseDisplayOrder:m.order}));
+vi.mock("@/server/actions/music-student-workspace",()=>({loadMusicStudentWorkspace:vi.fn().mockResolvedValue({success:true,data:{balance:null,next:null,canReadBookings:true}})}));
 vi.mock("@/server/actions/course-staff",()=>({saveCourseStaff:vi.fn()}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-purchases",()=>({CourseCustomerPurchases:()=>null}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-bookings",()=>({CourseCustomerBookings:()=>null}));
@@ -261,4 +263,35 @@ it('uses the native module progress reader in the customer overview instead of t
  const source={cardProgress:progress,browseCards:vi.fn().mockResolvedValue({success:true,rows:[card],hasMore:false}),bookings:vi.fn().mockResolvedValue({success:true,data:[],hasMore:false}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,source,previewStoreId:'beauty-store'})));
  await vi.waitFor(()=>expect(host.textContent).toContain('美業完整方案格子')); expect(progress).toHaveBeenCalledWith(expect.objectContaining({id:'beauty-progress'}),expect.objectContaining({customerId:'person'}));
+});
+
+it('paginates active and inactive plans together, and expands all filtered rows for cross-page ordering',async()=>{
+ const plans=Array.from({length:22},(_,i)=>({id:`page-${i}`,name:`正式課程${String(i+1).padStart(2,'0')}`,points:4,price:3200,validDays:90,isActive:i<21,unit:'SESSION',templateIds:[]}));
+ m.order.mockResolvedValue({success:true,revision:1});
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,view:'plans',music:true,plans,people:[]})));
+ expect(host.querySelectorAll('[data-course-order="plan"]')).toHaveLength(20);
+ expect(host.textContent).not.toContain('下架方案');expect(host.textContent).toContain('共 22 筆');
+ await click('下一頁');expect(host.querySelectorAll('[data-course-order="plan"]')).toHaveLength(2);expect(host.textContent).toContain('下架方案');
+ await click('調整順序');expect(host.querySelectorAll('[data-course-order="plan"]')).toHaveLength(22);expect(host.querySelector('[aria-label="清單分頁"]')).toBeNull();
+ const handle=host.querySelector<HTMLButtonElement>('[data-row-id="page-20"] button')!;
+ await act(async()=>handle.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true,cancelable:true})));
+ expect(m.order).toHaveBeenCalledOnce();const ids=m.order.mock.calls[0][0].ids;expect(ids).toHaveLength(22);expect(ids.indexOf('page-20')).toBeLessThan(ids.indexOf('page-19'));
+ await click('完成排序');expect(host.textContent).toContain('第 2／2 頁');expect(host.querySelectorAll('[data-course-order="plan"]')).toHaveLength(2);
+});
+it('allows ordering within a search and preserves hidden plan identities',async()=>{
+ const plans=['指定甲','隱藏中間','指定乙'].map((name,i)=>({id:`filter-${i}`,name,points:4,price:3200,validDays:90,isActive:true,unit:'SESSION',templateIds:[]}));
+ m.order.mockResolvedValue({success:true,revision:1});
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,view:'plans',music:true,plans,people:[]})));
+ const search=host.querySelector<HTMLInputElement>('input[aria-label="搜尋"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(search,'指定');search.dispatchEvent(new Event('input',{bubbles:true}));});
+ expect(host.querySelectorAll('[data-course-order="plan"]')).toHaveLength(2);
+ await act(async()=>host.querySelector<HTMLButtonElement>('[data-row-id="filter-2"] button')!.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true,cancelable:true})));
+ expect(m.order).toHaveBeenCalledWith(expect.objectContaining({ids:['filter-2','filter-0','filter-1']}));
+});
+it.each([{scope:[]},{scope:['verified-item']}])('only asks to review an OPEN card when its resolved plan scope is absent (%j)',async({scope})=>{
+ const card={id:'open-card',name:'通用課卡',unit:'SESSION',remaining:19,held:0,available:19,expiresAt:'2027-05-09T15:59:59Z',members:[{id:'person',name:'測試學員'}],templateIds:[],openScopeTemplateIds:scope,sportsMode:'OPEN',entries:[],allowShared:false};
+ vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[card],hasMore:false} as never);
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,previewStoreId:'store',sportsNative:true,cards:[card] as never,initialCustomerId:'person',initialCardId:'open-card'})));
+ await vi.waitFor(()=>expect(document.body.textContent).not.toContain('讀取方案詳細資料中'));
+ expect(document.body.textContent?.includes('此已購方案科目待核對')).toBe(scope.length===0);
 });
