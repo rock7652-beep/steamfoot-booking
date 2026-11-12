@@ -46,7 +46,7 @@ export async function changeCompanionUsage(tx: Prisma.TransactionClient, actor: 
     return fail("此學員已有本堂預約，請先處理重複紀錄");
   const cardId = input.mode === "TRIAL" ? null : input.mode === "RESERVER" ? booking.reserverCardId : input.cardId;
   if (input.mode === "MEMBER" && (!customerId || !cardId)) return fail("請選擇學員與本人方案");
-  const card = cardId ? await tx.coursePointCard.findFirst({where: {id: cardId, storeId: actor.storeId}, include: {members: true}}) : null;
+  const card = cardId ? await tx.coursePointCard.findFirst({where: {id: cardId, storeId: actor.storeId}, include: {members: true,plan:{select:{chargeSettings:true,storeId:true,templateIds:true}}}}) : null;
   if (input.mode !== "TRIAL") {
     if (!card || card.closedAt || card.musicOpeningStateRequired || card.expiresAt === null || card.expiresAt < new Date() || card.expiresAt < booking.session.startsAt || card.termSessionIds.length)
       return fail("此方案無法使用本堂課");

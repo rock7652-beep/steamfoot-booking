@@ -90,7 +90,7 @@ export async function joinCourseWaitlist(
       }),
       tx.coursePointCard.findFirst({
         where: { id: input.cardId, storeId: actor.storeId },
-        include: { members: true, plan: {select: {allowShared: true}} },
+        include: { members: true, plan: {select: {allowShared: true,chargeSettings:true,storeId:true,templateIds:true}} },
       }),
       tx.$queryRaw<Array<{ id: string; name: string }>>`
         SELECT id,name FROM "Customer"

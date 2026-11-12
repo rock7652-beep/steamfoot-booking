@@ -1,3 +1,6 @@
+BEGIN;
+SET LOCAL lock_timeout='10s';
+SET LOCAL statement_timeout='60s';
 -- Freeze sold-card provider agreements before new catalog rules stop limiting staff.
 -- No prices, balances, qualifications, rate values or existing sessions are changed.
 ALTER TABLE "CoursePointCard" ADD COLUMN "chargeSettingsSnapshot" JSONB;
@@ -37,3 +40,5 @@ GROUP BY plan."storeId",fee."staffId"
 ON CONFLICT ("storeId","staffId") DO UPDATE
 SET "subjectRules"=EXCLUDED."subjectRules"||"CourseTeacherCompensationSetting"."subjectRules",
  revision="CourseTeacherCompensationSetting".revision+1,"updatedAt"=NOW();
+
+COMMIT;

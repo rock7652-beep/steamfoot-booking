@@ -1,0 +1,30 @@
+{
+  "synthetic": true,
+  "backend": false,
+  "integrated": true,
+  "checks": [
+    "remaining 20",
+    "available 18",
+    "explicit old OPEN scope warning"
+  ],
+  "results": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "overflow": false,
+      "screenshot": "/tmp/universal-card-combined-qa/desktop.png"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false,
+      "screenshot": "/tmp/universal-card-combined-qa/ipad-landscape.png"
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "screenshot": "/tmp/universal-card-combined-qa/ipad-portrait.png"
+    }
+  ]
+}

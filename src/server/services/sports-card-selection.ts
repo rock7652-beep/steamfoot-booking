@@ -25,7 +25,7 @@ export async function findSportsCard(tx: Prisma.TransactionClient, storeId: stri
   const cards = await tx.coursePointCard.findMany({
     where: { storeId, ...(explicitCardId ? { id: explicitCardId } : {}), closedAt: null,
       expiresAt: { gte: last }, members: { some: { customerId } } },
-    include: { plan:{select:{chargeSettings:true}},bookings: { where: { status: "RESERVED",...(excludeBookingId?{id:{not:excludeBookingId}}:{}) }, select: { pointCost: true } } },
+    include: { plan:{select:{chargeSettings:true,storeId:true,templateIds:true}},bookings: { where: { status: "RESERVED",...(excludeBookingId?{id:{not:excludeBookingId}}:{}) }, select: { pointCost: true } } },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
   const purchases=await tx.coursePurchase.findMany({where:{storeId,cardId:{in:cards.map(card=>card.id)},status:"CONFIRMED",voidedAt:null},select:{cardId:true,createdAt:true}});

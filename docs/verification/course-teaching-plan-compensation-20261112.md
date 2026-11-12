@@ -52,3 +52,11 @@ Migration 與既有程式相容，但新商品開始採 QUALIFIED 後，不能�
 
 
 後續介面調整：授課與計酬區分為「授課資格／方案計酬」兩頁；切換保持已勾項目、計酬編輯值與搜尋，沿用同一個儲存。兩頁均以 Chromium 1366×900、1024×768、768×1024 合成資料預覽驗證，輸出 qualifications／fees 共六張截圖；另有切換草稿及鍵盤焦點的元件回歸。使用者要求與另一對話的「學員清單堂數修正」同批上線；交接所列 patch／驗收檔在此工作區尚不存在，整合發布必須等待取得原內容，不以相同路徑或基底 commit 推測修改。
+
+## 通用卡交接合併與發布準備
+
+已整合使用者指定交接 patch（來源與 SHA256 見 `docs/qa/universal-card-roster-balance-20261112.md`），保留個別方案計酬與舊卡教師約定；舊 OPEN 卡適用項目依原方案明確勾選核對。合併後更新 C172／C173 說明及真正共用表單的三尺寸合成畫面。
+
+先前分支 Preview 阻擋屬歷史紀錄；本次經使用者同批發布指示，將精確分支納入既有隔離 allowlist，未放寬資料庫／來源限制。隔離 Supabase `ttworfzgwejdeolegkxl` 已安裝原子交易版 migration（SHA256 `6c11a30f461f92b49be311e5e358588cfddf4d0cd9a6fb0913f1ce78ca89262d`），安裝後 398 卡、缺少需回填快照 0、trigger 1、私有 invoker ACL 通過。正式庫尚未安裝。
+
+正式限定 Prisma 安裝與發布流程見 `docs/qa/course-provider-agreement-installation-20261112.md`。安裝 workflow 不自動執行，僅接受精確 main SHA、checksum 與明確 apply；不讀取敏感連線到本機、不外發通知。

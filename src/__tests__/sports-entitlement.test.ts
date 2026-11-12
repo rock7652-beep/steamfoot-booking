@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveSportsEntitlement, sportsEntitlementSnapshot, sportsBookingEnrollment } from "@/lib/sports-entitlement";
+import { resolveSportsEntitlement, sportsEntitlementSnapshot, sportsBookingEnrollment, sportsOpenPlanTemplateIds } from "@/lib/sports-entitlement";
 
 const lesson = { templateId: "course-a", subjectId: "yoga", pointCost: 3, enrollment: "ASSIGNED" as const, legacyPlanId: "old-package" };
 const card = { planId: "package-a", templateIds: ["old-template"], unit: "POINT", sportsMode: "ASSIGNED", sportsSubjectId: "yoga", sportsCost: 2 };
@@ -104,4 +104,35 @@ describe('explicit multi-subject scopes',()=>{
   expect(resolveSportsEntitlement({...universal,templateRestricted:true,templateIds:['original']},lesson).eligible).toBe(false);
   expect(resolveSportsEntitlement({...universal,unit:'SESSION',sportsCost:1},lesson)).toEqual({eligible:true,cost:1});
  });
+});
+
+const universalCharge = {kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['coach']};
+const universalCard = {
+  planId:'dance-20',storeId:'store',unit:'SESSION',sportsMode:'OPEN',sportsSubjectId:null,sportsCost:null,templateIds:[],
+  plan:{storeId:'store',templateIds:['regular-old','basic-old','special-old'],chargeSettings:universalCharge},
+};
+it.each(['ASSIGNED','OPEN'] as const)('uses the explicitly checked teaching items of an old universal card in %s lessons',enrollment=>{
+  const before=JSON.stringify(universalCard);
+  for(const templateId of universalCard.plan.templateIds){
+    expect(resolveSportsEntitlement(universalCard,{...lesson,templateId,enrollment,legacyPlanId:'trial-fee',pointCost:9})).toEqual({eligible:true,cost:1});
+    expect(resolveSportsEntitlement(universalCard,{...lesson,templateId:'new-version',enrollment,compatibleTemplateIds:[templateId]})).toEqual({eligible:true,cost:1});
+  }
+  expect(resolveSportsEntitlement(universalCard,{...lesson,templateId:'one-to-one',enrollment,compatibleTemplateIds:['one-to-one']})).toMatchObject({eligible:false,reason:'方案科目不符'});
+  expect(JSON.stringify(universalCard)).toBe(before);
+});
+it('keeps unconfigured, cross-store, point and invalid universal cards blocked',()=>{
+  for(const change of [
+    {plan:null}, {storeId:'foreign'}, {unit:'POINT'},
+    {plan:{...universalCard.plan,templateIds:[]}},
+    {plan:{...universalCard.plan,chargeSettings:null}},
+    {plan:{...universalCard.plan,chargeSettings:{...universalCharge,kind:'single'}}},
+  ])expect(resolveSportsEntitlement({...universalCard,...change},{...lesson,templateId:'special-old'})).toMatchObject({eligible:false});
+  expect(resolveSportsEntitlement({...universalCard,sportsCost:2},{...lesson,templateId:'special-old'})).toMatchObject({eligible:false});
+});
+it('projects only explicit universal scope for client eligibility and preserves assigned snapshots',()=>{
+  const openScopeTemplateIds=sportsOpenPlanTemplateIds(universalCard);
+  expect(openScopeTemplateIds).toEqual(universalCard.plan.templateIds);
+  expect(resolveSportsEntitlement({...universalCard,plan:null,openScopeTemplateIds},{...lesson,templateId:'special-old'})).toEqual({eligible:true,cost:1});
+  expect(sportsOpenPlanTemplateIds({...universalCard,sportsMode:'ASSIGNED'})).toEqual([]);
+  expect(resolveSportsEntitlement({...card,...{plan:universalCard.plan,storeId:'store'}},lesson)).toEqual({eligible:true,cost:2});
 });

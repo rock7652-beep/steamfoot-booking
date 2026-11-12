@@ -22,7 +22,7 @@ export async function readSportsRosterBalances(storeId:string,sessionId:string,c
  if(!session)return balances;
  const calendar=calendarCustomerIds?courseCalendarRead(reader,storeId,sessionId):undefined;
  const threshold=new Date(Math.max(Date.now(),session.startsAt.getTime()));
- const readCards=()=>reader.coursePointCard.findMany({...(reader===coursePrisma?{relationLoadStrategy:"join" as const}:{}),where:{storeId,closedAt:null,expiresAt:{gte:calendar?new Date():threshold},members:{some:{customerId:{in:calendar?[...new Set(calendarCustomerIds)]:ids}}}},include:{plan:{select:{chargeSettings:true}},members:{select:{customerId:true}},bookings:{where:{status:'RESERVED'},select:{pointCost:true}}},orderBy:[{expiresAt:'asc' as const},{id:'asc' as const}]});
+ const readCards=()=>reader.coursePointCard.findMany({...(reader===coursePrisma?{relationLoadStrategy:"join" as const}:{}),where:{storeId,closedAt:null,expiresAt:{gte:calendar?new Date():threshold},members:{some:{customerId:{in:calendar?[...new Set(calendarCustomerIds)]:ids}}}},include:{plan:{select:{chargeSettings:true,storeId:true,templateIds:true}},members:{select:{customerId:true}},bookings:{where:{status:'RESERVED'},select:{pointCost:true}}},orderBy:[{expiresAt:'asc' as const},{id:'asc' as const}]});
  const [rule,readRows,compatibleTemplateIds]=await Promise.all([
   readSportsSessionRule(reader,storeId,sessionId),
   calendar?calendar.once("sports-balance-cards",readCards):readCards(),
@@ -36,7 +36,6 @@ export async function readSportsRosterBalances(storeId:string,sessionId:string,c
  }));
  const cards=calendar?readRows.filter(card=>!!card.expiresAt&&card.expiresAt>=threshold&&card.members.some(member=>!!member.customerId&&ids.includes(member.customerId))):readRows;
  for(const card of cards){
-  if(card.sportsMode==='OPEN')for(const member of card.members)if(member.customerId&&ids.includes(member.customerId))reviewRequired.add(member.customerId);
   const charge=courseChargeSettings.safeParse(cardChargeSettings(card));
   if(cardChargeSettings(card)!=null&&(!charge.success||!courseChargeAllowsProvider(charge.data,session.coachId)))continue;
   if(card.termSessionIds.length&&!card.termSessionIds.includes(session.id))continue;
@@ -45,7 +44,7 @@ export async function readSportsRosterBalances(storeId:string,sessionId:string,c
    if(!member.customerId||!ids.includes(member.customerId))continue;
    const enrollment=enrollmentByCustomer.get(member.customerId)??null;
    const rights=resolveSportsEntitlement({...card,templateRestricted:card.requestKey.startsWith('no-show-makeup:')},{templateId:session.templateId,subjectId:session.template.musicSubjectId,pointCost:session.pointCost,enrollment,legacyPlanId:rule.planId,compatibleTemplateIds});
-   if(!rights.eligible)continue;
+   if(!rights.eligible){if(rights.reason.startsWith('方案科目待核對'))reviewRequired.add(member.customerId);continue;}
    const balance={id:card.id,remaining:card.remaining,available,cost:rights.cost,unit:card.unit,planName:card.nameSnapshot};
    entries.set(member.customerId,[...(entries.get(member.customerId)??[]),balance]);
   }

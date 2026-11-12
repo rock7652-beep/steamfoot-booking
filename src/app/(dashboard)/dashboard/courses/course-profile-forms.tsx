@@ -200,7 +200,7 @@ export function CoursePlanDraftForm({catalog:source,subjectLabel="教學項目",
     {profitEnabled&&<label>店家成本<input className={field} name="storeCost" type="number" min={0} required value={draft.values.storeCost} onChange={e=>draft.set('storeCost',e.target.value)}/></label>}
     {hasTrialSection&&<label>一般時間（分鐘）<input aria-label="一般上課時間" className={field} type="number" required min={5} max={480} value={draft.values.durationMinutes} onChange={e=>draft.set('durationMinutes',e.target.value)}/></label>}
     <div className={feeLayout.summary}><p>單位價格 <strong>NT$ {unitPrice.toLocaleString('zh-TW')}／{draft.values.unit==='POINT'?'點':'堂'}</strong></p>{profitEnabled&&<p>{music?"扣店家成本後金額（未扣教師費）":"預估利潤"} <strong className={estimatedProfit<0?'text-red-700':''}>NT$ {estimatedProfit.toLocaleString('zh-TW')}</strong></p>}</div>
-    <p className={feeLayout.full+' text-sm text-earth-500'}>{music?(nativeSingle?"單次收費，每次使用一堂。":"購買時選擇期數，堂數、金額與效期依期數計算。")+"修改僅影響新購買。":"修改僅影響新購買；下架保留既有額度。"}</p>
+    <p className={feeLayout.full+' text-sm text-earth-500'}>{music?(nativeSingle?"單次收費，每次使用一堂。":"購買時選擇期數，堂數、金額與效期依期數計算。")+"修改僅影響新購買。":source?"修改僅影響新購買；下架保留既有額度。":"金額、堂數與效期修改僅影響新購買；舊通用堂數卡依本收費勾選的教學項目使用。下架保留既有額度。"}</p>
    </section>
    {hasTrialSection&&<section className={feeLayout.pane} data-fee-section="trial" data-active={visibleFeeSection==="trial"} aria-label="體驗收費">
     <h3>體驗收費</h3>
@@ -330,7 +330,7 @@ export function CoursePlanDraftForm({catalog:source,subjectLabel="教學項目",
                 <details name="fitness-plan-sections" className="sm:col-span-2"><summary className="min-h-11 cursor-pointer border-t border-earth-100 py-2 text-sm">更多設定</summary><fieldset className="flex flex-wrap items-end gap-4"><legend className="sr-only">方案使用方式</legend>{profitEnabled&&<label className="block max-w-xs text-sm">店家成本<input className={field} name="storeCost" type="number" min="0" required value={draft.values.storeCost} onChange={e=>draft.set("storeCost",e.target.value)}/></label>}{profitEnabled&&<p><span className="text-earth-500">預估利潤</span><strong className={`ml-2 ${estimatedProfit<0?"text-red-700":"text-primary-800"}`}>NT$ {estimatedProfit.toLocaleString("zh-TW")}</strong></p>}</fieldset></details>
                 </>}
                 {!music&&<p className="sm:col-span-2 text-sm text-earth-500">
-                  修改僅影響新購買；下架保留既有額度。
+                  {source?"修改僅影響新購買；下架保留既有額度。":"金額、堂數與效期修改僅影響新購買；舊通用堂數卡依本收費勾選的教學項目使用。下架保留既有額度。"}
                 </p>}
               </>}</fieldset></form>;
 }

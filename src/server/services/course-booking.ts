@@ -280,7 +280,7 @@ export async function reserveCourseInTransaction(
     }),
     input.cardId ? tx.coursePointCard.findFirst({
       where: { id: input.cardId, storeId },
-      include: { members: true, musicOpeningState: { select: MUSIC_OPENING_SELECT }, plan: { select: { allowShared: true,chargeSettings:true } } },
+      include: { members: true, musicOpeningState: { select: MUSIC_OPENING_SELECT }, plan: { select: { allowShared: true,chargeSettings:true,storeId:true,templateIds:true } } },
     }) : Promise.resolve(null),
     tx.courseBookingRule.findUnique({ where: { storeId } }),
     input.customerId ? tx.$queryRaw<

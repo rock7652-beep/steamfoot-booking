@@ -18,3 +18,11 @@ it('scheduling picker includes legacy lesson packages by stored teaching item wi
  expect(sportsAssignedStudentSubjects('store',{...card,unit:'POINT'},templates)).toEqual([]);
  expect(sportsAssignedStudentSubjects('store',{...card,requestKey:'no-show-makeup:original'},templates)).toEqual([]);
 });
+it('includes only checked universal lesson-card items in the scheduling picker',async()=>{
+ const {sportsAssignedStudentSubjects}=await import('@/server/services/sports-teaching-templates');
+ const card={storeId:'store',sportsMode:'OPEN',unit:'SESSION',templateIds:[],sportsSubjectId:null,requestKey:'purchase',plan:{storeId:'store',templateIds:['regular','basic','special'],chargeSettings:{kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['coach']}}};
+ const templates=['regular','basic','special','one-to-one'].map(id=>({id,storeId:'store',musicSubjectId:id}));
+ expect(sportsAssignedStudentSubjects('store',card,templates)).toEqual(['regular','basic','special']);
+ expect(sportsAssignedStudentSubjects('other',card,templates)).toEqual([]);
+ expect(sportsAssignedStudentSubjects('store',{...card,unit:'POINT'},templates)).toEqual([]);
+});

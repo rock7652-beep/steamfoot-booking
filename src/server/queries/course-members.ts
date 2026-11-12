@@ -1,3 +1,4 @@
+import {sportsOpenPlanTemplateIds} from "@/lib/sports-entitlement";
 import {courseCustomerPhone} from "@/lib/course-customer-contact";
 import {calendarMonthReadActive} from "@/server/services/calendar-month-read-scope";
 import {courseCalendarRead} from '@/server/services/course-calendar-read-scope';
@@ -33,7 +34,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
     },
     include: {
       musicOpeningState: { select: MUSIC_OPENING_SELECT },
-      plan: { select: { allowShared: true } },
+      plan: { select: { allowShared: true,chargeSettings:true,storeId:true,templateIds:true } },
       members: true,
       bookings: { where: { status: "RESERVED" }, select: { pointCost: true } },
       entries: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: page && !page.entries ? 0 : 100 },
@@ -70,6 +71,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       musicValidityDays:c.musicValidityDays,
       musicActivatedAt:opening.kind === "OPENING" ? opening.record.activatedAt : c.musicActivatedAt?.toISOString()??null,
       templateIds: c.templateIds,
+      openScopeTemplateIds: sportsOpenPlanTemplateIds(c),
       termSessionIds:c.termSessionIds,
       allowShared: c.plan.allowShared,
       remaining: c.remaining,
