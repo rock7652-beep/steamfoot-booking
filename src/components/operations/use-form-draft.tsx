@@ -7,7 +7,7 @@ import { useRetainedState } from "./operation-scope";
 type Fields = Record<string, string | boolean>;
 type Draft<T> = { base: T; values: T; revision: string | null } | null;
 /** Call from a component keyed by form kind and record ID. No writes are replayed. */
-export function useFormDraft<T extends Fields>(key: string, initial: T, revision: string | null = null,options?:{reconcile:boolean;sameRevision:(left:string|null,right:string|null)=>boolean}) {
+export function useFormDraft<T extends Fields>(key: string, initial: T, revision: string | null = null,options?:{reconcile:boolean;sameRevision:(left:string|null,right:string|null)=>boolean;ignoreConflictKeys?:readonly string[]}) {
   const valid = useCallback((value: unknown): value is Draft<T> => {
     if (value === null) return true;
     if (!value || typeof value !== "object") return false;
@@ -18,10 +18,10 @@ export function useFormDraft<T extends Fields>(key: string, initial: T, revision
   }, [initial]);
   const [retainedDraft, setDraft] = useRetainedState<Draft<T>>(`form:${key}`, null, valid);
   const sameRevision=options?.sameRevision??Object.is;
+  const conflicts=(saved:Exclude<Draft<T>,null>)=>Object.keys(initial).filter(key=>!options?.ignoreConflictKeys?.includes(key)&&saved.values[key]!==saved.base[key]&&initial[key]!==saved.base[key]&&initial[key]!==saved.values[key]);
   function currentDraft(saved:Draft<T>):Draft<T>{
     if(!saved||!options?.reconcile||sameRevision(saved.revision,revision))return saved;
-    const conflicts=Object.keys(initial).some(key=>saved.values[key]!==saved.base[key]&&initial[key]!==saved.base[key]&&initial[key]!==saved.values[key]);
-    if(conflicts)return saved;
+    if(conflicts(saved).length)return saved;
     const merged=rebaseFormDraft(saved.base,saved.values,initial);
     return Object.keys(initial).every(key=>merged[key]===initial[key])?null:{base:initial,values:merged,revision};
   }
@@ -62,7 +62,7 @@ export function useFormDraft<T extends Fields>(key: string, initial: T, revision
     return true;
   }
   const reviewChanges=draft?Object.keys(draft.base).filter(key=>draft.values[key]!==draft.base[key]||initial[key]!==draft.base[key]).map(key=>({key,current:initial[key],value:draft.values[key],edited:draft.values[key]!==draft.base[key]})):[];
-  const conflictingFields=draft?Object.keys(initial).filter(key=>draft.values[key]!==draft.base[key]&&initial[key]!==draft.base[key]&&initial[key]!==draft.values[key]):[];
+  const conflictingFields=draft?conflicts(draft):[];
   return { values, set, setMany, rebase, reviewChanges, conflictingFields, dirty: !!draft, expectedRevision: draft?.revision ?? revision,
     stale: !!draft && !sameRevision(draft.revision,revision), clear: () => setDraft(null),
     // A save may finish while its row is filtered out. Clear only the exact
