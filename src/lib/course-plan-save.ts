@@ -34,7 +34,7 @@ export const coursePlanSaveInput=coursePlanValues.extend({expectedSnapshot:z.str
 /** Presentation metadata captured with a confirmed save; never accepted as write authority. */
 export const coursePlanCatalogTemplate=z.object({
  id,name:z.string(),category:z.string(),isActive:z.boolean(),durationMinutes:z.number().int(),
- musicSubjectId:id.nullable(),classType:z.string().nullable(),musicTeacherShare:z.number().nullable(),
+ musicSubjectId:musicSubjectRuleSchema.shape.subjectId.nullable(),classType:z.string().nullable(),musicTeacherShare:z.number().nullable(),
  musicPricePerLesson:z.number().nullable(),musicTermLessons:z.number().nullable(),musicValidityDaysPerTerm:z.number().nullable(),
  musicTrialMode:z.string().nullable(),musicScheduleMode:z.string().nullable(),
 });

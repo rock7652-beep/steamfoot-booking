@@ -27,4 +27,6 @@ it('keeps metadata through receipt parsing and strips it from write authority',(
  const receipt={id:'p',name:'新方案',points:4,price:2600,validDays:35,isActive:true,unit:'SESSION',templateIds:['new'],lowBalanceEnabled:false,lowBalanceThreshold:null,catalogTemplates:[template('new','B')]};
  expect(savedCoursePlan.parse(receipt).catalogTemplates?.[0].musicSubjectId).toBe('B');
  expect(coursePlanValues.parse(receipt)).not.toHaveProperty('catalogTemplates');
+ const legacySubjectId='s'.repeat(150);
+ expect(savedCoursePlan.parse({...receipt,catalogTemplates:[template('new',legacySubjectId)]}).catalogTemplates?.[0].musicSubjectId).toBe(legacySubjectId);
 });
