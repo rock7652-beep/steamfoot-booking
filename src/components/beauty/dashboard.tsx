@@ -157,8 +157,9 @@ export function BeautyDashboard({
   }
   async function rosterOperation(id:string,work:()=>ReturnType<typeof updateBeautyRosterAttendance>){
     if(mutationLock.current||pendingId||pending||syncNeeded)return;
+    window.dispatchEvent(new Event("customer-search-invalidated"));
     const scope=rosterSession;setInvalidatedRosterSnapshots(data.rosterSnapshots);mutationLock.current=true;setPendingId(id);setError('');
-    try{const result=await work();if(!result.success){setError(result.error);return;}acceptRosterRefresh(result.refresh,scope);if(result.refresh.success)toast.success('已更新預約狀態');}
+    try{const result=await work();if(!result.success){setError(result.error);return;}window.dispatchEvent(new Event("customer-search-invalidated"));acceptRosterRefresh(result.refresh,scope);if(result.refresh.success)toast.success('已更新預約狀態');}
     catch{setSyncNeeded(true);setError('操作結果尚未確認，請重新讀取核對，勿重複操作。');}
     finally{mutationLock.current=false;setPendingId(null);}
   }
@@ -168,12 +169,14 @@ export function BeautyDashboard({
   }
   function run(work: () => Promise<{ success: boolean; error?: string }>,afterSaved?:()=>void) {
     if (pending||mutationLock.current) return;
+    window.dispatchEvent(new Event("customer-search-invalidated"));
     mutationLock.current=true;
     start(async () => {
       setError("");
       try {
         const r = await work();
         if (r.success) {
+          window.dispatchEvent(new Event("customer-search-invalidated"));
           setMoneyPanel(null);
           if(afterSaved)afterSaved();else router.refresh();
         } else setError(r.error ?? "操作失敗");

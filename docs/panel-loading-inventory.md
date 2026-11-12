@@ -9,14 +9,16 @@
 | 運動／舞蹈新增排課 | sports-schedule-options → scoped GET → loadSportsStaging(true, true) | 先用已授權課表的教學項目／老師／教室顯示表單，不預載整店卡片或餘額；選項以 keyed panel reader 15 秒短暫預讀／在途去重。最新選項成功前禁止提交及新增顧客，回讀不覆蓋已填時段；錯誤原視窗重試。外部模組已有 props 則直接使用。提交仍核對當下權限、設定、衝突及額度 |
 | 音樂／運動／美業上課或預約名單 | 當前課表範圍預先完成完整名單 → 同權限工作區資料 | 依使用者要求，進入課表及換月份時先完成全範圍明細，不把點擊作為正常首次讀取起點；開窗直接初始化完整名單、付款／用量／餘額／候補與教師狀態。無全域或持久化財務快取；帳號／店別／權限範圍隔離。異動開始作廢課表持有資料，完成後重讀；所有提交仍做即時後端授權、版本與額度檢查。讀取失敗不得將不完整資料標為準備完成，合法舊入口保留獨立 TTL 0 reader 與錯誤處理 |
 | 音樂學員課程／逐期紀錄 | music-periods → music-period-read GET | 獨立讀取且no-store，沿用逐期資格、customer.read及booking.read／wallet.read檢查；只讀取原紀錄，取消／補課／更正保留原action；Date欄位在傳輸後還原，關閉與換學員晚到隔離 |
-| 原生運動顧客持有方案 | course-card-browse → scoped card-read GET | 共用 panel reader、方案清單 TTL 15 秒（方案詳情維持 TTL 0）及關閉／換人晚到隔離；清單當頁顧客於閒置時以兩位併發預讀，姓名 pointer／focus／touch intent 優先預讀，同鍵在途共用；具上課紀錄權限時，card-read 一併讀取當頁日期格，先安裝同門市／學員的進度快取才提供方案列，避免開窗後逐卡再請求；總覽下次預約／音樂概況同步預讀，歷史方案與其他分頁保持按需載入；購課／扣堂後一併失效，舊讀取不得重新安裝進度；首頁未篩選時，以同一份全量權威卡投影算合計、只回傳20列，歷史／搜尋／換頁仍獨立查全量合計；原服務兩項權限與可見範圍不變 |
-| 運動／音樂名單內學員方案 | course-roster-customer → 原有各授權查詢並行 | 同一次讀取先核對本店課次／學員／綁定課卡，再並行取得學員視窗、課卡、日期格；首次快照直接呈現，不連續另發課卡／進度請求；重開、重試、修訂重新讀取。沿用各原生 loader 權限、TTL 0 與晚到隔離，不以快照授權交易 |
+| 原生運動顧客持有方案 | course-card-browse → scoped card-read GET | 共用 panel reader、方案清單 TTL 15 秒（原生方案詳情展示共用 15 秒 reader，交易表單仍強制權威讀取）及關閉／換人晚到隔離；清單當頁顧客於閒置時以兩位併發預讀，姓名 pointer／focus／touch intent 優先預讀，同鍵在途共用；具上課紀錄權限時，card-read 一併讀取當頁日期格，先安裝同門市／學員的進度快取才提供方案列，避免開窗後逐卡再請求；總覽下次預約／音樂概況同步預讀，歷史方案與其他分頁保持按需載入；購課／扣堂後一併失效，舊讀取不得重新安裝進度；首頁未篩選時，以同一份全量權威卡投影算合計、只回傳20列，歷史／搜尋／換頁仍獨立查全量合計；原服務兩項權限與可見範圍不變 |
+| 運動／音樂名單內學員方案 | course-roster-customer → 原有各授權查詢並行 | 同一次讀取先核對本店課次／學員／綁定課卡，再並行取得學員視窗、課卡、日期格；名單前 5 位學員於閒置時以 2 併發預讀，方案 pointer／focus／touch intent 可優先準備；同一個 scoped GET／15 秒展示快照供點擊直接使用，不連續另發課卡／進度請求；失效、重試、修訂重新讀取。沿用各原生 loader 權限與晚到隔離，不以快照授權交易 |
 | 運動／音樂名單原地繳費 | course-purchase-options → scoped GET → 共用購課選項服務 | 獨立於 Server Action 操作佇列，panel reader TTL 0、同門市預約／購課與收款權限重新核對；關閉／切課晚到隔離，成功購買仍由權威名單重讀，不把選項當餘額 |
 | 美業核對收款／恢復狀態 | beauty-service-collection → collection-read POST → 原 quote／intent read | 名單隨同權限資料帶入完整收費摘要，付款方式立即可選；同一視窗直接採用已授權名單的完整報價；背景 panel reader TTL 0 核對，報價變動或錯誤即阻擋，既有未確認收款請求仍須先恢復核對。純讀取使用 READ ONLY／RepeatableRead，不排入 Store 寫入鎖；送出仍依版本、已收款及原請求核對。唯讀 HTTP 避免 Next Action layout 回傳，仍逐次核對店家／權限／功能／對象；寫入保留原 action。班表座標不作工作區重掛載識別，明確切換對象仍關閉舊財務視窗，晚到讀取不得回填 |
 | 預約詳情 | booking-detail-cache → client-read-cache | 先摘要／有限舊值，每次 authoritative revalidate；修改後失效 |
 | 蒸足新增／補課 | steam-booking-form | intent 在途預讀、TTL 0 完整表單（包含名額），提交後失效；切換日期亦讀取最新名額 |
 | 美業公開體驗日期與時段 | 第一頁確認服務與聯絡資料，第二頁點日期自動讀取時段；營業及特殊公休由已授權店家 catalog 投影為公開開放狀態，公休淡化不可選，不以滿額當公休。選日／返回取消舊讀取世代，失敗保留資料原頁重試；第三頁才核對到店與提醒資訊，送出仍沿用原後端資格、衝突與原請求檢查 |
 | 體驗新增 | trial-booking-form、steam-day-slots | 表單 intent 預讀；時段 TTL 0，日期／關閉世代保護 |
+| 蒸足預約內顧客 | steamfoot-customer-context → scoped customers/panel-read GET → 原 getCustomerPanelContext | 預約詳情開啟後以 2 併發準備前 5 位及 intent；同 booking／slots 修訂的 15 秒展示資料供 inline 直接使用，摘要與方案日期格同份回應；HTTP 日期還原，重試／修改失效，原權限與交易檢查不變 |
+| 美業原生顧客／方案 | module-card-browse／module-card／beauty-card-progress／module-customer-support | 名單與顧客工作區共用真實同店 reader，前 5 份完整詳情 2 併發，15 秒展示與有界舊快照；姓名 intent、操作開始／完成及修訂清除；會員與 LINE 支援只預讀已授權顯示資料，不授權交易或身分綁定 |
 | 一般顧客 | customer-detail | 清單姓名／電話／同門市標籤直接顯示，intent 預讀、15 秒快取；頁面 rows／pathname 修訂隔離、修改後失效，現有 request gate；摘要無寫入操作 |
 | SPA 顧客列表 | spa-customer-profile | 15 秒 bounded 快取，server rows 修訂及修改 callback 失效 |
 | SPA 查看顧客 | spa-customer-drawer | intent 預讀僅去重在途讀取，完成後再開取得最新；修改 callback 重讀與列表 refresh |

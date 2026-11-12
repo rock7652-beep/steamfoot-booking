@@ -15,8 +15,8 @@ vi.mock("@/app/(dashboard)/dashboard/customers/[id]/points-section", () => ({ Po
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/referral-wrapper", () => ({ ReferralWrapper: () => null }));
 import { useCardDetail } from "@/app/(dashboard)/dashboard/courses/use-card-detail";
 import { GrowthCustomerDrawer } from "@/app/(dashboard)/dashboard/growth/_components/customer-drawer";
-import { PanelReadProvider, usePanelReader } from "@/components/operations/panel-read-cache";
-import { browseCourseCards } from "@/server/actions/course-browse";
+import { PanelReadProvider } from "@/components/operations/panel-read-cache";
+import {useCourseCardDetailReader} from "@/components/admin/use-course-card-detail-reader";
 import { CourseCardBrowser } from "@/app/(dashboard)/dashboard/courses/card-browser";
 let host: HTMLDivElement, root: Root;
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r; }); return { resolve, promise }; }
@@ -24,7 +24,7 @@ function card(id: string) { return { success: true, rows: [{ id, name: `fresh-${
 function growth(id: string) { return { customer: { id, name: `name-${id}`, talentStage: "CUSTOMER", customerStage: "ACTIVE", phone: "", totalPoints: 0, sponsor: null }, referralCount: 0 }; }
 function CardHarness({ id, open = true, opening = 1 }: { id: string; open?: boolean; opening?: number }) {
   const detail = useCardDetail(open, id, opening);
-  const reader = usePanelReader("course-card", browseCourseCards);
+  const reader = useCourseCardDetailReader();
   return React.createElement(React.Fragment, null,
     React.createElement("button", {onPointerEnter: () => reader.prefetch({cardId:id}), onFocus: () => reader.prefetch({cardId:id}), onTouchStart: () => reader.prefetch({cardId:id})}, "intent"),
     open && React.createElement("div", null, detail.loading ? "loading" : detail.error ?? detail.data?.name,
@@ -39,7 +39,7 @@ async function renderGrowth(id: string, open = true) {
 async function click(text: string) { await act(async () => { Array.from(host.querySelectorAll("button")).find(b => b.textContent === text)!.click(); }); }
 beforeEach(() => { vi.resetAllMocks(); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); host = document.createElement("div"); root = createRoot(host); m.card.mockImplementation(async ({ cardId }) => card(cardId)); m.growth.mockImplementation(async id => growth(id)); });
 afterEach(async () => { await act(async () => root.unmount()); });
-it.each(["pointerover", "focusin", "touchstart"])("course %s preload shares in-flight read and reopen gets fresh data", async event => {
+it.each(["pointerover", "focusin", "touchstart"])("course %s preload shares in-flight read and reopen retains its fresh snapshot", async event => {
   const pending = deferred<ReturnType<typeof card>>(); m.card.mockReturnValueOnce(pending.promise);
   await renderCard("a", false);
   expect(m.card).not.toHaveBeenCalled();
@@ -49,7 +49,7 @@ it.each(["pointerover", "focusin", "touchstart"])("course %s preload shares in-f
   await act(async () => pending.resolve(card("a")));
   expect(host.textContent).toContain("fresh-a");
   await renderCard("a", false); await renderCard("a", true, 2);
-  expect(m.card).toHaveBeenCalledTimes(2);
+  expect(m.card).toHaveBeenCalledTimes(1);
 });
 it("course retries a rejection and ignores a late retry after switching cards", async () => {
   m.card.mockRejectedValueOnce(new Error("offline")); await renderCard("a");

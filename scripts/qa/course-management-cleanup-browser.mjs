@@ -68,10 +68,36 @@ try{
   page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/*',async route=>{
    const url=route.request().url();if(!url.startsWith(origin))return route.abort();
+   if(url.includes('/dashboard/customers/panel-read?')){
+    const wallet={id:'wallet',storeId:'synthetic',status:'ACTIVE',plan:{id:'plan',name:'蒸足合成十堂方案',sessionCount:10},purchasedPrice:8000,totalSessions:10,remainingSessions:9,expiryDate:'2027-02-01T00:00:00Z',startDate:'2026-11-01T00:00:00Z',createdAt:'2026-11-01T00:00:00Z',sessions:[],usageProgress:{available:true,total:10,completed:[{id:'lesson',date:'2026-11-12T08:00:00Z'}],voided:[]}};
+    return route.fulfill({json:{success:true,data:{customer:{id:'student',storeId:'synthetic',name:'蒸足合成學員',phone:'0900000000',lineUserId:null,lineLinkStatus:'UNLINKED',authSource:'MANUAL',customerStage:'ACTIVE',canReadWallets:true,canReadBookings:true,canAssignPlan:false,canBook:false,canAdjustWallet:false,planWallets:[wallet],_count:{planWallets:1,sponsoredCustomers:0,bookings:1},createdAt:'2026-11-01T00:00:00Z',updatedAt:'2026-11-01T00:00:00Z',recentConsumption:null,recentBookings:[],sponsor:null},initialSummary:{next:null,pending:[],healthEnabled:false,health:null,canConfirm:false},plans:[],staffOptions:[],canDiscount:false,canAssign:false,canEditNote:false,readOnly:true}}});
+   }
+   if(url.includes('/dashboard/courses/roster-customer-read?')){
+    const card={id:'card',name:'完整合成十堂方案',unit:'SESSION',remaining:9,available:9,held:0,closed:false,expired:false,expiresAt:'2027-02-01T00:00:00Z',members:[{id:'student',name:'合成學員'}],templateIds:[],entries:[],sessionAdjustments:[]};
+    const props={previewStoreId:'synthetic',view:'customers',initialCustomerId:'student',music:true,sportsNative:true,templates:[],people:[{id:'student',name:'合成學員',phone:'0900000000',email:null,birthday:'',notes:null}],customerRows:[],plans:[],cards:[],canEdit:false,canCreate:false,canManageStaff:false,canAssign:false,canReadBookings:true,canReadTransactions:false,healthEnabled:false,canReadCards:true,assignmentStaff:[],canAssignManager:false,initialCardRead:{card,progress:{success:true,data:{available:true,total:10,completed:[{id:'lesson',date:'2026-11-12T08:00:00Z',customerName:'合成學員'}],voided:[],shared:false,canReadPrice:false,purchasePrice:null,purchasedAt:null}}}};
+    return route.fulfill({json:{success:true,data:{storeId:'synthetic',recoveryEnabled:false,labelSnapshot:{available:true,enabled:false,canEdit:false,canManage:false,categories:[],labels:[],assignments:{}},workspaceProps:props}}});
+   }
    if(url.includes('/dashboard/courses/staff-teaching-read?'))return route.fulfill({json:{success:true,version:'2026-11-12T00:00:00Z',qualificationIds:['template'],fees:[],defaults:[],musicSettings:{defaultRatio:null,subjectRules:{},revision:0}}});
    return route.continue();
   });
-  await page.goto(origin+'/?kind=management');
+  await page.goto(origin+'/s/synthetic/admin/dashboard/courses?kind=management');
+  await page.getByRole('button',{name:'蒸足方案預覽',exact:true}).click();
+  let steamReads=0;page.on('request',request=>{if(request.url().includes('/customers/panel-read?'))steamReads++;});
+  await page.getByRole('button',{name:'預讀蒸足顧客',exact:true}).click();await page.getByRole('button',{name:'蒸足資料已備齊',exact:true}).waitFor();
+  await page.getByRole('button',{name:'點開蒸足方案',exact:true}).click();await page.locator('[data-lesson-slot]').first().waitFor();
+  assert.equal(steamReads,1);assert.equal(await page.locator('[data-lesson-slot]').count(),10);assert.equal(await page.getByText('讀取顧客資料中…').count(),0);
+  await page.screenshot({path:path.join(out,`steam-detail-${width}x${height}.png`)});
+  await page.getByRole('button',{name:'← 返回預約',exact:true}).click();
+  await page.getByRole('button',{name:'名單方案預覽',exact:true}).click();
+  let rosterReads=0;page.on('request',request=>{if(request.url().includes('/roster-customer-read?'))rosterReads++;});
+  await page.getByRole('button',{name:'預讀名單方案',exact:true}).click();await page.getByRole('button',{name:'名單方案已備齊',exact:true}).waitFor();
+  await page.getByRole('button',{name:'點開名單方案',exact:true}).click();
+  await page.locator('[data-lesson-slot]').first().waitFor();
+  assert.equal(rosterReads,1);assert.equal(await page.locator('[data-lesson-slot]').count(),10);
+  assert.equal(await page.getByText(/讀取學員資料中|讀取方案詳細資料中|讀取上課進度中/).count(),0);
+  await page.screenshot({path:path.join(out,`roster-detail-${width}x${height}.png`)});
+  await page.getByRole('button',{name:'關閉',exact:true}).click();
+  await page.getByRole('button',{name:'收費方式預覽',exact:true}).click();
   await page.locator('[data-course-order="plan"]').first().waitFor();
   assert.equal(await page.locator('[data-course-order="plan"]').count(),20);
   assert.equal(await page.getByText('下架方案',{exact:false}).count(),0);

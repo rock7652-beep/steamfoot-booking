@@ -123,7 +123,7 @@ it('prioritizes the visible active plans without reading collapsed history, peri
  m.progress.mockResolvedValue({success:true,data:{available:true,total:10,completed:[],voided:[],shared:false}});
  await render({music:true,canReadCards:true,canReadBookings:true,canReadTransactions:true,storeId:'store-A'});
  await preload.visibleReader.read('student');expect(preload.visibleReader.get('student')).toBe(true);
- expect(m.cards.mock.calls.map(call=>call[0].history)).toEqual([false]);expect(m.progress.mock.calls.map(call=>call[0].cardId)).toEqual(['active']);
+ expect(m.cards.mock.calls.filter(call=>call[0].customerId).map(call=>call[0].history)).toEqual([false]);expect(m.progress.mock.calls.map(call=>call[0].cardId)).toEqual(['active']);
  expect(m.overview).toHaveBeenCalledExactlyOnceWith('student',false);expect(m.periods).not.toHaveBeenCalled();expect(m.orders).not.toHaveBeenCalled();
 });
 it('keeps a bounded dated-grid snapshot visible while an expired preload revalidates, but never across mutations',async()=>{
@@ -141,10 +141,11 @@ it.each([false,true])('opens native customer grids from the bundled read without
  m.cards.mockResolvedValue({success:true,rows:[{id:'sessions',unit:'SESSION'}],hasMore:false,progress:[{cardId:'sessions',result}]});
  const options={music,canReadCards:true,canReadBookings:true,storeId:'store-A'};
  await render(options);await act(async()=>preload.visibleReader.read('student'));
- expect(m.cards).toHaveBeenCalledExactlyOnceWith({customerId:'student',dataScope:undefined,search:'',history:false,page:0},'store-A');
+ expect(m.cards).toHaveBeenCalledWith({customerId:'student',dataScope:undefined,search:'',history:false,page:0},'store-A');
+ expect(m.cards).toHaveBeenCalledWith({cardId:'sessions',dataScope:undefined});
  await render(options,true);
  expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(8);
- expect(host.textContent).not.toContain('讀取上課進度');expect(m.progress).not.toHaveBeenCalled();expect(m.cards).toHaveBeenCalledOnce();
+ expect(host.textContent).not.toContain('讀取上課進度');expect(m.progress).not.toHaveBeenCalled();expect(m.cards).toHaveBeenCalledTimes(2);
 });
 it('does not reinstall bundled grids after a mutation invalidates an in-flight customer read',async()=>{
  let finish!:(value:unknown)=>void;
@@ -169,4 +170,19 @@ it('preloads the sports next-booking block with the visible plans',async()=>{
  await render({canReadCards:true,canReadBookings:true,storeId:'store-A'},true);
  expect(host.textContent).not.toContain('讀取下次預約');expect(m.next).toHaveBeenCalledOnce();
  await act(async()=>invalidate());expect(preload.visibleReader.get('student')).toBe(false);
+});
+it('prepares complete Beauty details through the same explicitly enabled source and store scope',async()=>{
+ const load=vi.fn().mockResolvedValue({success:true,rows:[{id:'beauty-card',unit:'SESSION'}],hasMore:false});
+ await render({load,storeId:'beauty-store',canReadCards:true,preloadCardDetails:true});
+ await preload.visibleReader.read('customer');
+ expect(load).toHaveBeenCalledWith({cardId:'beauty-card',dataScope:undefined});expect(load).toHaveBeenCalledTimes(2);
+ expect(preload.visibleReader.get('customer')).toBe(true);
+ await preload.visibleReader.read('customer');expect(load).toHaveBeenCalledTimes(2);
+});
+it('prepares visible source support even if a no-support reader was mounted first',async()=>{
+ const options={canReadCards:false,storeId:'same-store'};
+ await render(options);
+ const support=vi.fn().mockResolvedValue({success:true,data:{membership:{},advanced:{data:{}}}});
+ await render({...options,support} as unknown as Options);
+ await preload.visibleReader.read('customer');expect(support).toHaveBeenCalledOnce();expect(preload.visibleReader.get('customer')).toBe(true);
 });

@@ -1,4 +1,7 @@
 "use client";
+import {useCustomerPanelContextReader} from "@/components/admin/use-customer-panel-context-reader";
+import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
+import {useMemo} from "react";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import { readBookingDetail as fetchBookingDetail, updateBookingStatus, markBookingNoShow, collectBookingTrialPayment, correctBookingTrialCollection } from "@/lib/booking-client-transport";
 
@@ -996,6 +999,10 @@ function DrawerContent({
     checkoutToSingle,
     storedValue,
   } = payload;
+  const customerReadScope=JSON.stringify([booking.id,booking.bookingStatus,booking.customerPlanWallet?.remainingSessions,payload.trial,payload.single,payload.storedValue,payload.participantCheckout?.slots.map(slot=>[slot.customerId,slot.revision,slot.status])]);
+  const customerReader=useCustomerPanelContextReader(customerReadScope);
+  const customerPreload=useMemo(()=>({read:(id:string)=>customerReader.read(id),get:(id:string)=>customerReader.get(id)}),[customerReader]);
+  useIdleReadPreload({enabled:true,blocked:isActing||!!showCustomer,keys:[...new Set([booking.customer.id,...(payload.participantCheckout?.slots.flatMap(slot=>slot.customerId?[slot.customerId]:[])??[])])].slice(0,5),reader:customerPreload,startDelayMs:250,gapMs:0,concurrency:2});
   const visibleCustomer = openCustomerPlan ? booking.customer.id : showCustomer;
   const meta = bookingStatusMeta(
     booking.bookingStatus,
@@ -1049,13 +1056,13 @@ function DrawerContent({
                   : "—"
             }
           />
-          {<button type="button" onClick={() => setShowCustomer(booking.customer.id)} className="col-span-2 min-h-11 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700">顧客資料</button>}
+          {<button type="button" onPointerEnter={()=>customerReader.prefetch(booking.customer.id)} onFocus={()=>customerReader.prefetch(booking.customer.id)} onTouchStart={()=>customerReader.prefetch(booking.customer.id)} onClick={() => setShowCustomer(booking.customer.id)} className="col-span-2 min-h-11 rounded-lg border border-earth-200 px-3 text-sm font-medium text-primary-700">顧客資料</button>}
 
         </Section>
   );
   return (
     <>
-      {visibleCustomer && <CustomerInlineDetail labelledById="booking-drawer-title" key={visibleCustomer} customerId={visibleCustomer} focus={openCustomerPlan ? "plan" : customerFocus} readOnly={readOnly} onClose={onClose} onBack={() => { if (openCustomerPlan) onCustomerPlanBack(); else setShowCustomer(null); setCustomerFocus(undefined); }} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />}
+      {visibleCustomer && <CustomerInlineDetail readScope={customerReadScope} labelledById="booking-drawer-title" key={visibleCustomer} customerId={visibleCustomer} focus={openCustomerPlan ? "plan" : customerFocus} readOnly={readOnly} onClose={onClose} onBack={() => { if (openCustomerPlan) onCustomerPlanBack(); else setShowCustomer(null); setCustomerFocus(undefined); }} registerCloseGuard={registerCloseGuard} onUpdated={onParticipantsUpdated} />}
       <div hidden={!!visibleCustomer} className={visibleCustomer ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
       {/* Header */}
       <div className="flex items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">

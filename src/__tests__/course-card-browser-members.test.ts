@@ -112,6 +112,6 @@ it('expands history below the same active card and never replaces its grid',asyn
   await act(async()=>{[...host.querySelectorAll('button')].find(b=>b.textContent==='收合歷史方案')!.click();});
   expect(host.querySelector('[data-grid="Historical plan"]')).toBeNull();
   expect(host.querySelector('[data-grid="Active plan"]')).toBe(original);
-  expect(mocks.browse.mock.calls.filter(([input])=>!input.history)).toHaveLength(1);
+  expect(mocks.browse.mock.calls.filter(([input])=>!input.history&&!input.cardId)).toHaveLength(1);
  }finally{await act(async()=>root.unmount());host.remove();}
 });

@@ -23,5 +23,5 @@ export function useCustomerCardReader({load,revision=0,storeId='',canReadBooking
   }
   return result;
  },[storeId,canReadBookings,progress]);
- return usePanelReader(load?'module-card-browse':'course-card-browse',load??read,load?String(revision):JSON.stringify([revision,storeId,canReadBookings]),CUSTOMER_PLAN_PRELOAD_TTL);
+ return usePanelReader(load?'module-card-browse':'course-card-browse',load??read,load?(storeId?JSON.stringify([revision,storeId]):String(revision)):JSON.stringify([revision,storeId,canReadBookings]),CUSTOMER_PLAN_PRELOAD_TTL);
 }
