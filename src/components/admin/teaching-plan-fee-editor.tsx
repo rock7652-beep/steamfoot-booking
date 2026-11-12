@@ -1,5 +1,5 @@
 "use client";
-import {useState} from 'react';
+import {useId,useState} from 'react';
 import {MusicTeacherFeeEditor,type TeacherPlan,type TeacherFeeDraft} from './music-teacher-fee-editor';
 import {compensationLabel,coursePlanRuleKey,type TeachingPlanChoice} from '@/lib/course-plan-compensation';
 import type {MusicTeacherSettings} from '@/lib/music-teacher-settings';
@@ -7,13 +7,19 @@ import {teachingQualificationGroups} from '@/lib/teaching-qualification-groups';
 import {resolveMusicTeacherRule} from '@/lib/music-teacher-settings';
 const field='min-h-11 min-w-0 w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm';
 export function TeachingPlanFeeEditor({templates,plans,qualificationIds,settings,fees,onQualification,onSettings,qualificationReadOnly=false,readOnly=false,showFees=true}:{templates:TeacherPlan[];plans:TeachingPlanChoice[];qualificationIds:string[];settings:MusicTeacherSettings;fees:Record<string,TeacherFeeDraft>;onQualification:(id:string,selected:boolean)=>void;onSettings:(value:MusicTeacherSettings)=>void;qualificationReadOnly?:boolean;readOnly?:boolean;showFees?:boolean}){
+ const tabsId=useId();
+ const [pane,setPane]=useState<'qualifications'|'fees'>('qualifications');
+ const activePane=showFees?pane:'qualifications';
  const [search,setSearch]=useState(''),[editing,setEditing]=useState<string|null>(null);
  const groups=teachingQualificationGroups(templates).filter(group=>group.ids.some(id=>qualificationIds.includes(id)));
  const visiblePlans=plans.filter(plan=>plan.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
- return <div className="space-y-4">
+ return <div className="space-y-4" onInvalidCapture={event=>{const target=event.target as HTMLElement;const panel=target.closest<HTMLElement>('[data-teaching-pane]');if(panel){setPane(panel.dataset.teachingPane as 'qualifications'|'fees');requestAnimationFrame(()=>{target.focus({preventScroll:true});target.scrollIntoView?.({block:"nearest"});});}}}>
+  {showFees&&<nav role="tablist" aria-label="授課與計酬分頁" className="sticky top-0 z-10 grid grid-cols-2 gap-1 rounded-lg bg-earth-50 p-1">{([['qualifications','授課資格'],['fees','方案計酬']] as const).map(([id,label],index)=><button key={id} type="button" role="tab" id={`${tabsId}-${id}-tab`} aria-controls={`${tabsId}-${id}-panel`} aria-selected={activePane===id} tabIndex={activePane===id?0:-1} className={`min-h-11 rounded-md px-3 text-sm ${activePane===id?'bg-white font-medium text-primary-900 shadow-sm':'text-earth-600'}`} onClick={()=>setPane(id)} onKeyDown={event=>{const next=event.key==='ArrowRight'?(index+1)%2:event.key==='ArrowLeft'?(index+1)%2:event.key==='Home'?0:event.key==='End'?1:null;if(next===null)return;event.preventDefault();setPane(next===0?'qualifications':'fees');event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();}}>{label}</button>)}</nav>}
+  <section id={`${tabsId}-qualifications-panel`} role={showFees?'tabpanel':undefined} aria-labelledby={showFees?`${tabsId}-qualifications-tab`:undefined} data-teaching-pane="qualifications" hidden={activePane!=='qualifications'}>
   <MusicTeacherFeeEditor templates={templates} qualificationIds={qualificationIds} fees={{}} settings={settings} showFees={false} initiallyExpanded onFees={()=>{}} onSettings={()=>{}} onQualification={onQualification} qualificationReadOnly={qualificationReadOnly}/>
-  {showFees&&<section className="space-y-2"><h3 className="font-medium text-primary-900">各收費方案計酬</h3><input aria-label="搜尋收費方案" placeholder="搜尋收費方案" className={field} value={search} onChange={e=>setSearch(e.target.value)}/>
-   {!groups.length&&<p className="py-3 text-sm text-earth-500">先勾選可教授教學項目。</p>}
+  </section>
+  {showFees&&<section id={`${tabsId}-fees-panel`} role="tabpanel" aria-labelledby={`${tabsId}-fees-tab`} data-teaching-pane="fees" hidden={activePane!=='fees'} className="space-y-2"><h3 className="font-medium text-primary-900">各收費方案計酬</h3><input aria-label="搜尋收費方案" placeholder="搜尋收費方案" className={field} value={search} onChange={e=>setSearch(e.target.value)}/>
+   {!groups.length&&<p className="py-3 text-sm text-earth-500">先勾選可教授教學項目。<button type="button" className="min-h-11 px-3 text-primary-800" onClick={()=>setPane('qualifications')}>選擇授課資格</button></p>}
    {groups.map(group=><section key={group.key} className="overflow-hidden rounded-lg border border-earth-200"><h4 className="bg-earth-50 px-3 py-2 text-sm font-medium">{group.name}</h4>
     {visiblePlans.filter(plan=>plan.subjectIds.includes(group.key)).map(plan=>{
      const key=coursePlanRuleKey(plan.id),individual=settings.subjectRules[key];

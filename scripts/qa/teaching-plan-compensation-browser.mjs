@@ -49,6 +49,7 @@ try {
  await page.goto('http://synthetic.invalid/dashboard/teachers');await page.addStyleTag({path:path.join(output,'fixture.css')});await page.addScriptTag({path:path.join(output,'fixture.js')});
  await page.getByRole('button',{name:'全選全部教學項目'}).click();
  if(await page.getByRole('checkbox',{checked:true}).count()!==3)throw Error('ABC selection lost');
+ await page.getByRole('tab',{name:'方案計酬',exact:true}).click();
  if(await page.getByRole('button',{name:'修改',exact:true}).count()!==24)throw Error('Missing plan rows');
  await page.getByRole('button',{name:'修改',exact:true}).first().click();
  const mode=page.getByLabel('A1 長名稱合作方案・可依不同合作內容安排授課時間與每次固定費用計酬方式');
@@ -59,12 +60,23 @@ try {
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
   if(overflow)throw Error('Horizontal overflow '+width);
   if(await page.getByLabel('A1 長名稱合作方案・可依不同合作內容安排授課時間與每次固定費用計酬數值').inputValue()!=='600')throw Error('Draft lost on resize');
-  const screenshot=path.join(output,`teaching-fees-${width}.png`);await page.screenshot({path:screenshot,fullPage:false});results.push({width,height,overflow,screenshot});
+  const screenshot=path.join(output,`teaching-fees-${width}.png`);await page.screenshot({path:screenshot,fullPage:false});
+  await page.getByRole('tab',{name:'授課資格',exact:true}).click();
+  if(await page.getByRole('checkbox',{checked:true}).count()!==3)throw Error('Tab switch lost qualifications');
+  const qualificationsScreenshot=path.join(output,`teaching-qualifications-${width}.png`);await page.screenshot({path:qualificationsScreenshot,fullPage:false});
+  await page.getByRole('tab',{name:'方案計酬',exact:true}).click();
+  if(await page.getByLabel('A1 長名稱合作方案・可依不同合作內容安排授課時間與每次固定費用計酬數值').inputValue()!=='600')throw Error('Tab switch lost fee draft');
+  results.push({width,height,overflow,screenshot,qualificationsScreenshot});
  }
  await page.getByLabel('搜尋收費方案').fill('不存在');if(await page.getByRole('button',{name:'修改',exact:true}).count()!==0)throw Error('Search ignored');
  await page.getByLabel('搜尋收費方案').fill('');
  if(!await page.getByLabel('草稿資料').textContent().then(value=>value.includes('600')))throw Error('Search lost draft');
+ await page.getByLabel('A1 長名稱合作方案・可依不同合作內容安排授課時間與每次固定費用計酬數值').fill('');
+ await page.getByRole('tab',{name:'授課資格',exact:true}).click();
+ await page.getByLabel('A1 長名稱合作方案・可依不同合作內容安排授課時間與每次固定費用計酬數值').dispatchEvent('invalid');
+ await page.waitForFunction(()=>document.querySelector('[data-teaching-pane="fees"]').hidden===false);
+ await page.getByLabel('A1 長名稱合作方案・可依不同合作內容安排授課時間與每次固定費用計酬數值').fill('600');
  if(errors.length)throw Error(errors.join('; '));
- writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,backend:false,plans:24,checks:['ABC select all','24 fee plans','per-plan CLASS 600','resize preserves draft','search preserves draft'],results},null,2));
+ writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,backend:false,plans:24,checks:['ABC select all','24 fee plans','per-plan CLASS 600','resize preserves draft','tab switch preserves qualifications and fee drafts','search preserves draft','invalid hidden field opens its pane'],results},null,2));
  console.log(JSON.stringify({output,results,errors}));
 }finally{await browser?.close();}

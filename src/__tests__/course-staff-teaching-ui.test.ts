@@ -249,7 +249,7 @@ it("sports coach onboarding closes a confirmed new coach and updates only its st
 it("運動教練依收費方案調整比例或固定費用，清除後沿用項目預設",async()=>{
  m.read.mockResolvedValue({success:true,version:staff.updatedAt,qualificationIds:["y"],fees:[],musicSettings:{defaultRatio:null,subjectRules:{"plan:A1":{mode:"CLASS",value:600}},revision:4}});
  await act(async()=>root.render(createElement(CourseStaffWorkspace,{sportsNative:true,previewStoreId:"s",staff:[staff],maxStaff:10,templates:[{id:"y",name:"瑜珈",musicSubjectId:"A",subjectName:"瑜珈"}],teachingPlans:[{id:"A1",name:"瑜珈十堂",subjectIds:["A"],active:true,defaults:{A:{mode:"SHARE",value:60}}}],customers:[],canManage:true,feeEnabled:true,permissionGroups:[]})));
- await click("授課設定");await click("修改");
+ await click("授課設定");await click("方案計酬");await click("修改");
  const select=()=>document.body.querySelector('[aria-label="瑜珈十堂計酬方式"]') as HTMLSelectElement;
  expect(select().value).toBe("CLASS");
  await act(async()=>{select().value="SHARE";select().dispatchEvent(new Event("change",{bubbles:true}));});
