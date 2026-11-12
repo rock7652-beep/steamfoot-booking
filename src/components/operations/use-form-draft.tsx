@@ -1,4 +1,5 @@
 "use client";
+import {rebaseFormDraft} from "@/lib/form-draft-rebase";
 
 import { useCallback, useEffect, useRef } from "react";
 import { useRetainedState } from "./operation-scope";
@@ -39,17 +40,26 @@ export function useFormDraft<T extends Fields>(key: string, initial: T, revision
     setDraft(null);
     return true;
   }
-  return { values, set, setMany, dirty: !!draft, expectedRevision: draft?.revision ?? revision,
+  function rebase() {
+    if(busy.current||!draft)return false;
+    const merged=rebaseFormDraft(draft.base,draft.values,initial);
+    setDraft(Object.keys(initial).every(key=>merged[key]===initial[key])?null:{base:initial,values:merged,revision});
+    return true;
+  }
+  const reviewChanges=draft?Object.keys(draft.base).filter(key=>draft.values[key]!==draft.base[key]||initial[key]!==draft.base[key]).map(key=>({key,current:initial[key],value:draft.values[key],edited:draft.values[key]!==draft.base[key]})):[];
+  return { values, set, setMany, rebase, reviewChanges, dirty: !!draft, expectedRevision: draft?.revision ?? revision,
     stale: !!draft && draft.revision !== revision, clear: () => setDraft(null),
     // A save may finish while its row is filtered out. Clear only the exact
     // submitted draft in this scope; a subsequent edit creates a new object.
     clearSubmitted: () => setDraft(current => current === draft ? null : current),
     discard, busy, mounted };
 }
-export function FormDraftNotice({ dirty, stale, onDiscard }: { dirty: boolean; stale: boolean; onDiscard: () => void }) {
+export function FormDraftNotice({ dirty, stale, onDiscard, onRebase, changes=[], disabled=false }: { dirty: boolean; stale: boolean; onDiscard: () => void; onRebase?:()=>void; changes?:{label:string;current:string;value:string;edited?:boolean}[];disabled?:boolean }) {
   if (!dirty) return null;
-  return <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-amber-800" role="status">
-    <span>{stale ? "資料已有更新，你的輸入已保留，請先核對目前資料。" : "尚未儲存 · 已保留草稿"}</span>
-    <button type="button" className="min-h-11 underline" onClick={onDiscard}>捨棄草稿</button>
+  return <div className="space-y-2 text-sm text-amber-800" role="status">
+    <div className="flex flex-wrap items-center justify-between gap-2"><span>{stale ? "資料已有更新，你的輸入已保留，請先核對目前資料。" : "尚未儲存 · 已保留草稿"}</span>
+    <div className="flex flex-wrap gap-3"><button type="button" disabled={disabled} className="min-h-11 underline disabled:opacity-50" onClick={onDiscard}>{stale&&onRebase?"使用最新資料":"捨棄草稿"}</button>
+    {stale&&onRebase&&<button type="button" disabled={disabled} className="min-h-11 underline disabled:opacity-50" onClick={onRebase}>保留修改，重新確認</button>}</div></div>
+    {stale&&onRebase&&changes.length>0&&<details><summary className="min-h-11 cursor-pointer py-2">比較本次修改（{changes.length} 項）</summary><dl className="space-y-2 rounded-lg border border-amber-200 p-3">{changes.map(change=><div key={change.label} className="min-w-0 break-words"><dt className="font-medium">{change.label}</dt><dd>最新資料：{change.current||"未填"}</dd><dd>{change.edited===false?"原畫面值":"本次修改"}：{change.value||"未填"}</dd>{change.edited===false&&<dd>本欄未修改，重新確認時採用最新資料。</dd>}</div>)}</dl></details>}
   </div>;
 }

@@ -100,6 +100,12 @@ const database=()=>{if(!db)throw Error('Explicit test database required');return
   expect(saved.success).toBe(true);
   expect(await saveCoursePointPlan(input)).toEqual(saved);
  });
+ it('returns catalog metadata with the confirmed plan in the same transaction',async()=>{
+  const plan=await fixture();
+  const result=await saveCoursePointPlan(edit(plan,false));
+  expect(result).toMatchObject({success:true,data:{id:plan.id,catalogTemplates:[{id:'template',name:expect.any(String),durationMinutes:expect.any(Number)}]}});
+  if(result.success)expect(result.data?.catalogTemplates?.map(row=>row.id)).toEqual(plan.templateIds);
+ });
  it('still rejects genuine concurrent changes without overwriting price or purchase visibility',async()=>{
   const plan=await fixture(),input=edit(plan,false);
   await database().coursePointPlan.update({where:{id:plan.id},data:{price:6100}});
