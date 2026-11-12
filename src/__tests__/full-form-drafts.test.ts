@@ -59,26 +59,30 @@ it("keeps course selections and an empty numeric input through a remount",async(
 // Server actions are transport boundaries; keep these UI regressions isolated from auth/database loading.
 vi.mock("@/server/actions/sports-staging", () => ({ saveSportsFee: vi.fn(), sportsStagingCommand: vi.fn() }));
 
-it('explicitly reconciles a plan draft with newer values while retaining the chosen teaching item',async()=>{
+it('saves a selected teaching item directly while adopting newer unedited fields without a reconciliation workflow',async()=>{
  const templates=['A','B'].map(id=>({id:'t'+id,name:id,category:'',isActive:true,musicSubjectId:id,musicTermLessons:4,musicPricePerLesson:650,musicValidityDaysPerTerm:35}));
  const plan={id:'music-plan',name:'一對二',points:4,price:2600,validDays:35,isActive:true,unit:'SESSION',musicTerms:1,templateIds:['tA'],chargeSettings:{kind:'plan',durationMinutes:100,trialPrice:null,trialDuration:null,providerScope:'QUALIFIED',providerIds:[]}};
- const mount=async(price:number)=>act(async()=>root.render(React.createElement(OperationScope,{scope:'reconcile-plan'},React.createElement(CoursePlanDraftForm,{storeId:'store',plan:{...plan,price},music:true,subjects:[{id:'A',name:'團體班',category:'',isActive:true},{id:'B',name:'自組班',category:'',isActive:true}],templates,termSessions:[],profitEnabled:true,onPending:m.pending,onSaved:m.saved}))));
- await mount(2600);
- const select=host.querySelector<HTMLSelectElement>('[aria-label="教學項目"]')!;
- await act(async()=>{select.value='B';select.dispatchEvent(new Event('change',{bubbles:true}));});
- await mount(2800);
- expect(select.value).toBe('B');expect(host.textContent).toContain('資料已有更新');
- await submit();expect(m.plan).not.toHaveBeenCalled();expect(host.textContent).toContain('尚未儲存：請先核對');
- const keep=Array.from(host.querySelectorAll('button')).find(button=>button.textContent==='保留修改，重新確認')!;
- expect(host.textContent).toContain('本次修改：自組班');expect(host.textContent).toContain('最新資料：2800');expect(host.textContent).toContain('本欄未修改，重新確認時採用最新資料。');
- await act(async()=>keep.click());
- expect(select.value).toBe('B');expect(host.textContent).not.toContain('資料已有更新');expect(m.plan).not.toHaveBeenCalled();
- m.plan.mockResolvedValue({success:false,error:'synthetic validation only'});
- await submit();expect(m.plan).toHaveBeenCalledOnce();
+ const mount=async(price:number)=>act(async()=>root.render(React.createElement(OperationScope,{scope:'reconcile-plan'},React.createElement(CoursePlanDraftForm,{storeId:'store',plan:{...plan,price},music:true,musicTeachers:[{id:'teacherA',name:'老師',active:true,qualificationIds:['tA']},...(price===2600?[]:[{id:'newTeacherA',name:'新老師',active:true,qualificationIds:['tA']}])],subjects:[{id:'A',name:'團體班',category:'',isActive:true},{id:'B',name:'自組班',category:'',isActive:true}],templates,termSessions:[],profitEnabled:true,onPending:m.pending,onSaved:m.saved}))));
+ await mount(2600);const select=host.querySelector<HTMLSelectElement>('[aria-label="教學項目"]')!;
+ await act(async()=>{select.value='B';select.dispatchEvent(new Event('change',{bubbles:true}));});await mount(2800);
+ expect(select.value).toBe('B');expect(host.querySelector<HTMLInputElement>('[name="price"]')!.value).toBe('2800');
+ expect(host.textContent).not.toMatch(/保留修改|重新確認|資料已有更新|比較本次修改|計酬沿用|已售方案|教師依教學項目|購買時選擇期數/);
+ m.plan.mockResolvedValue({success:false,error:'synthetic validation only'});await submit();expect(m.plan).toHaveBeenCalledOnce();
  const sent=m.plan.mock.calls[0][0];expect(sent.musicSetup.subjectId).toBe('B');expect(sent.price).toBe(2800);expect(JSON.parse(sent.expectedSnapshot).price).toBe(2800);
+ await input('price','2900');await mount(3000);await submit();expect(m.plan).toHaveBeenCalledOnce();expect(host.textContent).toContain('金額已更新為 3000，請重新輸入。');expect(host.querySelector<HTMLInputElement>('[name="price"]')!.value).toBe('2900');
+ await input('price','2901');await submit();expect(m.plan).toHaveBeenCalledTimes(2);expect(JSON.parse(m.plan.mock.calls[1][0].expectedSnapshot).price).toBe(3000);
 });
 
-it('retries the identical uncertain request before allowing a stale plan to be reconciled',async()=>{
+it('does not block a retained edit for equivalent database and receipt JSON shapes',async()=>{
+ const plan={id:'json-order-plan',name:'方案',points:4,price:2600,validDays:35,isActive:true,unit:'SESSION',templateIds:[],chargeSettings:{kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['teacher']}};
+ const mount=async(latest:typeof plan&{musicTerms?:number|null})=>act(async()=>root.render(React.createElement(OperationScope,{scope:'json-order-plan'},React.createElement(CoursePlanDraftForm,{storeId:'store',plan:latest,templates:[],termSessions:[],profitEnabled:true,onPending:m.pending,onSaved:m.saved}))));
+ await mount(plan);await input('name','我的修改');
+ await mount({...plan,musicTerms:null,chargeSettings:{providerIds:['teacher'],trialDuration:null,trialPrice:null,durationMinutes:60,kind:'plan'}});
+ m.plan.mockResolvedValueOnce({success:false,error:'synthetic validation only'});
+ await submit();expect(m.plan).toHaveBeenCalledOnce();expect(m.plan.mock.calls[0][0].name).toBe('我的修改');expect(host.textContent).not.toContain('保留修改');
+});
+
+it('retries the identical uncertain request while newer props arrive',async()=>{
  const plan={id:'uncertain-plan',name:'原方案',points:4,price:2600,validDays:35,isActive:true,unit:'SESSION',templateIds:[]};
  const mount=async(price:number)=>act(async()=>root.render(React.createElement(OperationScope,{scope:'uncertain-plan'},React.createElement(CoursePlanDraftForm,{storeId:'store',plan:{...plan,price},templates:[],termSessions:[],profitEnabled:true,onPending:m.pending,onSaved:m.saved}))));
  await mount(2600);await input('name','我的修改');
@@ -86,10 +90,9 @@ it('retries the identical uncertain request before allowing a stale plan to be r
  await submit();expect(host.textContent).toContain('尚未確認儲存結果');
  const originalRequest=m.plan.mock.calls[0][0];
  await mount(2800);
- const keep=Array.from(host.querySelectorAll<HTMLButtonElement>('button')).find(button=>button.textContent==='保留修改，重新確認')!;
- expect(keep.disabled).toBe(true);
+ expect(host.textContent).not.toContain('保留修改，重新確認');
  m.plan.mockResolvedValueOnce({success:false,error:'方案已有更新'});
  await submit();expect(m.plan).toHaveBeenCalledTimes(2);expect(m.plan.mock.calls[1][0]).toEqual(originalRequest);
  expect(m.saved).not.toHaveBeenCalled();
- expect(Array.from(host.querySelectorAll<HTMLButtonElement>('button')).find(button=>button.textContent==='保留修改，重新確認')!.disabled).toBe(false);
+ expect(host.textContent).not.toContain('保留修改，重新確認');
 });

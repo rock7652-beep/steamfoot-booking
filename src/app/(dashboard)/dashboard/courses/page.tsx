@@ -51,6 +51,9 @@ export default async function CoursesPage({
   const routeUser = await getCurrentUser();
   if (!routeUser) redirect("/dashboard");
   const routeStoreId = await getActiveStoreForRead(routeUser);
+  // Retained links in another tab must not dispatch course-only child reads.
+  if (!routeStoreId || (await getStoreIndustryModule(routeStoreId)) !== "course")
+    redirect("/dashboard");
   if (routeStoreId) {
     const routeFeature = query.view === "customers" ? FEATURES.CUSTOMER_MANAGEMENT
       : query.view === "plans" ? FEATURES.PLAN_MANAGEMENT
@@ -72,8 +75,6 @@ export default async function CoursesPage({
   )
     redirect("/dashboard");
   const storeId = routeStoreId;
-  if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
-    redirect("/dashboard");
   // Native sports uses the existing schedule, catalog and fee interfaces.
   // View-only store contexts must never load writable forms or expand series.
   const viewContext = await resolveStoreViewContextFromCookie(user);

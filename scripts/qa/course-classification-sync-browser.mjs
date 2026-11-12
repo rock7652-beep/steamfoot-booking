@@ -8,7 +8,7 @@ import postcss from "postcss";
 import tailwind from "@tailwindcss/postcss";
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_PATH || "playwright");
-const root = process.cwd(), output = process.env.QA_OUTPUT_DIR || "/tmp/course-classification-sync-ui";
+const root = process.cwd(), output = process.env.QA_OUTPUT_DIR || "/tmp/course-fee-simple-ui";
 mkdirSync(output, { recursive: true });
 await build({
   entryPoints: ["scripts/qa/course-classification-sync-fixture.tsx"], bundle: true,
@@ -83,21 +83,18 @@ try{
  await page.evaluate(()=>window.qaUpdate('one-to-two'));
  await page.getByRole('button',{name:'吉他一對二$650',exact:true}).click();await page.locator('input[name="name"]').fill('一對二合作方案');
  await page.evaluate(()=>window.qaUpdate('one-to-two',2800));
- await page.getByRole('button',{name:'保留修改，重新確認',exact:true}).waitFor();
- await page.getByText(/比較本次修改/).click();assert(await page.getByText('最新資料：2800',{exact:true}).isVisible(),'Concurrent price change not disclosed');
+ assert(await page.locator('input[name="price"]').inputValue()==='2800','Unedited price did not follow current data');
+ assert(await page.getByRole('button',{name:'保留修改，重新確認',exact:true}).count()===0,'Reconciliation workflow remains');
+ assert(await page.getByText(/教師依教學項目|計酬沿用|購買時選擇期數|已售方案保留原約定/).count()===0,'Explanatory prose remains');
  for(const size of [{width:1366,height:900},{width:1024,height:768},{width:768,height:1024}]){
   await page.setViewportSize(size);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Horizontal overflow');
   assert(await page.locator('input[name="name"]').inputValue()==='一對二合作方案','Draft lost on resize');
-  await page.screenshot({path:path.join(output,`conflict-${size.width}.png`),fullPage:true});results.push({...size,overflow:false});
+  await page.screenshot({path:path.join(output,`fee-${size.width}.png`),fullPage:true});results.push({...size,overflow:false});
  }
- await page.getByRole('button',{name:'儲存',exact:true}).click();assert((await page.evaluate(()=>window.qaCalls.length))===2,'Stale draft was sent');
- await page.getByRole('button',{name:'保留修改，重新確認',exact:true}).click();
- assert(await page.locator('input[name="name"]').inputValue()==='一對二合作方案','Explicit rebase lost user edit');
- assert(await page.locator('input[name="price"]').inputValue()==='2800','Explicit rebase discarded a newer unedited price');
  await page.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('button',{name:'一對二合作方案',exact:true}).waitFor();
  assert((await group('一對二合作方案')).includes('吉他自組班'),'Reconciled save lost grouping');
  assert(await page.evaluate(()=>window.qaRefreshes)>0,'Production HQ save did not refresh metadata');
  if(errors.length)throw Error(errors.join('; '));
- writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,backend:false,results,checks:['new fee immediately classified','reopen retains item and 100 minutes','move A to C immediately','conflict blocks send','explicit keep preserves edit and adopts new price','production HQ refresh'],errors},null,2));
+ writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,backend:false,results,checks:['new fee immediately classified','reopen retains item and 100 minutes','move A to C immediately','no reconciliation actions or explanatory prose','save preserves edit and adopts newer unedited price','production HQ refresh'],errors},null,2));
  console.log(JSON.stringify({output,results,errors}));
 }finally{await browser.close();}

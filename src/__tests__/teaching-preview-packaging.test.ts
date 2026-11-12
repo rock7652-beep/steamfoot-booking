@@ -8,6 +8,7 @@ const valid={VERCEL:'1',VERCEL_ENV:'preview',VERCEL_PROJECT_ID:'prj_EAXZKpdoYgLc
 it('limits packaging to the exact isolated Preview build without changing production gates',()=>{
  expect(()=>assertTeachingPreviewPackaging(valid,'/vercel/path0')).not.toThrow();
  expect(()=>assertTeachingPreviewPackaging({...valid,VERCEL_GIT_COMMIT_REF:'fix/course-plan-classification-sync-20261112'},'/vercel/path0')).not.toThrow();
+ expect(()=>assertTeachingPreviewPackaging({...valid,VERCEL_GIT_COMMIT_REF:'fix/course-retained-store-route-20261112'},'/vercel/path0')).not.toThrow();
  for(const overrides of [{VERCEL_ENV:'production'},{VERCEL_GIT_COMMIT_REF:'main'},{VERCEL_PROJECT_ID:'other'},{VERCEL_GIT_REPO_SLUG:'other'},{WORKERS_CI_BRANCH:TEACHING_PREVIEW_BRANCH},{DATABASE_URL:direct.replace('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf')},{DIRECT_URL:direct+'?host=production.invalid'},{SUBSCRIPTION_REFERRAL_QA:'1'}])expect(()=>assertTeachingPreviewPackaging({...valid,...overrides},'/vercel/path0')).toThrow();
  expect(()=>assertTeachingPreviewPackaging(valid,'/workspace/steamfoot-booking')).toThrow();
 });

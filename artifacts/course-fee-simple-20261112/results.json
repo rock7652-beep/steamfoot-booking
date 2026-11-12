@@ -1,0 +1,30 @@
+{
+  "synthetic": true,
+  "backend": false,
+  "results": [
+    {
+      "width": 1366,
+      "height": 900,
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false
+    }
+  ],
+  "checks": [
+    "new fee immediately classified",
+    "reopen retains item and 100 minutes",
+    "move A to C immediately",
+    "no reconciliation actions or explanatory prose",
+    "save preserves edit and adopts newer unedited price",
+    "production HQ refresh"
+  ],
+  "errors": []
+}
