@@ -6,9 +6,13 @@ let db:PGlite;
 const selected={kind:'plan',durationMinutes:50,trialPrice:null,trialDuration:null,providerIds:['old-teacher']};
 beforeAll(async()=>{
  db=new PGlite();await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;
- CREATE TABLE "CoursePointPlan"(id text,"storeId" text,"chargeSettings" jsonb);
+ CREATE TABLE "CoursePointPlan"(id text,"storeId" text,"chargeSettings" jsonb,"templateIds" text[] DEFAULT ARRAY['tuition']);
+ CREATE TABLE "StoreFeatureEntitlement"("storeId" text,"featureKey" text,status text);INSERT INTO "StoreFeatureEntitlement" VALUES('s','business.music','ENABLED');
+ CREATE TABLE "Staff"(id text,"storeId" text);INSERT INTO "Staff" VALUES('teacher','s');
+ CREATE TABLE "CourseCompensation"("storeId" text,"templateId" text,"staffId" text,rules jsonb);INSERT INTO "CourseCompensation" VALUES('s','tuition','teacher','[{"mode":"SHARE","value":70}]');
+ CREATE TABLE "CourseTeacherCompensationSetting"("storeId" text,"staffId" text,"subjectRules" jsonb,revision int,"updatedAt" timestamptz,PRIMARY KEY("storeId","staffId"));
  CREATE TABLE "CoursePointCard"(id text,"storeId" text,"planId" text);
- INSERT INTO "CoursePointPlan" VALUES('p','s','${JSON.stringify(selected)}'),('p','other','{"providerIds":["foreign"]}');
+ INSERT INTO "CoursePointPlan"(id,"storeId","chargeSettings") VALUES('p','s','${JSON.stringify(selected)}'),('p','other','{"providerIds":["foreign"]}');
  INSERT INTO "CoursePointCard" VALUES('old','s','p'),('foreign','other','p');`);
  await db.exec(readFileSync(new URL('../../prisma/migrations/20261112071000_course_card_provider_agreement/migration.sql',import.meta.url),'utf8'));
 },30000);
@@ -32,4 +36,9 @@ it('refuses rewriting purchased provider agreements',async()=>{
 it('does not expose its capture function to public API roles',async()=>{
  const result=await db.query<{allowed:boolean}>("SELECT has_function_privilege('anon','course_card_capture_charge_settings()','EXECUTE') AS allowed");
  expect(result.rows[0].allowed).toBe(false);
+});
+
+it('preserves the existing teacher 70% as an independent per-plan agreement',async()=>{
+ expect((await db.query('SELECT "subjectRules" FROM "CourseTeacherCompensationSetting" WHERE "storeId"=$1 AND "staffId"=$2',['s','teacher'])).rows).toEqual([{subjectRules:{'plan:p':{mode:'SHARE',value:70}}}]);
+ expect((await db.query('SELECT rules FROM "CourseCompensation"')).rows).toEqual([{rules:[{mode:'SHARE',value:70}]}]);
 });

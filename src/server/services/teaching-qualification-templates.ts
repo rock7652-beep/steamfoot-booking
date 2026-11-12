@@ -13,7 +13,11 @@ export async function ensureQualificationTemplates(tx:Pick<Prisma.TransactionCli
  for(const subject of subjects){
   const id=sports?sportsTeachingTemplateId(storeId,subject.id):musicSubjectDefaultId(subject.id);
   if(!candidates.includes(id))continue;
-  await tx.$executeRaw`INSERT INTO "CourseTemplate" (id,"storeId",name,"musicSubjectId","durationMinutes","pointCost",capacity,"updatedAt")
-   VALUES (${id},${storeId},${`授課資格 · ${randomUUID()}`},${subject.id},${sports?60:50},1,500,NOW()) ON CONFLICT(id) DO NOTHING`;
+  await tx.$executeRaw`INSERT INTO "CourseTemplate" (id,"storeId",name,"musicSubjectId","durationMinutes","pointCost",capacity,"updatedAt",visibility,precautions,description,"musicScheduleMode")
+   SELECT ${id},${storeId},${`授課資格 · ${randomUUID()}`},${subject.id},COALESCE(prior."durationMinutes",${sports?60:50}),1,500,NOW(),COALESCE(prior.visibility,'PUBLIC'),COALESCE(prior.precautions,''),COALESCE(prior.description,''),prior."musicScheduleMode"
+   FROM (SELECT 1) anchor LEFT JOIN LATERAL (
+    SELECT "durationMinutes",visibility,precautions,description,"musicScheduleMode" FROM "CourseTemplate"
+    WHERE "storeId"=${storeId} AND "musicSubjectId"=${subject.id} ORDER BY "createdAt",id LIMIT 1
+   ) prior ON true ON CONFLICT(id) DO NOTHING`;
  }
 }

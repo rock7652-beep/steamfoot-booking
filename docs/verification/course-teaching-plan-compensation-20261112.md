@@ -17,7 +17,7 @@
 
 Migration：`20261112071000_course_card_provider_agreement`。
 
-1. 在正式發布授權後先安裝 migration：新增 `CoursePointCard.chargeSettingsSnapshot` 及 `(storeId,planId)` 索引；依同店商品回填既有約定；新增購買時由資料庫擷取約定。觸發器禁止改寫快照，使用 SECURITY INVOKER 並撤銷 PUBLIC／anon／authenticated 執行權。
+1. 在正式發布授權後先安裝 migration：新增 `CoursePointCard.chargeSettingsSnapshot` 及 `(storeId,planId)` 索引；依同店商品回填既有約定；新增購買時由資料庫擷取約定；將既有「人員 × 收費版本」個別費率原值複製至各方案鍵，保留現有方案個別設定，避免移類後遺失老師原本 70% 等約定。觸發器禁止改寫快照，使用 SECURITY INVOKER 並撤銷 PUBLIC／anon／authenticated 執行權。
 2. 查核欄位、索引、觸發器、同店回填數量及金額／餘額／課次沒有改動。正式站未執行這些步驟。
 3. 發布相應應用程式。正式建置 preflight 要求新增欄位存在；不能先部署使用新欄位的程式。
 4. 使用隔離的登入測試資料驗證資格、費用儲存重開、購買、排課、點名與計酬明細；不在正式站建立測試收款或通知。
@@ -46,3 +46,6 @@ Migration 與既有程式相容，但新商品開始採 QUALIFIED 後，不能�
 1180061f 的自動 Vercel Preview `dpl_8nGx39JHmBeG1Ja5p5iMvrisvVmV` 在既有 `Sports shared-card checkout requires its exact authorized Preview branch and repository metadata` 檢查停止。沒有套用 migration；未更動該分支限制或環境設定以繞過。Cloudflare Workers Builds 亦失敗，詳細紀錄尚未取得；不計為本次通過證據。桌機／iPad 證據目前限本機合成資料。
 
 首次完整 CI 查出舊人員名單與介面文字的預期，已按新操作規則更新回歸；正式交付以 PR 最新 SHA 的檢查狀態為準。運動共卡、混合排課及音樂補課的隔離 PostgreSQL workflows 已在 1180061f 通過，後續版本仍需核對各項 check。
+
+
+31176d92 的完整 GitHub CI：1,784 個測試檔、16,809 個案例通過；34 檔／321 案例跳過。後續保留私人費率的相容性補修有 65 項核心測試及 2 項未收費項目／100 分鐘預設保留的實際 SQL 測試通過；最終狀態仍以最新 PR checks 為準。

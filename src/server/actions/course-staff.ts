@@ -1,5 +1,5 @@
 "use server";
-import {coursePlanCompensation} from "@/lib/course-plan-compensation";
+import {validatePlanCompensation} from "@/lib/course-plan-compensation";
 import { isMusicCourseStoreFromEntitlements } from "@/server/services/course-business-profile";
 import {replaceStaffPermissionGrants} from "@/server/services/staff-permission-write";
 import { Prisma as RetirementPrisma } from "@prisma/client";
@@ -369,7 +369,7 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
           const before=await tx.$queryRaw<MusicTeacherSettings[]>`SELECT "defaultRatio"::float8 AS "defaultRatio","subjectRules",revision FROM "CourseTeacherCompensationSetting" WHERE "storeId"=${storeId} AND "staffId"=${staffId} FOR UPDATE`;
           if((before[0]?.revision??0)!==d.musicSettings.revision)throw new AppError("CONFLICT","老師拆帳設定已更新，請重新開啟核對");
           const keys=Object.keys(d.musicSettings.subjectRules);
-          for(const key of keys.filter(key=>key.startsWith("plan:")))coursePlanCompensation.parse(d.musicSettings.subjectRules[key]);
+          for(const key of keys.filter(key=>key.startsWith("plan:")))validatePlanCompensation(d.musicSettings.subjectRules[key],before[0]?.subjectRules[key]);
           const planIds=keys.filter(key=>key.startsWith("plan:")).map(key=>key.slice(5));
           if(planIds.length){const plans=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "CoursePointPlan" WHERE "storeId"=${storeId} AND id=ANY(${planIds}::text[])`;if(plans.length!==planIds.length)throw new AppError("FORBIDDEN","收費方案包含非本店資料");}
           const ids=keys.filter(key=>!key.startsWith("plan:"));

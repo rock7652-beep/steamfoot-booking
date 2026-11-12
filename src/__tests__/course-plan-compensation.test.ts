@@ -1,6 +1,6 @@
 import {expect,it} from 'vitest';
 import {capturedTeacherFee} from '@/server/services/course-captured-teacher-fee';
-import {coursePlanCompensation} from '@/lib/course-plan-compensation';
+import {coursePlanCompensation,validatePlanCompensation} from '@/lib/course-plan-compensation';
 import {courseChargeSettings,qualifiedCourseChargeSettings,cardChargeSettings,courseChargeAllowsProvider} from '@/lib/course-charge-settings';
 const seat={id:'s',customerName:'合成學員',status:'ATTENDED',bookingKind:'CARD',absenceKind:null,originalUnitPrice:800,sportsCharge:800,planId:'A1'};
 const snapshot=(version:number,rules:Record<string,unknown>,durationMinutes=50)=>({revision:1,rule:{mode:'SHARE',value:60,calculationVersion:version,planRules:rules,durationMinutes}});
@@ -31,4 +31,10 @@ it('new fees need no provider roster while existing sold-plan rosters stay uncha
  expect(qualifiedCourseChargeSettings(old)).toMatchObject({providerIds:[],providerScope:'QUALIFIED'});
  expect(cardChargeSettings({chargeSettingsSnapshot:old,plan:{chargeSettings:base}})).toEqual(old);
  expect(courseChargeSettings.safeParse({...base,providerScope:undefined}).success).toBe(false);
+});
+
+it('retains historical hourly agreements without allowing new or changed hourly fees',()=>{
+ const old={mode:'HOUR',value:800};expect(validatePlanCompensation(old,old)).toEqual(old);
+ expect(()=>validatePlanCompensation(old,null)).toThrow();expect(()=>validatePlanCompensation({...old,value:900},old)).toThrow();
+ expect(capturedTeacherFee(snapshot(3,{A1:old},90),[seat]).amount).toBe(1200);
 });

@@ -1,3 +1,4 @@
+import {compensationRule} from "./course-compensation";
 import {z} from 'zod';
 /** Only new agreements use these two modes. Historical HOUR snapshots stay valid. */
 export const coursePlanCompensation=z.object({mode:z.enum(['SHARE','CLASS']),value:z.number().finite().min(0).max(1000000)}).superRefine((r,c)=>{
@@ -10,5 +11,12 @@ export type CoursePlanCompensation=z.infer<typeof coursePlanCompensation>;
 // Qualification IDs are never used as plan identities.
 export const coursePlanRuleKey=(planId:string)=>`plan:${planId}`;
 export const musicSubjectDefaultId=(subjectId:string)=>`subject_schedule_${subjectId}`;
-export type TeachingPlanChoice={id:string;name:string;subjectIds:string[];active:boolean;templateIds?:string[];defaults:Record<string,CoursePlanCompensation|null>;legacy?:boolean};
+export type TeachingPlanChoice={id:string;name:string;subjectIds:string[];active:boolean;templateIds?:string[];defaults:Record<string,{mode:"CLASS"|"SHARE"|"HOUR";value:number}|null>;legacy?:boolean};
 export function compensationLabel(rule:{mode:string;value:number}|null|undefined){return !rule?'尚未設定':rule.mode==='CLASS'?`固定費用 $${rule.value.toLocaleString('zh-TW')}／次`:rule.mode==='HOUR'?`舊約定 $${rule.value.toLocaleString('zh-TW')}／小時`:`比例拆帳 ${rule.value}%`;}
+
+/** An imported hourly agreement can be retained, never newly created/edited. */
+export function validatePlanCompensation(next:unknown,previous:unknown){
+ const old=compensationRule.safeParse(previous),rule=compensationRule.safeParse(next);
+ if(old.success&&rule.success&&old.data.mode==='HOUR'&&rule.data.mode==='HOUR'&&old.data.value===rule.data.value)return rule.data;
+ return coursePlanCompensation.parse(next);
+}

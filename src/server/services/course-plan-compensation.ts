@@ -11,7 +11,8 @@ export async function captureTeachingPlanFees(tx:Pick<Prisma.TransactionClient,'
  FROM "CourseSession" session, LATERAL (
   SELECT jsonb_object_agg(plan.id,COALESCE(
    settings."subjectRules"->('plan:'||plan.id),
-   CASE WHEN plan."chargeSettings"->>'providerScope'='QUALIFIED' THEN item_default.rules->0
+   item_default.rules->0,
+   CASE WHEN plan."chargeSettings"->>'providerScope'='QUALIFIED' THEN NULL
     ELSE COALESCE(prior.rule->'tuitionRules'->plan."templateIds"[1],prior.rule - 'planRules' - 'planRuleVersion') END,
    '{"mode":"UNSET"}'::jsonb)) AS rules
   FROM "CourseTemplate" teaching

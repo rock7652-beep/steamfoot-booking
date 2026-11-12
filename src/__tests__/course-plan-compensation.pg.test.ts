@@ -24,7 +24,7 @@ const tx={$executeRaw:async(parts:TemplateStringsArray,...values:unknown[])=>{co
 const read=async(id:string)=>(await db.query<{rule:{planRules:Record<string,unknown>}}>('SELECT rule FROM "CourseCompensationSnapshot" WHERE "sessionId"=$1',[id])).rows[0].rule;
 it('captures independent plan defaults/overrides, legacy agreement and tenant boundaries',async()=>{
  await captureTeachingPlanFees(tx,'s',['a']);
- expect((await read('a')).planRules).toEqual({A1:{mode:'CLASS',value:600},A2:{mode:'SHARE',value:60},old:{mode:'SHARE',value:70}});
+ expect((await read('a')).planRules).toEqual({A1:{mode:'CLASS',value:600},A2:{mode:'SHARE',value:60},old:{mode:'SHARE',value:60}});
  expect(await read('foreign')).not.toHaveProperty('planRules');
 });
 it('moving a plan to B adopts B default while keeping its teacher override and old snapshots',async()=>{
