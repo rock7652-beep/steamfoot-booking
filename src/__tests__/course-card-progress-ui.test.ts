@@ -36,3 +36,14 @@ it('快速切換課卡不閃出舊進度，舊回應不能覆蓋新卡',async()=
   await act(async()=>resolveOld(result));expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(5);expect(host.querySelectorAll('[data-completed="true"]')).toHaveLength(0);
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+it('名單入口直接顯示隨視窗帶入的進度，修改後重新讀取',async()=>{
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ const initialResult={success:true as const,data:{available:true as const,total:10,shared:false,completed:[],voided:[],canReadPrice:false,purchasePrice:null,purchasedAt:null}};
+ try{
+  await act(async()=>root.render(h(CourseCardProgress,{cardId:'seed',customerId:'student',storeId:'store',initialResult})));
+  expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(10);expect(m.read).not.toHaveBeenCalled();
+  m.read.mockResolvedValue(result);
+  await act(async()=>root.render(h(CourseCardProgress,{cardId:'seed',customerId:'student',storeId:'store',initialResult,revision:1})));
+  expect(m.read).toHaveBeenCalledOnce();expect(host.querySelectorAll('[data-completed="true"]')).toHaveLength(2);
+ }finally{await act(async()=>root.unmount());host.remove();}
+});

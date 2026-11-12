@@ -107,7 +107,7 @@ import {saveCourseSessionAdjustment} from '@/server/actions/course-session-adjus
 import {saveCourseCardManagement} from '@/server/actions/course-card-management';
 
 export function CourseMemberWorkspace({
-  source,panelOnly=false,initialCustomerId,onPanelClose,initialAction,initialCardId,
+  source,panelOnly=false,initialCustomerId,onPanelClose,initialAction,initialCardId,initialCardRead,
   catalogSource,
   subjectLabel="教學項目",
   sportsNative=false,
@@ -145,7 +145,7 @@ export function CourseMemberWorkspace({
   music = false,
   sharedCardState = "ENABLED",
 }: {
-  source?:CourseCustomerSource;panelOnly?:boolean;initialCardId?:string;initialAction?:'assign';initialCustomerId?:string;onPanelClose?:()=>void;
+  source?:CourseCustomerSource;panelOnly?:boolean;initialCardId?:string;initialCardRead?:{card:CourseCardView;progress?:Awaited<ReturnType<typeof import('@/server/actions/course-card-progress').loadCourseCardProgress>>};initialAction?:'assign';initialCustomerId?:string;onPanelClose?:()=>void;
   subjectLabel?:string;
   catalogSource?:{order?:import("@/lib/course-display-order").CourseOrderWriter;status:CatalogStatusDriver;form:CoursePlanCatalogPort};
   sportsNative?:boolean;
@@ -257,7 +257,7 @@ export function CourseMemberWorkspace({
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
   const [cardId, setCardId] = useState(initialCardId??"");
-  const cardDetail = useCardDetail(panel === "card", cardId, cardOpening,source?.browseCards??dataScope);
+  const cardDetail = useCardDetail(panel === "card", cardId, cardOpening,source?.browseCards??dataScope,false,initialCardRead?.card);
   const cardLoading = cardDetail.loading;
   const cardError = cardDetail.error;
   const [revenueStaffId,setRevenueStaffId]=useState("");
@@ -855,7 +855,7 @@ export function CourseMemberWorkspace({
                 <CourseCardSummary card={card} sessionUnitLabel={source?.sessionUnitLabel}/>
                 {!source&&sportsNative&&canEdit&&person&&previewStoreId&&card.sportsMode==='OPEN'&&!card.openScopeTemplateIds?.length&&!cardLoading&&!cardError&&<CardSubjectReview key={`subject:${card.id}:${cardRevision}`} cardId={card.id} customerId={person.id} storeId={previewStoreId} onPending={setFormPending} onDirtyChange={setDirty} onUncertain={setFormUncertain} onSaved={()=>{setCardRevision(n=>n+1);setLoadedCard(null);setCardOpening(n=>n+1);setNotice('方案科目已核對，原餘額與歷史保留');router.refresh();}}/>}
                 {source?.cardProgress&&person&&!cardLoading&&!cardError&&source.cardProgress(card,{customerId:person.id,revision:cardRevision})}
-                {!source&&person&&previewStoreId&&card.unit==="SESSION"&&canReadBookings&&!cardLoading&&!cardError&&!error&&<CourseCardProgress key={`${person.id}:${card.id}`} cardId={card.id} customerId={person.id} storeId={previewStoreId} dataScope={dataScope} revision={cardRevision}/>}
+                {!source&&person&&previewStoreId&&card.unit==="SESSION"&&canReadBookings&&!cardLoading&&!cardError&&!error&&<CourseCardProgress key={`${person.id}:${card.id}`} cardId={card.id} customerId={person.id} storeId={previewStoreId} dataScope={dataScope} revision={cardRevision} initialResult={cardOpening===0&&cardRevision===0&&card.id===initialCardRead?.card.id?initialCardRead.progress:undefined}/>}
                 {!source&&canManageCards&&previewStoreId&&!cardLoading&&!cardError&&!error&&<PlanManagementControls key={card.id+":"+card.expiresAt+":"+card.remaining+":"+cardOpening} compactActions={card.unit==='SESSION'} initialAction={cardEntry?.id===card.id?cardEntry.action:undefined} onInitialActionConsumed={()=>setCardEntry(current=>current===cardEntry?null:current)} storeId={previewStoreId} card={card} save={saveCourseCardManagement} sessionAdjustment={{save:saveCourseSessionAdjustment,records:card.sessionAdjustments??[],members:card.members,blockedReason:card.openingImported||card.templateRestricted?'來源方案或補課權益須由原專用流程核對。':undefined}} unitLabel={card.unit==='SESSION'?'堂':'點'} expiryHint={music&&card.musicValidityDays?'儲存後以指定到期日為準，首次上課與恢復點名不再重算本方案期限；既有補課權益仍保留。':undefined} onDirtyChange={setDirty} onPending={setFormPending} onSaved={()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}}/>}
                 {!source&&person&&canReadBookings&&!cardLoading&&!cardError&&!error&&<details className="my-3 border-y border-earth-100 py-2"><summary className="min-h-11 cursor-pointer py-2 font-medium text-primary-800">查看完整紀錄</summary><p className="text-sm text-earth-600">{card.name} · 僅列此學員使用這份方案的紀錄</p><CourseCustomerBookings key={`${person.id}:${card.id}:${cardRevision}`} customerId={person.id} cardId={card.id} compact/></details>}
                 {!cardLoading&&!cardError&&!error&&source?.cardManagement?.(card,{onPending:setFormPending,onDirtyChange:setDirty,onSaved:()=>{setCardRevision(n=>n+1);cardDetail.retry();publishMusicFinanceChange();router.refresh();}})}
