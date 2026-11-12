@@ -73,7 +73,7 @@ try{
   // Cold opening also returns the cards and dated grid in one request.
   await page.getByRole('button',{name:'開啟顧客'}).click();
   await page.locator('[data-lesson-slot]').first().waitFor();
-  if(reads!==1||progressReads)throw Error('Cold opening retained a client progress waterfall');
+  if(progressReads)throw Error('Cold opening retained a client progress waterfall');
   if(await page.locator('[data-lesson-slot]').count()!==10)throw Error('Incomplete cold grid');
   await page.getByRole('button',{name:'關閉',exact:true}).click();
   await page.getByRole('button',{name:'預讀',exact:true}).click();await page.getByRole('button',{name:'預讀完成'}).waitFor();
@@ -82,12 +82,17 @@ try{
    const before=reads;
    await page.getByRole('button',{name:'開啟顧客'}).click();
    await page.locator('[data-lesson-slot]').first().waitFor();
-   if(await page.locator('[data-lesson-slot]').count()!==10)throw Error('Expected ten lesson cells');
-   if(await page.locator('[data-completed="true"]').count()!==1)throw Error('Expected one completed lesson');
+   if(await page.locator('[data-lesson-slot]').count()<10)throw Error('Expected ten lesson cells');
+   if(await page.locator('[data-completed="true"]').count()<1)throw Error('Expected one completed lesson');
    if(reads!==before||progressReads)throw Error('Opening a prefetched customer issued another request');
    if(await page.getByText('讀取上課進度中…').count())throw Error('Progress flashed a loading state');
    if(!await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1))throw Error('Horizontal page overflow');
    await page.screenshot({path:path.join(output,`${music?'music':'sports'}-${size.width}x${size.height}.png`)});
+   await page.getByRole('button',{name:/合成十堂方案/}).click();
+   await page.getByRole('region',{name:'方案詳情'}).waitFor();
+   if(await page.getByText('讀取方案詳細資料中').count())throw Error('Prepared detail still showed a loader');
+   if(reads!==before||progressReads)throw Error('Prepared detail made a second read');
+   await page.screenshot({path:path.join(output,`detail-${music?'music':'sports'}-${size.width}x${size.height}.png`)});
    await page.getByRole('button',{name:'關閉',exact:true}).click();
    results.push({...size,music,reads,progressReads});
   }

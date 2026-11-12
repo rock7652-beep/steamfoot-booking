@@ -6,6 +6,7 @@ import {readMusicPeriods} from '@/lib/music-period-read-client';
 import type {loadMusicStudentWorkspace} from '@/server/actions/music-student-workspace';
 import type {loadCourseCustomerPurchases} from '@/server/actions/course-customer-history';
 
+import {useCourseCardDetailReader} from './use-course-card-detail-reader';
 import {useCustomerNextBookingReader} from './use-customer-next-booking-reader';
 import {useCourseCardProgressReader} from './use-course-card-progress-reader';
 import {useCustomerCardReader,CUSTOMER_PLAN_PRELOAD_TTL} from './use-customer-card-reader';
@@ -19,6 +20,7 @@ export function useCustomerPlanPreload({load,preloadCardProgress,getCardProgress
 }):PlanPreload{
  const cards=useCustomerCardReader({load,native,revision,storeId,canReadBookings});
  const progress=useCourseCardProgressReader(storeId,revision);
+ const details=useCourseCardDetailReader(load,storeId,revision);
  const nextBooking=useCustomerNextBookingReader(revision);
  const canPreloadProgress=!!storeId&&!load&&canReadCards&&canReadBookings;
  const periods=usePanelReader('music-periods',readMusicPeriods,String(revision),CUSTOMER_PLAN_PRELOAD_TTL);
@@ -28,16 +30,19 @@ export function useCustomerPlanPreload({load,preloadCardProgress,getCardProgress
  const readPlans=useCallback(async(id:string,history=false)=>{
   if(!canReadCards)return;
   const result=await cards.read(args(id,history));
-  if((!canPreloadProgress&&!(preloadCardProgress&&canReadBookings))||!result.success)return;
+  if(!result.success)return;
+  // Read the same complete detail used by the click destination, not just list rows.
+  for(let offset=0;!load&&offset<Math.min(result.rows.length,5);offset+=2)await Promise.allSettled(result.rows.slice(offset,Math.min(offset+2,5)).map(card=>details.read({cardId:card.id,dataScope})));
+  if(!canPreloadProgress&&!(preloadCardProgress&&canReadBookings))return;
   // Match the displayed first page, including historical plans.
   const targets=result.rows.filter(card=>card.unit==='SESSION'||canReadTransactions).slice(0,20);
   for(let offset=0;offset<targets.length;offset+=2)await Promise.allSettled(targets.slice(offset,offset+2).map(card=>preloadCardProgress?preloadCardProgress(id,card.id,revision):progress.read({cardId:card.id,customerId:id,expectedStoreId:storeId,dataScope})));
- },[canReadCards,cards,args,canPreloadProgress,preloadCardProgress,canReadBookings,canReadTransactions,revision,progress,storeId,dataScope]);
+ },[canReadCards,cards,args,canPreloadProgress,preloadCardProgress,canReadBookings,canReadTransactions,revision,progress,storeId,dataScope,details,load]);
  const getPlans=useCallback((id:string,history=false):boolean=>{
   if(!canReadCards)return true;
   const loaded=cards.get(args(id,history));
-  return !!(loaded?.success&&(!canReadBookings||!(canPreloadProgress||getCardProgress)||loaded.rows.filter(card=>card.unit==='SESSION'||canReadTransactions).slice(0,20).every(card=>getCardProgress?getCardProgress(id,card.id,revision):progress.get({cardId:card.id,customerId:id,expectedStoreId:storeId,dataScope}))));
- },[canReadCards,cards,args,canReadBookings,canPreloadProgress,getCardProgress,canReadTransactions,revision,progress,storeId,dataScope]);
+  return !!(loaded?.success&&(!!load||loaded.rows.slice(0,5).every(card=>details.get({cardId:card.id,dataScope})))&&(!canReadBookings||!(canPreloadProgress||getCardProgress)||loaded.rows.filter(card=>card.unit==='SESSION'||canReadTransactions).slice(0,20).every(card=>getCardProgress?getCardProgress(id,card.id,revision):progress.get({cardId:card.id,customerId:id,expectedStoreId:storeId,dataScope}))));
+ },[canReadCards,cards,args,canReadBookings,canPreloadProgress,getCardProgress,canReadTransactions,revision,progress,storeId,dataScope,details,load]);
  const read=useCallback(async(id:string)=>{
   await Promise.allSettled([
    readPlans(id),

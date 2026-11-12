@@ -250,7 +250,7 @@ it.each(['調整期限','註銷方案'])('opens %s below the existing grid witho
 
 it('rechecks the current card status before exposing an inline financial form',async()=>{
  const card={id:'now-closed-card',name:'已更新方案',unit:'SESSION',remaining:10,held:0,available:10,expiresAt:null,closed:false,expired:false,members:[{id:'person',name:'測試學員'}],entries:[],templateIds:[]};
- m.browse.mockResolvedValue({success:true,rows:[card],hasMore:false});vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[{...card,closed:true}],hasMore:false,totals:[]} as never);
+ m.browse.mockImplementation(async(args:{cardId?:string})=>({success:true,rows:[args.cardId?{...card,closed:true}:card],hasMore:false}));vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[{...card,closed:true}],hasMore:false,totals:[]} as never);
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,previewStoreId:'store',canManageCards:true})));
  await click('已更新方案 更多操作');
  await act(async()=>[...document.querySelectorAll('button')].find(button=>button.textContent==='調整期限')!.click());
@@ -275,7 +275,7 @@ it('paginates active and inactive plans together, and expands all filtered rows 
  await click('調整順序');expect(host.querySelectorAll('[data-course-order="plan"]')).toHaveLength(22);expect(host.querySelector('[aria-label="清單分頁"]')).toBeNull();
  const handle=host.querySelector<HTMLButtonElement>('[data-row-id="page-20"] button')!;
  await act(async()=>handle.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true,cancelable:true})));
- expect(m.order).toHaveBeenCalledOnce();const ids=m.order.mock.calls[0][0].ids;expect(ids).toHaveLength(22);expect(ids.indexOf('page-20')).toBeLessThan(ids.indexOf('page-19'));
+ await vi.waitFor(()=>expect(m.order).toHaveBeenCalledOnce());const ids=m.order.mock.calls[0][0].ids;expect(ids).toHaveLength(22);expect(ids.indexOf('page-20')).toBeLessThan(ids.indexOf('page-19'));
  await click('完成排序');expect(host.textContent).toContain('第 2／2 頁');expect(host.querySelectorAll('[data-course-order="plan"]')).toHaveLength(2);
 });
 it('allows ordering within a search and preserves hidden plan identities',async()=>{
@@ -290,6 +290,7 @@ it('allows ordering within a search and preserves hidden plan identities',async(
 });
 it.each([{scope:[]},{scope:['verified-item']}])('only asks to review an OPEN card when its resolved plan scope is absent (%j)',async({scope})=>{
  const card={id:'open-card',name:'通用課卡',unit:'SESSION',remaining:19,held:0,available:19,expiresAt:'2027-05-09T15:59:59Z',members:[{id:'person',name:'測試學員'}],templateIds:[],openScopeTemplateIds:scope,sportsMode:'OPEN',entries:[],allowShared:false};
+ m.browse.mockResolvedValue({success:true,rows:[card],hasMore:false});
  vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[card],hasMore:false} as never);
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,previewStoreId:'store',sportsNative:true,cards:[card] as never,initialCustomerId:'person',initialCardId:'open-card'})));
  await vi.waitFor(()=>expect(document.body.textContent).not.toContain('讀取方案詳細資料中'));

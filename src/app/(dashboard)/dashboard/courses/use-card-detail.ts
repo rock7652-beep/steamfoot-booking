@@ -1,15 +1,15 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { usePanelReader } from "@/components/operations/panel-read-cache";
-import { browseCourseCards } from "@/server/actions/course-browse";
+import {useCourseCardDetailReader} from "@/components/admin/use-course-card-detail-reader";
+import type { browseCourseCards } from "@/server/actions/course-browse";
 import type { CourseCardView } from "./member-workspace";
 
-export function useCardDetail(open: boolean, cardId: string, opening: number,loadOrScope?:typeof browseCourseCards|"operational"|"legacy",fresh=false,initialData?:CourseCardView) {
+export function useCardDetail(open: boolean, cardId: string, opening: number,loadOrScope?:typeof browseCourseCards|"operational"|"legacy",fresh=false,initialData?:CourseCardView,scope?:{storeId?:string;revision?:number}) {
   const load=typeof loadOrScope==="function"?loadOrScope:undefined;
   const dataScope=typeof loadOrScope==="string"?loadOrScope:undefined;
-  const reader = usePanelReader(load?"module-card":"course-card", load??browseCourseCards);
+  const reader = useCourseCardDetailReader(load,scope?.storeId,scope?.revision);
   const [revision, setRevision] = useState(0);
-  const key = JSON.stringify([cardId, opening, revision, dataScope]);
+  const key = JSON.stringify([cardId, opening, revision, dataScope,scope?.storeId,scope?.revision]);
   // A roster bundle is a fresh, permission-checked read for this exact opening.
   const initial=useRef({key,reader,data:initialData?.id===cardId?initialData:undefined});
   const [result, setResult] = useState<{ key: string; data?: CourseCardView; error?: string }|undefined>(()=>initialData?.id===cardId?{key,data:initialData}:undefined);
@@ -28,7 +28,8 @@ export function useCardDetail(open: boolean, cardId: string, opening: number,loa
     });
     return () => { active = false; };
   }, [open, cardId, key, reader, dataScope,fresh]);
-  const current = open && result?.key === key ? result : undefined;
+  const cached=!fresh&&open?(reader.get({cardId,dataScope})??reader.peek({cardId,dataScope})):undefined;
+  const current = open && result?.key === key ? result : cached?.success&&cached.rows[0]?{key,data:cached.rows[0]}:undefined;
   const loading = open && !!cardId && !current;
   function retry() {
     if (!open || loading) return;

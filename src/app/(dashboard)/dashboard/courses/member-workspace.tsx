@@ -257,7 +257,7 @@ export function CourseMemberWorkspace({
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planReadOnly,setPlanReadOnly]=useState(false);
   const [cardId, setCardId] = useState(initialCardId??"");
-  const cardDetail = useCardDetail(panel === "card", cardId, cardOpening,source?.browseCards??dataScope,false,initialCardRead?.card);
+  const cardDetail = useCardDetail(panel === "card", cardId, cardOpening,source?.browseCards??dataScope,false,initialCardRead?.card,{storeId:previewStoreId,revision:cardRevision});
   const cardLoading = cardDetail.loading;
   const cardError = cardDetail.error;
   const [revenueStaffId,setRevenueStaffId]=useState("");

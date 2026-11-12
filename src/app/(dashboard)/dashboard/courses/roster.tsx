@@ -3,6 +3,7 @@ import {courseHasSeatLimit} from "@/lib/course-capacity";
 import {useCustomerPlanPreload} from "@/components/admin/use-customer-plan-preload";
 import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import dynamic from "next/dynamic";
+import {useRosterCustomerReader} from '@/components/admin/use-roster-customer-reader';
 import {RosterCustomerPanel} from "./roster-customer-panel";
 import type {CourseAddOnCapabilities} from "@/server/services/course-add-ons";
 const CourseBookingAddOns=dynamic(()=>import("@/components/add-ons/course-booking").then(m=>m.CourseBookingAddOns),{loading:()=> <p role="status">讀取附加項目中…</p>});
@@ -272,8 +273,11 @@ export function CourseRoster({
     >["data"]["trial"] | null
   >(()=>seed?.trial??null);
   const [canPurchase, setCanPurchase] = useState(seed?.canPurchase??false);
+  const rosterCustomerRevision=JSON.stringify(roster.map(row=>[row.id,row.status,row.cardId,row.cardRemaining]));
+  const rosterCustomerReader=useRosterCustomerReader(sessionId,storeId,rosterParams.get("dataScope")==="legacy"?"legacy":undefined,rosterCustomerRevision);
+  useIdleReadPreload({enabled:loaded&&!source,blocked:bulkPending||!!companionEditor||!!studentPanel,keys:roster.filter(row=>row.customerId&&row.cardId).slice(0,5).map(row=>JSON.stringify([row.customerId,row.cardId])),reader:rosterCustomerReader,startDelayMs:250,gapMs:0,concurrency:2});
   const customerPlanPreload=useCustomerPlanPreload({native:sportsNative,music:musicLayout,canReadCards:loaded&&!source&&canPurchase,canReadBookings:loaded&&!source&&musicLayout,dataScope:rosterParams.get("dataScope")==="legacy"?"legacy":undefined});
-  useIdleReadPreload({enabled:loaded&&!source,blocked:bulkPending||!!companionEditor,keys:[...new Set(roster.flatMap(row=>row.customerId?[row.customerId]:[]))].slice(0,5),reader:customerPlanPreload.reader});
+  useIdleReadPreload({enabled:loaded&&!source,blocked:bulkPending||!!companionEditor,keys:[...new Set(roster.flatMap(row=>row.customerId&&!row.cardId?[row.customerId]:[]))].slice(0,5),reader:customerPlanPreload.reader});
   const [purchaseFor, setPurchaseFor] = useState<string | null>(null);
   const [purchaseOptions, setPurchaseOptions] = useState<Extract<Awaited<ReturnType<typeof loadCourseStudentPurchase>>, {success:true}>["data"] | null>(null);
   const [purchasePlanId, setPurchasePlanId] = useState("");
@@ -569,6 +573,7 @@ export function CourseRoster({
     const bookingId = quickAttendance ? updates[0].bookingId : null;
     if (scope.locked || scope.uncertain ||
         (bookingId ? scope.inFlight.has(bookingId) || !musicLayout && scope.inFlight.size > 0 : scope.inFlight.size > 0)) return;
+    rosterCustomerReader.clear();
     onSnapshotInvalidated?.();
     if (bookingId) scope.inFlight.add(bookingId);
     else scope.locked = true;
@@ -1353,7 +1358,7 @@ export function CourseRoster({
   return (
 
     <section data-roster-ready="true" data-live-music-roster={musicLayout?'true':undefined} className={`flex min-h-0 w-full flex-col gap-2 ${!musicLayout ? sportsRoster.root : ""} ${musicLayout ? "" : "flex-1 overflow-hidden"}`}>
-      {studentPanel&&<RosterCustomerPanel key={`${sessionId}:${studentPanel.id}`} customer={studentPanel} sessionId={sessionId} storeId={storeId} dataScope={rosterParams.get("dataScope")==="legacy"?"legacy":undefined} onClose={()=>setStudentPanel(null)}/>}
+      {studentPanel&&<RosterCustomerPanel revision={rosterCustomerRevision} key={`${sessionId}:${studentPanel.id}`} customer={studentPanel} sessionId={sessionId} storeId={storeId} dataScope={rosterParams.get("dataScope")==="legacy"?"legacy":undefined} onClose={()=>setStudentPanel(null)}/>}
       {readNotice}
       {source?.header?.(roster)}
       {!source&&<aside className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 text-sm" aria-label={`教師資訊：${teacherName}、${courseName}、${roomName}`}>
@@ -1577,7 +1582,7 @@ export function CourseRoster({
         return {id:booking.id,name:booking.customerName,phone:booking.customerPhone,owner:booking.assignedCoachName||"",status:label,mark:booking.status==="ATTENDED"?'attended':deducted?'deducted':leave?'leave':booking.status==="CANCELLED"?'cancelled':'pending',statusTitle:booking.status==="RESERVED"?"標記出席":"更正點名",statusDisabled:!canEdit||rowPending(booking.id)||teacherAbsent||(booking.status==="CANCELLED"&&!leave),onStatus:event=>booking.status==="RESERVED"?run(()=>updateCourseBookingStatus({returnRoster:!source,bookingId:booking.id,status:"ATTENDED"}),`已將 ${booking.customerName} 標記出席`,{bookingId:booking.id,status:"ATTENDED"}):toggleRosterMenu(event.currentTarget,booking.id,sportsNative?"status":"more"),onOpen:()=>source?.onOpen?source.onOpen(booking):setInfoBookingId(booking.id),
           ...(batchMode&&(source?!!source.batchAction:canEdit)&&booking.status!=="CANCELLED"?{selected:selected.includes(booking.id),selectionDisabled:bulkPending||!selectableRows.some(row=>row.id===booking.id),onSelect:(checked:boolean)=>setSelected(old=>checked?[...old,booking.id]:old.filter(id=>id!==booking.id))}:{}),
           context:<CourseBookingContextIndicator name={booking.customerName} shared={sharedCardState!=="HIDDEN"&&booking.sharedCard} proxy={!!booking.operatorCustomerId&&booking.operatorCustomerId!==booking.customerId&&!booking.companionIndex} onOpen={()=>setInfoBookingId(booking.id)}/>,badge:trialBadge(booking),feedback:rowFeedback(booking.id),cost:<span title={booking.bookingKind==="UNPAID"&&rosterLessonCost(booking)==="—"?"點名時依實際使用方案計算":undefined}>{rosterLessonCost(booking)}</span>,
-          balance:sportsNative&&!source?<RosterPlanSummary booking={booking} onOpen={()=>{if(booking.customerId)setStudentPanel({id:booking.customerId,name:booking.customerName,phone:booking.customerPhone,...(booking.cardId?{cardId:booking.cardId}:{})});}}/>:(sportsNative||!!booking.sportsBalance)&&booking.bookingKind!=="TRIAL"&&booking.bookingKind!=="TEACHER_MAKEUP"?<ItemBalanceSummary balance={booking.sportsBalance}/>:after==null?"":after<0?"不足":after,
+          balance:sportsNative&&!source?<RosterPlanSummary booking={booking} onPreload={()=>{if(booking.customerId)rosterCustomerReader.prefetch(JSON.stringify([booking.customerId,booking.cardId]));}} onOpen={()=>{if(booking.customerId)setStudentPanel({id:booking.customerId,name:booking.customerName,phone:booking.customerPhone,...(booking.cardId?{cardId:booking.cardId}:{})});}}/>:(sportsNative||!!booking.sportsBalance)&&booking.bookingKind!=="TRIAL"&&booking.bookingKind!=="TEACHER_MAKEUP"?<ItemBalanceSummary balance={booking.sportsBalance}/>:after==null?"":after<0?"不足":after,
           balanceWarning:sportsNative?!(booking.sportsBalance?.byUnit??(booking.sportsBalance?[booking.sportsBalance]:[])).some(balance=>balance.available>=balance.cost):after!=null&&after<=0,
           reminders:<SportsRosterReminders quietEmpty={!source&&sportsNative} customerId={booking.customerId??undefined} name={booking.customerName} serviceNote={booking.serviceNote} notes={booking.notes} canEdit={canEdit} canEditNote={canEdit&&booking.status!=="CANCELLED"} onOpen={()=>setInfoBookingId(booking.id)} inlineNote={inlineBookingNote(booking.id)}/>,...((source?source.actions(booking).length>0:canEdit)?{onMore:(event)=>toggleRosterMenu(event.currentTarget,booking.id),moreOpen:openActionMenu?.bookingId===booking.id}:{}),...(source?.row?.(booking)??{}),...(source?{statusDisabled:!canEdit||rowPending(booking.id)||source.row?.(booking).statusDisabled||(!source.statusMenu&&booking.status!=="RESERVED"),...(source.statusMenu?{onStatus:(event)=>source.statusActions&&booking.status==="RESERVED"?source.row?.(booking).onStatus?.(event):toggleRosterMenu(event.currentTarget,booking.id,"status")}:{})}: {})};
       })}/>}
