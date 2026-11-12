@@ -7,6 +7,10 @@ vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction
 vi.mock('@/server/beauty/catalog',()=>({persistBeautyCatalog:m.persist}));
 import {saveBeautyNativeService} from '@/server/actions/beauty-native-service';
 import {nativeBeautyService} from '@/lib/beauty/native-service';
+it('reports a rolled-back name constraint as editable rather than an uncertain save',async()=>{
+ m.persist.mockRejectedValueOnce(Object.assign(new Error('Unique constraint'),{code:'P2002'}));
+ expect(await saveBeautyNativeService({...input,rule:undefined})).toMatchObject({success:false,uncertain:false});
+});
 const service={id:'s',storeId:'a',revision:4,name:'做臉',category:'保養',duration:60,buffer:15,price:1000,trialPrice:500,active:true,defaultRate:{mode:'FIXED',value:300}};
 const tech={id:'t',revision:3,serviceIds:['s'],rates:{s:{mode:'FIXED',value:300}}};
 const tx={beautyServiceImage:{count:m.images},beautyService:{findFirst:m.service,findMany:vi.fn(async()=>[])},beautyTechnician:{findMany:m.techs}};

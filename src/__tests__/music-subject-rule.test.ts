@@ -22,3 +22,12 @@ it("keeps each fee teacher share independent without rewriting existing tuition 
  const result=await resolveMusicSubjectRule(tx as unknown as Prisma.TransactionClient,"store-a",{...rule,totalPrice:3201,musicTeacherShare:0.7});
  expect(result.musicTeacherShare).toBe(0.7);expect(result).not.toHaveProperty("totalPrice");expect(tx.courseTemplate.updateMany).not.toHaveBeenCalled();
 });
+
+it("creates a new tuition version despite multiple occupied generated labels without rewriting historical versions",async()=>{
+ const tx=db({name:"木吉他",category:"弦樂",description:""});
+ tx.courseTemplate.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null)
+   .mockResolvedValueOnce({id:"old-1"}).mockResolvedValueOnce({id:"old-2"}).mockResolvedValueOnce(null);
+ const result=await resolveMusicSubjectRule(tx as unknown as Prisma.TransactionClient,"store-a",rule);
+ expect(result.name).toMatch(/（3）$/);
+ expect(tx.courseTemplate.update).not.toHaveBeenCalled();expect(tx.courseTemplate.updateMany).not.toHaveBeenCalled();
+});

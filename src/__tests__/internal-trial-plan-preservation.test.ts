@@ -27,4 +27,12 @@ describe("FIRST_TRIAL keeps its internal plan independently of ordinary plan act
     expect(plan.update).toHaveBeenCalledWith({ where: { id: "legacy-trial" }, data: { isActive: true, category: "TRIAL", sessionCount: 1 } });
     expect(plan.create).not.toHaveBeenCalled();
   });
+  it("does not convert an ordinary same-name plan into a trial or change its purchased rights", async () => {
+    const ordinary={id:"ordinary",category:"PACKAGE",name:"體驗課",sessionCount:10};
+    plan.findFirst.mockImplementation(async({where})=>where.category?null:where.name===ordinary.name?ordinary:null);
+    plan.create.mockImplementation(async({data})=>({id:"new-trial",...data}));
+    expect(await ensureTrialPlan("store-a",499)).toMatchObject({id:"new-trial",name:"體驗課（2）",category:"TRIAL",sessionCount:1});
+    expect(plan.update).not.toHaveBeenCalled();
+    expect(ordinary).toEqual({id:"ordinary",category:"PACKAGE",name:"體驗課",sessionCount:10});
+  });
 });

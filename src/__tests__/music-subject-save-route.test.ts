@@ -3,6 +3,7 @@ const m=vi.hoisted(()=>({save:vi.fn(),revalidate:vi.fn()}));
 vi.mock("@/server/services/music-subject-save",()=>({saveMusicSubjectWithReceipt:m.save}));
 vi.mock("next/cache",()=>({revalidatePath:m.revalidate}));
 import {POST} from "@/app/api/courses/subjects/route";
+import {AppError} from "@/lib/errors";
 const input={expectedStoreId:"store-a",requestKey:"123e4567-e89b-42d3-a456-426614174000",name:"吉他",category:"",description:"",isActive:true};
 const row={...input,id:"s1",updatedAt:"2026-10-10T00:00:00.000Z"};
 function request(origin="https://preview.example",body:unknown=input){return new Request("https://preview.example/api/courses/subjects",{method:"POST",headers:{origin,"Content-Type":"application/json"},body:JSON.stringify(body)});}
@@ -21,4 +22,10 @@ it("returns the committed row even if marking the next visit stale fails",async(
 });
 it("classifies unknown commit failures as uncertain so retries keep their receipt",async()=>{
  m.save.mockRejectedValue(new Error("connection lost"));const response=await POST(request());expect(response.status).toBe(503);expect(await response.json()).toMatchObject({success:false,uncertain:true});
+});
+it("returns a definite conflict after a rolled-back duplicate instead of asking to retry an uncertain save",async()=>{
+ m.save.mockRejectedValue(new AppError("CONFLICT","教學項目或排課名稱已存在，請核對清單或修改名稱後再儲存。"));
+ const response=await POST(request());
+ expect(response.status).toBe(400);
+ expect(await response.json()).toMatchObject({success:false,uncertain:false,error:expect.stringContaining("修改名稱")});
 });

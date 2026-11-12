@@ -42,6 +42,19 @@ it("does not display a response for another store",async()=>{
  expect(host.querySelector("tbody")!.textContent).not.toContain("吉他");
  expect(host.textContent).toContain("尚未確認儲存結果");
 });
+it("lets a rolled-back name conflict be corrected and submitted with a new request",async()=>{
+ m.fetch.mockResolvedValueOnce({json:async()=>({success:false,uncertain:false,error:"教學項目或排課名稱已存在，請修改名稱"})})
+   .mockResolvedValueOnce({json:async()=>({success:true,storeId:"store-a",data:{...row,name:"暑期專班"}})});
+ await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+ expect(host.textContent).toContain("請修改名稱");
+ const input=host.querySelector<HTMLInputElement>('input[name="name"]')!;
+ expect(input.closest("fieldset")!.disabled).toBe(false);
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"暑期專班");input.dispatchEvent(new Event("input",{bubbles:true}));});
+ await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+ const first=JSON.parse(m.fetch.mock.calls[0][1].body),second=JSON.parse(m.fetch.mock.calls[1][1].body);
+ expect(second.name).toBe("暑期專班");expect(second.requestKey).not.toBe(first.requestKey);
+ expect(host.querySelector("tbody")!.textContent).toContain("暑期專班");expect(host.querySelector("form")).toBeNull();
+});
 
 it("sports teaching-item form sends course cost and the same coach qualification IDs",async()=>{
  await act(async()=>root.render(createElement(MusicSubjectCatalog,{...props,sportsNative:true,sportsCoaches:[{id:"coach",name:"王教練"}]})));

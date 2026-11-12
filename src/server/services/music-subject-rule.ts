@@ -1,6 +1,6 @@
 import "server-only";
 import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
-import { randomUUID } from "node:crypto";
+import { availableCourseTemplateName } from "./internal-catalog-name";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
 import { musicClassLabel, type MusicSubjectRule } from "@/lib/music-subject-rule";
@@ -15,10 +15,9 @@ export async function resolveMusicSubjectRule(tx:Prisma.TransactionClient,storeI
   if(item){settings.musicScheduleMode=item.musicScheduleMode==="APPOINTMENT"?"APPOINTMENT":"FIXED";}
   const existing=await tx.courseTemplate.findFirst({where:{storeId,musicSubjectId:subjectId,isActive:true,visibility:item?.visibility??"PUBLIC",musicTrialMode:null,...settings},orderBy:{createdAt:"asc"}});
   if(existing)return existing;
-  const name=`${subject.name} · ${settings.classType?musicClassLabel[settings.classType]:"收費"} ${settings.musicTermLessons}堂`;
-  const duplicate=await tx.courseTemplate.findFirst({where:{storeId,name},select:{id:true}});
+  const name=await availableCourseTemplateName(tx,storeId,`${subject.name} · ${settings.classType?musicClassLabel[settings.classType]:"收費"} ${settings.musicTermLessons}堂`);
   return tx.courseTemplate.create({data:{storeId,musicSubjectId:subjectId,...settings,
-    name:duplicate?`${name} · ${randomUUID().slice(0,6)}`:name,
+    name,
     category:subject.category,description:subject.description,visibility:item?.visibility??"PUBLIC",precautions:item?.precautions??"",durationMinutes:item?.durationMinutes??MUSIC_DEFAULT_DURATION_MINUTES,pointCost:1,
     capacity:item?.capacity??(settings.classType==="PRIVATE"?1:settings.classType==="SELF_ORGANIZED"?3:15),
   }});

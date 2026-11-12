@@ -6,6 +6,7 @@ import { sportsFeeSetup } from "@/lib/sports-staging-types";
 import { AppError } from "@/lib/errors";
 import { requireSportsStaging } from "@/lib/sports-staging";
 import { enqueueOperationAudit } from "./operation-audit-outbox";
+import { availableCourseTemplateName } from "./internal-catalog-name";
 export async function prepareSportsFee(
   tx: Prisma.TransactionClient,
   storeId: string,
@@ -46,7 +47,7 @@ export async function prepareSportsFee(
       data: {
         id: key,
         storeId,
-        name: `${subject.name} · ${key.slice(-6)}`,
+        name: await availableCourseTemplateName(tx,storeId,`${subject.name} · ${key.slice(-6)}`),
         musicSubjectId: subject.id,
         classType: "GROUP",
         durationMinutes: 60,
