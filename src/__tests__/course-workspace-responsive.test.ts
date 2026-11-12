@@ -41,6 +41,7 @@ it("day operations stay dense, refresh automatically, and keep the main action f
   expect(source).toContain("dialogSession.roomId");
   expect(source).toContain("當日尚無課程");
   expect(source).toContain("查看 ${date} 全部 ${list.length} 筆");
-  expect(source).toContain("＋ 新增排課");
+  expect(source).toContain("新增排課");
+  expect(source).not.toContain("＋ 新增排課");
   expect(source).toContain('panel === "day" &&');
 });

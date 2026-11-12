@@ -21,6 +21,7 @@
 
 - 27 個相關測試檔、250 項通過，包含預讀／失效／晚到回應、分頁及篩選排序、scope 正確與缺漏的舊卡提示、四分頁、時間草稿保留、教師費率讀取權限、跨店拒絕、既有收費／教室／人員儲存與 adapter 回歸。
 - 收尾另驗 5 個測試檔、77 項通過，包含美業 adapter 原有五分頁與服務時間入口，以及更新後的後台指南。
+- 遠端擴大測試發現不需要預約資料的名單／提醒會提早初始化讀取器，已將預約 action 載入延至實際讀取；4 個相關檔、121 項本機回歸通過。同步更新無加號按鈕的既有版面／指南驗收。
 - 完整 TypeScript 通過。變更檔 ESLint 無錯誤，通用 staff-workspace.tsx 保留 6 個既有未使用變數警告；未藉此改動無關的人員功能。git diff --check 通過。
 - 真實 CourseMemberWorkspace／CourseStaffWorkspace／CourseWorkspace，以合成資料、明確 action stub 與讀取攔截驗證。1366×900、1920×1080、1024×768、768×1024：23 個方案首頁 20 筆、不含下架；展開排序全 23 筆；實際滑鼠拖曳、鍵盤排序成功；回一般清單第 2 頁 3 筆才出現下架。教師四分頁順序正確，時間只在時間分頁出現；新增按鈕白字、右側，搜尋在左；無整頁水平溢出，窄表格在區塊內捲動。
 - 瀏覽器腳本 `scripts/qa/course-management-cleanup-browser.mjs`，截圖與結果 `/tmp/course-management-cleanup-browser/`；顧客預讀另有 `scripts/qa/customer-overview-preload-browser.mjs`。

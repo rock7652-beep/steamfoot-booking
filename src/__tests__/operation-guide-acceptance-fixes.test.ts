@@ -35,7 +35,7 @@ describe("operation guide logged-in acceptance corrections", () => {
   });
   it("matches the room management navigation and create control", () => {
     const room = operationGuides.find(g => g.id === "C108")!;
-    expect(room.path).toBe("店務管理 → 空間管理 → ＋ 新增空間");
+    expect(room.path).toBe("店務管理 → 空間管理 → 新增空間");
     expect(room.title).toContain("新增空間");
     expect(room.keywords).toContain("教室管理");
   });
