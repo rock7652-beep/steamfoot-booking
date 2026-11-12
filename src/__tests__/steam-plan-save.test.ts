@@ -10,6 +10,10 @@ import {saveSteamPlan} from "@/server/services/steam-plan-save";
 import {z} from "zod";
 const values={name:"課程卡",category:"PACKAGE",price:1000,sessionCount:10,validityDays:90};
 const receipt={expectedStoreId:"store",requestKey:"123e4567-e89b-42d3-a456-426614174000"};
+it("reports a rolled-back name constraint as editable rather than an uncertain save",async()=>{
+ m.create.mockRejectedValueOnce(Object.assign(new Error("Unique constraint"),{code:"P2002"}));
+ expect(await saveSteamPlan({operation:"CREATE",values,...receipt})).toMatchObject({success:false,uncertain:false});
+});
 let row:Record<string,unknown>|null;
 beforeEach(()=>{vi.resetAllMocks();row=null;m.session.mockResolvedValue({storeId:"store"});m.find.mockImplementation(async({where})=>where.id?.not?null:row);m.create.mockImplementation(async({data})=>row={description:null,sortOrder:0,...data,createdAt:new Date("2026-10-10T00:00:00Z"),updatedAt:new Date("2026-10-10T00:00:00Z"),_count:{wallets:0}});m.update.mockImplementation(async({data})=>{row={...row,...data,updatedAt:new Date("2026-10-10T01:00:00Z")};return {count:1};});m.transaction.mockImplementation(async work=>work({$queryRaw:vi.fn(),servicePlan:{findFirst:m.find,findFirstOrThrow:m.find,create:m.create,updateMany:m.update}}));});
 it("returns the real plan, keeps downstream cuid compatibility and confirms create retries",async()=>{

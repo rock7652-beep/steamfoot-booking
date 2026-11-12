@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { musicSubjectSaveInput } from "@/lib/music-subject-save";
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
+import { availableCourseTemplateName } from "./internal-catalog-name";
 import { courseManager, courseTransaction } from "@/server/services/course-access";
 
 export async function saveMusicSubjectWithReceipt(input: unknown) {
@@ -29,10 +30,27 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
       const applyRule = async (row: {id:string;name:string}, replay = false) => {
         if(nativeDefaults){
           const defaults={...nativeDefaults,description:values.description};
-          const versions=await tx.courseTemplate.findMany({where:{storeId,musicSubjectId:row.id},select:{id:true,durationMinutes:true,visibility:true,description:true,precautions:true}});
+          const versions=await tx.courseTemplate.findMany({where:{storeId,musicSubjectId:row.id},select:{id:true,name:true,durationMinutes:true,visibility:true,description:true,precautions:true}});
+          // Allocate inside the store transaction lock. Ignore the schedule
+          // being renamed, but never reuse a different item's schedule.
+          const scheduleName = (excludeId?: string) => availableCourseTemplateName(tx,storeId,`${row.name} · 排課`,excludeId);
           if(replay){if(!versions.length||versions.some(v=>Object.entries(defaults).some(([key,value])=>v[key as keyof typeof v]!==value)))throw new AppError("CONFLICT","項目設定已有更新，請重新開啟核對");}
-          else if(versions.length)await tx.courseTemplate.updateMany({where:{storeId,musicSubjectId:row.id},data:defaults});
-          else await tx.courseTemplate.create({data:{id:`subject_schedule_${row.id}`,storeId,musicSubjectId:row.id,name:`${row.name} · 排課`,...defaults,capacity:1,pointCost:1,musicScheduleMode:"APPOINTMENT"}});
+          else if(versions.length){
+            await tx.courseTemplate.updateMany({where:{storeId,musicSubjectId:row.id},data:defaults});
+            // Only the deterministically identified internal schedule follows
+            // the subject name. Preserve independently named course versions.
+            const generated = versions.find(version=>version.id===`subject_schedule_${row.id}`);
+            if(generated){
+              const name = await scheduleName(generated.id);
+              if(name!==generated.name)await tx.courseTemplate.updateMany({where:{id:generated.id,storeId,musicSubjectId:row.id},data:{name}});
+            }
+          }
+          else {
+            // Older saves can retain this name after a subject rename.
+            // Create a separate schedule without altering the existing one.
+            const name = await scheduleName();
+            await tx.courseTemplate.create({data:{id:`subject_schedule_${row.id}`,storeId,musicSubjectId:row.id,name,...defaults,capacity:1,pointCost:1,musicScheduleMode:"APPOINTMENT"}});
+          }
         }
         if (sportsRule) {
           const {assertSportsProductionReady}=await import("./sports-production-readiness");await assertSportsProductionReady(tx,storeId);
@@ -74,6 +92,12 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
       const saved = await tx.musicSubject.create({data:{id:receiptId,storeId,...values}});
       await applyRule(saved);
       return saved;
+    }).catch(error => {
+      // A rejected transaction is rolled back, so a known uniqueness conflict
+      // must not trap the form in an ambiguous same-request retry loop.
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002")
+        throw new AppError("CONFLICT", "教學項目或排課名稱已存在，請核對清單或修改名稱後再儲存。");
+      throw error;
     });
     const savedRule = sportsRule ? await courseTransaction(storeId, tx => readSportsTeachingRule(tx, storeId, row.id)) : undefined;
     outcome = "saved";

@@ -15,6 +15,7 @@
 
 import { prisma } from "@/lib/db";
 import type { Prisma, ServicePlan } from "@prisma/client";
+import { availableInternalCatalogName } from "./internal-catalog-name";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -40,7 +41,7 @@ export async function ensureTrialPlan(
   // 2. 名稱可能被 inactive 的舊體驗 plan 佔用（@@unique[storeId, name]）；
   //    若有就重新啟用該筆，避免 unique 衝突 / 重複建立。
   const byName = await db.servicePlan.findFirst({
-    where: { storeId, name: TRIAL_PLAN_NAME },
+    where: { storeId, name: TRIAL_PLAN_NAME, category: "TRIAL" },
   });
   if (byName) {
     return db.servicePlan.update({
@@ -49,11 +50,12 @@ export async function ensureTrialPlan(
     });
   }
 
-  // 3. 全新建立
+  // 3. 普通方案也可能叫「體驗課」。不可因同名就轉換其分類及堂數。
+  const name=await availableInternalCatalogName(TRIAL_PLAN_NAME,name=>db.servicePlan.findFirst({where:{storeId,name},select:{id:true}}));
   return db.servicePlan.create({
     data: {
       storeId,
-      name: TRIAL_PLAN_NAME,
+      name,
       category: "TRIAL",
       price: Math.max(0, Math.round(defaultPrice)),
       sessionCount: 1,

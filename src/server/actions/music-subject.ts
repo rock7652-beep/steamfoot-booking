@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { courseManager, courseTransaction } from "@/server/services/course-access";
 import { AppError, handleActionError } from "@/lib/errors";
+import { availableCourseTemplateName } from "@/server/services/internal-catalog-name";
 
 export async function saveMusicSubject(input: unknown) {
   try {
@@ -26,7 +27,7 @@ export async function saveMusicSubject(input: unknown) {
       const defaults = { durationMinutes: data.durationMinutes, visibility: data.visibility, description: data.description, precautions: data.precautions };
       const versions = await tx.courseTemplate.findMany({ where: { storeId, musicSubjectId: subjectId }, select: { id: true } });
       if (versions.length) await tx.courseTemplate.updateMany({ where: { storeId, musicSubjectId: subjectId }, data: defaults });
-      else await tx.courseTemplate.create({ data: { storeId, musicSubjectId: subjectId, name: `${data.name} · 排課`, ...defaults, capacity: 1, pointCost: 1, musicScheduleMode: "APPOINTMENT" } });
+      else await tx.courseTemplate.create({ data: { storeId, musicSubjectId: subjectId, name: await availableCourseTemplateName(tx,storeId,`${data.name} · 排課`), ...defaults, capacity: 1, pointCost: 1, musicScheduleMode: "APPOINTMENT" } });
     });
     revalidatePath("/dashboard/courses");
     return { success: true as const };

@@ -58,6 +58,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/all-module-catalog-name-conflicts-20261112": false,
       "fix/line-notification-status-20261111": false,
       "fix/beauty-member-booking-list-20261111": false,
       "fix/course-existing-guardian-phone-20261111": false,

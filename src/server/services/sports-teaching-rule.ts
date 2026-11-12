@@ -4,6 +4,7 @@ import type { Prisma } from "../../../generated/course-client";
 import type { SportsTeachingRule } from "@/lib/sports-teaching-rule";
 import { sportsCompensation } from "@/lib/sports-staging-types";
 import { AppError } from "@/lib/errors";
+import { availableCourseTemplateName } from "./internal-catalog-name";
 
 export function sportsTeachingTemplateId(storeId: string, subjectId: string) {
   return "sports_item_" + createHash("sha256").update(JSON.stringify([storeId, subjectId])).digest("hex");
@@ -57,7 +58,8 @@ export async function saveSportsTeachingRule(tx: Prisma.TransactionClient, store
   const removed = current?.coachIds.filter(id => !rule.coachIds.includes(id)) ?? [];
   if (removed.length && await tx.courseSession.count({ where: { storeId, templateId, coachId: { in: removed }, cancelledAt: null, endsAt: { gt: new Date() } } }))
     throw new AppError("CONFLICT", "教練仍有未結束課次，請先交接再移除資格");
-  await tx.courseTemplate.upsert({ where: { id: templateId }, create: { id: templateId, storeId, name: `${subject.name} · ${templateId.slice(-6)}`, musicSubjectId: subject.id, classType: "GROUP", durationMinutes: 60, capacity: 8, pointCost: rule.pointCost }, update: { pointCost: rule.pointCost } });
+  const name=await availableCourseTemplateName(tx,storeId,`${subject.name} · ${templateId.slice(-6)}`,templateId);
+  await tx.courseTemplate.upsert({ where: { id: templateId }, create: { id: templateId, storeId, name, musicSubjectId: subject.id, classType: "GROUP", durationMinutes: 60, capacity: 8, pointCost: rule.pointCost }, update: { name, pointCost: rule.pointCost } });
   await tx.$executeRaw`UPDATE "Staff" SET "courseQualifiedTemplateIds"=array_remove("courseQualifiedTemplateIds",${templateId}),"updatedAt"=NOW() WHERE "storeId"=${storeId} AND id=ANY(${removed}::text[])`;
   await tx.$executeRaw`UPDATE "Staff" SET "courseQualificationsConfirmed"=true,"courseQualifiedTemplateIds"=array_append(array_remove("courseQualifiedTemplateIds",${templateId}),${templateId}),"updatedAt"=NOW() WHERE "storeId"=${storeId} AND id=ANY(${rule.coachIds}::text[])`;
   if(!current?.expectedCompensation||JSON.stringify(current.compensation)!==JSON.stringify(rule.compensation))await tx.courseCompensation.upsert({ where: { storeId_templateId_staffId: { storeId, templateId, staffId: "" } }, create: { storeId, templateId, staffId: "", rules: [rule.compensation] }, update: { rules: [rule.compensation], revision: { increment: 1 } } });

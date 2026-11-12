@@ -3,6 +3,7 @@ import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
 import type {Prisma} from "../../../generated/course-client";
 import {AppError} from "@/lib/errors";
 import {musicTeachingSubjectId} from "@/lib/music-teaching-item";
+import {availableCourseTemplateName} from "./internal-catalog-name";
 
 type Reader=Pick<Prisma.TransactionClient,"courseTemplate"|"musicSubject">;
 /** Reads may preview an item without creating anything; writes resolve it under the store lock. */
@@ -25,7 +26,8 @@ export async function ensureMusicTeachingItem(tx:Prisma.TransactionClient,storeI
   if(existing){if(key.startsWith("teaching-trial:"))await tx.courseTemplate.update({where:{id:key},data:trialFields});return;}
   const products=await tx.courseTemplate.findMany({where:{storeId,musicSubjectId:item.musicSubjectId,id:{not:{startsWith:"teaching"}}},select:{musicTeacherShare:true}});
   const shares=[...new Set(products.flatMap(product=>product.musicTeacherShare==null?[]:[product.musicTeacherShare]))];
-  await tx.courseTemplate.create({data:{id:key,storeId,name:`教學項目：${item.name}`,musicSubjectId:item.musicSubjectId,category:item.musicSubject?.category??"",musicTeacherShare:shares.length===1?shares[0]:null,...trialFields,durationMinutes:item.durationMinutes,visibility:item.visibility,pointCost:1,capacity:500}});
+  const name=await availableCourseTemplateName(tx,storeId,`教學項目：${item.name}`);
+  await tx.courseTemplate.create({data:{id:key,storeId,name,musicSubjectId:item.musicSubjectId,category:item.musicSubject?.category??"",musicTeacherShare:shares.length===1?shares[0]:null,...trialFields,durationMinutes:item.durationMinutes,visibility:item.visibility,pointCost:1,capacity:500}});
 
 }
 export async function musicTeachingQualifications(tx:Pick<Prisma.TransactionClient,"courseTemplate">,storeId:string,template:{id:string;musicSubjectId?:string|null}) {
