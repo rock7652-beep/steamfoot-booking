@@ -38,12 +38,15 @@ it('hides disabled open-selection offers and uses item qualifications without a 
  expect(document.querySelector('[aria-label="方案適用方式"]')).toBeNull();
  expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('此收費可安排'))).toHaveLength(0);
 });
-it.each([false,true])('legacy fee editing preserves existing provider settings=%s without forcing new setup',configured=>{
+it.each([false,true])('legacy fee editing preserves existing provider settings=%s without forcing new setup',async configured=>{
  mount(false,{selfBookingEnabled:false,assignedSchedulingEnabled:true},{id:'legacy',name:'既有方案',points:10,price:5800,validDays:90,isActive:true,unit:'SESSION',templateIds:['template'],sportsMode:'LEGACY',sportsSubjectId:null,chargeSettings:configured?{kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['teacher']}:null});
  expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('可授課教練'))).toHaveLength(0);
  expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('此收費可安排'))).toHaveLength(0);
- if(!configured)expect(document.body.textContent).toContain('保留既有授課規則');
+ expect(document.body.textContent).not.toContain('保留既有授課規則');
  expect(document.body.textContent).not.toContain('開放選課通用卡');
+ await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(m.sports).toHaveBeenCalledOnce();
+ expect(m.sports.mock.calls[0][0]).toMatchObject({id:'legacy',sportsMode:'LEGACY',amount:10,price:5800,chargeSettings:configured?{kind:'plan',providerScope:'QUALIFIED',providerIds:[]}:null});
 });
 
 it('keeps store cost outside disclosure and retains it when switching fee sections',()=>{
