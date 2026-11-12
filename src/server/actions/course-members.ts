@@ -360,6 +360,10 @@ export async function saveCoursePointPlan(input: unknown) {
     try {refresh();}catch(error){if(!receipt)throw error;syncWarning=true;}
     return { success: true as const, storeId, data: receipt?savedCoursePlan.parse(saved):undefined, syncWarning };
   } catch (error) {
+    const duplicate=error as {code?:string;meta?:{modelName?:string;target?:unknown}}|null;
+    const target=duplicate?.meta?.target;
+    if(duplicate?.code==='P2002'&&(target==='CoursePointPlan_storeId_name_key'||duplicate.meta?.modelName==='CoursePointPlan'&&Array.isArray(target)&&target.length===2&&target.includes('storeId')&&target.includes('name')))
+      return {success:false as const,error:'已有同名收費方式（含下架），請編輯原方案或更換名稱。',uncertain:false};
     return {...handleActionError(error),uncertain:settingsSaveUncertain(error)};
   }
 }

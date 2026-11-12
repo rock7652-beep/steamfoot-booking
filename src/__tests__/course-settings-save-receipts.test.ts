@@ -99,3 +99,11 @@ it('rejects multi-lesson quota on a single charge before saving',async()=>{
  expect(await saveCoursePointPlan({...plan,points:5,unit:'SESSION',templateIds:['template'],chargeSettings:{kind:'single',durationMinutes:60,trialPrice:200,trialDuration:null,providerIds:['teacher']},receipt})).toMatchObject({success:false});
  expect(m.createPlan).not.toHaveBeenCalled();
 });
+it.each([
+ {modelName:'CoursePointPlan',target:['storeId','name']},
+ {target:'CoursePointPlan_storeId_name_key'},
+])('reports a duplicate fee name without requiring another login or overwriting a plan: %j',async meta=>{
+ m.createPlan.mockRejectedValueOnce(Object.assign(Error('Unique constraint failed on the fields: (`storeId`,`name`)'),{code:'P2002',meta}));
+ expect(await saveCoursePointPlan({...plan,receipt})).toEqual({success:false,error:'已有同名收費方式（含下架），請編輯原方案或更換名稱。',uncertain:false});
+ expect(m.updatePlan).not.toHaveBeenCalled();expect(m.revalidate).not.toHaveBeenCalled();
+});

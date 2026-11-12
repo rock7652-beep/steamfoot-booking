@@ -114,7 +114,13 @@ export function handleActionError(e: unknown, ctx?: ErrorContext): ActionResult<
   // Use inline categorization for the return message (no dependency on error-logger)
   const category = isSchemaDrift
     ? "SCHEMA_DRIFT"
-    : msg.includes("storeId")
+    : code === "P2002"
+    ? "UNIQUE_VIOLATION"
+    : code === "P2003"
+    ? "FK_VIOLATION"
+    : code === "P2011"
+    ? "MISSING_FIELD"
+    : /缺少\s*storeId|Missing\s+storeId/i.test(msg)
     ? "STORE_MISSING"
     : msg.includes("FORBIDDEN") || msg.includes("權限")
     ? "PERMISSION"

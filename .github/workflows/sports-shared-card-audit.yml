@@ -83,13 +83,13 @@ jobs:
           '
       - name: Exercise fee saves across separate Prisma runtimes against PostgreSQL
         run: npx vitest run src/__tests__/course-plan-save.pg.test.ts --reporter=default --reporter=json --outputFile=course-plan-save-pg-results.json
-      - name: Require all ten fee-save database scenarios without skips
+      - name: Require all eleven fee-save database scenarios without skips
         run: |
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
             const r = JSON.parse(readFileSync("course-plan-save-pg-results.json", "utf8"));
-            if (!r.success || r.numTotalTests !== 10 || r.numPassedTests !== 10 || r.numPendingTests !== 0)
-              throw new Error("All ten fee-save PostgreSQL scenarios must pass without skips");
+            if (!r.success || r.numTotalTests !== 11 || r.numPassedTests !== 11 || r.numPendingTests !== 0)
+              throw new Error("All eleven fee-save PostgreSQL scenarios must pass without skips");
           '
       - uses: actions/upload-artifact@v4
         if: always()

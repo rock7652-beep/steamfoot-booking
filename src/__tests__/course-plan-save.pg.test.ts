@@ -82,6 +82,15 @@ const database=()=>{if(!db)throw Error('Explicit test database required');return
  function edit(plan:Awaited<ReturnType<typeof fixture>>,customerPurchasable:boolean){
   return {...coursePlanValues.parse(plan),customerPurchasable,expectedSnapshot:JSON.stringify(coursePlanSnapshot(plan)),receipt:{expectedStoreId:'store',requestKey:randomUUID()}};
  }
+ it('reports a real inactive-name collision without losing store identity or changing the old plan',async()=>{
+  const seed=await fixture();
+  const plan=await database().coursePointPlan.update({where:{id:seed.id},data:{isActive:false}});
+  const values=coursePlanValues.omit({id:true}).parse(plan);
+  const result=await saveCoursePointPlan({...values,isActive:true,price:800,points:1,receipt:{expectedStoreId:'store',requestKey:randomUUID()}});
+  expect(result).toEqual({success:false,error:'已有同名收費方式（含下架），請編輯原方案或更換名稱。',uncertain:false});
+  expect(await database().coursePointPlan.findUniqueOrThrow({where:{id:plan.id}})).toEqual(plan);
+  expect(await database().coursePointPlan.count({where:{storeId:'store',name:plan.name}})).toBe(1);
+ });
  it.each(['LEGACY','ASSIGNED'] as const)('saves SQL-null %s plans in both directions with confirmed snapshots',async sportsMode=>{
   let plan=await fixture(sportsMode);
   for(const customerPurchasable of [false,true,false]){
