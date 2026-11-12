@@ -6,9 +6,14 @@ export const courseChargeSettings=z.object({
  trialPrice:z.number().int().min(0).max(1000000).nullable(),
  trialStoreCost:z.number().int().min(0).max(10000000).nullable().optional(),
  trialDuration:z.number().int().min(5).max(480).nullable(),
- providerIds:z.array(z.string().min(1).max(100)).min(1).max(200).refine(ids=>new Set(ids).size===ids.length,'授課人員不可重複'),
-}).strict().refine(s=>s.kind==='single'||s.trialPrice===null&&s.trialDuration===null&&s.trialStoreCost==null,'多次方案不設定體驗收費').refine(s=>s.trialStoreCost==null||s.trialPrice!==null,'請先設定體驗價');
+ providerScope:z.enum(['QUALIFIED','SELECTED']).optional(),
+ providerIds:z.array(z.string().min(1).max(100)).max(200).refine(ids=>new Set(ids).size===ids.length,'授課人員不可重複'),
+}).strict().refine(s=>s.providerScope==='QUALIFIED'||s.providerIds.length>0,'請至少選一位可安排授課人員').refine(s=>s.kind==='single'||s.trialPrice===null&&s.trialDuration===null&&s.trialStoreCost==null,'多次方案不設定體驗收費').refine(s=>s.trialStoreCost==null||s.trialPrice!==null,'請先設定體驗價');
 export type CourseChargeSettings=z.infer<typeof courseChargeSettings>;
+export function courseChargeAllowsProvider(settings:Pick<CourseChargeSettings,"providerScope"|"providerIds">,providerId:string){return settings.providerScope==="QUALIFIED"||settings.providerIds.includes(providerId);}
+/** New catalog settings follow live teaching qualifications. Sold cards own snapshots. */
+export function qualifiedCourseChargeSettings(next:CourseChargeSettings){return {...next,providerScope:'QUALIFIED' as const,providerIds:[]};}
+export function cardChargeSettings(card:{chargeSettingsSnapshot?:unknown;plan?:{chargeSettings?:unknown}|null}|null|undefined){return card?.chargeSettingsSnapshot??card?.plan?.chargeSettings;}
 export const courseChargeSnapshot=z.object({planId:z.string(),name:z.string(),price:z.number().int().nonnegative(),settings:courseChargeSettings,storeCost:z.number().int().nonnegative().optional(),trialPrice:z.number().int().nonnegative().nullable(),isTrial:z.boolean()});
 export type CourseChargeSnapshot=z.infer<typeof courseChargeSnapshot>;
 export function quoteCourseCharge(settings:CourseChargeSettings,trial:boolean,open:boolean,defaultTrialPrice:number){

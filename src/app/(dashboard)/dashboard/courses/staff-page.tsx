@@ -1,3 +1,4 @@
+import {coursePlanCompensation,musicSubjectDefaultId} from "@/lib/course-plan-compensation";
 import {getCoursePersonnelText} from "@/server/services/course-personnel-label";
 import {sportsTeachingTemplateId} from "@/server/services/sports-teaching-rule";
 import {sportsNativePreview} from "@/lib/sports-native-preview";
@@ -63,10 +64,10 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
     prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}),
     prisma.courseStaffPersonLink.findMany({where:{storeId},select:{managerStaffId:true,instructorStaffId:true}}),
   ]);
-  const teachingPlans=await coursePrisma.coursePointPlan.findMany({where:{storeId,isActive:true},select:{name:true,isActive:true,templateIds:true}});
+  const teachingPlans=await coursePrisma.coursePointPlan.findMany({where:{storeId},select:{id:true,name:true,isActive:true,templateIds:true,chargeSettings:true,sportsSubjectId:true,sportsSubjectIds:true}});
   const nativeSports=(await sportsNativePreview(storeId));
   const canReadFees=!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.read")&&(!nativeSports||await checkPermission(user.role,user.staffId,"teacher.compensation.read"));
-  const sportsDefaultFees=nativeSports&&canReadFees?await coursePrisma.courseCompensation.findMany({where:{storeId,staffId:""},select:{templateId:true,rules:true}}):[];
+  const sportsDefaultFees=(nativeSports||!!musicEntitlement)&&canReadFees?await coursePrisma.courseCompensation.findMany({where:{storeId,staffId:""},select:{templateId:true,rules:true}}):[];
   const presentedTemplates=nativeSports ? templates.map(t=>{
     const name=t.musicSubject?.name??courseDisplayName(t.name);
     return {...t,name,displayName:name,currentTeaching:!!t.musicSubjectId&&t.musicSubject?.isActive===true&&t.isActive&&t.id===sportsTeachingTemplateId(storeId,t.musicSubjectId)};
@@ -85,9 +86,9 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
   const customers=await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,OR:[{userId:{in:linkedUserIds}},{identityLinks:{some:{userId:{in:linkedUserIds}}}}]},select:{id:true,name:true,userId:true,identityLinks:{select:{userId:true}}}});
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-1 px-6 py-1">
-      <PageHeader title={teachers?(musicEntitlement?personnelText("教師管理"):personnelText("教練管理")):"人員管理"} subtitle={musicEntitlement ? teachers ? personnelText("查看老師、授課安排與鐘點費；後台帳號權限請至人員管理。") : personnelText("管理後台登入與權限；授課與鐘點費請至教師管理。") : undefined} actions={musicEntitlement && <div className="flex flex-wrap gap-2"><DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={teachers ? "/dashboard/staff" : "/dashboard/teachers"}>{teachers ? "人員帳號與權限" : personnelText("教師與授課")}</DashboardLink></div>} />
+      <PageHeader title={teachers?(musicEntitlement?personnelText("教師管理"):personnelText("教練管理")):"人員管理"} subtitle={musicEntitlement ? teachers ? personnelText("查看老師、授課安排與計酬；後台帳號權限請至人員管理。") : personnelText("管理後台登入與權限；授課與鐘點費請至教師管理。") : undefined} actions={musicEntitlement && <div className="flex flex-wrap gap-2"><DashboardLink className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm" href={teachers ? "/dashboard/staff" : "/dashboard/teachers"}>{teachers ? "人員帳號與權限" : personnelText("教師與授課")}</DashboardLink></div>} />
 
-      <CourseStaffWorkspace sportsNative={nativeSports} sportsDefaultFees={sportsDefaultFees} initialCreate={initialCreate} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={settlementSettings.feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")&&(!nativeSports||await checkPermission(user.role,user.staffId,"teacher.compensation.manage"))}
+      <CourseStaffWorkspace teachingPlans={canReadFees?teachingPlans.map(plan=>{const subjectIds=[...new Set([...templates.filter(t=>plan.templateIds.includes(t.id)&&t.musicSubjectId).map(t=>t.musicSubjectId!),...(plan.sportsSubjectId?[plan.sportsSubjectId]:[]),...plan.sportsSubjectIds])];return {id:plan.id,name:plan.name,active:plan.isActive,templateIds:plan.templateIds,subjectIds,legacy:(plan.chargeSettings as {providerScope?:string}|null)?.providerScope!=="QUALIFIED",defaults:Object.fromEntries(subjectIds.map(subjectId=>{const defaultId=musicEntitlement?musicSubjectDefaultId(subjectId):sportsTeachingTemplateId(storeId,subjectId);const fee=sportsDefaultFees.find(f=>f.templateId===defaultId);const parsed=coursePlanCompensation.safeParse((fee?.rules as unknown[])?.[0]);return [subjectId,parsed.success?parsed.data:null];}))};}):[]} sportsNative={nativeSports} sportsDefaultFees={sportsDefaultFees} initialCreate={initialCreate} previewStoreId={storeId} key={storeId} displayOrder={displayOrders.staff} feeEnabled={settlementSettings.feeEnabled && canReadFees} canEditFees={!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.manage")&&(!nativeSports||await checkPermission(user.role,user.staffId,"teacher.compensation.manage"))}
         canManageOwnIncome={teachers&&canManage&&!isChildStoreView&&getEffectiveActorRole(user)==="OWNER"}
         personalIncomeEnabled={settlementSettings.personalIncomeEnabled}
         financeScope={financeScope} salaryHref={salaryHref} salaryLabel={salaryLabel}
@@ -97,7 +98,7 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
         counterpartChoices={staff.filter(s=>teachers?s.user.role!=="CUSTOMER":s.user.role==="CUSTOMER").map(s=>({id:s.id,name:s.displayName,phone:s.phone,birthday:s.courseBirthday?.toISOString().slice(0,10)??"",emergencyContactName:s.emergencyContactName,emergencyContactPhone:s.emergencyContactPhone,emergencyContactRelation:s.emergencyContactRelation,linked:personLinks.some(l=>l.managerStaffId===s.id||l.instructorStaffId===s.id)}))}
 
         maxStaff={limits.maxStaff}
-        templates={presentedTemplates.map(t=>({...t,musicTeacherShare:canReadFees?t.musicTeacherShare:null,musicPricePerLesson:canReadFees?t.musicPricePerLesson:null,subjectName:t.musicSubject?.name}))}
+        templates={presentedTemplates.map(t=>({...t,musicTeacherShare:canReadFees?t.musicTeacherShare:null,musicPricePerLesson:canReadFees?t.musicPricePerLesson:null,subjectName:t.musicSubject?.name,subjectActive:t.musicSubject?.isActive,hasFee:!musicEntitlement||teachingPlans.some(p=>p.templateIds.includes(t.id))}))}
         canManage={canManage&&(teachers||getEffectiveActorRole(user)==="OWNER")}
         canAssignRoles={user.role === "OWNER" || user.role === "ADMIN"}
         rolePresets={Object.fromEntries((["OWNER", "MANAGER", "STAFF"] as const).map(role => [role, getDefaultPermissionsForRole(role).filter(code => COURSE_PERMISSIONS.includes(code))]))}

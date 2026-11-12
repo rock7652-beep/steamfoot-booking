@@ -58,3 +58,11 @@ it('trial cost is optional for old fees, distinguishes zero, and rejects invalid
  expect(courseChargeSettings.safeParse({...settings,trialPrice:null}).success).toBe(false);
  expect(courseChargeSettings.safeParse({...settings,kind:'plan',trialPrice:null,trialDuration:null}).success).toBe(false);
 });
+
+it('qualification-based charges accept an empty roster but still reject an unqualified provider',async()=>{
+ const tx={coursePointPlan:{findFirst:vi.fn().mockResolvedValue({id:'fee',name:'鋼琴單次',price:800,storeCost:0,templateIds:['template'],sportsMode:'LEGACY',chargeSettings:{...settings,providerScope:'QUALIFIED',providerIds:[]}})},courseTemplate:{findFirst:vi.fn().mockResolvedValue({id:'template',musicSubjectId:'piano'}),findMany:vi.fn().mockResolvedValue([{id:'template',musicSubjectId:'piano'}])},$queryRaw:vi.fn().mockResolvedValue([{id:'teacher',qualificationIds:['template']}])};
+ const input={chargePlanId:'fee',templateId:'template',coachId:'teacher',isTrial:false,open:false,defaultTrialPrice:0,durationMinutes:50};
+ await expect(resolveScheduleCharge(tx as unknown as Prisma.TransactionClient,'store',input)).resolves.toMatchObject({duration:60});
+ tx.$queryRaw.mockResolvedValue([{id:'teacher',qualificationIds:['unrelated']}]);
+ await expect(resolveScheduleCharge(tx as unknown as Prisma.TransactionClient,'store',input)).rejects.toThrow('資格');
+});

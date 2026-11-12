@@ -14,7 +14,9 @@ beforeAll(async () => {
     CREATE TABLE "CourseTemplate" (id text,"storeId" text,"musicPricePerLesson" integer,"musicTeacherFeeBase" integer,"musicTrialMode" text,"musicTeacherShare" float8,"musicSubjectId" text);
     CREATE TABLE "Staff" (id text,"storeId" text,"courseDefaultClassFee" numeric);
     CREATE TABLE "CourseTeacherCompensationSetting" ("storeId" text,"staffId" text,"defaultRatio" numeric,"subjectRules" jsonb,revision integer);
-    CREATE TABLE "CourseSession" (id text PRIMARY KEY,"storeId" text,"templateId" text,"coachId" text,"startsAt" timestamptz,"endsAt" timestamptz);`);
+    CREATE TABLE "CoursePointCard"("storeId" text,"planId" text,"templateIds" text[],"sportsSubjectId" text,"sportsSubjectIds" text[]);
+ CREATE TABLE "CoursePointPlan"(id text,"storeId" text,"templateIds" text[],"sportsSubjectId" text,"sportsSubjectIds" text[],"chargeSettings" jsonb);
+    CREATE TABLE "CourseSession" (id text PRIMARY KEY,"storeId" text,"templateId" text,"coachId" text,"requestKey" text,"startsAt" timestamptz,"endsAt" timestamptz);`);
   const migration=readFileSync(new URL("../../prisma/migrations/20260929140000_course_staff_person_link/migration.sql",import.meta.url),"utf8");
   await db.exec(migration.slice(migration.indexOf("CREATE OR REPLACE FUNCTION course_capture_compensation"),migration.indexOf("REVOKE ALL ON FUNCTION")));
   await db.exec(`CREATE TRIGGER capture_compensation AFTER INSERT OR UPDATE ON "CourseSession" FOR EACH ROW EXECUTE FUNCTION course_capture_compensation();`);
@@ -31,6 +33,7 @@ async function snapshot(id = "session") {
   return (await db.query<{ rule: Prisma.JsonValue; revision: number; staffId: string; durationMinutes: number; storeId: string }>(`SELECT * FROM "CourseCompensationSnapshot" WHERE "sessionId"=$1`, [id])).rows[0];
 }
 const tx = {
+  $executeRaw:async(parts:TemplateStringsArray,...values:unknown[])=>db.query(parts.reduce((out,part,i)=>out+part+(i<values.length?`$${i+1}`:""),""),values),
   courseCompensation: { findUnique: async ({ where }: { where: { storeId_templateId_staffId: { storeId: string; templateId: string; staffId: string } } }) => {
     const k = where.storeId_templateId_staffId;
     return (await db.query(`SELECT * FROM "CourseCompensation" WHERE "storeId"=$1 AND "templateId"=$2 AND "staffId"=$3`, [k.storeId, k.templateId, k.staffId])).rows[0] ?? null;

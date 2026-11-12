@@ -18,6 +18,27 @@ export function capturedTeacherFee(snapshot:CapturedTeacherFee,seats:TeacherFeeS
   if (seats.some(seat => seat.openingIssue)) return {amount:null,issue:seats.find(seat => seat.openingIssue)!.openingIssue!,details:[]};
   if (seats.some(seat => seat.openingPriceSource||seat.verifiedOpeningMakeupFee) && !isTeacherFeeV2(snapshot.rule)) return {amount:null,issue:"期初方案尚未核對此計薪版本",details:[]};
   if(snapshot.revision===0)return {amount:null,issue:"舊課次費率待核對",details:[]};
+  const planSnapshot=snapshot.rule as {planRules?:Record<string,unknown>;calculationVersion?:number}|null;
+  if(planSnapshot?.planRules){
+    if(seats.some(seat=>seat.status==="RESERVED"))return {amount:null,issue:"尚有學員待點名",details:[]};
+    const due=seats.filter(seat=>seat.bookingKind!=="TEACHER_MAKEUP"&&(seat.status==="ATTENDED"||seat.status==="NO_SHOW"||seat.absenceKind==="GROUP_LEAVE_FORFEITED"));
+    if(!due.length)return {amount:0,issue:null,details:[]};
+    const rules=due.map(seat=>seat.planId?planSnapshot.planRules![seat.planId]:null);
+    // Trial/opening/legacy rows without a native plan keep their captured algorithm.
+    if(due.some(seat=>seat.planId)){
+      const parsed=rules.map(rule=>compensationRule.safeParse(rule));
+      if(parsed.some(rule=>!rule.success))return {amount:null,issue:"收費方案計酬待核對",details:[]};
+      if(parsed.some(rule=>rule.success&&rule.data.mode!=="SHARE")){
+        if(new Set(parsed.map(rule=>rule.success?`${rule.data.mode}:${rule.data.value}`:"")).size!==1)return {amount:null,issue:"同場收費方案的固定費用或計酬方式不同，請核對",details:[]};
+        return capturedTeacherFee({...snapshot,rule:{...(rules[0] as object),calculationVersion:planSnapshot.calculationVersion,durationMinutes:(snapshot.rule as {durationMinutes?:number}).durationMinutes}},due);
+      }
+      const results=due.map((seat,index)=>capturedTeacherFee({...snapshot,rule:{...(rules[index] as object),calculationVersion:planSnapshot.calculationVersion}},[seat]));
+      const issue=results.find(result=>result.amount===null)?.issue;
+      if(results.some(result=>result.amount===null))return {amount:null,issue:issue??"收費方案計酬待核對",details:results.flatMap(result=>result.details)};
+      const amount=results.reduce((sum,result)=>sum+result.amount!,0);
+      return Number.isSafeInteger(amount)?{amount,issue:null,details:results.flatMap(result=>result.details)}:{amount:null,issue:"授課費超過可計算範圍",details:[]};
+    }
+  }
   if(snapshot.rule && typeof snapshot.rule==="object" && "calculationVersion" in snapshot.rule && snapshot.rule.calculationVersion===3)return calculateSportsTeacherFee(snapshot.rule,seats);
   const rule=snapshot.rule as {tuitionRules?:Record<string,unknown>;tuitionRuleVersion?:number;mode?:string;value?:number}|null;
   if(rule?.tuitionRules){

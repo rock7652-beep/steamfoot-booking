@@ -20,7 +20,7 @@ import {sportsNativePreview} from "@/lib/sports-native-preview";
 import {sportsFeeSetup} from "@/lib/sports-staging-types";
 import { isMusicCourseStore, isMusicCourseStoreFromEntitlements } from "@/server/services/course-business-profile";
 import {recordCourseStoreNotice} from "@/server/services/course-store-notices";
-import { syncMusicSubjectTeachers } from "@/server/services/music-teaching-qualifications";
+import {qualifiedCourseChargeSettings} from "@/lib/course-charge-settings";
 import { nativeLeaveWasDebited } from "@/server/services/music-native-leave";
 import { musicItemTemplateIds } from "@/server/services/music-item-compatibility";
 import { isMusicOpeningMakeupBooking, MUSIC_OPENING_MAKEUP_OPERATION_ISSUE } from "@/lib/music-opening-runtime";
@@ -239,6 +239,8 @@ export async function saveCoursePointPlan(input: unknown) {
   try {
     const schema = coursePlanValues.extend({expectedSnapshot:z.string().max(COURSE_PLAN_SNAPSHOT_MAX).optional(),receipt:coursePlanReceipt.optional(),sportsSetup:sportsFeeSetup.optional(),musicTeacherIds:z.array(id).min(1).max(100).optional(),expectedMusicTeacherIds:z.array(id).max(100).optional()});
     const { id: planId, expectedSnapshot, musicSetup, musicTeacherIds, expectedMusicTeacherIds, allowShared, receipt, sportsSetup, ...fields } = schema.parse(input);
+    // Accepted for older clients, but fee editing cannot mutate subject qualifications.
+    void musicTeacherIds;void expectedMusicTeacherIds;
     const hasSportsIntent=!!input&&typeof input==="object"&&Object.prototype.hasOwnProperty.call(input,"sportsMode");
     const data = { ...fields, allowShared: allowShared ?? false };
     const expected = expectedSnapshot ? schema.omit({id:true,expectedSnapshot:true,musicSetup:true,musicTeacherIds:true,expectedMusicTeacherIds:true,receipt:true,sportsSetup:true}).parse(JSON.parse(expectedSnapshot)) : null;
@@ -300,19 +302,16 @@ export async function saveCoursePointPlan(input: unknown) {
       Object.assign(data, quoteMusicPlanSettings(data, template));
       if(musicSetup.totalPrice!==undefined)data.price=musicSetup.totalPrice;
     }
-    if (isMusic && musicSetup && !data.chargeSettings) {
-      const result = await syncMusicSubjectTeachers(tx, storeId, musicSetup.subjectId, musicTeacherIds, expectedMusicTeacherIds, async () => {
-        const access = await courseManager("staff.manage");
-        if (access.storeId !== storeId || access.user.id !== user.id) throw new AppError("FORBIDDEN", "教師管理範圍不符");
-      });
-      if (result.changed) await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,summary,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'MusicSubject',${musicSetup.subjectId},'QUALIFICATIONS','更新教學項目授課教師',${JSON.stringify(result.before)}::jsonb,${JSON.stringify(result.after)}::jsonb,now())`;
-    }
     if(data.chargeSettings){
       if(data.chargeSettings.kind==='single'&&(data.points!==1||data.unit!=='SESSION'))throw new AppError('VALIDATION','單次收費須為一堂');
       if(data.sportsMode==='OPEN'&&(data.chargeSettings.trialPrice!==null||data.chargeSettings.trialDuration!==null||data.chargeSettings.trialStoreCost!=null))throw new AppError('VALIDATION','開放選課沿用店家體驗費與課程時間');
-      await assertChargeProviders(tx,storeId,data.templateIds,data.chargeSettings);
     }
     const previous=planId || receiptId ? await tx.coursePointPlan.findFirst({where:{id:planId??receiptId,storeId}}):null;
+    // Sold cards keep their database-captured agreement; catalog edits use live qualifications.
+    if(data.chargeSettings){
+      data.chargeSettings=qualifiedCourseChargeSettings(data.chargeSettings);
+      if(data.chargeSettings.providerScope==='QUALIFIED')await assertChargeProviders(tx,storeId,data.templateIds,data.chargeSettings);
+    }
     if(!previous||(previous.sportsMode??"LEGACY")!==data.sportsMode||!previous.isActive&&data.isActive) await assertCoursePlanMode(tx,storeId,data.sportsMode);
     if(previous&&(previous.sportsMode??"LEGACY")!=="LEGACY"&&data.sportsMode==="LEGACY"){
       if(hasSportsIntent)throw new AppError("VALIDATION","新模式方案不可改為舊方案，請新增方案");

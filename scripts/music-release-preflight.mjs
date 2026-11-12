@@ -5,7 +5,7 @@ import {MUSIC_OPENING_BRANCH} from './music-opening-preview-scope.mjs';
 import {assertMusicNativeReleaseEnvironment,MUSIC_RELEASE_BRANCH} from './music-native-workflow-scope.mjs';
 import {purchaseIntentAccessPreflight} from './purchase-intent-release-preflight.mjs';
 const tables=['CourseScheduleSeries','CourseMusicTuition','CourseMusicReceipt','CourseMusicLessonAssignment','CourseMusicOpeningState','CourseMusicOpeningMakeupEntitlement'];
-const columns={CourseBookingRule:['assignedSchedulingEnabled'],CourseSession:['scheduleType','scheduleFrequency','enrollmentMode','enrollmentFingerprint','rescheduleShadowHidden','bookingAudience'],CoursePointPlan:['sportsSubjectIds'],CoursePurchase:['sportsSubjectIds'],CoursePointCard:['musicOpeningStateRequired','sportsSubjectIds'],CourseBooking:['musicOpeningMakeupEntitlementId','musicOpeningTermKey','musicOpeningLessonOrdinal','musicOpeningSourceLessonKey']};
+const columns={CourseBookingRule:['assignedSchedulingEnabled'],CourseSession:['scheduleType','scheduleFrequency','enrollmentMode','enrollmentFingerprint','rescheduleShadowHidden','bookingAudience'],CoursePointPlan:['sportsSubjectIds'],CoursePurchase:['sportsSubjectIds'],CoursePointCard:['musicOpeningStateRequired','sportsSubjectIds','chargeSettingsSnapshot'],CourseBooking:['musicOpeningMakeupEntitlementId','musicOpeningTermKey','musicOpeningLessonOrdinal','musicOpeningSourceLessonKey']};
 export async function runMusicNativeSchemaPreflight(env=process.env){
  const target=assertMusicNativeReleaseEnvironment(env);
  if(target==='production'&&env.COURSE_PURCHASE_QA_STORE_SCOPE==='1')throw Error('Production purchase intent scope invalid');

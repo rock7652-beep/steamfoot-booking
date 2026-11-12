@@ -18,6 +18,8 @@ export async function captureSportsCoachCompensation(tx: Client, storeId: string
   const rule = { ...selected.rule, calculationVersion: 3, source: selected.source, durationMinutes };
   const captured = { staffId: session.coachId, rule, revision: selected.revision, durationMinutes };
   await tx.courseCompensationSnapshot.upsert({ where: { sessionId: session.id }, create: { sessionId: session.id, storeId, ...captured }, update: captured });
+  const {captureTeachingPlanFees}=await import('./course-plan-compensation');
+  await captureTeachingPlanFees(tx as Prisma.TransactionClient,storeId,[session.id]);
   return true;
 }
 

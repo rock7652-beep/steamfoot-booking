@@ -1,9 +1,11 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m=vi.hoisted(()=>({native:false,manager:vi.fn(),feature:vi.fn(),create:vi.fn(),find:vi.fn(),update:vi.fn(),findSaved:vi.fn(),templates:vi.fn(),templateName:vi.fn(),templateUpdate:vi.fn(),templateCreate:vi.fn()}));
+const m=vi.hoisted(()=>({native:false,finance:vi.fn(),feeFind:vi.fn(),feeSave:vi.fn(),templateUpsert:vi.fn(),audit:vi.fn(),manager:vi.fn(),feature:vi.fn(),create:vi.fn(),find:vi.fn(),update:vi.fn(),findSaved:vi.fn(),templates:vi.fn(),templateName:vi.fn(),templateUpdate:vi.fn(),templateCreate:vi.fn()}));
+vi.mock("@/server/services/music-finance-access",()=>({requireMusicFinance:m.finance}));
+vi.mock("@/server/services/operation-audit-outbox",()=>({enqueueOperationAudit:m.audit}));
 vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:()=>m.native}));
 vi.mock("server-only",()=>({}));
 vi.mock("@/lib/db",()=>({prisma:{storeFeatureEntitlement:{findFirst:m.feature}}}));
-vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:async(_store:string,work:(tx:unknown)=>unknown)=>work({courseTemplate:{findMany:m.templates,findFirst:m.templateName,updateMany:m.templateUpdate,create:m.templateCreate},musicSubject:{create:m.create,findFirst:m.find,updateMany:m.update,findFirstOrThrow:m.findSaved}})}));
+vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:async(_store:string,work:(tx:unknown)=>unknown)=>work({courseCompensation:{findUnique:m.feeFind,upsert:m.feeSave},courseTemplate:{findMany:m.templates,findFirst:m.templateName,updateMany:m.templateUpdate,create:m.templateCreate,upsert:m.templateUpsert},musicSubject:{create:m.create,findFirst:m.find,updateMany:m.update,findFirstOrThrow:m.findSaved}})}));
 import {saveMusicSubjectWithReceipt} from "@/server/services/music-subject-save";
 const input={name:"吉他",category:"",description:"",isActive:true,expectedStoreId:"store-a",requestKey:"123e4567-e89b-42d3-a456-426614174000"};
 beforeEach(()=>{vi.resetAllMocks();m.native=false;m.manager.mockResolvedValue({storeId:"store-a",user:{id:"u"}});m.feature.mockResolvedValue({storeId:"store-a"});m.find.mockResolvedValue(null);m.create.mockImplementation(async({data})=>({...data,updatedAt:new Date("2026-10-10T00:00:00Z")}));});
@@ -123,4 +125,19 @@ it("avoids occupied names when renaming and excludes its own schedule from the n
  await saveMusicSubjectWithReceipt({...input,id:"summer",name:"寒期專班",nativeDefaults:native});
  expect(m.templateName).toHaveBeenCalledWith({where:{storeId:"store-a",name:"寒期專班 · 排課",id:{not:generated.id}},select:{id:true}});
  expect(m.templateUpdate).toHaveBeenCalledWith({where:{id:generated.id,storeId:"store-a",musicSubjectId:"summer"},data:{name:"寒期專班 · 排課（2）"}});
+});
+
+it("saves ABC default fixed-per-event compensation separately from schedule fields",async()=>{
+ m.templates.mockResolvedValue([]);m.templateName.mockResolvedValue(null);m.feeFind.mockResolvedValue(null);
+ const result=await saveMusicSubjectWithReceipt({...input,nativeDefaults:{durationMinutes:120,visibility:"PUBLIC",precautions:"",compensation:{mode:"CLASS",value:600}}});
+ expect(result.data).toMatchObject({durationMinutes:120,compensation:{mode:"CLASS",value:600}});
+ expect(m.manager).toHaveBeenCalledWith("teacher.compensation.manage");expect(m.finance).toHaveBeenCalled();
+ expect(m.feeSave).toHaveBeenCalledWith(expect.objectContaining({create:expect.objectContaining({staffId:"",rules:[{mode:"CLASS",value:600}]})}));
+ expect(m.templateCreate.mock.calls[0][0].data).not.toHaveProperty("compensation");
+ expect(m.audit).toHaveBeenCalledWith(expect.objectContaining({action:"MUSIC_ITEM_COMPENSATION"}),expect.anything(),input.requestKey);
+});
+it("refuses scoped/unauthorized default-compensation writes before touching catalog data",async()=>{
+ m.finance.mockRejectedValueOnce(new Error("尚未授權"));
+ await expect(saveMusicSubjectWithReceipt({...input,nativeDefaults:{durationMinutes:120,visibility:"PUBLIC",compensation:{mode:"CLASS",value:600}}})).rejects.toThrow("尚未授權");
+ expect(m.create).not.toHaveBeenCalled();expect(m.feeSave).not.toHaveBeenCalled();
 });

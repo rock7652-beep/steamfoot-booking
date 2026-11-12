@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ subjects: vi.fn(), features: vi.fn(), permission: vi.fn(), orders: vi.fn(), user: vi.fn() }));
-vi.mock("@/lib/course-db", () => ({ coursePrisma: { musicSubject: { findMany: m.subjects } } }));
+const m = vi.hoisted(() => ({ subjects: vi.fn(), features: vi.fn(), permission: vi.fn(), orders: vi.fn(), user: vi.fn(),templates:vi.fn(),fees:vi.fn() }));
+vi.mock("@/server/services/music-finance-access",()=>({readMusicFinanceScope:async()=>null}));
+vi.mock("@/lib/course-db", () => ({ coursePrisma: { musicSubject: { findMany: m.subjects },courseTemplate:{findMany:m.templates},courseCompensation:{findMany:m.fees} } }));
 vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findMany: m.features } } }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
@@ -24,6 +25,7 @@ vi.mock("@/app/(dashboard)/dashboard/cashbook/_components/cashbook-shortcut", ()
 import CoursesPage from "@/app/(dashboard)/dashboard/courses/page";
 beforeEach(() => {
   vi.clearAllMocks();
+  m.templates.mockResolvedValue([{id:"subject_schedule_s1",musicSubjectId:"s1",durationMinutes:100,visibility:"PUBLIC",precautions:""}]);m.fees.mockResolvedValue([{templateId:"subject_schedule_s1",rules:[{mode:"CLASS",value:600}]}]);
   m.user.mockResolvedValue({ id: "u", role: "OWNER", staffId: "s", storeId: "store-a" });
   m.features.mockResolvedValue([{ featureKey: "business.music" }]);
   m.permission.mockResolvedValue(true);
@@ -33,7 +35,7 @@ beforeEach(() => {
 it("renders the music catalog without any schedule, rental or roster queries", async () => {
   // The mock deliberately exposes no schedule/rental models: any regression fails this request.
   const page = await CoursesPage({ searchParams: Promise.resolve({ view: "catalog", action: "create" }) });
-  expect(page.props.children[1].props).toMatchObject({ initialCreate: true, canCreate: true, canEdit: true, subjects: [{ id: "s1", updatedAt: "2026-10-10T00:00:00.000Z" }] });
+  expect(page.props.children[1].props).toMatchObject({ initialCreate: true, canCreate: true, canEdit: true, subjects: [{ id: "s1",durationMinutes:100,compensation:{mode:"CLASS",value:600}, updatedAt: "2026-10-10T00:00:00.000Z" }] });
   expect(m.subjects).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "store-a" } }));
 });
 it("keeps independent create/update permissions and read-only cross-store access", async () => {

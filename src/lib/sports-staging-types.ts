@@ -40,7 +40,7 @@ export type SportsFee = {
   shared: boolean;
   templateId: string;
   snapshot: string;
-  compensation?: {mode:"SHARE"|"HOUR";value:number};
+  compensation?: {mode:"SHARE"|"HOUR"|"CLASS";value:number};
 };
 export type SportsLesson = {
   id: string;
@@ -99,7 +99,7 @@ export type SportsSnapshot = {
   date: string;
 };
 
-export const sportsCompensation = z.object({mode:z.enum(["SHARE","HOUR"]),value:z.number().finite().min(0).max(1000000)}).refine(r=>r.mode!=="SHARE"||r.value<=100,"拆帳比例需介於 0–100%").refine(r=>Math.abs(r.value*100-Math.round(r.value*100))<0.000001,"最多填兩位小數");
+export const sportsCompensation = z.object({mode:z.enum(["SHARE","HOUR","CLASS"]),value:z.number().finite().min(0).max(1000000)}).refine(r=>r.mode!=="CLASS"||Number.isInteger(r.value),"固定費用須為整數元").refine(r=>r.mode!=="SHARE"||r.value<=100,"拆帳比例需介於 0–100%").refine(r=>Math.abs(r.value*100-Math.round(r.value*100))<0.000001,"最多填兩位小數");
 export const sportsFeeSetup = z.object({
   compensation: sportsCompensation.optional(),
   expectedCompensation: sportsCompensation.nullable().optional(),

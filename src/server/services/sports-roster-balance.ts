@@ -1,3 +1,4 @@
+import {cardChargeSettings,courseChargeAllowsProvider} from "@/lib/course-charge-settings";
 import {courseCalendarRead} from './course-calendar-read-scope';
 import {sumItemBalances,type ItemBalance} from "@/lib/item-entitlement";
 import 'server-only';
@@ -36,8 +37,8 @@ export async function readSportsRosterBalances(storeId:string,sessionId:string,c
  const cards=calendar?readRows.filter(card=>!!card.expiresAt&&card.expiresAt>=threshold&&card.members.some(member=>!!member.customerId&&ids.includes(member.customerId))):readRows;
  for(const card of cards){
   if(card.sportsMode==='OPEN')for(const member of card.members)if(member.customerId&&ids.includes(member.customerId))reviewRequired.add(member.customerId);
-  const charge=courseChargeSettings.safeParse(card.plan?.chargeSettings);
-  if(card.plan?.chargeSettings!=null&&(!charge.success||!charge.data.providerIds.includes(session.coachId)))continue;
+  const charge=courseChargeSettings.safeParse(cardChargeSettings(card));
+  if(cardChargeSettings(card)!=null&&(!charge.success||!courseChargeAllowsProvider(charge.data,session.coachId)))continue;
   if(card.termSessionIds.length&&!card.termSessionIds.includes(session.id))continue;
   const available=Math.max(0,card.remaining-card.bookings.reduce((n,b)=>n+b.pointCost,0));
   for(const member of card.members){

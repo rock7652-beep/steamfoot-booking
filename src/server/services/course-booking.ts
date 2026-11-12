@@ -1,3 +1,4 @@
+import {cardChargeSettings,courseChargeAllowsProvider} from "@/lib/course-charge-settings";
 import {courseHasSeatLimit} from "@/lib/course-capacity";
 import {persistCustomerBookingGoods,type BookingGoodsTx} from "./customer-booking-goods";
 import type {CustomerBookingGoodsInput} from "@/lib/customer-booking-goods";
@@ -335,8 +336,9 @@ export async function reserveCourseInTransaction(
     if(sessionRule&&session?.isTrial&&card)return fail('體驗課請使用體驗預約，不扣一般方案');
     if(options.sportsMemberTrial&&(!actor.customerId||actor.customerId!==input.customerId||!session?.isTrial||sessionRule?.enrollment!=='OPEN'||sessionRule.planId!==null))return fail('此課未開放體驗預約');
   }
-  const cardCharge=courseChargeSettings.safeParse(card?.plan?.chargeSettings);
-  if(session&&cardCharge.success&&!cardCharge.data.providerIds.includes(session.coachId))return fail('此方案未開放所選授課人員');
+  const cardCharge=courseChargeSettings.safeParse(cardChargeSettings(card));
+  if(cardChargeSettings(card)!=null&&!cardCharge.success)return fail('方案授課約定待核對');
+  if(session&&cardCharge.success&&!courseChargeAllowsProvider(cardCharge.data,session.coachId))return fail('此方案未開放所選授課人員');
   if(session?.chargeSnapshot){
     const charge=courseChargeSnapshot.parse(session.chargeSnapshot);
     if(charge.isTrial&&card)return fail('體驗課請使用體驗預約');

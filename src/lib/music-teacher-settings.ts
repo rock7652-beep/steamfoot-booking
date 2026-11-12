@@ -2,7 +2,7 @@ import { z } from "zod";
 import { compensationRule, type CompensationRule } from "./course-compensation";
 export const musicTeacherSettings = z.object({
   defaultRatio:z.number().finite().min(0).max(1).multipleOf(0.0001).nullable(),
-  subjectRules:z.record(z.string().min(1).max(180),compensationRule.refine(r=>r.mode!=="HOUR")).refine(r=>Object.keys(r).length<=500),
+  subjectRules:z.record(z.string().min(1).max(180),compensationRule.refine(r=>r.mode!=="HOUR")).refine(r=>Object.keys(r).length<=1000),
   revision:z.number().int().nonnegative(),
 });
 export type MusicTeacherSettings=z.infer<typeof musicTeacherSettings>;

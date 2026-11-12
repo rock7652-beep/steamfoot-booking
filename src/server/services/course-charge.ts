@@ -1,10 +1,11 @@
 import 'server-only';
 import {musicTeachingSubjectId} from '@/lib/music-teaching-item';
 import type {Prisma} from '../../../generated/course-client';
-import {courseChargeSettings,quoteCourseCharge,type CourseChargeSettings} from '@/lib/course-charge-settings';
+import {courseChargeSettings,courseChargeAllowsProvider,quoteCourseCharge,type CourseChargeSettings} from '@/lib/course-charge-settings';
 import {AppError} from '@/lib/errors';
 /** Validate existing qualifications without mutating another fee's teachers. */
 export async function assertChargeProviders(tx:Prisma.TransactionClient,storeId:string,templateIds:string[],settings:CourseChargeSettings){
+ if(settings.providerScope==='QUALIFIED')return;
  const templates=await tx.courseTemplate.findMany({where:{storeId,id:{in:templateIds}},select:{id:true,musicSubjectId:true}});
  const subjects=templates.flatMap(t=>t.musicSubjectId?[t.musicSubjectId]:[]);
  const related=subjects.length?await tx.courseTemplate.findMany({where:{storeId,musicSubjectId:{in:subjects},isActive:true},select:{id:true}}):templates;
@@ -30,8 +31,8 @@ export async function resolveScheduleCharge(tx:Prisma.TransactionClient,storeId:
  const template=virtualSubject?{id:input.templateId,musicSubjectId:virtualSubject}:await tx.courseTemplate.findFirst({where:{storeId,id:input.templateId},select:{id:true,musicSubjectId:true}});
  const allowed=await tx.courseTemplate.findMany({where:{storeId,id:{in:plan.templateIds}},select:{id:true,musicSubjectId:true}});
  if(!template||!(plan.sportsMode==='SUBJECTS'?!!template.musicSubjectId&&plan.sportsSubjectIds.includes(template.musicSubjectId):plan.sportsMode==='ASSIGNED'&&plan.sportsSubjectId?plan.sportsSubjectId===template.musicSubjectId:allowed.some(t=>t.id===template.id||t.musicSubjectId&&t.musicSubjectId===template.musicSubjectId)))throw new AppError('VALIDATION','此收費方式不適用所選教學項目');
- if(!settings.providerIds.includes(input.coachId))throw new AppError('VALIDATION','此收費方式未開放所選授課人員');
- await assertChargeProviders(tx,storeId,virtualSubject?allowed.map(t=>t.id):[input.templateId],{...settings,providerIds:[input.coachId]});
+ if(!courseChargeAllowsProvider(settings,input.coachId))throw new AppError('VALIDATION','此收費方式未開放所選授課人員');
+ await assertChargeProviders(tx,storeId,virtualSubject?allowed.map(t=>t.id):[input.templateId],{...settings,providerScope:'SELECTED',providerIds:[input.coachId]});
  const quote=quoteCourseCharge(settings,input.isTrial,input.open,input.defaultTrialPrice);
  return {snapshot:{planId:plan.id,name:plan.name,price:plan.price,storeCost:plan.storeCost,settings,trialPrice:input.open?input.defaultTrialPrice:input.isTrial?quote.trialPrice:settings.kind==='single'?settings.trialPrice:null,isTrial:input.isTrial},...quote,duration:input.open||settings.kind==='plan'?input.durationMinutes:quote.duration};
 }
