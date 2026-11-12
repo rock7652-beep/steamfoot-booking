@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { usePanelReader } from "@/components/operations/panel-read-cache";
+import { useCoursePhoneReader } from "./use-customer-support-readers";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { loadCoursePhoneConnection, confirmCoursePhoneLogin, confirmCoursePhoneView, removeCoursePhoneView } from "@/server/actions/course-phone-view";
 
 export function CoursePhoneViewPanel({ customerId }: { customerId: string }) {
-  const reader = usePanelReader("course-phone-connection", loadCoursePhoneConnection, "", 0);
+  const reader = useCoursePhoneReader();
   const [state, setState] = useState<{ id: string; value: Awaited<ReturnType<typeof loadCoursePhoneConnection>> } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +19,7 @@ export function CoursePhoneViewPanel({ customerId }: { customerId: string }) {
       .catch(() => { if (version === sequence.current) setError("目前無法讀取電話綁定，請重試"); });
     return () => { sequence.current = version + 1; };
   }, [customerId, reader, retry]);
-  const current = state?.id === customerId ? state.value : null;
+  const current = state?.id === customerId ? state.value : reader.get(customerId)??reader.peek(customerId);
   const data = current?.success ? current.data : null;
   async function mutate(run: () => Promise<{ success: boolean; error?: string }>) {
     if (submitting.current) return;

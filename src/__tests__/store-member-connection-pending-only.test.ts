@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 vi.mock("@/server/actions/store-member-connection", () => ({ loadMemberConnectionAction: vi.fn(), approveMemberConnectionAction: vi.fn(), approveLoginRecoveryAction: vi.fn() }));
 vi.mock("@/components/admin/settings-panel-context", () => ({ useSettingsPanelGuard: vi.fn() }));
-vi.mock("@/components/operations/panel-read-cache", () => ({ usePanelReader: () => ({ read: vi.fn(), invalidate: vi.fn() }) }));
+vi.mock("@/components/operations/panel-read-cache", () => ({ usePanelReader: () => ({ get:()=>undefined,peek:()=>undefined,read: vi.fn(), invalidate: vi.fn() }) }));
 vi.mock("@/lib/customer-support-read-client", () => ({ readMemberConnection: vi.fn() }));
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 const customerId = "customer-a";

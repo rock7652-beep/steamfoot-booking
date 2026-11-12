@@ -275,10 +275,10 @@ export function CourseRoster({
   const [canPurchase, setCanPurchase] = useState(seed?.canPurchase??false);
   const rosterCustomerRevision=JSON.stringify(roster.map(row=>[row.id,row.status,row.cardId,row.cardRemaining]));
   const rosterCustomerReader=useRosterCustomerReader(sessionId,storeId,rosterParams.get("dataScope")==="legacy"?"legacy":undefined,rosterCustomerRevision);
-  useIdleReadPreload({enabled:loaded&&!source,blocked:bulkPending||!!companionEditor||!!studentPanel,keys:roster.filter(row=>row.customerId).slice(0,5).map(row=>JSON.stringify([row.customerId,row.cardId])),reader:rosterCustomerReader,startDelayMs:250,gapMs:0,concurrency:2});
+  useIdleReadPreload({enabled:loaded&&!source,blocked:bulkPending||!!companionEditor||!!studentPanel,keys:roster.filter(row=>row.customerId).slice(0,20).map(row=>JSON.stringify([row.customerId,row.cardId])),reader:rosterCustomerReader,startDelayMs:250,gapMs:0,concurrency:2});
   const customerPlanPreload=useCustomerPlanPreload({native:sportsNative,music:musicLayout,storeId,canReadCards:loaded&&!source&&canPurchase,canReadBookings:loaded&&!source,dataScope:rosterParams.get("dataScope")==="legacy"?"legacy":undefined});
   function prefetchRosterCustomer(customerId:string){customerPlanPreload.prefetch(customerId);if(!source)rosterCustomerReader.prefetch(JSON.stringify([customerId]));}
-  useIdleReadPreload({enabled:loaded&&!source,blocked:bulkPending||!!companionEditor,keys:[...new Set(roster.flatMap(row=>row.customerId&&!row.cardId?[row.customerId]:[]))].slice(0,5),reader:customerPlanPreload.reader});
+  useIdleReadPreload({enabled:loaded&&!source,blocked:bulkPending||!!companionEditor,keys:[...new Set(roster.flatMap(row=>row.customerId&&!row.cardId?[row.customerId]:[]))].slice(0,20),reader:customerPlanPreload.reader});
   const [purchaseFor, setPurchaseFor] = useState<string | null>(null);
   const [purchaseOptions, setPurchaseOptions] = useState<Extract<Awaited<ReturnType<typeof loadCourseStudentPurchase>>, {success:true}>["data"] | null>(null);
   const [purchasePlanId, setPurchasePlanId] = useState("");

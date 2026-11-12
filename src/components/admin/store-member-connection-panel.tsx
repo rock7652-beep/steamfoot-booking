@@ -2,22 +2,22 @@
 import { useEffect, useRef, useState } from "react";
 import { loadMemberConnectionAction, approveMemberConnectionAction, approveLoginRecoveryAction } from "@/server/actions/store-member-connection";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
-import { usePanelReader } from "@/components/operations/panel-read-cache";
-import { readMemberConnection } from "@/lib/customer-support-read-client";
+import { useMemberConnectionReader } from "./use-customer-support-readers";
 
 type Result = Extract<Awaited<ReturnType<typeof loadMemberConnectionAction>>, { success: true; canConfirm: boolean }>;
 export function StoreMemberConnectionPanel({ customerId, compact=false, pendingOnly=false, initial }: { customerId: string;compact?:boolean;pendingOnly?:boolean;initial?:{customerId:string;value:Result} }) {
-  const [result, setResult] = useState<Result | null>(()=>initial?.customerId===customerId?initial.value:null);
+  const reader = useMemberConnectionReader();
+  const [result, setResult] = useState<Result | null>(()=>{if(initial?.customerId===customerId)return initial.value;const cached=reader.get(customerId)??reader.peek(customerId);return cached?.success&&"canConfirm" in cached?cached:null;});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useSettingsPanelGuard(false, busy);
   const sequence = useRef(0);
   const submitting = useRef(false);
-  const reader = usePanelReader("store-member-connection", readMemberConnection, "", 0);
   useEffect(() => {
     const key = ++sequence.current;
     if(initial?.customerId===customerId){setResult(initial.value);setError(null);return;}
-    setResult(null); setError(null);
+    const cached=reader.get(customerId)??reader.peek(customerId);
+    setResult(cached?.success&&"canConfirm" in cached?cached:null); setError(null);
     void reader.read(customerId).then(value => {
       if (key !== sequence.current) return;
       if (value.success && "canConfirm" in value) setResult(value); else if (!value.success) setError(value.error);

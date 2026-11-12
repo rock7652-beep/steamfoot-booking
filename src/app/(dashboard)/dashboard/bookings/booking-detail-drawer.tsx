@@ -1002,7 +1002,7 @@ function DrawerContent({
   const customerReadScope=JSON.stringify([booking.id,booking.bookingStatus,booking.customerPlanWallet?.remainingSessions,payload.trial,payload.single,payload.storedValue,payload.participantCheckout?.slots.map(slot=>[slot.customerId,slot.revision,slot.status])]);
   const customerReader=useCustomerPanelContextReader(customerReadScope);
   const customerPreload=useMemo(()=>({read:(id:string)=>customerReader.read(id),get:(id:string)=>customerReader.get(id)}),[customerReader]);
-  useIdleReadPreload({enabled:true,blocked:isActing||!!showCustomer,keys:[...new Set([booking.customer.id,...(payload.participantCheckout?.slots.flatMap(slot=>slot.customerId?[slot.customerId]:[])??[])])].slice(0,5),reader:customerPreload,startDelayMs:250,gapMs:0,concurrency:2});
+  useIdleReadPreload({enabled:true,blocked:isActing||!!showCustomer,keys:[...new Set([booking.customer.id,...(payload.participantCheckout?.slots.flatMap(slot=>slot.customerId?[slot.customerId]:[])??[])])].slice(0,20),reader:customerPreload,startDelayMs:250,gapMs:0,concurrency:2});
   const visibleCustomer = openCustomerPlan ? booking.customer.id : showCustomer;
   const meta = bookingStatusMeta(
     booking.bookingStatus,

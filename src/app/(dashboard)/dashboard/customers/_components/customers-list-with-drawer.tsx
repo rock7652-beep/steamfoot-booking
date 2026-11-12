@@ -1,5 +1,6 @@
 "use client";
 
+import {useMemberConnectionReader,useCustomerAdvancedReader} from "@/components/admin/use-customer-support-readers";
 import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import { useId, useCallback, useState, useMemo, useRef, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -95,7 +96,10 @@ export function CustomersListWithDrawer({
   const [detail, setDetail] = useState<DrawerDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const detailPreload=useMemo(()=>({read:(id:string)=>cache.load(id),get:(id:string)=>cache.get(id)}),[cache]);
+  const membership=useMemberConnectionReader(),advanced=useCustomerAdvancedReader();
+  const detailPreload=useMemo(()=>({read:async(id:string)=>{
+    await Promise.allSettled([cache.load(id),membership.read(id),advanced.read(id)]);
+  },get:(id:string)=>cache.get(id)&&membership.get(id)&&advanced.get(id)}),[cache,membership,advanced]);
   useIdleReadPreload({enabled:true,blocked:!!openId,keys:rows.map(row=>row.id),reader:detailPreload,startDelayMs:250,gapMs:0,concurrency:2,repeatAfterMs:10_000,allowFocusedInput:true});
   const [focus, setFocus] = useState<"plan" | null>(null);
 
@@ -139,8 +143,8 @@ export function CustomersListWithDrawer({
 
   const prefetchDetail = useCallback((customerId: string) => {
     // Hover/focus failures stay silent; an actual open always allows retry.
-    void cache.load(customerId).catch(() => {});
-  }, [cache]);
+    void detailPreload.read(customerId);
+  }, [detailPreload]);
 
   // 開啟：cache 命中即時填入；未命中先 skeleton + 背景 fetch。
   const applyOpen = useCallback(

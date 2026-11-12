@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ summary: vi.fn(), connection: vi.fn(), approve: vi.fn(), view: vi.fn(), revoke: vi.fn() }));
 vi.mock("@/server/actions/course-phone-summary", () => ({ loadCoursePhoneSummary: m.summary }));
 vi.mock("@/server/actions/course-phone-view", () => ({ loadCoursePhoneConnection: m.connection, confirmCoursePhoneLogin: m.approve, confirmCoursePhoneView: m.view, removeCoursePhoneView: m.revoke }));
+vi.mock("@/lib/customer-support-read-client",async original=>({...await original<typeof import("@/lib/customer-support-read-client")>(),readCoursePhoneConnection:m.connection}));
 import { CoursePhoneLearners } from "@/components/course-phone-learners";
 import { CoursePhoneViewPanel } from "@/components/admin/course-phone-view-panel";
 let host: HTMLDivElement, root: Root;

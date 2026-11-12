@@ -238,7 +238,7 @@ export function CourseMemberWorkspace({
     invalidateCustomerPlanReads();
     advanceCardRevision(update);
   },[invalidateCustomerPlanReads]);
-  const planPreload=useCustomerPlanPreload({load:source?.browseCards,support:source?.preloadCardDetails?source.support:undefined,preloadCardDetails:source?.preloadCardDetails,preloadCardProgress:source?.preloadCardProgress,getCardProgress:source?.getCardProgress,native:sportsNative,music,canReadCards,canReadBookings,canReadTransactions,revision:cardRevision,dataScope,storeId:previewStoreId});
+  const planPreload=useCustomerPlanPreload({preloadOverview:!source,bookings:source?.bookings,load:source?.browseCards,support:source?.preloadCardDetails?source.support:undefined,preloadCardDetails:source?.preloadCardDetails,preloadCardProgress:source?.preloadCardProgress,getCardProgress:source?.getCardProgress,native:sportsNative,music,canReadCards,canReadBookings,canReadTransactions,revision:cardRevision,dataScope,storeId:previewStoreId});
   useIdleReadPreload({enabled:panel==='person'&&!!person,blocked:dirty||pending,keys:person?[person.id]:[],reader:planPreload.visibleReader,startDelayMs:0});
   const [balanceReceipts,setBalanceReceipts]=useState<{storeId:typeof previewStoreId;values:Record<string,{available:number;ids:string[]}>}>({storeId:previewStoreId,values:{}});
 
@@ -725,7 +725,7 @@ export function CourseMemberWorkspace({
               cards={canReadCards&&<section className="space-y-2"><h3 className="text-sm font-semibold">方案</h3><CourseCardBrowser preloadDetails={source?.preloadCardDetails} storeId={previewStoreId} overview renderProgress={overviewProgress} showOverviewTotals snapshot={checkoutCards} dataScope={dataScope} sharedCardState={sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}
               attribution={attribution} details={detailFields}
               note={<RetainedNoteEditor quiet optimistic emptyActionLabel="備註" key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" formatDisplay={musicNoteDisplay} hint="" placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit} save={(serviceNote,expectedServiceNote)=>saveCourseCustomerNote({customerId:person.id,serviceNote,expectedServiceNote})} onSaved={()=>router.refresh()}/>}
-              actions={<><StudentMakeupStatus onPendingChange={setFormPending} customerId={person.id} revision={person.updatedAt??""}/>{canManageStaff&&<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>open("coach")}>{personnelText("加入為教師")}</button>}</>}
+              actions={<>{canReadBookings&&canReadCards&&<StudentMakeupStatus onPendingChange={setFormPending} customerId={person.id} revision={person.updatedAt??""}/>}{canManageStaff&&<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>open("coach")}>{personnelText("加入為教師")}</button>}</>}
             />}
             {panel === "person" && person && personTab === "info" && !editingPerson && !source && <CoursePhoneViewPanel key={`phone-${person.id}`} customerId={person.id} />}
             {panel === "person" && (
@@ -740,7 +740,7 @@ export function CourseMemberWorkspace({
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth scope={source?.healthScope} compact={sportsNative} customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
             {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={returnToCustomer}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <CustomerOverviewBody
-              next={canReadBookings&&<CustomerNextBooking key={person.id} customerId={person.id} load={source?.bookings} serviceMode={!!source} revision={cardRevision}/>}
+              next={canReadBookings&&<CustomerNextBooking key={person.id} customerId={person.id} load={source?.bookings} serviceMode={!!source} revision={cardRevision} storeId={previewStoreId} preloadSource={source?.preloadCardDetails}/>}
               cards={canReadCards&&<section className="space-y-2"><h3 className="text-sm font-semibold">方案</h3><CourseCardBrowser preloadDetails={source?.preloadCardDetails} storeId={previewStoreId} dataScope={dataScope} overview renderProgress={overviewProgress} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} snapshot={checkoutCards} sharedCardState={sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}
               attribution={attribution} details={detailFields} note={<RetainedNoteEditor confirmDiscard={confirmDiscard} quiet optimistic emptyActionLabel="備註" key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
