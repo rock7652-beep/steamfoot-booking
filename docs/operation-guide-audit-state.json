@@ -1352,8 +1352,8 @@
   ],
   "currentValidation": {
     "status": "local-checks-passed",
-    "testFilesPassed": 57,
-    "testsPassed": 278,
+    "testFilesPassed": 58,
+    "testsPassed": 286,
     "eslint": "passed",
     "typecheck": "passed",
     "whitespace": "passed",
@@ -1372,6 +1372,10 @@
       "reuse reviewed non-PostgreSQL engine backup helper; PostgreSQL/native engines and runtime assets retained"
     ],
     "businessRulesChanged": false,
-    "databaseOrNotificationChanges": false
+    "databaseOrNotificationChanges": false,
+    "latestFailedHead": "7d1d3fcd74f04bf3c18808540fc2a776254f17ff",
+    "latestFailedDeployment": "dpl_ryUtcRH713xYqnU3X2VSbRShzkFp",
+    "latestReason": "253.47 MB middleware after platform retracing of review image inputs",
+    "latestScope": "exact guide Preview prebuild archives artifacts review images outside ephemeral build root with byte-exact recovery; git sources and public runtime assets preserved"
   }
 }

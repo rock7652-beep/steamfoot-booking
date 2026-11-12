@@ -2,7 +2,7 @@ import { describe,it,expect } from 'vitest';
 import { mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync } from 'node:fs';
 import { join,dirname,relative } from 'node:path';
 import { tmpdir } from 'node:os';
-import { shouldPackageGuidePreview,packageGuidePreview } from '../../scripts/operation-guide-preview-packaging.mjs';
+import { shouldPackageGuidePreview,packageGuidePreview,archiveGuideReviewImages } from '../../scripts/operation-guide-preview-packaging.mjs';
 const url='postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres';
 const env={VERCEL:'1',VERCEL_ENV:'preview',VERCEL_PROJECT_ID:'prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR',VERCEL_GIT_COMMIT_REF:'docs/operation-guide-audit-20261012',VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:url,DIRECT_URL:url};
 describe('isolated guide Preview packaging',()=>{
@@ -12,6 +12,17 @@ describe('isolated guide Preview packaging',()=>{
   expect(shouldPackageGuidePreview(env,'/vercel/path0')).toBe(true);
   for(const patch of [{VERCEL_ENV:'production'},{VERCEL_PROJECT_ID:'other'},{VERCEL_GIT_REPO_OWNER:'other'},{DIRECT_URL:url.replace('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf')},{DATABASE_URL:''},{SUBSCRIPTION_REFERRAL_QA:'1'},{WORKERS_CI_BRANCH:'main'}])expect(()=>shouldPackageGuidePreview({...env,...patch},'/vercel/path0')).toThrow();
   expect(()=>shouldPackageGuidePreview(env,'/workspace/project')).toThrow();
+ });
+ it('archives only review image inputs before tracing with byte-exact recovery',()=>{
+  const root=mkdtempSync(join(tmpdir(),'guide-input-'));let archive='';
+  try{
+   for(const path of ['artifacts/run/review.png','artifacts/run/results.json','public/logo.png']){mkdirSync(dirname(join(root,path)),{recursive:true});writeFileSync(join(root,path),'byte-exact');}
+   const result=archiveGuideReviewImages(root);archive=result.archive;
+   expect(result.count).toBe(1);
+   expect(readFileSync(join(archive,'artifacts/run/review.png'),'utf8')).toBe('byte-exact');
+   expect(()=>readFileSync(join(root,'artifacts/run/review.png'))).toThrow();
+   for(const path of ['artifacts/run/results.json','public/logo.png'])expect(readFileSync(join(root,path),'utf8')).toBe('byte-exact');
+  }finally{rmSync(root,{recursive:true,force:true});if(archive)rmSync(archive,{recursive:true,force:true});}
  });
  it('prunes review traces but retains source files, runtime data, certs, unknown paths and PostgreSQL engines',()=>{
   const root=mkdtempSync(join(tmpdir(),'guide-package-'));
