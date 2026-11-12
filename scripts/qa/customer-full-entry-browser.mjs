@@ -64,7 +64,7 @@ try{
  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
  const origin=`http://127.0.0.1:${server.httpServer.address().port}`;
 
- for(const module of ['steam','music','sports','beauty'])for(const [width,height] of [[1366,900],[1024,768],[768,1024]]){
+ for(const family of ['steam','music','sports','beauty'])for(const [width,height] of [[1366,900],[1024,768],[768,1024]]){
   const page=await browser.newPage({viewport:{width,height}});
   page.on('pageerror',e=>errors.push(e.message));
   const reads=[];
@@ -103,31 +103,31 @@ try{
    return route.continue();
   });
   const started=Date.now();
-  await page.goto(origin+'/s/synthetic/admin/dashboard/courses?kind=customers&qaModule='+module);
+  await page.goto(origin+'/s/synthetic/admin/dashboard/courses?kind=customers&qaModule='+family);
   await page.getByRole('button',{name:'合成學員0',exact:true}).waitFor();
   // The actual customer list must automatically prepare all six customers;
   // no artificial Prepare/Ready button is part of this test.
   const deadline=Date.now()+10_000;
-  while(reads.filter(r=>r.kind===(module==='steam'?'advanced':'detail')).length<(module==='steam'?6:36)&&Date.now()<deadline)await page.waitForTimeout(50);
+  while(reads.filter(r=>r.kind===(family==='steam'?'advanced':'detail')).length<(family==='steam'?6:36)&&Date.now()<deadline)await page.waitForTimeout(50);
   await page.waitForTimeout(200);
-  if(module!=='steam')assert.equal(reads.filter(r=>r.kind==='detail').length,36);
-  assert.equal(reads.filter(r=>r.kind===(module==='beauty'?'support':module==='steam'?'advanced':'phone')).length,6);
+  if(family!=='steam')assert.equal(reads.filter(r=>r.kind==='detail').length,36);
+  assert.equal(reads.filter(r=>r.kind===(family==='beauty'?'support':family==='steam'?'advanced':'phone')).length,6);
   const before=reads.length,clicked=Date.now();
   await page.getByRole('button',{name:'合成學員5',exact:true}).click();
-  if(module==='steam')await page.locator('[data-lesson-slot]').first().waitFor();
-  else if(module!=='beauty')await page.getByText('尚未允許集中查看',{exact:false}).first().waitFor();
+  if(family==='steam')await page.locator('[data-lesson-slot]').first().waitFor();
+  else if(family!=='beauty')await page.getByText('尚未允許集中查看',{exact:false}).first().waitFor();
   else await page.getByText('尚無下次服務預約',{exact:true}).waitFor();
   await page.getByText('LINE 通知：',{exact:false}).click();
-  if(module==='steam')await page.getByText('LINE：已綁定',{exact:true}).waitFor();
+  if(family==='steam')await page.getByText('LINE：已綁定',{exact:true}).waitFor();
   else await page.getByText('會員資料：已連結',{exact:true}).waitFor();
-  if(module!=='steam'){await page.getByRole('button',{name:/完整方案student-5:5/}).click();
+  if(family!=='steam'){await page.getByRole('button',{name:/完整方案student-5:5/}).click();
   await page.getByText('返回 合成學員5 詳情',{exact:false}).waitFor();}
   await page.waitForTimeout(200);
   assert.equal(reads.length,before,'opening overview, LINE and sixth detail must reuse completed reads');
   assert.equal(await page.getByText(/讀取.*中/).evaluateAll(nodes=>nodes.filter(node=>node.checkVisibility()).length),0);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
-  await page.screenshot({path:path.join(out,`full-entry-${module}-${width}x${height}.png`)});
-  results.push({module,width,height,customers:6,cards:36,reads:reads.length,listToAllPreparedMs:clicked-started,openOverviewAndSixthPlanMs:Date.now()-clicked,newRequestsAfterClick:reads.length-before});await page.close();
+  await page.screenshot({path:path.join(out,`full-entry-${family}-${width}x${height}.png`)});
+  results.push({module:family,width,height,customers:6,cards:36,reads:reads.length,listToAllPreparedMs:clicked-started,openOverviewAndSixthPlanMs:Date.now()-clicked,newRequestsAfterClick:reads.length-before});await page.close();
  }
  assert.deepEqual(errors,[]);writeFileSync(path.join(out,'results.json'),JSON.stringify({results,errors},null,2));console.log(JSON.stringify({out,results}));
 }finally{await browser?.close();await server.close();}

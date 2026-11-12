@@ -4,6 +4,7 @@ import {preparedRoster} from "./fixtures/prepared-roster";
 vi.mock("@/lib/sports-session-detail-client",async()=>({readSportsSessionDetail:(await vi.importActual<typeof import("@/lib/course-session-detail-client")>("@/lib/course-session-detail-client")).readCourseSessionDetailClient}));
 // UI state fixtures use the shared read transport; the real HTTP protocol is tested separately.
 vi.mock("@/lib/course-session-detail-client",()=>({readCourseSessionDetailClient:(...args:unknown[])=>m.load(...args)}));
+vi.mock("@/lib/customer-support-read-client",async original=>({...await original<typeof import("@/lib/customer-support-read-client")>(),readStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null})}));
 vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null}),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:vi.fn()}));
 vi.mock("@/server/actions/music-roster-attendance",()=>({correctMusicRosterAttendance:m.correction}));
 // @vitest-environment jsdom
