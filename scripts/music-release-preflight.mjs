@@ -46,7 +46,7 @@ export async function musicBuildPreflight(env=process.env){
   console.info('[production-review-inputs]',JSON.stringify({archived:archive.count,backupOutsideBuildRoot:true,archive:archive.archive}));
  }
 
- if(env.VERCEL_ENV==='preview'&&['fix/teaching-item-qualifications-20261112','fix/course-plan-classification-sync-20261112','fix/course-retained-store-route-20261112'].includes(env.VERCEL_GIT_COMMIT_REF)){
+ if(env.VERCEL_ENV==='preview'&&['fix/teaching-item-qualifications-20261112','fix/course-plan-classification-sync-20261112','fix/course-retained-store-route-20261112','fix/plan-name-conflict-20261112'].includes(env.VERCEL_GIT_COMMIT_REF)){
   const {archiveTeachingPreviewInputs}=await import('./teaching-preview-packaging.mjs');
   const archive=archiveTeachingPreviewInputs(env,resolve(import.meta.dirname,'..'));
   console.info('[teaching-preview-review-inputs]',JSON.stringify({archived:archive.count,backupOutsideBuildRoot:true}));

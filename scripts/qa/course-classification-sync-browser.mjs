@@ -94,6 +94,15 @@ try{
  await page.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('button',{name:'一對二合作方案',exact:true}).waitFor();
  assert((await group('一對二合作方案')).includes('吉他自組班'),'Reconciled save lost grouping');
  assert(await page.evaluate(()=>window.qaRefreshes)>0,'Production HQ save did not refresh metadata');
+ if(process.env.QA_PLAN_DUPLICATE==='1'){
+  await page.setViewportSize({width:1366,height:900});
+  await page.getByRole('button',{name:'＋新增收費方式',exact:true}).click();
+  await page.locator('input[name="name"]').fill('吉他個別課');await page.getByLabel('教學項目',{exact:true}).selectOption('B');await page.locator('input[name="price"]').fill('800');
+  await page.evaluate(()=>{window.qaSave=input=>{if(input.expectedStoreId!=='synthetic')throw Error('Store identity was lost');return {success:false,uncertain:false,error:'已有同名收費方式（含下架），請編輯原方案或更換名稱。'};};});
+  await page.getByRole('button',{name:'儲存',exact:true}).click();await page.getByRole('alert').filter({hasText:'已有同名收費方式'}).waitFor();
+  assert(await page.locator('input[name="name"]').inputValue()==='吉他個別課','Duplicate cleared entered name');assert(await page.locator('input[name="price"]').inputValue()==='800','Duplicate cleared entered price');assert(await page.getByText(/缺少店舖資訊|重新登入/).count()===0,'Duplicate falsely requests login');
+  for(const size of [{width:1366,height:900},{width:1024,height:768},{width:768,height:1024}]){await page.setViewportSize(size);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Duplicate error overflow');await page.screenshot({path:path.join(output,`duplicate-${size.width}.png`),fullPage:true});}
+ }
  if(errors.length)throw Error(errors.join('; '));
  writeFileSync(path.join(output,'results.json'),JSON.stringify({synthetic:true,backend:false,results,checks:['new fee immediately classified','reopen retains item and 100 minutes','move A to C immediately','no reconciliation actions or explanatory prose','save preserves edit and adopts newer unedited price','production HQ refresh'],errors},null,2));
  console.log(JSON.stringify({output,results,errors}));
