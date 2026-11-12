@@ -1,4 +1,5 @@
 "use server";
+import {validatePlanCompensation} from "@/lib/course-plan-compensation";
 import { isMusicCourseStoreFromEntitlements } from "@/server/services/course-business-profile";
 import {replaceStaffPermissionGrants} from "@/server/services/staff-permission-write";
 import { Prisma as RetirementPrisma } from "@prisma/client";
@@ -113,7 +114,7 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
     if(d.kind==="manager"&&getEffectiveActorRole(user)!=="OWNER")throw new AppError("FORBIDDEN","只有老闆能修改後台人員");
     if (d.backendRole && (d.kind !== "manager" || !canAssignStaffRole(getEffectiveActorRole(user), d.backendRole))) throw new AppError("FORBIDDEN", "店長不能提升帳號角色");
     const nativeSports=(await sportsNativePreview(storeId));
-    if(nativeSports && (d.teachingFees || d.defaultClassFee!==undefined) && !await checkPermission(user.role,user.staffId,"teacher.compensation.manage"))throw new AppError("FORBIDDEN","尚未授權教練計酬設定");
+    if(nativeSports && (d.teachingFees || d.musicSettings || d.defaultClassFee!==undefined) && !await checkPermission(user.role,user.staffId,"teacher.compensation.manage"))throw new AppError("FORBIDDEN","尚未授權教練計酬設定");
     if(!nativeSports && d.teachingFees?.some(f=>f.value?.mode==="HOUR"))throw new AppError("VALIDATION","此模組不支援按時計酬");
     if(d.teachingFees || d.musicSettings || d.defaultClassFee!==undefined)await requireMusicFinance(user,storeId,"teacher.compensation.manage",d.id);
     if(d.defaultClassFee!==undefined && (d.kind!=="coach" || await isMusicFinanceStore(storeId)))throw new AppError("VALIDATION","運動授課人員才能設定每堂預設授課費");
@@ -121,7 +122,7 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
       throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
     if (d.permissions?.some(p=>["teacher.income.read.self","teacher.booking.leave","teacher.booking.reschedule","teacher.session.leave","teacher.session.reschedule"].includes(p)) && getEffectiveActorRole(user)!=="OWNER")
       throw new AppError("FORBIDDEN", "只有老闆能設定我的工作權限");
-    if ((d.musicSettings || !nativeSports && d.teachingFees?.some(f=>f.value?.mode==="SHARE")) && !await isMusicCourseStoreFromEntitlements(prisma, storeId))
+    if ((!nativeSports && d.musicSettings || !nativeSports && d.teachingFees?.some(f=>f.value?.mode==="SHARE")) && !await isMusicCourseStoreFromEntitlements(prisma, storeId))
       throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
     // Resolve access outside the transaction. Production uses a one-connection
     // pool, so querying through the global client while a transaction owns that
@@ -189,6 +190,10 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
         const coachEnabled = d.coachEnabled ?? existing?.courseCoachEnabled ?? d.kind === "coach";
         let qualificationIds = [...new Set(d.qualificationIds ?? existing?.courseQualifiedTemplateIds ?? [])];
         const isMusicTeaching = musicFinanceStore;
+        if(d.qualificationIds&&(isMusicTeaching||nativeSports)){
+          const {ensureQualificationTemplates}=await import("@/server/services/teaching-qualification-templates");
+          await ensureQualificationTemplates(tx,storeId,qualificationIds,nativeSports);
+        }
         if (isMusicTeaching && d.qualificationIds) {
           if (existing && d.teachingVersion !== existing.updatedAt.toISOString()) throw new AppError("CONFLICT", "教師資格已有更新，請重新開啟後再核對");
           const versions = await tx.$queryRaw<Array<{id:string;musicSubjectId:string|null}>>`SELECT id,"musicSubjectId" FROM "CourseTemplate" WHERE "storeId"=${storeId}`;
@@ -363,7 +368,11 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
         if(d.musicSettings) {
           const before=await tx.$queryRaw<MusicTeacherSettings[]>`SELECT "defaultRatio"::float8 AS "defaultRatio","subjectRules",revision FROM "CourseTeacherCompensationSetting" WHERE "storeId"=${storeId} AND "staffId"=${staffId} FOR UPDATE`;
           if((before[0]?.revision??0)!==d.musicSettings.revision)throw new AppError("CONFLICT","老師拆帳設定已更新，請重新開啟核對");
-          const ids=Object.keys(d.musicSettings.subjectRules);
+          const keys=Object.keys(d.musicSettings.subjectRules);
+          for(const key of keys.filter(key=>key.startsWith("plan:")))validatePlanCompensation(d.musicSettings.subjectRules[key],before[0]?.subjectRules[key]);
+          const planIds=keys.filter(key=>key.startsWith("plan:")).map(key=>key.slice(5));
+          if(planIds.length){const plans=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "CoursePointPlan" WHERE "storeId"=${storeId} AND id=ANY(${planIds}::text[])`;if(plans.length!==planIds.length)throw new AppError("FORBIDDEN","收費方案包含非本店資料");}
+          const ids=keys.filter(key=>!key.startsWith("plan:"));
           if(ids.length){const subjects=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "MusicSubject" WHERE "storeId"=${storeId} AND id=ANY(${ids}::text[])`;if(subjects.length!==ids.length)throw new AppError("FORBIDDEN","科目包含非本店資料");}
           await tx.$executeRaw`INSERT INTO "CourseTeacherCompensationSetting" ("storeId","staffId","defaultRatio","subjectRules",revision) VALUES (${storeId},${staffId},${d.musicSettings.defaultRatio},${JSON.stringify(d.musicSettings.subjectRules)}::jsonb,1) ON CONFLICT ("storeId","staffId") DO UPDATE SET "defaultRatio"=EXCLUDED."defaultRatio","subjectRules"=EXCLUDED."subjectRules",revision="CourseTeacherCompensationSetting".revision+1,"updatedAt"=now()`;
           await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseTeacherCompensationSetting',${staffId},'UPDATE',${JSON.stringify(before[0]?{...before[0],staffName:d.name}:null)}::jsonb,${JSON.stringify({...d.musicSettings,staffName:d.name,storeId,scope:"NEW_SESSIONS"})}::jsonb,now())`;

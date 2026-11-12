@@ -57,7 +57,7 @@ describe("2026-10-21 backend guide audit", () => {
     );
     expect(guide("C173").keywords).toContain("單堂名稱");
     expect(guide("C114").details.join(" ")).toContain("同名教練");
-    expect(guide("C176").steps.join(" ")).toContain("0 是明確覆寫");
+    expect(guide("C176").steps.join(" ")).toContain("0 是明確不計費");
   });
 
   it("documents only the three current device preview sizes", () => {

@@ -1,0 +1,7 @@
+import {createRoot} from 'react-dom/client';
+import {CoursePlanDraftForm} from '@/app/(dashboard)/dashboard/courses/course-profile-forms';
+import {RosterPlanSummary} from '@/app/(dashboard)/dashboard/courses/roster-plan-summary';
+import type {NativeRosterBooking} from '@/app/(dashboard)/dashboard/courses/roster-source';
+const booking={customerName:'合成學員',cardId:null,bookingKind:'REGULAR',sportsBalance:{remaining:20,available:18,cost:1,unit:'SESSION',planName:'合成通用卡',byUnit:[{remaining:20,available:18,cost:1,unit:'SESSION',planName:'合成通用卡'}]}} as NativeRosterBooking;
+function Fixture(){return <main className="mx-auto max-w-[1100px] space-y-4 p-4"><h1 className="text-xl font-semibold">通用卡與收費設定・整合合成資料預覽</h1><p>無後端連線；20 堂扣除預留 2 堂，顯示可用 18 堂。</p><section className="rounded-lg border p-4"><RosterPlanSummary booking={booking} onOpen={()=>{}}/></section><CoursePlanDraftForm storeId="synthetic-only" plan={{id:'universal',name:'合成20堂通用卡',points:20,price:8000,storeCost:0,validDays:90,isActive:true,unit:'SESSION',sportsMode:'OPEN',templateIds:['basic','special'],chargeSettings:{kind:'plan',durationMinutes:50,trialPrice:null,trialDuration:null,providerIds:['old-coach']}}} templates={[{id:'basic',name:'基礎課程',category:'常態',isActive:true},{id:'special',name:'特色課程',category:'特色',isActive:true}]} termSessions={[]} profitEnabled onPending={()=>{}} onSaved={()=>{}}/></main>}
+createRoot(document.getElementById('root')!).render(<Fixture/>);

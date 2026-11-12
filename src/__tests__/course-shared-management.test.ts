@@ -7,7 +7,7 @@ it("shares ordering controls without changing compensation rules", () => {
   expect(read("staff-workspace")).toContain("displayOrder,canManage");
   expect(read("member-workspace")).toContain("displayOrder,(!catalogSource||!!catalogSource.order)&&canEdit");
   expect(read("workspace")).toContain('displayOrder,(!catalogSource||!!catalogSource.order)&&(view==="rooms"||!!catalogSource)');
-  expect(read("staff-workspace")).toContain("music && feeEnabled ? <MusicTeacherFeeEditor");
+  expect(read("staff-workspace")).toContain("(music||sportsNative)&&!source ? <TeachingPlanFeeEditor");
 });
 
 it("uses attendance directly for batch sign-in in both profiles", () => {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { courseChargeSettings } from "./course-charge-settings";
 const fixedRoster = z.object({ students: z.array(z.object({ customerId: z.string() })) });
 
 /** Open seats keep open-card rights. Only a persisted scheduling reservation
@@ -46,7 +47,25 @@ export function sportsEntitlementSnapshot(source: SportsEntitlementFields) {
   return snapshot;
 }
 
-type Card = SportsEntitlementFields & { planId: string; templateIds: string[]; templateRestricted?: boolean };
+type OpenScopeCard = SportsEntitlementFields & {
+  storeId?: string;
+  plan?: { storeId: string; templateIds: string[]; chargeSettings: unknown } | null;
+};
+
+/** Old OPEN lesson cards have no subject snapshot. A configured fee's explicit
+ * teaching items supply their scope; never infer universal access from an empty
+ * list. Other purchased rights, quantities, costs and expiry remain snapshots.
+ * The plan relation must be read from the card in the same store, including
+ * inside the booking transaction. This projection may also be sent to the UI.
+ */
+export function sportsOpenPlanTemplateIds(card: OpenScopeCard): string[] {
+  if (card.sportsMode !== "OPEN" || card.unit !== "SESSION" ||
+      !card.storeId || card.plan?.storeId !== card.storeId) return [];
+  const charge = courseChargeSettings.safeParse(card.plan.chargeSettings);
+  return charge.success && charge.data.kind === "plan" ? card.plan.templateIds : [];
+}
+
+type Card = OpenScopeCard & { planId: string; templateIds: string[]; templateRestricted?: boolean; openScopeTemplateIds?: string[] };
 type Lesson = {
   templateId: string;
   subjectId: string | null;
@@ -90,9 +109,13 @@ export function resolveSportsEntitlement(card: Card, lesson: Lesson):
     if (card.unit === "SESSION" && cost !== 1)
       return { eligible: false, reason: "堂數方案每次使用 1 堂" };
   } else {
-    // Old OPEN snapshots contain no subject. Staff must explicitly confirm
-    // their scope before a new reservation can consume them.
-    return { eligible: false, reason: "方案科目待核對，請由店家確認" };
+    const templateIds = card.openScopeTemplateIds ?? sportsOpenPlanTemplateIds(card);
+    if (card.unit !== "SESSION" || !templateIds.length)
+      return { eligible: false, reason: "方案科目待核對，請由店家確認" };
+    if (!templateIds.includes(lesson.templateId) &&
+        !(lesson.subjectId && templateIds.some(id => lesson.compatibleTemplateIds?.includes(id))))
+      return { eligible: false, reason: "方案科目不符" };
+    cost = 1;
   }
   if (!Number.isSafeInteger(cost) || cost < 1)
     return { eligible: false, reason: "本堂扣抵規則無效，請聯絡店家核對" };

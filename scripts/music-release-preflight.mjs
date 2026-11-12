@@ -5,7 +5,7 @@ import {MUSIC_OPENING_BRANCH} from './music-opening-preview-scope.mjs';
 import {assertMusicNativeReleaseEnvironment,MUSIC_RELEASE_BRANCH} from './music-native-workflow-scope.mjs';
 import {purchaseIntentAccessPreflight} from './purchase-intent-release-preflight.mjs';
 const tables=['CourseScheduleSeries','CourseMusicTuition','CourseMusicReceipt','CourseMusicLessonAssignment','CourseMusicOpeningState','CourseMusicOpeningMakeupEntitlement'];
-const columns={CourseBookingRule:['assignedSchedulingEnabled'],CourseSession:['scheduleType','scheduleFrequency','enrollmentMode','enrollmentFingerprint','rescheduleShadowHidden','bookingAudience'],CoursePointPlan:['sportsSubjectIds'],CoursePurchase:['sportsSubjectIds'],CoursePointCard:['musicOpeningStateRequired','sportsSubjectIds'],CourseBooking:['musicOpeningMakeupEntitlementId','musicOpeningTermKey','musicOpeningLessonOrdinal','musicOpeningSourceLessonKey']};
+const columns={CourseBookingRule:['assignedSchedulingEnabled'],CourseSession:['scheduleType','scheduleFrequency','enrollmentMode','enrollmentFingerprint','rescheduleShadowHidden','bookingAudience'],CoursePointPlan:['sportsSubjectIds'],CoursePurchase:['sportsSubjectIds'],CoursePointCard:['musicOpeningStateRequired','sportsSubjectIds','chargeSettingsSnapshot'],CourseBooking:['musicOpeningMakeupEntitlementId','musicOpeningTermKey','musicOpeningLessonOrdinal','musicOpeningSourceLessonKey']};
 export async function runMusicNativeSchemaPreflight(env=process.env){
  const target=assertMusicNativeReleaseEnvironment(env);
  if(target==='production'&&env.COURSE_PURCHASE_QA_STORE_SCOPE==='1')throw Error('Production purchase intent scope invalid');
@@ -44,6 +44,12 @@ export async function musicBuildPreflight(env=process.env){
   const {archiveProductionReviewInputs}=await import('./production-postgres-packaging.mjs');
   const archive=archiveProductionReviewInputs(env,resolve(import.meta.dirname,'..'));
   console.info('[production-review-inputs]',JSON.stringify({archived:archive.count,backupOutsideBuildRoot:true,archive:archive.archive}));
+ }
+
+ if(env.VERCEL_ENV==='preview'&&env.VERCEL_GIT_COMMIT_REF==='fix/teaching-item-qualifications-20261112'){
+  const {archiveTeachingPreviewInputs}=await import('./teaching-preview-packaging.mjs');
+  const archive=archiveTeachingPreviewInputs(env,resolve(import.meta.dirname,'..'));
+  console.info('[teaching-preview-review-inputs]',JSON.stringify({archived:archive.count,backupOutsideBuildRoot:true}));
  }
 
  if(env.VERCEL_ENV==='production'&&env.ADDONS_DATABASE_URL){

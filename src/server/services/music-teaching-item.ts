@@ -74,4 +74,6 @@ export async function captureTeachingTuitionFees(tx:Pick<Prisma.TransactionClien
     ) captured
     WHERE session."storeId"=${storeId} AND session."requestKey"=${requestKey} AND (${sessionIds}::text[] IS NULL OR session.id=ANY(${sessionIds}::text[]))
       AND snap."sessionId"=session.id AND snap."storeId"=session."storeId" AND captured.rules IS NOT NULL`;
+  const {captureTeachingPlanFees}=await import('./course-plan-compensation');
+  await captureTeachingPlanFees(tx,storeId,sessionIds,requestKey);
 }

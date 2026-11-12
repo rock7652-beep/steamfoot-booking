@@ -22,28 +22,26 @@ it('music defaults to one lesson, saves free trial and duration and limits selec
  expect(document.body.textContent).not.toContain('無資格老師');
  fill(input('體驗價'),'0');fill(input('體驗時間'),'20');
  await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
- expect(m.save.mock.calls[0][0]).toMatchObject({points:1,unit:'SESSION',chargeSettings:{kind:'single',trialPrice:0,trialDuration:20,providerIds:['teacher']}});
+ expect(m.save.mock.calls[0][0]).toMatchObject({points:1,unit:'SESSION',chargeSettings:{kind:'single',trialPrice:0,trialDuration:20,providerScope:'QUALIFIED',providerIds:[]}});
 });
 it('sports keeps subject and trial pricing independent of enrollment',async()=>{
  mount(false,{selfBookingEnabled:true,assignedSchedulingEnabled:false});fill(input('體驗價'),'200');fill(input('體驗時間'),'30');
- const provider=[...document.querySelectorAll('fieldset')].find(f=>f.firstElementChild?.tagName==='LEGEND'&&f.firstElementChild.textContent?.includes('此收費'))!.querySelector<HTMLInputElement>('input')!;
- act(()=>provider.click());
  expect(document.querySelector('[aria-label="方案適用方式"]')).toBeNull();
  expect(document.querySelector('[aria-label="適用教學項目"]')).not.toBeNull();
  await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
- expect(m.sports.mock.calls[0][0]).toMatchObject({sportsMode:'ASSIGNED',subject:'subject',amount:1,unit:'堂數',chargeSettings:{trialPrice:200,trialDuration:30,providerIds:['teacher']}});
+ expect(m.sports.mock.calls[0][0]).toMatchObject({sportsMode:'ASSIGNED',subject:'subject',amount:1,unit:'堂數',chargeSettings:{trialPrice:200,trialDuration:30,providerScope:'QUALIFIED',providerIds:[]}});
 });
 
-it('hides disabled open-selection offers and keeps one qualified-provider picker',()=>{
+it('hides disabled open-selection offers and uses item qualifications without a per-fee provider picker',()=>{
  mount(false,{selfBookingEnabled:false,assignedSchedulingEnabled:true});
  expect(document.body.textContent).not.toContain('開放選課通用卡');
  expect(document.querySelector('[aria-label="方案適用方式"]')).toBeNull();
- expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('此收費可安排'))).toHaveLength(1);
+ expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('此收費可安排'))).toHaveLength(0);
 });
 it.each([false,true])('legacy fee editing preserves existing provider settings=%s without forcing new setup',configured=>{
  mount(false,{selfBookingEnabled:false,assignedSchedulingEnabled:true},{id:'legacy',name:'既有方案',points:10,price:5800,validDays:90,isActive:true,unit:'SESSION',templateIds:['template'],sportsMode:'LEGACY',sportsSubjectId:null,chargeSettings:configured?{kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['teacher']}:null});
  expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('可授課教練'))).toHaveLength(0);
- expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('此收費可安排'))).toHaveLength(configured?1:0);
+ expect([...document.querySelectorAll('legend')].filter(l=>l.textContent?.includes('此收費可安排'))).toHaveLength(0);
  if(!configured)expect(document.body.textContent).toContain('保留既有授課規則');
  expect(document.body.textContent).not.toContain('開放選課通用卡');
 });
@@ -69,7 +67,6 @@ it('saves independent normal and trial costs through the sports fee action',asyn
  fill(document.querySelector<HTMLInputElement>('input[name="price"]')!,'600');
  fill(document.querySelector<HTMLInputElement>('input[name="storeCost"]')!,'350');
  fill(input('體驗價'),'300');fill(input('體驗店家成本'),'120');fill(input('體驗時間'),'30');
- const provider=[...document.querySelectorAll('fieldset')].find(f=>f.firstElementChild?.tagName==='LEGEND'&&f.firstElementChild.textContent?.includes('此收費'))!.querySelector<HTMLInputElement>('input')!;act(()=>provider.click());
  await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  expect(m.sports.mock.calls[0][0]).toMatchObject({price:600,storeCost:350,chargeSettings:{trialPrice:300,trialStoreCost:120,trialDuration:30}});
 });
@@ -92,9 +89,9 @@ it('music shares pricing and trial sections and saves independent costs without 
  mount(true,undefined,null,true);
  expect(document.querySelector('[aria-label="方案適用方式"]')).toBeNull();expect(document.body.textContent).not.toMatch(/通用卡|開放選課|計費方式/);
  fill(document.querySelector<HTMLInputElement>('input[name="price"]')!,'800');fill(document.querySelector<HTMLInputElement>('input[name="storeCost"]')!,'200');fill(input('體驗價'),'300');fill(input('體驗店家成本'),'120');fill(input('體驗時間'),'30');
- fill(input('教師拆帳比例'),'45');
+ expect(document.querySelector('[aria-label="教師拆帳比例"]')).toBeNull();
  await act(async()=>document.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
- expect(m.save.mock.calls[0][0]).toMatchObject({price:800,storeCost:200,unit:'SESSION',musicTerms:1,musicSetup:{musicTeacherShare:0.45},chargeSettings:{trialPrice:300,trialStoreCost:120,trialDuration:30,providerIds:['teacher']}});
+ expect(m.save.mock.calls[0][0]).toMatchObject({price:800,storeCost:200,unit:'SESSION',musicTerms:1,musicSetup:{musicTeacherShare:0.6},chargeSettings:{trialPrice:300,trialStoreCost:120,trialDuration:30,providerScope:'QUALIFIED',providerIds:[]}});
  expect(document.body.textContent).toContain('未扣教師費');
 });
 it('music preserves period sizes and bonus lessons when editing an existing fee price',async()=>{

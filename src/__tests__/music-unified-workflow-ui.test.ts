@@ -30,11 +30,15 @@ it('item editing exposes only the agreed item fields and accepts a 45-minute def
  expect(m.subject).toHaveBeenCalledWith(expect.objectContaining({name:'鋼琴',nativeDefaults:{durationMinutes:45,visibility:'PUBLIC',precautions:''}}));
  expect(m.subject.mock.calls[0][0]).not.toHaveProperty('capacity');expect(m.subject.mock.calls[0][0]).not.toHaveProperty('classType');
 });
-it('fee teacher selection carries both the new selection and the original qualification version',async()=>{
- await act(async()=>root.render(React.createElement(OperationScope,{scope:'music-owner'},React.createElement(CoursePlanDraftForm,{storeId:"store-lubymusic",music:true,plan:null,initialTemplateId:'A',subjects:[{id:'A',name:'鋼琴',category:'',isActive:true}],templates:[{id:'a1',musicSubjectId:'A',name:'鋼琴',category:'',isActive:true}],musicTeachers:[{id:'t1',name:'老師一',active:true,qualificationIds:['a1']},{id:'t2',name:'老師二',active:true,qualificationIds:['a1']},{id:'t3',name:'無資格老師',active:true,qualificationIds:[]}],canEditMusicTeachers:true,termSessions:[],profitEnabled:false,onPending:()=>{},onSaved:()=>{}}))));
- expect(host.textContent).not.toContain('無資格老師');
- const teacher=Array.from(host.querySelectorAll('label')).find(l=>l.textContent==='老師二')!.querySelector('input')!;
- await act(async()=>teacher.click());
+it.each(['B','C'])('moves fee A1 to teaching item %s without requiring a fee roster or granting qualifications',async(subjectId)=>{
+ const teachers=[{id:'t1',name:'林老師',active:true,qualificationIds:['a1']}];
+ await act(async()=>root.render(React.createElement(OperationScope,{scope:'music-owner'},React.createElement(CoursePlanDraftForm,{storeId:"store-lubymusic",music:true,plan:{id:'fee-a1',name:'吉他個別課$800',points:4,price:3200,validDays:35,isActive:true,customerPurchasable:true,allowShared:false,storeCost:0,unit:'SESSION',templateIds:['a1'],musicTerms:1},subjects:['A','B','C'].map(id=>({id,name:id,category:'',isActive:true})),templates:[{id:'a1',musicSubjectId:'A',name:'吉他團體班',category:'',isActive:true}],musicTeachers:teachers,canEditMusicTeachers:true,termSessions:[],profitEnabled:false,onPending:()=>{},onSaved:()=>{}}))));
+ expect(host.querySelector('input[type="checkbox"]')).toBeNull();
+ const subject=host.querySelector<HTMLSelectElement>('[aria-label="教學項目"]')!;
+ await act(async()=>{subject.value=subjectId;subject.dispatchEvent(new Event('change',{bubbles:true}));});
  await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
- expect(m.fee).toHaveBeenCalledWith(expect.objectContaining({musicTeacherIds:['t1'],expectedMusicTeacherIds:['t1','t2'],chargeSettings:expect.objectContaining({providerIds:['t1']}),musicTerms:1,musicSetup:expect.objectContaining({subjectId:'A'})}));
+ expect(m.fee).toHaveBeenCalledWith(expect.objectContaining({id:'fee-a1',price:3200,points:4,chargeSettings:expect.objectContaining({providerScope:'QUALIFIED',providerIds:[]}),musicSetup:expect.objectContaining({subjectId})}));
+ expect(m.fee.mock.calls[0][0]).not.toHaveProperty('musicTeacherIds');
+ expect(m.fee.mock.calls[0][0]).not.toHaveProperty('expectedMusicTeacherIds');
+ expect(teachers[0].qualificationIds).toEqual(['a1']);
 });

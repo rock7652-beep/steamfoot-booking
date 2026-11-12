@@ -135,7 +135,7 @@ describe("historical companion rights", () => {
     db.courseBooking.findFirst.mockResolvedValue({ ...booking, cardId: null, card: null, bookingKind: "TRIAL", pointCost: 0 });
     db.coursePointCard.findFirst.mockResolvedValue({ ...card, plan: { allowShared: false } });
     await expect(changeCompanionUsage(tx, manager, { bookingId: booking.id, mode: "RESERVER", expectedUpdatedAt: booking.updatedAt.toISOString(), requestKey: "correct" })).resolves.toMatchObject({ cardId: "card", pointCost: 2 });
-    expect(db.coursePointCard.findFirst).toHaveBeenCalledWith({ where: { id: "card", storeId: "sports" }, include: { members: true } });
+    expect(db.coursePointCard.findFirst).toHaveBeenCalledWith({ where: { id: "card", storeId: "sports" }, include: { members: true, plan:{select:{chargeSettings:true,storeId:true,templateIds:true}} } });
     expect(m.state).not.toHaveBeenCalled();
   });
 
@@ -347,6 +347,19 @@ describe("explicit sports rights in the booking transaction", () => {
     db.coursePointCard.findFirst.mockResolvedValue({ ...card, planId: "learner-package", templateIds: ["old-price-template"], sportsMode: "ASSIGNED", sportsSubjectId: "yoga", sportsCost: 4 });
     await expect(reserveCourseInTransaction(tx, manager, input, null)).resolves.toMatchObject({ pointCost: 4 });
     expect(db.courseBooking.create.mock.calls[0][0].data.pointCost).toBe(4);
+  });
+  it("reserves one lesson from a configured universal 20-lesson card and rejects an unchecked item", async () => {
+    m.sportsRule.mockResolvedValue({enrollment:"ASSIGNED",planId:"trial-fee"});
+    db.courseSession.findFirst.mockResolvedValue({...session,coachId:"coach",template:{...session.template,musicSubjectId:"yoga"}});
+    const plan={...card.plan,storeId:"sports",templateIds:["special-old","regular","basic"],chargeSettings:{kind:"plan",durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:["coach"]}};
+    db.courseTemplate.findMany.mockResolvedValue([{id:"special-old"},{id:session.templateId}]);
+    db.coursePointCard.findFirst.mockResolvedValue({...card,storeId:"sports",unit:"SESSION",remaining:20,sportsMode:"OPEN",sportsSubjectId:null,sportsCost:null,templateIds:[],plan});
+    await expect(reserveCourseInTransaction(tx,manager,input,null)).resolves.toMatchObject({pointCost:1});
+    expect(db.coursePointCard.findFirst.mock.calls[0][0].include.plan.select).toMatchObject({storeId:true,templateIds:true,chargeSettings:true});
+    expect(db.coursePointEntry.create).toHaveBeenCalledExactlyOnceWith({data:expect.objectContaining({kind:"RESERVE",points:1})});
+    db.coursePointCard.findFirst.mockResolvedValue({...card,storeId:"sports",unit:"SESSION",remaining:20,sportsMode:"OPEN",sportsSubjectId:null,sportsCost:null,templateIds:[],plan:{...plan,templateIds:["one-to-one"]}});
+    await expect(reserveCourseInTransaction(tx,manager,{...input,requestKey:"wrong-subject"},null)).rejects.toThrow("方案科目不符");
+    expect(db.courseBooking.create).toHaveBeenCalledOnce();
   });
   it("rejects unscoped rights before creating or debiting a booking", async () => {
     m.sportsRule.mockResolvedValue({ enrollment: "ASSIGNED", planId: null });

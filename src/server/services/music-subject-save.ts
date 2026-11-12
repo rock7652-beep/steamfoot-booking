@@ -1,3 +1,5 @@
+import {requireMusicFinance} from "./music-finance-access";
+import {musicSubjectDefaultId} from "@/lib/course-plan-compensation";
 import "server-only";
 import { saveSportsTeachingRule, readSportsTeachingRule } from "./sports-teaching-rule";
 import { sportsNativePreview } from "@/lib/sports-native-preview";
@@ -18,6 +20,11 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
     if (!await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:(await sportsNativePreview(storeId))?"business.fitness":"business.music",status:"ENABLED"},select:{storeId:true}}))
       throw new AppError("FORBIDDEN", "此功能僅適用音樂教室");
     if(nativeDefaults&&(await sportsNativePreview(storeId)))throw new AppError("FORBIDDEN","音樂項目設定不可套用運動店");
+    if(nativeDefaults?.compensation){
+      if(id&&!expectedUpdatedAt)throw new AppError("CONFLICT","請重新開啟教學項目後再編輯計酬");
+      await courseManager("teacher.compensation.manage");
+      await requireMusicFinance(user,storeId,"teacher.compensation.manage");
+    }
     if (sportsRule) {
       if(id&&!expectedUpdatedAt)throw new AppError("CONFLICT","請重新開啟教學項目後再編輯規則");
       if (!(await sportsNativePreview(storeId))) throw new AppError("FORBIDDEN", "此設定僅適用運動店");
@@ -29,7 +36,8 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
     const row = await courseTransaction(storeId, async tx => {
       const applyRule = async (row: {id:string;name:string}, replay = false) => {
         if(nativeDefaults){
-          const defaults={...nativeDefaults,description:values.description};
+          const {compensation,...nativeFields}=nativeDefaults;
+          const defaults={...nativeFields,description:values.description};
           const versions=await tx.courseTemplate.findMany({where:{storeId,musicSubjectId:row.id},select:{id:true,name:true,durationMinutes:true,visibility:true,description:true,precautions:true}});
           // Allocate inside the store transaction lock. Ignore the schedule
           // being renamed, but never reuse a different item's schedule.
@@ -50,6 +58,18 @@ export async function saveMusicSubjectWithReceipt(input: unknown) {
             // Create a separate schedule without altering the existing one.
             const name = await scheduleName();
             await tx.courseTemplate.create({data:{id:`subject_schedule_${row.id}`,storeId,musicSubjectId:row.id,name,...defaults,capacity:1,pointCost:1,musicScheduleMode:"APPOINTMENT"}});
+          }
+          if(compensation){
+            const key={storeId,templateId:musicSubjectDefaultId(row.id),staffId:""};
+            const current=await tx.courseCompensation.findUnique({where:{storeId_templateId_staffId:key}});
+            const same=JSON.stringify(current?.rules)===JSON.stringify([compensation]);
+            if(replay&&!same)throw new AppError("CONFLICT","項目計酬已有更新，請重新開啟核對");
+            if(!replay&&!same){
+              if(!versions.some(v=>v.id===key.templateId))await tx.courseTemplate.upsert({where:{id:key.templateId},create:{id:key.templateId,storeId,musicSubjectId:row.id,name:await availableCourseTemplateName(tx,storeId,`${row.name} · 預設`),...defaults,capacity:1,pointCost:1,musicScheduleMode:"APPOINTMENT"},update:{}});
+              await tx.courseCompensation.upsert({where:{storeId_templateId_staffId:key},create:{...key,rules:[compensation]},update:{rules:[compensation],revision:{increment:1}}});
+              const {enqueueOperationAudit}=await import("./operation-audit-outbox");
+              await enqueueOperationAudit({actorUserId:user.id,storeId,module:"MUSIC",targetType:"MusicSubject",targetId:row.id,action:"MUSIC_ITEM_COMPENSATION",summary:`設定「${row.name}」預設計酬`,before:current?.rules??undefined,after:[compensation]},tx,requestKey);
+            }
           }
         }
         if (sportsRule) {

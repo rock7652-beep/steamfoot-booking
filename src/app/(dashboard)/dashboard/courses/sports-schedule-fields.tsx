@@ -1,4 +1,6 @@
 "use client";
+import {courseChargeAllowsProvider} from "@/lib/course-charge-settings";
+
 import {CourseFixedLearnersToggle} from "@/components/admin/course-fixed-learners-toggle";
 import {sportsScheduleReceipt} from "@/lib/sports-schedule-receipt";
 import type {Session} from "./workspace";
@@ -76,7 +78,7 @@ function SportsLessonFields({source,schedulingModes,metadataPending=false,initia
  {kind==="單次"&&<label>安排週數<input aria-label="單次課安排週數" className={field} type="number" min={1} max={53} step={1} required value={singleWeeks} onChange={e=>setSingleWeeks(Number(e.target.value))}/><span className="text-earth-600">每週同一時段，共 {weeksValid?singleWeeks:"—"} 堂</span></label>}
  {fixed&&<p className="col-span-full text-earth-600">此時段持續保留，直到停課或異動；指定學員完成點名後才扣堂／點。</p>}
  {!rental&&<><label>教學項目<CourseOptionSelect searchable label="排課教學項目" required value={subject} onChange={value=>{setSubject(value);if(enrollment==='開放選課')setDuration(live.subjects.find(s=>s.id===value)?.durationMinutes??60);setCoach("");setStudents([]);}} options={live.subjects.filter(s=>s.active).map(s=>({id:s.id,label:s.name}))}/></label>
- <label>{personnelText("授課教練")}<CourseOptionSelect searchable label={personnelText("排課教練")} required value={coach} onChange={setCoach} options={live.coaches.filter(c=>!!templateId&&c.templates.includes(templateId)&&(!trial||!selectedCharge||selectedCharge.settings.providerIds.includes(c.id))).map(c=>({id:c.id,label:c.name}))}/></label>
+ <label>{personnelText("授課教練")}<CourseOptionSelect searchable label={personnelText("排課教練")} required value={coach} onChange={setCoach} options={live.coaches.filter(c=>!!templateId&&c.templates.includes(templateId)&&(!trial||!selectedCharge||courseChargeAllowsProvider(selectedCharge.settings,c.id))).map(c=>({id:c.id,label:c.name}))}/></label>
  {!trial&&<fieldset className="col-span-full"><legend>學員安排</legend>{!courseSchedulingModeAllowed(schedulingModes,"OPEN")&&!courseSchedulingModeAllowed(schedulingModes,"ASSIGNED")&&<p className="text-earth-600">目前未開放新增排課</p>}<div className="flex flex-wrap gap-1.5">{["指定學員","開放選課"].filter(m=>courseSchedulingModeAllowed(schedulingModes,m==="指定學員"?"ASSIGNED":"OPEN")).map(m=><label key={m} className={`flex min-h-11 items-center gap-2 rounded-lg border px-3 ${enrollment===m?"border-primary-700 bg-primary-50 text-primary-900":"border-earth-200"}`}><input className="sr-only" type="radio" name="enrollment" checked={enrollment===m} onChange={()=>setEnrollment(m)}/>{m}</label>)}</div></fieldset>}
  {!trial&&enrollment==="開放選課"&&courseSchedulingModeAllowed(schedulingModes,"ASSIGNED")&&<CourseFixedLearnersToggle checked={mixed} onChange={setIncludeFixed} count={students.length} capacity={capacity} disabled={pending}/>}
  {!trial&&arrangeLearners&&<fieldset className="col-span-full"><legend>指定學員 · 已選 {students.length} 人</legend><CourseMultiOptionSelect label="搜尋學員" value={students} onChange={setStudents} options={customers.map(c=>({id:c.id,label:`${c.name} · ${c.phone}`}))}/><p className="text-earth-500">可先安排學員；點名前須有適用方案，無方案可在名單內繳費。</p></fieldset>}

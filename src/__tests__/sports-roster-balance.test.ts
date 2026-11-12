@@ -58,3 +58,30 @@ it.each(['OPEN','ASSIGNED'])('aggregates A1/A2/A3 for %s and excludes B1/C2 and 
  expect((await readSportsRosterBalances('store','session',['a','a'])).get('a')).toMatchObject({remaining:10,available:7});
 });
 it('marks an unscoped old card for review rather than counting its balance',async()=>{m.cards.mockResolvedValue([{...card('old',19),sportsMode:'OPEN',sportsSubjectId:null,sportsCost:null}]);expect((await readSportsRosterBalances('store','session',['a'])).get('a')).toMatchObject({reviewRequired:true,remaining:0,byUnit:[]});});
+
+it.each(['ASSIGNED','OPEN'])('shows the purchased 20-lesson universal balance for a checked special class in %s mode',async enrollment=>{
+ m.rule.mockResolvedValue({enrollment,planId:null});
+ m.session.mockResolvedValue({id:'session',templateId:'current',coachId:'coach',startsAt:new Date('2099-10-28'),pointCost:7,template:{musicSubjectId:'dance'}});
+ const universal={...card('dance-20',20,2),sportsMode:'OPEN',sportsSubjectId:null,sportsCost:null,templateIds:[],plan:{storeId:'store',templateIds:['regular','basic','old'],chargeSettings:{kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['coach']}}};
+ m.cards.mockResolvedValue([universal]);
+ expect((await readSportsRosterBalances('store','session',['a','b'])).get('a')).toMatchObject({remaining:20,available:18,cost:1,byUnit:[{remaining:20,available:18,cost:1}]});
+ expect(m.cards.mock.calls[0][0].include.plan.select).toMatchObject({storeId:true,templateIds:true,chargeSettings:true});
+ expect(universal.remaining).toBe(20);
+ m.cards.mockResolvedValue([{...universal,plan:{...universal.plan,templateIds:['one-to-one']}}]);
+ expect((await readSportsRosterBalances('store','session',['a'])).has('a')).toBe(false);
+ m.cards.mockResolvedValue([{...universal,plan:{...universal.plan,chargeSettings:{...universal.plan.chargeSettings,providerIds:['other-coach']}}}]);
+ expect((await readSportsRosterBalances('store','session',['a'])).has('a')).toBe(false);
+});
+
+ it('combines old OPEN item rights with the purchased provider agreement after new plans use qualifications',async()=>{
+  m.rule.mockResolvedValue({enrollment:'OPEN',planId:null});
+  const session={id:'session',templateId:'current',coachId:'old-coach',startsAt:new Date('2099-10-28'),pointCost:7,template:{musicSubjectId:'dance'}};
+  m.session.mockResolvedValue(session);
+  const original={kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['old-coach']};
+  const universal={...card('old-universal',20,2),sportsMode:'OPEN',sportsSubjectId:null,sportsCost:null,templateIds:[],chargeSettingsSnapshot:original,plan:{storeId:'store',templateIds:['old'],chargeSettings:{...original,providerIds:[],providerScope:'QUALIFIED'}}};
+  m.cards.mockResolvedValue([universal]);
+  expect((await readSportsRosterBalances('store','session',['a'])).get('a')).toMatchObject({remaining:20,available:18,cost:1});
+  m.session.mockResolvedValue({...session,coachId:'new-coach'});
+  expect((await readSportsRosterBalances('store','session',['a'])).size).toBe(0);
+  expect(universal).toMatchObject({remaining:20,bookings:[{pointCost:2}],chargeSettingsSnapshot:original});
+ });

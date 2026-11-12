@@ -1,4 +1,5 @@
 export type TeacherFeeSeat = {
+  planId?:string|null;
   tuitionTemplateId?:string|null;
   discountedBasis?: {total:number;lessons:number};
   openingPriceSource?: boolean;

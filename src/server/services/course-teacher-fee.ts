@@ -10,13 +10,13 @@ export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$q
   const grouped = new Map<string, TeacherFeeSeat[]>();
   if (!sessionIds.length) return grouped;
   const nativeMakeups = musicNativeWorkflowEnabled(storeId);
-  const rows = await tx.$queryRaw<Array<TeacherFeeSeat & PilotFeeRow & {sessionId:string;cardId:string|null;trialPrice:number|null;purchaseCount:bigint;listPrice:number|null;points:number|null;musicBonusLessons:number|null;
+  const rows = await tx.$queryRaw<Array<TeacherFeeSeat & PilotFeeRow & {sessionId:string;planId:string|null;cardId:string|null;trialPrice:number|null;purchaseCount:bigint;listPrice:number|null;points:number|null;musicBonusLessons:number|null;
       customerId:string|null;pointCost:number;companionIndex:number|null;makeupForBookingId:string|null; musicOpeningStateRequired:boolean; musicOpeningState:unknown; cardUnit:string|null;
       musicActivatedAt:Date|null; expiresAt:Date|null; memberCustomerIds:string[];
       musicOpeningTermKey:string|null;musicOpeningLessonOrdinal:number|null;musicOpeningSourceLessonKey:string|null;startsAt:Date}>>`
     SELECT b.id,b."sessionId",b."customerName",b.status,b."bookingKind",b."absenceKind",b."cardId",b."trialPrice",
       p.count AS "purchaseCount",p."listPrice",p.points,p."musicBonusLessons",p."tuitionTemplateId",
-      b."customerId",b."pointCost",b."companionIndex",b."makeupForBookingId",b."musicOpeningMakeupEntitlementId",b."musicOpeningTermKey",b."musicOpeningLessonOrdinal",b."musicOpeningSourceLessonKey",s."startsAt",
+      c."planId",b."customerId",b."pointCost",b."companionIndex",b."makeupForBookingId",b."musicOpeningMakeupEntitlementId",b."musicOpeningTermKey",b."musicOpeningLessonOrdinal",b."musicOpeningSourceLessonKey",s."startsAt",
       c."musicOpeningStateRequired",c.unit AS "cardUnit",c."musicActivatedAt",c."expiresAt",c."requestKey" AS "cardRequestKey",s."templateId",
       source."cardId" AS "sourceCardId",source."customerId" AS "sourceCustomerId",source.status AS "sourceStatus",source."absenceKind" AS "sourceAbsenceKind",ss."templateId" AS "sourceTemplateId",
       m."contentHash" AS "makeupContentHash",m."customerId" AS "makeupCustomerId",m."templateId" AS "makeupTemplateId",
@@ -68,7 +68,7 @@ export async function readTeacherFeeSeats(tx: Pick<Prisma.TransactionClient, "$q
     const seats = grouped.get(row.sessionId) ?? [];
     const sportsCharge=row.bookingKind==="TRIAL"?row.trialPrice:Number(row.purchaseCount)===1&&row.listPrice!==null&&row.points!==null&&row.points>0&&row.pointCost>=0 ? row.listPrice*row.pointCost/row.points : null;
     // Keep source snapshots/keys on the server; expose only the existing fee-seat shape.
-    seats.push({ tuitionTemplateId:row.tuitionTemplateId, sportsCharge, id:row.id, customerName:row.customerName, status:row.status, bookingKind:row.bookingKind,
+    seats.push({ planId:row.planId, tuitionTemplateId:row.tuitionTemplateId, sportsCharge, id:row.id, customerName:row.customerName, status:row.status, bookingKind:row.bookingKind,
       absenceKind:row.absenceKind, originalUnitPrice, ...(discountedBasis?{discountedBasis}:{}),
       ...(verified&&row.bookingKind==="TRIAL"?{verifiedTrialFeeBase:verified.price}:{}),
       ...(openingMakeupSource ? { openingMakeupSource: true, openingIssue: verified?null:MUSIC_OPENING_MAKEUP_FEE_ISSUE,verifiedOpeningMakeupFee:!!verified?.makeup } : {}),

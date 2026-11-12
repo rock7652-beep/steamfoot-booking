@@ -1,0 +1,49 @@
+name: Reviewed course provider agreement installation
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [inspect, apply]
+        default: inspect
+        required: true
+      source_sha:
+        description: Exact approved main commit
+        type: string
+        required: true
+      sql_sha256:
+        description: Reviewed migration checksum
+        type: string
+        default: 6c11a30f461f92b49be311e5e358588cfddf4d0cd9a6fb0913f1ce78ca89262d
+        required: true
+      confirmation:
+        description: READ_ONLY_COURSE_PROVIDER_AGREEMENT or INSTALL_COURSE_PROVIDER_AGREEMENT_ONLY
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: course-provider-agreement-installation-production
+  cancel-in-progress: false
+jobs:
+  install:
+    if: github.ref == 'refs/heads/main'
+    environment: Production – steamfoot-booking
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node node_modules/@prisma/engines/scripts/postinstall.js
+      - name: Inspect or install only the reviewed migration
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          COURSE_APPROVED_SHA: ${{ inputs.source_sha }}
+          COURSE_SQL_SHA256: ${{ inputs.sql_sha256 }}
+          COURSE_CONFIRMATION: ${{ inputs.confirmation }}
+          COURSE_MODE: ${{ inputs.mode }}
+        run: node scripts/install-course-provider-agreement.mjs "$COURSE_MODE"

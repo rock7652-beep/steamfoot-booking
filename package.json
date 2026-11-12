@@ -19,7 +19,7 @@
     "upgrade:zhubei-messenger-flow": "tsx scripts/upgrade-zhubei-messenger-digital-butler-flow.ts",
     "audit:messenger-production": "tsx scripts/messenger-production-audit.ts",
     "postinstall": "npm run generate:clients",
-    "postbuild": "node scripts/production-postgres-packaging.mjs --if-production && node scripts/referral-production-release-review.mjs --read-only"
+    "postbuild": "node scripts/production-postgres-packaging.mjs --if-production && node scripts/teaching-preview-packaging.mjs --if-preview && node scripts/referral-production-release-review.mjs --read-only"
   },
   "prisma": {
     "schema": "prisma",

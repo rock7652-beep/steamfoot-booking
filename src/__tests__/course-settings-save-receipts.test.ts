@@ -89,10 +89,10 @@ it('saves an independent single charge with a zero trial price and confirms iden
  const chargeSettings={kind:'single',durationMinutes:60,trialPrice:0,trialDuration:20,providerIds:['teacher']};
  const input={...plan,points:1,unit:'SESSION',templateIds:['template'],chargeSettings,receipt};
  const result=await saveCoursePointPlan(input);
- expect(result).toMatchObject({success:true,data:{points:1,chargeSettings}});
+ expect(result).toMatchObject({success:true,data:{points:1,chargeSettings:{...chargeSettings,providerScope:"QUALIFIED",providerIds:[]}}});
  expect(await saveCoursePointPlan(input)).toEqual(result);
  expect(m.createPlan).toHaveBeenCalledTimes(1);
- expect(await saveCoursePointPlan({...input,chargeSettings:{...chargeSettings,providerIds:['unqualified']}})).toMatchObject({success:false});
+ expect(await saveCoursePointPlan({...input,chargeSettings:{...chargeSettings,providerIds:['unqualified']}})).toEqual(result); // Client rosters cannot grant qualifications or change the normalized policy.
 });
 it('rejects multi-lesson quota on a single charge before saving',async()=>{
  expect(await saveCoursePointPlan({...plan,points:5,unit:'SESSION',templateIds:['template'],chargeSettings:{kind:'single',durationMinutes:60,trialPrice:200,trialDuration:null,providerIds:['teacher']},receipt})).toMatchObject({success:false});

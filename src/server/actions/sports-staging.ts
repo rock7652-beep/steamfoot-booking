@@ -136,7 +136,7 @@ export async function loadSportsStaging(formOnly = false, scheduleOptionsOnly = 
       }),
       formOnly && scheduleOptionsOnly ? [] : coursePrisma.coursePointCard.findMany({
         where: { storeId, closedAt: null, expiresAt: { gte: new Date() } },
-        include: { members: true, bookings: { where: { status: "RESERVED" } } },
+        include: { members: true, plan:{select:{storeId:true,templateIds:true,chargeSettings:true}}, bookings: { where: { status: "RESERVED" } } },
       }),
       prisma.customer.findMany({
         where: { storeId, mergedIntoCustomerId: null },

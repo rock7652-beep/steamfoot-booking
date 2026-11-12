@@ -1,3 +1,4 @@
+import {cardChargeSettings,courseChargeAllowsProvider} from "@/lib/course-charge-settings";
 import {purchaseOrder} from "@/lib/item-entitlement";
 import "server-only";
 import {readSportsTeachingTemplates} from "./sports-teaching-templates";
@@ -24,13 +25,13 @@ export async function findSportsCard(tx: Prisma.TransactionClient, storeId: stri
   const cards = await tx.coursePointCard.findMany({
     where: { storeId, ...(explicitCardId ? { id: explicitCardId } : {}), closedAt: null,
       expiresAt: { gte: last }, members: { some: { customerId } } },
-    include: { plan:{select:{chargeSettings:true}},bookings: { where: { status: "RESERVED",...(excludeBookingId?{id:{not:excludeBookingId}}:{}) }, select: { pointCost: true } } },
+    include: { plan:{select:{chargeSettings:true,storeId:true,templateIds:true}},bookings: { where: { status: "RESERVED",...(excludeBookingId?{id:{not:excludeBookingId}}:{}) }, select: { pointCost: true } } },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
   const purchases=await tx.coursePurchase.findMany({where:{storeId,cardId:{in:cards.map(card=>card.id)},status:"CONFIRMED",voidedAt:null},select:{cardId:true,createdAt:true}});
   for (const card of purchaseOrder(cards,purchases)) {
-    const charge=courseChargeSettings.safeParse(card.plan?.chargeSettings);
-    if(card.plan?.chargeSettings!=null&&(!charge.success||sessions.some(s=>!s.coachId||!charge.data.providerIds.includes(s.coachId))))continue;
+    const charge=courseChargeSettings.safeParse(cardChargeSettings(card));
+    if(cardChargeSettings(card)!=null&&(!charge.success||sessions.some(s=>!s.coachId||!courseChargeAllowsProvider(charge.data,s.coachId))))continue;
     if(ordinaryOnly&&(card.musicOpeningStateRequired||card.requestKey.startsWith('no-show-makeup:')||card.requestKey.startsWith('music-leave-makeup:')))continue;
     if(card.termSessionIds?.length&&sessions.some(s=>!card.termSessionIds.includes(s.id??"")))continue;
     // Only a persisted booking may retain an old unscoped card and its debit

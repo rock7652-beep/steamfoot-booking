@@ -196,6 +196,8 @@ model CourseBalanceReminderPreference {
 }
 
 model CoursePointCard {
+  chargeSettingsSnapshot Json?
+  @@index([storeId, planId])
   sportsMode String @default("LEGACY")
   sportsSubjectIds String[] @default([])
   sportsSubjectId String?
