@@ -12,11 +12,11 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
 export type CardBrowseState = { search: string; history: boolean; page: number };
-function CardBrowserContent({load,reservations,renderProgress,sessionUnitLabel="堂", overview=false, showOverviewTotals=false, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
-  showOverviewTotals?:boolean;overview?:boolean;dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
+function CardBrowserContent({load,reservations,renderProgress,sessionUnitLabel="堂", overview=false, showOverviewTotals=false, storeId, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
+  storeId?:string;showOverviewTotals?:boolean;overview?:boolean;dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
   onSelect:(card:CourseCardView)=>void;renderProgress?:(card:CourseCardView)=>ReactNode;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
 }) {
-  const browseReader = useCustomerCardReader({load,native,revision});
+  const browseReader = useCustomerCardReader({load,native,revision,storeId,canReadBookings});
   const detailReader = usePanelReader(load?"module-card":"course-card", load??browseCourseCards);
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;customerId?:string;rows:CourseCardView[];hasMore:boolean;totals?:CourseBalanceTotal[];error?:string}|null>(null);

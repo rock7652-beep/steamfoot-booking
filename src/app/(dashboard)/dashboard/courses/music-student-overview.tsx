@@ -21,7 +21,7 @@ export function MusicStudentOverview({ customerId, tab,revision=0,showBalance=tr
       .catch(() => { if (active) setResult({ id: customerId, value: { success: false, error: "讀取未完成，請重試。" } }); });
     return () => { active = false; };
   }, [reader, customerId, retry, includeTuition]);
-  const value = result?.id === customerId ? result.value : null;
+  const value = result?.id === customerId ? result.value : reader.peek(customerId, includeTuition);
   const link = "inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 py-2 text-sm text-primary-800";
   if (tab !== "info" && tab !== "makeups") return null;
   if (!value) return <p role="status" className="mb-3 text-sm text-earth-600">讀取學員堂數與課表…</p>;

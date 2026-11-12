@@ -7,6 +7,7 @@ export function createClientReadCache<T>(
 ) {
   const entries = new Map<string, { value: T; expiresAt: number }>();
   const pending = new Map<string, Promise<T>>();
+  let generation = 0;
   function get(key: string): T | undefined {
     const entry = entries.get(key);
     if (!entry) return undefined;
@@ -37,6 +38,7 @@ export function createClientReadCache<T>(
     return request;
   }
   return {
+    generation: () => generation,
     get,
     load,
     /** Bounded display snapshot only. Callers must revalidate; never use for transactions. */
@@ -63,10 +65,12 @@ export function createClientReadCache<T>(
     },
     prefetch(key: string) { void load(key).catch(() => {}); },
     invalidate(key: string) {
+      generation++;
       entries.delete(key);
       pending.delete(key);
     },
     clear() {
+      generation++;
       entries.clear();
       pending.clear();
     },

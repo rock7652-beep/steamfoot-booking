@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-vi.mock('@/lib/course-card-read-client',()=>({readNativeCourseCards:mocks.browse}));
+vi.mock('@/lib/course-card-read-client',()=>({readNativeCourseCards:mocks.browse,readCourseCardProgress:vi.fn()}));
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";

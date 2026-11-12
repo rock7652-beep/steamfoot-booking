@@ -6,6 +6,7 @@ import {readMusicPeriods} from '@/lib/music-period-read-client';
 import type {loadMusicStudentWorkspace} from '@/server/actions/music-student-workspace';
 import type {loadCourseCustomerPurchases} from '@/server/actions/course-customer-history';
 
+import {useCustomerNextBookingReader} from './use-customer-next-booking-reader';
 import {useCourseCardProgressReader} from './use-course-card-progress-reader';
 import {useCustomerCardReader,CUSTOMER_PLAN_PRELOAD_TTL} from './use-customer-card-reader';
 export {useCustomerCardReader} from './use-customer-card-reader';
@@ -16,8 +17,9 @@ const readCustomerPurchases:typeof loadCourseCustomerPurchases=(...args)=>import
 export function useCustomerPlanPreload({load,preloadCardProgress,getCardProgress,native=false,music=false,canReadCards,canReadBookings=false,canReadTransactions=false,revision=0,dataScope,storeId=''}: {
  getCardProgress?:(customerId:string,cardId:string,revision:number)=>unknown;preloadCardProgress?:(customerId:string,cardId:string,revision:number)=>Promise<unknown>;load?:typeof browseCourseCards;native?:boolean;music?:boolean;canReadCards:boolean;canReadBookings?:boolean;canReadTransactions?:boolean;revision?:number;dataScope?:'operational'|'legacy';storeId?:string;
 }):PlanPreload{
- const cards=useCustomerCardReader({load,native,revision});
+ const cards=useCustomerCardReader({load,native,revision,storeId,canReadBookings});
  const progress=useCourseCardProgressReader(storeId,revision);
+ const nextBooking=useCustomerNextBookingReader(revision);
  const canPreloadProgress=!!storeId&&!load&&canReadCards&&canReadBookings;
  const periods=usePanelReader('music-periods',readMusicPeriods,String(revision),CUSTOMER_PLAN_PRELOAD_TTL);
  const overview=usePanelReader('music-student-workspace',readStudentWorkspace,String(revision),CUSTOMER_PLAN_PRELOAD_TTL);
@@ -39,19 +41,23 @@ export function useCustomerPlanPreload({load,preloadCardProgress,getCardProgress
  const read=useCallback(async(id:string)=>{
   await Promise.allSettled([
    readPlans(id),
+   ...(!music&&!load&&canReadBookings?[nextBooking.read(id,0,{mode:'upcoming'})]:[]),
    ...(music&&dataScope!=='legacy'&&(canReadCards||canReadBookings)?[periods.read(id),overview.read(id,false)]:[]),
    ...(music&&dataScope!=='legacy'&&canReadTransactions?[orders.read(id,0)]:[]),
   ]);
- },[readPlans,canReadCards,canReadBookings,canReadTransactions,music,dataScope,periods,overview,orders]);
+ },[readPlans,canReadCards,canReadBookings,canReadTransactions,music,dataScope,periods,overview,orders,load,nextBooking]);
  const get=useCallback((id:string):boolean=>{
-  return Boolean(getPlans(id)&&
+  return Boolean(getPlans(id)&&(!music&&!load&&canReadBookings?nextBooking.get(id,0,{mode:'upcoming'}):true)&&
    (!music||dataScope==='legacy'||!(canReadCards||canReadBookings)||periods.get(id)&&overview.get(id,false))&&
    (!music||dataScope==='legacy'||!canReadTransactions||orders.get(id,0)));
- },[getPlans,canReadCards,canReadBookings,canReadTransactions,music,dataScope,periods,overview,orders]);
+ },[getPlans,canReadCards,canReadBookings,canReadTransactions,music,dataScope,periods,overview,orders,load,nextBooking]);
 
  const reader=useMemo(()=>({read,get}),[read,get]);
- // Listing preloads only this block; unrelated music workspaces cannot delay it.
- const visibleReader=useMemo(()=>({read:async(id:string)=>{await readPlans(id);await readPlans(id,true);},get:(id:string)=>getPlans(id)&&getPlans(id,true)}),[readPlans,getPlans]);
+ // Only the overview blocks: collapsed history, periods and payment tabs stay lazy.
+ const visibleReader=useMemo(()=>({read:async(id:string)=>{
+  await Promise.allSettled([readPlans(id),...(music&&dataScope!=='legacy'&&(canReadCards||canReadBookings)?[overview.read(id,false)]:!music&&!load&&canReadBookings?[nextBooking.read(id,0,{mode:'upcoming'})]:[])]);
+ },get:(id:string)=>Boolean(getPlans(id)&&
+  (music&&dataScope!=='legacy'&&(canReadCards||canReadBookings)?overview.get(id,false):!music&&!load&&canReadBookings?nextBooking.get(id,0,{mode:'upcoming'}):true))}),[readPlans,getPlans,music,dataScope,canReadCards,canReadBookings,load,overview,nextBooking]);
  const prefetch=useCallback((id:string)=>{if(id&&!get(id))void read(id);},[get,read]);
  return {reader,visibleReader,prefetch};
 }
