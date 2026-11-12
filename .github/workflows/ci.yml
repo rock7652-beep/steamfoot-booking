@@ -95,6 +95,7 @@ jobs:
         shell: bash
         run: |
           mapfile -t tests < <(find src -type f \( -name '*digital-butler*.test.ts' -o -name '*digital-butler*.test.tsx' \) | sort)
+          tests+=(src/__tests__/music-catalog-page-query.test.ts)
           tests+=(src/__tests__/internal-catalog-name.pg.test.ts src/__tests__/internal-trial-plan-preservation.test.ts src/__tests__/music-subject-rule.test.ts src/__tests__/sports-fee-compensation.test.ts)
           tests+=(src/__tests__/music-subject-save-receipt.test.ts src/__tests__/music-subject-save-route.test.ts src/__tests__/music-subject-immediate-client.test.ts src/__tests__/music-subject-audit.test.ts)
           tests+=(src/__tests__/beauty-native-service-access.test.ts src/__tests__/steam-plan-save.test.ts)

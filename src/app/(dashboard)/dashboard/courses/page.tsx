@@ -6,6 +6,7 @@ import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { presentCourseTemplates, sportsCourseName, sportsTeachingName, courseDisplayName } from "@/lib/course-template-presentation";
 import { CourseRoomsPage } from "./rooms-page";
 import { MUSIC_DEFAULT_DURATION_MINUTES } from "@/lib/music-teaching-item";
+import {readMusicSubjectDefaults} from "@/server/services/music-subject-defaults";
 import { musicSessionWhere, musicDataScope } from "@/server/services/music-data-scope";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
@@ -119,7 +120,8 @@ export default async function CoursesPage({
     const writable = writableStore;
     const canManageSportsRules=sportsNative&&writable&&["OWNER","ADMIN"].includes(user.role)&&(await Promise.all((["staff.view","staff.manage","teacher.compensation.manage","teacher.compensation.read"] as const).map(p=>checkPermission(user.role,user.staffId,p)))).every(Boolean);
     const sportsCoaches=canManageSportsRules?await prisma.staff.findMany({where:{storeId,status:"ACTIVE",courseCoachEnabled:true},select:{id:true,displayName:true}}):undefined;
-    const enrichedSubjects=canManageSportsRules?await coursePrisma.$transaction(async tx=>{const {readSportsTeachingRules}=await import("@/server/services/sports-teaching-rule");const rules=await readSportsTeachingRules(tx,storeId,subjects.map(s=>s.id));return subjects.map(s=>({...s,sportsRule:rules.get(s.id)}));}):subjects;
+    const musicDefaults=businessProfile==="MUSIC"?await readMusicSubjectDefaults(coursePrisma,storeId,subjects.map(s=>s.id)):undefined;
+    const enrichedSubjects=musicDefaults?subjects.map(s=>({...s,...musicDefaults.get(s.id)})):canManageSportsRules?await coursePrisma.$transaction(async tx=>{const {readSportsTeachingRules}=await import("@/server/services/sports-teaching-rule");const rules=await readSportsTeachingRules(tx,storeId,subjects.map(s=>s.id));return subjects.map(s=>({...s,sportsRule:rules.get(s.id)}));}):subjects;
     return <PageShell className="course-workspace flex w-full flex-col gap-1 px-6 py-1"><PageHeader title="教學項目"/><MusicSubjectCatalog schedulingModes={sportsNative?await coursePrisma.courseBookingRule.findUnique({where:{storeId},select:{selfBookingEnabled:true,assignedSchedulingEnabled:true}})??undefined:undefined} sportsNative={sportsNative} sportsCoaches={sportsCoaches?.map(c=>({id:c.id,name:c.displayName}))} storeId={storeId} initialCreate={query.action === "create"} key={storeId} displayOrder={displayOrders.subject} subjects={enrichedSubjects.map(s=>({...s,updatedAt:s.updatedAt.toISOString()}))} canCreate={canCreate&&writable} canEdit={canEdit&&writable}/></PageShell>;
   }
   const requested = query.date;

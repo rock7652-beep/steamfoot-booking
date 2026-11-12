@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ subjects: vi.fn(), features: vi.fn(), permission: vi.fn(), orders: vi.fn(), user: vi.fn() }));
-vi.mock("@/lib/course-db", () => ({ coursePrisma: { musicSubject: { findMany: m.subjects } } }));
+const m = vi.hoisted(() => ({ subjects: vi.fn(), templates:vi.fn(),features: vi.fn(), permission: vi.fn(), orders: vi.fn(), user: vi.fn() }));
+vi.mock("@/lib/course-db", () => ({ coursePrisma: { musicSubject: { findMany: m.subjects },courseTemplate:{findMany:m.templates} } }));
 vi.mock("@/lib/db", () => ({ prisma: { storeFeatureEntitlement: { findMany: m.features } } }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
 vi.mock("@/lib/session", () => ({ getCurrentUser: m.user }));
@@ -29,12 +29,30 @@ beforeEach(() => {
   m.permission.mockResolvedValue(true);
   m.orders.mockResolvedValue({ subject: { ids: ["s1"] } });
   m.subjects.mockResolvedValue([{ id: "s1", name: "吉他", category: "", description: "", isActive: true, updatedAt: new Date("2026-10-10T00:00:00Z") }]);
+  m.templates.mockResolvedValue([{id:"subject_schedule_s1",musicSubjectId:"s1",durationMinutes:100,visibility:"HIDDEN",precautions:"帶樂器"}]);
 });
 it("renders the music catalog without any schedule, rental or roster queries", async () => {
   // The mock deliberately exposes no schedule/rental models: any regression fails this request.
   const page = await CoursesPage({ searchParams: Promise.resolve({ view: "catalog", action: "create" }) });
-  expect(page.props.children[1].props).toMatchObject({ initialCreate: true, canCreate: true, canEdit: true, subjects: [{ id: "s1", updatedAt: "2026-10-10T00:00:00.000Z" }] });
+  expect(page.props.children[1].props).toMatchObject({ initialCreate: true, canCreate: true, canEdit: true, subjects: [{ id: "s1",durationMinutes:100,visibility:"HIDDEN",precautions:"帶樂器", updatedAt: "2026-10-10T00:00:00.000Z" }] });
   expect(m.subjects).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "store-a" } }));
+});
+it("keeps saved defaults after a fresh request and chooses the internal schedule over an older fee version",async()=>{
+ m.templates.mockResolvedValue([{id:"old-fee",musicSubjectId:"s1",durationMinutes:50,visibility:"PUBLIC",precautions:""},{id:"subject_schedule_s1",musicSubjectId:"s1",durationMinutes:100,visibility:"HIDDEN",precautions:"帶樂器"}]);
+ for(let attempt=0;attempt<2;attempt++){
+   const page=await CoursesPage({searchParams:Promise.resolve({view:"catalog"})});
+   expect(page.props.children[1].props.subjects[0]).toMatchObject({durationMinutes:100,visibility:"HIDDEN",precautions:"帶樂器"});
+ }
+ expect(m.templates).toHaveBeenCalledTimes(2);
+ expect(m.templates).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:"store-a",musicSubjectId:{in:["s1"]}}}));
+});
+it("keeps legacy saved durations and does not query another store when no subjects exist",async()=>{
+ m.templates.mockResolvedValue([{id:"legacy",musicSubjectId:"s1",durationMinutes:90,visibility:"OFF",precautions:"舊注意事項"}]);
+ const page=await CoursesPage({searchParams:Promise.resolve({view:"catalog"})});
+ expect(page.props.children[1].props.subjects[0]).toMatchObject({durationMinutes:90,visibility:"OFF",precautions:"舊注意事項"});
+ m.subjects.mockResolvedValue([]);m.templates.mockClear();
+ await CoursesPage({searchParams:Promise.resolve({view:"catalog"})});
+ expect(m.templates).not.toHaveBeenCalled();
 });
 it("keeps independent create/update permissions and read-only cross-store access", async () => {
   m.permission.mockImplementation(async (_role, _staff, permission) => permission !== "booking.create");

@@ -1,0 +1,33 @@
+{
+  "scope": "synthetic real-component UI; no production writes",
+  "results": [
+    {
+      "width": 1366,
+      "height": 900,
+      "list": 100,
+      "editor": 100,
+      "afterSaveAndReload": 100,
+      "visibility": "HIDDEN",
+      "precautions": "preserved"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "list": 100,
+      "editor": 100,
+      "afterSaveAndReload": 100,
+      "visibility": "HIDDEN",
+      "precautions": "preserved"
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "list": 100,
+      "editor": 100,
+      "afterSaveAndReload": 100,
+      "visibility": "HIDDEN",
+      "precautions": "preserved"
+    }
+  ],
+  "errors": []
+}

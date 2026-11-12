@@ -15,6 +15,15 @@ import {MusicSubjectCatalog} from "@/app/(dashboard)/dashboard/courses/music-sub
 let host:HTMLDivElement,root:Root;
 const row={id:"s1",name:"吉他",category:"",description:"",isActive:true,updatedAt:"2026-10-10T00:00:00.000Z"};
 const props={storeId:"store-a",subjects:[],canCreate:true,canEdit:true,initialCreate:true};
+it("keeps authoritative defaults after the receipt is replaced by freshly loaded page props",async()=>{
+ const saved={...row,durationMinutes:100,visibility:"HIDDEN",precautions:"請帶樂器"};
+ m.fetch.mockResolvedValue({json:async()=>({success:true,storeId:"store-a",data:saved})});
+ await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+ expect(host.querySelector("tbody")!.textContent).toContain("100 分鐘");
+ await act(async()=>root.render(createElement(MusicSubjectCatalog,{...props,subjects:[saved]})));
+ expect(host.querySelector("tbody")!.textContent).toContain("100 分鐘");
+ expect(host.querySelector("tbody")!.textContent).toContain("僅後台安排");
+});
 beforeEach(async()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});vi.clearAllMocks();vi.stubGlobal("fetch",m.fetch);host=document.createElement("div");document.body.append(host);root=createRoot(host);await act(async()=>root.render(createElement(MusicSubjectCatalog,props)));const input=host.querySelector<HTMLInputElement>('input[name="name"]')!;await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"吉他");input.dispatchEvent(new Event("input",{bubbles:true}));});});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
 it("shows the authoritative receipt without refresh and retains it through stale props",async()=>{
