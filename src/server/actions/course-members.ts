@@ -262,6 +262,7 @@ export async function saveCoursePointPlan(input: unknown) {
     if (receipt && storeId !== receipt.expectedStoreId) throw new AppError("CONFLICT","目前門市已切換，請重新開啟方案設定。");
     const receiptId = receipt ? `plan_${createHash("sha256").update(JSON.stringify([storeId,receipt.requestKey])).digest("hex")}` : undefined;
     const saved = await courseTransaction(storeId,async tx=>{
+    const persist=async()=>{
     if(planId&&!data.chargeSettings){
       const existing=await tx.coursePointPlan.findFirst({where:{id:planId,storeId}});
       data.chargeSettings=coursePlanValues.parse(existing??data).chargeSettings;
@@ -346,6 +347,14 @@ export async function saveCoursePointPlan(input: unknown) {
       if(receipt)return tx.coursePointPlan.findFirstOrThrow({where:{id:planId,storeId}});
     } else
       return tx.coursePointPlan.create({ data: { ...data, chargeSettings:data.chargeSettings??undefined, storeId, ...(receiptId?{id:receiptId}:{}) } });
+    };
+    const row=await persist();
+    if(!receipt||!row)return row;
+    const catalogTemplates=row.templateIds.length?await tx.courseTemplate.findMany({where:{storeId,id:{in:row.templateIds}},select:{
+      id:true,name:true,category:true,isActive:true,durationMinutes:true,musicSubjectId:true,classType:true,
+      musicTeacherShare:true,musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true,musicScheduleMode:true,
+    }}):[];
+    return {...row,catalogTemplates};
     });
     let syncWarning=false;
     try {refresh();}catch(error){if(!receipt)throw error;syncWarning=true;}

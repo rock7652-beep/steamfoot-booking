@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from "vitest";
-const m=vi.hoisted(()=>({access:vi.fn(),transaction:vi.fn(),template:vi.fn(),createTemplate:vi.fn(),updateTemplate:vi.fn(),room:vi.fn(),updateRoom:vi.fn(),roomUse:vi.fn(),duration:vi.fn(),plan:vi.fn(),createPlan:vi.fn(),updatePlan:vi.fn(),revalidate:vi.fn(),music:vi.fn(),term:vi.fn()}));
+const m=vi.hoisted(()=>({access:vi.fn(),transaction:vi.fn(),template:vi.fn(),createTemplate:vi.fn(),updateTemplate:vi.fn(),room:vi.fn(),updateRoom:vi.fn(),roomUse:vi.fn(),duration:vi.fn(),plan:vi.fn(),createPlan:vi.fn(),updatePlan:vi.fn(),revalidate:vi.fn(),music:vi.fn(),term:vi.fn(),templateList:vi.fn()}));
 vi.mock("@/lib/auth",()=>({auth:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:m.revalidate,unstable_cache:(fn:unknown)=>fn}));
 vi.mock("next/server",()=>({after:vi.fn()}));
@@ -28,13 +28,13 @@ const template=courseTemplateInput.parse({name:"瑜珈",durationMinutes:60,point
 const plan=coursePlanValues.parse({name:"十堂",points:10,price:1000,validDays:90,allowShared:false});
 let savedTemplate:Record<string,unknown>|null,savedPlan:Record<string,unknown>|null;
 beforeEach(()=>{
- vi.resetAllMocks();savedTemplate=null;savedPlan=null;m.access.mockResolvedValue({storeId:"store",user:{id:"user"}});m.music.mockResolvedValue(null);m.term.mockResolvedValue([]);
+ vi.resetAllMocks();m.templateList.mockResolvedValue([{id:"template",name:"課程",category:"",isActive:true,durationMinutes:60,musicSubjectId:null,classType:null,musicTeacherShare:null,musicPricePerLesson:null,musicTermLessons:null,musicValidityDaysPerTerm:null,musicTrialMode:null,musicScheduleMode:null}]);savedTemplate=null;savedPlan=null;m.access.mockResolvedValue({storeId:"store",user:{id:"user"}});m.music.mockResolvedValue(null);m.term.mockResolvedValue([]);
  m.template.mockImplementation(async()=>savedTemplate);m.plan.mockImplementation(async()=>savedPlan);
  m.createTemplate.mockImplementation(async({data})=>savedTemplate={...data,isActive:true,visibility:"PUBLIC",musicSubjectId:null,musicSubject:null,_count:{sessions:0},updatedAt:new Date()});
  m.createPlan.mockImplementation(async({data})=>savedPlan={...data,lowBalanceEnabled:false,lowBalanceThreshold:null});
  m.updateTemplate.mockImplementation(async({data})=>{savedTemplate={...savedTemplate,...data,updatedAt:new Date()};return {count:1};});
  m.updatePlan.mockImplementation(async({data})=>{savedPlan={...savedPlan,...data};return {count:1};});
- m.transaction.mockImplementation(async(_store,work)=>work({courseTemplate:{findMany:async()=>[{id:"template",musicSubjectId:null}],count:async()=>1,findFirst:m.template,findFirstOrThrow:m.template,create:m.createTemplate,updateMany:m.updateTemplate},courseRoom:{findFirst:m.room,findFirstOrThrow:m.room,updateMany:m.updateRoom},coursePointPlan:{findFirst:m.plan,findFirstOrThrow:m.plan,create:m.createPlan,updateMany:m.updatePlan},coursePurchase:{count:async()=>0},$queryRaw:async(sql:TemplateStringsArray)=>sql.join("").includes('FROM "Staff"')?[{id:"teacher",qualificationIds:["template"]}]:[]}));
+ m.transaction.mockImplementation(async(_store,work)=>work({courseTemplate:{findMany:m.templateList,count:async()=>1,findFirst:m.template,findFirstOrThrow:m.template,create:m.createTemplate,updateMany:m.updateTemplate},courseRoom:{findFirst:m.room,findFirstOrThrow:m.room,updateMany:m.updateRoom},coursePointPlan:{findFirst:m.plan,findFirstOrThrow:m.plan,create:m.createPlan,updateMany:m.updatePlan},coursePurchase:{count:async()=>0},$queryRaw:async(sql:TemplateStringsArray)=>sql.join("").includes('FROM "Staff"')?[{id:"teacher",qualificationIds:["template"]}]:[]}));
 });
 it("confirms the same course create after a lost reply; changed retry cannot overwrite it",async()=>{
  const first=await saveCourseTemplateSettings({...template,...receipt});expect(first).toMatchObject({success:true,data:{name:"瑜珈",hasSessions:false}});
@@ -89,6 +89,7 @@ it('saves an independent single charge with a zero trial price and confirms iden
  const chargeSettings={kind:'single',durationMinutes:60,trialPrice:0,trialDuration:20,providerIds:['teacher']};
  const input={...plan,points:1,unit:'SESSION',templateIds:['template'],chargeSettings,receipt};
  const result=await saveCoursePointPlan(input);
+ expect(m.templateList).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:'store',id:{in:['template']}}}));
  expect(result).toMatchObject({success:true,data:{points:1,chargeSettings:{...chargeSettings,providerScope:"QUALIFIED",providerIds:[]}}});
  expect(await saveCoursePointPlan(input)).toEqual(result);
  expect(m.createPlan).toHaveBeenCalledTimes(1);

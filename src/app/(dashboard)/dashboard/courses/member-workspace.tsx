@@ -1,4 +1,5 @@
 "use client";
+import {mergeCoursePlanCatalog} from "@/lib/course-plan-catalog";
 import {useCustomerPlanPreload} from "@/components/admin/use-customer-plan-preload";
 import {useInvalidateCustomerPlanReads} from "@/components/operations/panel-read-cache";
 import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
@@ -119,7 +120,7 @@ export function CourseMemberWorkspace({
   canDelete=false,
   termSessions=[],
   view,
-  templates,
+  templates:sourceTemplates,
   people:sourcePeople,
   plans: sourcePlans,
   cards,
@@ -209,6 +210,7 @@ export function CourseMemberWorkspace({
   const pricingRow=confirmedPrices.rows.find(row=>row.id===pricingId);
   const confirmedPlans=useConfirmedSettingsRows(sourcePlans,row=>JSON.stringify(catalogSource?row:coursePlanSnapshot(row)));
   const [plans,applyStatus,busyIds,setStatusBusy]=useCourseStatusRows(confirmedPlans.rows);
+  const templates=mergeCoursePlanCatalog(sourceTemplates,plans);
   const [savedPlanId,setSavedPlanId]=useState<string|null>(null);
   const [formUncertain,setFormUncertain]=useState(false);
  const [hideTestData,setHideTestData]=useState(false);
@@ -308,7 +310,7 @@ export function CourseMemberWorkspace({
   const purchaseRecovery = useCoursePurchaseRecovery(person?.id || purchaseCustomerId || undefined, panel === "assign" && !servicePurchase,source?.automaticPurchaseCompletion);
   const onServicePurchaseGuard=useCallback((dirty:boolean,busy:boolean)=>{setDirty(dirty);setFormPending(busy);},[]);
   useCourseDraftGuard(confirmDiscard&&(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(dirty || supportGuard.dirty),(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
-  function finishDraftForm(row?:Plan,syncWarning=false){publishMusicFinanceChange();if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("收費方式已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);setPersonTab(editReturnTab.current);router.refresh();}else{setPanel(null);}}
+  function finishDraftForm(row?:Plan,syncWarning=false){publishMusicFinanceChange();if(panel==="plan"&&!catalogSource&&!isMusicPreviewPage())router.refresh();if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("收費方式已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);setPersonTab(editReturnTab.current);router.refresh();}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
   useCustomerPanelUrl(view === "customers"&&!panelOnly, panel && customerPanel ? person.id : null, personTab);
   const [visitedTabs,setVisitedTabs]=useState<{id:string;tabs:string[]}>({id:"",tabs:[]});

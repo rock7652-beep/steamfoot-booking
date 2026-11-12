@@ -31,4 +31,12 @@ export const coursePlanValues = z
 
 export const coursePlanReceipt=z.object({expectedStoreId:id,requestKey:z.string().uuid()});
 export const coursePlanSaveInput=coursePlanValues.extend({expectedSnapshot:z.string().max(COURSE_PLAN_SNAPSHOT_MAX).optional()}).merge(coursePlanReceipt).refine(row=>!row.id||!!row.expectedSnapshot);
-export const savedCoursePlan=coursePlanValues.omit({musicSetup:true}).extend({sportsMode:z.enum(["LEGACY","ASSIGNED","OPEN","SUBJECTS"]).optional(),sportsSubjectId:id.nullable().optional(),sportsSubjectIds:z.array(id).max(200).optional(),sportsCost:z.number().int().min(1).max(10000).nullable().optional(),id,lowBalanceEnabled:z.boolean(),lowBalanceThreshold:z.number().nullable()});
+/** Presentation metadata captured with a confirmed save; never accepted as write authority. */
+export const coursePlanCatalogTemplate=z.object({
+ id,name:z.string(),category:z.string(),isActive:z.boolean(),durationMinutes:z.number().int(),
+ musicSubjectId:id.nullable(),classType:z.string().nullable(),musicTeacherShare:z.number().nullable(),
+ musicPricePerLesson:z.number().nullable(),musicTermLessons:z.number().nullable(),musicValidityDaysPerTerm:z.number().nullable(),
+ musicTrialMode:z.string().nullable(),musicScheduleMode:z.string().nullable(),
+});
+export type CoursePlanCatalogTemplate=z.infer<typeof coursePlanCatalogTemplate>;
+export const savedCoursePlan=coursePlanValues.omit({musicSetup:true}).extend({sportsMode:z.enum(["LEGACY","ASSIGNED","OPEN","SUBJECTS"]).optional(),sportsSubjectId:id.nullable().optional(),sportsSubjectIds:z.array(id).max(200).optional(),sportsCost:z.number().int().min(1).max(10000).nullable().optional(),id,catalogTemplates:z.array(coursePlanCatalogTemplate).max(200).optional(),lowBalanceEnabled:z.boolean(),lowBalanceThreshold:z.number().nullable()});
