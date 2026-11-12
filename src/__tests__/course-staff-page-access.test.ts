@@ -2,7 +2,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
-  user: vi.fn(), permission: vi.fn(), store: vi.fn(),
+  music:false,subjects:vi.fn(),user: vi.fn(), permission: vi.fn(), store: vi.fn(),
   staff: vi.fn(), requireCourse: vi.fn(), templates:vi.fn(), native:vi.fn(), workspace:vi.fn(),
 }));
 vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:m.native}));
@@ -18,12 +18,12 @@ vi.mock("@/lib/industry-module-server", () => ({ requireCourseStore: m.requireCo
 vi.mock("@/lib/db", () => ({ prisma: {
   $queryRaw: async () => [{label:null}],
   staff: { findMany: m.staff },
-  storeFeatureEntitlement: { findFirst: async () => null },
+  storeFeatureEntitlement: { findFirst: async () => m.music?{storeId:"course-store"}:null },
   courseStaffPersonLink: { findMany: async () => [] },
   customer: { findMany: async () => [] },
 } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: {
-  courseTemplate: { findMany: m.templates },
+  courseTemplate: { findMany: m.templates },musicSubject:{findMany:m.subjects},
   coursePointPlan: { findMany: async () => [] },
   courseSession: { findMany: async () => [] },
 } }));
@@ -45,6 +45,7 @@ beforeEach(() => {
 });
 describe("course staff page permission boundary", () => {
   it.each(["ADMIN", "OWNER", "MANAGER", "STAFF"])("allows %s with staff.view to read only the selected store", async role => {
+    m.music=false;m.subjects.mockResolvedValue([]);
     m.user.mockResolvedValue({ id: "user", role, staffId: role === "ADMIN" ? null : "staff", storeId: role === "ADMIN" ? null : "course-store" });
     expect(await CourseStaffPage()).toBeTruthy();
     expect(m.requireCourse).toHaveBeenCalledWith("course-store");
@@ -73,4 +74,10 @@ it("uses current sports subjects and keeps historical IDs without offering them 
  const props=m.workspace.mock.calls[0][0];
  expect(props.templates).toEqual([expect.objectContaining({id:current,name:'舞蹈（基礎課程）',displayName:'舞蹈（基礎課程）',currentTeaching:true}),expect.objectContaining({id:'sports_rule_legacy',currentTeaching:false}),expect.objectContaining({name:'舞蹈（小品課）',currentTeaching:false})]);
  expect(m.templates).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:'course-store'}}));
+});
+
+it('includes ABC items without any tuition versions in teacher qualification choices',async()=>{
+ m.music=true;m.user.mockResolvedValue({id:'owner',role:'OWNER',staffId:'owner',storeId:'course-store'});m.permission.mockResolvedValue(true);m.subjects.mockResolvedValue([{id:'B',name:'B 尚未收費',isActive:true}]);m.templates.mockResolvedValue([]);m.staff.mockResolvedValue([]);
+ const result=await CourseStaffPage({teachers:true});renderToStaticMarkup(result);
+ expect(m.workspace.mock.calls.at(-1)?.[0].templates).toEqual(expect.arrayContaining([expect.objectContaining({id:'subject_schedule_B',musicSubjectId:'B',subjectName:'B 尚未收費',subjectActive:true})]));
 });

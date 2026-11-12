@@ -1,6 +1,6 @@
 # 音樂／運動教學項目與收費方案計酬
 
-狀態：支線實作；正式資料庫 migration、正式部署及登入後端到端驗收尚未執行。
+狀態：草稿 PR #1554，支線實作；正式資料庫 migration、正式部署及登入後端到端驗收尚未執行。
 來源基底：main `6350913f159172966fc1bfd29842b9defb40a05a`。
 
 ## 已確認規則與實作
@@ -26,7 +26,7 @@ Migration 與既有程式相容，但新商品開始採 QUALIFIED 後，不能�
 
 ## 驗證
 
-- 23 個選定測試檔：179 通過、32 跳過（外部隔離 PostgreSQL 未配置）；主要涵蓋計酬、資格／薪酬權限、儲存回執、收費分類移動、歷史相容及新版介面。
+- 26 個主要測試檔：208 通過、32 跳過（外部隔離 PostgreSQL 未配置）；另有 44 個介面／回執回歸及 13 個操作指南測試通過（部分與主要測試重疊）。主要涵蓋計酬、資格／薪酬權限、儲存回執、收費分類移動、歷史相容及新版介面。
 - PGlite 實際 SQL：新 migration 回填／購買擷取／禁止改寫／跨店隔離／函式 ACL；方案計酬擷取與跨類移動；既有運動費率快照。無遠端資料庫連線。
 - 固定費用涵蓋 50／90／120／180 分鐘及 1／6 人；A1／A2 獨立比例、0、同場固定費用衝突及比例混用。
 - TypeScript、變更檔 ESLint、Prisma schema validate 另見本次執行紀錄。ESLint 保留兩個既有警告（staff-workspace effect dependencies、course-resources 未用 import）。
@@ -39,3 +39,10 @@ Migration 與既有程式相容，但新商品開始採 QUALIFIED 後，不能�
 覆蓋情境 02（搜尋／篩選）、03（草稿與權威回執的既有回歸）、06／09（權限／門市邊界）、07（儲存及狀態連續性）、10（空結果與讀取重試既有回歸）。01／05 沒有端到端效能測量，不宣稱加速；04 的正式購買／扣抵與 08 跨店完整業務流程尚未驗收。
 
 後台指南已同步 C169（音樂教師）、C176（運動教練）；未新增會員／我的工作前台指南。
+
+
+## 線上 Preview 限制
+
+1180061f 的自動 Vercel Preview `dpl_8nGx39JHmBeG1Ja5p5iMvrisvVmV` 在既有 `Sports shared-card checkout requires its exact authorized Preview branch and repository metadata` 檢查停止。沒有套用 migration；未更動該分支限制或環境設定以繞過。Cloudflare Workers Builds 亦失敗，詳細紀錄尚未取得；不計為本次通過證據。桌機／iPad 證據目前限本機合成資料。
+
+首次完整 CI 查出舊人員名單與介面文字的預期，已按新操作規則更新回歸；正式交付以 PR 最新 SHA 的檢查狀態為準。運動共卡、混合排課及音樂補課的隔離 PostgreSQL workflows 已在 1180061f 通過，後續版本仍需核對各項 check。

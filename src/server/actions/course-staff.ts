@@ -190,6 +190,10 @@ async function saveCourseStaffWork(input:unknown,receipt?:Omit<ReturnType<typeof
         const coachEnabled = d.coachEnabled ?? existing?.courseCoachEnabled ?? d.kind === "coach";
         let qualificationIds = [...new Set(d.qualificationIds ?? existing?.courseQualifiedTemplateIds ?? [])];
         const isMusicTeaching = musicFinanceStore;
+        if(d.qualificationIds&&(isMusicTeaching||nativeSports)){
+          const {ensureQualificationTemplates}=await import("@/server/services/teaching-qualification-templates");
+          await ensureQualificationTemplates(tx,storeId,qualificationIds,nativeSports);
+        }
         if (isMusicTeaching && d.qualificationIds) {
           if (existing && d.teachingVersion !== existing.updatedAt.toISOString()) throw new AppError("CONFLICT", "教師資格已有更新，請重新開啟後再核對");
           const versions = await tx.$queryRaw<Array<{id:string;musicSubjectId:string|null}>>`SELECT id,"musicSubjectId" FROM "CourseTemplate" WHERE "storeId"=${storeId}`;

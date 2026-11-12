@@ -28,8 +28,8 @@ describe("operation guide logged-in acceptance corrections", () => {
     expect(from.title).toBe("新增教師後，為什麼還不能排課？");
     expect(from.references).toEqual([{ guideId: "C169", label: target.title }]);
     expect(from.answer).toContain(target.title);
-    expect(target.steps.join(" ")).toContain("指定課程拆帳");
-    expect(target.answer).toContain("固定鐘點");
+    expect(target.steps.join(" ")).toContain("各收費方案");
+    expect(target.answer).toContain("固定費用");
     expect([from.answer, ...from.details].join(" ")).not.toContain("C169");
     expect(findOperationGuides("C169", course).map(g => g.id)).toEqual(["C169"]);
   });

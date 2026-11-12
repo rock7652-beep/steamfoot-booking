@@ -66,6 +66,10 @@ export async function CourseStaffPage({teachers=false,initialCreate=false}:{teac
   ]);
   const teachingPlans=await coursePrisma.coursePointPlan.findMany({where:{storeId},select:{id:true,name:true,isActive:true,templateIds:true,chargeSettings:true,sportsSubjectId:true,sportsSubjectIds:true}});
   const nativeSports=(await sportsNativePreview(storeId));
+  if(nativeSports||musicEntitlement){
+    const subjects=await coursePrisma.musicSubject.findMany({where:{storeId},select:{id:true,name:true,isActive:true},orderBy:{name:"asc"}});
+    for(const subject of subjects){const id=nativeSports?sportsTeachingTemplateId(storeId,subject.id):musicSubjectDefaultId(subject.id);if(!templates.some(t=>t.id===id))templates.push({id,name:subject.name,isActive:subject.isActive,musicTrialMode:null,musicSubjectId:subject.id,musicTeacherShare:null,musicPricePerLesson:null,musicSubject:{name:subject.name,isActive:subject.isActive}});}
+  }
   const canReadFees=!isChildStoreView&&await canMusicFinance(user,storeId,"teacher.compensation.read")&&(!nativeSports||await checkPermission(user.role,user.staffId,"teacher.compensation.read"));
   const sportsDefaultFees=(nativeSports||!!musicEntitlement)&&canReadFees?await coursePrisma.courseCompensation.findMany({where:{storeId,staffId:""},select:{templateId:true,rules:true}}):[];
   const presentedTemplates=nativeSports ? templates.map(t=>{
