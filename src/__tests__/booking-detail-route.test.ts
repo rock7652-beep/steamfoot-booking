@@ -6,6 +6,7 @@ import { GET } from "@/app/api/bookings/detail/route";
 import { AppError } from "@/lib/errors";
 import type {OperationTiming} from "@/lib/operation-timing";
 beforeEach(() => vi.resetAllMocks());
+
 it("requires read permission before disclosing detail", async () => {
   mocks.permission.mockRejectedValue(new AppError("FORBIDDEN", "private"));
   const response = await GET(new Request("https://example.com/api/bookings/detail?bookingId=b&storeId=s"));
@@ -31,7 +32,7 @@ it('returns separated entry, detail and serialization timing without changing th
  mocks.permission.mockImplementation((_code:string,timer:OperationTiming)=>timer.measure('permission.session',()=>measureMusicRead('session.staffState',async()=>({id:'private-user'}))));
  mocks.detail.mockImplementation(()=>measureMusicRead('session.staffState',async()=>({booking:{id:'private-booking',notes:'private-note'}})));
  const response=await GET(new Request('https://example.com/api/bookings/detail?bookingId=private-booking&storeId=private-store'));
- for(const label of ['total','permission_session','entryPermission','detail','serialize'])expect(response.headers.get('server-timing')).toMatch(new RegExp('(?:^|, )'+label+';dur=\\d+'));
+ for(const label of ['total','loadPermission','permission_session','entryPermission','loadDetail','detail','serialize'])expect(response.headers.get('server-timing')).toMatch(new RegExp('(?:^|, )'+label+';dur=\\d+'));
  const reads=JSON.parse(response.headers.get('X-Booking-Read-Timing')!);
  expect(reads['entry.session.staffState.count']).toBe(1);expect(reads['detail.session.staffState.count']).toBe(1);expect(Object.values(reads).every(v=>typeof v==='number')).toBe(true);
  expect(await response.json()).toEqual({booking:{id:'private-booking',notes:'private-note'}});
@@ -48,10 +49,22 @@ it.each([['UNAUTHORIZED',401],['FORBIDDEN',403],['VALIDATION',503]] as const)('p
  log.mockRestore();
 });
 
-it('keeps concurrent GET timing scopes separate',async()=>{
+it('keeps overlapping GET timing scopes separate without reusing permission checks',async()=>{
  const {measureMusicRead}=await import('@/lib/music-read-timing');vi.spyOn(console,'info').mockImplementation(()=>{});
- mocks.detail.mockImplementation((id:string)=>measureMusicRead(id==='first'?'firstRead':'secondRead',async()=>({booking:{id}})));
- const [first,second]=await Promise.all(['first','second'].map(id=>GET(new Request('https://example.com/api/bookings/detail?bookingId='+id+'&storeId=store'))));
+ let begin!:()=>void,release!:()=>void;
+ const started=new Promise<void>(resolve=>{begin=resolve;});
+ const held=new Promise<void>(resolve=>{release=resolve;});
+ mocks.detail.mockImplementation((id:string)=>measureMusicRead(id==='first'?'firstRead':'secondRead',async()=>{
+   if(id==='first'){begin();await held;}
+   return {booking:{id}};
+ }));
+ // Hold one request's actual read open while the second completes, rather
+ // than racing Vitest's async import mock loader itself.
+ const pendingFirst=GET(new Request('https://example.com/api/bookings/detail?bookingId=first&storeId=store'));
+ await started;
+ const second=await GET(new Request('https://example.com/api/bookings/detail?bookingId=second&storeId=store'));
+ release();const first=await pendingFirst;
+ expect(first.status).toBe(200);expect(second.status).toBe(200);expect(mocks.permission).toHaveBeenCalledTimes(2);
  const a=JSON.parse(first.headers.get('X-Booking-Read-Timing')!),b=JSON.parse(second.headers.get('X-Booking-Read-Timing')!);
  expect(a['detail.firstRead.count']).toBe(1);expect(a['detail.secondRead.count']).toBeUndefined();expect(b['detail.secondRead.count']).toBe(1);expect(b['detail.firstRead.count']).toBeUndefined();
  vi.restoreAllMocks();

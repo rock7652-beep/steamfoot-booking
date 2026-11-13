@@ -18,7 +18,7 @@
 
 ## 2026-11-13 蒸足預約 HTTP 全程診斷
 
-僅為 GET /api/bookings/detail 加固定標籤計時：Proxy 沿用共用 request timing scope，以 X-Booking-Proxy-Timing 回傳驗證／DB身分查詢等數值；API 用 Server-Timing 區分 entryPermission、detail、serialize，以 X-Booking-Read-Timing 區分 entry 與 detail 內的登入驗證讀取。Proxy 與 handler 是獨立執行，時間不混為單一 scope；瀏覽器用該回應的 x-vercel-id 與 Resource Timing／平台 trace 對照。
+僅為 GET /api/bookings/detail 加固定標籤計時：Proxy 沿用共用 request timing scope，以 X-Booking-Proxy-Timing 回傳驗證／DB身分查詢等數值；API 將權限與明細模組的載入移入既有驗證／讀取順序內量測，用 Server-Timing 區分 loadPermission、entryPermission、loadDetail、detail、serialize，以 X-Booking-Read-Timing 區分 entry 與 detail 內的登入驗證讀取。Proxy 與 handler 是獨立執行，時間不混為單一 scope；瀏覽器用該回應的 x-vercel-id 與 Resource Timing／平台 trace 對照。
 
 計時不共用身分、不略過授權、不更改快取、資料回應或帳務；header／console 僅固定標籤、數值與成功旗標，不記顧客ID、查詢參數、備註、cookie或憑證。API 模組載入前／平台排程不包含在 handler total，下載與畫面更新仍由瀏覽器量測，父子區段不可直接加總。本節是未發布支線狀態，非正式站效能結論。
 
