@@ -5,9 +5,9 @@ import dynamic from "next/dynamic";
 // Capture the same literal loader used by next/dynamic. Production compilers can
 // give a separate import callsite a different namespace chunk even for one file.
 let loadWorkspace!:()=>Promise<typeof import("./member-workspace")["CourseMemberWorkspace"]>;
-export const CourseMemberWorkspaceEntry = dynamic({
- loader: loadWorkspace = () => import("./member-workspace").then(module => module.CourseMemberWorkspace),
-});
+export const CourseMemberWorkspaceEntry = dynamic(
+ loadWorkspace = () => import("./member-workspace").then(module => module.CourseMemberWorkspace),
+);
 
 // Only public JavaScript assets are retained here; no customer or permission data.
 let workspaceCodeReady=false;
