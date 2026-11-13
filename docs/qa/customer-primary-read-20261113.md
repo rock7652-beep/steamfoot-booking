@@ -55,3 +55,14 @@
 2026-11-13 使用者同意沿用既有隔離 Preview 並指示「好 請執行」。本輪只新增 `fix/customer-primary-read-priority` 到既有精確分支檢查，採 `module-roster-preview` 的不遷移模式；兩份資料庫 URL 都必須指向原隔離專案 `ttworfzgwejdeolegkxl`，拒絕正式資料庫、外來來源與相似分支；外發仍停止。未變更正式站、部署保護、正式帳號或密碼。
 
 現有 artifacts 約60MB，沿用既有 Preview 的審查圖片封存與 trace 清理，避免連同約200MB執行檔超過平台封裝上限；僅精確專案、分支及 Vercel 暫存建置路徑可執行，保留 public 執行資產與 JSON 證據。Preview 登入後四模組實際驗收尚待建置完成；不得以建置成功替代。
+
+### 隔離 Preview 補齊與實際驗收進度
+
+- `137bc781785400c6244ce6457f0912bdee276b2e` / Preview `dpl_8XAwUbyT74teQGsuWQEj9wqHS8gZ` 已 READY；此 head 遠端 CI #43366020428：1803檔／16954測試通過，34檔／323跳過，ESLint、Targeted及Typecheck通過。首次自動建置因尚缺美業測試開關而取消，之後補齊僅此分支的美業開關再建置，未部署正式站。
+- 隔離資料庫缺少既有 `sportsSubjectIds` 三欄，實際顧客頁因此報 P2022。手動套用既有已經 isolated PostgreSQL CI 驗證的 `supabase/migrations/20261111050549_course_multi_subject_entitlements.sql`（SHA256 `8e6a4871b02290aa17cefa1e3da6ed2de244e07510b3fc47f74f3d4bdc7f709b`）；僅在原測試專案新增三個空陣列欄位並更新約束。方案113筆、購買175筆、卡片398筆，排除新增欄位後全欄位排序指紋前後完全相同。正式資料庫未操作，自動遷移仍停止。
+- 一般測試帳密登入成功，不使用正式密碼、偽造 session 或略過應用授權；四個測試角色的帳密、cookie與存取連結僅存私有暫存檔，不提交。
+- 第一輪36個實際顧客清單冷／暖案例：蒸足及美業各9個通過，舊課程與音樂相容入口各9個只記相容回歸，**不當成原生運動／原生音樂驗收**。美業重新按 POST input 的選定顧客計數，9個通過；原測試將關窗後另一位顧客的背景請求誤算成重開請求，保留原失敗紀錄而不改產品。
+- 補驗查到兩個原生 Preview capability 尚未包含此分支，僅補入當前精確分支、指定專案及既有隔離資料庫檢查；原生運動限 `sports-live-flow-store`、音樂限 `store-lubymusic`。音樂既有封存資料可供讀取，但 importer 的原分支限制保持拒絕；不開放匯入／試算寫入。僅此分支設定原生運動 Preview 開關，不調整正式 rollout 或其他門市資格。
+- 名單補驗另遇測試顧客帳號已停用（正確拒絕）及舊課程入口不提供新版方案按鈕；不以這些樣本宣稱名單通過。原生新版 Preview 完成後重驗真正入口與有效測試顧客。
+
+- 補正本機116項原生資格／Preview隔離／音樂匯入拒絕／不遷移子程序tripwire通過；原生開關存在時仍須路由到 `module-roster-preview`，避免誤選會遷移的運動建置模式。初版斷言抓到模式優先順序錯誤，已修正分支路由再重跑，沒有部署錯誤版本或執行自動遷移。

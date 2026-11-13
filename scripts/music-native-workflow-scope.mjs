@@ -1,6 +1,6 @@
 import {customerOverviewPreviewStore} from "./compact-operations-preview-scope.mjs";
 import {assertMusicOpeningPreviewEnvironment,isMusicOpeningDatabase} from './music-opening-preview-scope.mjs';
-import {SCHEDULE_CONFLICT_PREVIEW_BRANCH} from './sports-shared-card-preview-scope.mjs';
+import {CUSTOMER_PRIMARY_PREVIEW_BRANCH,SCHEDULE_CONFLICT_PREVIEW_BRANCH} from './sports-shared-card-preview-scope.mjs';
 import {MIXED_ENROLLMENT_PREVIEW_BRANCHES,assertSportsRedesignPreviewEnvironment} from './sports-redesign-preview-scope.mjs';
 import {assertSportsLiveFlowQaEnvironment} from './sports-live-flow-qa-scope.mjs';
 export const MUSIC_RELEASE_BRANCH='release/music-production-20261023';
@@ -31,6 +31,9 @@ export function assertMusicNativeReleaseEnvironment(env){
 export function musicNativeWorkflowEnabled(storeId,env=process.env){
  if(!storeId)return false;
  if(customerOverviewPreviewStore("music",storeId,env))return true;
+ if(storeId==='store-lubymusic'&&env.VERCEL_GIT_COMMIT_REF===CUSTOMER_PRIMARY_PREVIEW_BRANCH){
+  try{assertSportsRedesignPreviewEnvironment(env);return true;}catch{return false;}
+ }
  if(storeId==='store-lubymusic'&&env.SPORTS_LIVE_FLOW_QA==='1'){
   try{assertSportsLiveFlowQaEnvironment(env);return true;}catch{return false;}
  }
@@ -48,6 +51,10 @@ export function musicNativeWorkflowEnabled(storeId,env=process.env){
 }
 /** Read/filter sealed preview data on either reviewed branch; never authorizes an importer. */
 export function assertMusicPreviewDataReviewEnvironment(env){
+ if(env.VERCEL_GIT_COMMIT_REF===CUSTOMER_PRIMARY_PREVIEW_BRANCH){
+  assertSportsRedesignPreviewEnvironment(env);
+  return;
+ }
  if(MIXED_ENROLLMENT_PREVIEW_BRANCHES.includes(env.VERCEL_GIT_COMMIT_REF)){
   assertSportsRedesignPreviewEnvironment(env);
   return;
