@@ -3,6 +3,8 @@ import {calendarProxyReadOperation,traceCalendarProxyRead} from '@/lib/calendar-
 import {measureMusicRead} from '@/lib/music-read-timing';
 afterEach(()=>vi.restoreAllMocks());
 it.each([
+ ['GET','/api/bookings/detail?bookingId=private&storeId=secret','steam-booking-detail'],
+ ['POST','/api/bookings/detail',null],['GET','/api/bookings/status',null],
  ['POST','/s/store/admin/dashboard/courses/calendar-sync','sports-month-sync'],
  ['POST','/hq/dashboard/courses/calendar-read','course-month-read'],
  ['GET','/hq/dashboard/courses/calendar-sync',null],
@@ -28,4 +30,13 @@ it('isolates concurrent timing scopes and propagates authorization failures',asy
  const replies=await Promise.all(['one','two'].map(name=>traceCalendarProxyRead('sports-roster',()=>measureMusicRead(name,async()=>new Response()))));
  expect(JSON.parse(replies[0].headers.get('X-Calendar-Proxy-Timing')!)).not.toHaveProperty('two');
  await expect(traceCalendarProxyRead('sports-roster',async()=>{throw new Error('forbidden')})).rejects.toThrow('forbidden');
+});
+
+it('exposes only numeric booking proxy timings while retaining body, status and privacy',async()=>{
+ const log=vi.spyOn(console,'info').mockImplementation(()=>{});
+ const response=await traceCalendarProxyRead('steam-booking-detail',()=>measureMusicRead('proxy.authentication',async()=>new Response('private response',{status:200,headers:{'Cache-Control':'private, no-store'}})));
+ expect(await response.text()).toBe('private response');expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+ expect(response.headers.has('X-Calendar-Proxy-Timing')).toBe(false);expect(response.headers.has('X-Calendar-DB-Pool')).toBe(false);
+ const times=JSON.parse(response.headers.get('X-Booking-Proxy-Timing')!);expect(times['proxy.authentication.count']).toBe(1);expect(Object.values(times).every(v=>typeof v==='number')).toBe(true);
+ expect(JSON.stringify(log.mock.calls)).not.toContain('private response');
 });

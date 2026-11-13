@@ -10,6 +10,18 @@
 
 原生／美業批次進度沿用單卡投影及共卡權限，各卡保留2001筆溢位哨兵；不以整批成功代表每卡可見，也不以展示快取授權交易。本節記錄支線實作，**不代表正式站已部署或完成登入驗收**；證據與限制見 [驗收紀錄](qa/customer-primary-read-20261113.md)。下表為既有入口盤點，顧客預讀併發與主要讀取順序以本節更新為準。
 
+## 2026-11-13 蒸足當日預約詳情支線修正
+
+當日清單原本僅順序預讀前3筆，改由共用 idle reader 準備目前篩選後整份清單。背景最多一份；同 OperationScope 工作佇列保留一份給姓名列 pointer／focus／touch intent 或實際開窗，同鍵可提升優先並共用在途請求。編輯輸入、隱藏頁面、切日及開啟詳情時，未開始的 idle 工作暫停；已送達的請求不假稱可中止。完成資料仍為既有 no-store scoped GET 的完整 BookingDrawerPayload，備註及到店統計同次提供。月搜尋列也加入 intent。
+
+15秒有效展示資料才略過背景讀取，有限 stale 只供先顯示；開啟仍強制權威重讀。修改失效後的在途回應不能裝回，切門市／權限由 keyed OperationScope 隔離，不新增持久個資快取、不更改帳務／通知。本節為未發布支線狀態，不能視為正式站驗收完成。
+
+## 2026-11-13 蒸足預約 HTTP 全程診斷
+
+僅為 GET /api/bookings/detail 加固定標籤計時：Proxy 沿用共用 request timing scope，以 X-Booking-Proxy-Timing 回傳驗證／DB身分查詢等數值；API 將權限與明細模組的載入移入既有驗證／讀取順序內量測，用 Server-Timing 區分 loadPermission、entryPermission、loadDetail、detail、serialize，以 X-Booking-Read-Timing 區分 entry 與 detail 內的登入驗證讀取。Proxy 與 handler 是獨立執行，時間不混為單一 scope；瀏覽器用該回應的 x-vercel-id 與 Resource Timing／平台 trace 對照。
+
+計時不共用身分、不略過授權、不更改快取、資料回應或帳務；header／console 僅固定標籤、數值與成功旗標，不記顧客ID、查詢參數、備註、cookie或憑證。API 模組載入前／平台排程不包含在 handler total，下載與畫面更新仍由瀏覽器量測，父子區段不可直接加總。本節是未發布支線狀態，非正式站效能結論。
+
 ## 需要獨立讀取的入口
 
 | 入口 | 資料來源／共用資源 | 策略 |

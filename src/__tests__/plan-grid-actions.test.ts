@@ -11,7 +11,7 @@ const card={id:'card-a',remaining:8,held:0,expiresAt:'2027-12-31T15:59:59.999Z',
 beforeEach(()=>{vi.clearAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement('div');document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 async function render(initialAction?:PlanGridAction){await act(async()=>root.render(React.createElement(PlanManagementControls,{compactActions:true,initialAction,storeId:"store",card,save,sessionAdjustment:{save:adjust,records:[],members:[{id:"learner",name:"學員"}]},onSaved})));}
-async function click(text:string){const b=[...document.querySelectorAll('button')].find(b=>b.textContent===text);expect(b).toBeTruthy();await act(async()=>b!.click());}
+async function click(text:string){let b=[...document.querySelectorAll('button')].find(b=>b.textContent===text&&!b.closest('[hidden]'));if(!b&&text!=='⋯'){const menu=document.querySelector<HTMLButtonElement>('button[aria-label="方案 更多操作"]');expect(menu).toBeTruthy();await act(async()=>menu!.click());b=[...document.querySelectorAll('button')].find(b=>b.textContent===text&&!b.closest('[hidden]'));}expect(b).toBeTruthy();await act(async()=>b!.click());}
 it.each(['BACKFILL','VOID'] as const)('opens the correct %s form without a financial write',async action=>{
  await render();expect(host.querySelector('[aria-label="調整類型"]')).toBeNull();await click(action==='VOID'?'註銷堂數':'補登已上課');
  expect(host.querySelector<HTMLSelectElement>('[aria-label="調整類型"]')?.value).toBe(action);
@@ -39,4 +39,12 @@ it('consumes the shortcut once so a refreshed balance does not reopen the adjust
  }
  await act(async()=>root.render(React.createElement(Holder)));expect(host.querySelector<HTMLSelectElement>('[aria-label="調整類型"]')?.value).toBe('VOID');
  await click('確認調整');expect(adjust).toHaveBeenCalledOnce();expect(host.querySelector('[aria-label="調整類型"]')).toBeNull();expect(save).not.toHaveBeenCalled();
+});
+it('keeps point plans free of session adjustments',async()=>{
+ const select=vi.fn();await act(async()=>root.render(React.createElement(PlanGridActions,{allowSession:false,onSelect:select})));await click('⋯');
+ expect([...document.querySelectorAll('button')].some(b=>/補登|註銷堂數/.test(b.textContent??''))).toBe(false);
+ await click('調整期限');expect(select).toHaveBeenCalledWith('expiry');
+});
+it('uses service units for Beauty session actions',async()=>{
+ const select=vi.fn();await act(async()=>root.render(React.createElement(PlanGridActions,{unitLabel:'次',onSelect:select})));await click('⋯');await click('補登已服務');expect(select).toHaveBeenCalledWith('BACKFILL');
 });

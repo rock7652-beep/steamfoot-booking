@@ -6,6 +6,8 @@ import { CustomerLabelsSeed, useSeedCustomerLabels, CustomerLabelsSettingsLink, 
 import { readBookingDetail, updateBookingStatus, markBookingNoShow } from "@/lib/booking-client-transport";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { useIdleReadPreload } from "@/components/admin/use-calendar-month-preload";
+import { useCustomerReadQueue } from "@/components/operations/panel-read-cache";
 import { useRetainedState } from "@/components/operations/operation-scope";
 import { useResponsiveAction } from "@/hooks/use-responsive-action";
 import { bookingMatchesExpectation } from "@/lib/booking-action-reconciliation";
@@ -244,7 +246,8 @@ function BookingsManagerContent({
   );
   // Shared client-side detail cache (SWR + dedupe), stable across renders.
   // Owned here so drawer actions can invalidate it centrally after mutations.
-  const detailCache = useMemo(() => createBookingDetailCache(storeId), [storeId]);
+  const detailQueue = useCustomerReadQueue();
+  const detailCache = useMemo(() => createBookingDetailCache(storeId, detailQueue), [storeId, detailQueue]);
 
   // Batch / inline action state
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
@@ -440,21 +443,6 @@ function BookingsManagerContent({
     }));
   }, [monthData, selectedDate]);
 
-  // Warm a small, sequential batch only while the selected day is visible.
-  // Opening a booking or switching dates cancels the remaining work.
-  useEffect(() => {
-    if (!selectedDate || activeBookingId || batchActing || actingIds.size > 0) return;
-    let canceled = false;
-    const timer = setTimeout(async () => {
-      for (const booking of dayBookings.slice(0, 3)) {
-        if (canceled || document.visibilityState !== "visible") break;
-        if (detailCache.get(booking.id)) continue;
-        try { await detailCache.load(booking.id); } catch { /* Opening remains retryable. */ }
-      }
-    }, 350);
-    return () => { canceled = true; clearTimeout(timer); };
-  }, [selectedDate, activeBookingId, batchActing, actingIds.size, dayBookings, detailCache]);
-
   const daySlots: SlotAvailability[] = selectedDate
     ? (slotsCache.get(selectedDate) ?? [])
     : [];
@@ -469,6 +457,21 @@ function BookingsManagerContent({
     (!unpaidOnly || (booking.participantNeedsCollection ?? ((booking.bookingType === "FIRST_TRIAL" || booking.bookingType === "SINGLE") && !booking.collected && COMPLETABLE_STATUSES.has(booking.bookingStatus)))) &&
     (!labels.enabled || !labelFilter || labels.assignments[booking.customer.id ?? ""]?.includes(labelFilter))),
     [dayBookings, matchesFilters, labels.enabled, labels.assignments, labelFilter, unpaidOnly]);
+  // Prepare the whole filtered day through the shared idle reader and queue.
+  // Only one speculative read runs; intent/open has reserved capacity.
+  const bookingPreload = useMemo(() => ({
+    read: (id: string) => detailCache.prefetch(id),
+    get: detailCache.getFresh,
+    cancel: (id: string) => detailCache.cancelPrefetch([id]),
+  }), [detailCache]);
+  useIdleReadPreload({enabled:!!selectedDate,keys:filteredDayBookings.map(booking=>booking.id),
+    blocked:!!activeBookingId||batchActing||actingIds.size>0,reader:bookingPreload,
+    startDelayMs:100,gapMs:0});
+
+  const prepareBooking = useCallback((id: string) => {
+    if (!saves.isBlocked(id)) void detailCache.prefetch(id, true).catch(() => {});
+  }, [detailCache, saves]);
+
   const monthSearchResults = useMemo(() => monthData
     .filter((day) => day.date.startsWith(`${year}-${String(month).padStart(2, "0")}-`))
     .flatMap((day) => (day.bookings ?? []).filter(matchesFilters)
@@ -562,13 +565,14 @@ function BookingsManagerContent({
   const openBooking = useCallback(
     (id: string, intent?: "collect" | "purchase-plan" | "single" | "reschedule" | "no-show" | "cancel") => {
       if (saves.isBlocked(id) || (intent && readOnly)) return;
+      void detailCache.load(id).catch(() => {});
       setActiveBookingIntent(intent);
       // 當日清單暫時隱藏；關閉詳情後回到原日期、篩選與捲動位置。
       setActiveBookingId(id);
       setActiveSummary(summaryById.get(id) ?? null);
       setActivePrefill(prefillById.get(id) ?? null);
     },
-    [summaryById, prefillById, saves, readOnly],
+    [summaryById, prefillById, saves, readOnly, detailCache],
   );
 
   const closeBooking = useCallback(() => {
@@ -818,7 +822,7 @@ function BookingsManagerContent({
         <BookingSearchResultsScroll key={`${year}-${month}-${JSON.stringify(filters)}`}>
           {monthSearchResults.length === 0 ? <p role="status" className="p-4 text-sm text-earth-500">本月沒有符合的預約，可調整關鍵字或篩選條件，或切換月份。</p>
             : monthSearchResults.map(({ date, booking }) => <div key={booking.id}
-              role="button" tabIndex={0} onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openBooking(booking.id);}}} onClick={() => openBooking(booking.id)}
+              role="button" tabIndex={0} onPointerEnter={()=>prepareBooking(booking.id)} onFocus={()=>prepareBooking(booking.id)} onTouchStart={()=>prepareBooking(booking.id)} onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openBooking(booking.id);}}} onClick={() => openBooking(booking.id)}
               className="flex min-h-11 w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-earth-100 px-4 py-2 text-left hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500">
               <CustomerListIdentity customerId={booking.customer.id} name={booking.customer.name} phone={booking.customer.phone} readOnly={readOnly}/>
               <span className="text-sm text-earth-700">{date} · {booking.slotTime} · {booking.servicePlan?.name ?? "未指定服務"} · {STATUS_OPTIONS.find((s) => s.value === booking.bookingStatus)?.label ?? booking.bookingStatus}</span>
@@ -930,6 +934,7 @@ function BookingsManagerContent({
                 className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm text-earth-600 disabled:opacity-50">{syncing ? "更新中…" : "更新"}</button>
             </>}
             date={selectedDate}
+            onBookingIntent={prepareBooking}
             bookings={filteredDayBookings}
             slots={daySlots}
             slotsKnown={slotsKnown}

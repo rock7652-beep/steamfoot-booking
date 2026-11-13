@@ -107,6 +107,7 @@ interface DayDetailPanelProps {
   filteredFrom?: number | null;
   /** 點 timeline row 時觸發（取代原本 link 到詳情頁） */
   onBookingClick?: (bookingId: string, intent?: "collect" | "purchase-plan" | "single" | "reschedule" | "no-show" | "cancel") => void;
+  onBookingIntent?: (bookingId: string) => void;
   noteScope?: string;
   canEditBookingNote?: boolean;
   onBookingNoteSaved?: (bookingId: string, value: string | null) => void;
@@ -144,6 +145,7 @@ export function DayDetailPanel({
   monthHasAnyBookings = false,
   filteredFrom = null,
   onBookingClick,
+  onBookingIntent,
   noteScope = "steam",
   canEditBookingNote = false,
   onBookingNoteSaved,
@@ -295,7 +297,7 @@ export function DayDetailPanel({
               const isSelected = !!selectedIds?.has(b.id);
               const isActing = !!actingIds?.has(b.id) || batchActing;
               return (
-                <li key={b.id}>
+                <li key={b.id} onPointerEnter={()=>onBookingIntent?.(b.id)} onFocusCapture={()=>onBookingIntent?.(b.id)} onTouchStart={()=>onBookingIntent?.(b.id)}>
                   <TimelineItem
                     booking={b}
                     noteScope={`${noteScope}:${date}`}

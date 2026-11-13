@@ -1,0 +1,10 @@
+.container { container: plan-card-header / inline-size; min-width: 0; width: 100%; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: start; gap: 0.25rem 0.75rem; min-width: 0; }
+.name { display: flex; align-items: center; min-height: 44px; min-width: 0; overflow-wrap: anywhere; }
+.summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.25rem 0.75rem; min-height: 44px; max-width: 20rem; text-align: right; }
+.actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; min-width: 0; }
+@container plan-card-header (max-width: 28rem) {
+ .row { grid-template-columns: minmax(0, 1fr) auto; }
+ .actions { grid-column: 2; grid-row: 1; }
+ .summary { grid-column: 1 / -1; grid-row: 2; justify-self: end; }
+}
