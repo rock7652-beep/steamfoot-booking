@@ -393,3 +393,28 @@ it('keeps a cleared note visible when an older parent response arrives after con
  await act(async()=>root.render(createElement(OperationScope,{key:'remount',scope:'account:late-parent-note'},createElement(CourseRoster,{sessionId:'session-a',musicLayout:true,capacity:10,canCreate:false,canEdit:true,initialSnapshot:{sessionId:'session-a',data:fresh.details['session-a']}}))));
  expect(host.querySelector('button[title="教師提醒"]')).toBeNull();expect(host.textContent).toContain('備註 ✎');
 });
+
+it('preloads complete music overviews for card holders before any learner menu intent',async()=>{
+ vi.useFakeTimers();
+ const reads:Array<{path:string;customerId:string;cardId?:string}>=[];
+ vi.stubGlobal('fetch',vi.fn(async(url:string)=>{
+  const u=new URL(url,'https://test'),input=JSON.parse(u.searchParams.get('args')??'{}');
+  if(!/customer-overview-read|roster-customer-read/.test(u.pathname))return {ok:true,json:async()=>({success:true,data:null})};
+  reads.push({path:u.pathname,customerId:input.customerId,cardId:input.cardId});
+  return {ok:true,json:async()=>u.pathname.endsWith('customer-overview-read')?{success:true,cards:{success:true,rows:[],hasMore:false},musicOverview:{success:true,data:{balance:null,next:null}}}:{success:true,data:{workspaceProps:{},labelSnapshot:{},storeId:'store-a'}}};
+ }));
+ try{
+  const seed={...preparedNoteData(),canPurchase:true};
+  await act(async()=>root.render(createElement(OperationScope,{scope:'account:roster-preload:course'},createElement(CourseRoster,{sessionId:'session-a',storeId:'store-a',musicLayout:true,capacity:10,canCreate:false,canEdit:false,initialSnapshot:{sessionId:'session-a',data:seed}}))));
+  expect(reads).toEqual([]);
+  await act(async()=>vi.advanceTimersByTimeAsync(300));
+  const overview=reads.filter(r=>r.path.endsWith('customer-overview-read'));
+  expect(overview.map(r=>r.customerId)).toEqual(['a','b']);
+  expect(reads[0].path).toContain('customer-overview-read');
+  expect(reads.filter(r=>r.path.endsWith('roster-customer-read')).every(r=>!r.cardId)).toBe(true);
+  // Same snapshots survive another render; no menu hover or full-card/history reads.
+  await act(async()=>vi.advanceTimersByTimeAsync(1000));
+  expect(reads.filter(r=>r.path.endsWith('customer-overview-read'))).toHaveLength(2);
+  expect(reads.every(r=>/customer-overview-read|roster-customer-read/.test(r.path))).toBe(true);
+ }finally{vi.useRealTimers();}
+});

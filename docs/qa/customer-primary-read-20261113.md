@@ -76,3 +76,13 @@
 本次讓音樂名單背景預讀對準學員資料入口，運動指定卡片入口保留。原生主要讀取只將省略scope正規為operational；模組adapter、legacy、門市、權限、修訂與失效世代維持隔離。各消費端仍安裝自身card/progress鍵，避免只重用HTTP卻漏裝日期格。沒有改schema、通知或交易權威檢查。
 
 新增completed／in-flight兩種雙消費端測試：省略scope預讀後，operational開窗只發一次primary讀取；兩端ready、31格可見，沒有cards／progress／overview補讀。另驗legacy、門市、修訂及mutation隔離，以及音樂一般資料／運動指定卡片兩種名單開窗。候選Preview及同路徑前後實測結果另記交付報告，完成前不宣稱8.6秒問題已全部排除。
+
+## 首次讀取後續剖析（2026-11-13，基底 df6fa35）
+
+使用相同音樂名單、31格方案重新量測3次：實際學員資料click到完整畫面4110／2078／2137ms；最後主要回應到完整畫面僅16／43／16ms。主要等待在資料回應前，不能只調整loading文字或把舊版8557ms直接作為比較基準。
+
+同批線上course-card-read-perf：方案讀取595／774／841ms，其中授權前置350／477／500ms。這兩個HTTP讀取尚未啟用專案既有withReadRequestMemo，門市解析、模組與同一當下已驗證的人員資料反覆查詢。音樂主要預讀名單也仍只收沒有cardId的學員，有方案者直到操作意圖才開始讀主要資料。
+
+候選修改僅在customer-overview-read與roster-customer-read這兩個唯讀HTTP入口啟用既有單次請求memo；權限grant與feature檢查、下一次請求重新授權、交易檢查維持原行為，沒有跨請求授權快取。主要回應另加入固定名稱的Server-Timing及OPERATION_PERF，分記authorization、cards、progress、music_overview、phone與makeups，沒有顧客／門市ID或輸入值。音樂所有前20位學員（含有方案者）於250ms啟動主要資料預讀，排在workspace前；背景仍受共用佇列上限控制，點開優先、開窗時停止未開始的背景工作。
+
+候選本機10檔149項通過，包含實際CourseRoster無hover預讀有卡學員、兩個HTTP入口單次scope共用及次請求失效／撤權拒絕、既有read scope／門市／權限／客戶快照回歸。最終Preview需再分量名單立即點擊、首次預讀完成後開啟、重開與後排學員；記錄請求分段與完整日期格，並保留較慢樣本。未完成此輪登入驗收前，不宣稱首次已全部秒開。
