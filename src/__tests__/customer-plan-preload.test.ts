@@ -143,7 +143,7 @@ it.each([false,true])('opens native customer grids from the bundled read without
  m.cards.mockResolvedValue({success:true,rows:[{id:'sessions',unit:'SESSION'}],hasMore:false,progress:[{cardId:'sessions',result}]});
  const options={music,canReadCards:true,canReadBookings:true,storeId:'store-A'};
  await render(options);await act(async()=>preload.visibleReader.read('student'));
- expect(m.cards).toHaveBeenCalledWith({customerId:'student',dataScope:undefined,search:'',history:false,page:0},'store-A');
+ expect(m.cards).toHaveBeenCalledWith({customerId:'student',dataScope:'operational',search:'',history:false,page:0},'store-A');
  expect(m.cards).not.toHaveBeenCalledWith({cardId:'sessions',dataScope:undefined});
  await render(options,true);
  expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(8);
@@ -240,4 +240,41 @@ it('discards a failed primary grid response and retries without treating it as a
  m.primary.mockResolvedValueOnce({success:true,cards:{success:true,rows:[{id:'card',unit:'SESSION'}],hasMore:false,progress:[{cardId:'card',result:{success:false,error:'讀取失敗'}}]}}).mockResolvedValueOnce({success:true,cards:{success:true,rows:[],hasMore:false},next:{success:true,data:[],hasMore:false}});
  await render({canReadCards:true,canReadBookings:true,storeId:'store'});await expect(preload.visibleReader.read('student')).rejects.toThrow('讀取失敗');expect(preload.visibleReader.get('student')).toBe(false);
  await preload.visibleReader.read('student');expect(preload.visibleReader.get('student')).toBe(true);expect(m.primary).toHaveBeenCalledTimes(2);
+});
+
+it.each(['completed','in-flight'])('reuses a native roster snapshot when the opened panel resolves operational scope (%s)',async phase=>{
+ const result={success:true as const,cards:{success:true as const,rows:[{id:'sessions',unit:'SESSION' as const}],hasMore:false,progress:[{cardId:'sessions',result:{success:true as const,data:{available:true as const,total:31,completed:[],shared:false}}}]},musicOverview:{success:true as const,data:{}}};
+ let finish!:(value:unknown)=>void;
+ if(phase==='in-flight')m.primary.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));else m.primary.mockResolvedValue(result);
+ const options:Options={native:true,music:true,canReadCards:true,canReadBookings:true,storeId:'store-A'};
+ let roster!:ReturnType<typeof useCustomerPlanPreload>,panel!:ReturnType<typeof useCustomerPlanPreload>,panelCards!:ReturnType<typeof useCustomerCardReader>;
+ function Consumer({scope,show}:{scope?:'operational'|'legacy';show?:boolean}){
+  const value=useCustomerPlanPreload({...options,dataScope:scope}),cards=useCustomerCardReader(options);
+  React.useEffect(()=>{if(scope){panel=value;panelCards=cards;}else roster=value;},[scope,value,cards]);
+  return show?React.createElement(CourseCardProgress,{storeId:'store-A',customerId:'student',cardId:'sessions',dataScope:scope}):null;
+ }
+ const view=(open=false,show=false)=>React.createElement(PanelReadProvider,null,React.createElement(React.Fragment,null,React.createElement(Consumer,{key:'roster'}),open?React.createElement(Consumer,{key:'panel',scope:'operational',show}):null));
+ await act(async()=>root.render(view()));
+ const background=roster.backgroundReader.read('student');await vi.waitFor(()=>expect(m.primary).toHaveBeenCalledOnce());
+ if(phase==='completed')await background;
+ await act(async()=>root.render(view(true)));
+ const opening=panel.visibleReader.read('student');
+ if(phase==='in-flight')finish(result);
+ await act(async()=>{await Promise.all([background,opening]);});
+ expect(roster.visibleReader.get('student')).toBe(true);expect(panel.visibleReader.get('student')).toBe(true);
+ expect(await panelCards.read({customerId:'student',dataScope:'operational',search:'',history:false,page:0})).toMatchObject({rows:[{id:'sessions'}]});
+ await act(async()=>root.render(view(true,true)));
+ expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(31);
+ expect(m.primary).toHaveBeenCalledExactlyOnceWith({customerId:'student',storeId:'store-A',dataScope:'operational',music:true,cards:true,bookings:true});
+ expect(m.cards).not.toHaveBeenCalled();expect(m.progress).not.toHaveBeenCalled();expect(m.overview).not.toHaveBeenCalled();
+});
+it('keeps legacy, store and mutation generations separate from a normalized native snapshot',async()=>{
+ m.primary.mockResolvedValue({success:true,cards:{success:true,rows:[],hasMore:false},musicOverview:{success:true,data:{}}});
+ const options:Options={native:true,music:true,canReadCards:true,canReadBookings:true,storeId:'store-A'};
+ await render(options);await preload.visibleReader.read('student');
+ await render({...options,dataScope:'legacy'});await preload.visibleReader.read('student');
+ await render({...options,storeId:'store-B'});await preload.visibleReader.read('student');
+ await render({...options,revision:1});await preload.visibleReader.read('student');
+ await act(async()=>invalidate());await preload.visibleReader.read('student');
+ expect(m.primary).toHaveBeenCalledTimes(5);expect(m.primary.mock.calls[1][0].dataScope).toBe('legacy');
 });

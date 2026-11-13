@@ -38,11 +38,13 @@ export function useCustomerPlanPreload({load,support,bookings,preloadOverview=fa
  const periods=usePanelReader('music-periods',readMusicPeriods,String(revision),CUSTOMER_PLAN_PRELOAD_TTL);
  const overview=usePanelReader('music-student-workspace',readStudentWorkspace,String(revision),CUSTOMER_PLAN_PRELOAD_TTL);
  const orders=usePanelReader('purchases',readCustomerPurchases,String(revision),CUSTOMER_PLAN_PRELOAD_TTL);
- const primary=usePanelReader(readOverview?'module-primary-snapshot':'customer-primary-snapshot',readOverview??readCustomerPrimary,JSON.stringify([revision,storeId,dataScope,music,canReadCards,canReadBookings]),CUSTOMER_PLAN_PRELOAD_TTL);
+ const primary=usePanelReader(readOverview?'module-primary-snapshot':'customer-primary-snapshot',readOverview??readCustomerPrimary,JSON.stringify([revision,storeId,readOverview?dataScope:dataScope??'operational',music,canReadCards,canReadBookings]),CUSTOMER_PLAN_PRELOAD_TTL);
  const primaryInput=useCallback((customerId:string):CustomerPrimaryInput=>({customerId,storeId,dataScope,music,cards:canReadCards,bookings:canReadBookings}),[storeId,dataScope,music,canReadCards,canReadBookings]);
  const aggregate=!!storeId&&(!load||!!readOverview);
  const readPrimary=useCallback(async(id:string)=>{
-  const input=primaryInput(id),generation=primary.generation(),cardGeneration=cards.generation(),progressGeneration=progress.generation(),nextGeneration=nextBooking.generation(),overviewGeneration=overview.generation(),phoneGeneration=phone.generation(),makeupsGeneration=makeups.generation();
+  // Native reads treat an omitted scope as operational. Keep consumer-local
+  // queue/child keys intact so each mounted scope installs its own snapshot.
+  const input:CustomerPrimaryInput={...primaryInput(id),dataScope:readOverview?dataScope:dataScope??'operational'},generation=primary.generation(),cardGeneration=cards.generation(),progressGeneration=progress.generation(),nextGeneration=nextBooking.generation(),overviewGeneration=overview.generation(),phoneGeneration=phone.generation(),makeupsGeneration=makeups.generation();
   const result=await primary.read(input);
   if(primary.generation()!==generation)return;
   if(!result.success)throw Error(result.error);
@@ -57,7 +59,7 @@ export function useCustomerPlanPreload({load,support,bookings,preloadOverview=fa
   if(result.phone&&phone.generation()===phoneGeneration)phone.seed(result.phone,id);
   if(result.makeups&&makeups.generation()===makeupsGeneration)makeups.seed(result.makeups,id,dataScope??'operational');
   for(const item of result.beautyProgress??[])seedCardProgress?.(id,item.cardId,revision,item.result);
- },[primaryInput,primary,cards,progress,nextBooking,overview,dataScope,storeId,seedCardProgress,revision,phone,makeups]);
+ },[primaryInput,primary,cards,progress,nextBooking,overview,dataScope,storeId,seedCardProgress,revision,phone,makeups,readOverview]);
  const args=useCallback((customerId:string,history=false)=>({customerId,dataScope,search:'',history,page:0}),[dataScope]);
  const readPlans=useCallback(async(id:string,history=false,complete=true)=>{
   if(!canReadCards)return;

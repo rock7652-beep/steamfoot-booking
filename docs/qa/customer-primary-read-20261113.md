@@ -66,3 +66,13 @@
 - 名單補驗另遇測試顧客帳號已停用（正確拒絕）及舊課程入口不提供新版方案按鈕；不以這些樣本宣稱名單通過。原生新版 Preview 完成後重驗真正入口與有效測試顧客。
 
 - 補正本機116項原生資格／Preview隔離／音樂匯入拒絕／不遷移子程序tripwire通過；原生開關存在時仍須路由到 `module-roster-preview`，避免誤選會遷移的運動建置模式。初版斷言抓到模式優先順序錯誤，已修正分支路由再重跑，沒有部署錯誤版本或執行自動遷移。
+
+## 音樂名單首次開窗重複讀取修正（2026-11-13）
+
+使用相同隔離音樂帳號、`qa1469-20261030-music-session` 名單與31格方案，三次新browser context從實際「學員資料」點擊到完整資料可用為6556／5709／4265ms。早先8557ms另含名單可互動等待與選單操作，不能直接相減當改善幅度。
+
+請求追蹤確認兩組重複讀取：音樂背景讀取帶cardId，但學員資料入口不帶；主要資料預讀的省略dataScope與開窗解析後的operational又被視為不同快取。前兩次各多出一份roster-customer-read與customer-overview-read；第三次背景工作尚未開始，但customer-overview-read仍重讀。
+
+本次讓音樂名單背景預讀對準學員資料入口，運動指定卡片入口保留。原生主要讀取只將省略scope正規為operational；模組adapter、legacy、門市、權限、修訂與失效世代維持隔離。各消費端仍安裝自身card/progress鍵，避免只重用HTTP卻漏裝日期格。沒有改schema、通知或交易權威檢查。
+
+新增completed／in-flight兩種雙消費端測試：省略scope預讀後，operational開窗只發一次primary讀取；兩端ready、31格可見，沒有cards／progress／overview補讀。另驗legacy、門市、修訂及mutation隔離，以及音樂一般資料／運動指定卡片兩種名單開窗。候選Preview及同路徑前後實測結果另記交付報告，完成前不宣稱8.6秒問題已全部排除。
