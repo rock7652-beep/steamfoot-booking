@@ -96,3 +96,5 @@
 候選追加：只在原生名單已載入後，使用既有idle preloader先準備同一份公開member-workspace程式chunk，操作意圖也可啟動；Next dynamic入口與個資讀取／權限／TTL維持。只快取公開程式的ready旗標，沒有module-global顧客資料或新增UI說明。新版仍須重測立即點擊、資料及程式預讀後首次開啟、重開、後排與三尺寸；保留上述5.5秒慢樣本，不拿重開替代首次。
 
 c3f2edb實際Preview：立即點擊2642／1881／1513ms；資料預讀後首次453／603／463ms，0個新資料請求，但仍有2個程式chunk在click後下載（FrontendPreviewQuickLink及健康／方案共用相依程式）。已從實際公開chunk內容與資源時序定位：預讀僅await namespace、沒有取用實際CourseMemberWorkspace export。後續改為與dynamic開窗同樣選取該元件export，避免編譯器只準備部分相依程式；新增元件程式ready契約測試，最終仍需用新版Preview確認無開窗後補載，不能將c3f2edb這組當成完成。
+
+0b9d81b再驗：只選取元件export仍未消除兩個首次render才解析的共用module；資料預讀後首次457／574／505ms，0個新資料請求，仍不得當成完成。候選因此明確預讀FrontendPreviewQuickLink及CourseHealthWorkspace兩個已確認的公開module，連同元件準備完成才標示code ready；不掛載、不呼叫健康或交易讀寫。契約測試延遲共用依賴，確認依賴未完成時不能宣告ready。最終仍以實際chunk時序為準。
