@@ -94,3 +94,5 @@
 另以無hover／未曾開窗的新context等待兩個資料預讀完成，第一次click到完整31格為610／5513／638ms，三次均0個新的資料請求。五個member-workspace程式chunk仍在click後才下載；最後chunk到達約click後480／4878／483ms，確定剩餘等待包含未準備的畫面程式，不把這組當成已達即開。
 
 候選追加：只在原生名單已載入後，使用既有idle preloader先準備同一份公開member-workspace程式chunk，操作意圖也可啟動；Next dynamic入口與個資讀取／權限／TTL維持。只快取公開程式的ready旗標，沒有module-global顧客資料或新增UI說明。新版仍須重測立即點擊、資料及程式預讀後首次開啟、重開、後排與三尺寸；保留上述5.5秒慢樣本，不拿重開替代首次。
+
+c3f2edb實際Preview：立即點擊2642／1881／1513ms；資料預讀後首次453／603／463ms，0個新資料請求，但仍有2個程式chunk在click後下載（FrontendPreviewQuickLink及健康／方案共用相依程式）。已從實際公開chunk內容與資源時序定位：預讀僅await namespace、沒有取用實際CourseMemberWorkspace export。後續改為與dynamic開窗同樣選取該元件export，避免編譯器只準備部分相依程式；新增元件程式ready契約測試，最終仍需用新版Preview確認無開窗後補載，不能將c3f2edb這組當成完成。

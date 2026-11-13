@@ -11,6 +11,6 @@ export const CourseMemberWorkspaceEntry = dynamic(() =>
 // Only public JavaScript assets are retained here; no customer or permission data.
 let workspaceCodeReady=false;
 export const courseMemberWorkspaceCode={
- async read(){await import("./member-workspace");workspaceCodeReady=true;},
+ async read(){const component=await import("./member-workspace").then(module=>module.CourseMemberWorkspace);workspaceCodeReady=true;return component;},
  get(){return workspaceCodeReady;},
 };
