@@ -228,13 +228,13 @@ export function CustomerDetailDrawerContent({
                   >
                     <PlanCardHeader summary={<>
                       <strong className="tabular-nums text-primary-900">{expired || w.status === "EXPIRED" ? "已到期" : w.status === "CANCELLED" ? "已取消" : w.status === "USED_UP" ? "已用完" : `可預約 ${available} 堂`}</strong>
-                      {expiry ? <span className={`tabular-nums ${expired ? "text-red-600" : "text-earth-500"}`}>{formatTWTime(expiry, { dateOnly: true })} 到期</span> : <span className="text-earth-500">無期限</span>}
+                      {expiry ? <span className={`tabular-nums ${expired ? "text-red-600" : "text-earth-500"}`}>{toLocalDateStr(expiry)} 到期</span> : <span className="text-earth-500">無期限</span>}
                     </>} actions={<>
                       {!readOnly && customer.canAssignPlan && plans.some(plan=>plan.id===w.plan.id&&plan.category!=="TRIAL")&&<button type="button" className="min-h-11 shrink-0 whitespace-nowrap rounded-lg border border-primary-300 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>{if(allowNavigation()){setActiveEditor(null);handleReorder(w.plan.id);}}}>續購同方案</button>}
                       {((customer.canReadWallets&&customer.canReadBookings)||(!readOnly&&customer.canAdjustWallet&&["ACTIVE","EXPIRED"].includes(w.status)))&&<ExclusiveMenu label={`${w.plan.name} 更多操作`} triggerText="⋯">
                         {!readOnly&&customer.canAdjustWallet&&w.status==="ACTIVE"&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{if(allowNavigation())setActiveEditor(`${w.id}:adjust`);}}>調整剩餘堂數</button>}
                         {!readOnly&&customer.canAdjustWallet&&w.status==="ACTIVE"&&available>0&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{if(allowNavigation())setActiveEditor(`${w.id}:backfill`);}}>補登已上課</button>}
-                        {!readOnly&&customer.canAdjustWallet&&w.expiryDate&&["ACTIVE","EXPIRED"].includes(w.status)&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{if(allowNavigation())setActiveEditor(`${w.id}:expiry`);}}>延長期限</button>}
+                        {!readOnly&&customer.canAdjustWallet&&w.expiryDate&&["ACTIVE","EXPIRED"].includes(w.status)&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{if(allowNavigation())setActiveEditor(`${w.id}:expiry`);}}>調整期限</button>}
                         {customer.canReadWallets&&customer.canReadBookings&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{if(allowNavigation())setActiveEditor(`${w.id}:history`);}}>使用紀錄</button>}
                         {!readOnly&&customer.canAdjustWallet&&["ACTIVE","EXPIRED"].includes(w.status)&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm text-red-700" onClick={()=>{if(allowNavigation())setActiveEditor(`${w.id}:close`);}}>註銷方案</button>}
                       </ExclusiveMenu>}
