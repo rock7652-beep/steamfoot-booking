@@ -5,6 +5,7 @@ import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload"
 import dynamic from "next/dynamic";
 import {useRosterCustomerReader} from '@/components/admin/use-roster-customer-reader';
 import {RosterCustomerPanel} from "./roster-customer-panel";
+import {courseMemberWorkspaceCode} from "./member-workspace-entry";
 import type {CourseAddOnCapabilities} from "@/server/services/course-add-ons";
 const CourseBookingAddOns=dynamic(()=>import("@/components/add-ons/course-booking").then(m=>m.CourseBookingAddOns),{loading:()=> <p role="status">讀取附加項目中…</p>});
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
@@ -276,7 +277,8 @@ export function CourseRoster({
   const rosterCustomerRevision=JSON.stringify(roster.map(row=>[row.id,row.status,row.cardId,row.cardRemaining]));
   const rosterCustomerReader=useRosterCustomerReader(sessionId,storeId,rosterParams.get("dataScope")==="legacy"?"legacy":undefined,rosterCustomerRevision);
   const customerPlanPreload=useCustomerPlanPreload({native:sportsNative,music:musicLayout,storeId,canReadCards:loaded&&!source&&canPurchase,canReadBookings:loaded&&!source,dataScope:rosterParams.get("dataScope")==="legacy"?"legacy":undefined});
-  function prefetchRosterCustomer(customerId:string){customerPlanPreload.prefetch(customerId);if(!source)rosterCustomerReader.prefetch(JSON.stringify([customerId]));}
+  function prefetchRosterCustomer(customerId:string){if(!source)void courseMemberWorkspaceCode.read().catch(()=>{});customerPlanPreload.prefetch(customerId);if(!source)rosterCustomerReader.prefetch(JSON.stringify([customerId]));}
+  useIdleReadPreload({enabled:loaded&&!source,blocked:bulkPending||!!companionEditor||!!studentPanel,keys:["member-workspace"],reader:courseMemberWorkspaceCode,startDelayMs:250,gapMs:0});
   // Prepare the music overview before its workspace, including learners who
   // already hold a card. Both schedulers retain the shared background limit.
   useIdleReadPreload({enabled:loaded&&!source,blocked:bulkPending||!!companionEditor||!!studentPanel,keys:[...new Set(roster.flatMap(row=>row.customerId&&(musicLayout||!row.cardId)?[row.customerId]:[]))].slice(0,20),reader:customerPlanPreload.backgroundReader,startDelayMs:musicLayout?250:1500,gapMs:musicLayout?0:500});

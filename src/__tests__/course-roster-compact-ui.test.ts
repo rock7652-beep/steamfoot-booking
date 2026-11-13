@@ -1,3 +1,4 @@
+vi.mock("@/app/(dashboard)/dashboard/courses/member-workspace-entry",()=>({courseMemberWorkspaceCode:{read:()=>Promise.resolve(),get:()=>true}}));
 vi.mock("@/app/(dashboard)/dashboard/courses/roster-customer-panel",()=>({RosterCustomerPanel:({customer,sessionId}:{customer:{id:string};sessionId:string})=>createElement("aside",{"data-roster-student":customer.id,"data-origin-session":sessionId},"原地學員資料")}));
 import {preparedRoster} from "./fixtures/prepared-roster";
 // Native cases keep the real HTTP protocol with their existing fetch fixtures.

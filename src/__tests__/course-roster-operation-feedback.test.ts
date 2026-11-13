@@ -11,7 +11,8 @@ import { act, createElement, useState, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("@/server/actions/course-purchase-intent", () => ({ prepareCoursePurchaseIntent: vi.fn(), getCoursePurchaseIntent: vi.fn(), getPendingCoursePurchaseIntent: vi.fn(), cancelCoursePurchaseIntent: vi.fn(), acknowledgeCoursePurchaseIntent: vi.fn() }));
-const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), save: vi.fn(), combined: vi.fn(), status: vi.fn(), batch: vi.fn(), refresh: vi.fn(), confirmed: vi.fn(), native: vi.fn() }));
+const m = vi.hoisted(() => ({ load: vi.fn(), quick: vi.fn(), save: vi.fn(), combined: vi.fn(), status: vi.fn(), batch: vi.fn(), refresh: vi.fn(), confirmed: vi.fn(), native: vi.fn(), code:vi.fn() }));
+vi.mock("@/app/(dashboard)/dashboard/courses/member-workspace-entry",()=>({courseMemberWorkspaceCode:{read:m.code,get:()=>false}}));
 vi.mock("@/lib/sports-session-detail-client",()=>({readSportsSessionDetail:m.native}));
 vi.mock('@/lib/music-panel-transport',()=>({musicPanelRead:(_operation:string,_args:unknown[],fallback:()=>unknown)=>fallback()}));
 vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/courses", useRouter: () => ({ refresh: m.refresh, replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
@@ -58,7 +59,7 @@ beforeEach(() => {
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.spyOn(window, "confirm").mockReturnValue(true);
-  m.native.mockResolvedValue(data()); m.load.mockResolvedValue(data()); m.save.mockResolvedValue({ success: true });
+  m.code.mockResolvedValue(undefined);m.native.mockResolvedValue(data()); m.load.mockResolvedValue(data()); m.save.mockResolvedValue({ success: true });
   m.quick.mockImplementation(() => new Promise(() => {}));
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
 });
@@ -410,7 +411,7 @@ it('preloads complete music overviews for card holders before any learner menu i
   await act(async()=>vi.advanceTimersByTimeAsync(300));
   const overview=reads.filter(r=>r.path.endsWith('customer-overview-read'));
   expect(overview.map(r=>r.customerId)).toEqual(['a','b']);
-  expect(reads[0].path).toContain('customer-overview-read');
+  expect(reads[0].path).toContain('customer-overview-read');expect(m.code).toHaveBeenCalledOnce();
   expect(reads.filter(r=>r.path.endsWith('roster-customer-read')).every(r=>!r.cardId)).toBe(true);
   // Same snapshots survive another render; no menu hover or full-card/history reads.
   await act(async()=>vi.advanceTimersByTimeAsync(1000));
