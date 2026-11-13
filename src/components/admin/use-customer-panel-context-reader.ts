@@ -1,5 +1,6 @@
 "use client";
-import {usePanelReader} from '@/components/operations/panel-read-cache';
+import {useMemo,useCallback} from 'react';
+import {usePanelReader,useCustomerReadQueue} from '@/components/operations/panel-read-cache';
 import type {getCustomerPanelContext} from '@/server/actions/customer-panel-context';
 const dateKeys=new Set(["createdAt","updatedAt","birthday","expiryDate","startDate","bookingDate","entryDate","sortAt","lineLinkedAt","lineBindingCodeCreatedAt"]);
 function restoreDates(value:unknown):unknown{
@@ -19,5 +20,9 @@ export const readCustomerContext:typeof getCustomerPanelContext=async id=>{
  return result;
 };
 export function useCustomerPanelContextReader(scope=''){
- return usePanelReader('steamfoot-customer-context',readCustomerContext,scope,15_000,30);
+ const queue=useCustomerReadQueue();
+ const reader=usePanelReader('steamfoot-customer-context',readCustomerContext,scope,15_000,30);
+ const key=useCallback((id:string)=>JSON.stringify(['steamfoot-customer-context',scope,id]),[scope]);
+ const read=useCallback((id:string,foreground=true)=>queue.read(key(id),()=>reader.read(id),foreground),[queue,key,reader]);
+ return useMemo(()=>({...reader,read:(id:string)=>read(id),prefetch:(id:string)=>{void read(id).catch(()=>{});},background:{read:(id:string)=>read(id,false),get:(id:string)=>reader.get(id),cancel:(id:string)=>queue.cancel(key(id))}}),[reader,read,queue,key]);
 }

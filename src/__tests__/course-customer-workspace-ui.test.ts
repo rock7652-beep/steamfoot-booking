@@ -32,6 +32,10 @@ vi.mock("@/app/(dashboard)/dashboard/courses/customer-bookings",()=>({CourseCust
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-list",()=>({CourseCustomerList:()=>null}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-health",()=>({CourseCustomerHealth:()=>null}));
 vi.mock("@/server/actions/sports-staging",()=>({saveSportsFee:m.sportsSave}));
+vi.mock('@/lib/customer-primary-snapshot',()=>({readCustomerPrimary:async(input:{customerId:string;storeId:string;dataScope?:'operational'|'legacy'})=>{
+ const cards=await m.browse({customerId:input.customerId,dataScope:input.dataScope,search:'',history:false,page:0},input.storeId);
+ return {success:true,cards:{...cards,progress:cards.rows.map((card:{id:string})=>({cardId:card.id,result:{success:true,data:{available:true,total:10,completed:[],voided:[]}}}))},next:{success:true,data:[],hasMore:false}};
+}}));
 vi.mock('@/lib/course-card-read-client',()=>({readNativeCourseCards:(...args:unknown[])=>m.browse(...args),readCourseCardProgress:vi.fn().mockResolvedValue({success:true,data:{total:10,completed:[]}})}));
 vi.mock('@/app/(dashboard)/dashboard/courses/card-progress',()=>({CourseCardProgress:()=>createElement('div',{'data-grid':true},'方案日期格')}));
 vi.mock('@/server/actions/course-card-management',()=>({saveCourseCardManagement:m.management}));

@@ -7,14 +7,9 @@ import {courseManagerRead} from '@/server/services/course-access';
 import {getManagerCustomerWhere} from '@/lib/manager-visibility';
 import {musicCardWhere} from '@/server/services/music-plan-scope';
 import {courseSessionAdjustmentRecords} from '@/server/services/course-session-adjustment-records';
-import {activeSessionAdjustments} from '@/lib/plan-session-adjustment';
-import {courseDisplayName} from '@/lib/course-template-presentation';
-import {parseTaipeiDateTime} from '@/lib/date-utils';
 import {AppError,handleActionError} from '@/lib/errors';
-import type {CompletedLesson} from '@/components/admin/lesson-progress-grid';
 
-type PurchaseInfo={canReadPrice:boolean;purchasePrice:number|null;purchasedAt:string|null};
-const unavailable=(reason:string,purchase?:PurchaseInfo)=>({success:true as const,data:{available:false as const,reason,...purchase}});
+import {projectCourseCardProgress} from '@/server/services/course-card-progress-projection';
 export async function loadCourseCardProgress(input:unknown){
  try{
   const d=z.object({cardId:z.string().min(1).max(100),customerId:z.string().min(1).max(100),expectedStoreId:z.string().min(1).max(100),dataScope:z.enum(['operational','legacy']).optional()}).parse(input);
@@ -29,38 +24,17 @@ export async function loadCourseCardProgress(input:unknown){
   return await coursePrisma.$transaction(async tx=>{
    const card=await tx.coursePointCard.findFirst({where:{id:d.cardId,storeId,AND:[musicCardWhere(storeId,d.dataScope)],OR:[{members:{some:{customerId:d.customerId,storeId}}},{bookings:{some:{customerId:d.customerId,storeId}}}]},select:{id:true,unit:true,requestKey:true,musicOpeningStateRequired:true,members:{select:{customerId:true}},entries:{where:{kind:'GRANT'},select:{points:true}}}});
    if(!card)throw new AppError('NOT_FOUND','找不到此學員的本店方案');
-   const readPurchase=async(ids:string[]):Promise<PurchaseInfo>=>{
+   const readPurchase=async(ids:string[])=>{
     const purchases=canReadPrice?await tx.coursePurchase.findMany({where:{storeId,cardId:card.id,status:'CONFIRMED',voidedAt:null,customerId:{in:ids}},select:{id:true,price:true,createdAt:true},orderBy:{createdAt:'asc'}}):[];
     const tuition=await readMusicTuition(tx,storeId,purchases.map(p=>p.id));
     return {canReadPrice,purchasePrice:purchases.length?purchases.reduce((sum,p)=>sum+(tuition.get(p.id)?.due??p.price),0):null,purchasedAt:purchases[0]?.createdAt.toISOString()??null};
    };
-   if(card.unit!=='SESSION'){
-    const ids=[...new Set([d.customerId,...card.members.map(member=>member.customerId)])];
-    const people=await prisma.customer.findMany({where:{...visibility,storeId,id:{in:ids},mergedIntoCustomerId:null},select:{id:true}});
-    if(ids.some(id=>!people.some(person=>person.id===id)))return unavailable('此共用方案的金額需由有權限的人員核對。');
-    return unavailable('',await readPurchase(ids));
-   }
-   if(card.musicOpeningStateRequired||card.requestKey.startsWith('yjy-'))return unavailable('來源方案請由完整紀錄核對上課進度。');
-   const total=card.entries.reduce((sum,e)=>sum+e.points,0);
-   if(!Number.isInteger(total)||total<1||total>2000)return unavailable('方案總堂數待核對，請查看完整紀錄。');
-   const [bookings,adjustments]=await Promise.all([
-    tx.courseBooking.findMany({where:{storeId,cardId:card.id,status:'ATTENDED',pointCost:{gt:0},bookingKind:{not:'OPENING_MAKEUP'}},orderBy:[{session:{startsAt:'asc'}},{id:'asc'}],take:2001,select:{id:true,customerId:true,customerName:true,pointCost:true,session:{select:{startsAt:true,nameSnapshot:true}}}}),
-    courseSessionAdjustmentRecords(tx,storeId,[card.id]),
-   ]);
-   const backfills=activeSessionAdjustments(adjustments).filter(r=>r.operation==='BACKFILL');
-   const voids=activeSessionAdjustments(adjustments).filter(r=>r.operation==='VOID');
-   const ids=[...new Set([...card.members.map(m=>m.customerId),...bookings.map(b=>b.customerId),...backfills.map(r=>r.customerId),...voids.map(r=>r.customerId)].filter((id):id is string=>!!id))];
-   const people=await prisma.customer.findMany({where:{...visibility,storeId,id:{in:ids},mergedIntoCustomerId:null},select:{id:true,name:true}});
-   const visible=new Map(people.map(p=>[p.id,p.name]));
-   if(ids.some(id=>!visible.has(id))||bookings.some(b=>!b.customerId))return unavailable('此共用方案含其他學員的紀錄，請查看你有權限讀取的完整紀錄。');
-   if(bookings.length>2000||bookings.some(b=>b.pointCost!==1)||backfills.some(r=>!r.occurredOn||!parseTaipeiDateTime(r.occurredOn,'00:00')))return unavailable('部分上課資料需核對，請查看完整紀錄。');
-   if(voids.some(r=>!Number.isSafeInteger(r.quantity)||r.quantity<1||!Number.isFinite(Date.parse(r.recordedAt)))||bookings.length+backfills.reduce((sum,r)=>sum+r.quantity,0)+voids.reduce((sum,r)=>sum+r.quantity,0)>total)return unavailable('使用紀錄與方案總堂數待核對，請查看完整紀錄。');
-   const completed:CompletedLesson[]=[...bookings.map(b=>({id:b.id,date:b.session.startsAt.toISOString(),customerName:visible.get(b.customerId!)!,courseName:courseDisplayName(b.session.nameSnapshot)})),...backfills.flatMap(r=>Array.from({length:r.quantity},(_,i)=>({id:`${r.id}:${i}`,date:parseTaipeiDateTime(r.occurredOn!,'00:00')!.toISOString(),customerName:visible.get(r.customerId)!})))];
-   if(completed.length>total)return unavailable('上課筆數與方案總堂數待核對，請查看完整紀錄。');
-   completed.sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
-   const voided:CompletedLesson[]=voids.flatMap(r=>Array.from({length:r.quantity},(_,i)=>({id:`void:${r.id}:${i}`,date:r.recordedAt,customerName:visible.get(r.customerId)!})));
-   const purchase=await readPurchase(ids);
-   return {success:true as const,data:{available:true as const,total,completed,voided,shared:ids.length>1,...purchase}};
+   return projectCourseCardProgress(card,d.customerId,async()=>{
+    const [bookings,adjustments]=await Promise.all([
+     tx.courseBooking.findMany({where:{storeId,cardId:card.id,status:'ATTENDED',pointCost:{gt:0},bookingKind:{not:'OPENING_MAKEUP'}},orderBy:[{session:{startsAt:'asc'}},{id:'asc'}],take:2001,select:{id:true,customerId:true,customerName:true,pointCost:true,session:{select:{startsAt:true,nameSnapshot:true}}}}),
+     courseSessionAdjustmentRecords(tx,storeId,[card.id]),
+    ]);return {bookings,adjustments};
+   },ids=>prisma.customer.findMany({where:{...visibility,storeId,id:{in:ids},mergedIntoCustomerId:null},select:{id:true,name:true}}),readPurchase);
   },{isolationLevel:'RepeatableRead'});
  }catch(error){const r=handleActionError(error);return {success:false as const,error:r.success?'讀取失敗，請重試':r.error};}
 }

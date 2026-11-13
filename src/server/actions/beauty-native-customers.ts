@@ -59,6 +59,38 @@ export async function readBeautyNativeCardProgress(input:unknown){
   },{isolationLevel:'RepeatableRead'})};
  }catch(error){return failure(error);}
 }
+/** Read the authorized first page in one transaction; keep each card's overflow sentinel. */
+export async function readBeautyNativeProgressBatch(input:unknown){
+ try{
+  const d=z.object({cardIds:z.array(id).max(20),customerId:id,expectedStoreId:id}).parse(input);
+  if(!d.cardIds.length)return {success:true as const,rows:[]};
+  const s=await scope('wallet.read',{customerIds:[d.customerId]});customerExists(s,d.customerId);
+  const actor=await beautyManager('booking.read');
+  if(s.storeId!==d.expectedStoreId||actor.storeId!==s.storeId||actor.userId!==s.userId)throw new AppError('FORBIDDEN','門市或權限已變更');
+  return await beautyPrisma.$transaction(async tx=>{
+   const cards=await tx.beautyCard.findMany({where:{storeId:s.storeId,id:{in:d.cardIds},memberIds:{has:d.customerId}}});
+   const cardIds=cards.map(c=>c.id);
+   const visible=await prisma.customer.findMany({where:{...s.customerWhere,id:{in:[...new Set(cards.flatMap(c=>c.memberIds))]}},select:{id:true}});
+   const ids=visible.map(p=>p.id);
+   const [visits,adjustments,closes]=await Promise.all([
+    tx.$queryRaw<Array<{cardId:string;id:string;startsAt:Date;customerId:string|null;personName:string;serviceName:string}>>`
+     SELECT v.* FROM unnest(${cardIds}::text[]) AS c(id)
+     CROSS JOIN LATERAL (
+      SELECT a."cardId",a.id,a."startsAt",a."customerId",a."personName",a."serviceName"
+      FROM "BeautyAppointment" a WHERE a."storeId"=${s.storeId} AND a."cardId"=c.id AND a.debit=true
+      ORDER BY a."startsAt",a.id LIMIT 2001
+     ) v`,
+    beautySessionAdjustmentRecords(tx,s.storeId,cardIds),
+    tx.beautyLedger.findMany({where:{storeId:s.storeId,cardId:{in:cardIds},kind:'CLOSE'},select:{id:true,cardId:true,delta:true,createdAt:true}}),
+   ]);
+   const rows=await Promise.all([...new Set(d.cardIds)].map(async cardId=>{
+    const card=cards.find(c=>c.id===cardId);
+    if(!card)return {cardId,result:{success:false as const,error:'無法查看此方案'}};
+    return {cardId,result:{success:true as const,data:{progress:await beautyPlanProgress(tx,s.storeId,card,ids.filter(id=>card.memberIds.includes(id)),{visits:visits.filter(v=>v.cardId===cardId),adjustments:adjustments.filter(r=>r.cardId===cardId),closes:closes.filter(r=>r.cardId===cardId)}),purchasedAt:card.createdAt.toISOString(),price:card.listPrice,shared:card.memberIds.length>1}}};
+   }));return {success:true as const,rows};
+  },{isolationLevel:'RepeatableRead'});
+ }catch(error){return failure(error);}
+}
 export async function browseBeautyNativeCards(input:unknown){
  return withBeautyReadScope(()=>browseBeautyNativeCardsCore(input));
 }

@@ -9,7 +9,7 @@ import type {ServiceCharge} from '@/server/beauty/service-charges';
 const m=vi.hoisted(()=>({source:undefined as CourseRosterSource|undefined,row:undefined as NativeRosterBooking|undefined}));
 vi.mock('next/dynamic',()=>({default:()=>()=>null}));
 vi.mock('@/components/beauty/use-customer-sync',()=>({useBeautyCustomerRevision:()=>0}));
-vi.mock('@/components/operations/panel-read-cache',()=>({useMusicDataRevision:()=>0,usePanelReadCache:()=>({load:vi.fn(),get:vi.fn()}),usePanelReader:()=>({read:vi.fn(),invalidate:vi.fn()})}));
+vi.mock('@/components/operations/panel-read-cache',()=>({useCustomerReadQueue:()=>({read:(_key:string,load:()=>Promise<unknown>)=>load(),cancel:vi.fn(),clear:vi.fn()}),useMusicDataRevision:()=>0,usePanelReadCache:()=>({load:vi.fn(),get:vi.fn()}),usePanelReader:()=>({read:vi.fn(),invalidate:vi.fn()})}));
 vi.mock('@/server/actions/beauty-native-roster',()=>({saveBeautyNativeRosterNote:vi.fn()}));
 vi.mock('@/lib/beauty/roster-reader',()=>({readBeautyRoster:vi.fn(),syncBeautyRoster:vi.fn()}));
 vi.mock('@/app/(dashboard)/dashboard/courses/roster',()=>({CourseRoster:({source}:{source:CourseRosterSource})=>{m.source=source;return source.row?.(m.row!).cost;}}));

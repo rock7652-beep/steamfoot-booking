@@ -39,14 +39,14 @@ it('換學員後忽略前一位晚到結果，失敗可在原窗重試',async()=
 });
 
 afterEach(()=>vi.unstubAllGlobals());
-it('預讀與點擊方案共用整份資料，首次開窗沒有讀取占位且不另發請求',async()=>{
+it.each([false,true])('預讀與點擊共用整份資料，首次開窗沒有讀取占位且不另發請求（音樂=%s）',async music=>{
  m.read.mockResolvedValue(data());
  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
- function App({open=false}:{open?:boolean}){const reader=useRosterCustomerReader('session','store');return h('main',null,h('button',{onClick:()=>reader.read(JSON.stringify(['student','card-1']))},'預讀名單方案'),open?h(RosterCustomerPanel,{customer,sessionId:'session',storeId:'store',onClose:vi.fn()}):null);}
+ function App({open=false}:{open?:boolean}){const reader=useRosterCustomerReader('session','store');return h('main',null,h('button',{onClick:()=>reader.background.read(JSON.stringify(['student',music?undefined:'card-1']))},'預讀名單方案'),open?h(RosterCustomerPanel,{customer:music?{...customer,cardId:undefined}:customer,sessionId:'session',storeId:'store',onClose:vi.fn()}):null);}
  try{
   await act(async()=>root.render(h(PanelReadProvider,null,h(App,{}))));
   await act(async()=>host.querySelector('button')!.click());expect(m.read).toHaveBeenCalledOnce();
   await act(async()=>root.render(h(PanelReadProvider,null,h(App,{open:true}))));
-  expect(document.body.querySelector('[data-card="card-1"]')).not.toBeNull();expect(document.body.textContent).not.toContain('讀取學員資料中');expect(m.read).toHaveBeenCalledOnce();
+  expect(document.body.querySelector('[data-student="student"]')?.getAttribute('data-card')).toBe(music?null:'card-1');expect(document.body.textContent).not.toContain('讀取學員資料中');expect(m.read).toHaveBeenCalledOnce();
  }finally{await act(async()=>root.unmount());host.remove();}
 });

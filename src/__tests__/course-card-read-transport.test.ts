@@ -1,7 +1,7 @@
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({read:vi.fn(),fetch:vi.fn()}));
 vi.mock('@/server/queries/course-card-browser',()=>({readCourseCards:m.read}));
-vi.mock('@/server/actions/course-card-progress',()=>({loadCourseCardProgress:vi.fn()}));
+vi.mock('@/server/services/course-card-progress-batch',()=>({readCourseCardProgressBatch:vi.fn()}));
 import {GET} from '@/app/(dashboard)/dashboard/courses/card-read/route';
 import {readCourseCardProgress,readNativeCourseCards} from '@/lib/course-card-read-client';
 beforeEach(()=>{vi.resetAllMocks();vi.stubGlobal('fetch',m.fetch);vi.stubGlobal('window',{location:{pathname:'/s/own-store/admin/dashboard/courses'}});});

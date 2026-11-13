@@ -12,7 +12,7 @@ import type {CourseCustomerSource} from '@/app/(dashboard)/dashboard/courses/mem
 it('shows prepared source support synchronously and discards it after a customer mutation',async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const load=vi.fn().mockResolvedValue({success:true,data:{membership:{success:true},advanced:{data:{}}}}) as unknown as NonNullable<CourseCustomerSource['support']>;
- function App({open=false}:{open?:boolean}){const preload=useCustomerPlanPreload({support:load,storeId:'beauty-store',canReadCards:false});const invalidate=useInvalidateCustomerPlanReads();return h('main',null,h('button',{onClick:()=>preload.visibleReader.read('customer')},'預讀'),h('button',{onClick:invalidate},'修改'),open?h(DeferredCustomerSupport,{customerId:'customer',storeId:'beauty-store',load,preload:true,expanded:true}):null);}
+ function App({open=false}:{open?:boolean}){const preload=useCustomerPlanPreload({support:load,storeId:'beauty-store',canReadCards:false});const invalidate=useInvalidateCustomerPlanReads();return h('main',null,h('button',{onClick:()=>preload.reader.read('customer')},'預讀'),h('button',{onClick:invalidate},'修改'),open?h(DeferredCustomerSupport,{customerId:'customer',storeId:'beauty-store',load,preload:true,expanded:true}):null);}
  const host=document.createElement('div'),root=createRoot(host);
  try{
   await act(async()=>root.render(h(PanelReadProvider,null,h(App,{}))));await act(async()=>host.querySelector('button')!.click());

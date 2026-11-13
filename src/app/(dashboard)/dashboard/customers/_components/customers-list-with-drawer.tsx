@@ -1,6 +1,5 @@
 "use client";
 
-import {useMemberConnectionReader,useCustomerAdvancedReader} from "@/components/admin/use-customer-support-readers";
 import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import { useId, useCallback, useState, useMemo, useRef, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -18,7 +17,7 @@ import {
 import type { getCustomerDrawerDetail } from "@/server/queries/customer";
 
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
-import { usePanelReadCache } from "@/components/operations/panel-read-cache";
+import { usePanelReadCache,useCustomerReadQueue } from "@/components/operations/panel-read-cache";
 
 import type { CustomerPanelSummary } from "@/server/actions/customer-panel-summary";
 type DrawerDetail = Awaited<ReturnType<typeof getCustomerDrawerDetail>> & {panelSummary?:CustomerPanelSummary};
@@ -87,6 +86,7 @@ export function CustomersListWithDrawer({
   // Server Actions may return fresh row objects without changing their contents.
   // Compare values so an in-flight read does not invalidate and restart itself.
   const rowsKey = JSON.stringify(rows);
+  const customerQueue=useCustomerReadQueue();
   const cache = usePanelReadCache<DrawerDetail>("customer-detail", async (customerId) => {
     const result = await getCustomerDrawerDetailAction(customerId);
     if (!result.success) throw new Error(result.error ?? "讀取顧客資料失敗");
@@ -96,11 +96,9 @@ export function CustomersListWithDrawer({
   const [detail, setDetail] = useState<DrawerDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const membership=useMemberConnectionReader(),advanced=useCustomerAdvancedReader();
-  const detailPreload=useMemo(()=>({read:async(id:string)=>{
-    await Promise.allSettled([cache.load(id),membership.read(id),advanced.read(id)]);
-  },get:(id:string)=>cache.get(id)&&membership.get(id)&&advanced.get(id)}),[cache,membership,advanced]);
-  useIdleReadPreload({enabled:true,blocked:!!openId,keys:rows.map(row=>row.id),reader:detailPreload,startDelayMs:250,gapMs:0,concurrency:2,repeatAfterMs:10_000,allowFocusedInput:true});
+  const readDetail=useCallback((id:string,foreground=true)=>customerQueue.read(JSON.stringify(["steam-customer-primary",pathname,rowsKey,id]),()=>cache.load(id),foreground),[customerQueue,pathname,rowsKey,cache]);
+  const detailPreload=useMemo(()=>({read:(id:string)=>readDetail(id,false),get:(id:string)=>cache.get(id),cancel:(id:string)=>customerQueue.cancel(JSON.stringify(["steam-customer-primary",pathname,rowsKey,id]))}),[readDetail,cache,customerQueue,pathname,rowsKey]);
+  useIdleReadPreload({enabled:true,blocked:!!openId,keys:rows.map(row=>row.id),reader:detailPreload,startDelayMs:0,gapMs:0,concurrency:2,allowFocusedInput:true});
   const [focus, setFocus] = useState<"plan" | null>(null);
 
   // 競態防護：只套用「最後一次請求」的結果（快速連點不同顧客時）
@@ -119,7 +117,7 @@ export function CustomersListWithDrawer({
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       const data = await Promise.race([
-        cache.load(customerId),
+        readDetail(customerId),
         new Promise<never>((_, reject) => {
           timeout = setTimeout(() => reject(new Error("讀取逾時")), 15_000);
         }),
@@ -135,16 +133,16 @@ export function CustomersListWithDrawer({
       clearTimeout(timeout);
       if (requestGate.isCurrent(myReq)) setLoading(false);
     }
-  }, [cache, requestGate]);
+  }, [cache, requestGate,readDetail]);
 
   useEffect(() => {
     return () => { requestGate.invalidate(); cache.clear(); };
-  }, [cache, requestGate]);
+  }, [cache, requestGate,readDetail]);
 
   const prefetchDetail = useCallback((customerId: string) => {
     // Hover/focus failures stay silent; an actual open always allows retry.
-    void detailPreload.read(customerId);
-  }, [detailPreload]);
+    void readDetail(customerId).catch(()=>{});
+  }, [readDetail]);
 
   // 開啟：cache 命中即時填入；未命中先 skeleton + 背景 fetch。
   const applyOpen = useCallback(

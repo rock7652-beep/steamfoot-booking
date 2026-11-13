@@ -1,4 +1,4 @@
-import { isSportsSharedCardIsolatedConnection, SCHEDULE_CONFLICT_PREVIEW_BRANCH, CALENDAR_PHASE_PREVIEW_BRANCH } from './sports-shared-card-preview-scope.mjs';
+import { isSportsSharedCardIsolatedConnection, CUSTOMER_PRIMARY_PREVIEW_BRANCH, SCHEDULE_CONFLICT_PREVIEW_BRANCH, CALENDAR_PHASE_PREVIEW_BRANCH } from './sports-shared-card-preview-scope.mjs';
 export const SPORTS_REDESIGN_PREVIEW_BRANCH = 'codex/sports-redesign-staging-20261018';
 export const SPORTS_CARD_MODES_PREVIEW_BRANCH = 'fix/sports-item-and-universal-cards-20261020';
 export const SPORTS_OPENING_GUIDE_PREVIEW_BRANCH = 'fix/sports-common-opening-guide-20261020';
@@ -8,7 +8,7 @@ export const YOUNGSKY_SETTINGS_PREVIEW_BRANCH = 'fix/youngsky-settings-confirmed
 export const SILVERLILY_CALENDAR_PREVIEW_BRANCH = "fix/silverlily-calendar-loading-20261031";
 export const MIXED_ENROLLMENT_PREVIEW_BRANCH = "feat/mixed-course-enrollment-20261109";
 export const MIXED_ENROLLMENT_PREVIEW_BRANCHES = [MIXED_ENROLLMENT_PREVIEW_BRANCH,"fix/course-single-charge-validation-20261109"];
-const previewBranches=[SILVERLILY_CALENDAR_PREVIEW_BRANCH,"fix/beauty-collection-calendar-remount","fix/calendar-restored-month-consistency","review/plan-management-sports-performance","perf/sports-course-loading",SETTINGS_OUTCOMES_PREVIEW_BRANCH,YOUNGSKY_SETTINGS_PREVIEW_BRANCH,SPORTS_REDESIGN_PREVIEW_BRANCH,SPORTS_CARD_MODES_PREVIEW_BRANCH,SPORTS_OPENING_GUIDE_PREVIEW_BRANCH,SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH];
+const previewBranches=[CUSTOMER_PRIMARY_PREVIEW_BRANCH,SILVERLILY_CALENDAR_PREVIEW_BRANCH,"fix/beauty-collection-calendar-remount","fix/calendar-restored-month-consistency","review/plan-management-sports-performance","perf/sports-course-loading",SETTINGS_OUTCOMES_PREVIEW_BRANCH,YOUNGSKY_SETTINGS_PREVIEW_BRANCH,SPORTS_REDESIGN_PREVIEW_BRANCH,SPORTS_CARD_MODES_PREVIEW_BRANCH,SPORTS_OPENING_GUIDE_PREVIEW_BRANCH,SPORTS_COACH_COMPENSATION_PREVIEW_BRANCH];
 /** Deployment opt-in is separate from the unchanged localhost QA boundary. */
 export function assertSportsRedesignPreviewEnvironment(env) {
   if (env.SPORTS_REDESIGN_STAGING !== '1' || env.SPORTS_REDESIGN_PREVIEW !== '1' ||
@@ -18,6 +18,10 @@ export function assertSportsRedesignPreviewEnvironment(env) {
       env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH ||
       ![env.DATABASE_URL, env.DIRECT_URL].every(isSportsSharedCardIsolatedConnection)) {
     throw new Error('Sports redesign Preview requires its exact branch, repository and isolated test database; production is forbidden.');
+  }
+  if (env.VERCEL_GIT_COMMIT_REF === CUSTOMER_PRIMARY_PREVIEW_BRANCH &&
+      (env.VERCEL_PROJECT_ID !== 'prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR' || env.PRODUCTION_MIGRATION_TARGET)) {
+    throw new Error('Customer primary native sports Preview requires its exact project without migrations.');
   }
   if (MIXED_ENROLLMENT_PREVIEW_BRANCHES.includes(env.VERCEL_GIT_COMMIT_REF) &&
       (env.VERCEL_PROJECT_ID !== 'prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR' || env.COURSE_MIXED_ENROLLMENT_PREVIEW !== '1' ||

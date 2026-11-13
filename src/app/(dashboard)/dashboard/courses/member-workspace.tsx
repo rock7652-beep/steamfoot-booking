@@ -1,8 +1,8 @@
 "use client";
 import {mergeCoursePlanCatalog} from "@/lib/course-plan-catalog";
+import {CustomerPrimaryContent} from "@/components/admin/customer-primary-content";
 import {useCustomerPlanPreload} from "@/components/admin/use-customer-plan-preload";
 import {useInvalidateCustomerPlanReads} from "@/components/operations/panel-read-cache";
-import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import {courseCheckoutReceipt,type CourseCheckoutReceipt} from "@/lib/course-checkout-receipt";
 import {coursePlanModeAllowed} from "@/lib/course-scheduling-modes";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
@@ -238,8 +238,7 @@ export function CourseMemberWorkspace({
     invalidateCustomerPlanReads();
     advanceCardRevision(update);
   },[invalidateCustomerPlanReads]);
-  const planPreload=useCustomerPlanPreload({preloadOverview:!source,bookings:source?.bookings,load:source?.browseCards,support:source?.preloadCardDetails?source.support:undefined,preloadCardDetails:source?.preloadCardDetails,preloadCardProgress:source?.preloadCardProgress,getCardProgress:source?.getCardProgress,native:sportsNative,music,canReadCards,canReadBookings,canReadTransactions,revision:cardRevision,dataScope,storeId:previewStoreId});
-  useIdleReadPreload({enabled:panel==='person'&&!!person,blocked:dirty||pending,keys:person?[person.id]:[],reader:planPreload.visibleReader,startDelayMs:0});
+  const planPreload=useCustomerPlanPreload({readOverview:source?.readOverview,seedCardProgress:source?.seedCardProgress,preloadOverview:!source,bookings:source?.bookings,load:source?.browseCards,support:source?.preloadCardDetails?source.support:undefined,preloadCardDetails:source?.preloadCardDetails,preloadCardProgress:source?.preloadCardProgress,getCardProgress:source?.getCardProgress,native:sportsNative,music,canReadCards,canReadBookings,canReadTransactions,revision:cardRevision,dataScope,storeId:previewStoreId});
   const [balanceReceipts,setBalanceReceipts]=useState<{storeId:typeof previewStoreId;values:Record<string,{available:number;ids:string[]}>}>({storeId:previewStoreId,values:{}});
 
   const [checkoutCards,setCheckoutCards]=useState<(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number})|undefined>(undefined);
@@ -721,13 +720,12 @@ export function CourseMemberWorkspace({
             </section>}
             {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={returnToCustomer}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <CustomerOverviewBody
-              next={<MusicStudentOverview showBalance={false} revision={cardRevision} key={`overview-${person.id}`} customerId={person.id} tab="info"/>}
-              cards={canReadCards&&<section className="space-y-2"><h3 className="text-sm font-semibold">方案</h3><CourseCardBrowser preloadDetails={source?.preloadCardDetails} storeId={previewStoreId} overview renderProgress={overviewProgress} showOverviewTotals snapshot={checkoutCards} dataScope={dataScope} sharedCardState={sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}
+              next={<CustomerPrimaryContent customerId={person.id} reader={planPreload.visibleReader}>{<MusicStudentOverview showBalance={false} revision={cardRevision} key={`overview-${person.id}`} customerId={person.id} tab="info"/>}{canReadCards&&<section className="space-y-2"><h3 className="text-sm font-semibold">方案</h3><CourseCardBrowser preloadDetails={source?.preloadCardDetails} storeId={previewStoreId} overview renderProgress={overviewProgress} showOverviewTotals snapshot={checkoutCards} dataScope={dataScope} sharedCardState={sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}{!source&&<CoursePhoneViewPanel key={`phone-${person.id}`} customerId={person.id}/>}</CustomerPrimaryContent>}
+
               attribution={attribution} details={detailFields}
               note={<RetainedNoteEditor quiet optimistic emptyActionLabel="備註" key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" formatDisplay={musicNoteDisplay} hint="" placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit} save={(serviceNote,expectedServiceNote)=>saveCourseCustomerNote({customerId:person.id,serviceNote,expectedServiceNote})} onSaved={()=>router.refresh()}/>}
-              actions={<>{canReadBookings&&canReadCards&&<StudentMakeupStatus onPendingChange={setFormPending} customerId={person.id} revision={person.updatedAt??""}/>}{canManageStaff&&<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>open("coach")}>{personnelText("加入為教師")}</button>}</>}
+              actions={<>{canReadBookings&&canReadCards&&<CustomerPrimaryContent quiet customerId={person.id} reader={planPreload.visibleReader}><StudentMakeupStatus onPendingChange={setFormPending} customerId={person.id} revision={person.updatedAt??""}/></CustomerPrimaryContent>}{canManageStaff&&<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>open("coach")}>{personnelText("加入為教師")}</button>}</>}
             />}
-            {panel === "person" && person && personTab === "info" && !editingPerson && !source && <CoursePhoneViewPanel key={`phone-${person.id}`} customerId={person.id} />}
             {panel === "person" && (
               <CourseCustomerDraftForm compact={music} key={`draft-${person?.id??"new"}`} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onSaved={finishDraftForm} />
             )}
@@ -740,8 +738,8 @@ export function CourseMemberWorkspace({
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth scope={source?.healthScope} compact={sportsNative} customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
             {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={returnToCustomer}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <CustomerOverviewBody
-              next={canReadBookings&&<CustomerNextBooking key={person.id} customerId={person.id} load={source?.bookings} serviceMode={!!source} revision={cardRevision} storeId={previewStoreId} preloadSource={source?.preloadCardDetails}/>}
-              cards={canReadCards&&<section className="space-y-2"><h3 className="text-sm font-semibold">方案</h3><CourseCardBrowser preloadDetails={source?.preloadCardDetails} storeId={previewStoreId} dataScope={dataScope} overview renderProgress={overviewProgress} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} snapshot={checkoutCards} sharedCardState={sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}
+              next={<CustomerPrimaryContent customerId={person.id} reader={planPreload.visibleReader}>{canReadBookings&&<CustomerNextBooking key={person.id} customerId={person.id} load={source?.bookings} serviceMode={!!source} revision={cardRevision} storeId={previewStoreId} preloadSource={source?.preloadCardDetails}/>}{canReadCards&&<section className="space-y-2"><h3 className="text-sm font-semibold">方案</h3><CourseCardBrowser preloadDetails={source?.preloadCardDetails} storeId={previewStoreId} dataScope={dataScope} overview renderProgress={overviewProgress} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} snapshot={checkoutCards} sharedCardState={sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}{!source&&<CoursePhoneViewPanel key={`phone-${person.id}`} customerId={person.id}/>}</CustomerPrimaryContent>}
+
               attribution={attribution} details={detailFields} note={<RetainedNoteEditor confirmDiscard={confirmDiscard} quiet optimistic emptyActionLabel="備註" key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={async(serviceNote, expectedServiceNote) => {
@@ -754,7 +752,6 @@ export function CourseMemberWorkspace({
                 onSaved={value=>{if(sportsNative)setNoteReceipts(rows=>({...rows,[person.id]:{source:sourcePeople.find(p=>p.id===person.id)?.serviceNote??null,value}}));else router.refresh();if(source)router.refresh();}} />}
               actions={source?.staffAction?.available(person.id)?<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>{if(canLeave()){rememberProfileScroll();source.staffAction!.open(person.id);}}}>{source.staffAction.label}</button>:canManageStaff&&<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>open("coach")}>{personnelText("加入為教練")}</button>}
             />}
-            {panel === "person" && person && personTab === "info" && !editingPerson && !source && <CoursePhoneViewPanel key={`phone-${person.id}`} customerId={person.id} />}
             {panel === "person" && (
               <CourseCustomerDraftForm save={source?.saveProfile} draftScope={source?"module-customer":"course-customer"} key={person?.id??"new"} person={person} canEdit={canEdit} canCreate={canCreate} hidden={!!person && (!editingPerson || personTab!=="info")} onPending={setFormPending} onDirtyChange={setDirty} onSaved={finishDraftForm} />
             )}

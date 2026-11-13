@@ -98,3 +98,20 @@ it('authorizes both plan and booking reads and scopes the full shared grid befor
  m.progress.mockClear();expect((await readBeautyNativeCardProgress({cardId:'card',customerId:'c',expectedStoreId:'foreign'})).success).toBe(false);expect(m.progress).not.toHaveBeenCalled();
  m.manager.mockImplementation(async permission=>{if(permission==='booking.read')throw Error('Forbidden');return a;});expect((await readBeautyNativeCardProgress({cardId:'card',customerId:'c',expectedStoreId:'a'})).success).toBe(false);expect(m.progress).not.toHaveBeenCalled();
 });
+
+it('batches authorized Beauty progress and keeps each card member visibility separate',async()=>{
+ const {readBeautyNativeProgressBatch}=await import('@/server/actions/beauty-native-customers');
+ const createdAt=new Date('2026-11-01');m.cards.mockResolvedValue([{...card,id:'first',createdAt},{...card,id:'second',memberIds:['c','other'],createdAt}]);
+ m.people.mockResolvedValue([{id:'c'},{id:'other'}]);m.entries.mockResolvedValue([]);
+ m.readTx.mockImplementationOnce(async work=>work({beautyCard:{findMany:m.cards},beautyLedger:{findMany:m.entries},$queryRaw:m.raw}));
+ m.progress.mockResolvedValue({available:true,total:5,completed:[],voided:[]});
+ const result=await readBeautyNativeProgressBatch({expectedStoreId:'a',customerId:'c',cardIds:['first','second']});
+ expect(result).toMatchObject({success:true,rows:[{cardId:'first',result:{success:true,data:{price:5000,shared:false}}},{cardId:'second',result:{success:true,data:{price:5000,shared:true}}}]});
+ expect(m.cards).toHaveBeenCalledOnce();expect(m.entries).toHaveBeenCalledOnce();expect(m.people).toHaveBeenCalledTimes(2);
+ expect(m.progress.mock.calls.map(call=>call[3])).toEqual([['c'],['c','other']]);
+ expect(m.raw.mock.calls.some(call=>call[0].join('').includes('LIMIT 2001'))).toBe(true);
+});
+it('rejects switched-store Beauty batches before progress or transaction reads',async()=>{
+ const {readBeautyNativeProgressBatch}=await import('@/server/actions/beauty-native-customers');
+ expect(await readBeautyNativeProgressBatch({expectedStoreId:'foreign',customerId:'c',cardIds:['card']})).toMatchObject({success:false});expect(m.readTx).not.toHaveBeenCalled();expect(m.progress).not.toHaveBeenCalled();
+});
