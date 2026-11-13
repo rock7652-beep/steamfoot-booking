@@ -96,7 +96,7 @@ export async function loadCourseMemberWorkspace(view:"customers"|"plans",query:R
         user.staffId,
         view === "customers" ? "customer.create" : "plans.edit",
       ),
-      user.role === "OWNER" && !isViewMode
+      ["OWNER", "MANAGER", "ADMIN"].includes(user.role) && !isViewMode
         ? checkPermission(user.role, user.staffId, "staff.manage")
         : false,
     ]));

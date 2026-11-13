@@ -1,4 +1,5 @@
 "use client";
+import {PlanCardHeader} from "@/components/admin/plan-card-header";
 import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import {useCustomerCardReader} from "@/components/admin/use-customer-card-reader";
 import { useMusicDataRevision } from "@/components/operations/panel-read-cache";
@@ -13,9 +14,9 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
 export type CardBrowseState = { search: string; history: boolean; page: number };
-function CardBrowserContent({load,preloadDetails=false,reservations,renderProgress,sessionUnitLabel="堂", overview=false, showOverviewTotals=false, storeId, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
+function CardBrowserContent({load,preloadDetails=false,reservations,renderProgress,renderActions,sessionUnitLabel="堂", overview=false, showOverviewTotals=false, storeId, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
   preloadDetails?:boolean;storeId?:string;showOverviewTotals?:boolean;overview?:boolean;dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
-  onSelect:(card:CourseCardView)=>void;renderProgress?:(card:CourseCardView)=>ReactNode;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
+  onSelect:(card:CourseCardView)=>void;renderProgress?:(card:CourseCardView)=>ReactNode;renderActions?:(card:CourseCardView)=>ReactNode;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
 }) {
   const browseReader = useCustomerCardReader({load,native,revision,storeId,canReadBookings});
   const detailReader = useCourseCardDetailReader(load,storeId,revision,preloadDetails);
@@ -45,10 +46,15 @@ function CardBrowserContent({load,preloadDetails=false,reservations,renderProgre
           const inactive=c.closed||c.expired;
           const status=c.closed?"已停用":c.expired?"已到期":c.remaining>0&&c.available===0&&c.held>=c.remaining?"額度已全數預約":c.remaining===0?"額度已用完":null;
           if(native||overview)return <div key={c.id} className={overview?"rounded-lg border border-earth-200 bg-earth-50 px-3 py-2 text-sm":"px-3 py-2 text-sm"}>
-            <button type="button" onPointerEnter={()=>detailReader.prefetch({cardId:c.id,dataScope})} onFocus={()=>detailReader.prefetch({cardId:c.id,dataScope})} onTouchStart={()=>detailReader.prefetch({cardId:c.id,dataScope})} onClick={()=>onSelect(c)} className={native||overview?"flex min-h-11 w-full flex-wrap items-center gap-x-3 gap-y-1 text-left":"grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-left"}>
-              <span className="min-w-0 flex-1 break-words font-medium">{c.name}</span><span className="whitespace-nowrap font-semibold">{inactive?status:c.unit==="SESSION"?`${overview?"可用":"還可預約"} ${c.available} ${sessionUnitLabel}`:`可用 ${c.available} 點`}</span>
-              {((!native&&!overview)||c.members.length>1)&&<span className="min-w-0 break-words text-sm text-earth-500">{c.members.length>1?`共同餘額 · 共卡人：${c.members.map(m=>m.name).join("、")}`:`持有人：${c.members[0]?.name??"未設定"}`}</span>}<span className="text-sm text-earth-500">{c.expiryKind === "NO_EXPIRY" ? "無期限" : !c.expiresAt || (c.openingImported && !c.musicActivatedAt) ? "期初效期待核對" : c.musicValidityDays && !c.musicActivatedAt ? `首次上課起 ${c.musicValidityDays} 天` : `${toLocalDateStr(new Date(c.expiresAt))} 到期`}</span>
-            </button>
+            <PlanCardHeader summary={<>
+              <span className="whitespace-nowrap font-semibold">{inactive?status:c.unit==="SESSION"?`可預約 ${c.available} ${sessionUnitLabel}`:`可用 ${c.available} 點`}</span>
+              <span className="text-sm text-earth-500">{c.expiryKind === "NO_EXPIRY" ? "無期限" : !c.expiresAt || (c.openingImported && !c.musicActivatedAt) ? "期初效期待核對" : c.musicValidityDays && !c.musicActivatedAt ? `首次上課起 ${c.musicValidityDays} 天` : `${toLocalDateStr(new Date(c.expiresAt))} 到期`}</span>
+            </>} actions={overview?renderActions?.(c):undefined}>
+              <button type="button" onPointerEnter={()=>detailReader.prefetch({cardId:c.id,dataScope})} onFocus={()=>detailReader.prefetch({cardId:c.id,dataScope})} onTouchStart={()=>detailReader.prefetch({cardId:c.id,dataScope})} onClick={()=>onSelect(c)} className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-left">
+                <span className="min-w-0 break-words font-medium">{c.name}</span>
+                {c.members.length>1&&<span className="min-w-0 break-words text-sm text-earth-500">共同餘額 · 共卡人：{c.members.map(m=>m.name).join("、")}</span>}
+              </button>
+            </PlanCardHeader>
             {overview&&c.openingIssue&&<p className="text-sm text-amber-800">{c.openingIssue}</p>}
             {overview&&renderProgress?.(c)}
             {(overview?(inactive||c.held>0||c.remaining!==c.available||!!status):(!native||c.held>0||!!status))&&<div className="flex flex-wrap items-center gap-x-3 text-earth-600"><span>{inactive?"紀錄剩餘":"剩餘"} {c.remaining} {unit}</span>{canReadBookings&&c.held>0?<CourseCardReservations label={overview?"預約保留":undefined} load={reservations} sessionUnitLabel={sessionUnitLabel} cardId={c.id} held={c.held} unit={c.unit} revision={revision}/>:!overview||c.held>0?<span>{overview?"預約保留":"已預約"} {c.held} {unit}{c.unit==="POINT"?"額度":""}</span>:null}{!inactive&&status&&<span className="text-xs">{status}</span>}</div>}

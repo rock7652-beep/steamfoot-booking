@@ -235,6 +235,7 @@ it('beauty-source late status for a previous customer cannot appear in the next 
 it('opens the module staff entry instead of the generic course staff action',async()=>{
  const open=vi.fn(),source={staffAction:{label:'加入為技師',available:(id:string)=>id==='person',open},browseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),bookings:vi.fn().mockResolvedValue({success:true,data:[],hasMore:false}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,source,canManageStaff:false})));
+ expect([...host.querySelectorAll('header button')].some(button=>button.textContent==='加入為技師')).toBe(true);
  await click('加入為技師');expect(open).toHaveBeenCalledWith('person');expect(host.textContent).not.toContain('加入為教練');
 });
 
@@ -298,4 +299,24 @@ it.each([{scope:[]},{scope:['verified-item']}])('only asks to review an OPEN car
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,previewStoreId:'store',sportsNative:true,cards:[card] as never,initialCustomerId:'person',initialCardId:'open-card'})));
  await vi.waitFor(()=>expect(document.body.textContent).not.toContain('讀取方案詳細資料中'));
  expect(document.body.textContent?.includes('此已購方案科目待核對')).toBe(scope.length===0);
+});
+
+it('opens Beauty plan management from the overview menu with the selected operation',async()=>{
+ const card={id:'beauty-menu-card',name:'護理六次',unit:'SESSION',remaining:6,held:0,available:6,expiresAt:'2027-12-31T15:59:59.999Z',closed:false,expired:false,members:[{id:'person',name:'測試學員'}],entries:[],templateIds:[],sessionAdjustments:[]};
+ const management=vi.fn((_card:unknown,callbacks:{initialAction?:string})=>createElement('p',null,`美業管理 ${callbacks.initialAction??''}`));
+ const source={cardManagement:management,cardProgress:()=>createElement('p',null,'美業日期格'),browseCards:vi.fn().mockResolvedValue({success:true,rows:[card],hasMore:false}),bookings:vi.fn().mockResolvedValue({success:true,data:[],hasMore:false}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource;
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,source,previewStoreId:'beauty-store',canManageCards:false})));
+ await click('護理六次 更多操作');
+ await act(async()=>[...document.querySelectorAll('button')].find(button=>button.textContent==='調整期限')!.click());
+ await vi.waitFor(()=>expect(management).toHaveBeenCalledWith(expect.objectContaining({id:card.id}),expect.objectContaining({initialAction:'expiry'})));
+ expect(m.management).not.toHaveBeenCalled();expect(m.adjust).not.toHaveBeenCalled();expect(m.courseAssign).not.toHaveBeenCalled();
+});
+
+it.each([true,false])('keeps the native staff entry in the profile header (music=%s)',async music=>{
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,music,canManageStaff:true})));
+ const label=music?'加入為教師':'加入為教練';
+ expect([...host.querySelectorAll('header button')].some(button=>button.textContent===label)).toBe(true);
+ expect([...host.querySelectorAll('button')].filter(button=>button.textContent===label)).toHaveLength(1);
+ await click(label);expect(host.querySelector('#course-member-form')).not.toBeNull();
+ const {saveCourseStaff}=await import('@/server/actions/course-staff');expect(saveCourseStaff).not.toHaveBeenCalled();
 });
