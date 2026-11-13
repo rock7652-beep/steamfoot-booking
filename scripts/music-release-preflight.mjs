@@ -1,6 +1,7 @@
 // Read-only release gate. Never applies DDL, imports rows or sends notifications.
 import {fileURLToPath} from 'node:url';
 import {resolve} from 'node:path';
+import {TEACHING_PREVIEW_BRANCHES} from './teaching-preview-packaging.mjs';
 import {MUSIC_OPENING_BRANCH} from './music-opening-preview-scope.mjs';
 import {assertMusicNativeReleaseEnvironment,MUSIC_RELEASE_BRANCH} from './music-native-workflow-scope.mjs';
 import {purchaseIntentAccessPreflight} from './purchase-intent-release-preflight.mjs';
@@ -46,7 +47,7 @@ export async function musicBuildPreflight(env=process.env){
   console.info('[production-review-inputs]',JSON.stringify({archived:archive.count,backupOutsideBuildRoot:true,archive:archive.archive}));
  }
 
- if(env.VERCEL_ENV==='preview'&&['fix/teaching-item-qualifications-20261112','fix/course-plan-classification-sync-20261112','fix/course-retained-store-route-20261112','fix/plan-name-conflict-20261112'].includes(env.VERCEL_GIT_COMMIT_REF)){
+ if(env.VERCEL_ENV==='preview'&&TEACHING_PREVIEW_BRANCHES.includes(env.VERCEL_GIT_COMMIT_REF)){
   const {archiveTeachingPreviewInputs}=await import('./teaching-preview-packaging.mjs');
   const archive=archiveTeachingPreviewInputs(env,resolve(import.meta.dirname,'..'));
   console.info('[teaching-preview-review-inputs]',JSON.stringify({archived:archive.count,backupOutsideBuildRoot:true}));

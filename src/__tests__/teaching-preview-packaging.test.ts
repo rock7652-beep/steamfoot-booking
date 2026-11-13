@@ -3,10 +3,13 @@ import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {assertTeachingPreviewPackaging,teachingReviewImagePaths,TEACHING_PREVIEW_BRANCH} from '../../scripts/teaching-preview-packaging.mjs';
+import {CUSTOMER_PRIMARY_PREVIEW_BRANCH} from '../../scripts/sports-shared-card-preview-scope.mjs';
 const direct='postgresql://postgres@db.ttworfzgwejdeolegkxl.supabase.co/postgres';
 const valid={VERCEL:'1',VERCEL_ENV:'preview',VERCEL_PROJECT_ID:'prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR',VERCEL_GIT_COMMIT_REF:TEACHING_PREVIEW_BRANCH,VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:direct,DIRECT_URL:direct};
 it('limits packaging to the exact isolated Preview build without changing production gates',()=>{
  expect(()=>assertTeachingPreviewPackaging(valid,'/vercel/path0')).not.toThrow();
+ expect(()=>assertTeachingPreviewPackaging({...valid,VERCEL_GIT_COMMIT_REF:CUSTOMER_PRIMARY_PREVIEW_BRANCH},'/vercel/path0')).not.toThrow();
+ expect(()=>assertTeachingPreviewPackaging({...valid,VERCEL_GIT_COMMIT_REF:CUSTOMER_PRIMARY_PREVIEW_BRANCH+'-copy'},'/vercel/path0')).toThrow();
  expect(()=>assertTeachingPreviewPackaging({...valid,VERCEL_GIT_COMMIT_REF:'fix/course-plan-classification-sync-20261112'},'/vercel/path0')).not.toThrow();
  expect(()=>assertTeachingPreviewPackaging({...valid,VERCEL_GIT_COMMIT_REF:'fix/course-retained-store-route-20261112'},'/vercel/path0')).not.toThrow();
  expect(()=>assertTeachingPreviewPackaging({...valid,VERCEL_GIT_COMMIT_REF:'fix/plan-name-conflict-20261112'},'/vercel/path0')).not.toThrow();

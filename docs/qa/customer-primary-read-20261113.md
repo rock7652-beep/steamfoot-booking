@@ -48,4 +48,10 @@
 
 ## 版本及發布
 
-本機結果與遠端版本對照待最終檢查完成後補列。舊 Preview 不包含本次程式，不能沿用作新版驗收；既有 Preview 有精確分支與隔離資料庫保護，不為本次修改或繞過該保護。沒有宣稱已部署或完成正式驗收。
+程式版本 `0922985796c87a132e976bd063b8c46935409f06` 已提交 PR #1562，尚未合併或發布正式站。此版本遠端 CI #43354932842 全量1802檔／16936測試通過，34檔／323測試依原設定跳過；Changed-file ESLint、Targeted tests及Typecheck通過。Mixed course enrollment audit與Sports shared-card isolated PostgreSQL acceptance亦通過。
+
+原 Preview `dpl_BSbgGX6b1QkzPkJTLZfGcAZEQceq` 因精確分支白名單未含本次分支，在 migration 前停止；舊 Preview 不包含本次程式，不能替代新版驗收。
+
+2026-11-13 使用者同意沿用既有隔離 Preview 並指示「好 請執行」。本輪只新增 `fix/customer-primary-read-priority` 到既有精確分支檢查，採 `module-roster-preview` 的不遷移模式；兩份資料庫 URL 都必須指向原隔離專案 `ttworfzgwejdeolegkxl`，拒絕正式資料庫、外來來源與相似分支；外發仍停止。未變更正式站、部署保護、正式帳號或密碼。
+
+現有 artifacts 約60MB，沿用既有 Preview 的審查圖片封存與 trace 清理，避免連同約200MB執行檔超過平台封裝上限；僅精確專案、分支及 Vercel 暫存建置路徑可執行，保留 public 執行資產與 JSON 證據。Preview 登入後四模組實際驗收尚待建置完成；不得以建置成功替代。
