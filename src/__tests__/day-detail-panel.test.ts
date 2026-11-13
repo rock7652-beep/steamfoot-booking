@@ -347,3 +347,16 @@ describe("roster collection shortcut",()=>{
   const expiry=name.nextElementSibling!;expect(expiry.textContent).toContain("2027/01/09 到期");expect(expiry.className).not.toContain("whitespace-nowrap");expect(expiry.className).toContain("overflow-wrap:anywhere");
  });
 });
+
+
+it('prepares a later booking on pointer, keyboard and touch intent without opening or writing',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});const host=document.createElement('div'),root=createRoot(host),prepare=vi.fn(),open=vi.fn(),complete=vi.fn();
+ try{
+  await act(async()=>root.render(React.createElement(DayDetailPanel,{date:'2026-11-13',slots:[],bookings:Array.from({length:6},(_,i)=>booking({id:'b'+i})),onBookingIntent:prepare,onBookingClick:open,onCompleteSingle:complete})));
+  const later=host.querySelectorAll('li')[5];
+  await act(async()=>later.dispatchEvent(new MouseEvent('pointerover',{bubbles:true})));
+  await act(async()=>later.querySelector('button')!.dispatchEvent(new FocusEvent('focusin',{bubbles:true})));
+  await act(async()=>later.dispatchEvent(new Event('touchstart',{bubbles:true})));
+  expect(prepare.mock.calls).toEqual([['b5'],['b5'],['b5']]);expect(open).not.toHaveBeenCalled();expect(complete).not.toHaveBeenCalled();
+ }finally{await act(async()=>root.unmount());}
+});

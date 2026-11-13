@@ -16,11 +16,13 @@ import {
   type BookingDrawerPayload,
 } from "@/server/actions/booking-drawer";
 import { createClientReadCache } from "@/lib/client-read-cache";
+import { createCustomerReadQueue } from "@/lib/customer-read-queue";
 import { readBookingDetail } from "@/lib/booking-client-transport";
 
 export interface BookingDetailCache {
   /** 同步取得已快取的完整 payload（無則 undefined）。 */
   get(id: string): BookingDrawerPayload | undefined;
+  getFresh(id: string): BookingDrawerPayload | undefined;
   /** 失效某筆：清掉 cache + in-flight 去重 handle，並讓「進行中的舊請求」不再寫回。 */
   invalidate(id: string): void;
   /**
@@ -29,9 +31,37 @@ export interface BookingDetailCache {
    * 被新請求取代的舊請求 resolve 後一律不寫入（避免過期資料覆蓋）。
    */
   load(id: string): Promise<BookingDrawerPayload>;
+  /** Fresh display prefetch; intent can promote a waiting background job. */
+  prefetch(id: string, intent?: boolean): Promise<BookingDrawerPayload>;
+  cancelPrefetch(ids: string[]): void;
 }
 
-export function createBookingDetailCache(resolvedStoreId?: string): BookingDetailCache {
+export function createBookingDetailCache(resolvedStoreId?: string, queue = createCustomerReadQueue()): BookingDetailCache {
   const cache = createClientReadCache(id => readBookingDetail(id, resolvedStoreId));
-  return { get: cache.peek, invalidate: cache.invalidate, load: id => cache.load(id, {revalidate:true}) };
+  const revisions = new Map<string, number>();
+  // Instance ownership prevents a sibling drawer from sharing a different cache's job.
+  const owner = crypto.randomUUID();
+  const key = (id: string) => JSON.stringify(["booking-detail", resolvedStoreId, owner, id, revisions.get(id) ?? 0]);
+  function read(id: string, foreground: boolean, revalidate: boolean) {
+    const revision = revisions.get(id) ?? 0;
+    return queue.read(key(id), () => {
+      if ((revisions.get(id) ?? 0) !== revision) throw new Error("預約資料已更新");
+      return cache.load(id, {revalidate});
+    }, foreground);
+  }
+  return {
+    get: cache.peek,
+    getFresh: cache.get,
+    invalidate(id) {
+      queue.cancel(key(id));
+      revisions.set(id, (revisions.get(id) ?? 0) + 1);
+      cache.invalidate(id);
+    },
+    load: id => read(id, true, true),
+    prefetch(id, intent = false) {
+      const fresh = cache.get(id);
+      return fresh ? Promise.resolve(fresh) : read(id, intent, false);
+    },
+    cancelPrefetch(ids) { for (const id of ids) queue.cancel(key(id)); },
+  };
 }
