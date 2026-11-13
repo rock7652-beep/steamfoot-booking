@@ -1,5 +1,7 @@
 import 'server-only';
 import type { Tx } from './booking';
+import type {SessionAdjustmentRecord} from '@/lib/plan-session-adjustment';
+export type BeautyProgressUsage={visits:Array<{id:string;startsAt:Date;customerId:string|null;personName:string;serviceName:string}>;adjustments:SessionAdjustmentRecord[];closes:Array<{id:string;delta:number;createdAt:Date}>};
 import { beautySessionAdjustmentRecords } from './session-adjustment';
 import { activeSessionAdjustments } from '@/lib/plan-session-adjustment';
 import { parseTaipeiDateTime } from '@/lib/date-utils';
@@ -7,10 +9,10 @@ import { checkedPlanProgress, unavailablePlanProgress, type PlanUsageDate } from
 
 /** Caller authorizes the store, card membership and booking read permission.
  * Read in the caller's repeatable-read transaction so dates and balance agree. */
-export async function beautyPlanProgress(tx: Tx, storeId: string, card: { id: string; sessions: number; remaining: number; memberIds: string[] }, visibleIds?: string[]) {
+export async function beautyPlanProgress(tx: Tx, storeId: string, card: { id: string; sessions: number; remaining: number; memberIds: string[] }, visibleIds?: string[], usage?:BeautyProgressUsage) {
   if (!Number.isSafeInteger(card.sessions) || card.sessions < 1 || card.sessions > 2000) return unavailablePlanProgress();
   if (visibleIds && card.memberIds.some(id => !visibleIds.includes(id))) return unavailablePlanProgress();
-  const [visits, adjustments, closes] = await Promise.all([
+  const [visits, adjustments, closes] = usage ? [usage.visits,usage.adjustments,usage.closes] : await Promise.all([
     tx.beautyAppointment.findMany({ where: { storeId, cardId: card.id, debit: true }, select: { id: true, startsAt: true, customerId: true, personName: true, serviceName: true }, orderBy: [{ startsAt: 'asc' }, { id: 'asc' }], take: 2001 }),
     beautySessionAdjustmentRecords(tx, storeId, [card.id]),
     tx.beautyLedger.findMany({ where: { storeId, cardId: card.id, kind: 'CLOSE' }, select: { id: true, delta: true, createdAt: true } }),

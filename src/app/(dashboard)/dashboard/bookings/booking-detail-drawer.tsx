@@ -1,7 +1,6 @@
 "use client";
 import {useCustomerPanelContextReader} from "@/components/admin/use-customer-panel-context-reader";
 import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
-import {useMemo} from "react";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import { readBookingDetail as fetchBookingDetail, updateBookingStatus, markBookingNoShow, collectBookingTrialPayment, correctBookingTrialCollection } from "@/lib/booking-client-transport";
 
@@ -1001,7 +1000,7 @@ function DrawerContent({
   } = payload;
   const customerReadScope=JSON.stringify([booking.id,booking.bookingStatus,booking.customerPlanWallet?.remainingSessions,payload.trial,payload.single,payload.storedValue,payload.participantCheckout?.slots.map(slot=>[slot.customerId,slot.revision,slot.status])]);
   const customerReader=useCustomerPanelContextReader(customerReadScope);
-  const customerPreload=useMemo(()=>({read:(id:string)=>customerReader.read(id),get:(id:string)=>customerReader.get(id)}),[customerReader]);
+  const customerPreload=customerReader.background;
   useIdleReadPreload({enabled:true,blocked:isActing||!!showCustomer,keys:[...new Set([booking.customer.id,...(payload.participantCheckout?.slots.flatMap(slot=>slot.customerId?[slot.customerId]:[])??[])])].slice(0,20),reader:customerPreload,startDelayMs:250,gapMs:0,concurrency:2});
   const visibleCustomer = openCustomerPlan ? booking.customer.id : showCustomer;
   const meta = bookingStatusMeta(

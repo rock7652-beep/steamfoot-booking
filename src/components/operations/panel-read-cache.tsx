@@ -2,18 +2,21 @@
 import { createContext, useContext, useMemo, useCallback, useState, useEffect, useTransition, type ReactNode } from "react";
 import {MUSIC_PURCHASE_START,MUSIC_PURCHASE_APPLY, createPurchaseSnapshotSeeds, type MusicPurchaseSnapshot, type PurchaseSnapshotReceiver} from "@/lib/music-purchase-snapshot";
 import {musicPanelRead} from "@/lib/music-panel-transport";
+import {createCustomerReadQueue} from "@/lib/customer-read-queue";
 import { createClientReadCache } from "@/lib/client-read-cache";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isMusicPreviewPage, isMusicSyncRoute, subscribeMusicFinanceChange } from "@/lib/music-finance-sync";
 
+const CustomerReadQueue=createContext<ReturnType<typeof createCustomerReadQueue>|null>(null);
+export function useCustomerReadQueue(){const shared=useContext(CustomerReadQueue);const [fallback]=useState(createCustomerReadQueue);return shared??fallback;}
 const MusicRevision = createContext(0);
 export const useMusicDataRevision = () => useContext(MusicRevision);
 
 type Cache<T> = ReturnType<typeof createClientReadCache<T>>;
 type Registry = Map<string, Cache<unknown>>;
 const Context = createContext<Registry | null>(null);
-const customerPlanNamespaces = new Set(['customer-support','store-member-connection','course-phone-connection','music-student-makeups','steamfoot-customer-context','module-customer-support','course-roster-customer','course-customer-next','module-customer-next','course-card-progress','course-card-browse','module-card-browse','course-card','module-card','music-periods','music-student-workspace','purchases','beauty-customer-detail','beauty-card-progress']);
+const customerPlanNamespaces = new Set(['customer-support','store-member-connection','course-phone-connection','music-student-makeups','steamfoot-customer-context','module-customer-support','course-roster-customer','course-customer-next','module-customer-next','course-card-progress','course-card-browse','module-card-browse','course-card','module-card','music-periods','music-student-workspace','purchases','beauty-customer-detail','beauty-card-progress','customer-primary-snapshot','module-primary-snapshot']);
 function clearCustomerPlanReads(registry: Registry) {
   for (const [key, cache] of registry) {
     if (customerPlanNamespaces.has(JSON.parse(key)[0])) cache.clear();
@@ -22,12 +25,14 @@ function clearCustomerPlanReads(registry: Registry) {
 /** Clear every revision, including caches retained after a customer panel closes. */
 export function useInvalidateCustomerPlanReads() {
   const registry = useContext(Context);
-  return useCallback(() => { if (registry) clearCustomerPlanReads(registry); }, [registry]);
+  const queue=useCustomerReadQueue();
+  return useCallback(() => {queue.clear();if (registry) clearCustomerPlanReads(registry); }, [registry,queue]);
 }
 const PurchaseSeeds = createContext<ReturnType<typeof createPurchaseSnapshotSeeds> | null>(null);
 /** Mounted inside the account/store/module/permission-keyed OperationScope. No persisted data. */
 export function PanelReadProvider({children}: {children?: ReactNode}) {
   const [registry] = useState<Registry>(() => new Map());
+  const [customerQueue]=useState(createCustomerReadQueue);
   const [purchaseSeeds] = useState(createPurchaseSnapshotSeeds);
   const [revision, setRevision] = useState(0);
   const [pending, startTransition] = useTransition();
@@ -36,10 +41,10 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
   const searchParams = useSearchParams();
   const studentPage = pathname?.endsWith("/dashboard/courses") && searchParams.get("view")==="customers";
   useEffect(() => {
-    const invalidate = () => clearCustomerPlanReads(registry);
+    const invalidate = () => {customerQueue.clear();clearCustomerPlanReads(registry);};
     window.addEventListener('customer-search-invalidated', invalidate);
     return () => window.removeEventListener('customer-search-invalidated', invalidate);
-  }, [registry]);
+  }, [registry,customerQueue]);
   useEffect(() => {
     if (!isMusicSyncRoute(pathname)) return;
     let active = true, epoch = 0, deferredRosterRefresh=false;
@@ -61,6 +66,7 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
         // A receipt does not change cards, bookings or student balances.
         // The mounted payment list subscribes directly; other views retain their normal refresh.
         if(kind === "receipt" && studentPage) return;
+        customerQueue.clear();
         for (const cache of registry.values()) cache.clear();
         registry.clear();
         // Keep the open roster's authoritative write response mounted. Other
@@ -95,11 +101,11 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
       window.removeEventListener('music-roster-closed',rosterClosed);
       unsubscribe();
     };
-  }, [pathname, studentPage, registry, router, purchaseSeeds]);
-  return <Context.Provider value={registry}><PurchaseSeeds.Provider value={purchaseSeeds}><MusicRevision.Provider value={revision}>
+  }, [pathname, studentPage, registry, router, purchaseSeeds,customerQueue]);
+  return <CustomerReadQueue.Provider value={customerQueue}><Context.Provider value={registry}><PurchaseSeeds.Provider value={purchaseSeeds}><MusicRevision.Provider value={revision}>
     {revision > 0 && isMusicSyncRoute(pathname) && <p role="status" className="px-3 text-sm text-earth-600">{pending ? "同步教務資料中…" : "教務資料已同步"}</p>}
     {children}
-  </MusicRevision.Provider></PurchaseSeeds.Provider></Context.Provider>;
+  </MusicRevision.Provider></PurchaseSeeds.Provider></Context.Provider></CustomerReadQueue.Provider>;
 }
 /** scopeVersion includes any alternate store, permission or server-row revision used by the loader. */
 export function usePanelReadCache<T>(namespace: string, fetcher: (key: string) => Promise<T>, scopeVersion = "", ttlMs = 15_000, maxEntries = 50) {

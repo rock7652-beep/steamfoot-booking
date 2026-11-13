@@ -13,7 +13,7 @@ export function useCalendarMonthPreload({enabled,date,blocked,reader,revision=0}
 
 export function useIdleReadPreload({enabled,keys,blocked,reader,revision=0,startDelayMs=1500,gapMs=500,concurrency=1,retainSnapshots=false,allowFocusedInput=false,repeatAfterMs=0}:{
  enabled:boolean;keys:string[];blocked:boolean;revision?:number;
- reader:{read:(key:string)=>Promise<unknown>;get:(key:string)=>unknown;snapshot?:(key:string)=>unknown};
+ reader:{read:(key:string)=>Promise<unknown>;get:(key:string)=>unknown;snapshot?:(key:string)=>unknown;cancel?:(key:string)=>void};
  startDelayMs?:number;gapMs?:number;concurrency?:number;retainSnapshots?:boolean;allowFocusedInput?:boolean;repeatAfterMs?:number;
 }){
   const key=JSON.stringify(keys);
@@ -23,6 +23,7 @@ export function useIdleReadPreload({enabled,keys,blocked,reader,revision=0,start
     if(!enabled||blocked)return;
     let canceled=false;
     const timers=new Set<ReturnType<typeof setTimeout>>();
+    const pendingTargets=new Set<string>();
     const targets=JSON.parse(key) as string[];
     let restarting=false;
     const repeat=()=>{
@@ -44,14 +45,14 @@ export function useIdleReadPreload({enabled,keys,blocked,reader,revision=0,start
       const target=targets.shift()!;
       const cached=retainSnapshots?reader.snapshot?.(target)??reader.get(target):reader.get(target);
       if(!cached){
-        active.current++;
+        active.current++;pendingTargets.add(target);
         try{await reader.read(target);}catch{/* Actual navigation owns retry feedback. */}
-        finally{active.current--;}
+        finally{active.current--;pendingTargets.delete(target);}
       }
       if(!canceled&&targets.length)schedule(gapMs);
       else repeat();
     };
     for(let worker=0;worker<Math.min(concurrency,targets.length);worker++)schedule(startDelayMs);
-    return()=>{canceled=true;for(const timer of timers)clearTimeout(timer);};
+    return()=>{canceled=true;for(const timer of timers)clearTimeout(timer);for(const target of pendingTargets)reader.cancel?.(target);};
   },[enabled,key,blocked,reader,revision,startDelayMs,gapMs,concurrency,retainSnapshots,allowFocusedInput,repeatAfterMs]);
 }
