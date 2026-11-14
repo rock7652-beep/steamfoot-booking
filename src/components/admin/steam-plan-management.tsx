@@ -21,6 +21,6 @@ export function SteamPlanManagement({customerId,customerName,walletId,storeId,ac
  if(action!=='history'&&(readOnly||data.wallet.closed))return <p role="alert">此方案目前無法修改</p>;
  return <PlanManagementControls key={action+':'+revision} compactActions showActions={false} storeId={storeId} card={data.wallet} save={saveSteamPlanManagement} initialAction={action} unitLabel="堂" allowExpiry={!!data.wallet.expiresAt}
   sessionAdjustment={{save:saveSteamSessionAdjustment,records:data.records,members:[{id:customerId,name:customerName}],readOnly:readOnly||data.wallet.closed,blockedReason:!data.wallet.active&&action!=='history'?'僅有效方案可調整額度':undefined}}
-  history={<WalletSessionDetail sessions={data.sessions.map(s=>({...s,updatedAt:new Date(s.updatedAt),reservedAt:s.reservedAt?new Date(s.reservedAt):null,completedAt:s.completedAt?new Date(s.completedAt):null,voidedAt:s.voidedAt?new Date(s.voidedAt):null,booking:null,voidedByStaff:null}))}/>}
+  history={<WalletSessionDetail sessions={data.sessions.map(s=>({...s,updatedAt:new Date(s.updatedAt),reservedAt:s.reservedAt?new Date(s.reservedAt):null,completedAt:s.completedAt?new Date(s.completedAt):null,voidedAt:s.voidedAt?new Date(s.voidedAt):null,booking:s.booking?{...s.booking,bookingDate:new Date(s.booking.bookingDate)}:null}))}/>}
   onDirtyChange={setDirty} onPending={value=>{setPending(value);onPending?.(value);}} onCancel={onCancel} onSaved={()=>{setDirty(false);setResult(null);setRevision(n=>n+1);onSaved();}}/>;
 }
