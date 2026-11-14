@@ -1314,7 +1314,7 @@ function WalletItem({
         </div>
       </div>
 
-      <div className="px-3"><PlanUsageGrid progress={walletPlanProgress(w)} unitLabel="堂" /></div>
+      <div className="px-3"><PlanUsageGrid noShowLabel="未到" progress={walletPlanProgress(w)} unitLabel="堂" /></div>
 
       {canAdjustWallet&&!readOnly&&<SteamPlanOperations wallet={w} customerId={customerId} available={availableCount} reserved={reservedCount}/>}
 

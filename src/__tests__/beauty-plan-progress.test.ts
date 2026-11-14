@@ -35,3 +35,17 @@ it('rejects missing dates, excess usage and inconsistent balances without invent
  m.manual.mockResolvedValue([{...manual,quantity:2001}]);expect((await beautyPlanProgress(tx,'store',card)).available).toBe(false);
  m.manual.mockResolvedValue([]);expect((await beautyPlanProgress(tx,'store',{...card,remaining:1})).available).toBe(false);
 });
+
+it('labels a deducted no-show and drops it after the authoritative debit is reversed',async()=>{
+ const visit={id:'absent',status:'NO_SHOW',startsAt:new Date('2026-11-02T03:00Z'),customerId:'a',personName:'顧客',serviceName:'護理'};
+ m.visits.mockResolvedValue([visit]);
+ expect(await beautyPlanProgress(tx,'store',{...card,remaining:4},['a','b'])).toMatchObject({available:true,completed:[{id:'absent',usageKind:'NO_SHOW',date:'2026-11-02T03:00:00.000Z'}]});
+ expect(m.visits.mock.calls[0][0].select.status).toBe(true);
+ m.visits.mockResolvedValue([]);
+ expect(await beautyPlanProgress(tx,'store',card,['a','b'])).toMatchObject({available:true,completed:[]});
+});
+it('preserves absence labels in batch-provided visits, including two events on the same day',async()=>{
+ const base={startsAt:new Date('2026-11-02T03:00Z'),customerId:'a',personName:'顧客',serviceName:'護理'};
+ expect(await beautyPlanProgress(tx,'store',{...card,remaining:3},['a','b'],{visits:[{...base,id:'one',status:'COMPLETED'},{...base,id:'two',status:'NO_SHOW'}],adjustments:[],closes:[]})).toMatchObject({available:true,completed:[{id:'one'},{id:'two',usageKind:'NO_SHOW'}]});
+ expect(m.visits).not.toHaveBeenCalled();
+});
