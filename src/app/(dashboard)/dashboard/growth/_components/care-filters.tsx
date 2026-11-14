@@ -1,3 +1,4 @@
+import { InstantFilterForm } from "@/components/instant-filter-form";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { CareReason } from "@/lib/customer-care-lifecycle";
 
@@ -12,7 +13,7 @@ export function CareFilters({month,selected,counts,baseHref="/dashboard/growth",
       </nav>
       <details className="min-w-0">
         <summary className="flex min-h-11 cursor-pointer items-center text-sm text-earth-600">生日月份 · {month}</summary>
-        <form data-settings-panel-filter className="flex flex-wrap items-center gap-2 pb-2">{Object.entries(query).map(([name,value]) => <input key={name} type="hidden" name={name} value={value}/>)}{selected && <input type="hidden" name="segment" value={selected}/>}<input className="min-h-11 max-w-full rounded border border-earth-200 p-2 text-sm" aria-label="生日月份" type="month" name="month" defaultValue={month}/><button className="min-h-11 rounded border border-earth-200 px-3 text-sm">套用</button></form>
+        <InstantFilterForm action={baseHref} panelAware className="flex flex-wrap items-center gap-2 pb-2">{Object.entries(query).map(([name,value]) => <input key={name} type="hidden" name={name} value={value}/>)}{selected && <input type="hidden" name="segment" value={selected}/>}<input className="min-h-11 max-w-full rounded border border-earth-200 p-2 text-sm" aria-label="生日月份" type="month" name="month" defaultValue={month}/></InstantFilterForm>
       </details>
     </div>
   );

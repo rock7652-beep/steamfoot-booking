@@ -111,3 +111,15 @@ it('rejects duplicate batch weekdays or a non-beauty weekly batch without writes
  const day={dayOfWeek:4,isOpen:true,periods:[{openTime:'10:00',closeTime:'18:00'}]};
  expect(await saveServiceHours(await input({mode:'weekly',weeklyDays:[day]}))).toMatchObject({success:false});m.module.mockResolvedValue('beauty');expect(await saveServiceHours(await input({mode:'weekly',weeklyDays:[day,day]}))).toMatchObject({success:false});expect(write).not.toHaveBeenCalled();
 });
+
+it("protects the Taiwan business date near midnight independently of the process timezone",async()=>{
+ m.module.mockResolvedValue('beauty');
+ await db.exec(`INSERT INTO "BeautyAppointment" VALUES ('s','2030-10-11T00:15:00+08','2030-10-11T01:00:00+08','RESERVED');`);
+ const receipt=await input({mode:'weekly',status:'closed',periods:[],weeklyDays:[{dayOfWeek:5,isOpen:false,periods:[]}]});
+ expect(await saveServiceHours(receipt)).toMatchObject({success:false,error:expect.stringContaining('2030-10-11 00:15 已有預約')});
+ const index=raw.mock.calls.findIndex(([query])=>query.join('').includes('FROM "BeautyAppointment"'));
+ const rows=await raw.mock.results[index].value;
+ expect(rows).toEqual([{bookingDate:new Date('2030-10-11T00:00:00Z'),startTime:'00:15',endTime:'01:00',people:1}]);
+ expect((await db.query('SELECT id FROM "BusinessHours" WHERE "storeId"=\'s\' AND "dayOfWeek"=5')).rows).toEqual([]);
+ expect((await db.query('SELECT id FROM "AuditLog"')).rows).toEqual([]);
+});

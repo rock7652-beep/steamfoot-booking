@@ -11,6 +11,7 @@ export function CourseMonthPicker({ month }: { month: string }) {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(nextMonth)) return;
     const next = new URLSearchParams(params.toString());
     next.set("month", nextMonth);
+    next.delete("page");
     startTransition(() =>
       router.replace(`${pathname}?${next}`, { scroll: false }),
     );
@@ -45,12 +46,11 @@ export function CourseMonthPicker({ month }: { month: string }) {
           name="month"
           defaultValue={month}
           required
+          onChange={event => change(event.target.value)}
           className="min-h-11 rounded-lg border border-earth-200 bg-white px-3"
         />
       </label>
-      <button type="submit" className={button} disabled={pending}>
-        套用月份
-      </button>
+
       <button
         type="button"
         className={button}

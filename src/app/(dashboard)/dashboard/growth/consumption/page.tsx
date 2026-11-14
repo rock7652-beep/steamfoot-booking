@@ -35,7 +35,7 @@ export default async function CustomerConsumptionPage({ searchParams }: { search
   const metrics = data?.metrics ?? consumptionMetrics(options);
   return <PageShell compact>
     <PageHeader compact title="期間消耗統計" />
-    <ConsumptionFiltersForm key={JSON.stringify(params)} params={params} filters={filters} options={options} staffOptions={staffOptions} metrics={metrics} beauty={access.module === "beauty"} error={errorMessage} />
+    <ConsumptionFiltersForm key={`${user.id}:${access.storeId}:${access.module}`} params={params} filters={filters} options={options} staffOptions={staffOptions} metrics={metrics} beauty={access.module === "beauty"} error={errorMessage} />
     {data && <ConsumptionResults {...data} courseMode={data.module === "course"} beautyMode={data.module === "beauty"} canExport={exportPermission && exportFeature} />}
     <details className="rounded-lg border border-earth-200 px-3 text-sm text-earth-600">
       <summary className="flex min-h-11 cursor-pointer items-center">統計口徑與餘額說明</summary>

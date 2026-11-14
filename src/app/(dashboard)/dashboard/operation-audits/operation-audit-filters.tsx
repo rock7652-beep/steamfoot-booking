@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { resolveDashboardHref } from "@/components/dashboard-link";
@@ -36,12 +36,17 @@ export function OperationAuditFilters({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const composing = useRef(false);
+  const [error, setError] = useState("");
   const restored = useRef(false);
   const keywordTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyFilters = (form: HTMLFormElement) => {
+    if (composing.current) return;
     const data = new FormData(form);
     const values = Object.fromEntries(FILTER_NAMES.map((name) => [name, String(data.get(name) ?? "")])) as FilterValues;
+    if (!values.dateFrom || !values.dateTo || values.dateFrom > values.dateTo) { setError("請填寫完整且正確的日期區間"); return; }
+    setError("");
     const query = new URLSearchParams();
 
     FILTER_NAMES.forEach((name) => {
@@ -94,10 +99,13 @@ export function OperationAuditFilters({
         if (keywordTimer.current) clearTimeout(keywordTimer.current);
         applyFilters(event.currentTarget);
       }}
+      onCompositionStart={() => { composing.current = true; if (keywordTimer.current) clearTimeout(keywordTimer.current); }}
+      onCompositionEnd={event => { composing.current = false; const form = event.currentTarget; keywordTimer.current = setTimeout(() => applyFilters(form), 400); }}
       onChange={(event) => {
         const target = event.target as unknown as HTMLInputElement | HTMLSelectElement;
         const form = event.currentTarget;
 
+        if (composing.current) return;
         if (target.name === "q") {
           if (keywordTimer.current) clearTimeout(keywordTimer.current);
           keywordTimer.current = setTimeout(() => applyFilters(form), 400);
@@ -110,6 +118,7 @@ export function OperationAuditFilters({
         applyFilters(form);
       }}
     >
+      {error && <p role="alert" className="basis-full text-amber-700">{error}</p>}
       <input type="hidden" name="dateMode" value={followToday ? "today" : "fixed"} />
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <span className="text-earth-600">日期</span>
