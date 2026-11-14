@@ -1,3 +1,4 @@
+import {SteamPlanOperations} from "@/components/admin/steam-plan-operations";
 import { PlanUsageGrid } from "@/components/admin/plan-usage-grid";
 import { walletPlanProgress } from "@/lib/wallet-plan-progress";
 import { getCustomerPanelContext } from "@/server/actions/customer-panel-context";
@@ -35,14 +36,8 @@ import {
 import { AssignPlanForm } from "./assign-plan-form";
 import { TransferCustomerForm } from "./transfer-customer-form";
 import { CreateBookingForm } from "./create-booking-form";
-import { AdjustWalletForm } from "./adjust-wallet-form";
-import {SteamPlanClose} from "@/components/admin/steam-plan-close";
-import { ExtendWalletExpiryForm } from "./extend-wallet-expiry-form";
-import { BackfillUsedSessionsForm } from "./backfill-used-sessions-form";
 import { MigratePaperPlanDialog } from "./migrate-paper-plan-dialog";
-import { VoidSessionButton } from "./void-session-button";
 import {
-  WalletSessionDetail,
   type SessionRow,
 } from "@/components/wallet-session-detail";
 import { CustomerStageForm } from "./customer-stage-form";
@@ -554,10 +549,10 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               <div className="space-y-2">
                 {activeWallets.map((w) => (
                   <WalletItem
+                    customerId={customer.id}
                     key={w.id}
                     w={w}
                     simplified={simplified}
-                    userRole={user.role}
                     canAdjustWallet={canAdjustWallet && !isViewMode}
                     readOnly={isViewMode}
                   />
@@ -573,11 +568,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     <div className="mt-2 space-y-2 opacity-70">
                       {inactiveWallets.map((w) => (
                         <WalletItem
+                    customerId={customer.id}
                           key={w.id}
                           w={w}
                     simplified={simplified}
-                          userRole={user.role}
-                          canAdjustWallet={canAdjustWallet && !isViewMode}
+                                canAdjustWallet={canAdjustWallet && !isViewMode}
                           readOnly={isViewMode}
                         />
                       ))}
@@ -1250,7 +1245,7 @@ function SystemRow({ label, value }: { label: string; value: React.ReactNode }) 
 
 function WalletItem({
   w,
-  userRole,
+  customerId,
   canAdjustWallet,
   readOnly = false,
   simplified = false,
@@ -1268,33 +1263,16 @@ function WalletItem({
     sessions: SessionRow[];
     bookings?: { bookingStatus: string; isMakeup: boolean; people?: number }[];
   };
-  userRole: string;
+  customerId: string;
   canAdjustWallet: boolean;
   readOnly?: boolean;
   simplified?: boolean;
 }) {
-  // PR-2 wallet-session-ui：所有非 CUSTOMER 角色都可見註銷按鈕；
-  // wallet.adjust 權限由 server action 把關，UI 只負責顯示。
-  const canVoid = !readOnly && userRole !== "CUSTOMER";
-
   // 從 sessions 推 available / reserved 計數，給補登 form 即時 preview 用。
   const availableCount = w.sessions.filter((s) => s.status === "AVAILABLE").length;
   const reservedCount = w.sessions.filter((s) => s.status === "RESERVED").length;
   const summary = customerWalletSummary(w);
 
-  // compact 第二輪：方案卡降高 — 摘要常駐顯示，次要操作（調整堂數 / 延長
-  // 期限 / 堂數明細）一律收進單一 per-wallet「管理 ▾」，確保多方案時「建立
-  // 預約」仍在第一屏。功能不變，只是預設收合。
-  const canAdjustActive = canAdjustWallet && w.status === "ACTIVE";
-  const canExtend =
-    canAdjustWallet &&
-    !!w.expiryDate &&
-    (w.status === "ACTIVE" || w.status === "EXPIRED");
-  const hasSessions = w.sessions.length > 0;
-  const hasManage = canAdjustActive || canExtend || hasSessions;
-  const manageLabel = readOnly
-    ? "堂數明細"
-    : "管理（調整堂數 / 延長到期日 / 堂數明細）";
 
   return (
     <div className="rounded-lg border border-earth-200">
@@ -1338,66 +1316,8 @@ function WalletItem({
 
       <div className="px-3"><PlanUsageGrid progress={walletPlanProgress(w)} unitLabel="堂" /></div>
 
-      {/* 次要操作 — 預設收合（調整堂數 / 延長期限 / 堂數明細）*/}
-      {hasManage && (
-        <details className="group border-t border-earth-100">
-          <summary className="flex cursor-pointer items-center justify-between rounded px-3 py-1.5 text-[11px] font-medium text-earth-500 hover:text-earth-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-earth-300">
-            <span className="group-open:hidden">{manageLabel} ▾</span>
-            <span className="hidden group-open:inline">收合 ▴</span>
-          </summary>
-          <div className="space-y-2 px-3 pb-3">
-            {canAdjustActive && (
-              <div className="space-y-2">
-                <AdjustWalletForm walletId={w.id} currentRemaining={w.remainingSessions} />
-                {availableCount > 0 && (
-                  <BackfillUsedSessionsForm
-                    walletId={w.id}
-                    available={availableCount}
-                    reserved={reservedCount}
-                    startDateLocal={toLocalDateStr(w.startDate)}
-                  />
-                )}
-              </div>
-            )}
-            {/* PR-2：延長有效期限 — ACTIVE / EXPIRED 且有期限者可延長 */}
-            {canAdjustWallet &&
-              w.expiryDate &&
-              (w.status === "ACTIVE" || w.status === "EXPIRED") && (
-                <ExtendWalletExpiryForm
-                  walletId={w.id}
-                  currentExpiry={w.expiryDate.toISOString().slice(0, 10)}
-                  expired={w.status === "EXPIRED"}
-                />
-              )}
-            {canAdjustWallet&&!readOnly&&<SteamPlanClose wallet={{id:w.id,storeId:w.storeId,remainingSessions:w.remainingSessions,expiryDate:w.expiryDate,status:w.status}}/>}
-            {hasSessions && (
-              <div className="border-t border-earth-100 pt-2">
-                <p className="mb-1.5 text-[11px] font-semibold text-earth-600">
-                  堂數明細
-                </p>
-                <WalletSessionDetail
-                  sessions={w.sessions}
-                  adminVoid={
-                    canVoid
-                      ? {
-                          walletId: w.id,
-                          walletPlanName: w.plan.name,
-                          renderButton: (s) => (
-                            <VoidSessionButton
-                              sessionId={s.id}
-                              sessionNo={s.sessionNo}
-                              walletPlanName={w.plan.name}
-                            />
-                          ),
-                        }
-                      : undefined
-                  }
-                />
-              </div>
-            )}
-          </div>
-        </details>
-      )}
+      {canAdjustWallet&&!readOnly&&<SteamPlanOperations wallet={w} customerId={customerId} available={availableCount} reserved={reservedCount}/>}
+
     </div>
   );
 }

@@ -115,3 +115,11 @@ it('rejects switched-store Beauty batches before progress or transaction reads',
  const {readBeautyNativeProgressBatch}=await import('@/server/actions/beauty-native-customers');
  expect(await readBeautyNativeProgressBatch({expectedStoreId:'foreign',customerId:'c',cardIds:['card']})).toMatchObject({success:false});expect(m.readTx).not.toHaveBeenCalled();expect(m.progress).not.toHaveBeenCalled();
 });
+
+it('scopes Beauty usage history to the exact owned plan before pagination',async()=>{
+ expect(await readBeautyNativeCustomerBookings('c',10,{cardId:'card'})).toMatchObject({success:true});
+ expect(m.card).toHaveBeenCalledWith({where:{id:'card',storeId:'a',memberIds:{has:'c'}},select:{id:true}});
+ expect(m.bookings).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:'a',customerId:'c',cardId:'card'}),skip:10,take:11}));
+});
+it('denies foreign or unowned Beauty plan history before reading appointments',async()=>{m.card.mockResolvedValue(null);expect(await readBeautyNativeCustomerBookings('c',0,{cardId:'foreign'})).toMatchObject({success:false});expect(m.bookings).not.toHaveBeenCalled();});
+it('requires wallet read permission for plan scoped Beauty history',async()=>{m.manager.mockImplementation(async p=>{if(p==='wallet.read')throw Error('denied');return a;});expect(await readBeautyNativeCustomerBookings('c',0,{cardId:'card'})).toMatchObject({success:false});expect(m.bookings).not.toHaveBeenCalled();});

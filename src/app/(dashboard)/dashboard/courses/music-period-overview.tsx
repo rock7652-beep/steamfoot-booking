@@ -1,4 +1,5 @@
 "use client";
+import {CLOSED_PLAN_LABEL} from "@/lib/plan-status-label";
 import {useCoursePersonnelText} from "@/components/course-personnel-label";
 import {musicBatchLabel,musicPeriodLabel} from "@/lib/music-purchase-periods";
 import { useEffect, useState, useTransition } from "react";
@@ -29,7 +30,7 @@ export function MusicPeriodOverview({customerId,initialCardId=""}:{customerId:st
  const periods=[...new Set(card.slots.map(s=>s.period))];
  const editing=card.bookings.find(b=>b.id===edit);
  return <div className="space-y-3">
-  <div className="flex flex-wrap items-end gap-2"><label className="min-w-0 flex-1 text-sm">持有方案<select aria-label="逐期方案" className={`${field} mt-1 w-full`} value={card.id} onChange={e=>{setCardId(e.target.value);setPeriod("all");setEdit("");}}>{data.data.map(c=><option key={c.id} value={c.id}>{c.nameSnapshot}・{musicBatchLabel(c.purchaseBatch,c.periodStart,c.musicTermSizes.length)}{c.closedAt?"（已停用）":""}</option>)}</select></label><label className="text-sm">期別<select aria-label="逐期期別" className={`${field} ml-2`} value={period} onChange={e=>setPeriod(e.target.value)}><option value="all">全部期別</option>{periods.map(n=><option key={n} value={n}>{n>card.musicTermSizes.length?"贈課":musicPeriodLabel(n,card.periodStart,card.purchaseBatch)}</option>)}</select></label><button className={field} onClick={()=>setRevision(n=>n+1)}>更新</button></div>
+  <div className="flex flex-wrap items-end gap-2"><label className="min-w-0 flex-1 text-sm">持有方案<select aria-label="逐期方案" className={`${field} mt-1 w-full`} value={card.id} onChange={e=>{setCardId(e.target.value);setPeriod("all");setEdit("");}}>{data.data.map(c=><option key={c.id} value={c.id}>{c.nameSnapshot}・{musicBatchLabel(c.purchaseBatch,c.periodStart,c.musicTermSizes.length)}{c.closedAt?`（${CLOSED_PLAN_LABEL}）`:""}</option>)}</select></label><label className="text-sm">期別<select aria-label="逐期期別" className={`${field} ml-2`} value={period} onChange={e=>setPeriod(e.target.value)}><option value="all">全部期別</option>{periods.map(n=><option key={n} value={n}>{n>card.musicTermSizes.length?"贈課":musicPeriodLabel(n,card.periodStart,card.purchaseBatch)}</option>)}</select></label><button className={field} onClick={()=>setRevision(n=>n+1)}>更新</button></div>
   {card.tuition!==null&&<p className="text-sm text-earth-600">購課約定金額 NT$ {card.tuition.toLocaleString()}・各期金額沿用購課的分攤規則，付款與退款請至付款紀錄核對。</p>}
   {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
   {card.musicOpeningStateRequired?<p className="rounded bg-amber-50 p-3 text-sm">此方案的期別須另行核對，不依日期自動分期。</p>:<div className="overflow-x-auto rounded-lg border"><table data-striped-list className="w-full min-w-[600px] text-left text-sm"><thead className="bg-earth-50"><tr>{["期別／堂次",personnelText("日期／教師"),"課堂狀態","歸屬操作"].map(h=><th className="px-3 py-2" key={h}>{h}</th>)}</tr></thead><tbody>

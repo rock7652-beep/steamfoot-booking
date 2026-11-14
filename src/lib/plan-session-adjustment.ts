@@ -10,7 +10,7 @@ export const sessionAdjustmentInput = z.object({
   duplicateAcknowledgement: z.string().regex(/^[a-f0-9]{64}$/).optional(),
 }).superRefine((d, ctx) => {
   if (d.operation === 'BACKFILL' && (!d.occurredOn || !parseTaipeiDateTime(d.occurredOn, '00:00') || d.occurredOn > toLocalDateStr()))
-    ctx.addIssue({code:'custom',path:['occurredOn'],message:'請填寫有效且不晚於今天的實際上課日期'});
+    ctx.addIssue({code:'custom',path:['occurredOn'],message:'請填寫有效且不晚於今天的實際日期'});
   if (d.operation === 'REVERSE' && !d.reversalOf)
     ctx.addIssue({code:'custom',path:['reversalOf'],message:'請選擇要更正的原紀錄'});
 });
@@ -26,7 +26,8 @@ export type SessionAdjustmentRecord = {
 export type BackfillDuplicateReview = {token:string;date:string;existingQuantity:number};
 export type SessionAdjustmentResult = {success:true;data:{record:SessionAdjustmentRecord;remaining:number;expiresAt:string|null};syncWarning?:boolean}
   | {success:false;error:string;uncertain?:boolean;duplicateReview?:BackfillDuplicateReview};
-export function activeSessionAdjustments(records:SessionAdjustmentRecord[]) {
+export type SessionAdjustmentHistoryRecord=Omit<SessionAdjustmentRecord,'remainingBefore'|'remainingAfter'>&{remainingBefore?:number;remainingAfter?:number};
+export function activeSessionAdjustments<T extends Pick<SessionAdjustmentRecord,'id'|'operation'|'reversalOf'>>(records:T[]) {
   const reversed = new Set(records.flatMap(r => r.reversalOf ? [r.reversalOf] : []));
   return records.filter(r => r.operation !== 'REVERSE' && !reversed.has(r.id));
 }

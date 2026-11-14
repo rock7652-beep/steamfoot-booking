@@ -1,6 +1,8 @@
 "use client";
+import {CLOSED_PLAN_LABEL} from "@/lib/plan-status-label";
 import {PlanCardHeader} from "@/components/admin/plan-card-header";
-import {ExclusiveMenu} from "@/components/admin/exclusive-menu";
+import {PlanGridActions} from "@/components/admin/plan-grid-actions";
+import {SteamPlanManagement} from "@/components/admin/steam-plan-management";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { CustomerPhoneLink } from "@/components/customer-detail-fields";
 import {CustomerProfileConnection,customerProfileLineLabel} from "@/components/admin/customer-profile-layout";
@@ -19,10 +21,6 @@ import type { CustomerPanelSummary } from "@/server/actions/customer-panel-summa
 import { CustomerPanelSummaryView } from "./customer-panel-summary";
 import { CustomerPanelRecordsList } from "./customer-panel-records";
 
-import { AdjustWalletForm } from "../[id]/adjust-wallet-form";
-import {SteamPlanClose} from "@/components/admin/steam-plan-close";
-import { ExtendWalletExpiryForm } from "../[id]/extend-wallet-expiry-form";
-import { BackfillUsedSessionsForm } from "../[id]/backfill-used-sessions-form";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 import { walletAvailableToBook, walletPendingCount } from "@/lib/wallet-availability";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -95,6 +93,7 @@ export function CustomerDetailDrawerContent({
   const [showInactive, setShowInactive] = useState(false);
   const [view, setView] = useState<"overview" | "booking" | "edit">("overview");
   const [activeEditor,setActiveEditor] = useState<string | null>(null);
+  const [managementPending,setManagementPending]=useState(false);
   const editingAttribution=activeEditor === "attribution";
   const setEditingAttribution=(open:boolean)=>setActiveEditor(open ? "attribution" : null);
   const [panelTab, setPanelTab] = useState<"overview" | "bookings" | "consumption" | "profile">("overview");
@@ -227,29 +226,18 @@ export function CustomerDetailDrawerContent({
                     className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 rounded-lg border border-earth-200 bg-earth-50 px-3 py-2"
                   >
                     <PlanCardHeader summary={<>
-                      <strong className="tabular-nums text-primary-900">{expired || w.status === "EXPIRED" ? "已到期" : w.status === "CANCELLED" ? "已取消" : w.status === "USED_UP" ? "已用完" : `可預約 ${available} 堂`}</strong>
+                      <strong className="tabular-nums text-primary-900">{w.status === "CANCELLED" ? CLOSED_PLAN_LABEL : expired || w.status === "EXPIRED" ? "已到期" : w.status === "USED_UP" ? "已用完" : `可預約 ${available} 堂`}</strong>
                       {expiry ? <span className={`tabular-nums ${expired ? "text-red-600" : "text-earth-500"}`}>{toLocalDateStr(expiry)} 到期</span> : <span className="text-earth-500">無期限</span>}
                     </>} actions={<>
                       {!readOnly && customer.canAssignPlan && plans.some(plan=>plan.id===w.plan.id&&plan.category!=="TRIAL")&&<button type="button" className="min-h-11 shrink-0 whitespace-nowrap rounded-lg border border-primary-300 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>{if(allowNavigation()){setActiveEditor(null);handleReorder(w.plan.id);}}}>續購同方案</button>}
-                      {((customer.canReadWallets&&customer.canReadBookings)||(!readOnly&&customer.canAdjustWallet&&["ACTIVE","EXPIRED"].includes(w.status)))&&<ExclusiveMenu label={`${w.plan.name} 更多操作`} triggerText="⋯">
-                        {!readOnly&&customer.canAdjustWallet&&w.status==="ACTIVE"&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{if(allowNavigation())setActiveEditor(`${w.id}:adjust`);}}>調整剩餘堂數</button>}
-                        {!readOnly&&customer.canAdjustWallet&&w.status==="ACTIVE"&&available>0&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{if(allowNavigation())setActiveEditor(`${w.id}:backfill`);}}>補登已上課</button>}
-                        {!readOnly&&customer.canAdjustWallet&&w.expiryDate&&["ACTIVE","EXPIRED"].includes(w.status)&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{if(allowNavigation())setActiveEditor(`${w.id}:expiry`);}}>調整期限</button>}
-                        {customer.canReadWallets&&customer.canReadBookings&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm" onClick={()=>{if(allowNavigation())setActiveEditor(`${w.id}:history`);}}>使用紀錄</button>}
-                        {!readOnly&&customer.canAdjustWallet&&["ACTIVE","EXPIRED"].includes(w.status)&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm text-red-700" onClick={()=>{if(allowNavigation())setActiveEditor(`${w.id}:close`);}}>註銷方案</button>}
-                      </ExclusiveMenu>}
+                      {customer.canReadWallets&&<PlanGridActions disabled={managementPending} label={w.plan.name} allowSession={!readOnly&&customer.canAdjustWallet&&w.status==="ACTIVE"&&available>0} allowExpiry={!readOnly&&customer.canAdjustWallet&&!!w.expiryDate&&["ACTIVE","EXPIRED"].includes(w.status)} allowClose={!readOnly&&customer.canAdjustWallet&&["ACTIVE","EXPIRED"].includes(w.status)} onHistory={()=>{if(!managementPending&&allowNavigation())setActiveEditor(`${w.id}:history`);}} onSelect={action=>{if(!managementPending&&allowNavigation())setActiveEditor(`${w.id}:${action}`);}}/>}
                     </>}>
                       <div className="break-words text-sm font-semibold text-earth-900">{w.plan.name}</div>
                     </PlanCardHeader>
                     <div className="w-full min-w-0 text-sm text-earth-600"><p>{w.purchasedPrice == null ? "方案金額待核對" : `方案金額 NT$ ${w.purchasedPrice.toLocaleString("zh-TW")}`}</p>{reserved>0&&<p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 tabular-nums"><span>剩餘 {remaining} 堂</span><span>預約保留 {reserved} 堂</span></p>}</div>
                     <div className="w-full min-w-0">
-                      {customer.canReadWallets&&customer.canReadBookings&&<CustomerPanelSessions key={`${w.id}-${revision}`} storeId={w.storeId} customerId={customer.id} walletId={w.id} totalSessions={w.totalSessions} remainingSessions={remaining} initialProgress={w.usageProgress} hideDetailsToggle detailsOpen={activeEditor===`${w.id}:history`} onDetailsClose={()=>setActiveEditor(null)} planName={w.plan.name} canVoid={!readOnly && customer.canAdjustWallet && w.status!=='CANCELLED'} onMutated={handleMutated} />}
-                      {activeEditor?.startsWith(`${w.id}:`) && activeEditor!==`${w.id}:history`&&<div className="mt-2 min-w-0 [&_button]:min-h-11">
-                        {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && activeEditor===`${w.id}:adjust`&&<AdjustWalletForm controlledOpen onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:adjust` : null);}} walletId={w.id} currentRemaining={remaining} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
-                        {!readOnly && customer.canAdjustWallet && w.status === "ACTIVE" && available > 0 && activeEditor===`${w.id}:backfill`&&<BackfillUsedSessionsForm controlledOpen onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:backfill` : null);}} walletId={w.id} available={available} reserved={reserved} startDateLocal={toLocalDateStr(w.startDate)} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
-                        {!readOnly && customer.canAdjustWallet && w.expiryDate && (w.status === "ACTIVE" || w.status === "EXPIRED") && activeEditor===`${w.id}:expiry`&&<ExtendWalletExpiryForm controlledOpen onOpenChange={open=>{if(allowNavigation())setActiveEditor(open ? `${w.id}:expiry` : null);}} walletId={w.id} currentExpiry={toLocalDateStr(w.expiryDate)} expired={expired} onSuccess={()=>{setActiveEditor(null);handleMutated();}} />}
-                        {!readOnly && customer.canAdjustWallet && activeEditor===`${w.id}:close`&&<SteamPlanClose initialAction="close" showActions={false} wallet={w} onCancel={()=>setActiveEditor(null)} onSaved={()=>{setActiveEditor(null);handleMutated();}}/>}
-                      </div>}
+                      {customer.canReadWallets&&customer.canReadBookings&&<CustomerPanelSessions key={`${w.id}-${revision}`} storeId={w.storeId} customerId={customer.id} walletId={w.id} totalSessions={w.totalSessions} remainingSessions={remaining} initialProgress={w.usageProgress} hideDetailsToggle planName={w.plan.name} canVoid={!readOnly && customer.canAdjustWallet && w.status!=='CANCELLED'} onMutated={handleMutated} />}
+                      {activeEditor?.startsWith(`${w.id}:`)&&<div className="mt-2 min-w-0"><SteamPlanManagement onPending={setManagementPending} key={w.id} customerId={customer.id} customerName={customer.name} walletId={w.id} storeId={w.storeId} action={activeEditor.slice(w.id.length+1) as import('@/components/admin/plan-grid-actions').PlanGridAction|'history'} readOnly={readOnly||!customer.canAdjustWallet} onCancel={()=>setActiveEditor(null)} onSaved={()=>{setActiveEditor(null);handleMutated();}}/></div>}
 
                     </div>
                   </li>

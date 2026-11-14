@@ -7,10 +7,10 @@ import {getManagerCustomerWhere} from '@/lib/manager-visibility';
 import {prisma} from '@/lib/db';
 import {AppError,handleActionError} from '@/lib/errors';
 import {planManagementInput,type PlanManagementResult} from '@/lib/plan-management';
-import {closeSteamWallet} from '@/server/services/steam-wallet-management';
+import {manageSteamWallet} from '@/server/services/steam-wallet-management';
 import {settingsSaveUncertain} from '@/server/services/settings-save-error';
 
-export async function closeSteamPlan(input:unknown):Promise<PlanManagementResult>{
+export async function saveSteamPlanManagement(input:unknown):Promise<PlanManagementResult>{
  let committed=false;
  try{
   const d=planManagementInput.parse(input),user=await requireWritablePermission('wallet.adjust');
@@ -23,9 +23,16 @@ export async function closeSteamPlan(input:unknown):Promise<PlanManagementResult
    if(rows.length!==1)throw new AppError('FORBIDDEN','店家已停用或模組已變更');
    const wallet=await tx.customerPlanWallet.findFirst({where:{id:d.cardId,storeId},select:{customerId:true}});
    if(!wallet||!await tx.customer.findFirst({where:{...getManagerCustomerWhere(user.role,user.staffId,storeId),id:wallet.customerId,storeId,mergedIntoCustomerId:null},select:{id:true}}))throw new AppError('FORBIDDEN','僅能調整有權管理之顧客的方案');
-   return closeSteamWallet(tx,{storeId,userId:user.id,name:user.name??undefined,role:user.role},d,user.staffId??null);
+   return manageSteamWallet(tx,{storeId,userId:user.id,name:user.name??undefined,role:user.role},d,user.staffId??null);
   });committed=true;
   let syncWarning=false;try{revalidatePath('/dashboard/customers');revalidatePath('/my-plans');revalidatePath('/book');revalidatePath('/liff/wallets');}catch{syncWarning=true;}
   return {success:true,data:result,syncWarning};
  }catch(error){const r=handleActionError(error);return {success:false,error:r.success?'方案尚未確認':r.error,uncertain:committed||settingsSaveUncertain(error)};}
+}
+
+/** Compatibility for existing closing entry points. */
+export async function closeSteamPlan(input:unknown):Promise<PlanManagementResult>{
+ const d=planManagementInput.safeParse(input);
+ if(!d.success||d.data.operation!=='close')return {success:false,error:'請使用對應的方案操作'};
+ return saveSteamPlanManagement(d.data);
 }

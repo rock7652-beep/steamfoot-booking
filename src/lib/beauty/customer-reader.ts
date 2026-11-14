@@ -1,5 +1,5 @@
 import type {CourseCustomerSource} from '@/app/(dashboard)/dashboard/courses/member-source';
-async function read<T>(store:string,operation:string,input?:unknown,offset?:number,range?:{from?:string;to?:string;mode?:string}):Promise<T>{
+async function read<T>(store:string,operation:string,input?:unknown,offset?:number,range?:{from?:string;to?:string;mode?:string;cardId?:string}):Promise<T>{
  const at=performance.now(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
  try{const response=await fetch('/api/beauty/customer-read',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({store,operation,input,offset,range}),signal:controller.signal});const result=await response.json();if(typeof result?.success!=='boolean'||!response.ok&&result.success)throw Error('顧客讀取回應不正確');return result as T;}
  finally{clearTimeout(timer);performance.measure('beauty-read.customer.'+operation,{start:at,end:performance.now()});}

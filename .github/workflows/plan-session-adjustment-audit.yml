@@ -9,6 +9,8 @@ on:
       - 'src/server/services/music-lesson-periods.ts'
       - 'src/server/beauty/command.ts'
       - 'src/__tests__/plan-session-adjustment.pg.test.ts'
+      - 'src/__tests__/steam-session-adjustment.pg.test.ts'
+      - 'src/server/services/steam-wallet-management.ts'
       - '.github/workflows/plan-session-adjustment-audit.yml'
 permissions:
   contents: read
@@ -52,9 +54,23 @@ jobs:
             if (!r.success || r.numTotalTests !== 14 || r.numPassedTests !== 14 || r.numPendingTests !== 0)
               throw new Error("All fourteen session adjustment PostgreSQL scenarios must pass without skips");
           '
+      - name: Steam quantity commands, legacy corrections and expiry
+        run: >-
+          npx vitest run src/__tests__/steam-session-adjustment.pg.test.ts
+          --reporter=default --reporter=json --outputFile=steam-session-adjustment-pg-results.json
+      - name: Require all Steam scenarios without skips
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("steam-session-adjustment-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 11 || r.numPassedTests !== 11 || r.numPendingTests !== 0)
+              throw new Error("All eleven Steam PostgreSQL scenarios must pass without skips");
+          '
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: plan-session-adjustment-pg-results
-          path: plan-session-adjustment-pg-results.json
+          path: |
+            plan-session-adjustment-pg-results.json
+            steam-session-adjustment-pg-results.json
           retention-days: 7

@@ -1,4 +1,5 @@
 "use client";
+import {CLOSED_PLAN_LABEL} from "@/lib/plan-status-label";
 import {PlanCardHeader} from "@/components/admin/plan-card-header";
 import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import {useCustomerCardReader} from "@/components/admin/use-customer-card-reader";
@@ -44,7 +45,7 @@ function CardBrowserContent({load,preloadDetails=false,reservations,renderProgre
   const renderRows=()=>visible?.rows.map(c=>{
           const unit=c.unit==="SESSION"?sessionUnitLabel:"點";
           const inactive=c.closed||c.expired;
-          const status=c.closed?"已停用":c.expired?"已到期":c.remaining>0&&c.available===0&&c.held>=c.remaining?"額度已全數預約":c.remaining===0?"額度已用完":null;
+          const status=c.closed?CLOSED_PLAN_LABEL:c.expired?"已到期":c.remaining>0&&c.available===0&&c.held>=c.remaining?"額度已全數預約":c.remaining===0?"額度已用完":null;
           if(native||overview)return <div key={c.id} className={overview?"rounded-lg border border-earth-200 bg-earth-50 px-3 py-2 text-sm":"px-3 py-2 text-sm"}>
             <PlanCardHeader summary={<>
               <span className="whitespace-nowrap font-semibold">{inactive?status:c.unit==="SESSION"?`可預約 ${c.available} ${sessionUnitLabel}`:`可用 ${c.available} 點`}</span>
@@ -73,7 +74,7 @@ function CardBrowserContent({load,preloadDetails=false,reservations,renderProgre
     {!overview && customerId && ready && visible?.totals && (!native||visible.rows.length>0) && <div aria-label="有效方案合計" className="space-y-1 rounded-lg bg-primary-50 px-3 py-2 text-sm"><p className="font-semibold">有效方案合計 · {visible.totals.reduce((sum,total)=>sum+total.count,0)} 個</p>{(!native||visible.totals.some(t=>t.count>0))&&<p>{courseBalanceText(visible.totals)}</p>}{!compact && <p className="text-earth-600">{sharedCardState!=="HIDDEN"&&"共卡為共同餘額；"}各方案期限與適用課程分開計算。</p>}</div>}
     {(!overview||state.search||state.page>0||visible?.hasMore||(visible?.rows.length??0)>5)&&<div className="flex flex-wrap items-center gap-2">
       {(!native||state.search||state.page>0||visible?.hasMore||(visible?.rows.length??0)>5)&&<input aria-label={sharedCardState==="HIDDEN"?"搜尋持有方案或持有人":"搜尋持有方案或共卡成員"} className="min-h-11 min-w-0 flex-1 rounded-lg border border-earth-200 bg-white px-3 text-base" placeholder={sharedCardState==="HIDDEN"?"搜尋方案／持有人":"搜尋方案／共卡成員"} value={state.search} onChange={e=>onChange({...state,search:e.target.value,page:0})}/>}
-      {!overview&&<select aria-label="方案效期" className="min-h-11 rounded-lg border border-earth-200 bg-white px-2 text-sm" value={state.history ? "history":"active"} onChange={e=>onChange({...state,history:e.target.value==="history",page:0})}><option value="active">有效方案</option><option value="history">已到期／停用</option></select>}
+      {!overview&&<select aria-label="方案效期" className="min-h-11 rounded-lg border border-earth-200 bg-white px-2 text-sm" value={state.history ? "history":"active"} onChange={e=>onChange({...state,history:e.target.value==="history",page:0})}><option value="active">有效方案</option><option value="history">已到期／註銷</option></select>}
     </div>}
     {!ready && <p role="status">更新中…</p>}
     {ready && result?.error ? <p role="alert">{result.error}<button className="min-h-11 px-3" onClick={()=>{browseReader.invalidate({customerId,dataScope,...state});setRetry(n=>n+1);}}>重試</button></p> : <fieldset disabled={!ready} className={!ready?"opacity-60":""}>

@@ -1,3 +1,5 @@
+import {CLOSED_PLAN_LABEL} from "./plan-status-label";
+
 /**
  * 預約系統共用常數與 helper — 全站唯一定義來源
  *
@@ -225,7 +227,7 @@ export const WALLET_STATUS_LABEL: Record<string, string> = {
   ACTIVE: "有效",
   USED_UP: "已用完",
   EXPIRED: "已過期",
-  CANCELLED: "已取消",
+  CANCELLED: CLOSED_PLAN_LABEL,
 };
 
 // ============================================================
