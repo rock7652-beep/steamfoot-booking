@@ -76,7 +76,7 @@ export async function getStorePerformanceTrends(
         transactionType: true,
         amount: true,
         customerPlanWalletId: true,
-        customerPlanWallet: { select: { status: true } },
+        customerPlanWallet: { select: { id: true, status: true } },
       },
     }),
     prisma.cashbookEntry.findMany({
@@ -115,9 +115,10 @@ export async function getStorePerformanceTrends(
         customerId: true,
         transactionDate: true,
         paidAt: true,
+        id: true,
         amount: true,
         refunds: { where: { status: "SUCCESS", paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } }, select: { amount: true } },
-        customerPlanWallet: { select: { status: true } },
+        customerPlanWallet: { select: { id: true, status: true } },
       },
     }),
   ]);
@@ -156,7 +157,7 @@ export async function getStorePerformanceTrends(
       convertedCustomers: conversion.convertedCustomerIds.size,
       conversionRate: conversion.trialCustomerIds.size === 0
         ? 0
-        : (conversion.currentTrialConvertedCustomerIds.size / conversion.trialCustomerIds.size) * 100,
+        : (conversion.cohortConvertedCustomerIds.size / conversion.trialCustomerIds.size) * 100,
       completedServices,
       revenue: systemRevenue + manualIncome,
       retailRevenue,

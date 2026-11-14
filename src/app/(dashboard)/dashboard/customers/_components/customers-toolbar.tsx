@@ -1,4 +1,5 @@
 "use client";
+import { requestCustomerDrawerOpen } from "@/lib/customer-drawer-open";
 import { normalizeCourseCustomerFilters } from "@/lib/course-customer-filters";
 import { CustomerLabelFilter } from "@/components/customer-labels";
 
@@ -103,7 +104,7 @@ export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, cou
   // Local suggestions are immediate; serialize list navigations and retain the
   // latest input while the previous server-rendered list is still pending.
   useEffect(() => {
-    if (composing || isPending || instantQuery === current.search) return;
+    if (composing || isPending || searchParams.has("customerId") || instantQuery === current.search) return;
     const params = courseMode ? normalizeCourseCustomerFilters(latestParams.current) : new URLSearchParams(latestParams.current.toString());
     if (instantQuery) params.set("search", instantQuery);
     else params.delete("search");
@@ -111,6 +112,7 @@ export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, cou
     const url = `${pathname}?${params}`;
     if (lastListRequest.current === url) return;
     const timer = setTimeout(() => {
+      if (new URLSearchParams(window.location.search).has("customerId")) return;
       lastListRequest.current = url;
       startTransition(() => router.replace(url, { scroll: false }));
     }, 250);
@@ -238,7 +240,9 @@ export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, cou
             setDraft({ source: current.search, value });
           }}
           onSelect={(customer) => {
-            pushParams((p) => { p.set("customerId", customer.id); });
+            if (!requestCustomerDrawerOpen(customer.id, pathname)) {
+              pushParams((p) => { p.set("customerId", customer.id); });
+            }
           }} /> : <>
         <input
           name="search"

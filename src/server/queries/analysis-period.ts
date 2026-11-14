@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { bookingDateToday, parseTaipeiDateTime, analysisComparisonRanges, analysisRetentionCohort, parseTaiwanDateToDbDate, type AnalysisRange } from "@/lib/date-utils";
-import { selectConversionCustomerIds, type CompletedTrial, type PackagePurchase } from "./conversion-metrics";
+import { selectConversionCustomerIds, selectRenewalCustomerIds, type CompletedTrial, type PackagePurchase } from "./conversion-metrics";
 import { hydrateCustomerSegment } from "./customer-segment-list";
 import type { CustomerKpiSegment } from "./customer-kpi-segments";
 import { loadIndividualBookingFacts, replaceGroupedBookingFacts } from "./booking-participant-facts";
@@ -24,17 +24,22 @@ export function selectPeriodFacts(range: AnalysisRange, previous: AnalysisRange,
   return {
     counts: {
       uniqueVisitors: visitors.size, newVisitors: newVisitors.size, returningVisitors: returning.size,
+      trialCustomers: conversion.trialCustomerIds.size,
       trialAttendees, unidentifiedTrialVisits: trialRows.reduce((sum, row) => sum + Math.max(0, (row.attendedPeople ?? row.people ?? 1) - (row.customerId ? 1 : 0)), 0),
       trialBookingGroups: new Set(trialRows.map((row, index) => row.bookingId ?? row.id ?? `legacy-${index}`)).size, completedServices: attendees(rows),
       currentTrialConversions: currentConverted, trackedConversions: conversion.trackedConvertedCustomerIds.size,
       convertedCustomers: conversion.convertedCustomerIds.size,
-      conversionRate: conversion.trialCustomerIds.size ? currentConverted / conversion.trialCustomerIds.size * 100 : 0,
+      renewedCustomers: selectRenewalCustomerIds(range.startDate.slice(0, 7), purchases, range).size,
+      observingTrialCustomers: conversion.observingTrialCustomerIds.size,
+      conversionRate: conversion.trialCustomerIds.size ? conversion.cohortConvertedCustomerIds.size / conversion.trialCustomerIds.size * 100 : 0,
       unconvertedCustomers: conversion.unconvertedCustomerIds.size,
       returnedCustomers: returned.size, retentionRate: cohort.size ? returned.size / cohort.size * 100 : 0,
       unreturnedCustomers: notReturned.size,
     },
     segments: {
       "monthly-customers": visitors, "monthly-new": newVisitors, "monthly-returning": returning,
+      "monthly-conversion-trial": conversion.trialCustomerIds,
+      "monthly-renewed": selectRenewalCustomerIds(range.startDate.slice(0, 7), purchases, range),
       "monthly-trial": trialIds, "monthly-converted": conversion.convertedCustomerIds,
       "monthly-current-trial-converted": conversion.currentTrialConvertedCustomerIds,
       "monthly-tracked-converted": conversion.trackedConvertedCustomerIds,
@@ -54,13 +59,12 @@ async function loadPeriodFacts(storeId: string, ranges: AnalysisRange[]) {
   const visits = [...replaceGroupedBookingFacts(groupedVisits, individual.groupIds), ...individual.visits, ...(individual.unregisteredVisits ?? [])];
   const trials = [...replaceGroupedBookingFacts(groupedTrials, individual.groupIds), ...individual.visits.filter(visit => visit.bookingType === "FIRST_TRIAL")];
   const ids = [...new Set(visits.flatMap(v => v.customerId ? [v.customerId] : []))];
-  const trialIds = [...new Set(trials.map(v => v.customerId))];
   const [firstRows, purchases] = await Promise.all([
     ids.length ? prisma.booking.groupBy({ by: ["customerId"], where: { storeId, bookingStatus: "COMPLETED", customerId: { in: ids },
       ...(individual.groupIds.size ? { id: { notIn: [...individual.groupIds] } } : {}) }, _min: { bookingDate: true } }) : [],
-    trialIds.length ? prisma.transaction.findMany({ where: { storeId, customerId: { in: trialIds }, transactionType: "PACKAGE_PURCHASE", status: "SUCCESS", paymentStatus: { in: ["SUCCESS", "CONFIRMED"] }, customerPlanWalletId: { not: null },
-      OR: [{ paidAt: { lte: new Date() } }, { paidAt: null, transactionDate: { lte: new Date() } }] }, select: { customerId: true, transactionDate: true, paidAt: true, amount: true,
-      refunds: { where: { status: "SUCCESS", paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } }, select: { amount: true } }, customerPlanWallet: { select: { status: true } } } }) : [],
+    prisma.transaction.findMany({ where: { storeId, customerId: { not: null }, transactionType: "PACKAGE_PURCHASE", status: "SUCCESS", paymentStatus: { in: ["SUCCESS", "CONFIRMED"] }, customerPlanWalletId: { not: null },
+      OR: [{ paidAt: { lte: new Date() } }, { paidAt: null, transactionDate: { lte: new Date() } }] }, select: { id: true, customerId: true, transactionDate: true, paidAt: true, amount: true,
+      refunds: { where: { status: "SUCCESS", paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } }, select: { amount: true } }, customerPlanWallet: { select: { id: true, status: true } } } }),
   ]);
   const first = new Map(firstRows.flatMap(r => r._min.bookingDate ? [[r.customerId, r._min.bookingDate] as const] : []));
   for (const visit of individual.visits) if (!first.has(visit.customerId) || visit.bookingDate < first.get(visit.customerId)!) first.set(visit.customerId, visit.bookingDate);

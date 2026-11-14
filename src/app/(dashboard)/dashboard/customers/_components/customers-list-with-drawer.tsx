@@ -16,11 +16,11 @@ import {
 } from "@/server/actions/customer";
 import type { getCustomerDrawerDetail } from "@/server/queries/customer";
 
+import { CUSTOMER_DRAWER_OPEN_EVENT, type CustomerDrawerOpenRequest } from "@/lib/customer-drawer-open";
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
 import { usePanelReadCache,useCustomerReadQueue } from "@/components/operations/panel-read-cache";
 
-import type { CustomerPanelSummary } from "@/server/actions/customer-panel-summary";
-type DrawerDetail = Awaited<ReturnType<typeof getCustomerDrawerDetail>> & {panelSummary?:CustomerPanelSummary};
+type DrawerDetail = Awaited<ReturnType<typeof getCustomerDrawerDetail>>;
 
 interface Plan {
   id: string;
@@ -238,6 +238,19 @@ export function CustomersListWithDrawer({
     [applyOpen],
   );
 
+  useEffect(() => {
+    const onSearchSelect = (event: Event) => {
+      const request = event as CustomEvent<CustomerDrawerOpenRequest>;
+      if (request.detail.pathname !== pathname || !request.detail.customerId) return;
+      // Handled also when the unsaved-edit guard declines the switch: do not
+      // let the toolbar fall back to a navigation that bypasses that guard.
+      event.preventDefault();
+      openCustomer(request.detail.customerId);
+    };
+    window.addEventListener(CUSTOMER_DRAWER_OPEN_EVENT, onSearchSelect);
+    return () => window.removeEventListener(CUSTOMER_DRAWER_OPEN_EVENT, onSearchSelect);
+  }, [openCustomer, pathname]);
+
   // 關閉 = 純 client state；history.replaceState 移除 ?customerId=
   // （不 soft-nav、不 router.refresh、不重刷列表）。lastUrlCidRef 重設為
   // null：close 不更新 Next searchParams，stale 殘值不會觸發 effect 重開，
@@ -428,7 +441,6 @@ export function CustomersListWithDrawer({
           <CustomerDetailDrawerContent
             key={detail.id}
             customer={detail}
-            initialSummary={detail.panelSummary}
             plans={plans}
             canDiscount={canDiscount}
             staffOptions={staffOptions}

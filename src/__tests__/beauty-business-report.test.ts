@@ -54,3 +54,12 @@ it('reuses the original paid/refund cutoff rules for conversion and new-card met
  const future=beautyBusinessReport({...input,cards:refunded.map(c=>({...c,refunds:[{amount:4500,createdAt:date('2026-10-30')}]}))});
  expect(future.counts.newCard).toBe(1);expect(future.counts.converted).toBe(1);
 });
+
+
+it('keeps Beauty renewal people and drill-down equal, deduplicates repeated purchases and rejects free/full-refund cards',()=>{
+ const card=(id:string,day:string,paid=4500,refunds:{amount:number;createdAt:Date}[]=[])=>({id,customerId:'old',createdAt:date(day),paid,revenueStaffId:null,refunds});
+ const report=beautyBusinessReport({...input,cards:[card('first','2026-09-01'),card('second','2026-10-05'),card('third','2026-10-06'),{...card('free','2026-10-07',0),customerId:'new'}, {...card('refund','2026-10-08',4500,[{amount:4500,createdAt:date('2026-10-09')}]),customerId:'new'}]});
+ expect(report.counts.newCard).toBe(0);
+ expect(report.counts.renewal).toBe(1);
+ expect(report.segments?.renewal.map(row=>row.id)).toEqual(['old']);
+});
