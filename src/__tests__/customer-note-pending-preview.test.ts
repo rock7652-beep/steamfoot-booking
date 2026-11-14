@@ -27,7 +27,7 @@ vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-summar
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-sessions", () => ({ CustomerPanelSessions: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/create-booking-form", () => ({ CreateBookingForm: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/edit/edit-customer-form", () => ({ EditCustomerForm: () => null }));
-vi.mock("@/app/(dashboard)/dashboard/customers/[id]/adjust-wallet-form", () => ({ AdjustWalletForm: () => null }));
+vi.mock("@/components/admin/steam-plan-void", () => ({ SteamPlanVoid: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/extend-wallet-expiry-form", () => ({ ExtendWalletExpiryForm: () => null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/[id]/backfill-used-sessions-form", () => ({ BackfillUsedSessionsForm: () => null }));
 
