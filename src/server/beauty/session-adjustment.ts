@@ -24,8 +24,8 @@ export async function adjustBeautySessions(tx:Tx,a:BeautyActor,d:SessionAdjustme
     if(d.operation==='REVERSE'&&(!original||original.customerId!==d.customerId||original.quantity!==d.quantity))throw new AppError('CONFLICT','原紀錄已更正或內容不符，請重新核對');
     if(d.operation!=='REVERSE'){
       const held=await tx.beautyAppointment.count({where:{storeId:a.storeId,cardId:card.id,status:'RESERVED'}});
-      if(d.quantity>card.remaining-held)throw new AppError('BUSINESS_RULE','可用堂數不足，已預約占用的額度不能調整');
-      if(d.operation==='BACKFILL'&&d.occurredOn!>toLocalDateStr(card.expiresAt))throw new AppError('VALIDATION','上課日期超過方案有效期限');
+      if(d.quantity>card.remaining-held)throw new AppError('BUSINESS_RULE','可用次數不足，已預約占用的額度不能調整');
+      if(d.operation==='BACKFILL'&&d.occurredOn!>toLocalDateStr(card.expiresAt))throw new AppError('VALIDATION','服務日期超過方案有效期限');
     }
     const remaining=card.remaining+(d.operation==='REVERSE'?d.quantity:-d.quantity);
     const id='plan-session-adjustment:'+createHash('sha256').update(JSON.stringify([a.storeId,d.requestKey])).digest('hex');

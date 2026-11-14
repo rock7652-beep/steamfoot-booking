@@ -10,7 +10,7 @@ export const sessionAdjustmentInput = z.object({
   duplicateAcknowledgement: z.string().regex(/^[a-f0-9]{64}$/).optional(),
 }).superRefine((d, ctx) => {
   if (d.operation === 'BACKFILL' && (!d.occurredOn || !parseTaipeiDateTime(d.occurredOn, '00:00') || d.occurredOn > toLocalDateStr()))
-    ctx.addIssue({code:'custom',path:['occurredOn'],message:'請填寫有效且不晚於今天的實際上課日期'});
+    ctx.addIssue({code:'custom',path:['occurredOn'],message:'請填寫有效且不晚於今天的實際日期'});
   if (d.operation === 'REVERSE' && !d.reversalOf)
     ctx.addIssue({code:'custom',path:['reversalOf'],message:'請選擇要更正的原紀錄'});
 });

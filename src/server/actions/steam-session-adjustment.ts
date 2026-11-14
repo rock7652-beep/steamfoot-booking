@@ -1,4 +1,5 @@
 'use server';
+import {z} from 'zod';
 import {Prisma} from '@prisma/client';
 import {revalidatePath} from 'next/cache';
 import {prisma} from '@/lib/db';
@@ -31,10 +32,12 @@ export async function saveSteamSessionAdjustment(input:unknown):Promise<SessionA
 
 export async function readSteamPlanOperations(customerId:string,walletId:string){
  try{
+  z.string().min(1).max(180).parse(customerId);z.string().min(1).max(180).parse(walletId);
   const user=await requirePermission('customer.read');await requirePermission('wallet.read');
   const {resolveStoreViewContextFromCookie,storeIdForViewContext,userForViewContext}=await import('@/lib/store-view-context-server');
   const {getActiveStoreForRead}=await import('@/lib/store');
   const context=await resolveStoreViewContextFromCookie(user),storeId=storeIdForViewContext(await getActiveStoreForRead(user),context),actor=userForViewContext(user,context);
+  if(!storeId)throw new AppError('FORBIDDEN','請先選擇店家');
   await requireSteamfootStore(storeId);
   const customer=await prisma.customer.findFirst({where:{...getManagerCustomerWhere(actor.role,actor.staffId,storeId),id:customerId,storeId,mergedIntoCustomerId:null,user:{isNot:{status:'SUSPENDED'}}},select:{id:true,name:true}});
   if(!customer)throw new AppError('FORBIDDEN','找不到本店可查閱的顧客');
