@@ -44,7 +44,7 @@ export async function adjustSteamSessions(tx:Prisma.TransactionClient,a:Actor,d:
  const fingerprint=createHash('sha256').update(JSON.stringify([a.userId,d])).digest('hex');
  const previous=await tx.auditLog.findUnique({where:{id},select:{storeId:true,afterJson:true}});
  if(previous){const saved=previous.afterJson as unknown as Receipt;if(previous.storeId!==a.storeId||saved?.fingerprint!==fingerprint||!saved.record)throw new AppError('CONFLICT','操作識別碼已使用，請核對原請求');return {record:saved.record,remaining:saved.record.remainingAfter,expiresAt:d.expectedExpiresAt};}
- await tx.$queryRaw`SELECT id FROM "WalletSession" WHERE "walletId"=${d.cardId} ORDER BY id FOR UPDATE`;
+ await tx.$queryRaw`SELECT s.id FROM "WalletSession" s JOIN "CustomerPlanWallet" w ON w.id=s."walletId" WHERE s."walletId"=${d.cardId} AND w."storeId"=${a.storeId} AND w."customerId"=${d.customerId} ORDER BY s.id FOR UPDATE OF s`;
  const wallet=await tx.customerPlanWallet.findFirst({where:{id:d.cardId,storeId:a.storeId,customerId:d.customerId}});
  if(!wallet)throw new AppError('FORBIDDEN','找不到本店顧客持有的方案');
  if(wallet.status==='CANCELLED'||wallet.remainingSessions!==d.expectedRemaining||(wallet.expiryDate?.toISOString()??null)!==d.expectedExpiresAt)throw new AppError('CONFLICT','方案額度、期限或狀態已更新，請重新核對');

@@ -12,7 +12,7 @@ const databaseUrl=resolveBookingConcurrencyTestDatabaseUrl(process.env),schema='
 const url=databaseUrl?new URL(databaseUrl):null;url?.searchParams.set('schema',schema);url?.searchParams.set('connection_limit','6');
 const db=url?new PrismaClient({datasourceUrl:url.toString()}):null;
 const actor={storeId:'steam',userId:'manager',name:'Synthetic manager',role:'OWNER',staffId:null};
-async function tx<T>(work:(t:Prisma.TransactionClient)=>Promise<T>,lock=true){return db!.$transaction(async t=>{await t.$executeRawUnsafe(`SET LOCAL search_path="${schema}"`);if(lock)await t.$queryRaw`SELECT id FROM "Store" WHERE id='steam' FOR UPDATE`;return work(t);},{timeout:20000});}
+async function tx<T>(work:(t:Prisma.TransactionClient)=>Promise<T>,lock=true){return db!.$transaction(async t=>{await t.$executeRawUnsafe(`SET LOCAL search_path="${schema}"`);if(lock)await t.$queryRaw`SELECT id FROM "Store" WHERE id='steam' FOR UPDATE`;return work(t);},{timeout:20000,isolationLevel:'Serializable'});}
 (databaseUrl?describe:describe.skip)('Steam common plan transactions in PostgreSQL',()=>{
  beforeAll(async()=>{await db!.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);await tx(async t=>{for(const sql of [
   `CREATE TABLE "Store"(id text PRIMARY KEY)`,`INSERT INTO "Store" VALUES('steam')`,
