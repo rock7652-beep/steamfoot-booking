@@ -47,7 +47,11 @@ import {CoursePurchaseIntentProvider} from "@/app/(dashboard)/dashboard/courses/
 let host:HTMLDivElement,root:Root;
 const props={view:"customers" as const,templates:[],people:[{id:"person",name:"測試學員",phone:"0900000000",email:null,gender:null,birthday:"",height:null,lineName:null,serviceNote:null,address:null,notes:null,emergencyContactName:null,emergencyContactPhone:null}],plans:[],cards:[],canEdit:true,canCreate:true,canManageStaff:false,canAssign:true,canReadBookings:true,canReadTransactions:true,healthEnabled:true,customerRows:[],canReadCards:true,assignmentStaff:[],canAssignManager:false};
 const click=async(text:string)=>{const find=()=>[...host.querySelectorAll("button")].find(b=>b.textContent===text||b.getAttribute("aria-label")===text);await vi.waitFor(()=>expect(find(),text).toBeTruthy());await act(async()=>find()!.click());};
-beforeEach(()=>{m.query="customerId=person";vi.clearAllMocks();m.browse.mockResolvedValue({success:true,rows:[],hasMore:false});vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[],hasMore:false,totals:[]});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);});
+beforeEach(()=>{m.query="customerId=person";vi.clearAllMocks();
+ // Match the router contract: replacing a URL updates the next rendered search params.
+ window.history.replaceState(null,"","/dashboard/courses?"+m.query);
+ m.replace.mockImplementation((href:string)=>{const url=new URL(href,window.location.href);m.query=url.search.slice(1);window.history.replaceState(null,"",url.pathname+url.search+url.hash);});
+m.browse.mockResolvedValue({success:true,rows:[],hasMore:false});vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[],hasMore:false,totals:[]});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();});
 it("preserves the edit draft across tabs and closes without redundant confirmation",async()=>{
  await act(async()=>root.render(createElement(CourseMemberWorkspace,props)));
