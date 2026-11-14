@@ -33,7 +33,7 @@ export function CustomerConsumptionFilters({
   const [range, setRange] = useState(initial.range);
   const hasFilters = initial.range !== "3m" || initial.kind !== "all" || initial.payment !== "all" || Boolean(initial.keyword);
 
-  return <InstantFilterForm label="消費紀錄篩選" onNavigationReset={() => setRange(initial.range)} preserveQuery className="rounded-xl border border-earth-200 bg-white p-3 sm:p-4">
+  return <InstantFilterForm label="消費紀錄篩選" navigationKey={JSON.stringify(initial)} onNavigationReset={() => setRange(initial.range)} preserveQuery className="rounded-xl border border-earth-200 bg-white p-3 sm:p-4">
     <input type="hidden" name="type" value="transactions" />
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <label className="text-sm font-medium text-earth-700">時間
