@@ -6,7 +6,8 @@ import {loadMusicCustomerAttention} from "@/server/actions/music-customer-attent
 
 type Result=Awaited<ReturnType<typeof loadMusicCustomerAttention>>;
 export function MusicCustomerAttention({customerId,revision,onRecords}:{customerId:string;revision:number;onRecords:()=>void}) {
- const reader=usePanelReader("music-customer-attention",loadMusicCustomerAttention,String(revision),15000);
+ // Recheck money on each open, including routes without the preview event transport.
+ const reader=usePanelReader("music-customer-attention",loadMusicCustomerAttention,String(revision),0);
  const [result,setResult]=useState<{key:string;value:Result}|null>(null),[retry,setRetry]=useState(0);
  const key=JSON.stringify([customerId,revision,retry]);
  useEffect(()=>{
