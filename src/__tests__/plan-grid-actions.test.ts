@@ -48,3 +48,24 @@ it('keeps point plans free of session adjustments',async()=>{
 it('uses service units for Beauty session actions',async()=>{
  const select=vi.fn();await act(async()=>root.render(React.createElement(PlanGridActions,{unitLabel:'次',onSelect:select})));await click('⋯');await click('補登已服務');expect(select).toHaveBeenCalledWith('BACKFILL');
 });
+it('switches directly between all operations and discards unsent fields without writing',async()=>{
+ await render();await click('補登已上課');
+ const input=host.querySelector('textarea')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'尚未送出的原因');input.dispatchEvent(new Event('input',{bubbles:true}));});
+ await click('註銷堂數');expect(host.querySelector<HTMLSelectElement>('[aria-label="調整類型"]')?.value).toBe('VOID');expect(host.querySelector('textarea')?.value).toBe('');
+ await click('調整期限');expect(host.querySelector('[aria-label="新到期日"]')).not.toBeNull();expect(host.querySelector('[aria-label="調整類型"]')).toBeNull();
+ await click('註銷方案');expect(host.querySelector('[aria-label="新到期日"]')).toBeNull();expect(host.textContent).toContain('收回剩餘 8 堂');
+ await click('補登已上課');expect(host.querySelector<HTMLSelectElement>('[aria-label="調整類型"]')?.value).toBe('BACKFILL');expect(host.textContent).not.toContain('收回剩餘 8 堂');
+ expect(adjust).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled();expect(document.querySelector('button[aria-label="方案 更多操作"]')?.getAttribute('aria-expanded')).toBe('false');
+});
+it('locks other operations after an uncertain adjustment and retries the same request',async()=>{
+ adjust.mockRejectedValueOnce(Error('lost response')).mockResolvedValue({success:false,error:'尚未確認',uncertain:true});
+ await render('VOID');await click('確認調整');await click('⋯');
+ const expiry=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='調整期限')!;expect(expiry.disabled).toBe(true);
+ await act(async()=>expiry.click());expect(host.querySelector('[aria-label="新到期日"]')).toBeNull();
+ await click('重試確認結果');expect(adjust).toHaveBeenCalledTimes(2);expect(adjust.mock.calls[1][0]).toEqual(adjust.mock.calls[0][0]);expect(save).not.toHaveBeenCalled();
+});
+it('uses Beauty service vocabulary throughout the adjustment form',async()=>{
+ await act(async()=>root.render(React.createElement(PlanManagementControls,{compactActions:true,initialAction:'BACKFILL',storeId:'store',card,save,sessionAdjustment:{save:adjust,records:[],members:[{id:'customer',name:'顧客'}]},unitLabel:'次',onSaved})));
+ expect(host.querySelector('[aria-label="實際服務日期"]')).not.toBeNull();expect(host.textContent).toContain('補登已服務');expect(host.textContent).toContain('次數');expect(host.textContent).not.toContain('已上課');expect(host.textContent).not.toContain('堂數');
+});

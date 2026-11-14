@@ -11,11 +11,13 @@ interface Props {
   sessionNo: number;
   walletPlanName: string;
   embedded?: boolean;
+  initialOpen?: boolean;
+  onCancel?: () => void;
   onSuccess?: () => void;
 }
 
-export function VoidSessionButton({ sessionId, sessionNo, walletPlanName, embedded = false, onSuccess }: Props) {
-  const [open, setOpen] = useState(false);
+export function VoidSessionButton({ sessionId, sessionNo, walletPlanName, embedded = false, initialOpen=false, onCancel, onSuccess }: Props) {
+  const [open, setOpen] = useState(initialOpen);
   const [reason, setReason] = useState("");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -26,6 +28,7 @@ export function VoidSessionButton({ sessionId, sessionNo, walletPlanName, embedd
     if (pending) return;
     setOpen(false);
     setReason("");
+    onCancel?.();
   }
 
   function handleConfirm() {
@@ -49,12 +52,12 @@ export function VoidSessionButton({ sessionId, sessionNo, walletPlanName, embedd
 
   return (
     <>
-      <button
+      {!initialOpen&&<button
         onClick={() => setOpen(true)}
         className="rounded border border-earth-300 bg-white px-2 py-0.5 text-[11px] font-medium text-earth-700 hover:border-red-300 hover:bg-red-50 hover:text-red-700"
       >
         註銷此堂
-      </button>
+      </button>}
 
       {open && (
         <div
@@ -93,12 +96,12 @@ export function VoidSessionButton({ sessionId, sessionNo, walletPlanName, embedd
             />
 
             <p className="mt-3 mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              註銷後堂數會立即減少；填錯可在使用明細中「更正返還」。本操作不會自動退費。
+              註銷後堂數會立即減少；本操作不會自動退費。
             </p>
 
             <div className="flex justify-end gap-2">
               <button
-                onClick={embedded ? undefined : close}
+                onClick={close}
                 disabled={pending}
                 className="rounded-lg bg-earth-100 px-4 py-2 text-sm text-earth-600 hover:bg-earth-200 disabled:opacity-60"
               >
