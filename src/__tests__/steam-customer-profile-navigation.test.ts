@@ -23,12 +23,12 @@ beforeEach(()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});Object
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
 it('offers stable sections and puts all records behind one entry without losing cardless events',async()=>{
  await act(async()=>root.render(createElement(CustomerDetailDrawerContent,props)));
- expect([...host.querySelectorAll('nav button')].map(button=>button.textContent)).toEqual(['總覽','資料','健康追蹤']);
+ expect([...host.querySelectorAll('nav button')].map(button=>button.textContent)).toEqual(['總覽','健康追蹤']);
  expect(visibleText()).not.toContain('預約保留');expect(visibleText()).toContain('購買 2026-11-01');
  await click('全部紀錄');expect(host.querySelector('[data-records="bookings"]')?.textContent).toBe('無方案單次預約');
  await act(async()=>{const select=host.querySelector<HTMLSelectElement>('[aria-label="紀錄類型"]')!;select.value='purchases';select.dispatchEvent(new Event('change',{bubbles:true}));});
  expect(host.querySelector('[data-records="consumption"]')?.textContent).toBe('無卡消費');
- await click('資料');expect(visibleText()).toContain('test@example.invalid');expect(visibleText()).not.toContain('健康量測');
+ await click('‹ 返回總覽');expect(visibleText()).toContain('test@example.invalid');expect(visibleText()).not.toContain('健康量測');
  await click('健康追蹤');expect(visibleText()).not.toContain('test@example.invalid');expect(host.querySelector('[data-summary="health"]')).not.toBeNull();
 });
 it('uses a single expanded LINE destination and the same plan history from its name',async()=>{
@@ -38,5 +38,5 @@ it('uses a single expanded LINE destination and the same plan history from its n
 });
 it('does not expose a health tab without the feature',async()=>{
  await act(async()=>root.render(createElement(CustomerDetailDrawerContent,{...props,initialSummary:{...props.initialSummary!,healthEnabled:false}})));
- expect([...host.querySelectorAll('nav button')].map(button=>button.textContent)).toEqual(['總覽','資料']);
+ expect([...host.querySelectorAll('nav button')].map(button=>button.textContent)).toEqual([]);
 });

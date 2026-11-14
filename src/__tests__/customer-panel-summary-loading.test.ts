@@ -6,6 +6,7 @@ const m=vi.hoisted(()=>({summary:vi.fn()}));
 vi.mock("@/lib/customer-panel-summary-read",()=>({readCustomerPanelSummary:m.summary}));
 vi.mock("@/server/actions/transaction",()=>({confirmTransactionPayment:vi.fn()}));
 vi.mock("@/components/admin/settings-panel-context",()=>({useSettingsPanelGuard:()=>{}}));
+vi.mock("@/components/steam-customer-health-tracking",()=>({SteamCustomerHealthTracking:()=>null}));
 import {CustomerPanelSummaryView} from "@/app/(dashboard)/dashboard/customers/_components/customer-panel-summary";
 import type {CustomerPanelSummary} from "@/server/actions/customer-panel-summary";
 const summary=(label:string):CustomerPanelSummary=>({next:null,pending:[{id:label,walletId:null,label,amount:100,method:"CASH"}],canConfirm:false,healthEnabled:false,health:null});

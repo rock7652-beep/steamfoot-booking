@@ -15,9 +15,9 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
 export type CardBrowseState = { search: string; history: boolean; page: number };
-function CardBrowserContent({load,preloadDetails=false,reservations,renderProgress,renderActions,sessionUnitLabel="堂", overview=false,  storeId, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
+function CardBrowserContent({load,preloadDetails=false,reservations,renderProgress,renderActions,renderEditor,sessionUnitLabel="堂", overview=false,  storeId, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
   preloadDetails?:boolean;storeId?:string;overview?:boolean;dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
-  onSelect:(card:CourseCardView)=>void;renderProgress?:(card:CourseCardView)=>ReactNode;renderActions?:(card:CourseCardView)=>ReactNode;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
+  onSelect:(card:CourseCardView)=>void;renderProgress?:(card:CourseCardView)=>ReactNode;renderActions?:(card:CourseCardView)=>ReactNode;renderEditor?:(card:CourseCardView)=>ReactNode;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
 }) {
   const browseReader = useCustomerCardReader({load,native,revision,storeId,canReadBookings});
   const detailReader = useCourseCardDetailReader(load,storeId,revision,preloadDetails);
@@ -58,6 +58,7 @@ function CardBrowserContent({load,preloadDetails=false,reservations,renderProgre
             </PlanCardHeader>
             {overview&&c.openingIssue&&<p className="text-sm text-amber-800">{c.openingIssue}</p>}
             {overview&&renderProgress?.(c)}
+            {overview&&renderEditor?.(c)}
             {(!overview&&(!native||c.held>0||!!status))&&<div className="flex flex-wrap items-center gap-x-3 text-earth-600"><span>{inactive?"紀錄剩餘":"剩餘"} {c.remaining} {unit}</span>{canReadBookings&&c.held>0?<CourseCardReservations label={overview?"預約保留":undefined} load={reservations} sessionUnitLabel={sessionUnitLabel} cardId={c.id} held={c.held} unit={c.unit} revision={revision}/>:!overview||c.held>0?<span>{overview?"預約保留":"已預約"} {c.held} {unit}{c.unit==="POINT"?"額度":""}</span>:null}{!inactive&&status&&<span className="text-xs">{status}</span>}</div>}
           </div>;
           return <tr key={c.id}>

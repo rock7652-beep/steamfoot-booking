@@ -58,7 +58,7 @@ it("preserves the edit draft across tabs and closes without redundant confirmati
  await click("編輯顧客資料");
  const input=host.querySelector('input[name="name"]') as HTMLInputElement;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"尚未儲存姓名");input.dispatchEvent(new Event("input",{bubbles:true}));});
- await click("總覽");await click("全部紀錄");await click("資料");await click("編輯顧客資料");
+ await click("總覽");await click("全部紀錄");await click("總覽");await click("編輯顧客資料");
  expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("尚未儲存姓名");
  vi.spyOn(window,"confirm").mockReturnValue(false);await click("關閉顧客資料");
  expect(window.confirm).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();expect(host.querySelector("aside")).toBeNull();
@@ -113,7 +113,7 @@ it("keeps the customer shell and navigation stable across internal pages",async(
  expect(shell?.getAttribute("data-width")).toBe("1100");
  expect(shell?.getAttribute("data-fit-content")).toBe("false");
  expect(shell?.getAttribute("data-max-height")).toBe("900");
- for(const label of ["購買方案","資料","健康追蹤","總覽","全部紀錄","資料"]){
+ for(const label of ["購買方案","總覽","健康追蹤","總覽","全部紀錄","總覽"]){
   await click(label);
   expect(host.querySelector("aside")).toBe(shell);
   expect(shell?.getAttribute("data-width")).toBe("1100");
@@ -164,11 +164,10 @@ it("keeps exactly one music summary when entering and leaving checkout repeatedl
  const errors=vi.spyOn(console,"error");
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,music:true})));
  for(let i=0;i<3;i++){
-  await click("總覽");
   const add=[...host.querySelectorAll("aside button")].find(button=>button.textContent==="購課／續購");
   await act(async()=>{(add as HTMLButtonElement).click();});
   await click("‹ 返回 測試學員 詳情");
-  expect(host.querySelectorAll('[aria-label="顧客總覽"]').length).toBe(1);expect([...host.querySelectorAll('nav[aria-label="顧客資料分區"] button')].map(b=>b.textContent)).toEqual(["總覽","資料"]);
+  expect(host.querySelectorAll('[aria-label="顧客總覽"]').length).toBe(1);expect([...host.querySelectorAll('nav[aria-label="顧客資料分區"] button')].map(b=>b.textContent)).toEqual([]);
  }
  expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key|Encountered two children/);
 });
@@ -330,7 +329,7 @@ it.each([['payments','purchases'],['bookings','bookings']])('keeps the legacy mu
  m.query='customerId=person&studentTab='+tab;
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,music:true})));
  expect(host.querySelector<HTMLSelectElement>('[aria-label="紀錄類型"]')?.value).toBe(kind);
- expect([...host.querySelectorAll('nav[aria-label="顧客資料分區"] button')].map(button=>button.textContent)).toEqual(['總覽','資料']);
+ expect([...host.querySelectorAll('nav[aria-label="顧客資料分區"] button')].map(button=>button.textContent)).toEqual([]);
  expect(host.querySelector('h3')?.textContent).toBe('全部紀錄');
 });
 
@@ -339,10 +338,35 @@ it('retains record filters through the data view and switching record types',asy
  await click('全部紀錄');
  const input=host.querySelector<HTMLInputElement>('[aria-label="測試收款篩選"]')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'原查詢條件');input.dispatchEvent(new Event('input',{bubbles:true}));});
- await click('資料');await click('總覽');await click('全部紀錄');
+ await click('總覽');await click('總覽');await click('全部紀錄');
  expect(host.querySelector<HTMLInputElement>('[aria-label="測試收款篩選"]')?.value).toBe('原查詢條件');
  const select=host.querySelector<HTMLSelectElement>('[aria-label="紀錄類型"]')!;
  await act(async()=>{select.value='bookings';select.dispatchEvent(new Event('change',{bubbles:true}));});
  await act(async()=>{select.value='purchases';select.dispatchEvent(new Event('change',{bubbles:true}));});
  expect(host.querySelector<HTMLInputElement>('[aria-label="測試收款篩選"]')?.value).toBe('原查詢條件');
+});
+
+
+it.each([false,true])('keeps both overview cards, their DOM and scroll position while switching every menu action (music=%s)',async music=>{
+ const card={id:'retained-card',name:'保留原卡片',unit:'SESSION',remaining:8,held:0,available:8,expiresAt:'2027-12-31T15:59:59.999Z',closed:false,expired:false,members:[{id:'person',name:'測試學員'}],entries:[],templateIds:[],sessionAdjustments:[]};
+ const other={...card,id:'other-card',name:'另一份方案'};
+ m.browse.mockImplementation(async(args:{cardId?:string})=>({success:true,rows:args.cardId?[card,other].filter(row=>row.id===args.cardId):[card,other],hasMore:false}));
+ vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[card,other],hasMore:false} as never);
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,music,previewStoreId:'store',canManageCards:true})));
+ await vi.waitFor(()=>expect(host.querySelectorAll('[aria-label="方案摘要"]')).toHaveLength(2));
+ const overview=host.querySelector('[aria-label="顧客總覽"]'),cards=[...host.querySelectorAll('[aria-label="方案摘要"]')],scroller=host.querySelector<HTMLDivElement>('[data-course-person-scroll]')!;
+ scroller.scrollTop=320;const url=window.location.href;
+ for(const action of ['補登已上課','註銷堂數','調整期限','使用紀錄','註銷方案','補登已上課']){
+  await click('保留原卡片 更多操作');await act(async()=>[...document.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent===action)!.click());
+  expect(host.querySelector('[aria-label="顧客總覽"]')).toBe(overview);expect([...host.querySelectorAll('[aria-label="方案摘要"]')]).toEqual(cards);
+  expect(scroller.scrollTop).toBe(320);expect(window.location.href).toBe(url);
+ }
+ expect(host.querySelector('[aria-label="補登已上課"]')).not.toBeNull();expect(m.management).not.toHaveBeenCalled();expect(m.adjust).not.toHaveBeenCalled();
+});
+
+it('normalizes an old data-tab link to the visible overview with one attribution row',async()=>{
+ m.query='customerId=person&studentTab=data';
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,people:[{...props.people[0],email:'qa@example.invalid',birthday:'1990-01-01'}]})));
+ expect(host.querySelector('[aria-label="顧客總覽"]')).not.toBeNull();expect(host.querySelectorAll('[aria-label="歸屬設定"]')).toHaveLength(1);expect(host.textContent).toContain('qa@example.invalid');
+ expect([...host.querySelectorAll('nav button')].some(button=>button.textContent==='資料')).toBe(false);
 });

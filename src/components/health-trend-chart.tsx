@@ -46,7 +46,7 @@ const PERIODS: Array<{ key: Period; label: string; months?: number }> = [
   { key: "all", label: "全部" },
 ];
 
-export function HealthTrendChart({ trend, totalRecords }: { trend: TrendPoint[]; totalRecords: number }) {
+export function HealthTrendChart({ trend, totalRecords, animate = true }: { trend: TrendPoint[]; totalRecords: number; animate?: boolean }) {
   const [metric, setMetric] = useState<MetricKey>("weight");
   const [period, setPeriod] = useState<Period>("recent6");
   const selected = METRICS.find((item) => item.key === metric) ?? METRICS[0];
@@ -103,7 +103,7 @@ export function HealthTrendChart({ trend, totalRecords }: { trend: TrendPoint[];
               <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#8a7967" />
               <YAxis tick={{ fontSize: 11 }} stroke="#8a7967" domain={["auto", "auto"]} />
               <Tooltip formatter={(value) => [`${String(value)}${selected.unit}`, selected.label]} />
-              <Line type="monotone" dataKey="value" stroke="#9b6a45" strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+              <Line isAnimationActive={animate} type="monotone" dataKey="value" stroke="#9b6a45" strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         </div>

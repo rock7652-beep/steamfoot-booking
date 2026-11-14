@@ -8,7 +8,8 @@ import {getLineNotificationStatus,lineNotificationShortLabel} from "@/lib/line-n
 export type CustomerProfileSection = "overview" | "data" | "health";
 /** Only stable customer sections belong in the main navigation. */
 export function CustomerProfileNavigation({value,onChange,healthEnabled=false,disabled=false}:{value:CustomerProfileSection;onChange:(section:CustomerProfileSection)=>void;healthEnabled?:boolean;disabled?:boolean}) {
-  const sections:Array<[CustomerProfileSection,string]>=[["overview","總覽"],["data","資料"],...(healthEnabled?[["health","健康追蹤"] as [CustomerProfileSection,string]]:[])];
+  const sections:Array<[CustomerProfileSection,string]>=[["overview","總覽"],...(healthEnabled?[["health","健康追蹤"] as [CustomerProfileSection,string]]:[])];
+  if (!healthEnabled) return null;
   return <nav aria-label="顧客資料分區" className="flex shrink-0 flex-wrap gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2">{sections.map(([key,label])=><button key={key} type="button" disabled={disabled} aria-current={value===key?"page":undefined} className={`min-h-11 rounded-lg px-3 text-sm disabled:opacity-50 ${value===key?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>onChange(key)}>{label}</button>)}</nav>;
 }
 
@@ -49,9 +50,9 @@ export function CustomerOverviewBody({next,cards,attribution,note,details,action
   next?:ReactNode;cards?:ReactNode;attribution?:ReactNode;note?:ReactNode;details?:ReactNode;actions?:ReactNode;
 }) {
   return <section aria-label="顧客總覽" className="space-y-2 pt-2">
-    {next}{cards}{attribution}{note}
-    {details&&<details className="border-t border-earth-100 text-sm"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">基本資料</summary>{details}</details>}
-    {actions}
+    {next}{cards}{attribution}
+    {details&&<section aria-label="基本資料" className="border-t border-earth-100 py-2 text-sm">{details}</section>}
+    {note}{actions}
   </section>;
 }
 

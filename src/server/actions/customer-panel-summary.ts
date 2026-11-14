@@ -7,12 +7,27 @@ import { resolveStoreViewContextFromCookie, storeIdForViewContext, userForViewCo
 import { AppError, handleActionError } from "@/lib/errors";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import { getLatestNativeHealthRecord } from "@/lib/native-health-service";
+import { getLatestNativeHealthRecord, getNativeHealthSummary } from "@/lib/native-health-service";
 import { getNowTaipeiHHmm } from "@/lib/date-utils";
 import { todayRange } from "@/lib/date-utils";
 import { PENDING_STATUSES } from "@/lib/booking-constants";
 import type { HealthRecord } from "@/lib/health-service";
 import type { ActionResult } from "@/types";
+
+/** Full local history only on the health tab; never an external HealthFlow request. */
+export async function getCustomerHealthTracking(customerId:string) {
+  try {
+    const user=await requirePermission("customer.read");
+    if(typeof customerId!=="string"||!customerId.trim())throw new AppError("VALIDATION","請指定顧客");
+    const context=await resolveStoreViewContextFromCookie(user);
+    const storeId=storeIdForViewContext(await getActiveStoreForRead(user),context);
+    const readUser=userForViewContext(user,context);
+    const customer=await prisma.customer.findFirst({where:{id:customerId,...getStoreFilter(readUser,storeId),mergedIntoCustomerId:null},select:{id:true,storeId:true,user:{select:{status:true}}}});
+    if(!customer||customer.user?.status==="SUSPENDED")throw new AppError("NOT_FOUND","顧客不存在");
+    if(!await hasStoreFeature(customer.storeId,FEATURES.AI_HEALTH_SUMMARY))throw new AppError("FORBIDDEN","此店尚未開放健康追蹤");
+    return {success:true as const,data:await getNativeHealthSummary(customer.id,customer.storeId)};
+  }catch(error){return handleActionError(error);}
+}
 
 export type CustomerPanelSummary = { next: {date:Date; time:string} | null; pending: {id:string;walletId:string|null;label:string;amount:number;method:string}[]; canConfirm:boolean; healthEnabled:boolean; health:HealthRecord|null };
 export async function getCustomerPanelSummary(customerId:string):Promise<ActionResult<CustomerPanelSummary>> {
