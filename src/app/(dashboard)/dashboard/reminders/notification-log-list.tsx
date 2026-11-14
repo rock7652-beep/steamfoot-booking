@@ -1,3 +1,4 @@
+import { InstantFilterForm } from "@/components/instant-filter-form";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { NotificationRow } from "@/server/queries/notification-center";
 const labels: Record<string, string> = {
@@ -56,7 +57,7 @@ export function NotificationLogList({
   }
   return (
     <section className="space-y-3">
-      <form data-settings-panel-filter className="grid grid-cols-2 items-end gap-3 rounded-xl border border-earth-200 bg-white p-3 lg:grid-cols-6">
+      <InstantFilterForm action={baseHref} panelAware className="grid grid-cols-2 items-end gap-3 rounded-xl border border-earth-200 bg-white p-3 lg:grid-cols-6">
         <input type="hidden" name="tab" value="logs" />
         <label className="flex min-w-0 flex-col gap-1 text-xs text-earth-500 col-span-2 lg:col-span-1">
           <span>搜尋收件人</span>
@@ -136,10 +137,8 @@ export function NotificationLogList({
             ))}
           </select>
         </label>
-        <button className="col-span-2 h-11 rounded-lg bg-primary-700 p-2 text-sm text-white lg:col-span-1">
-          篩選
-        </button>
-      </form>
+
+      </InstantFilterForm>
       <p className="text-xs text-earth-500">
         店長通知紀錄自本次更新起保存；舊有顧客提醒紀錄保留。
       </p>

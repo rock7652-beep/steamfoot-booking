@@ -168,7 +168,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
 
         {/* 下方：月度現金帳紀錄（與 workspace 視覺分隔） */}
         <section id="cashbook-records" className="space-y-2">
-          <CashbookRecordFilters month={month} kind={selectedKind} keyword={keyword} />
+          <CashbookRecordFilters key={`${user.id}:${cashbookStoreId}`} month={month} kind={selectedKind} keyword={keyword} />
 
           {(hasDateRange || categoryGroup) && (
             <p className="text-xs text-primary-700">

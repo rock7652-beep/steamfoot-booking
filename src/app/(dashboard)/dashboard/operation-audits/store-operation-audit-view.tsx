@@ -1,3 +1,4 @@
+import { InstantFilterForm } from "@/components/instant-filter-form";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { AuditChanges } from "@/components/audit-changes";
@@ -13,13 +14,13 @@ export async function StoreOperationAuditView({ storeId, dateFrom, dateTo, page 
   const href = (next: number) => `/dashboard/operation-audits?${new URLSearchParams({ dateFrom, dateTo, page: String(next) })}`;
   return <PageShell compact>
     <PageHeader title="操作紀錄" compact />
-    <form className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
+    <InstantFilterForm className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
       <span className="text-earth-600">日期</span>
       <input aria-label="開始日期" className="h-11 min-w-0 w-[145px] rounded-lg border border-earth-200 bg-white px-2" type="date" name="dateFrom" defaultValue={dateFrom} required />
       <span className="text-earth-400">至</span>
       <input aria-label="結束日期" className="h-11 min-w-0 w-[145px] rounded-lg border border-earth-200 bg-white px-2" type="date" name="dateTo" defaultValue={dateTo} required />
-      <button className="min-h-11 rounded-lg border border-earth-200 bg-white px-3 text-primary-800" type="submit">查詢</button>
-    </form>
+
+    </InstantFilterForm>
     <div className="@container min-w-0 overflow-hidden rounded-xl border border-earth-200 bg-white">
       <div className="flex items-center justify-between border-b border-earth-100 px-3 py-2 text-sm text-earth-600">
         <span>共 {result.total} 筆</span><span>第 {result.page}／{pages} 頁</span>

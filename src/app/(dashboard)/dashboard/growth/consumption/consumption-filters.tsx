@@ -1,22 +1,26 @@
 "use client";
 
-import { useId, useState, useTransition, type FormEvent } from "react";
+import { useId, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { InstantFilterForm } from "@/components/instant-filter-form";
 import { ModalPanel } from "@/components/admin/modal-panel";
 import { DashboardLink, resolveDashboardHref } from "@/components/dashboard-link";
 import { CONSUMPTION_METRICS, CONSUMPTION_PATH, consumptionSearchParams, firstConsumptionParam, type ConsumptionFilters, type ConsumptionMetric, type ConsumptionOption, type ConsumptionStaffOption, type ConsumptionParams } from "@/lib/customer-consumption";
 
+const CONSUMPTION_FILTER_FORM_ID = "customer-consumption-filters";
 const control = "min-h-11 min-w-0 rounded-lg border border-earth-300 bg-white px-3 text-sm text-earth-900";
 type RangeDraft = { metric: ConsumptionMetric; min: string; max: string };
 
 export function ConsumptionSortSelect({ filters, metrics }: { filters: ConsumptionFilters; metrics: ConsumptionMetric[] }) {
   const router = useRouter(), pathname = usePathname();
   const [pending, startTransition] = useTransition();
-  return <select aria-label="排序方式" value={`${filters.sort}:${filters.direction}`} disabled={pending}
+  return <select form={CONSUMPTION_FILTER_FORM_ID} name="sortDirection" aria-label="排序方式" defaultValue={`${filters.sort}:${filters.direction}`} disabled={pending}
     onChange={event => {
+      const form = document.getElementById(CONSUMPTION_FILTER_FORM_ID);
+      if (form instanceof HTMLFormElement) { form.requestSubmit(); return; }
       const [sort, direction] = event.target.value.split(":");
       const query = consumptionSearchParams(filters); query.set("sort", sort); query.set("direction", direction);
-      startTransition(() => router.push(`${resolveDashboardHref(CONSUMPTION_PATH, pathname)}?${query}`, { scroll: false }));
+      startTransition(() => router.replace(`${resolveDashboardHref(CONSUMPTION_PATH, pathname)}?${query}`, { scroll: false }));
     }} className={`${control} w-44`}>
     {metrics.flatMap(metric => [<option key={`${metric}:desc`} value={`${metric}:desc`}>{CONSUMPTION_METRICS[metric]}：多 → 少</option>, <option key={`${metric}:asc`} value={`${metric}:asc`}>{CONSUMPTION_METRICS[metric]}：少 → 多</option>])}
   </select>;
@@ -25,7 +29,7 @@ export function ConsumptionSortSelect({ filters, metrics }: { filters: Consumpti
 export function ConsumptionFiltersForm({ filters, params, options, staffOptions, metrics, error, beauty = false }: {
   filters: ConsumptionFilters; params: ConsumptionParams; options: ConsumptionOption[]; staffOptions: ConsumptionStaffOption[]; metrics: ConsumptionMetric[]; error?: string; beauty?: boolean;
 }) {
-  const router = useRouter(), pathname = usePathname(), formId = useId(), titleId = useId();
+  const formId = CONSUMPTION_FILTER_FORM_ID, titleId = useId();
   const value = (key: string, fallback = "") => firstConsumptionParam(params[key]) ?? fallback;
   const [preset, setPreset] = useState(value("preset", filters.preset));
   const [startDate, setStartDate] = useState(value("startDate", filters.startDate));
@@ -41,31 +45,26 @@ export function ConsumptionFiltersForm({ filters, params, options, staffOptions,
     });
     return initial.length ? initial : [{ metric: "count", min: "", max: "" }];
   });
-  const [pending, startTransition] = useTransition();
   const appliedCount = Object.keys(filters.ranges).length + (filters.includeAbsent ? 0 : 1) + (filters.top ? 1 : 0) + (filters.staffId ? 1 : 0);
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const query = new URLSearchParams();
-    for (const [key, entry] of new FormData(event.currentTarget)) {
-      if (typeof entry === "string" && entry.trim()) query.set(key, entry.trim());
-    }
-    query.set("sort", filters.sort); query.set("direction", filters.direction);
-    if (preset === "custom") { query.set("startDate", startDate); query.set("endDate", endDate); }
-    query.set("includeAbsent", includeAbsent);
-    if (staffId) query.set("staffId", staffId);
-    if (top) query.set("top", top);
-    for (const range of ranges) {
-      if (range.min.trim()) query.set(`${range.metric}_min`, range.min.trim());
-      if (range.max.trim()) query.set(`${range.metric}_max`, range.max.trim());
-    }
-    setOpen(false);
-    startTransition(() => router.push(`${resolveDashboardHref(CONSUMPTION_PATH, pathname)}?${query}`, { scroll: false }));
-  }
   function updateRange(index: number, change: Partial<RangeDraft>) {
     setRanges(current => current.map((range, i) => i === index ? { ...range, ...change } : range));
   }
-  return <>
-    <form id={formId} onSubmit={submit} aria-label="期間消耗篩選" aria-busy={pending} className="min-w-0 space-y-2">
+  return <InstantFilterForm label="期間消耗篩選" id={formId} action={CONSUMPTION_PATH} transformQuery={(query, data) => {
+    const choice=String(data.get("sortDirection") ?? "");
+    if (choice) { const [sort,direction]=choice.split(":");query.set("sort",sort);query.set("direction",direction); }
+    query.delete("sortDirection");
+  }} onNavigationReset={() => {
+    setPreset(filters.preset);setStartDate(filters.startDate);setEndDate(filters.endDate);
+    setIncludeAbsent(filters.includeAbsent ? "1" : "0");setStaffId(filters.staffId);setTop(String(filters.top ?? ""));
+    setRanges(metrics.flatMap(metric => { const range=filters.ranges[metric];return range ? [{metric,min:String(range.min ?? ""),max:String(range.max ?? "")}] : []; }));setOpen(false);
+  }} className="min-w-0 space-y-2">
+      <input type="hidden" name="sort" value={filters.sort} />
+      <input type="hidden" name="direction" value={filters.direction} />
+      <input type="hidden" name="includeAbsent" value={includeAbsent} />
+      <input type="hidden" name="staffId" value={staffId} />
+      <input type="hidden" name="top" value={top} />
+      {preset === "custom" && <><input type="hidden" name="startDate" value={startDate} /><input type="hidden" name="endDate" value={endDate} /></>}
+      {ranges.map(range => <span key={range.metric} hidden><input name={`${range.metric}_min`} value={range.min} readOnly /><input name={`${range.metric}_max`} value={range.max} readOnly /></span>)}
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <select aria-label="統計期間" name="preset" value={preset} onChange={event => { setPreset(event.target.value); if (event.target.value === "custom") setOpen(true); }} className={`${control} w-28`}>
           <option value="month">本月</option><option value="lastMonth">上月</option><option value="30">近 30 天</option><option value="90">近 90 天</option><option value="custom">自訂日期</option>
@@ -75,17 +74,17 @@ export function ConsumptionFiltersForm({ filters, params, options, staffOptions,
         </select>
         <input aria-label="搜尋顧客" name="q" defaultValue={value("q", filters.q)} placeholder="姓名或電話" maxLength={100} className={`${control} w-36 flex-1 basis-32 sm:max-w-48`} />
         <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open} className="min-h-11 rounded-lg border border-earth-300 bg-white px-3 text-sm text-earth-700">篩選{appliedCount ? ` · ${appliedCount}` : ""}</button>
-        <button disabled={pending} className="min-h-11 rounded-lg bg-primary-700 px-4 text-sm font-semibold text-white disabled:opacity-50">{pending ? "查詢中…" : "查詢"}</button>
         <DashboardLink href={CONSUMPTION_PATH} className="inline-flex min-h-11 items-center px-2 text-sm text-earth-600">清除</DashboardLink>
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-    </form>
-    <ModalPanel open={open} onClose={() => setOpen(false)} labelledById={titleId} width={640} pending={pending}>
+    <ModalPanel open={open} onClose={() => setOpen(false)} labelledById={titleId} width={640}>
       <header className="flex items-center justify-between border-b border-earth-200 px-4 py-2">
         <h2 id={titleId} className="font-semibold text-earth-900">篩選顧客</h2>
         <button type="button" onClick={() => setOpen(false)} aria-label="關閉篩選" className="min-h-11 min-w-11 text-earth-600">✕</button>
       </header>
       <div className="min-h-0 space-y-4 overflow-y-auto p-4">
+        {preset === "custom" && startDate && endDate && startDate > endDate && <p role="alert" className="text-sm text-amber-700">結束日期不能早於開始日期</p>}
+        {ranges.some(range => range.min && range.max && Number(range.min) > Number(range.max)) && <p role="alert" className="text-sm text-amber-700">最高值不能小於最低值</p>}
         {preset === "custom" && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="flex min-w-0 flex-col gap-1 text-sm text-earth-700">開始日期<input form={formId} type="date" required value={startDate} onChange={event => setStartDate(event.target.value)} className={control} /></label>
           <label className="flex min-w-0 flex-col gap-1 text-sm text-earth-700">結束日期<input form={formId} type="date" required value={endDate} onChange={event => setEndDate(event.target.value)} className={control} /></label>
@@ -98,7 +97,7 @@ export function ConsumptionFiltersForm({ filters, params, options, staffOptions,
             </select>
             <input form={formId} type="number" min={range.metric === "paid" ? "-1000000000000" : "0"} max="1000000000000" step={range.metric === "count" ? "1" : "0.01"} aria-label={`${CONSUMPTION_METRICS[range.metric]}最低值`} placeholder="最低值" value={range.min} onChange={event => updateRange(index, { min: event.target.value })} className={`${control} sm:col-start-2 sm:row-start-1`} />
             <input form={formId} type="number" min={range.metric === "paid" ? "-1000000000000" : "0"} max="1000000000000" step={range.metric === "count" ? "1" : "0.01"} aria-label={`${CONSUMPTION_METRICS[range.metric]}最高值`} placeholder="最高值" value={range.max} onChange={event => updateRange(index, { max: event.target.value })} className={`${control} sm:col-start-3 sm:row-start-1`} />
-            <button type="button" aria-label={`移除條件 ${index + 1}`} onClick={() => setRanges(current => current.filter((_, i) => i !== index))} className="col-start-3 row-start-1 min-h-11 text-earth-500 sm:col-start-4">✕</button>
+            <button type="button" aria-label={`移除條件 ${index + 1}`} data-filter-change onClick={() => setRanges(current => current.filter((_, i) => i !== index))} className="col-start-3 row-start-1 min-h-11 text-earth-500 sm:col-start-4">✕</button>
           </div>)}
           {ranges.length < metrics.length && <button type="button" className="min-h-11 text-sm text-primary-700" onClick={() => setRanges(current => [...current, { metric: metrics.find(metric => !current.some(range => range.metric === metric))!, min: "", max: "" }])}>＋新增條件</button>}
           {ranges.length > 1 && <p className="text-sm text-earth-500">全部條件須同時符合。</p>}
@@ -111,8 +110,8 @@ export function ConsumptionFiltersForm({ filters, params, options, staffOptions,
       </div>
       <footer className="flex items-center justify-end gap-2 border-t border-earth-200 px-4 py-2">
         <button type="button" onClick={() => setOpen(false)} className="min-h-11 px-3 text-sm text-earth-600">返回清單</button>
-        <button type="submit" form={formId} disabled={pending} className="min-h-11 rounded-lg bg-primary-700 px-4 text-sm font-semibold text-white">套用篩選</button>
+        <p role="status" className="text-sm text-earth-500">條件變更後自動更新</p>
       </footer>
     </ModalPanel>
-  </>;
+  </InstantFilterForm>;
 }

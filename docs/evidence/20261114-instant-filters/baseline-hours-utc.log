@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /Users/huangyanlu/steamfoot/steamfoot-analysis-30day-renewals
+
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  11:36:44
+   Duration  876ms (transform 65ms, setup 0ms, import 93ms, tests 688ms, environment 0ms)
+

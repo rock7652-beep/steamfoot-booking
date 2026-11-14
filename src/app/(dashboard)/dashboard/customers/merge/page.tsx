@@ -1,3 +1,4 @@
+import { InstantFilterForm } from "@/components/instant-filter-form";
 import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
@@ -113,13 +114,13 @@ export default async function CustomerMergePage({
         </ul>
       </div>
 
-      <form method="GET" action="" className="rounded-lg border border-earth-200 bg-white p-4">
+      <InstantFilterForm className="rounded-lg border border-earth-200 bg-white p-4">
         {sourceId ? <input type="hidden" name="source" value={sourceId} /> : null}
         {targetId ? <input type="hidden" name="target" value={targetId} /> : null}
         <label className="block text-xs font-medium text-earth-700">搜尋另一筆顧客資料</label>
         <div className="mt-2 flex gap-2">
           <input name="q" defaultValue={query} placeholder="輸入姓名或手機" className="min-w-0 flex-1 rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" />
-          <button type="submit" className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white">搜尋</button>
+
         </div>
         {query ? (
           <div className="mt-3 space-y-2">
@@ -138,7 +139,7 @@ export default async function CustomerMergePage({
             })}
           </div>
         ) : null}
-      </form>
+      </InstantFilterForm>
 
       {/* Step 1: 輸入兩個 ID 載入預覽 */}
       <form

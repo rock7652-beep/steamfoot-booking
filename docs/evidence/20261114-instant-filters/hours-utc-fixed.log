@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 /Users/huangyanlu/steamfoot/steamfoot-instant-filters
+
+
+ Test Files  7 passed (7)
+      Tests  74 passed (74)
+   Start at  11:37:32
+   Duration  5.00s (transform 1.50s, setup 0ms, import 2.11s, tests 4.68s, environment 1ms)
+
