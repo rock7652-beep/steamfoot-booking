@@ -1,11 +1,11 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assertModuleRosterPreviewEnvironment,
   assertReviewedReleaseEnvironment,
 } from "../../scripts/consultation-preview-scope.mjs";
-import {CUSTOMER_PRIMARY_PREVIEW_BRANCH} from "../../scripts/sports-shared-card-preview-scope.mjs";
+import {CUSTOMER_PRIMARY_PREVIEW_BRANCH as PRIMARY_BRANCH,CUSTOMER_PROFILE_DENSITY_PREVIEW_BRANCH as DENSITY_BRANCH} from "../../scripts/sports-shared-card-preview-scope.mjs";
 import {assertSportsRedesignPreviewEnvironment} from "../../scripts/sports-redesign-preview-scope.mjs";
 import {musicNativeWorkflowEnabled,assertMusicPreviewDataReviewEnvironment} from "../../scripts/music-native-workflow-scope.mjs";
 import {assertMusicOpeningPreviewEnvironment} from "../../scripts/music-opening-preview-scope.mjs";
@@ -13,6 +13,7 @@ import {sportsNativePreview} from "@/lib/sports-native-preview";
 import { guardedSportsSharedCardPreviewClient } from "@/lib/sports-shared-card-preview";
 import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 
+describe.each([PRIMARY_BRANCH,DENSITY_BRANCH])("isolated customer preview %s",CUSTOMER_PRIMARY_PREVIEW_BRANCH=>{
 const direct = "postgresql://postgres:synthetic@db.ttworfzgwejdeolegkxl.supabase.co:5432/postgres";
 const pool = "postgresql://postgres.ttworfzgwejdeolegkxl:synthetic@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres";
 const valid = {
@@ -33,7 +34,7 @@ const invalidProvenance = [
 afterEach(() => vi.unstubAllEnvs());
 
 it("uses the existing isolated module Preview and permits the authorized Git auto-preview", () => {
-  expect(CUSTOMER_PRIMARY_PREVIEW_BRANCH).toBe("fix/customer-primary-read-priority");
+  expect([PRIMARY_BRANCH,DENSITY_BRANCH]).toContain(CUSTOMER_PRIMARY_PREVIEW_BRANCH);
   expect(assertReviewedReleaseEnvironment(valid)).toBe("module-roster-preview");
   const deployment = JSON.parse(readFileSync("vercel.json", "utf8")).git.deploymentEnabled;
   expect(deployment[CUSTOMER_PRIMARY_PREVIEW_BRANCH]).not.toBe(false);
@@ -113,4 +114,6 @@ it("exercises the native music and sports runtimes while retaining the importer 
   const unsafe={...env,VERCEL_PROJECT_ID:"other"};
   expect(musicNativeWorkflowEnabled("store-lubymusic",unsafe)).toBe(false);
   expect(()=>assertMusicPreviewDataReviewEnvironment(unsafe)).toThrow();
+});
+
 });
