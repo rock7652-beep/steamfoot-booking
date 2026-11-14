@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useState} from "react";
 import {usePanelReader} from "@/components/operations/panel-read-cache";
+import {isMusicPreviewPage,subscribeMusicFinanceChange} from "@/lib/music-finance-sync";
 import {loadMusicCustomerAttention} from "@/server/actions/music-customer-attention";
 
 type Result=Awaited<ReturnType<typeof loadMusicCustomerAttention>>;
@@ -8,6 +9,10 @@ export function MusicCustomerAttention({customerId,revision,onRecords}:{customer
  const reader=usePanelReader("music-customer-attention",loadMusicCustomerAttention,String(revision),15000);
  const [result,setResult]=useState<{key:string;value:Result}|null>(null),[retry,setRetry]=useState(0);
  const key=JSON.stringify([customerId,revision,retry]);
+ useEffect(()=>{
+  if(!isMusicPreviewPage())return;
+  return subscribeMusicFinanceChange(kind=>{if(kind==="receipt"){reader.invalidate(customerId);setRetry(n=>n+1);}});
+ },[reader,customerId]);
  useEffect(()=>{let active=true;reader.read(customerId).then(value=>{if(active)setResult({key,value});}).catch(()=>{if(active)setResult({key,value:{success:false,error:"收款待辦讀取失敗"}});});return()=>{active=false;};},[reader,customerId,key]);
  const value=result?.key===key?result.value:reader.get(customerId);
  if(!value)return null;

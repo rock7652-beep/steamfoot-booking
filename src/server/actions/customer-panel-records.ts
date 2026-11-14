@@ -1,5 +1,6 @@
 "use server";
 
+import {BookingType,TransactionType} from "@prisma/client";
 import {courseHistoryRange,courseHistoryItem} from "@/lib/course-history-range";
 import { bookingDateToday, getNowTaipeiHHmm } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
@@ -36,16 +37,21 @@ export async function getCustomerPanelRecords(customerId: string, kind: "booking
     const take = 20;
     if (kind === "bookings") {
       const today = bookingDateToday();
-      const records = await prisma.booking.findMany({ where: {...where, ...(Object.keys(dates).length?{bookingDate:dates}:{}),...(item?{customerPlanWallet:{plan:{name:{contains:item,mode:"insensitive" as const}}}}:{}), ...(scope === "past" ? { OR: [{ bookingDate: {lt: today} }, { bookingDate: today, slotTime: {lt: getNowTaipeiHHmm()} }] } : {})}, skip: (page - 1) * take, take: take + 1,
+      const bookingTypes=Object.values(BookingType).filter(type=>formatBookingType(type).toLocaleLowerCase('zh-TW').includes(item?.toLocaleLowerCase('zh-TW')??''));
+      const itemFilter=item?{OR:[{customerPlanWallet:{plan:{name:{contains:item,mode:"insensitive" as const}}}},...(bookingTypes.length?[{bookingType:{in:bookingTypes}}]:[])]}:undefined;
+      const records = await prisma.booking.findMany({ where: {...where, ...(Object.keys(dates).length?{bookingDate:dates}:{}),...(itemFilter?{AND:[itemFilter]}:{}), ...(scope === "past" ? { OR: [{ bookingDate: {lt: today} }, { bookingDate: today, slotTime: {lt: getNowTaipeiHHmm()} }] } : {})}, skip: (page - 1) * take, take: take + 1,
         orderBy: [{bookingDate:"desc"}, {slotTime:"desc"}, {id:"desc"}],
         select: {id:true, bookingDate:true, slotTime:true, bookingType:true, bookingStatus:true, people:true, notes:true} });
       return {success:true, data: {page, hasMore:records.length > take, rows: records.slice(0,take).map(b => ({id:b.id, date:b.bookingDate, label:`${b.slotTime} · ${formatBookingType(b.bookingType)} · ${b.people} 人`, status:b.bookingStatus, note:b.notes}))}};
     }
     // Merge the two ordered sources before slicing so page boundaries never lose one source.
     const limit = page * take + 1;
+    const transactionTypes=Object.values(TransactionType).filter(type=>formatTransactionType(type).includes(item??''));
+    const transactionItem=item?{OR:[{planNameSnapshot:{contains:item,mode:"insensitive" as const}},...(transactionTypes.length?[{planNameSnapshot:null,transactionType:{in:transactionTypes}},{planNameSnapshot:"",transactionType:{in:transactionTypes}}]:[])]}:{};
+    const cashbookItem=item?{OR:[{category:{contains:item,mode:"insensitive" as const}},...('現場消費'.includes(item)?[{category:null},{category:""}]:[])]}:{};
     const [transactions, cashbook] = await Promise.all([
-      prisma.transaction.findMany({where:{...where,createdAt:bounds,...(item?{planNameSnapshot:{contains:item,mode:"insensitive" as const}}:{})}, take:limit, orderBy:[{createdAt:"desc"},{id:"desc"}], select:{id:true,createdAt:true,transactionType:true,planNameSnapshot:true,amount:true,paymentMethod:true,paymentStatus:true,note:true}}),
-      prisma.cashbookEntry.findMany({where:{...where,type:"INCOME",entryDate:dates,...(item?{category:{contains:item,mode:"insensitive" as const}}:{})},take:limit,orderBy:[{entryDate:"desc"},{id:"desc"}],select:{id:true,entryDate:true,category:true,amount:true,paymentMethod:true,note:true}}),
+      prisma.transaction.findMany({where:{...where,createdAt:bounds,...transactionItem}, take:limit, orderBy:[{createdAt:"desc"},{id:"desc"}], select:{id:true,createdAt:true,transactionType:true,planNameSnapshot:true,amount:true,paymentMethod:true,paymentStatus:true,note:true}}),
+      prisma.cashbookEntry.findMany({where:{...where,type:"INCOME",entryDate:dates,...cashbookItem},take:limit,orderBy:[{entryDate:"desc"},{id:"desc"}],select:{id:true,entryDate:true,category:true,amount:true,paymentMethod:true,note:true}}),
     ]);
     const rows: CustomerPanelRecord[] = [
       ...transactions.map(t => ({id:`transaction:${t.id}`,date:t.createdAt,label:t.planNameSnapshot || formatTransactionType(t.transactionType),status:t.paymentStatus === "PENDING" ? "待收款" : "已收款",amount:Number(t.amount),payment:formatPaymentMethod(t.paymentMethod),note:t.note})),

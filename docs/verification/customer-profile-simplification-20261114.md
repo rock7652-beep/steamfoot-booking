@@ -36,3 +36,9 @@
 - 完整 JSON 與截圖位於工作區 `/workspace/reports/customer-profile-simplification-20261114/`，新版結果為 `hosted-results-steamfoot,sports.json`、`hosted-results-music,beauty.json`。各組均記錄產品 SHA、部署 ID、每案結果與 `documentLoads: 1`。
 - 本次 hosted 流程為唯讀、開啟／取消與切換操作；未以它宣稱正式收款、退款、權限變更或月結寫入驗收。原交易規則不在本次改寫範圍。
 - Cloudflare 非本次 Vercel Preview 的路由依賴；未執行 Cloudflare 發布或計為通過。
+
+## 審查補強
+
+- 收款完成後，音樂總覽待收／待核帳 reader 會依確認收款事件失效並重讀。即使付款時總覽未掛載，也會清除保留的摘要；不刷新無關卡片或草稿，晚到的舊金額不覆寫新結果。
+- 蒸足「方案／項目」搜尋同時涵蓋顯示的預約服務類型、無方案快照的交易類型及現場消費標籤；條件仍在分頁前與顧客、門市、日期範圍一併套用。
+- 補強與相關回歸 6 檔／76 項通過，包含收款時總覽已開啟／未掛載、舊回應晚到、無關 reader 保留及無卡單次／體驗搜尋。補強版本的精確 Preview、最終 SHA 與 CI 結果以 PR #1566 的對應證據為準，前述 77 案保留原產品版本來源，不挪用為補強版本證據。
