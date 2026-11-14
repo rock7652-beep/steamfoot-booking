@@ -14,14 +14,16 @@ type Props = {
   action?: string;
   preserveQuery?: boolean;
   panelAware?: boolean;
+  navigationKey?: string;
   onNavigationReset?: () => void;
   transformQuery?: (params: URLSearchParams, data: FormData) => void;
 };
 
 /** GET filters only: submit the complete current draft; never wrap mutations. */
-export function InstantFilterForm({ children, label, className, id, action, preserveQuery = false, panelAware = false, onNavigationReset, transformQuery }: Props) {
+export function InstantFilterForm({ children, label, className, id, action, preserveQuery = false, panelAware = false, navigationKey, onNavigationReset, transformQuery }: Props) {
   const router = useRouter(), pathname = usePathname(), panel = useContext(SettingsPanelContext);
   const formRef = useRef<HTMLFormElement>(null), resetOnNavigation = useRef(false);
+  const resetSource = useRef<string | undefined>(undefined);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null), composing = useRef(false);
   const [pending, start] = useTransition(), [error, setError] = useState("");
 
@@ -31,12 +33,19 @@ export function InstantFilterForm({ children, label, className, id, action, pres
   useEffect(() => () => { if (timer.current !== null) clearTimeout(timer.current); }, [pathname, action]);
   // External navigation uses new server defaults. Own responses must retain a newer typed draft.
   useEffect(() => {
-    if (resetOnNavigation.current) {
-      formRef.current?.reset(); onNavigationReset?.(); resetOnNavigation.current = false;
+    if (resetOnNavigation.current && (navigationKey === undefined || resetSource.current !== navigationKey)) {
+      const form = formRef.current;
+      form?.reset();
+      // Native reset must also synchronize React's input event tracking for a repeated paste.
+      if (form) for (const field of form.elements) {
+        if (field instanceof HTMLInputElement && field.type !== "file") { const value = field.value, checked = field.checked; field.value = value; field.checked = checked; }
+        else if (field instanceof HTMLTextAreaElement) { const value = field.value; field.value = value; }
+      }
+      onNavigationReset?.(); resetOnNavigation.current = false;
     }
-  }, [children, onNavigationReset]);
+  }, [children, navigationKey, onNavigationReset]);
   useEffect(() => {
-    const reset = () => { if (timer.current !== null) clearTimeout(timer.current); resetOnNavigation.current = true; };
+    const reset = () => { if (timer.current !== null) clearTimeout(timer.current); resetOnNavigation.current = true; resetSource.current = navigationKey; };
     const navigate = (event: MouseEvent) => {
       if (!(event.target instanceof Element) || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const link = event.target.closest<HTMLAnchorElement>("a[href]");
@@ -46,7 +55,7 @@ export function InstantFilterForm({ children, label, className, id, action, pres
     };
     window.addEventListener("popstate", reset); document.addEventListener("click", navigate, true);
     return () => { window.removeEventListener("popstate", reset); document.removeEventListener("click", navigate, true); };
-  }, [pathname]);
+  }, [pathname, navigationKey]);
 
   function apply(form: HTMLFormElement, delay = 0) {
     cancel();
@@ -81,7 +90,7 @@ export function InstantFilterForm({ children, label, className, id, action, pres
     onSubmit={event => { event.preventDefault(); apply(event.currentTarget); }}
     onClickCapture={event => {
       if (!(event.target instanceof Element)) return;
-      if (event.target.closest("a[href]")) { cancel(); resetOnNavigation.current = true; }
+      if (event.target.closest("a[href]")) { cancel(); setError(""); resetOnNavigation.current = true; resetSource.current = navigationKey; }
       else if (event.target.closest("[data-filter-change]")) apply(event.currentTarget);
     }}
     onCompositionStart={() => { composing.current = true; cancel(); }}

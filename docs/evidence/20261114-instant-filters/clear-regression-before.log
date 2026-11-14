@@ -1,0 +1,28 @@
+
+ RUN  v4.1.4 /Users/huangyanlu/steamfoot/steamfoot-instant-filters
+
+ ❯ src/__tests__/instant-filter-regressions.test.ts (11 tests | 1 failed) 52ms
+   × clear removes hidden advanced conditions after an intermediate render and a subsequent search 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/instant-filter-regressions.test.ts > clear removes hidden advanced conditions after an intermediate render and a subsequent search
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/__tests__/instant-filter-regressions.test.ts:45:73
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  20:11:45
+   Duration  452ms (transform 77ms, setup 0ms, import 107ms, tests 52ms, environment 233ms)
+
