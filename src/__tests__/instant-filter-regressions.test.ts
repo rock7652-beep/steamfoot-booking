@@ -32,3 +32,25 @@ it('auto-updates advanced consumption filters without closing the dialog, remove
 });
 it('changing sort includes the pending keyword and does not let its old timer restore the old sort',async()=>{const filters=parseConsumptionFilters({},'2026-11-14');await mount(React.createElement(React.Fragment,null,React.createElement(ConsumptionFiltersForm,{filters,params:{},options:[],staffOptions:[],metrics:['count','paid']}),React.createElement(ConsumptionSortSelect,{filters,metrics:['count','paid']})));await change('input[name=q]','最新學員');await change('select[aria-label="排序方式"]','paid:asc');await tick();expect(m.replace).toHaveBeenCalledTimes(1);expect(params().get('q')).toBe('最新學員');expect(params().get('sort')).toBe('paid');expect(params().get('direction')).toBe('asc');expect(params().has('sortDirection')).toBe(false);});
 it.each(['COURSE','BEAUTY'] as const)('preserves the authorized store and module route for %s agreement searching',async module=>{await mount(React.createElement(CourseAgreementRecordsWorkspace,{data:null,filters:courseAgreementRecordsFilterSchema.parse({storeId:'authorized-store'}),canExport:false,module}));await change('input[name=q]','合成顧客');await tick();expect(params().get('storeId')).toBe('authorized-store');expect(params().get('q')).toBe('合成顧客');expect(String(m.replace.mock.lastCall![0])).toContain(module==='BEAUTY'?'/beauty/agreements/records?':'/courses/agreements/records?');});
+it('clear removes hidden advanced conditions after an intermediate render and a subsequent search',async()=>{
+ const oldParams={q:'舊關鍵字',staffId:'__unassigned__',count_min:'3',top:'10',includeAbsent:'0',preset:'90',sort:'paid',direction:'asc'};
+ const initial=parseConsumptionFilters(oldParams,'2026-11-14'),cleared=parseConsumptionFilters({},'2026-11-14');
+ const node=(filters:typeof initial,raw:typeof oldParams|Record<string,string>)=>React.createElement(React.Fragment,null,React.createElement(ConsumptionFiltersForm,{filters,params:raw,options:[],staffOptions:[],metrics:['count','paid']}),React.createElement(ConsumptionSortSelect,{filters,metrics:['count','paid']}));
+ await mount(node(initial,oldParams));
+ const clear=host.querySelector<HTMLAnchorElement>('a')!;clear.addEventListener('click',e=>e.preventDefault());
+ await act(async()=>clear.click());
+ await mount(node(initial,{...oldParams}));
+ await mount(node(cleared,{}));
+ m.replace.mockClear();await change('input[name=q]','新關鍵字');await tick();
+ expect(params().get('q')).toBe('新關鍵字');expect(params().has('staffId')).toBe(false);expect(params().has('count_min')).toBe(false);expect(params().has('top')).toBe(false);expect(params().get('includeAbsent')).toBe('1');expect(params().get('preset')).toBe('month');expect(params().get('sort')).toBe('count');expect(params().get('direction')).toBe('desc');
+});
+it('clear also discards local advanced edits before their server response has arrived',async()=>{
+ const filters=parseConsumptionFilters({},'2026-11-14');const node=()=>React.createElement(ConsumptionFiltersForm,{filters,params:{},options:[],staffOptions:[],metrics:['count','paid']});await mount(node());
+ await act(async()=>host.querySelector<HTMLButtonElement>('[aria-haspopup=dialog]')!.click());await change('input[aria-label="消耗次數最低值"]','3');await tick();
+ const clear=host.querySelector<HTMLAnchorElement>('a')!;clear.addEventListener('click',e=>e.preventDefault());await act(async()=>clear.click());await mount(node());m.replace.mockClear();await change('input[name=q]','再次查詢');await tick();
+ expect(params().has('count_min')).toBe(false);expect(params().get('q')).toBe('再次查詢');
+});
+it('repeating the same pasted query after native reset still triggers automatic searching',async()=>{
+ const node=(query:string)=>React.createElement(InstantFilterForm,null,React.createElement('input',{name:'q',defaultValue:query}),React.createElement('a',{href:'?clear=1',onClick:(e:React.MouseEvent)=>e.preventDefault()},'清除'));
+ await mount(node(''));await change('input[name=q]','同一關鍵字');await tick();await act(async()=>host.querySelector('a')!.click());await mount(node(''));m.replace.mockClear();await change('input[name=q]','同一關鍵字');await tick();expect(m.replace).toHaveBeenCalledTimes(1);expect(params().get('q')).toBe('同一關鍵字');
+});
