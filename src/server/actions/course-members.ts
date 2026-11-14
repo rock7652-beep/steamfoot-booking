@@ -1051,7 +1051,7 @@ export async function markCourseCoachAttendance(input: unknown) {
   }
 }
 
-export async function loadCourseCustomerBookings(customerId: string, offset = 0, range: {from?:string;to?:string;mode?:string;cardId?:string} = {}) {
+export async function loadCourseCustomerBookings(customerId: string, offset = 0, range: {from?:string;to?:string;item?:string;mode?:string;cardId?:string} = {}) {
   try {
     const { storeId,user } = await courseManager("customer.read");
     const {getManagerCustomerWhere}=await import("@/lib/manager-visibility");

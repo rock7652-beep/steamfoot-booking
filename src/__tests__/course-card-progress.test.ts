@@ -1,5 +1,6 @@
 import {beforeEach,it,expect,vi} from 'vitest';
-const m=vi.hoisted(()=>({actor:vi.fn(),tuition:vi.fn(),purchases:vi.fn(),customer:vi.fn(),people:vi.fn(),card:vi.fn(),bookings:vi.fn(),adjustments:vi.fn(),transaction:vi.fn(),visibility:vi.fn()}));
+const m=vi.hoisted(()=>({leaveIds:vi.fn(),actor:vi.fn(),tuition:vi.fn(),purchases:vi.fn(),customer:vi.fn(),people:vi.fn(),card:vi.fn(),bookings:vi.fn(),adjustments:vi.fn(),transaction:vi.fn(),visibility:vi.fn()}));
+vi.mock('@/server/services/course-progress-deducted-leaves',()=>({readProgressDeductedLeaveIds:m.leaveIds}));
 vi.mock('@/server/services/music-tuition',()=>({readMusicTuition:m.tuition}));
 vi.mock('@/server/services/course-access',()=>({courseManagerRead:m.actor}));
 vi.mock('@/lib/db',()=>({prisma:{customer:{findFirst:m.customer,findMany:m.people}}}));
@@ -10,13 +11,13 @@ vi.mock('@/server/services/course-session-adjustment-records',()=>({courseSessio
 import {loadCourseCardProgress} from '@/server/actions/course-card-progress';
 const input={cardId:'card',customerId:'student',expectedStoreId:'store'};
 const card={id:'card',unit:'SESSION',requestKey:'purchase',musicOpeningStateRequired:false,members:[{customerId:'student'}],entries:[{points:10}]};
-const lesson=(id='b1',date='2026-11-03T08:30:00Z',customerId='student')=>({id,customerId,customerName:'學員',pointCost:1,session:{startsAt:new Date(date),nameSnapshot:'舞蹈'}});
-beforeEach(()=>{m.tuition.mockResolvedValue(new Map());m.purchases.mockResolvedValue([]);vi.clearAllMocks();m.actor.mockResolvedValue({storeId:'store',user:{id:'owner',role:'OWNER',staffId:null}});m.customer.mockResolvedValue({id:'student'});m.people.mockResolvedValue([{id:'student',name:'學員'}]);m.visibility.mockReturnValue({storeId:'store'});m.card.mockResolvedValue(card);m.bookings.mockResolvedValue([lesson()]);m.adjustments.mockResolvedValue([]);m.transaction.mockImplementation(async fn=>fn({coursePointCard:{findFirst:m.card},courseBooking:{findMany:m.bookings},coursePurchase:{findMany:m.purchases}}));});
+const lesson=(id='b1',date='2026-11-03T08:30:00Z',customerId='student')=>({id,customerId,customerName:'學員',pointCost:1,status:'ATTENDED',absenceKind:null,session:{startsAt:new Date(date),nameSnapshot:'舞蹈'}});
+beforeEach(()=>{m.tuition.mockResolvedValue(new Map());m.purchases.mockResolvedValue([]);vi.clearAllMocks();m.leaveIds.mockResolvedValue([]);m.actor.mockResolvedValue({storeId:'store',user:{id:'owner',role:'OWNER',staffId:null}});m.customer.mockResolvedValue({id:'student'});m.people.mockResolvedValue([{id:'student',name:'學員'}]);m.visibility.mockReturnValue({storeId:'store'});m.card.mockResolvedValue(card);m.bookings.mockResolvedValue([lesson()]);m.adjustments.mockResolvedValue([]);m.transaction.mockImplementation(async fn=>fn({coursePointCard:{findFirst:m.card},courseBooking:{findMany:m.bookings},coursePurchase:{findMany:m.purchases}}));});
 it('按實際卡片授予堂數與已出席日期產生進度，不讀方案商品的預設堂數',async()=>{
  m.bookings.mockResolvedValue([lesson('b2','2026-11-10T08:30:00Z'),lesson()]);
  const r=await loadCourseCardProgress(input);expect(r).toMatchObject({success:true,data:{available:true,total:10,shared:false,completed:[{id:'b1',date:'2026-11-03T08:30:00.000Z'},{id:'b2',date:'2026-11-10T08:30:00.000Z'}]}});
  expect(m.actor.mock.calls.map(c=>c[0])).toEqual(['wallet.read','customer.read','booking.read','transaction.read']);
- expect(m.bookings).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:'store',cardId:'card',status:'ATTENDED',pointCost:{gt:0},bookingKind:{not:'OPENING_MAKEUP'}}}));
+ expect(m.bookings).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:'store',cardId:'card',pointCost:{gt:0},bookingKind:{not:'OPENING_MAKEUP'},OR:[{status:{in:['ATTENDED','NO_SHOW']}},{status:'CANCELLED',absenceKind:'GROUP_LEAVE_FORFEITED'}]}}));
  expect(m.transaction).toHaveBeenCalledWith(expect.any(Function),{isolationLevel:'RepeatableRead'});
 });
 it('十堂全未上課仍有十個空格，不從預約或剩餘額度猜日期',async()=>{m.bookings.mockResolvedValue([]);expect(await loadCourseCardProgress(input)).toMatchObject({success:true,data:{available:true,total:10,completed:[]}});});
@@ -54,4 +55,16 @@ it('uses the purchased tuition amount above the grid even when only part has bee
 it('does not query or expose purchase amounts without financial read permission',async()=>{
  m.actor.mockImplementation(async permission=>{if(permission==='transaction.read')throw Error('denied');return{storeId:'store',user:{id:'owner'}};});
  expect(await loadCourseCardProgress(input)).toMatchObject({success:true,data:{available:true,canReadPrice:false,purchasePrice:null}});expect(m.purchases).not.toHaveBeenCalled();
+});
+
+it('includes deducted absences with their date and kind, while proof limits native deducted leave',async()=>{
+ m.leaveIds.mockResolvedValue(['native-leave']);
+ m.bookings.mockResolvedValue([{...lesson('absent'),status:'NO_SHOW'},{...lesson('group-leave'),status:'CANCELLED',absenceKind:'GROUP_LEAVE_FORFEITED'},{...lesson('native-leave'),status:'CANCELLED',absenceKind:'STUDENT_LEAVE'}]);
+ const result=await loadCourseCardProgress(input);
+ expect(result).toMatchObject({success:true,data:{available:true,completed:[{id:'absent',usageKind:'NO_SHOW'},{id:'group-leave',usageKind:'LEAVE'},{id:'native-leave',usageKind:'LEAVE'}]}});
+ expect(m.bookings.mock.calls[0][0].where.OR).toContainEqual({id:{in:['native-leave']},status:'CANCELLED',absenceKind:'STUDENT_LEAVE'});
+ // Correcting the absence removes the settled event; reservations must not be fabricated as use.
+ m.leaveIds.mockResolvedValue([]);m.bookings.mockResolvedValue([]);
+ expect(await loadCourseCardProgress(input)).toMatchObject({success:true,data:{completed:[]}});
+ expect(m.bookings.mock.calls[1][0].where.OR).toHaveLength(2);
 });

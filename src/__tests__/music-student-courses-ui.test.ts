@@ -99,3 +99,23 @@ it("ignores a pre-purchase empty response that finishes after the new purchase r
  await act(async()=>finishOld({success:true,data:[]}));
  expect(host.textContent).toContain("教師甲");expect(host.textContent).not.toContain("尚無已購課程");
 });
+
+
+it("scopes periods and receipts to the selected purchase even when two cards share a product",async()=>{
+ const second={...cards[0],id:"guitar-card-2",bookings:[{...cards[0].bookings[0],id:"booking-2",teacher:"教師乙"}]};
+ mock.periods.read.mockResolvedValue({success:true,data:[cards[0],second]});
+ mock.orders.read.mockResolvedValue({success:true,data:[orders[0],{...orders[0],id:"purchase-2",cardId:second.id,tuition:{...orders[0].tuition,periods:[{period:1,due:2300,received:2300,outstanding:0}],receipts:[]}}],hasMore:false});
+ await act(async()=>root.render(createElement(MusicStudentCourses,{...props,scopedCardId:second.id})));
+ expect(host.querySelector('[aria-label="學員教學項目"]')).toBeNull();
+ expect(host.textContent).toContain("教師乙");expect(host.textContent).not.toContain("教師甲");
+ expect(host.textContent).toContain("應收 NT$ 2,300");expect(host.textContent).not.toContain("應收 NT$ 1,600");
+ expect(new URL(host.querySelector('a')!.href,"https://test.invalid").searchParams.get("scheduleTemplate")).toBe("teaching:guitar");
+});
+
+it("continues through purchase pages to find the selected older card and preserves unmatched orders in the global view",async()=>{
+ mock.orders.read.mockImplementation(async(_id:string,offset:number)=>offset?{success:true,data:orders,hasMore:false}:{success:true,data:[{...orders[0],id:"standalone-purchase",cardId:null,name:"無卡款項"}],hasMore:true});
+ await act(async()=>root.render(createElement(MusicStudentCourses,{...props,scopedCardId:cards[0].id})));
+ expect(mock.orders.read).toHaveBeenCalledWith("student-1",1);
+ expect(host.querySelector('[data-music-period="1"]')?.textContent).toContain("已收 NT$ 1,600");
+ expect(host.textContent).not.toContain("無卡款項");
+});

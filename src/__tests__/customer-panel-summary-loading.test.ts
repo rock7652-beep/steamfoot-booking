@@ -40,3 +40,14 @@ it("times out the summary independently and aborts the read so it can be retried
  expect(signal.aborted).toBe(true);expect(host.textContent).toContain("摘要暫時無法載入");
  expect(host.querySelector("button")?.textContent).toBe("重新載入摘要");
 });
+
+it("updates the separated health navigation after an asynchronously loaded summary",async()=>{
+ let finish!:(value:unknown)=>void;
+ m.summary.mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+ const onHealthEnabled=vi.fn();
+ await act(async()=>root.render(React.createElement(CustomerPanelSummaryView,{customerId:"a",revision:0,readOnly:false,onMutated:vi.fn(),onHealthEnabled,section:"overview"})));
+ expect(onHealthEnabled).not.toHaveBeenCalled();
+ await act(async()=>finish({success:true,data:{...summary("ready"),healthEnabled:true}}));
+ expect(onHealthEnabled).toHaveBeenLastCalledWith(true);
+ expect(host.textContent).not.toContain("健康資料");
+});

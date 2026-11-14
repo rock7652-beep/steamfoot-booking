@@ -32,6 +32,7 @@ const labelCls = "block text-sm font-medium text-earth-700";
 export function EditCustomerForm({
   customer,
   isSpa = false,
+  hideServiceNote = false,
   returnHref,
   returnUrl,
   onSuccess,
@@ -39,6 +40,7 @@ export function EditCustomerForm({
 }: {
   customer: CustomerData;
   isSpa?: boolean;
+  hideServiceNote?: boolean;
   returnHref?: string;
   returnUrl?: string;
   onSuccess?: () => void;
@@ -81,7 +83,7 @@ export function EditCustomerForm({
         birthday: birthdayRaw || undefined,
         height: Number.isFinite(heightParsed) ? heightParsed : undefined,
         lineName: ((formData.get("lineName") as string) ?? "") || null,
-        serviceNote: ((formData.get("serviceNote") as string) ?? "") || null,
+        ...(!hideServiceNote?{serviceNote: ((formData.get("serviceNote") as string) ?? "") || null}:{}),
       };
 
       const result = await updateCustomer(customer.id, input);
@@ -244,7 +246,7 @@ export function EditCustomerForm({
         </div>
 
         {/* 備註 — 滿版 */}
-        <FormSection title="店內備註">
+        {!hideServiceNote&&<FormSection title="店內備註">
           <textarea
             name="serviceNote"
             rows={4}
@@ -252,7 +254,7 @@ export function EditCustomerForm({
             className={inputCls}
             placeholder="僅店內可見，每次服務都適用。例如：怕冷、座位偏好（選填）"
           />
-        </FormSection>
+        </FormSection>}
 
         </fieldset>
         {state.error ? (

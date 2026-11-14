@@ -16,7 +16,7 @@ export const useMusicDataRevision = () => useContext(MusicRevision);
 type Cache<T> = ReturnType<typeof createClientReadCache<T>>;
 type Registry = Map<string, Cache<unknown>>;
 const Context = createContext<Registry | null>(null);
-const customerPlanNamespaces = new Set(['customer-support','store-member-connection','course-phone-connection','music-student-makeups','steamfoot-customer-context','module-customer-support','course-roster-customer','course-customer-next','module-customer-next','course-card-progress','course-card-browse','module-card-browse','course-card','module-card','music-periods','music-student-workspace','purchases','beauty-customer-detail','beauty-card-progress','customer-primary-snapshot','module-primary-snapshot']);
+const customerPlanNamespaces = new Set(['music-customer-attention','customer-support','store-member-connection','course-phone-connection','music-student-makeups','steamfoot-customer-context','module-customer-support','course-roster-customer','course-customer-next','module-customer-next','course-card-progress','course-card-browse','module-card-browse','course-card','module-card','music-periods','music-student-workspace','purchases','beauty-customer-detail','beauty-card-progress','customer-primary-snapshot','module-primary-snapshot']);
 function clearCustomerPlanReads(registry: Registry) {
   for (const [key, cache] of registry) {
     if (customerPlanNamespaces.has(JSON.parse(key)[0])) cache.clear();
@@ -65,7 +65,12 @@ export function PanelReadProvider({children}: {children?: ReactNode}) {
         purchaseSeeds.clear();
         // A receipt does not change cards, bookings or student balances.
         // The mounted payment list subscribes directly; other views retain their normal refresh.
-        if(kind === "receipt" && studentPage) return;
+        if(kind === "receipt" && studentPage) {
+          // The overview may be unmounted while collecting a payment. Clear its
+          // retained reminder without refreshing unrelated cards or drafts.
+          for (const [key, cache] of registry) if (JSON.parse(key)[0] === "music-customer-attention") cache.clear();
+          return;
+        }
         customerQueue.clear();
         for (const cache of registry.values()) cache.clear();
         registry.clear();

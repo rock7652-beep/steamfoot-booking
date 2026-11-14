@@ -5,6 +5,21 @@ import {CustomerPhoneLink} from "@/components/customer-detail-fields";
 import {ExclusiveMenu} from "./exclusive-menu";
 import {getLineNotificationStatus,lineNotificationShortLabel} from "@/lib/line-notification-status";
 
+export type CustomerProfileSection = "overview" | "data" | "health";
+/** Only stable customer sections belong in the main navigation. */
+export function CustomerProfileNavigation({value,onChange,healthEnabled=false,disabled=false}:{value:CustomerProfileSection;onChange:(section:CustomerProfileSection)=>void;healthEnabled?:boolean;disabled?:boolean}) {
+  const sections:Array<[CustomerProfileSection,string]>=[["overview","總覽"],["data","資料"],...(healthEnabled?[["health","健康追蹤"] as [CustomerProfileSection,string]]:[])];
+  return <nav aria-label="顧客資料分區" className="flex shrink-0 flex-wrap gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2">{sections.map(([key,label])=><button key={key} type="button" disabled={disabled} aria-current={value===key?"page":undefined} className={`min-h-11 rounded-lg px-3 text-sm disabled:opacity-50 ${value===key?"bg-primary-50 font-semibold text-primary-800":"text-earth-600 hover:bg-primary-50"}`} onClick={()=>onChange(key)}>{label}</button>)}</nav>;
+}
+
+export function CustomerProfileSectionHeading({title,onBack,disabled=false}:{title:string;onBack:()=>void;disabled?:boolean}) {
+  return <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-earth-100 pb-1"><button type="button" disabled={disabled} onClick={onBack} className="min-h-11 text-sm text-primary-700 disabled:opacity-50">‹ 返回總覽</button><h3 className="text-sm font-semibold text-primary-900">{title}</h3></div>;
+}
+
+export function CustomerRecordsFilter({value,onChange,canReadBookings,canReadTransactions,service=false,disabled=false}:{value:"bookings"|"purchases";onChange:(value:"bookings"|"purchases")=>void;canReadBookings:boolean;canReadTransactions:boolean;service?:boolean;disabled?:boolean}) {
+  return <label className="flex min-h-11 flex-wrap items-center gap-2 text-sm text-earth-600">紀錄類型<select aria-label="紀錄類型" disabled={disabled} className="min-h-11 rounded-lg border border-earth-200 bg-white px-3 text-sm text-primary-900" value={value} onChange={event=>onChange(event.target.value as typeof value)}>{canReadBookings&&<option value="bookings">{service?"預約／服務":"預約／上課"}</option>}{canReadTransactions&&<option value="purchases">收款／消費</option>}</select></label>;
+}
+
 /** Shared profile chrome; permissions, reads and writes stay with each module. */
 export function CustomerProfileHeader({name,labelledById,busy,editing,onEdit,onBack,onClose,more,actions}:{
   name:string;labelledById:string;busy:boolean;editing:boolean;onEdit?:()=>void;onBack:()=>void;onClose:()=>void;more?:ReactNode;actions?:ReactNode;

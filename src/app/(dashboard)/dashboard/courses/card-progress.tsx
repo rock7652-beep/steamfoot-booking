@@ -4,7 +4,7 @@ import {useCourseCardProgressReader} from '@/components/admin/use-course-card-pr
 import {LessonProgressGrid,type CompletedLesson} from '@/components/admin/lesson-progress-grid';
 import type {loadCourseCardProgress} from '@/server/actions/course-card-progress';
 import {toLocalDateStr} from '@/lib/date-utils';
-export function CourseCardProgress({cardId,customerId,storeId,dataScope,revision=0,showSummary=true,initialResult}:{cardId:string;customerId:string;storeId:string;dataScope?:'operational'|'legacy';revision?:number;showSummary?:boolean;initialResult?:Awaited<ReturnType<typeof loadCourseCardProgress>>}){
+export function CourseCardProgress({cardId,customerId,storeId,dataScope,revision=0,showSummary=true,music=false,initialResult}:{cardId:string;customerId:string;storeId:string;dataScope?:'operational'|'legacy';revision?:number;showSummary?:boolean;music?:boolean;initialResult?:Awaited<ReturnType<typeof loadCourseCardProgress>>}){
  const reader=useCourseCardProgressReader(storeId,revision);
  const [retry,setRetry]=useState(0),[selected,setSelected]=useState<CompletedLesson|null>(null);
  const key=JSON.stringify([storeId,cardId,customerId,dataScope,revision,retry]);
@@ -17,5 +17,5 @@ export function CourseCardProgress({cardId,customerId,storeId,dataScope,revision
  const purchase=result.data.canReadPrice?<p className="text-sm text-earth-600">{result.data.purchasedAt?`購買 ${toLocalDateStr(new Date(result.data.purchasedAt))} · `:""}方案金額 {result.data.purchasePrice==null?"待核對":`NT$ ${result.data.purchasePrice.toLocaleString("zh-TW")}`}</p>:null;
  if(!result.data.available)return <>{purchase}{result.data.reason&&<p className="py-3 text-sm text-earth-600">{result.data.reason}</p>}</>;
  const activeLesson=result.data.completed.find(lesson=>lesson.id===selected?.id);
- return <div className={showSummary?"my-4 space-y-2":"my-1 space-y-1"}>{purchase}{result.data.shared&&<p className="text-sm text-earth-600">共用方案 · 以下為整份方案的上課進度</p>}<LessonProgressGrid voided={result.data.voided} compact showSummary={showSummary} total={result.data.total} completed={result.data.completed} onSelect={setSelected}/>{activeLesson&&<p role="status" className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-900">{toLocalDateStr(new Date(activeLesson.date))} · {activeLesson.customerName} · {activeLesson.courseName??'已上課'}</p>}</div>;
+ return <div className={showSummary?"my-4 space-y-2":"my-1 space-y-1"}>{purchase}{showSummary&&result.data.shared&&<p className="text-sm text-earth-600">共用方案 · 以下為整份方案的上課進度</p>}<LessonProgressGrid title="使用紀錄" completedLabel="已扣用" noShowLabel={music?"曠課":"未出席"} voided={result.data.voided} compact showSummary={showSummary} total={result.data.total} completed={result.data.completed} onSelect={setSelected}/>{activeLesson&&<p role="status" className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-900">{toLocalDateStr(new Date(activeLesson.date))}{activeLesson.usageKind==='NO_SHOW'?music?' · 曠課':' · 未出席':activeLesson.usageKind==='LEAVE'?' · 請假':''} · {activeLesson.customerName} · {activeLesson.courseName??'已上課'}</p>}</div>;
 }

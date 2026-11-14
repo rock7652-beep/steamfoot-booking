@@ -1,3 +1,4 @@
+import {readProgressDeductedLeaveIds} from '@/server/services/course-progress-deducted-leaves';
 import 'server-only';
 import {prisma} from '@/lib/db';
 import {coursePrisma} from '@/lib/course-db';
@@ -6,7 +7,7 @@ import {getManagerCustomerWhere} from '@/lib/manager-visibility';
 import {musicCardWhere} from './music-plan-scope';
 import {courseSessionAdjustmentRecords} from './course-session-adjustment-records';
 import {readMusicTuition} from './music-tuition';
-import {projectCourseCardProgress,progressCardSelect,progressBookingSelect} from './course-card-progress-projection';
+import {projectCourseCardProgress,progressCardSelect,progressBookingSelect,progressBookingWhere} from './course-card-progress-projection';
 import {AppError,handleActionError} from '@/lib/errors';
 import {z} from 'zod';
 
@@ -24,8 +25,9 @@ export async function readCourseCardProgressBatch(input:unknown){
   const priceActor=await courseManagerRead('transaction.read').catch(()=>null);
   const canReadPrice=priceActor?.storeId===storeId&&priceActor?.user.id===user.id;
   return await coursePrisma.$transaction(async tx=>{
+   const deductedLeaveIds=await readProgressDeductedLeaveIds(tx,storeId,cardIds);
    // Nested take applies to each card, preserving the original 2001 overflow sentinel.
-   const cards=await tx.coursePointCard.findMany({where:{id:{in:cardIds},storeId,AND:[musicCardWhere(storeId,d.dataScope)],OR:[{members:{some:{customerId:d.customerId,storeId}}},{bookings:{some:{customerId:d.customerId,storeId}}}]},select:{...progressCardSelect,bookings:{where:{storeId,status:'ATTENDED',pointCost:{gt:0},bookingKind:{not:'OPENING_MAKEUP'}},orderBy:[{session:{startsAt:'asc'}},{id:'asc'}],take:2001,select:progressBookingSelect}}});
+   const cards=await tx.coursePointCard.findMany({where:{id:{in:cardIds},storeId,AND:[musicCardWhere(storeId,d.dataScope)],OR:[{members:{some:{customerId:d.customerId,storeId}}},{bookings:{some:{customerId:d.customerId,storeId}}}]},select:{...progressCardSelect,bookings:{where:{storeId,...progressBookingWhere(deductedLeaveIds)},orderBy:[{session:{startsAt:'asc'}},{id:'asc'}],take:2001,select:progressBookingSelect}}});
    const ids=cards.map(c=>c.id);
    const adjustments=await courseSessionAdjustmentRecords(tx,storeId,ids);
    const peopleIds=[...new Set([d.customerId,...cards.flatMap(c=>[...c.members.map(m=>m.customerId),...c.bookings.flatMap(b=>b.customerId?[b.customerId]:[])]),...adjustments.flatMap(r=>r.customerId?[r.customerId]:[])])];

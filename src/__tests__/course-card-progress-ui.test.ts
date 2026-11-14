@@ -47,3 +47,16 @@ it('名單入口直接顯示隨視窗帶入的進度，修改後重新讀取',as
   expect(m.read).toHaveBeenCalledOnce();expect(host.querySelectorAll('[data-completed="true"]')).toHaveLength(2);
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it('uses music wording for deducted absences, and refreshing a correction removes the date and selection',async()=>{
+ m.read.mockResolvedValue({...result,data:{...result.data,completed:[{id:'absent',date:'2026-11-03T08:30:00Z',customerName:'甲',usageKind:'NO_SHOW'},{id:'leave',date:'2026-11-03T09:30:00Z',customerName:'甲',usageKind:'LEAVE'}]}});
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(h(CourseCardProgress,{music:true,cardId:'card',customerId:'student',storeId:'store',revision:0})));
+  expect(host.querySelector('[data-usage-kind="NO_SHOW"]')?.textContent).toBe('11/03曠課');expect(host.textContent).toContain('已扣用 2／10');
+  await act(async()=>host.querySelector<HTMLButtonElement>('[data-usage-kind="NO_SHOW"] button')!.click());expect(host.querySelector('[role="status"]')?.textContent).toContain('曠課');
+  m.read.mockResolvedValue({...result,data:{...result.data,completed:[]}});
+  await act(async()=>root.render(h(CourseCardProgress,{music:true,cardId:'card',customerId:'student',storeId:'store',revision:1})));
+  expect(host.querySelectorAll('time')).toHaveLength(0);expect(host.querySelector('[role="status"]')).toBeNull();
+ }finally{await act(async()=>root.unmount());host.remove();}
+});

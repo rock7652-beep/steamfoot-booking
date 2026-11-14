@@ -368,7 +368,7 @@ export async function getCustomerDetailForUser(
           sessions: {
             orderBy: { sessionNo: "asc" },
             include: {
-              booking: { select: { bookingDate: true, slotTime: true } },
+              booking: { select: { bookingDate: true, bookingStatus: true, slotTime: true } },
               voidedByStaff: { select: { displayName: true } },
             },
           },
@@ -450,10 +450,11 @@ export async function getCustomerDrawerDetailForUser(
   customerId: string,
   activeStoreId?: string | null,
 ) {
-  const [canReadBookings, canBook, canAssignPlan, canAdjustWallet,canReadWallets] = await Promise.all([
+  const [canReadBookings, canBook, canAssignPlan, canAdjustWallet,canReadWallets,canReadConsumptionPermission] = await Promise.all([
     checkPermission(user.role,user.staffId,"booking.read"), checkPermission(user.role,user.staffId,"booking.create"),
-    checkPermission(user.role,user.staffId,"wallet.create"), checkPermission(user.role,user.staffId,"wallet.adjust"),checkPermission(user.role,user.staffId,"wallet.read"),
+    checkPermission(user.role,user.staffId,"wallet.create"), checkPermission(user.role,user.staffId,"wallet.adjust"),checkPermission(user.role,user.staffId,"wallet.read"),checkPermission(user.role,user.staffId,"transaction.read"),
   ]);
+  const canReadConsumption=user.role!=="CUSTOMER"&&canReadConsumptionPermission;
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, ...getStoreFilter(user, activeStoreId) },
     include: {
@@ -470,8 +471,9 @@ export async function getCustomerDrawerDetailForUser(
       bookings: canReadBookings ? { orderBy: [{ bookingDate: "desc" }, { slotTime: "desc" }], take: 50, select: { id: true, bookingDate: true, slotTime: true, bookingStatus: true, bookingType: true } } : false,
       planWallets: {
         include: {
+          transactions:canReadConsumption?{where:{transactionType:"PACKAGE_PURCHASE",status:"SUCCESS"},orderBy:{createdAt:"asc"},take:1,select:{createdAt:true}}:false,
           plan: { select: { id: true, name: true, sessionCount: true } },
-          sessions: { select: { status: true,...(canReadBookings&&canReadWallets?{id:true,completedAt:true,voidedAt:true,booking:{select:{bookingDate:true,storeId:true,customerId:true}}}: {}) } },
+          sessions: { select: { status: true,...(canReadBookings&&canReadWallets?{id:true,completedAt:true,voidedAt:true,booking:{select:{bookingDate:true,bookingStatus:true,storeId:true,customerId:true}}}: {}) } },
           bookings: { select: { bookingStatus: true, isMakeup: true, people: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -496,8 +498,7 @@ export async function getCustomerDrawerDetailForUser(
   const bookingDays = enumerateBookableDates(toLocalDateStr(), resolveBookableUntilDate(config?.bookableUntilDate));
   // The drawer crosses the Server Action boundary; Prisma Decimal is not an
   // RSC-serializable value. Keep the ledger untouched and return display data.
-  const drawerCustomer = { ...customer,canReadWallets,planWallets: customer.planWallets.map(wallet => ({ ...wallet,sessions:wallet.sessions?.map(session=>({status:session.status})), ...(canReadBookings&&canReadWallets?{usageProgress:wallet.sessions.some(session=>session.booking&&(session.booking.storeId!==customer.storeId||session.booking.customerId!==customer.id))?unavailablePlanProgress():walletPlanProgress({...wallet,sessions:wallet.sessions.map((session,index)=>({...session,id:session.id??String(index),completedAt:session.completedAt??null,voidedAt:session.voidedAt??null,booking:session.booking??null}))})}:{}),purchasedPrice: Number(wallet.purchasedPrice) })) };
-  const canReadConsumption = user.role !== "CUSTOMER" && await checkPermission(user.role, user.staffId, "transaction.read");
+  const drawerCustomer = { ...customer,canReadWallets,planWallets: customer.planWallets.map(wallet => ({ ...wallet,purchasedAt:wallet.transactions?.[0]?.createdAt??null,transactions:undefined,sessions:wallet.sessions?.map(session=>({status:session.status})), ...(canReadBookings&&canReadWallets?{usageProgress:wallet.sessions.some(session=>session.booking&&(session.booking.storeId!==customer.storeId||session.booking.customerId!==customer.id))?unavailablePlanProgress():walletPlanProgress({...wallet,sessions:wallet.sessions.map((session,index)=>({...session,id:session.id??String(index),completedAt:session.completedAt??null,voidedAt:session.voidedAt??null,booking:session.booking??null}))})}:{}),purchasedPrice: Number(wallet.purchasedPrice) })) };
   if (!canReadConsumption) return { ...drawerCustomer, canReadBookings, canBook, canAssignPlan, bookingDays, recentConsumption: null, canAdjustWallet };
   const [transactions, cashbookEntries] = await Promise.all([
     prisma.transaction.findMany({

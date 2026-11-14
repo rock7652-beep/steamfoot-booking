@@ -193,3 +193,11 @@ describe("reviewed production main migration boundary", () => {
     expect(result.output).toContain("exact authorized Preview branch and repository metadata");
   });
 });
+
+it('permits the reviewed customer-profile preview only with the existing isolated database and repository provenance',()=>{
+ const env={...valid,VERCEL_GIT_COMMIT_REF:'feat/customer-profile-simplification-20261114'};
+ expect(()=>assertSportsSharedCardPreviewEnvironment(env)).not.toThrow();
+ expect(()=>assertSportsSharedCardPreviewEnvironment({...env,DATABASE_URL:production})).toThrow();
+ expect(()=>assertSportsSharedCardPreviewEnvironment({...env,VERCEL_GIT_REPO_SLUG:'other'})).toThrow();
+ expect(()=>assertSportsSharedCardPreviewEnvironment({...env,VERCEL_ENV:'production'})).toThrow();
+});

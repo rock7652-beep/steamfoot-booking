@@ -20,3 +20,10 @@ describe('steam plan date grid',()=>{
   expect(walletPlanProgress({totalSessions:1,remainingSessions:kind==='balance-mismatch'?1:0,sessions}).available).toBe(false);
  });
 });
+
+it('labels completed no-show deductions but never labels reserved or backfilled sessions as a no-show',()=>{
+ const booking={bookingDate:day('2026-11-02'),bookingStatus:'NO_SHOW'};
+ const result=walletPlanProgress({totalSessions:4,remainingSessions:1,sessions:[{...row('visit','COMPLETED'),booking:{...booking,bookingStatus:'COMPLETED'}},{...row('absent','COMPLETED'),booking},{...row('backfill','BACKFILLED'),completedAt:day('2026-11-02'),booking},{...row('held','RESERVED'),booking}]});
+ expect(result).toMatchObject({available:true,completed:[{id:'visit'},{id:'absent',usageKind:'NO_SHOW',date:booking.bookingDate.toISOString()},{id:'backfill'}]});
+ if(result.available){expect(result.completed[0].usageKind).toBeUndefined();expect(result.completed[2].usageKind).toBeUndefined();expect(result.completed.some(r=>r.id==='held')).toBe(false);}
+});

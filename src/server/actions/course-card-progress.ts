@@ -1,4 +1,5 @@
 "use server";
+import {readProgressDeductedLeaveIds} from '@/server/services/course-progress-deducted-leaves';
 import {readMusicTuition} from "@/server/services/music-tuition";
 import {z} from 'zod';
 import {prisma} from '@/lib/db';
@@ -9,7 +10,7 @@ import {musicCardWhere} from '@/server/services/music-plan-scope';
 import {courseSessionAdjustmentRecords} from '@/server/services/course-session-adjustment-records';
 import {AppError,handleActionError} from '@/lib/errors';
 
-import {projectCourseCardProgress} from '@/server/services/course-card-progress-projection';
+import {projectCourseCardProgress,progressBookingSelect,progressBookingWhere} from '@/server/services/course-card-progress-projection';
 export async function loadCourseCardProgress(input:unknown){
  try{
   const d=z.object({cardId:z.string().min(1).max(100),customerId:z.string().min(1).max(100),expectedStoreId:z.string().min(1).max(100),dataScope:z.enum(['operational','legacy']).optional()}).parse(input);
@@ -29,9 +30,10 @@ export async function loadCourseCardProgress(input:unknown){
     const tuition=await readMusicTuition(tx,storeId,purchases.map(p=>p.id));
     return {canReadPrice,purchasePrice:purchases.length?purchases.reduce((sum,p)=>sum+(tuition.get(p.id)?.due??p.price),0):null,purchasedAt:purchases[0]?.createdAt.toISOString()??null};
    };
+   const deductedLeaveIds=await readProgressDeductedLeaveIds(tx,storeId,[card.id]);
    return projectCourseCardProgress(card,d.customerId,async()=>{
     const [bookings,adjustments]=await Promise.all([
-     tx.courseBooking.findMany({where:{storeId,cardId:card.id,status:'ATTENDED',pointCost:{gt:0},bookingKind:{not:'OPENING_MAKEUP'}},orderBy:[{session:{startsAt:'asc'}},{id:'asc'}],take:2001,select:{id:true,customerId:true,customerName:true,pointCost:true,session:{select:{startsAt:true,nameSnapshot:true}}}}),
+     tx.courseBooking.findMany({where:{storeId,cardId:card.id,...progressBookingWhere(deductedLeaveIds)},orderBy:[{session:{startsAt:'asc'}},{id:'asc'}],take:2001,select:progressBookingSelect}),
      courseSessionAdjustmentRecords(tx,storeId,[card.id]),
     ]);return {bookings,adjustments};
    },ids=>prisma.customer.findMany({where:{...visibility,storeId,id:{in:ids},mergedIntoCustomerId:null},select:{id:true,name:true}}),readPurchase);

@@ -11,14 +11,14 @@ import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { courseManagerRead } from "@/server/services/course-access";
-import { courseHistoryRange } from "@/lib/course-history-range";
+import { courseHistoryRange,courseHistoryItem } from "@/lib/course-history-range";
 
-export async function readCourseCustomerPurchases(input: unknown, offset = 0, range: {from?:string;to?:string} = {}, previewOnly=false, timings?:Record<string,number>) {
+export async function readCourseCustomerPurchases(input: unknown, offset = 0, range: {from?:string;to?:string;item?:string} = {}, previewOnly=false, timings?:Record<string,number>) {
   const work=()=>readPurchases(input,offset,range,previewOnly,timings);
   return withPermissionRequestSession(work);
 }
 
-async function readPurchases(input: unknown, offset: number, range: {from?:string;to?:string}, previewOnly:boolean, timings?:Record<string,number>) {
+async function readPurchases(input: unknown, offset: number, range: {from?:string;to?:string;item?:string}, previewOnly:boolean, timings?:Record<string,number>) {
   const measure=async<T>(name:string,work:()=>Promise<T>):Promise<T>=>{const started=performance.now();try{return await work();}finally{if(timings)timings[name]=Math.round(performance.now()-started);}};
   try {
     const skip = z.number().int().min(0).max(1000000).parse(offset);
@@ -31,8 +31,9 @@ async function readPurchases(input: unknown, offset: number, range: {from?:strin
       where: { id: customerId, storeId, mergedIntoCustomerId: null }, select: { id: true },
     }));
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店顧客");
+    const item=courseHistoryItem(range);
     const orders = await measure("orders",()=>coursePrisma.coursePurchase.findMany({
-      where: { storeId, customerId, createdAt: courseHistoryRange(range) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take: 11,
+      where: { storeId, customerId, createdAt: courseHistoryRange(range), ...(item?{name:{contains:item,mode:"insensitive" as const}}:{}) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take: 11,
       select: {
         musicTermSizes:true, planId:true, templateIds:true, cardId:true, id: true, name: true, price: true, points: true, unit: true, status: true,
         listPrice: true, discountKind: true, discountValue: true, paymentMethod: true, transferLastFour: true,

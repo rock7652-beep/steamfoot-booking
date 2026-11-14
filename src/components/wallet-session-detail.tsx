@@ -35,7 +35,7 @@ export interface SessionRow {
   completedAt: Date | null;
   voidedAt: Date | null;
   voidReason: string | null;
-  booking: { bookingDate: Date; slotTime: string } | null;
+  booking: { bookingDate: Date; bookingStatus?: string; slotTime: string } | null;
   voidedByStaff?: { displayName: string } | null;
   updatedAt?: Date;
   corrections?: WalletSessionCorrectionRecord[];

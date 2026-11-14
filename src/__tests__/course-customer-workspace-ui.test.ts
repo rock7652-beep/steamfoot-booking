@@ -1,3 +1,4 @@
+vi.mock("@/app/(dashboard)/dashboard/courses/music-customer-attention",()=>({MusicCustomerAttention:()=>null}));
 vi.mock("@/server/actions/music-student-makeups",()=>({loadMusicStudentMakeups:vi.fn().mockResolvedValue({success:true,data:null}),loadMusicMakeupScheduleOptions:vi.fn(),createMusicStudentMakeupSchedule:vi.fn()}));
 vi.mock("@/lib/session",()=>({getCurrentUser:vi.fn(),requireSession:vi.fn()}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-transaction-action",()=>({CustomerTransactionAction:()=>null}));
@@ -5,7 +6,7 @@ vi.mock("@/components/admin/store-member-connection-panel", () => ({ StoreMember
 // @vitest-environment jsdom
 vi.mock("@/server/actions/course-phone-view",()=>({loadCoursePhoneConnection:vi.fn().mockResolvedValue({success:true,data:{anchorCustomerId:"person",learnerCount:1,grantId:null,linked:false,canConfirm:false,pending:[]}}),confirmCoursePhoneLogin:vi.fn(),confirmCoursePhoneView:vi.fn(),removeCoursePhoneView:vi.fn()}));
 
-import {act,createElement} from "react";
+import {act,createElement,useState} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-panel-advanced",()=>({CustomerPanelAdvanced:()=>null}));
@@ -17,8 +18,8 @@ vi.mock("@/server/actions/course-card-reservations",()=>({loadCourseCardReservat
 vi.mock("@/server/actions/course-browse",()=>({browseCourseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),searchCourseCustomers:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),loadCourseCustomerSearchIndex:vi.fn().mockResolvedValue({success:true,rows:[],complete:true})}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
 vi.mock("@/server/actions/course-checkout-status",()=>({getCourseCheckoutCashStatus:vi.fn().mockResolvedValue({success:true,status:"OPEN"})}));
-const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn(),courseAssign:vi.fn(),sportsSave:vi.fn(),browse:vi.fn(),management:vi.fn(),adjust:vi.fn(),replace:vi.fn(),order:vi.fn()}));
-vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh,replace:m.replace}),useSearchParams:()=>new URLSearchParams("customerId=person")}));
+const m=vi.hoisted(()=>({query:"customerId=person",save:vi.fn(),refresh:vi.fn(),courseAssign:vi.fn(),sportsSave:vi.fn(),browse:vi.fn(),management:vi.fn(),adjust:vi.fn(),replace:vi.fn(),order:vi.fn()}));
+vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh,replace:m.replace}),useSearchParams:()=>new URLSearchParams(m.query)}));
 vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({children,width,fitContent,maxHeight}:{children:unknown;width:number;fitContent:boolean;maxHeight?:number})=>createElement("aside",{"data-width":width,"data-max-height":maxHeight,"data-fit-content":String(fitContent)},children as never)}));
 vi.mock("@/components/customer-attribution-form",()=>({CustomerAttributionForm:()=>null}));
 vi.mock("@/server/actions/course-customer-attribution",()=>({saveCourseCustomerAttribution:vi.fn(),searchCourseReferrerCandidates:vi.fn()}));
@@ -27,7 +28,7 @@ vi.mock("@/server/actions/course-purchase-intent",()=>({prepareCoursePurchaseInt
 vi.mock("@/server/actions/course-display-order",()=>({saveCourseDisplayOrder:m.order}));
 vi.mock("@/server/actions/music-student-workspace",()=>({loadMusicStudentWorkspace:vi.fn().mockResolvedValue({success:true,data:{balance:null,next:null,canReadBookings:true}})}));
 vi.mock("@/server/actions/course-staff",()=>({saveCourseStaff:vi.fn()}));
-vi.mock("@/app/(dashboard)/dashboard/courses/customer-purchases",()=>({CourseCustomerPurchases:()=>null}));
+vi.mock("@/app/(dashboard)/dashboard/courses/customer-purchases",()=>({CourseCustomerPurchases:()=>{const [value,setValue]=useState("");return createElement("input",{"aria-label":"測試收款篩選",value,onChange:(event:{target:{value:string}})=>setValue(event.target.value)});}}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-bookings",()=>({CourseCustomerBookings:()=>null}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-list",()=>({CourseCustomerList:()=>null}));
 vi.mock("@/app/(dashboard)/dashboard/courses/customer-health",()=>({CourseCustomerHealth:()=>null}));
@@ -46,14 +47,18 @@ import {CoursePurchaseIntentProvider} from "@/app/(dashboard)/dashboard/courses/
 let host:HTMLDivElement,root:Root;
 const props={view:"customers" as const,templates:[],people:[{id:"person",name:"測試學員",phone:"0900000000",email:null,gender:null,birthday:"",height:null,lineName:null,serviceNote:null,address:null,notes:null,emergencyContactName:null,emergencyContactPhone:null}],plans:[],cards:[],canEdit:true,canCreate:true,canManageStaff:false,canAssign:true,canReadBookings:true,canReadTransactions:true,healthEnabled:true,customerRows:[],canReadCards:true,assignmentStaff:[],canAssignManager:false};
 const click=async(text:string)=>{const find=()=>[...host.querySelectorAll("button")].find(b=>b.textContent===text||b.getAttribute("aria-label")===text);await vi.waitFor(()=>expect(find(),text).toBeTruthy());await act(async()=>find()!.click());};
-beforeEach(()=>{vi.clearAllMocks();m.browse.mockResolvedValue({success:true,rows:[],hasMore:false});vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[],hasMore:false,totals:[]});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);});
+beforeEach(()=>{m.query="customerId=person";vi.clearAllMocks();
+ // Match the router contract: replacing a URL updates the next rendered search params.
+ window.history.replaceState(null,"","/dashboard/courses?"+m.query);
+ m.replace.mockImplementation((href:string)=>{const url=new URL(href,window.location.href);m.query=url.search.slice(1);window.history.replaceState(null,"",url.pathname+url.search+url.hash);});
+m.browse.mockResolvedValue({success:true,rows:[],hasMore:false});vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[],hasMore:false,totals:[]});Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();});
 it("preserves the edit draft across tabs and closes without redundant confirmation",async()=>{
  await act(async()=>root.render(createElement(CourseMemberWorkspace,props)));
  await click("編輯顧客資料");
  const input=host.querySelector('input[name="name"]') as HTMLInputElement;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"尚未儲存姓名");input.dispatchEvent(new Event("input",{bubbles:true}));});
- await click("紀錄");await click("總覽");
+ await click("總覽");await click("全部紀錄");await click("資料");await click("編輯顧客資料");
  expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("尚未儲存姓名");
  vi.spyOn(window,"confirm").mockReturnValue(false);await click("關閉顧客資料");
  expect(window.confirm).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();expect(host.querySelector("aside")).toBeNull();
@@ -61,7 +66,7 @@ it("preserves the edit draft across tabs and closes without redundant confirmati
 it("does not show unauthorized wallet, record, health, or edit controls",async()=>{
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,canEdit:false,canCreate:false,canAssign:false,canReadCards:false,canReadBookings:false,canReadTransactions:false,healthEnabled:false})));
  const buttons=[...host.querySelectorAll("button")].map(b=>b.getAttribute("aria-label")??b.textContent);
- for(const label of ["購買方案","新增方案","購課／續購","紀錄","健康追蹤","編輯顧客資料","儲存"])expect(buttons).not.toContain(label);
+ for(const label of ["購買方案","新增方案","購課／續購","全部紀錄","健康追蹤","編輯顧客資料","儲存"])expect(buttons).not.toContain(label);
 });
 it("separates plan products and held plans into compact views",async()=>{
  const plans=[{id:"plan",name:"運動十點方案",points:10,price:1000,validDays:30,isActive:true,unit:"POINT",templateIds:[]}];
@@ -108,13 +113,13 @@ it("keeps the customer shell and navigation stable across internal pages",async(
  expect(shell?.getAttribute("data-width")).toBe("1100");
  expect(shell?.getAttribute("data-fit-content")).toBe("false");
  expect(shell?.getAttribute("data-max-height")).toBe("900");
- for(const label of ["購買方案","紀錄","健康追蹤","總覽"]){
+ for(const label of ["購買方案","資料","健康追蹤","總覽","全部紀錄","資料"]){
   await click(label);
   expect(host.querySelector("aside")).toBe(shell);
   expect(shell?.getAttribute("data-width")).toBe("1100");
   expect(shell?.getAttribute("data-fit-content")).toBe("false");
   expect(host.querySelector("h2")?.textContent).toBe("測試學員");
-  expect(host.querySelector('nav[aria-label="顧客詳細資料分區"]')).not.toBeNull();
+  expect(host.querySelector('nav[aria-label="顧客資料分區"]')).not.toBeNull();
  }
  await click("編輯顧客資料");
  expect(host.querySelector('input[name="name"]')).not.toBeNull();
@@ -159,11 +164,11 @@ it("keeps exactly one music summary when entering and leaving checkout repeatedl
  const errors=vi.spyOn(console,"error");
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,music:true})));
  for(let i=0;i<3;i++){
-  await click("課程與學費");
+  await click("總覽");
   const add=[...host.querySelectorAll("aside button")].find(button=>button.textContent==="購課／續購");
   await act(async()=>{(add as HTMLButtonElement).click();});
   await click("‹ 返回 測試學員 詳情");
-  expect(host.querySelectorAll('[aria-label="課程與學費"]').length).toBe(1);
+  expect(host.querySelectorAll('[aria-label="顧客總覽"]').length).toBe(1);expect([...host.querySelectorAll('nav[aria-label="顧客資料分區"] button')].map(b=>b.textContent)).toEqual(["總覽","資料"]);
  }
  expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key|Encountered two children/);
 });
@@ -239,17 +244,17 @@ it('opens the module staff entry instead of the generic course staff action',asy
  await click('加入為技師');expect(open).toHaveBeenCalledWith('person');expect(host.textContent).not.toContain('加入為教練');
 });
 
-it.each(['調整期限','註銷方案'])('opens %s below the existing grid without changing the customer panel or route',async action=>{
+it.each(['調整期限','註銷方案'])('opens %s in the same selected-card context without replacing the customer shell or route',async action=>{
  const card={id:'inline-card-'+action,name:'鋼琴十堂',unit:'SESSION',remaining:10,held:0,available:10,expiresAt:'2027-12-31T15:59:59.999Z',closed:false,expired:false,members:[{id:'person',name:'測試學員'}],entries:[],templateIds:[],sessionAdjustments:[]};
  m.browse.mockResolvedValue({success:true,rows:[card],hasMore:false});vi.mocked(browseCourseCards).mockResolvedValue({success:true,rows:[card],hasMore:false} as never);
  await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,previewStoreId:'store',canManageCards:true})));
  m.replace.mockClear();const url=window.location.href,panels=host.querySelectorAll('aside').length;
  await click('鋼琴十堂 更多操作');
  await act(async()=>[...document.querySelectorAll('button')].find(button=>button.textContent===action)!.click());
- expect(host.querySelector('[aria-label="同頁方案操作"]')).not.toBeNull();expect(host.querySelector('[data-grid]')).not.toBeNull();expect(host.querySelectorAll('aside')).toHaveLength(panels);
+ expect(host.querySelector('[aria-label="方案管理"]')).not.toBeNull();expect(host.querySelector('[data-grid]')).not.toBeNull();expect(host.querySelectorAll('aside')).toHaveLength(panels);
  if(action==='調整期限')expect(host.querySelector('[aria-label="新到期日"]')).not.toBeNull();else expect(host.textContent).toContain('收回剩餘 10 堂');
  expect(m.replace).not.toHaveBeenCalled();expect(m.refresh).not.toHaveBeenCalled();expect(window.location.href).toBe(url);expect(m.management).not.toHaveBeenCalled();expect(m.adjust).not.toHaveBeenCalled();
- await click('取消');expect(host.querySelector('[aria-label="同頁方案操作"]')).toBeNull();expect(host.querySelector('[data-grid]')).not.toBeNull();
+ await click('取消');expect(host.querySelector('[aria-label="新到期日"]')).toBeNull();expect(host.querySelector('[data-grid]')).not.toBeNull();
 });
 
 it('rechecks the current card status before exposing an inline financial form',async()=>{
@@ -319,4 +324,25 @@ it.each([true,false])('keeps the native staff entry in the profile header (music
  expect([...host.querySelectorAll('button')].filter(button=>button.textContent===label)).toHaveLength(1);
  await click(label);expect(host.querySelector('#course-member-form')).not.toBeNull();
  const {saveCourseStaff}=await import('@/server/actions/course-staff');expect(saveCourseStaff).not.toHaveBeenCalled();
+});
+
+it.each([['payments','purchases'],['bookings','bookings']])('keeps the legacy music %s link at the matching records destination',async(tab,kind)=>{
+ m.query='customerId=person&studentTab='+tab;
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,music:true})));
+ expect(host.querySelector<HTMLSelectElement>('[aria-label="紀錄類型"]')?.value).toBe(kind);
+ expect([...host.querySelectorAll('nav[aria-label="顧客資料分區"] button')].map(button=>button.textContent)).toEqual(['總覽','資料']);
+ expect(host.querySelector('h3')?.textContent).toBe('全部紀錄');
+});
+
+it('retains record filters through the data view and switching record types',async()=>{
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,props)));
+ await click('全部紀錄');
+ const input=host.querySelector<HTMLInputElement>('[aria-label="測試收款篩選"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'原查詢條件');input.dispatchEvent(new Event('input',{bubbles:true}));});
+ await click('資料');await click('總覽');await click('全部紀錄');
+ expect(host.querySelector<HTMLInputElement>('[aria-label="測試收款篩選"]')?.value).toBe('原查詢條件');
+ const select=host.querySelector<HTMLSelectElement>('[aria-label="紀錄類型"]')!;
+ await act(async()=>{select.value='bookings';select.dispatchEvent(new Event('change',{bubbles:true}));});
+ await act(async()=>{select.value='purchases';select.dispatchEvent(new Event('change',{bubbles:true}));});
+ expect(host.querySelector<HTMLInputElement>('[aria-label="測試收款篩選"]')?.value).toBe('原查詢條件');
 });
