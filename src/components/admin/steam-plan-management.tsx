@@ -10,9 +10,9 @@ import {WalletSessionDetail} from '@/components/wallet-session-detail';
 
 type Result=Awaited<ReturnType<typeof readSteamPlanOperations>>;
 /** One management form shared with Music, Sports and Beauty; only the data port differs. */
-export function SteamPlanManagement({customerId,customerName,walletId,storeId,action,onCancel,onSaved,readOnly=false,onPending}:{customerId:string;customerName:string;walletId:string;storeId:string;action:PlanGridAction|'history';onCancel:()=>void;onSaved:()=>void;readOnly?:boolean;onPending?:(pending:boolean)=>void}){
+export function SteamPlanManagement({customerId,customerName,walletId,storeId,action,onCancel,onSaved,readOnly=false,onPending,guardId}:{customerId:string;customerName:string;walletId:string;storeId:string;action:PlanGridAction|'history';onCancel:()=>void;onSaved:()=>void;readOnly?:boolean;guardId?:string;onPending?:(pending:boolean)=>void}){
  const [result,setResult]=useState<Result|null>(null),[revision,setRevision]=useState(0),[dirty,setDirty]=useState(false),[pending,setPending]=useState(false);
- useSettingsPanelGuard(dirty,pending);
+ useSettingsPanelGuard(dirty,pending,guardId);
  const reader=usePanelReader('steam-plan-operations',readSteamPlanOperations,JSON.stringify([storeId,customerId,walletId,revision]),0);
  useEffect(()=>{let active=true;reader.read(customerId,walletId).then(r=>{if(active)setResult(r);}).catch(()=>{if(active)setResult({success:false,error:'讀取失敗，請重試'});});return()=>{active=false;};},[customerId,walletId,revision,reader]);
  if(!result)return <p role="status" className="py-2 text-sm">讀取方案資料中…</p>;

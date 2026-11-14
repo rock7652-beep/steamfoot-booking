@@ -4,7 +4,7 @@ import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload"
 import { useId, useCallback, useState, useMemo, useRef, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "sonner";
-import { SettingsPanelContext, type SettingsPanelState } from "@/components/admin/settings-panel-context";
+import { SettingsPanelContext, canNavigateSettingsPanel, type SettingsPanelNavigationOptions, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { CustomersTable, isInactiveRow, type CustomerRow } from "./customers-table";
 import { CustomerDetailDrawerContent } from "./customer-detail-drawer-content";
@@ -69,11 +69,7 @@ export function CustomersListWithDrawer({
   const reportFormState = useCallback((id: string, state: SettingsPanelState | null) => {
     if (state) formStates.current.set(id, state); else formStates.current.delete(id);
   }, []);
-  const allowNavigation = useCallback(() => {
-    const states = [...formStates.current.values()];
-    if (states.some(s => s.pending)) return false;
-    return !states.some(s => s.dirty) || window.confirm("尚有未儲存的修改，確定離開？");
-  }, []);
+  const allowNavigation = useCallback((options?:SettingsPanelNavigationOptions) => canNavigateSettingsPanel(formStates.current,()=>window.confirm("尚有未儲存的修改，確定離開？"),options), []);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

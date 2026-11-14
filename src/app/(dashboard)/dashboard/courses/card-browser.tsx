@@ -15,10 +15,11 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { courseBalanceText, type CourseBalanceTotal } from "@/lib/course-balance-summary";
 import type { CourseCardView } from "./member-workspace";
 export type CardBrowseState = { search: string; history: boolean; page: number };
-function CardBrowserContent({load,preloadDetails=false,reservations,renderProgress,renderActions,sessionUnitLabel="堂", overview=false,  storeId, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
-  preloadDetails?:boolean;storeId?:string;overview?:boolean;dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
-  onSelect:(card:CourseCardView)=>void;renderProgress?:(card:CourseCardView)=>ReactNode;renderActions?:(card:CourseCardView)=>ReactNode;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
+function CardBrowserContent({load,preloadDetails=false,browsingBlocked=false,reservations,renderProgress,renderActions,renderEditor,sessionUnitLabel="堂", overview=false,  storeId, native=false, compact=false,dataScope, customerId, state, onChange, onSelect, revision=0,snapshot, canReadBookings=false, sharedCardState="ENABLED" }: {
+  preloadDetails?:boolean;browsingBlocked?:boolean;storeId?:string;overview?:boolean;dataScope?:"operational"|"legacy";load?:typeof browseCourseCards;reservations?:import("./member-source").CourseCustomerSource["reservations"];sessionUnitLabel?:string;native?:boolean; compact?:boolean; sharedCardState?:FeaturePresentationState; canReadBookings?:boolean; customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
+  onSelect:(card:CourseCardView)=>void;renderProgress?:(card:CourseCardView)=>ReactNode;renderActions?:(card:CourseCardView)=>ReactNode;renderEditor?:(card:CourseCardView)=>ReactNode;revision?:number;snapshot?:(import('@/lib/course-purchase-roster').CoursePurchaseCardsSnapshot&{revision:number});
 }) {
+  function changeState(next:CardBrowseState){if(!browsingBlocked)onChange(next);}
   const browseReader = useCustomerCardReader({load,native,revision,storeId,canReadBookings});
   const detailReader = useCourseCardDetailReader(load,storeId,revision,preloadDetails);
   const [retry,setRetry]=useState(0);
@@ -58,6 +59,7 @@ function CardBrowserContent({load,preloadDetails=false,reservations,renderProgre
             </PlanCardHeader>
             {overview&&c.openingIssue&&<p className="text-sm text-amber-800">{c.openingIssue}</p>}
             {overview&&renderProgress?.(c)}
+            {overview&&renderEditor?.(c)}
             {(!overview&&(!native||c.held>0||!!status))&&<div className="flex flex-wrap items-center gap-x-3 text-earth-600"><span>{inactive?"紀錄剩餘":"剩餘"} {c.remaining} {unit}</span>{canReadBookings&&c.held>0?<CourseCardReservations label={overview?"預約保留":undefined} load={reservations} sessionUnitLabel={sessionUnitLabel} cardId={c.id} held={c.held} unit={c.unit} revision={revision}/>:!overview||c.held>0?<span>{overview?"預約保留":"已預約"} {c.held} {unit}{c.unit==="POINT"?"額度":""}</span>:null}{!inactive&&status&&<span className="text-xs">{status}</span>}</div>}
           </div>;
           return <tr key={c.id}>
@@ -72,8 +74,8 @@ function CardBrowserContent({load,preloadDetails=false,reservations,renderProgre
   return <section aria-busy={!!cached&&!fresh&&result?.key!==key} className={overview?"space-y-1":"space-y-3"}>
     {!overview && customerId && ready && visible?.totals && (!native||visible.rows.length>0) && <div aria-label="有效方案合計" className="space-y-1 rounded-lg bg-primary-50 px-3 py-2 text-sm"><p className="font-semibold">有效方案合計 · {visible.totals.reduce((sum,total)=>sum+total.count,0)} 個</p>{(!native||visible.totals.some(t=>t.count>0))&&<p>{courseBalanceText(visible.totals)}</p>}{!compact && <p className="text-earth-600">{sharedCardState!=="HIDDEN"&&"共卡為共同餘額；"}各方案期限與適用課程分開計算。</p>}</div>}
     {(!overview||state.search||state.page>0||visible?.hasMore||(visible?.rows.length??0)>5)&&<div className="flex flex-wrap items-center gap-2">
-      {(!native||state.search||state.page>0||visible?.hasMore||(visible?.rows.length??0)>5)&&<input aria-label={sharedCardState==="HIDDEN"?"搜尋持有方案或持有人":"搜尋持有方案或共卡成員"} className="min-h-11 min-w-0 flex-1 rounded-lg border border-earth-200 bg-white px-3 text-base" placeholder={sharedCardState==="HIDDEN"?"搜尋方案／持有人":"搜尋方案／共卡成員"} value={state.search} onChange={e=>onChange({...state,search:e.target.value,page:0})}/>}
-      {!overview&&<select aria-label="方案效期" className="min-h-11 rounded-lg border border-earth-200 bg-white px-2 text-sm" value={state.history ? "history":"active"} onChange={e=>onChange({...state,history:e.target.value==="history",page:0})}><option value="active">有效方案</option><option value="history">已到期／註銷</option></select>}
+      {(!native||state.search||state.page>0||visible?.hasMore||(visible?.rows.length??0)>5)&&<input aria-label={sharedCardState==="HIDDEN"?"搜尋持有方案或持有人":"搜尋持有方案或共卡成員"} className="min-h-11 min-w-0 flex-1 rounded-lg border border-earth-200 bg-white px-3 text-base" placeholder={sharedCardState==="HIDDEN"?"搜尋方案／持有人":"搜尋方案／共卡成員"} disabled={browsingBlocked} value={state.search} onChange={e=>changeState({...state,search:e.target.value,page:0})}/>}
+      {!overview&&<select aria-label="方案效期" className="min-h-11 rounded-lg border border-earth-200 bg-white px-2 text-sm" disabled={browsingBlocked} value={state.history ? "history":"active"} onChange={e=>changeState({...state,history:e.target.value==="history",page:0})}><option value="active">有效方案</option><option value="history">已到期／註銷</option></select>}
     </div>}
     {!ready && <p role="status">更新中…</p>}
     {ready && result?.error ? <p role="alert">{result.error}<button className="min-h-11 px-3" onClick={()=>{browseReader.invalidate({customerId,dataScope,...state});setRetry(n=>n+1);}}>重試</button></p> : <fieldset disabled={!ready} className={!ready?"opacity-60":""}>
@@ -83,7 +85,7 @@ function CardBrowserContent({load,preloadDetails=false,reservations,renderProgre
 
       </RosterTable>}
         {ready && !visible?.rows.length && <p className="py-3 text-sm text-earth-500">{state.search ? "沒有符合的方案" : state.history ? "尚無到期或停用方案" : "尚無有效方案"}</p>}
-      {(state.page>0 || visible?.hasMore) && <nav aria-label="持有方案分頁" className="flex flex-wrap items-center justify-end gap-3 text-sm"><span>第 {state.page+1} 頁 · 每頁 20 筆</span><button className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40" disabled={!state.page} onClick={()=>onChange({...state,page:state.page-1})}>上一頁</button><button className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40" disabled={!visible?.hasMore} onClick={()=>onChange({...state,page:state.page+1})}>下一頁</button></nav>}
+      {(state.page>0 || visible?.hasMore) && <nav aria-label="持有方案分頁" className="flex flex-wrap items-center justify-end gap-3 text-sm"><span>第 {state.page+1} 頁 · 每頁 20 筆</span><button className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40" disabled={browsingBlocked||!state.page} onClick={()=>changeState({...state,page:state.page-1})}>上一頁</button><button className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40" disabled={browsingBlocked||!visible?.hasMore} onClick={()=>changeState({...state,page:state.page+1})}>下一頁</button></nav>}
     </fieldset>}
 
   </section>;
@@ -98,8 +100,8 @@ export function CourseCardBrowser(props:Parameters<typeof CardBrowserContent>[0]
  return <>
   <CardBrowserContent {...props} state={{...props.state,history:false}}/>
   <div className="flex flex-wrap items-start gap-x-4">
-   <button type="button" className="min-h-11 text-sm text-earth-600" aria-expanded={current.open} onClick={()=>setHistory({...current,open:!current.open})}>{current.open?"收合歷史方案":"歷史方案"}</button>
+   <button type="button" className="min-h-11 text-sm text-earth-600" aria-expanded={current.open} disabled={props.browsingBlocked} onClick={()=>{if(!props.browsingBlocked)setHistory({...current,open:!current.open});}}>{current.open?"收合歷史方案":"歷史方案"}</button>
   </div>
-  {current.open&&<section aria-label="歷史方案" className="space-y-1 border-t border-earth-100 pt-2"><h3 className="text-sm font-semibold">歷史方案</h3><CardBrowserContent {...props} snapshot={undefined} state={current.state} onChange={state=>setHistory({...current,state:{...state,history:true}})}/></section>}
+  {current.open&&<section aria-label="歷史方案" className="space-y-1 border-t border-earth-100 pt-2"><h3 className="text-sm font-semibold">歷史方案</h3><CardBrowserContent {...props} snapshot={undefined} state={current.state} onChange={state=>{if(!props.browsingBlocked)setHistory({...current,state:{...state,history:true}});}}/></section>}
  </>;
 }

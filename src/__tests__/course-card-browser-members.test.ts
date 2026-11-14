@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 vi.mock('@/lib/course-card-read-client',()=>({readNativeCourseCards:mocks.browse,readCourseCardProgress:vi.fn()}));
-import { act, createElement } from "react";
+import { act, createElement, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -113,5 +113,43 @@ it('expands history below the same active card and never replaces its grid',asyn
   expect(host.querySelector('[data-grid="Historical plan"]')).toBeNull();
   expect(host.querySelector('[data-grid="Active plan"]')).toBe(original);
   expect(mocks.browse.mock.calls.filter(([input])=>!input.history&&!input.cardId)).toHaveLength(1);
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+
+it.each([false,true])('retains an %s history editor and its request key while pending or uncertain',async history=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const row=(historical:boolean)=>({id:historical?'locked-history':'locked-active',name:historical?'Expired QA plan':'Active QA plan',unit:'SESSION' as const,remaining:2,held:0,available:historical?0:2,closed:false,expired:historical,expiresAt:'2027-01-01',members:[],entries:[]});
+ mocks.browse.mockImplementation(async(input:{history?:boolean})=>({success:true,rows:[row(!!input.history)],hasMore:true}));
+ let nextKey=0;const recovered=vi.fn();
+ function Editor({onBlocked}:{onBlocked:(value:boolean)=>void}){
+  const [key]=useState(()=>`original-request-${++nextKey}`);
+  return createElement('div',{'data-request-key':key},
+   createElement('button',{onClick:()=>onBlocked(true)},'送出測試交易'),
+   createElement('button',{onClick:()=>onBlocked(true)},'標記結果待確認'),
+   createElement('button',{onClick:()=>{recovered(key);onBlocked(false);}},'確認原交易結果'));
+ }
+ function Harness(){
+  const [blocked,setBlocked]=useState(false),[state,setState]=useState({search:'',history:false,page:1});
+  return createElement(CourseCardBrowser,{overview:true,browsingBlocked:blocked,customerId:'retain-editor-'+history,state,onChange:setState,onSelect:vi.fn(),renderEditor:card=>(card.id===(history?'locked-history':'locked-active'))?createElement(Editor,{onBlocked:setBlocked}):null});
+ }
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ const click=async(label:string)=>act(async()=>{[...host.querySelectorAll('button')].find(button=>button.textContent===label)!.click();});
+ const settle=()=>act(async()=>{await new Promise(resolve=>setTimeout(resolve,40));});
+ try{
+  await act(async()=>root.render(createElement(Harness)));await settle();
+  if(history){await click('歷史方案');await settle();const section=host.querySelector('[aria-label="歷史方案"]')!;await act(async()=>{[...section.querySelectorAll('button')].find(button=>button.textContent==='下一頁')!.click();});await settle();}
+  const editor=host.querySelector('[data-request-key]')!,key=editor.getAttribute('data-request-key');expect(editor).not.toBeNull();
+  for(const phase of ['送出測試交易','標記結果待確認']){
+   await click(phase);const reads=mocks.browse.mock.calls.length;
+   const collapse=[...host.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent===(history?'收合歷史方案':'歷史方案'))!;expect(collapse.disabled).toBe(true);await act(async()=>collapse.click());
+   for(const input of host.querySelectorAll<HTMLInputElement>('input'))expect(input.disabled).toBe(true);
+   for(const button of host.querySelectorAll<HTMLButtonElement>('nav[aria-label="持有方案分頁"] button')){expect(button.disabled).toBe(true);await act(async()=>button.click());}
+   await settle();expect(mocks.browse.mock.calls).toHaveLength(reads);expect(host.querySelector('[data-request-key]')).toBe(editor);expect(editor.getAttribute('data-request-key')).toBe(key);
+   expect([...editor.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==='確認原交易結果')!.disabled).toBe(false);
+  }
+  await click('確認原交易結果');expect(recovered).toHaveBeenCalledWith(key);expect(host.querySelector('[data-request-key]')).toBe(editor);
+  for(const input of host.querySelectorAll<HTMLInputElement>('input'))expect(input.disabled).toBe(false);
+  if(history){await click('收合歷史方案');expect(host.querySelector('[data-request-key]')).toBeNull();}
  }finally{await act(async()=>root.unmount());host.remove();}
 });
