@@ -35,5 +35,7 @@ it("keeps six sports table columns with one inline detail indicator and no hidde
   expect(source).toContain('overflow-x-auto rounded-lg');
   expect(source).toContain('if (!sharingEnabled) { e.preventDefault(); return; }');
   expect(source).toContain('<CourseCardSummary card={card} sessionUnitLabel={source?.sessionUnitLabel}/>' );
-  expect(source).toContain('<CourseCardEntries card={card} sessionUnitLabel={source?.sessionUnitLabel} entryLabels={source?.entryLabels}/>');
+  expect(source).toContain('<CoursePlanUsageHistory card={card} customerId={person.id} source={source}/>');
+  const history=readFileSync("src/app/(dashboard)/dashboard/courses/plan-usage-history.tsx","utf8");
+  expect(history).toContain('<CourseCardEntries card={card} sessionUnitLabel={source?.sessionUnitLabel} entryLabels={source?.entryLabels}/>');
 });
