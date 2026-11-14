@@ -1381,7 +1381,7 @@
     "newScreenshots": 0,
     "notificationsSent": false,
     "customerOrBusinessMutations": false,
-    "note": "52檔241項指南與5檔100項相關元件／隔離測試分別通過，兩組含重疊不相加；完整型別、差異指南ESLint及10題語義／搜尋／權限查核通過。未新增或刪除測試。"
+    "note": "52檔241項指南與5檔100項相關測試分別通過，兩組含重疊不相加；完整型別、差異ESLint及10題語義／搜尋／權限查核通過。更新state後原兩項日期／數量快照斷言失敗，已對齊11/14基準並保留所有護欄，追加歷史待驗保留及逐題映射一致性斷言，最終全52檔241項重跑通過。未新增／刪除測試案例或降低斷言。"
   },
   "sourceAddedBackendGuideIds": [],
   "previewPackagingRepair": {
