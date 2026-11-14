@@ -12,8 +12,9 @@ import { CustomerDrawerSkeleton } from "./customer-drawer-skeleton";
 import { BulkAssignBar } from "./bulk-assign-bar";
 import {
   bulkUpdateCustomerAssignment,
-  getCustomerDrawerDetailAction,
 } from "@/server/actions/customer";
+import { readCustomerDrawerPrimary } from "@/lib/customer-drawer-primary-read";
+import { readCustomerPanelSummary } from "@/lib/customer-panel-summary-read";
 import type { getCustomerDrawerDetail } from "@/server/queries/customer";
 
 import { CUSTOMER_DRAWER_OPEN_EVENT, type CustomerDrawerOpenRequest } from "@/lib/customer-drawer-open";
@@ -84,11 +85,12 @@ export function CustomersListWithDrawer({
   const rowsKey = JSON.stringify(rows);
   const customerQueue=useCustomerReadQueue();
   const cache = usePanelReadCache<DrawerDetail>("customer-detail", async (customerId) => {
-    const result = await getCustomerDrawerDetailAction(customerId);
+    const result = await readCustomerDrawerPrimary(customerId);
     if (!result.success) throw new Error(result.error ?? "讀取顧客資料失敗");
     return result.data;
   }, JSON.stringify([rowsKey, pathname]));
   const [openId, setOpenId] = useState<string | null>(null);
+  const [summaryRead, setSummaryRead] = useState<{ id: string; promise: ReturnType<typeof readCustomerPanelSummary> } | null>(null);
   const [detail, setDetail] = useState<DrawerDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -146,6 +148,9 @@ export function CustomersListWithDrawer({
       if (visibleCustomerRef.current && visibleCustomerRef.current !== customerId && !allowNavigation()) return false;
       visibleCustomerRef.current = customerId;
       setOpenId(customerId);
+      // Start independently of primary data; catch even if the drawer closes before mounting.
+      const promise = readCustomerPanelSummary(customerId).catch(() => ({ success: false as const, error: "摘要暫時無法載入" }));
+      setSummaryRead({ id: customerId, promise });
       setLoadError(null);
       setFocus(f);
       const fresh = cache.get(customerId);
@@ -255,6 +260,7 @@ export function CustomersListWithDrawer({
     if (!allowNavigation()) return;
     visibleCustomerRef.current = null;
     setOpenId(null);
+    setSummaryRead(null);
     setDetail(null);
     setFocus(null);
     requestGate.invalidate(); // 丟棄在途請求
@@ -437,6 +443,7 @@ export function CustomersListWithDrawer({
           <CustomerDetailDrawerContent
             key={detail.id}
             customer={detail}
+            initialSummaryRead={summaryRead?.id === detail.id ? summaryRead.promise : undefined}
             plans={plans}
             canDiscount={canDiscount}
             staffOptions={staffOptions}

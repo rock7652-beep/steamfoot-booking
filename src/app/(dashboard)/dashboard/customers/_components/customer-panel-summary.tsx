@@ -8,7 +8,7 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 import { formatTWTime } from "@/lib/date-utils";
 import { formatPaymentMethod } from "@/lib/data-export-labels";
 
-export function CustomerPanelSummaryView({customerId,readOnly,onMutated,revision,initialData,onHealthEnabled,section = "all"}:{onHealthEnabled?:(enabled:boolean)=>void;section?:"all" | "overview" | "health";initialData?:CustomerPanelSummary;customerId:string;readOnly:boolean;onMutated:()=>void;revision:number}) {
+export function CustomerPanelSummaryView({customerId,readOnly,onMutated,revision,initialData,initialRead,onHealthEnabled,section = "all"}:{onHealthEnabled?:(enabled:boolean)=>void;section?:"all" | "overview" | "health";initialData?:CustomerPanelSummary;initialRead?:ReturnType<typeof readCustomerPanelSummary>;customerId:string;readOnly:boolean;onMutated:()=>void;revision:number}) {
   const [attempt,setAttempt]=useState(0);
   const [result,setResult]=useState<{customerId:string;revision:number;attempt:number;data:CustomerPanelSummary|null;error:string}|null>(null);
   const [paymentError,setPaymentError]=useState("");
@@ -27,7 +27,7 @@ export function CustomerPanelSummaryView({customerId,readOnly,onMutated,revision
     const controller = new AbortController();
     let timeout: ReturnType<typeof setTimeout>;
     void Promise.race([
-      readCustomerPanelSummary(customerId, controller.signal),
+      revision===0 && attempt===0 && initialRead ? initialRead : readCustomerPanelSummary(customerId, controller.signal),
       new Promise<never>((_,reject)=>{timeout=setTimeout(()=>{controller.abort();reject(new Error("讀取逾時"));},15_000);}),
     ]).then(response=>{
       if(token!==request.current)return;
@@ -36,7 +36,7 @@ export function CustomerPanelSummaryView({customerId,readOnly,onMutated,revision
       if(token===request.current)setResult({customerId,revision,attempt,data:null,error:"摘要暫時無法載入"});
     }).finally(()=>clearTimeout(timeout));
     return()=>{gate.current++;clearTimeout(timeout);controller.abort();};
-  },[customerId,revision,initialData,attempt]);
+  },[customerId,revision,initialData,initialRead,attempt]);
   useEffect(()=>{if(data)onHealthEnabled?.(data.healthEnabled);},[data,onHealthEnabled]);
   async function receive(id:string) {
     if(pending)return;

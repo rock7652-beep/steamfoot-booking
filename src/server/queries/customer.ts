@@ -1,3 +1,4 @@
+import type { OperationTiming } from "@/lib/operation-timing";
 import {unavailablePlanProgress} from "@/lib/plan-usage-progress";
 import {walletPlanProgress} from "@/lib/wallet-plan-progress";
 import { getHqStoreViewContext } from "@/lib/hq-store-view-context";
@@ -428,16 +429,11 @@ export async function getCustomerDetailForUser(
 }
 
 // ============================================================
-// getCustomerDrawerDetail — 顧客管理「右滑 Drawer」專用 slim query（PR-4）
-//
-// 與 getCustomerDetail 的差異（僅取 drawer 實際 render 的欄位）：
-//   - 不抓 bookings[20]（含 revenue/serviceStaff join）
-//   - 不抓 transactions[20]
-//   - planWallets 只抓 status=ACTIVE，且 sessions 只取 status（不抓 booking /
-//     voidedByStaff nested include）；失效張數改由 _count.planWallets 計算
-//   - user 只取 email / status（status 供停用判斷與系統資訊顯示）
-// 權限 / 邊界與 getCustomerDetail 完全一致（getStoreFilter 跨店、merged、
-// SUSPENDED、CUSTOMER 只看自己）。不改 getCustomerDetail，[id] 詳情頁不受影響。
+// getCustomerDrawerDetail — 顧客管理右滑 Drawer 的主資料。
+// 回傳基本資料、最近 50 筆預約、方案／進度及近期消費；不含獨立載入的
+// 預約、待收款與健康摘要。不可依舊的 slim/ACTIVE-only 註解判斷讀取成本。
+// 與詳情頁沿用相同的門市、merged、SUSPENDED 與顧客本人安全邊界。
+// 分段計時僅記固定標籤與耗時，不輸出顧客識別或查詢內容。
 // ============================================================
 
 export async function getCustomerDrawerDetail(customerId: string) {
@@ -449,13 +445,15 @@ export async function getCustomerDrawerDetailForUser(
   user: Awaited<ReturnType<typeof requireSession>>,
   customerId: string,
   activeStoreId?: string | null,
+  timing?: Pick<OperationTiming, "measure">,
 ) {
-  const [canReadBookings, canBook, canAssignPlan, canAdjustWallet,canReadWallets,canReadConsumptionPermission] = await Promise.all([
+  const measure = <T,>(name: string, work: () => Promise<T>) => timing ? timing.measure(name, work) : work();
+  const [canReadBookings, canBook, canAssignPlan, canAdjustWallet,canReadWallets,canReadConsumptionPermission] = await measure("grants", () => Promise.all([
     checkPermission(user.role,user.staffId,"booking.read"), checkPermission(user.role,user.staffId,"booking.create"),
     checkPermission(user.role,user.staffId,"wallet.create"), checkPermission(user.role,user.staffId,"wallet.adjust"),checkPermission(user.role,user.staffId,"wallet.read"),checkPermission(user.role,user.staffId,"transaction.read"),
-  ]);
+  ]));
   const canReadConsumption=user.role!=="CUSTOMER"&&canReadConsumptionPermission;
-  const customer = await prisma.customer.findFirst({
+  const customer = await measure("customerRelations", () => prisma.customer.findFirst({
     where: { id: customerId, ...getStoreFilter(user, activeStoreId) },
     include: {
       user: { select: { email: true, status: true } },
@@ -479,7 +477,7 @@ export async function getCustomerDrawerDetailForUser(
         orderBy: { createdAt: "desc" },
       },
     },
-  });
+  }));
   if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
   // 與 getCustomerDetail 相同的安全閘（行為一致，防繞進來操作）
@@ -494,13 +492,13 @@ export async function getCustomerDrawerDetailForUser(
       throw new AppError("FORBIDDEN", "只能查看自己的資料");
     }
   }
-  const config = await prisma.shopConfig.findUnique({ where: { storeId: customer.storeId }, select: { bookableUntilDate: true } });
+  const config = await measure("bookingConfig", () => prisma.shopConfig.findUnique({ where: { storeId: customer.storeId }, select: { bookableUntilDate: true } }));
   const bookingDays = enumerateBookableDates(toLocalDateStr(), resolveBookableUntilDate(config?.bookableUntilDate));
   // The drawer crosses the Server Action boundary; Prisma Decimal is not an
   // RSC-serializable value. Keep the ledger untouched and return display data.
   const drawerCustomer = { ...customer,canReadWallets,planWallets: customer.planWallets.map(wallet => ({ ...wallet,purchasedAt:wallet.transactions?.[0]?.createdAt??null,transactions:undefined,sessions:wallet.sessions?.map(session=>({status:session.status})), ...(canReadBookings&&canReadWallets?{usageProgress:wallet.sessions.some(session=>session.booking&&(session.booking.storeId!==customer.storeId||session.booking.customerId!==customer.id))?unavailablePlanProgress():walletPlanProgress({...wallet,sessions:wallet.sessions.map((session,index)=>({...session,id:session.id??String(index),completedAt:session.completedAt??null,voidedAt:session.voidedAt??null,booking:session.booking??null}))})}:{}),purchasedPrice: Number(wallet.purchasedPrice) })) };
   if (!canReadConsumption) return { ...drawerCustomer, canReadBookings, canBook, canAssignPlan, bookingDays, recentConsumption: null, canAdjustWallet };
-  const [transactions, cashbookEntries] = await Promise.all([
+  const [transactions, cashbookEntries] = await measure("recentConsumption", () => Promise.all([
     prisma.transaction.findMany({
       where: { storeId: customer.storeId, customerId: customer.id },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -513,7 +511,7 @@ export async function getCustomerDrawerDetailForUser(
       take: 5,
       select: { id: true, entryDate: true, createdAt: true, category: true, amount: true, paymentMethod: true },
     }),
-  ]);
+  ]));
   const transactionLabels: Record<string, string> = {
     PLAN_PURCHASE: "購買方案", SINGLE_SERVICE: "單次服務", SESSION_DEDUCTION: "方案扣堂", REFUND: "退款",
   };

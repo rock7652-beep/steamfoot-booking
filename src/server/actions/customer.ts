@@ -1,5 +1,6 @@
 "use server";
 
+import { OperationTiming } from "@/lib/operation-timing";
 import { ServerTiming } from "@/lib/perf";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { revalidatePath, updateTag } from "next/cache";
@@ -687,21 +688,24 @@ export async function getCustomerDrawerDetailAction(
   customerId: string,
 ): Promise<ActionResult<Awaited<ReturnType<typeof getCustomerDrawerDetailForUser>>>> {
   const timer = new ServerTiming("customer-drawer-primary");
+  const phases = new OperationTiming("customer-drawer-primary-phases");
   try {
-    const user = await requirePermission("customer.read");
-    const storeViewContext = await resolveStoreViewContextFromCookie(user);
-    const ownActiveStoreId = await getActiveStoreForRead(user);
+    const user = await requirePermission("customer.read", phases);
+    const storeViewContext = await phases.measure("viewContext", () => resolveStoreViewContextFromCookie(user));
+    const ownActiveStoreId = await phases.measure("activeStore", () => getActiveStoreForRead(user));
     const activeStoreId = storeIdForViewContext(ownActiveStoreId, storeViewContext);
     const readUser = userForViewContext(user, storeViewContext);
     const data = await getCustomerDrawerDetailForUser(
       readUser,
       customerId,
       activeStoreId,
+      phases,
     );
     return { success: true, data };
   } catch (e) {
     return handleActionError(e);
   } finally {
     timer.finish();
+    phases.finish();
   }
 }

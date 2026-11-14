@@ -34,6 +34,33 @@ it("uses preloaded summary initially but re-reads it after a mutation",async()=>
  expect(m.summary).toHaveBeenCalledWith("a",expect.any(AbortSignal));expect(host.textContent).toContain("updated");expect(host.textContent).not.toContain("old");
 });
 
+it("consumes the read started on selection without duplicating it, then refreshes after mutation",async()=>{
+ let finish!:(value: {success:true;data:CustomerPanelSummary})=>void;
+ const initialRead=new Promise<{success:true;data:CustomerPanelSummary}>(resolve=>{finish=resolve;});
+ const props={customerId:"a",revision:0,initialRead,readOnly:false,onMutated:vi.fn()};
+ await act(async()=>root.render(React.createElement(CustomerPanelSummaryView,props)));
+ expect(m.summary).not.toHaveBeenCalled();
+ expect(host.querySelector('[role="status"]')).not.toBeNull();
+ await act(async()=>finish({success:true,data:summary("parallel result")}));
+ expect(host.textContent).toContain("parallel result");
+ m.summary.mockResolvedValue({success:true,data:summary("fresh mutation result")});
+ await act(async()=>root.render(React.createElement(CustomerPanelSummaryView,{...props,revision:1})));
+ expect(m.summary).toHaveBeenCalledTimes(1);
+ expect(host.textContent).toContain("fresh mutation result");
+ expect(host.textContent).not.toContain("parallel result");
+});
+
+it("retries a failed selection-time summary with a new request",async()=>{
+ const initialRead=Promise.resolve({success:false as const,error:"首次讀取失敗"});
+ await act(async()=>root.render(React.createElement(CustomerPanelSummaryView,{customerId:"a",revision:0,initialRead,readOnly:true,onMutated:vi.fn()})));
+ expect(host.textContent).toContain("首次讀取失敗");
+ expect(m.summary).not.toHaveBeenCalled();
+ m.summary.mockResolvedValue({success:true,data:summary("retry fresh")});
+ await act(async()=>host.querySelector("button")!.click());
+ expect(m.summary).toHaveBeenCalledTimes(1);
+ expect(host.textContent).toContain("retry fresh");
+});
+
 it("times out the summary independently and aborts the read so it can be retried",async()=>{
  vi.useFakeTimers();m.summary.mockReturnValue(new Promise(()=>{}));await render();
  const signal=m.summary.mock.calls[0][1] as AbortSignal;

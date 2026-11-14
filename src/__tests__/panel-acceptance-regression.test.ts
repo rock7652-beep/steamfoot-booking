@@ -4,6 +4,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({ detail: vi.fn(), save: vi.fn(), params: new URLSearchParams() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }), usePathname: () => "/dashboard/customers", useSearchParams: () => m.params }));
+vi.mock("@/lib/customer-drawer-primary-read", () => ({ readCustomerDrawerPrimary: m.detail }));
+vi.mock("@/lib/customer-panel-summary-read", () => ({ readCustomerPanelSummary: vi.fn(async () => ({success:false,error:"not loaded"})) }));
 vi.mock("@/server/actions/customer", () => ({ getCustomerDrawerDetailAction: m.detail, bulkUpdateCustomerAssignment: vi.fn() }));
 vi.mock("@/server/actions/trial-booking", () => ({ collectTrialPayment: m.save, correctTrialCollection: m.save }));
 vi.mock("@/server/actions/booking-checkout", () => ({ adjustCheckoutToPackage: m.save, adjustCheckoutToSingle: m.save }));

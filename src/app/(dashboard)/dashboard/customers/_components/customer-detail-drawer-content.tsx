@@ -47,6 +47,7 @@ interface StaffOption {
 interface Props {
   customer: CustomerDetail;
   initialSummary?: CustomerPanelSummary;
+  initialSummaryRead?: ReturnType<typeof import("@/lib/customer-panel-summary-read").readCustomerPanelSummary>;
   plans: Plan[];
   canDiscount: boolean;
   staffOptions: StaffOption[];
@@ -77,6 +78,7 @@ function formatPhoneForStaff(phone: string | null | undefined): string {
 export function CustomerDetailDrawerContent({
   customer,
   initialSummary,
+  initialSummaryRead,
   plans,
   canDiscount,
   staffOptions,
@@ -202,7 +204,7 @@ export function CustomerDetailDrawerContent({
           </div>
         ) : null}
 
-        <div hidden={panelTab !== "overview" && panelTab !== "health"}><CustomerPanelSummaryView onHealthEnabled={setHealthEnabled} section={panelTab === "health" ? "health" : "overview"} initialData={initialSummary} customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} /></div>
+        <div hidden={panelTab !== "overview" && panelTab !== "health"}><CustomerPanelSummaryView onHealthEnabled={setHealthEnabled} section={panelTab === "health" ? "health" : "overview"} initialData={initialSummary} initialRead={initialSummaryRead} customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} /></div>
         <section hidden={panelTab !== "overview"} className="space-y-2">
         {/* 課程方案 / 堂數 */}
         <section ref={planSectionRef}>
