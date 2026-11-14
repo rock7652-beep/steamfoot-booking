@@ -244,7 +244,7 @@ export function CustomerDetailDrawerContent({
             </ul>
           )}
           {inactiveWalletCount > 0 ? (
-            <button type="button" onClick={() => setShowInactive(!showInactive)} className="mt-1 min-h-11 text-sm text-earth-600">{showInactive ? "收合歷史方案" : `歷史方案（${inactiveWalletCount}）`}</button>
+            <button type="button" disabled={managementPending} onClick={() => {if(!managementPending)setShowInactive(!showInactive);}} className="mt-1 min-h-11 text-sm text-earth-600">{showInactive ? "收合歷史方案" : `歷史方案（${inactiveWalletCount}）`}</button>
           ) : null}
 
           {/* 指派新方案 — 預設收合，focus=plan 自動展開 */}

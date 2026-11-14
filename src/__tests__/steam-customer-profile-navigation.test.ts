@@ -8,7 +8,7 @@ vi.mock('@/components/customer-attribution-form',()=>({CustomerAttributionForm:(
 vi.mock('@/components/admin/store-member-connection-panel',()=>({StoreMemberConnectionPanel:()=>createElement('p',null,'會員登入狀態')}));
 vi.mock('@/components/admin/steam-plan-management',()=>({SteamPlanManagement:({action,guardId,onPending}:{action:string;guardId?:string;onPending?:(value:boolean)=>void})=>{
  const [dirty,setDirty]=useState(false),[pending,setPending]=useState(false);useSettingsPanelGuard(dirty,pending,guardId);
- return createElement('div',{'data-plan-action':action},action,createElement('input',{'aria-label':'測試方案草稿',onChange:()=>setDirty(true)}),createElement('button',{onClick:()=>{setPending(true);onPending?.(true);}},'模擬交易待確認'));
+ return createElement('div',{'data-plan-action':action},action,createElement('input',{'aria-label':'測試方案草稿',onChange:()=>setDirty(true)}),createElement('button',{onClick:()=>{setPending(true);onPending?.(true);}},'模擬交易待確認'),createElement('button',{onClick:()=>{setPending(false);onPending?.(false);}},'確認交易結果'));
 }}));
 vi.mock('@/app/(dashboard)/dashboard/bookings/booking-service-note-editor',()=>({BookingServiceNoteEditor:()=>createElement('div',{'data-note':true},'顧客備註')}));
 vi.mock('@/app/(dashboard)/dashboard/customers/[id]/assign-plan-form',()=>({AssignPlanForm:()=>null}));
@@ -60,4 +60,16 @@ it('switches a dirty plan inside the live guard context while guarding external 
  await fill();await click('十堂方案 更多操作');await click('註銷堂數');expect(host.querySelector('[data-plan-action]')?.getAttribute('data-plan-action')).toBe('VOID');expect(confirm).not.toHaveBeenCalled();expect(host.querySelector<HTMLInputElement>('[aria-label="測試方案草稿"]')?.value).toBe('');expect(host.querySelector('[data-grid]')).toBe(grid);
  await fill();await click('健康追蹤');expect(confirm).toHaveBeenCalledOnce();expect(host.querySelector('[data-plan-action]')?.getAttribute('data-plan-action')).toBe('VOID');
  await click('模擬交易待確認');await click('十堂方案 更多操作');const expiry=[...document.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==='調整期限')!;expect(expiry.disabled).toBe(true);
+});
+
+
+it('keeps the expired steam editor mounted until its pending transaction is confirmed',async()=>{
+ const expired={...props,customer:{...props.customer,planWallets:props.customer.planWallets.map(wallet=>({...wallet,status:'EXPIRED',expiryDate:new Date('2020-01-01T00:00:00Z')}))}} as Parameters<typeof CustomerDetailDrawerContent>[0];
+ await act(async()=>root.render(createElement(CustomerDetailDrawerContent,expired)));
+ await click('歷史方案（1）');await click('十堂方案 更多操作');await click('調整期限');
+ const editor=host.querySelector('[data-plan-action]');expect(editor).not.toBeNull();
+ await click('模擬交易待確認');const collapse=[...host.querySelectorAll<HTMLButtonElement>('button')].find(button=>button.textContent==='收合歷史方案')!;expect(collapse.disabled).toBe(true);
+ await act(async()=>collapse.click());expect(host.querySelector('[data-plan-action]')).toBe(editor);
+ await click('確認交易結果');expect(collapse.disabled).toBe(false);expect(host.querySelector('[data-plan-action]')).toBe(editor);
+ await click('收合歷史方案');expect(host.querySelector('[data-plan-action]')).toBeNull();
 });
