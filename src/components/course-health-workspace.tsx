@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { loadCourseHealth, loadCourseMemberHealth, saveCourseHealth, saveCourseMemberHealth } from "@/server/actions/course-health";
 import {loadBeautyMemberHealth,saveBeautyMemberHealth} from "@/server/actions/beauty-member";
+import { CustomerHealthTracking } from "@/components/customer-health-tracking";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { HealthRecordForm } from "@/app/(customer)/health/new/health-record-form";
 import { healthRecordFormData } from "@/lib/health-record-input";
@@ -69,8 +70,8 @@ export function CourseHealthWorkspace(props: Props) {
       <div onChangeCapture={() => markDirty(true)}><HealthRecordForm compact={props.compact} requestId={requestId} today={toLocalDateStr()} mode={edit ? "edit" : "create"} initialValues={edit ?? undefined} submitAction={submit} onSaved={onSaved} notePlaceholder={scope==="beauty"?"例如：服務前量測":"例如：上課前量測"} /></div>
     </> : !data ? <p role="status">讀取健康紀錄…</p> : <>
       {canEdit && <button type="button" className="min-h-11 rounded-lg bg-primary-700 px-4 text-white" onClick={() => { setEdit(null); setRequestId(crypto.randomUUID()); setNotice(""); }}>新增量測</button>}
-      {data.summary.latest ? <HealthAssessmentCard summary={data.summary} compact={!member} /> : <p>尚無量測紀錄，可新增第一筆量測。</p>}
-      {canEdit && data.records.length > 0 && <details><summary className="min-h-11 cursor-pointer py-3 font-medium">編輯量測紀錄（最近 100 筆）</summary>
+      {data.summary.latest ? member ? <HealthAssessmentCard summary={data.summary} /> : <CustomerHealthTracking records={data.records} summary={data.summary} onEdit={canEdit?id=>{const record=data.records.find(record=>record.id===id);if(record){setEdit(record);setRequestId(crypto.randomUUID());setNotice("");}}:undefined}/> : <p>尚無量測紀錄，可新增第一筆量測。</p>}
+      {member && canEdit && data.records.length > 0 && <details><summary className="min-h-11 cursor-pointer py-3 font-medium">編輯量測紀錄（最近 100 筆）</summary>
         <ul className="divide-y divide-earth-100">{data.records.map(record => <li key={record.id} className="flex min-w-0 items-center justify-between gap-2 py-2 text-sm">
           <span className="min-w-0 break-words">{record.measuredAt} · {record.weight == null ? "體重未填" : `${record.weight} kg`}</span>
           <button type="button" className="min-h-11 shrink-0 px-3 text-primary-700" onClick={() => { setEdit(record); setRequestId(crypto.randomUUID()); setNotice(""); }}>編輯</button>

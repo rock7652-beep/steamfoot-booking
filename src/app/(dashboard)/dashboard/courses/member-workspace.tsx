@@ -89,6 +89,7 @@ import { CourseCustomerPurchases } from "./customer-purchases";
 import { CourseCustomerList } from "./customer-list";
 import type { CourseCustomerPage } from "@/server/queries/course-customer-page";
 import type { CustomerRow } from "../customers/_components/customers-table";
+import {InlineCustomerPlanManagement} from "./inline-customer-plan-management";
 import {CourseCardProgress} from "./card-progress";
 import {CardSubjectReview} from "./card-subject-review";
 import { CourseCustomerBookings } from "./customer-bookings";
@@ -231,7 +232,8 @@ export function CourseMemberWorkspace({
   const personLine = customerRows.find(row=>row.id===person?.id);
   const [personTab, setPersonTab] = useState<"data" | "connection" | "info" | "plans" | "courses" | "records" | "payments" | "bookings" | "makeups">(() => {
     const tab=params.get("studentTab");
-    if(tab==="data"||tab==="connection"||tab==="records")return tab;
+    if(tab==="data")return "info";
+    if(tab==="connection"||tab==="records")return tab;
     if(tab==="bookings"||tab==="payments")return "records";
     if(tab==="plans")return music?"courses":"plans";
     if(music&&tab==="courses")return "courses";
@@ -287,6 +289,16 @@ export function CourseMemberWorkspace({
     if (!open("card")) return;
     setCardId(value.id);setLoadedCard(value);setCardOpening(n=>n+1);setCardEntry(action?{id:value.id,action}:null);
   }
+  const [inlineEntry,setInlineEntry]=useState<{customerId:string;cardId:string;action:PlanGridAction|"history";opening:number}|null>(null);
+  function selectInlineAction(value:CourseCardView,action:PlanGridAction|"history") {
+    if(!person||!canReadBookings||!canLeave())return;
+    setDirty(false);
+    setInlineEntry(previous=>({customerId:person.id,cardId:value.id,action,opening:(previous?.opening??0)+1}));
+  }
+  function overviewEditor(value:CourseCardView) {
+    if(!person||inlineEntry?.customerId!==person.id||inlineEntry.cardId!==value.id||!previewStoreId)return null;
+    return <InlineCustomerPlanManagement key={`${person.id}:${value.id}:${inlineEntry.opening}`} cardId={value.id} customerId={person.id} action={inlineEntry.action} storeId={previewStoreId} revision={cardRevision} source={source} dataScope={dataScope} music={music} canManage={canManageCards} onDirtyChange={setDirty} onPending={setFormPending} onCancel={()=>{setInlineEntry(null);setDirty(false);}} onSaved={()=>{setDirty(false);setInlineEntry(null);setCardRevision(n=>n+1);publishMusicFinanceChange();router.refresh();}}/>;
+  }
   function overviewProgress(value:CourseCardView) {
     if(!canReadBookings||!previewStoreId||!person)return null;
     return source?source.cardProgress?.(value,{customerId:person.id,revision:cardRevision}):<CourseCardProgress music={music} showSummary={false} cardId={value.id} customerId={person.id} storeId={previewStoreId} dataScope={dataScope} revision={cardRevision}/>;
@@ -297,7 +309,7 @@ export function CourseMemberWorkspace({
     const product=plans.find(p=>p.id===value.planId&&p.isActive);
     const manageable=(source?!!source.cardManagement:canManageCards)&&!value.closed&&!value.openingImported&&!value.templateRestricted;
 
-    return <>{canAssign&&product&&<button type="button" disabled={!canLeave()} className="min-h-11 shrink-0 whitespace-nowrap rounded-lg border border-primary-300 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100 disabled:opacity-50" onClick={()=>{if(open("assign")){setPlanId(product.id);setRenewal(true);if(music){const items=musicPlanItems(product.templateIds,templates,subjects),heldItems=musicPlanItems(value.templateIds,templates,subjects);const matching=items.filter(item=>heldItems.some(held=>held.id===item.id));setPurchaseSubjectId((matching.length===1?matching[0]:items.length===1?items[0]:undefined)?.id??"");}}}}>續購同方案</button>}<PlanGridActions label={value.name} allowExpiry={manageable} allowClose={manageable} onHistory={()=>selectCard(value,"history")} unitLabel={source?.sessionUnitLabel??"堂"} allowSession={manageable} disabled={!canLeave()} onSelect={action=>selectCard(value,action)}/></>;
+    return <>{canAssign&&product&&<button type="button" disabled={!canLeave()} className="min-h-11 shrink-0 whitespace-nowrap rounded-lg border border-primary-300 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100 disabled:opacity-50" onClick={()=>{if(open("assign")){setPlanId(product.id);setRenewal(true);if(music){const items=musicPlanItems(product.templateIds,templates,subjects),heldItems=musicPlanItems(value.templateIds,templates,subjects);const matching=items.filter(item=>heldItems.some(held=>held.id===item.id));setPurchaseSubjectId((matching.length===1?matching[0]:items.length===1?items[0]:undefined)?.id??"");}}}}>續購同方案</button>}<PlanGridActions label={value.name} allowExpiry={manageable} allowClose={manageable} onHistory={()=>selectInlineAction(value,"history")} unitLabel={source?.sessionUnitLabel??"堂"} allowSession={manageable} disabled={!canLeave()} onSelect={action=>selectInlineAction(value,action)}/></>;
 
   }
   function renderStaffEntry(){return person?(source?.staffAction?.available(person.id)?<button type="button" disabled={!canLeave()||dirty} className="min-h-11 whitespace-nowrap rounded-lg border border-earth-200 px-3 text-sm text-primary-700" onClick={()=>{if(canLeave()&&!dirty){rememberProfileScroll();source.staffAction!.open(person.id);}}}>{source.staffAction.label}</button>:!source&&canManageStaff?<button type="button" disabled={!canLeave()||dirty} className="min-h-11 whitespace-nowrap rounded-lg border border-earth-200 px-3 text-sm text-primary-700" onClick={()=>{if(!dirty)open("coach");}}>{personnelText(courseDisplayText("加入為教練",music))}</button>:null):null;}
@@ -504,16 +516,17 @@ export function CourseMemberWorkspace({
   const sessionPlans = activePlans.filter((item) => item.unit === "SESSION").length;
 
 
-  const attribution=person&&<CourseCustomerAttribution customerId={person.id} currentStaff={customerRows.find(row=>row.id===person.id)?.assignedStaff??null} currentSponsor={customerRows.find(row=>row.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} music={music} compact editing={editingAttribution} onToggle={()=>{if(supportGuard.allowLeave())setEditingAttribution(value=>!value);}} saveAction={source?.attribution??saveCourseCustomerAttribution} searchAction={source?.referrers??searchCourseReferrerCandidates} onSaved={()=>{setEditingAttribution(false);router.refresh();}}/>;
-  const attributionSummary=person&&<div className="flex min-h-11 flex-wrap items-center gap-x-4 text-sm"><span>歸屬店長：{customerRows.find(row=>row.id===person.id)?.assignedStaff?.displayName??"未指派"}</span><span>推薦人：{customerRows.find(row=>row.id===person.id)?.sponsor?.name??"未設定"}</span><button type="button" className="min-h-11 text-primary-700" disabled={!canLeave()} onClick={()=>switchPersonTab("data")}>查看資料</button></div>;
+  const attribution=person&&<CourseCustomerAttribution customerId={person.id} currentStaff={customerRows.find(row=>row.id===person.id)?.assignedStaff??null} currentSponsor={customerRows.find(row=>row.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} music={music} compact disabled={!canLeave()} editing={editingAttribution} onToggle={()=>{if(supportGuard.allowLeave())setEditingAttribution(value=>!value);}} saveAction={source?.attribution??saveCourseCustomerAttribution} searchAction={source?.referrers??searchCourseReferrerCandidates} onSaved={()=>{setEditingAttribution(false);router.refresh();}}/>;
+
   const recordsEntry=(canReadBookings||canReadTransactions)&&<button type="button" className="min-h-11 text-sm text-primary-700" disabled={!canLeave()} onClick={()=>switchPersonTab("records")}>全部紀錄</button>;
-  const detailFields=person&&(<CustomerDetailFields items={[
+  const detailItems=person?[
                 {label:"電子信箱",value:person.email},{label:"生日",value:person.birthday},
                 {label:"性別",value:({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender??""]},
                 {label:"緊急聯絡人",value:person.emergencyContactName},
                 {label:"緊急聯絡電話",value:person.emergencyContactPhone?<CustomerPhoneLink phone={person.emergencyContactPhone}/>:null},
                 {label:"地址",value:person.address,full:true},
-              ].filter(item => item.value != null && item.value !== "")}/>);
+              ].filter(item => item.value != null && item.value !== ""):[];
+  const detailFields=detailItems.length>0?<CustomerDetailFields className="sm:!grid-cols-1 @min-[500px]/member:!grid-cols-2" items={detailItems}/>:null;
   const planFilters=view === "plans" && planArea === "catalog" && !music && (<>
           <select aria-label="購買方式篩選" className={`${field} ${sportsData?"!w-36":"max-w-44"}`} value={purchaseFilter} onChange={e=>{setSelected([]);setPurchaseFilter(e.target.value);setPage(0);}}><option value="all">全部購買方式</option><option value="customer">顧客可購買</option><option value="backend">僅後台指派</option></select>
           {sharingVisible && <select aria-label="共卡篩選" className={`${field} ${sportsData?"!w-32":"max-w-40"}`} value={sharedFilter} onChange={e=>{setSelected([]);setSharedFilter(e.target.value);setPage(0);}}><option value="all">全部共卡設定</option><option value="allowed">允許共卡</option><option value="disabled">不允許共卡</option></select>}
@@ -702,7 +715,7 @@ export function CourseMemberWorkspace({
           <div data-course-person-scroll={scrollKey} ref={studentScroll} onScroll={e=>{if(restoringScroll.current)return;studentScrollPositions.current[scrollKey]=e.currentTarget.scrollTop;try{sessionStorage.setItem(scrollKey,String(e.currentTarget.scrollTop));}catch{}}} className={`@container/member min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain ${music ? "p-3" : "p-4"}`}><div className="min-w-0">
             {panel === "person" && person && ["info","data"].includes(personTab) && !editingPerson && <CustomerProfileIdentity phone={person.phone} labels={<CustomerLabels customerId={person.id} readOnly={!canEdit} maxVisible={5}/>} connection={<CustomerProfileConnection key={person.id} onManage={()=>switchPersonTab("connection")} label={customerProfileLineLabel(personLine?.lineLinkStatus,personLine?.lineName,personLine?.lineUserId)}/>} actions={<>{source?.onSchedule?<button type="button" disabled={!canLeave()} className="min-h-11 rounded-lg bg-primary-700 px-3 text-sm text-white disabled:opacity-50" onClick={()=>{if(canLeave())source.onSchedule?.(person.id,()=>setCardRevision(n=>n+1));}}>新增預約</button>:!source&&canSchedule&&canReadBookings?<DashboardLink className="inline-flex min-h-11 items-center rounded-lg bg-primary-700 px-3 text-sm text-white" href={studentScheduleHref(person.id,params.toString())} onClick={event=>{if(!canLeave())event.preventDefault();}}>安排課程</DashboardLink>:null}{canAssign&&<button type="button" disabled={!canLeave()} className={button} onClick={()=>open("assign")}>{music?"購課／續購":"新增方案"}</button>}</>}/>}
           {(customerPanel || panel === "person") && person && <CustomerProfileNavigation value={panel==="health"?"health":personTab==="data"?"data":"overview"} disabled={!canLeave()} healthEnabled={healthEnabled&&!music} onChange={value=>{if(value==="health"){if(panel!=="health")open("health");}else switchPersonTab(value==="data"?"data":"info");}}/>}
-          {panel==="person"&&person&&personTab==="data"&&!editingPerson&&<section aria-label="顧客資料" className="space-y-2 pt-2">{detailFields}{attribution}</section>}
+
           {panel==="person"&&person&&personTab==="connection"&&<section className="space-y-2"><CustomerProfileSectionHeading title="會員與 LINE 管理" onBack={()=>switchPersonTab("info")} disabled={!canLeave()}/>{source?.support?<DeferredCustomerSupport storeId={previewStoreId} preload={source?.preloadCardDetails} customerId={person.id} load={source.support} expanded/>:<><StoreMemberConnectionPanel compact customerId={person.id}/><CustomerPanelAdvanced managerSimple lineExpanded active customerId={person.id} readOnly={!canEdit} canEdit={canEdit} onMutated={()=>router.refresh()}/><CoursePhoneViewPanel key={`phone-${person.id}`} customerId={person.id}/></>}</section>}
           {panel==="person"&&person&&personTab==="records"&&<section className="space-y-2"><CustomerProfileSectionHeading title="全部紀錄" onBack={()=>switchPersonTab("info")} disabled={!canLeave()}/><CustomerRecordsFilter value={recordTab} onChange={selectRecordType} canReadBookings={canReadBookings} canReadTransactions={canReadTransactions} service={!!source} disabled={!canLeave()}/></section>}
 
@@ -755,9 +768,9 @@ export function CourseMemberWorkspace({
             </section>}
             {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={returnToCustomer}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <CustomerOverviewBody
-              next={<CustomerPrimaryContent customerId={person.id} reader={planPreload.visibleReader}>{<MusicStudentOverview showBalance={false} revision={cardRevision} key={`overview-${person.id}`} customerId={person.id} tab="info"/>}{canReadTransactions&&<MusicCustomerAttention customerId={person.id} revision={cardRevision} onRecords={()=>{if(canLeave()){selectRecordType("purchases");switchPersonTab("records");}}}/>}{canReadCards&&<section className="space-y-2"><h3 className="text-sm font-semibold">方案</h3><CourseCardBrowser preloadDetails={source?.preloadCardDetails} storeId={previewStoreId} overview renderProgress={overviewProgress} renderActions={overviewActions} snapshot={checkoutCards} dataScope={dataScope} sharedCardState={sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}</CustomerPrimaryContent>}
+              next={<CustomerPrimaryContent customerId={person.id} reader={planPreload.visibleReader}>{<MusicStudentOverview showBalance={false} revision={cardRevision} key={`overview-${person.id}`} customerId={person.id} tab="info"/>}{canReadTransactions&&<MusicCustomerAttention customerId={person.id} revision={cardRevision} onRecords={()=>{if(canLeave()){selectRecordType("purchases");switchPersonTab("records");}}}/>}{canReadCards&&<section className="space-y-2"><h3 className="text-sm font-semibold">方案</h3><CourseCardBrowser preloadDetails={source?.preloadCardDetails} storeId={previewStoreId} overview renderProgress={overviewProgress} renderActions={overviewActions} renderEditor={overviewEditor} snapshot={checkoutCards} dataScope={dataScope} sharedCardState={sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}</CustomerPrimaryContent>}
 
-              attribution={attributionSummary}
+              attribution={attribution} details={detailFields}
               note={<RetainedNoteEditor quiet optimistic emptyActionLabel="備註" key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" formatDisplay={musicNoteDisplay} hint="" placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit} save={(serviceNote,expectedServiceNote)=>saveCourseCustomerNote({customerId:person.id,serviceNote,expectedServiceNote})} onSaved={()=>router.refresh()}/>}
               actions={<>{recordsEntry}{canReadBookings&&canReadCards&&<CustomerPrimaryContent quiet customerId={person.id} reader={planPreload.visibleReader}><StudentMakeupStatus onPendingChange={setFormPending} customerId={person.id} revision={person.updatedAt??""}/></CustomerPrimaryContent>}</>}
             />}
@@ -772,9 +785,9 @@ export function CourseMemberWorkspace({
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth scope={source?.healthScope} compact={sportsNative} customerId={person.id} canEdit={canEdit} onDirtyChange={setDirty} onPending={setFormPending} />}
             {panel !== "person" && panel !== "health" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={returnToCustomer}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <CustomerOverviewBody
-              next={<CustomerPrimaryContent customerId={person.id} reader={planPreload.visibleReader}>{canReadBookings&&<CustomerNextBooking key={person.id} customerId={person.id} load={source?.bookings} serviceMode={!!source} revision={cardRevision} storeId={previewStoreId} preloadSource={source?.preloadCardDetails}/>}{canReadCards&&<section className="space-y-2"><h3 className="text-sm font-semibold">方案</h3><CourseCardBrowser preloadDetails={source?.preloadCardDetails} storeId={previewStoreId} dataScope={dataScope} overview renderProgress={overviewProgress} renderActions={overviewActions} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} snapshot={checkoutCards} sharedCardState={sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}</CustomerPrimaryContent>}
+              next={<CustomerPrimaryContent customerId={person.id} reader={planPreload.visibleReader}>{canReadBookings&&<CustomerNextBooking key={person.id} customerId={person.id} load={source?.bookings} serviceMode={!!source} revision={cardRevision} storeId={previewStoreId} preloadSource={source?.preloadCardDetails}/>}{canReadCards&&<section className="space-y-2"><h3 className="text-sm font-semibold">方案</h3><CourseCardBrowser preloadDetails={source?.preloadCardDetails} storeId={previewStoreId} dataScope={dataScope} overview renderProgress={overviewProgress} renderActions={overviewActions} renderEditor={overviewEditor} load={source?.browseCards} reservations={source?.reservations} sessionUnitLabel={source?.sessionUnitLabel} native={sportsNative} snapshot={checkoutCards} sharedCardState={sharedCardState} canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}</CustomerPrimaryContent>}
 
-              actions={recordsEntry} attribution={attributionSummary} note={<RetainedNoteEditor confirmDiscard={confirmDiscard} quiet optimistic emptyActionLabel="備註" key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
+              actions={recordsEntry} attribution={attribution} details={detailFields} note={<RetainedNoteEditor confirmDiscard={confirmDiscard} quiet optimistic emptyActionLabel="備註" key={`note-${person.id}`} stateKey={`customer-note:${person.id}`} title="店內備註" hint=""
                 placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
                 save={async(serviceNote, expectedServiceNote) => {
                   const input={customerId:person.id,serviceNote,expectedServiceNote};

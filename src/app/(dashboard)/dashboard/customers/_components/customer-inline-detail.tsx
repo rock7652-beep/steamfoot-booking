@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {useCustomerPanelContextReader} from "@/components/admin/use-customer-panel-context-reader";
 import type { getCustomerPanelContext } from "@/server/actions/customer-panel-context";
-import { SettingsPanelContext, type SettingsPanelState } from "@/components/admin/settings-panel-context";
+import { SettingsPanelContext, canNavigateSettingsPanel, type SettingsPanelNavigationOptions, type SettingsPanelState } from "@/components/admin/settings-panel-context";
 import { CustomerDetailDrawerContent } from "./customer-detail-drawer-content";
 export type CustomerPanelContextData = Extract<Awaited<ReturnType<typeof getCustomerPanelContext>>,{success:true}>["data"];
 type Context = CustomerPanelContextData;
@@ -12,7 +12,7 @@ export function CustomerInlineDetail({customerId,readOnly,onBack,onClose,registe
   const cached=reader.get(customerId)??reader.peek(customerId);
   const [data,setData]=useState<Context|null>(initialData ?? (cached?.success?cached.data:null)),[error,setError]=useState("");
   const report=useCallback((id:string,state:SettingsPanelState|null)=>{if(state)states.current.set(id,state);else states.current.delete(id);},[]);
-  const allow=useCallback(()=>{const values=[...states.current.values()];return !values.some(s=>s.pending)&&(!values.some(s=>s.dirty)||window.confirm("尚有未儲存的修改，確定離開？"));},[]);
+  const allow=useCallback((options?:SettingsPanelNavigationOptions)=>canNavigateSettingsPanel(states.current,()=>window.confirm("尚有未儲存的修改，確定離開？"),options),[]);
   const load=useCallback(async()=>{const token=++gate.current;try{const result=await reader.read(customerId);if(token!==gate.current)return;if(result.success){setData(result.data);setError("");}else setError(result.error??"讀取失敗");}catch{if(token===gate.current)setError("讀取失敗");}},[customerId,reader]);
   useEffect(()=>{const request=gate;let mounted=true;void Promise.resolve().then(()=>{if(mounted && !initialData)void load();});return()=>{mounted=false;request.current++;};},[load,initialData]);
   useEffect(()=>{registerCloseGuard?.(allow);return()=>registerCloseGuard?.(()=>true);},[allow,registerCloseGuard]);

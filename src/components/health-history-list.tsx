@@ -13,6 +13,8 @@ interface HealthHistoryListProps {
   totalRecords: number;
   editBasePath?: string;
   recordIds?: string[];
+  dense?: boolean;
+  onEdit?: (recordId:string) => void;
 }
 
 export function HealthHistoryList({
@@ -20,6 +22,8 @@ export function HealthHistoryList({
   totalRecords,
   editBasePath,
   recordIds,
+  dense = false,
+  onEdit,
 }: HealthHistoryListProps) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_RECORDS);
   const recentRecords = trend
@@ -30,7 +34,7 @@ export function HealthHistoryList({
   const canLoadMore = remainingLoadedRecords > 0;
 
   return (
-    <div className="mb-4 border-t border-earth-100 pt-4">
+    <div className={dense ? "@container/health min-w-0" : "mb-4 border-t border-earth-100 pt-4"}>
       <div className="flex items-baseline justify-between gap-3">
         <h4 className="text-sm font-semibold text-earth-900">近期量測紀錄</h4>
         <span className="text-[11px] text-earth-500">
@@ -45,7 +49,7 @@ export function HealthHistoryList({
         {visibleRecords.map(({ record, recordId }, index) => (
           <div
             key={`${record.measuredAt}-${index}`}
-            className="admin-striped-row px-3 py-3 text-xs"
+            className={dense ? "admin-striped-row px-3 py-2 text-sm" : "admin-striped-row px-3 py-3 text-xs"}
           >
             <div className="flex items-center justify-between gap-3">
               <p className="font-medium text-earth-800">
@@ -57,6 +61,7 @@ export function HealthHistoryList({
                     量測門市：{record.storeName}
                   </span>
                 )}
+                {onEdit && recordId && <button type="button" className="min-h-11 px-3 text-sm text-primary-700" onClick={()=>onEdit(recordId)}>編輯</button>}
                 {editBasePath && recordId && (
                   <Link
                     href={`${editBasePath}/${recordId}/edit`}
@@ -67,7 +72,7 @@ export function HealthHistoryList({
                 )}
               </div>
             </div>
-            <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-3">
+            <div className={dense ? "mt-1 grid min-w-0 grid-cols-1 gap-x-5 gap-y-1 @min-[340px]/health:grid-cols-2 @min-[700px]/health:grid-cols-3" : "mt-2 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-3"}>
               {HEALTH_DISPLAY_METRICS.map((metric) => (
                 <span
                   key={metric.key}
@@ -88,10 +93,10 @@ export function HealthHistoryList({
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-[11px] text-earth-500">
-          曲線使用最近 {trend.length} 筆，共 {totalRecords} 筆紀錄
+          {dense ? `共 ${totalRecords} 筆紀錄${totalRecords > trend.length ? `，目前可查看最近 ${trend.length} 筆` : ""}` : `曲線使用最近 ${trend.length} 筆，共 ${totalRecords} 筆紀錄`}
         </p>
         <div className="flex gap-2">
-          {visibleCount > INITIAL_VISIBLE_RECORDS && (
+          {!dense && visibleCount > INITIAL_VISIBLE_RECORDS && (
             <button
               type="button"
               onClick={() => setVisibleCount(INITIAL_VISIBLE_RECORDS)}
