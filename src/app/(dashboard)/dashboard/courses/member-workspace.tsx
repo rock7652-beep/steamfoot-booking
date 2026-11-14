@@ -334,7 +334,7 @@ export function CourseMemberWorkspace({
   useCourseDraftGuard(confirmDiscard&&(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(dirty || supportGuard.dirty),(panel==="service-price"||!!source||!sportsNative&&!sportsData)&&!!panel&&(pending||formPending||formUncertain||supportGuard.pending));
   function finishDraftForm(row?:Plan,syncWarning=false){publishMusicFinanceChange();if(panel==="plan"&&!catalogSource&&!isMusicPreviewPage())router.refresh();if(row){confirmedPlans.confirm(row);setSavedPlanId(row.id);}if(syncWarning)return;setFormUncertain(false);if(panel==="plan"&&music)setNotice("收費方式已儲存");setDirty(false);if(panel === "person" && person){setEditingPerson(false);setPersonTab(editReturnTab.current);router.refresh();}else{setPanel(null);}}
   const customerPanel = !!person && view === "customers" && panel !== "plan";
-  useCustomerPanelUrl(view === "customers"&&!panelOnly, panel && customerPanel ? person.id : null, personTab);
+  useCustomerPanelUrl(view === "customers"&&!panelOnly, panel && customerPanel ? person.id : null, personTab, recordTab);
   const [visitedTabs,setVisitedTabs]=useState<{id:string;tabs:string[]}>({id:"",tabs:[]});
   const hasVisitedTab=(tab:string)=>personTab===tab || (visitedTabs.id===person?.id && visitedTabs.tabs.includes(tab));
   const [visitedRecords,setVisitedRecords]=useState<{id:string;types:string[]}>({id:"",types:[]});
@@ -343,7 +343,6 @@ export function CourseMemberWorkspace({
     if(!person||!canLeave())return;
     setVisitedRecords(previous=>({id:person.id,types:[...new Set([...(previous.id===person.id?previous.types:[]),recordTab,value])]}));
     setRecordTab(value);
-    if(!panelOnly){const url=new URL(window.location.href);url.searchParams.set("studentRecords",value);window.history.replaceState(null,"",url.pathname+url.search);}
   }
 
   const studentScroll=useRef<HTMLDivElement>(null);
