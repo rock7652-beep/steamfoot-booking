@@ -92,7 +92,7 @@ export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, cou
   const latestParams=useRef(new URLSearchParams(searchParams.toString()));
   useEffect(()=>{if(!isPending){latestParams.current=new URLSearchParams(searchParams.toString());}},[searchParams,isPending]);
   const [draft, setDraft] = useState({source:current.search,value:current.search});
-  const searchDraft = instantStoreId || courseMode || draft.source === current.search ? draft.value : current.search;
+  const searchDraft = draft.value;
   const instantQuery = normalizeCustomerSearch(searchDraft);
   const indexFilters = new URLSearchParams();
   for (const key of ["status", "visit", "referral", "staff", "stage"]) {
@@ -120,7 +120,6 @@ export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, cou
   }, [instantStoreId, courseMode, composing, isPending, instantQuery, current.search, searchParams, pathname, router]);
 
   useEffect(() => {
-    if (!instantStoreId && !courseMode) return;
     const restore = () => {
       lastListRequest.current = null;
       const search = new URLSearchParams(window.location.search).get("search") ?? "";
@@ -138,10 +137,8 @@ export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, cou
 
   const pushParams = (mutate: (p: URLSearchParams) => void) => {
     const params = courseMode ? normalizeCourseCustomerFilters(latestParams.current) : new URLSearchParams(latestParams.current.toString());
-    if (instantStoreId || courseMode) {
-      if (instantQuery) params.set("search", instantQuery);
-      else params.delete("search");
-    }
+    if (instantQuery) params.set("search", instantQuery);
+    else params.delete("search");
     if(beautyMode){params.delete("visit");params.delete("referral");if(!["linked","unlinked"].includes(params.get("status")??""))params.delete("status");}
     mutate(params);
     // 任何篩選/排序變更都重置分頁
@@ -246,20 +243,13 @@ export function CustomersToolbar({ beautyMode=false, staffOptions, basePath, cou
           }} /> : <>
         <input
           name="search"
+          onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)}
+          onKeyDown={event => { if (event.key === "Enter" && (composing || event.nativeEvent.isComposing)) event.preventDefault(); }}
           value={searchDraft}
           onChange={(e) => setDraft({source:current.search,value:e.target.value})}
           placeholder="搜尋姓名 / 電話 / LINE 名稱"
           className={`${courseMode ? "min-h-11 " : ""}min-w-0 flex-1 rounded-md border border-earth-300 bg-white px-3 py-1.5 text-xs text-earth-800 placeholder:text-earth-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300`}
         />
-        {searchDraft !== current.search ? (
-          <button
-            type="submit"
-
-            className="rounded-md bg-primary-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-60"
-          >
-            搜尋
-          </button>
-        ) : null}
         </>}
       </form>
 

@@ -1,7 +1,6 @@
 'use client';
-import { useState, useTransition } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { DashboardLink, resolveDashboardHref } from '@/components/dashboard-link';
+import { DashboardLink } from '@/components/dashboard-link';
+import { InstantFilterForm } from '@/components/instant-filter-form';
 import { DataTable, type Column } from '@/components/desktop/data-table';
 import styles from '@/components/operations/filter-toolbar.module.css';
 import { CourseAgreementDownload } from './download';
@@ -13,9 +12,6 @@ const field = 'mt-1 min-h-11 min-w-0 rounded-lg border border-earth-300 bg-white
 export function CourseAgreementRecordsWorkspace({ data, filters, canExport, error, module = 'COURSE' }: {
   module?: 'COURSE' | 'BEAUTY'; data: CourseAgreementRecords | null; filters: CourseAgreementRecordsFilter; canExport: boolean; error?: string;
 }) {
-  const pathname = usePathname(), router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [q, setQ] = useState(filters.q), [from, setFrom] = useState(filters.from), [to, setTo] = useState(filters.to);
   const current = data?.filters ?? filters;
   const columns: Column<CourseAgreementRecordRow>[] = [
     { key: 'name', header: module === 'BEAUTY' ? '顧客姓名' : '學員姓名', accessor: row => <div className="max-w-48 break-words py-3 font-medium">{row.name}{row.minor && <span className="mt-1 block text-sm font-normal text-earth-500">未成年</span>}</div> },
@@ -25,13 +21,13 @@ export function CourseAgreementRecordsWorkspace({ data, filters, canExport, erro
     { key: 'version', header: '版本', accessor: row => `v${row.version}.0` },
     { key: 'actions', header: '同意書', noLink: true, sticky: 'right', accessor: row => <div className="flex flex-wrap gap-2 py-2"><DashboardLink href={courseAgreementRecordHref(row.id, current, module)} scroll={false} className={button} aria-label={`查看 ${row.name} 的同意書`}>查看</DashboardLink>{canExport && <CourseAgreementDownload href={courseAgreementRecordPdfHref(row.id, data!.storeId, module)} ariaLabel={`下載 ${row.name} 的 PDF`} />}</div> },
   ];
-  return <div className="min-w-0 space-y-4" aria-busy={pending}>
+  return <div className="min-w-0 space-y-4">
     <header className="flex min-w-0 flex-wrap items-center justify-between gap-3"><div><h1 className="admin-page-title">簽署紀錄</h1><p className="mt-1 text-sm text-earth-600">查詢本店完整簽署紀錄，查看當時版本與簽名。</p></div><DashboardLink href={module === 'BEAUTY' ? '/dashboard/beauty?tab=設定&section=store' : '/dashboard/courses?view=settings&section=store'} className={button}>{module === 'BEAUTY' ? '返回美業設定' : '返回課程設定'}</DashboardLink></header>
-    <div className={styles.container}><form className={styles.toolbar} onSubmit={event => { event.preventDefault(); startTransition(() => { router.push(resolveDashboardHref(courseAgreementRecordsHref({ ...current, q, from, to, page: 1 }, 1, module), pathname), { scroll: false }); }); }}>
-      <label>姓名或電話（含代理人）<input className={field} type="search" maxLength={100} value={q} disabled={pending} onChange={event => setQ(event.target.value)} /></label>
-      <label>開始日期<input className={field} type="date" value={from} disabled={pending} onChange={event => setFrom(event.target.value)} /></label><label>結束日期<input className={field} type="date" value={to} disabled={pending} onChange={event => setTo(event.target.value)} /></label>
-      <div data-toolbar-actions className="flex flex-wrap gap-2"><button type="submit" disabled={pending} className={`${button} bg-primary-700 text-white`}>{pending ? '查詢中…' : '查詢'}</button><DashboardLink href={courseAgreementRecordsHref({ ...current, q: '', from: '', to: '', page: 1 }, 1, module)} scroll={false} className={button}>清除條件</DashboardLink></div>
-    </form></div>
+    <div className={styles.container}><InstantFilterForm action={courseAgreementRecordsHref(current, 1, module)} className={styles.toolbar}>
+      <label>姓名或電話（含代理人）<input className={field} type="search" maxLength={100} name="q" defaultValue={filters.q} /></label>
+      <label>開始日期<input className={field} type="date" name="from" defaultValue={filters.from} /></label><label>結束日期<input className={field} type="date" name="to" defaultValue={filters.to} /></label>
+      <div data-toolbar-actions className="flex flex-wrap gap-2"><DashboardLink href={courseAgreementRecordsHref({ ...current, q: '', from: '', to: '', page: 1 }, 1, module)} scroll={false} className={button}>清除條件</DashboardLink></div>
+    </InstantFilterForm></div>
     {error ? <p role="alert" className="rounded-lg bg-red-50 p-4 text-base text-red-700">{error}</p> : data ? <>
       <p role="status" className="text-sm text-earth-600">共 {data.total} 筆 · 第 {data.page}／{data.pages} 頁</p>
       <p className="text-sm text-earth-500 lg:hidden">表格可左右滑動，查看完整日期與版本。</p>

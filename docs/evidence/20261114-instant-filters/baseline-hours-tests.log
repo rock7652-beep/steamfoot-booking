@@ -1,0 +1,50 @@
+
+ RUN  v4.1.4 /Users/huangyanlu/steamfoot/steamfoot-analysis-30day-renewals
+
+ ❯ src/__tests__/service-hours-save-database.test.ts (12 tests | 2 failed) 665ms
+   × Beauty hours protect full occupied duration and normalize starts to a half-hour grid 8ms
+   × saves multiple beauty weekdays atomically and retains protected appointments, exceptions and stored capacity 8ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/service-hours-save-database.test.ts > Beauty hours protect full occupied duration and normalize starts to a half-hour grid
+AssertionError: expected { success: true, storeId: 's', …(2) } to match object { success: false, …(1) }
+(11 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "error": StringContaining "已有預約",
+-   "success": false,
++   "success": true,
+  }
+
+ ❯ src/__tests__/service-hours-save-database.test.ts:92:48
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests__/service-hours-save-database.test.ts > saves multiple beauty weekdays atomically and retains protected appointments, exceptions and stored capacity
+AssertionError: expected { success: true, storeId: 's', …(2) } to match object { success: false }
+(11 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "success": false,
++   "success": true,
+  }
+
+ ❯ src/__tests__/service-hours-save-database.test.ts:106:43
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 10 passed (12)
+   Start at  19:26:49
+   Duration  806ms (transform 55ms, setup 0ms, import 82ms, tests 665ms, environment 0ms)
+

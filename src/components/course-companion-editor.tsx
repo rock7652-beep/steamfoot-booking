@@ -23,6 +23,13 @@ export function CourseCompanionEditor({bookingId, coach = false, add = false, on
   const [loading, setLoading] = useState(!add);
   const [dirty, setDirty] = useState(false);
   const version = useRef(0), lock = useRef(false), key = useRef(crypto.randomUUID());
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null), composing = useRef(false);
+  function searchStudents(query: string) {
+    version.current++;
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    setLoading(true);
+    if (!composing.current) searchTimer.current = setTimeout(() => void load(query), query ? 300 : 0);
+  }
   async function load(query = "", initial = false) {
     const request = ++version.current;
     setLoading(true); setError("");
@@ -39,7 +46,7 @@ export function CourseCompanionEditor({bookingId, coach = false, add = false, on
     } catch { if (request === version.current) setError("讀取失敗，請重試"); }
     finally { if (request === version.current) setLoading(false); }
   }
-  useEffect(() => { if (!add) void load("", true); return () => { version.current++; }; }, [bookingId, coach, add]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!add) void load("", true); return () => { version.current++; if (searchTimer.current) clearTimeout(searchTimer.current); }; }, [bookingId, coach, add]); // eslint-disable-line react-hooks/exhaustive-deps
   const close = () => { if (!busy && (!dirty || window.confirm("尚未儲存，要放棄修改嗎？"))) onClose(); };
   async function save() {
     if (lock.current || (!add && !data)) return;
@@ -64,7 +71,7 @@ export function CourseCompanionEditor({bookingId, coach = false, add = false, on
         </select></label>
         <details open={mode === "MEMBER" || undefined}><summary className="min-h-11 cursor-pointer py-2 text-sm">連結學員{mode !== "MEMBER" ? "（選填）" : ""}</summary>
           <div className="space-y-2">
-            <div className="flex gap-2"><input className={field} aria-label="搜尋學員姓名或電話" placeholder="姓名或電話" value={search} disabled={busy} onChange={event => setSearch(event.target.value)} /><button type="button" className={button} disabled={busy || loading || !search.trim()} onClick={() => void load(search)}>搜尋</button></div>
+            <div className="flex gap-2"><input className={field} aria-label="搜尋學員姓名或電話" placeholder="姓名或電話" value={search} disabled={busy} onCompositionStart={() => { composing.current = true; version.current++; if (searchTimer.current) clearTimeout(searchTimer.current); }} onCompositionEnd={event => { composing.current = false; searchStudents(event.currentTarget.value); }} onKeyDown={event => { if (event.key === "Enter") event.preventDefault(); }} onChange={event => { setSearch(event.target.value); searchStudents(event.target.value); }} /></div>
             <select className={field} aria-label="學員" value={customerId} disabled={busy || loading} onChange={event => {setCustomerId(event.target.value); setCardId(""); setDirty(true);}}><option value="">{data.customers.length ? "選擇學員" : "請先搜尋學員"}</option>{data.customers.map(customer => <option key={customer.id} value={customer.id}>{customer.name} · {customer.phone}</option>)}</select>
             {mode === "MEMBER" && <select className={field} aria-label="本人方案" value={cardId} disabled={busy || loading} onChange={event => {setCardId(event.target.value); setDirty(true);}}><option value="">選擇本人方案</option>{data.cards.filter(card => card.members.some(member => member.customerId === customerId)).map(card => <option key={card.id} value={card.id}>{card.nameSnapshot}</option>)}</select>}
           </div>

@@ -226,7 +226,7 @@ export default async function CustomerRecordsPage({ params, searchParams }: {
       <Link href={`${base}?type=transactions`} aria-current={transactions ? "page" : undefined} className={`flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold ${transactions ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`}>消費紀錄</Link>
     </nav>
 
-    {transactions && <CustomerConsumptionFilters key={`${range}:${kind}:${payment}:${keyword}:${from}:${to}`} initial={{ range, kind, payment, keyword, from, to }} typeOptions={typeOptions} />}
+    {transactions && <CustomerConsumptionFilters key={`${user.id}:${customer.storeId}:${customer.id}`} initial={{ range, kind, payment, keyword, from, to }} typeOptions={typeOptions} />}
 
     {transactions ? <section className="rounded-xl border border-primary-100 bg-primary-50 px-4 py-3" aria-label="篩選結果摘要">
       <p className="text-sm text-primary-800">篩選結果</p>

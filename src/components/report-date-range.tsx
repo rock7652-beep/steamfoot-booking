@@ -41,15 +41,17 @@ export default function ReportDateRange({
     const params = new URLSearchParams(searchParams.toString());
     // Clear custom params
     params.delete("month");
+    params.delete("page");
     params.delete("startDate");
     params.delete("endDate");
     params.set("preset", key);
-    startReading(() => router.push(`?${params.toString()}`));
+    startReading(() => router.replace(`?${params.toString()}`, { scroll: false }));
   }
 
   const [dateError, setDateError] = useState<string | null>(null);
 
   function handleCustomSubmit(form: HTMLFormElement) {
+    if (!form.checkValidity()) return;
     const fields = new FormData(form);
     const customStart = String(fields.get("startDate") ?? "");
     const customEnd = String(fields.get("endDate") ?? "");
@@ -62,9 +64,10 @@ export default function ReportDateRange({
     const params = new URLSearchParams(preserveQuery ? searchParams.toString() : undefined);
     params.delete("preset");
     params.delete("month");
+    params.delete("page");
     params.set("startDate", customStart);
     params.set("endDate", customEnd);
-    startReading(() => router.push(`?${params.toString()}`));
+    startReading(() => router.replace(`?${params.toString()}`, { scroll: false }));
   }
 
   return (
@@ -97,7 +100,7 @@ export default function ReportDateRange({
       {/* Custom date range */}
       {showCustom && (
         <>
-          <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); handleCustomSubmit(event.currentTarget); }}>
+          <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); handleCustomSubmit(event.currentTarget); }} onChange={event => handleCustomSubmit(event.currentTarget)}>
             <div className={styles.dateField}>
               <label className="block text-xs text-earth-500 mb-0.5">起始</label>
               <input
@@ -122,13 +125,7 @@ export default function ReportDateRange({
                 className="block w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               />
             </div>
-            <button
-              type="submit"
-              disabled={reading}
-              className="rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
-            >
-              查詢
-            </button>
+
           </form>
           {dateError && (
             <p className="text-xs text-red-500">{dateError}</p>
