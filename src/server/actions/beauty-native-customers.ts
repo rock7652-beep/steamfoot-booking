@@ -16,7 +16,7 @@ import {requireStoreFeature} from '@/lib/feature-gate';
 import {FEATURES} from '@/lib/feature-flags';
 import {AppError,handleActionError} from '@/lib/errors';
 import {courseBalanceTotals} from '@/lib/course-balance-summary';
-import {courseHistoryRange} from '@/lib/course-history-range';
+import {courseHistoryRange,courseHistoryItem} from '@/lib/course-history-range';
 import {toLocalDateStr} from '@/lib/date-utils';
 import {calculateCourseCheckout} from '@/lib/course-checkout';
 import {beautyNativePlanCheckoutSchema,beautyPlanPurchaseIntentsEnabled} from '@/server/beauty/plan-checkout-input';
@@ -129,7 +129,7 @@ export async function readBeautyNativeCardReservations(input:unknown){
   return {success:true as const,scoped:true,hasMore:rows.length>20,rows:rows.slice(0,20).map(b=>({id:b.id,customerName:b.personName,amount:1,name:b.serviceName,startsAt:b.startsAt.toISOString()}))};
  }catch(error){return failure(error);}
 }
-export async function readBeautyNativeCustomerBookings(customerId:string,offset=0,range:{from?:string;to?:string;mode?:string;cardId?:string}={}){
+export async function readBeautyNativeCustomerBookings(customerId:string,offset=0,range:{from?:string;to?:string;item?:string;mode?:string;cardId?:string}={}){
  try{
   const s=await scope('booking.read',{customerIds:[id.parse(customerId)]});customerExists(s,customerId);const skip=z.number().int().min(0).max(1000000).parse(offset);
   const cardId=range.cardId===undefined?undefined:id.parse(range.cardId);
@@ -139,15 +139,20 @@ export async function readBeautyNativeCustomerBookings(customerId:string,offset=
   }
   const mode=z.enum(['all','upcoming']).parse(range.mode??'all');
   const order=mode==='upcoming'?'asc' as const:'desc' as const;
-  const rows=await beautyPrisma.beautyAppointment.findMany({where:{storeId:s.storeId,customerId,...(cardId?{cardId}:{}),startsAt:courseHistoryRange(range),...(mode==='upcoming'?{status:'RESERVED',endsAt:{gt:new Date()}}:{})},orderBy:[{startsAt:order},{id:order}],skip,take:11});
+  const item=courseHistoryItem(range);
+  const matching=item?await beautyPrisma.beautyCard.findMany({where:{storeId:s.storeId,memberIds:{has:customerId},name:{contains:item,mode:'insensitive'}},select:{id:true}}):[];
+  const rows=await beautyPrisma.beautyAppointment.findMany({where:{storeId:s.storeId,customerId,...(cardId?{cardId}:{}),...(item?{OR:[{cardId:{in:matching.map(card=>card.id)}},{serviceName:{contains:item,mode:"insensitive" as const}}]}:{}),startsAt:courseHistoryRange(range),...(mode==='upcoming'?{status:'RESERVED',endsAt:{gt:new Date()}}:{})},orderBy:[{startsAt:order},{id:order}],skip,take:11});
   const [cards,techs]=await Promise.all([beautyPrisma.beautyCard.findMany({where:{storeId:s.storeId,id:{in:rows.flatMap(b=>b.cardId?[b.cardId]:[])}}}),beautyPrisma.beautyTechnician.findMany({where:{storeId:s.storeId,id:{in:rows.map(b=>b.technicianId)}},select:{id:true,name:true}})]);
   return {success:true as const,hasMore:rows.length>10,data:rows.slice(0,10).map(b=>{const c=cards.find(c=>c.id===b.cardId);return {id:b.id,absenceKind:null,coachName:techs.find(t=>t.id===b.technicianId)?.name,name:b.serviceName,date:b.startsAt.toISOString(),status:b.status==='COMPLETED'?'ATTENDED':b.status,checkedIn:false,plan:c?.name??'單次服務',expiresAt:c?.expiresAt.toISOString()??null,points:c?1:0,unit:c?'SESSION':'TRIAL',notes:b.notes,operator:'',service:{debit:b.debit,isTrial:b.isTrial}};})};
  }catch(error){return failure(error);}
 }
-export async function readBeautyNativeCustomerPurchases(input:unknown,offset=0,range:{from?:string;to?:string}={}){
+export async function readBeautyNativeCustomerPurchases(input:unknown,offset=0,range:{from?:string;to?:string;item?:string}={}){
  try{
   const customerId=id.parse(input),s=await scope('transaction.read',{customerIds:[customerId]});customerExists(s,customerId);const skip=z.number().int().min(0).max(1000000).parse(offset);
   const [cards,appointments]=await Promise.all([beautyPrisma.beautyCard.findMany({where:{storeId:s.storeId,customerId}}),beautyPrisma.beautyAppointment.findMany({where:{storeId:s.storeId,customerId},select:{id:true,serviceName:true,price:true}})]);
+  const item=courseHistoryItem(range),pattern='%'+item.replace(/[\\%_]/g,'\\$&')+'%';
+  const matchingCards=item?cards.filter(card=>card.name.toLocaleLowerCase().includes(item.toLocaleLowerCase())):cards;
+  const matchingAppointments=item?appointments.filter(appointment=>appointment.serviceName.toLocaleLowerCase().includes(item.toLocaleLowerCase())):appointments;
   const bounds=courseHistoryRange(range),from=bounds.gte??new Date('1900-01-01T00:00:00Z'),to=bounds.lte??new Date('9999-01-01T00:00:00Z');
   // One ordered page across issued sales and still-unconfirmed requests; confirmed
   // requests are represented by their real sale receipt exactly once.
@@ -155,11 +160,12 @@ export async function readBeautyNativeCustomerPurchases(input:unknown,offset=0,r
     SELECT id,kind FROM (
       SELECT p.id,'SALE'::text AS kind,p."createdAt" FROM "BeautyPayment" p
       WHERE p."storeId"=${s.storeId} AND p.kind='SALE' AND p."createdAt">=${from} AND p."createdAt"<=${to}
-      AND (p."cardId"=ANY(${cards.map(c=>c.id)}::text[]) OR p."appointmentId"=ANY(${appointments.map(b=>b.id)}::text[]))
+      AND (p."cardId"=ANY(${matchingCards.map(c=>c.id)}::text[]) OR p."appointmentId"=ANY(${matchingAppointments.map(b=>b.id)}::text[]))
       UNION ALL
       SELECT q.id,'REQUEST'::text AS kind,q."createdAt" FROM "BeautyPurchase" q
       WHERE q."storeId"=${s.storeId} AND q."customerId"=${customerId} AND q.status<>'CONFIRMED' AND q."cardId" IS NULL
       AND q."createdAt">=${from} AND q."createdAt"<=${to}
+      AND (${item} = '' OR q.snapshot->>'name' ILIKE ${pattern})
     ) history ORDER BY "createdAt" DESC,id DESC LIMIT 11 OFFSET ${skip}`;
   const [payments,requests]=await Promise.all([
     beautyPrisma.beautyPayment.findMany({where:{storeId:s.storeId,kind:'SALE',id:{in:page.filter(p=>p.kind==='SALE').map(p=>p.id)}}}),

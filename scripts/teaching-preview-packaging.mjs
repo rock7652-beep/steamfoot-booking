@@ -2,10 +2,10 @@
 import {existsSync,readdirSync} from 'node:fs';
 import {join,relative,resolve,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {assertSportsSharedCardPreviewEnvironment,CUSTOMER_PRIMARY_PREVIEW_BRANCH} from './sports-shared-card-preview-scope.mjs';
+import {assertSportsSharedCardPreviewEnvironment,CUSTOMER_PROFILE_PREVIEW_BRANCH,CUSTOMER_PRIMARY_PREVIEW_BRANCH} from './sports-shared-card-preview-scope.mjs';
 import {archiveProductionReviewImages,pruneProductionTraces} from './production-postgres-packaging.mjs';
 export const TEACHING_PREVIEW_BRANCH='fix/teaching-item-qualifications-20261112';
-export const TEACHING_PREVIEW_BRANCHES=[CUSTOMER_PRIMARY_PREVIEW_BRANCH,TEACHING_PREVIEW_BRANCH,'fix/course-plan-classification-sync-20261112','fix/course-retained-store-route-20261112','fix/plan-name-conflict-20261112'];
+export const TEACHING_PREVIEW_BRANCHES=[CUSTOMER_PROFILE_PREVIEW_BRANCH,CUSTOMER_PRIMARY_PREVIEW_BRANCH,TEACHING_PREVIEW_BRANCH,'fix/course-plan-classification-sync-20261112','fix/course-retained-store-route-20261112','fix/plan-name-conflict-20261112'];
 export function assertTeachingPreviewPackaging(env,root){
  if(env.VERCEL!=='1'||env.VERCEL_ENV!=='preview'||env.VERCEL_PROJECT_ID!=='prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR'||!TEACHING_PREVIEW_BRANCHES.includes(env.VERCEL_GIT_COMMIT_REF)||!/^\/vercel\/path[0-9]+$/.test(root)||env.SUBSCRIPTION_REFERRAL_QA||env.MARKETING_PUBLICATION_LOCAL_QA)throw Error('Teaching packaging requires exact isolated Preview build');
  assertSportsSharedCardPreviewEnvironment(env);

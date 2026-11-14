@@ -60,3 +60,12 @@ it('performance Preview requires the exact branch, repository, opt-ins and both 
  expect(assertReviewedReleaseEnvironment(env)).toBe('sports-redesign-preview');
  for(const [key,value] of [['SPORTS_REDESIGN_PREVIEW',''],['SPORTS_REDESIGN_STAGING',''],['VERCEL_ENV','production'],['VERCEL_GIT_COMMIT_REF','fix/silverlily-calendar-loading-20261031-other'],['DATABASE_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres'],['DIRECT_URL','postgresql://postgres@db.qijlnhtpbintanzpxkvf.supabase.co/postgres']])expect(()=>assertReviewedReleaseEnvironment({...env,[key]:value})).toThrow();
  });
+
+it('keeps the customer-profile preview in the migration-free mode with its exact project and store capabilities',async()=>{
+ const env={...safe,NODE_ENV:'production' as const,VERCEL_GIT_COMMIT_REF:'feat/customer-profile-simplification-20261114',VERCEL_PROJECT_ID:'prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR'};
+ expect(assertReviewedReleaseEnvironment(env)).toBe('module-roster-preview');
+ const {musicNativeWorkflowEnabled}=await import('../../scripts/music-native-workflow-scope.mjs');
+ expect(musicNativeWorkflowEnabled('store-lubymusic',env)).toBe(true);expect(musicNativeWorkflowEnabled('unapproved-store',env)).toBe(false);
+ expect(()=>assertSportsRedesignPreviewEnvironment({...env,PRODUCTION_MIGRATION_TARGET:'production'})).toThrow();
+ expect(()=>assertSportsRedesignPreviewEnvironment({...env,VERCEL_PROJECT_ID:'other'})).toThrow();
+});

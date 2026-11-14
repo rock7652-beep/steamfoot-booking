@@ -1,5 +1,6 @@
 const listKeys = ["search", "status", "visit", "referral", "staff", "sort", "label", "page", "studentSubject", "studentMethod", "studentPeriods", "studentRecords", "returnCourseSession", "returnCourseDate"] as const;
 export function studentReturnHref(customerId: string, query = "", _tab: "makeups" | "bookings" | "courses" = "courses") {
+  void _tab;
   const source = new URLSearchParams(query);
   const next = new URLSearchParams({ view: "customers" });
   for (const key of listKeys) {
@@ -8,7 +9,7 @@ export function studentReturnHref(customerId: string, query = "", _tab: "makeups
   }
   if (source.get("dataScope") === "legacy") next.set("dataScope", "legacy");
   next.set("customerId", customerId);
-  next.set("studentTab", source.get("studentTab") === "info" ? "info" : source.get("studentTab") === "records" ? "records" : "courses");
+  next.set("studentTab", ["info","data","connection","records"].includes(source.get("studentTab")??"") ? source.get("studentTab")! : "courses");
   return `/dashboard/courses?${next}`;
 }
 /** Hints only. The schedule form and write action revalidate eligibility and capacity. */

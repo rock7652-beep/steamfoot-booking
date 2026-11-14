@@ -6,3 +6,8 @@ export function courseHistoryRange(input: unknown) {
   if(value.from && value.to && value.from>value.to)throw new Error("開始日期不可晚於結束日期");
   return {...(value.from ? {gte:dayRange(value.from).start}:{}),...(value.to ? {lte:dayRange(value.to).end}:{})};
 }
+
+/** Keyword applies before pagination; never filter just the currently loaded page. */
+export function courseHistoryItem(input:unknown) {
+ return z.object({item:z.string().trim().max(100).optional()}).parse(input).item??"";
+}

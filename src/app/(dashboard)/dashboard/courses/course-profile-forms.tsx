@@ -75,7 +75,7 @@ export function CourseCustomerDraftForm({save=saveCourseCustomer,draftScope="cou
  const {submit,error,pending,committedWarning}=useSaveForm(draft,{...callbacks,onSaved:(row,syncWarning)=>{if(!person&&!syncWarning)setProfileRequestKey(crypto.randomUUID());callbacks.onSaved(row,syncWarning);}});
  return <form id="course-member-form" className={`${compact ? "grid grid-cols-2 gap-3 [&_label]:min-w-0" : "grid grid-cols-1 gap-3 sm:grid-cols-2"} ${hidden?"hidden":""}`} onSubmit={e=>{
   if(person?!canEdit:!canCreate){e.preventDefault();return;}
-  void submit(e,d=>save({requestKey:profileRequestKey,id:person?.id,expectedUpdatedAt:draft.expectedRevision??undefined,name:d.get("name"),phone:d.get("phone"),email:d.get("email"),gender:d.get("gender"),birthday:d.get("birthday"),...(!person||compact?{serviceNote:d.get("serviceNote")}:{}),address:d.get("address"),emergencyContactName:d.get("emergencyContactName"),emergencyContactPhone:d.get("emergencyContactPhone")}));
+  void submit(e,d=>save({requestKey:profileRequestKey,id:person?.id,expectedUpdatedAt:draft.expectedRevision??undefined,name:d.get("name"),phone:d.get("phone"),email:d.get("email"),gender:d.get("gender"),birthday:d.get("birthday"),...(!person?{serviceNote:d.get("serviceNote")}:{}),address:d.get("address"),emergencyContactName:d.get("emergencyContactName"),emergencyContactPhone:d.get("emergencyContactPhone")}));
  }}>
  <div className="col-span-full"><FormDraftNotice dirty={draft.dirty&&!committedWarning} stale={draft.stale} onDiscard={()=>draft.discard()}/>{error&&<p role="alert" className="text-red-700">{error}</p>}</div>
  <fieldset disabled={pending||committedWarning} className="contents">
@@ -107,7 +107,7 @@ export function CourseCustomerDraftForm({save=saveCourseCustomer,draftScope="cou
                   <div className={compact ? "col-span-full min-w-0" : undefined}>生日<BirthdayFields parts={{year:draft.values.birthYear,month:draft.values.birthMonth,day:draft.values.birthDay}} onPartsChange={p=>draft.setMany({birthYear:p.year,birthMonth:p.month,birthDay:p.day})} className={customerField} /></div>
                   <label className="block">緊急聯絡人姓名（選填）<input className={customerField} name="emergencyContactName" maxLength={100} value={draft.values.emergencyContactName} onChange={e=>draft.set("emergencyContactName",e.target.value)} /></label>
                   <label className="block">緊急聯絡人電話（選填）<input className={customerField} name="emergencyContactPhone" type="tel" maxLength={30} value={draft.values.emergencyContactPhone} onChange={e=>draft.set("emergencyContactPhone",e.target.value)} /></label>
-                  {(!person || compact) && <label className={compact ? "col-span-full block" : "block"}>{compact ? "學員備註" : "店內備註"}<textarea rows={2} className={customerField} name="serviceNote" value={draft.values.serviceNote} onChange={e=>draft.set("serviceNote",e.target.value)} maxLength={1000} /></label>}
+                  {!person && <label className={compact ? "col-span-full block" : "block"}>{compact ? "學員備註" : "店內備註"}<textarea rows={2} className={customerField} name="serviceNote" value={draft.values.serviceNote} onChange={e=>draft.set("serviceNote",e.target.value)} maxLength={1000} /></label>}
                   <label className={compact ? "col-span-full block" : "block"}>地址<input className={customerField} name="address" maxLength={300} value={draft.values.address} onChange={e=>draft.set("address",e.target.value)} /></label>
                 </fieldset></div>
               </fieldset></form>;

@@ -45,3 +45,14 @@ it('includes a complete dated grid in the prefetched customer response',async()=
  const result=await getCustomerDrawerDetailForUser({role:'OWNER',staffId:'staff'} as never,'customer','store');
  expect(result.planWallets[0].usageProgress).toMatchObject({available:true,total:2,completed:[{date:'2026-11-02T02:00:00.000Z'}]});
 });
+
+it('uses the purchase receipt date and never guesses it from wallet issuance or start dates',async()=>{
+ m.permission.mockResolvedValue(true);m.transactions.mockResolvedValue([]);m.cashbook.mockResolvedValue([]);
+ const purchasedAt=new Date('2026-01-05T04:00Z');
+ m.customer.mockResolvedValue({id:'customer',storeId:'store',mergedIntoCustomerId:null,user:null,planWallets:[{id:'wallet',createdAt:new Date('2026-11-01'),startDate:new Date('2026-02-01'),purchasedPrice:new Prisma.Decimal(3000),totalSessions:2,remainingSessions:2,sessions:[],transactions:[{createdAt:purchasedAt}]}]});
+ const result=await getCustomerDrawerDetailForUser({role:'OWNER',staffId:'staff'} as never,'customer','store');
+ expect(result.planWallets[0].purchasedAt).toEqual(purchasedAt);
+ expect(m.customer.mock.calls.at(-1)?.[0].include.planWallets.include.transactions).toMatchObject({take:1,where:{transactionType:'PACKAGE_PURCHASE',status:'SUCCESS'},orderBy:{createdAt:'asc'}});
+ m.customer.mockResolvedValue({id:'customer',storeId:'store',mergedIntoCustomerId:null,user:null,planWallets:[{id:'wallet',createdAt:new Date('2026-11-01'),purchasedPrice:new Prisma.Decimal(3000),totalSessions:2,remainingSessions:2,sessions:[],transactions:[]}]});
+ expect((await getCustomerDrawerDetailForUser({role:'OWNER',staffId:'staff'} as never,'customer','store')).planWallets[0].purchasedAt).toBeNull();
+});

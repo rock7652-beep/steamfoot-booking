@@ -7,7 +7,9 @@ import { STATUS_LABEL } from "@/lib/booking-constants";
 
 export function CustomerPanelRecordsList({customerId, kind, revision, active = true}: {customerId:string; kind:"bookings" | "consumption"; revision:string; active?:boolean}) {
   const [scope,setScope] = useState<"past" | "all">("past");
-  const recordScope = `${customerId}:${kind}:${scope}`;
+  const [range,setRange]=useState({from:"",to:"",item:""});
+  const invalid=!!range.from&&!!range.to&&range.from>range.to;
+  const recordScope = JSON.stringify([customerId,kind,scope,range]);
   const [snapshot,setSnapshot] = useState<{key:string; value:CustomerPanelRecords} | null>(null);
   const data = snapshot?.key === recordScope ? snapshot.value : null;
   const [requestedPage, setRequestedPage] = useState(1);
@@ -17,25 +19,28 @@ export function CustomerPanelRecordsList({customerId, kind, revision, active = t
   const loadedRevision = useRef<string | null>(null);
   const load = useCallback(async (page:number) => {
     const token = ++request.current;
+    if(invalid){setLoading(false);return;}
     setRequestedPage(page); setLoading(true); setError("");
     try {
-      const result = await getCustomerPanelRecords(customerId,kind,page,kind === "bookings" ? scope : "all");
+      const result = await getCustomerPanelRecords(customerId,kind,page,kind === "bookings" ? scope : "all",range);
       if(token !== request.current) return;
       if(!result.success) {setError(result.error ?? "讀取失敗");return;}
-      setSnapshot({key:`${customerId}:${kind}:${scope}`,value:result.data});
+      setSnapshot({key:recordScope,value:result.data});
     } catch {if(token===request.current)setError("讀取失敗，請重試");}
     finally {if(token===request.current)setLoading(false);}
-  }, [customerId,kind,scope]);
+  }, [customerId,kind,scope,range,recordScope,invalid]);
   useEffect(() => {
-    if (!active || loadedRevision.current === `${customerId}:${kind}:${revision}:${scope}`) return;
-    loadedRevision.current = `${customerId}:${kind}:${revision}:${scope}`;
+    if (!active || loadedRevision.current === `${recordScope}:${revision}`) return;
+    loadedRevision.current = `${recordScope}:${revision}`;
     void load(1);
 
-  },[load,revision,active,scope,customerId,kind]);
+  },[load,revision,active,recordScope]);
   useEffect(() => {const gate=request;return()=>{gate.current++;};},[]);
   return <div hidden={!active} role="tabpanel" aria-label={kind === "bookings" ? "預約紀錄" : "消費紀錄"}>
     {kind === "bookings" && <div className="flex gap-2"><button type="button" aria-pressed={scope === "past"} onClick={()=>setScope("past")} className="min-h-11 px-3 text-sm text-primary-700">過往</button><button type="button" aria-pressed={scope === "all"} onClick={()=>setScope("all")} className="min-h-11 px-3 text-sm text-primary-700">全部</button></div>}
-    <div className="overflow-x-auto rounded-lg border border-earth-200" aria-busy={loading}>
+    <div className="flex flex-wrap items-end gap-2 py-2 text-sm">{([['from','開始日期'],['to','結束日期']] as const).map(([key,label])=><label key={key} className="min-w-0">{label}<input type="date" aria-label={label} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-2" value={range[key]} onChange={event=>setRange({...range,[key]:event.target.value})}/></label>)}<label className="min-w-0">方案／項目<input aria-label="方案／項目" type="search" maxLength={100} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-2" value={range.item} onChange={event=>setRange({...range,item:event.target.value})}/></label></div>
+    {invalid&&<p role="alert" className="text-sm text-red-700">開始日期不可晚於結束日期</p>}
+    <div hidden={invalid} className="overflow-x-auto rounded-lg border border-earth-200" aria-busy={loading}>
       <div className="min-w-[440px]">
         <div className="grid grid-cols-[9rem_minmax(0,1fr)_7rem] gap-3 bg-earth-50 px-3 py-2 text-sm font-medium text-earth-600"><span>日期</span><span>{kind === "bookings" ? "時間／服務／人數" : "消費項目"}</span><span className="text-right">{kind === "bookings" ? "狀態" : "金額"}</span></div>
         {data?.rows.map(row => <details key={row.id} className="border-t border-earth-100">
@@ -51,6 +56,6 @@ export function CustomerPanelRecordsList({customerId, kind, revision, active = t
     {!loading && data?.rows.length === 0 && <p className="py-3 text-sm text-earth-500">尚無紀錄</p>}
     {error && <p role="alert" className="py-2 text-sm text-red-700">{error} <button type="button" onClick={() => void load(requestedPage)} className="min-h-11 px-3 underline">重試</button></p>}
     {loading && <p role="status" className="py-2 text-sm text-earth-500">讀取中…</p>}
-    {data && <div className="flex items-center justify-end gap-2 pt-2 text-sm"><button type="button" disabled={loading || data.page <= 1} onClick={() => void load(data.page - 1)} className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40">上一頁</button><span className="tabular-nums">第 {data.page} 頁</span><button type="button" disabled={loading || !data.hasMore} onClick={() => void load(data.page + 1)} className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40">下一頁</button></div>}
+    {!invalid&&data && <div className="flex items-center justify-end gap-2 pt-2 text-sm"><button type="button" disabled={loading || data.page <= 1} onClick={() => void load(data.page - 1)} className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40">上一頁</button><span className="tabular-nums">第 {data.page} 頁</span><button type="button" disabled={loading || !data.hasMore} onClick={() => void load(data.page + 1)} className="min-h-11 rounded border border-earth-200 px-3 disabled:opacity-40">下一頁</button></div>}
   </div>;
 }

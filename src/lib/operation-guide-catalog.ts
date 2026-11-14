@@ -656,12 +656,12 @@ export const additionalGuides: OperationGuide[] = [
     "id": "C04",
     "category": "customers",
     "title": "哪裡可以看顧客的預約與消費紀錄？",
-    "summary": "蒸足顧客視窗可切換預約紀錄與消費紀錄分頁；完整資料頁保留進階篩選入口。",
-    "path": "顧客管理 → 顧客資料 → 預約紀錄／消費紀錄",
+    "summary": "在顧客總覽選「全部紀錄」，再選預約或收款類型，依日期與方案／項目查詢。",
+    "path": "顧客管理 → 顧客總覽 → 全部紀錄",
     "steps": [
-      "蒸足顧客視窗上方選「預約紀錄」或「消費紀錄」，依欄位核對日期、項目及狀態；用上一頁／下一頁查找，切回分頁保留原頁碼。",
-      "需要進階查找時使用完整顧客資料頁的紀錄入口；該頁消費可選期間、類型、付款方式或輸入品項文字。",
-      "核對篩選後的筆數與合計，再查看方案、零售、服務、退款或其他收入明細。",
+      "在顧客總覽選「全部紀錄」，以「紀錄類型」切換預約／上課／服務或收款／消費。",
+      "依開始日期、結束日期或方案／項目查找，再用上一頁／下一頁查看。",
+      "查看方案、體驗、單次服務、退款或其他已關聯收入；沒有方案的紀錄也會保留。",
       "需要更多資訊時，開啟對應預約、交易或現金收支明細。"
     ],
     "important": "預約次數與消費筆數不同；只有已關聯此顧客的店內收入才會出現在消費紀錄。",
@@ -674,12 +674,14 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "modules": [
       "steamfoot",
-      "spa"
+      "course",
+      "beauty"
     ],
     "permission": "customer.read",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
+      "src/app/(dashboard)/dashboard/customers/_components/customer-detail-drawer-content.tsx",
+      "src/app/(dashboard)/dashboard/courses/member-workspace.tsx",
       "src/app/(dashboard)/dashboard/customers/[id]/records/page.tsx",
       "src/app/(dashboard)/dashboard/customers/[id]/records/customer-consumption-filters.tsx",
       "src/server/queries/customer-list-helpers.ts",
@@ -687,7 +689,7 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "顧客資料頁分開列出預約與消費紀錄；消費可依期間、類型、付款方式及文字篩選。"
+    "answer": "顧客總覽的「全部紀錄」集中預約與收款查詢；可依日期及方案／項目篩選。"
   },
   {
     "id": "C05",

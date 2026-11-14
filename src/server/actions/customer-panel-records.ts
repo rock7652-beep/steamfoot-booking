@@ -1,5 +1,6 @@
 "use server";
 
+import {courseHistoryRange,courseHistoryItem} from "@/lib/course-history-range";
 import { bookingDateToday, getNowTaipeiHHmm } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
@@ -15,7 +16,7 @@ import type {WalletSessionCorrectionRecord} from '@/lib/wallet-session-correctio
 export type CustomerPanelRecord = { id: string; date: Date; label: string; status: string; amount?: number; payment?: string; note?: string | null };
 export type CustomerPanelRecords = { rows: CustomerPanelRecord[]; hasMore: boolean; page: number };
 
-export async function getCustomerPanelRecords(customerId: string, kind: "bookings" | "consumption", page = 1, scope: "all" | "past" = "all"): Promise<ActionResult<CustomerPanelRecords>> {
+export async function getCustomerPanelRecords(customerId: string, kind: "bookings" | "consumption", page = 1, scope: "all" | "past" = "all", range:{from?:string;to?:string;item?:string}={}): Promise<ActionResult<CustomerPanelRecords>> {
   try {
     const user = await requirePermission("customer.read");
     if (kind !== "bookings" && kind !== "consumption") throw new AppError("VALIDATION", "紀錄種類不正確");
@@ -29,11 +30,13 @@ export async function getCustomerPanelRecords(customerId: string, kind: "booking
       select: { id: true, storeId: true, user: {select: {status:true}} },
     });
     if (!customer || customer.user?.status === "SUSPENDED") throw new AppError("NOT_FOUND", "顧客不存在");
+    const bounds=courseHistoryRange(range),item=courseHistoryItem(range);
+    const dates={...(range.from?{gte:new Date(range.from+"T00:00:00Z")}:{ }),...(range.to?{lte:new Date(range.to+"T00:00:00Z")}:{ })};
     const where = { customerId: customer.id, storeId: customer.storeId };
     const take = 20;
     if (kind === "bookings") {
       const today = bookingDateToday();
-      const records = await prisma.booking.findMany({ where: {...where, ...(scope === "past" ? { OR: [{ bookingDate: {lt: today} }, { bookingDate: today, slotTime: {lt: getNowTaipeiHHmm()} }] } : {})}, skip: (page - 1) * take, take: take + 1,
+      const records = await prisma.booking.findMany({ where: {...where, ...(Object.keys(dates).length?{bookingDate:dates}:{}),...(item?{customerPlanWallet:{plan:{name:{contains:item,mode:"insensitive" as const}}}}:{}), ...(scope === "past" ? { OR: [{ bookingDate: {lt: today} }, { bookingDate: today, slotTime: {lt: getNowTaipeiHHmm()} }] } : {})}, skip: (page - 1) * take, take: take + 1,
         orderBy: [{bookingDate:"desc"}, {slotTime:"desc"}, {id:"desc"}],
         select: {id:true, bookingDate:true, slotTime:true, bookingType:true, bookingStatus:true, people:true, notes:true} });
       return {success:true, data: {page, hasMore:records.length > take, rows: records.slice(0,take).map(b => ({id:b.id, date:b.bookingDate, label:`${b.slotTime} · ${formatBookingType(b.bookingType)} · ${b.people} 人`, status:b.bookingStatus, note:b.notes}))}};
@@ -41,8 +44,8 @@ export async function getCustomerPanelRecords(customerId: string, kind: "booking
     // Merge the two ordered sources before slicing so page boundaries never lose one source.
     const limit = page * take + 1;
     const [transactions, cashbook] = await Promise.all([
-      prisma.transaction.findMany({where, take:limit, orderBy:[{createdAt:"desc"},{id:"desc"}], select:{id:true,createdAt:true,transactionType:true,planNameSnapshot:true,amount:true,paymentMethod:true,paymentStatus:true,note:true}}),
-      prisma.cashbookEntry.findMany({where:{...where,type:"INCOME"},take:limit,orderBy:[{entryDate:"desc"},{id:"desc"}],select:{id:true,entryDate:true,category:true,amount:true,paymentMethod:true,note:true}}),
+      prisma.transaction.findMany({where:{...where,createdAt:bounds,...(item?{planNameSnapshot:{contains:item,mode:"insensitive" as const}}:{})}, take:limit, orderBy:[{createdAt:"desc"},{id:"desc"}], select:{id:true,createdAt:true,transactionType:true,planNameSnapshot:true,amount:true,paymentMethod:true,paymentStatus:true,note:true}}),
+      prisma.cashbookEntry.findMany({where:{...where,type:"INCOME",entryDate:dates,...(item?{category:{contains:item,mode:"insensitive" as const}}:{})},take:limit,orderBy:[{entryDate:"desc"},{id:"desc"}],select:{id:true,entryDate:true,category:true,amount:true,paymentMethod:true,note:true}}),
     ]);
     const rows: CustomerPanelRecord[] = [
       ...transactions.map(t => ({id:`transaction:${t.id}`,date:t.createdAt,label:t.planNameSnapshot || formatTransactionType(t.transactionType),status:t.paymentStatus === "PENDING" ? "待收款" : "已收款",amount:Number(t.amount),payment:formatPaymentMethod(t.paymentMethod),note:t.note})),

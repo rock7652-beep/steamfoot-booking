@@ -4,11 +4,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { RosterTable } from "@/components/admin/roster-primitives";
 export function CourseHistoryList<T extends {id:string}>({customerId,label,load,render,empty,compact=false,mode,columns,revision=0}: {
   compact?:boolean;revision?:number;customerId:string;label:string;empty:string;mode?:string;
-  load:(id:string,offset:number,range:{from:string;to:string;mode?:string})=>Promise<{success:true;data:T[];hasMore:boolean}|{success:false;error:string}>;
+  load:(id:string,offset:number,range:{from:string;to:string;item?:string;mode?:string})=>Promise<{success:true;data:T[];hasMore:boolean}|{success:false;error:string}>;
   render:(row:T)=>ReactNode;
   columns?:string[];
 }) {
-  const [range,setRange]=useState({from:"",to:""});
+  const [range,setRange]=useState({from:"",to:"",item:""});
   const [page,setPage]=useState(0);
   const [retry,setRetry]=useState(0);
   const [result,setResult]=useState<{key:string;customerId:string;rows:T[];hasMore:boolean;error?:string}|null>(null);
@@ -25,7 +25,7 @@ export function CourseHistoryList<T extends {id:string}>({customerId,label,load,
   const ready=result?.key===key;
   return <section className="space-y-3 py-3">
     {!compact&&<h3 className="font-semibold text-primary-800">{label}</h3>}
-    <div className={compact?"flex flex-wrap items-end gap-2 text-sm":"grid grid-cols-2 gap-3 text-sm"}>{([ ["from","開始日期"],["to","結束日期"] ] as const).map(([name,title])=><label key={name} className="min-w-0">{title}<input type="date" aria-label={title} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-2" value={range[name]} onChange={e=>{setRange({...range,[name]:e.target.value});setPage(0);}}/></label>)}</div>
+    <div className={compact?"flex flex-wrap items-end gap-2 text-sm":"grid grid-cols-2 gap-3 text-sm"}>{([ ["from","開始日期"],["to","結束日期"] ] as const).map(([name,title])=><label key={name} className="min-w-0">{title}<input type="date" aria-label={title} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-2" value={range[name]} onChange={e=>{setRange({...range,[name]:e.target.value});setPage(0);}}/></label>)}<label className="min-w-0">方案／項目<input aria-label="方案／項目" type="search" maxLength={100} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white px-2" value={range.item} onChange={event=>{setRange({...range,item:event.target.value});setPage(0);}}/></label></div>
     {invalid ? <p role="alert">開始日期不可晚於結束日期</p> : !ready ? <p role="status">讀取中…</p> : result?.error ? <p role="alert">{result.error}<button type="button" className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>
       {columns ? <RosterTable label={label} columns={columns}>{result?.rows.map(row=><tr key={row.id}>{render(row)}</tr>)}</RosterTable> : <ul className="divide-y divide-earth-100">{result?.rows.map(row=><li key={row.id} className={compact?"py-1 text-sm":"space-y-1 py-3 text-sm"}>{render(row)}</li>)}</ul>}
       {!result?.rows.length && <p className="text-sm text-earth-500">{empty}</p>}

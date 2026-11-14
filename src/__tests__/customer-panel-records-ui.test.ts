@@ -29,7 +29,7 @@ it("keeps confirmed rows after a failed next page and retries that same page", a
   expect(host.textContent).toContain("第1頁紀錄");
   expect(host.querySelector('[role="alert"]')?.textContent).toContain("暫時無法讀取");
   await click("重試");
-  expect(h.load).toHaveBeenLastCalledWith("customer", "bookings", 2, "past");
+  expect(h.load).toHaveBeenLastCalledWith("customer", "bookings", 2, "past",{from:"",to:"",item:""});
   expect(host.textContent).toContain("第2頁紀錄");
 });
 it("does not display the previous customer's page while the next customer is loading", async () => {
@@ -40,6 +40,6 @@ it("does not display the previous customer's page while the next customer is loa
   expect(host.textContent).not.toContain("第1頁紀錄");
   expect(host.textContent).toContain("讀取中");
   await act(async () => resolve({ success: true, data: { page: 1, hasMore: false, rows: [] } }));
-  expect(h.load).toHaveBeenLastCalledWith("other", "bookings", 1, "past");
+  expect(h.load).toHaveBeenLastCalledWith("other", "bookings", 1, "past",{from:"",to:"",item:""});
   expect(host.textContent).toContain("尚無紀錄");
 });

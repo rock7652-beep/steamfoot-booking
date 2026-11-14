@@ -6,7 +6,7 @@ import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context
 import { formatTWTime } from "@/lib/date-utils";
 import { formatPaymentMethod } from "@/lib/data-export-labels";
 
-export function CustomerPanelSummaryView({customerId,readOnly,onMutated,revision,initialData,section = "all"}:{section?:"all" | "overview" | "health";initialData?:CustomerPanelSummary;customerId:string;readOnly:boolean;onMutated:()=>void;revision:number}) {
+export function CustomerPanelSummaryView({customerId,readOnly,onMutated,revision,initialData,onHealthEnabled,section = "all"}:{onHealthEnabled?:(enabled:boolean)=>void;section?:"all" | "overview" | "health";initialData?:CustomerPanelSummary;customerId:string;readOnly:boolean;onMutated:()=>void;revision:number}) {
   const [data,setData]=useState<CustomerPanelSummary|null>(initialData ?? null);
   const [error,setError]=useState("");
   const [confirm,setConfirm]=useState<string|null>(null);
@@ -20,6 +20,7 @@ export function CustomerPanelSummaryView({customerId,readOnly,onMutated,revision
     void getCustomerPanelSummary(customerId).then(result=>{if(token!==request.current)return;if(result.success)setData(result.data);else setError(result.error ?? "讀取失敗");}).catch(()=>{if(token===request.current)setError("讀取失敗");});
     return()=>{gate.current++;};
   },[customerId,revision,initialData]);
+  useEffect(()=>{if(data)onHealthEnabled?.(data.healthEnabled);},[data,onHealthEnabled]);
   async function receive(id:string) {
     if(pending)return;
     setPending(true);setError("");

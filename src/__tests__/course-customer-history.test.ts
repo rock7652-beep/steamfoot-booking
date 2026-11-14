@@ -59,3 +59,8 @@ it("rejects the preview reader outside the approved environment before querying 
  mocks.preview.mockReturnValue(false);expect(await readCourseCustomerPurchases("customer",0,{},true)).toMatchObject({success:false});
  expect(mocks.customer).not.toHaveBeenCalled();expect(mocks.orders).not.toHaveBeenCalled();
 });
+
+it("searches item snapshots before pagination while retaining customer and finance boundaries",async()=>{
+ expect((await loadCourseCustomerPurchases("customer",30,{item:"吉他",from:"2026-11-01"})).success).toBe(true);
+ expect(mocks.orders.mock.calls[0][0]).toMatchObject({skip:30,take:11,where:{storeId:"course-store",customerId:"customer",name:{contains:"吉他",mode:"insensitive"},createdAt:{gte:new Date("2026-10-31T16:00:00Z")}}});
+});

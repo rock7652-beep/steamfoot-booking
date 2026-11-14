@@ -33,3 +33,15 @@ it("filters past bookings before pagination while retaining store scope",async()
  expect((await getCustomerPanelRecords("customer-a","bookings",2,"past")).success).toBe(true);
  expect(m.booking).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({customerId:"customer-a",storeId:"store-a",OR:expect.arrayContaining([expect.objectContaining({bookingDate:expect.objectContaining({lt:expect.any(Date)})}),expect.objectContaining({slotTime:expect.objectContaining({lt:expect.any(String)})})])}),skip:20,take:21}));
 });
+
+it("applies item and business-date filters before database pagination",async()=>{
+ m.booking.mockResolvedValue([]);m.transaction.mockResolvedValue([]);m.cashbook.mockResolvedValue([]);
+ expect((await getCustomerPanelRecords("customer-a","bookings",2,"all",{from:"2026-11-01",to:"2026-11-02",item:"十堂"})).success).toBe(true);
+ expect(m.booking.mock.calls[0][0]).toMatchObject({skip:20,take:21,where:{storeId:"store-a",customerId:"customer-a",bookingDate:{gte:new Date("2026-11-01T00:00:00Z"),lte:new Date("2026-11-02T00:00:00Z")},customerPlanWallet:{plan:{name:{contains:"十堂"}}}}});
+ expect((await getCustomerPanelRecords("customer-a","consumption",1,"all",{from:"2026-11-01",to:"2026-11-02",item:"十堂"})).success).toBe(true);
+ expect(m.transaction.mock.calls[0][0].where).toMatchObject({planNameSnapshot:{contains:"十堂"},createdAt:{gte:new Date("2026-10-31T16:00:00Z"),lte:new Date("2026-11-02T15:59:59.999Z")}});
+ expect(m.cashbook.mock.calls[0][0].where).toMatchObject({category:{contains:"十堂"},entryDate:{gte:new Date("2026-11-01T00:00:00Z"),lte:new Date("2026-11-02T00:00:00Z")}});
+});
+it("rejects inverted dates before reading record sources",async()=>{
+ expect((await getCustomerPanelRecords("customer-a","bookings",1,"all",{from:"2026-11-03",to:"2026-11-01"})).success).toBe(false);expect(m.booking).not.toHaveBeenCalled();
+});

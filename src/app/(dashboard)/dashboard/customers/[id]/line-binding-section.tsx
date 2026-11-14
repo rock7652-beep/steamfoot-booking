@@ -9,6 +9,7 @@ import { createLineRebindCaptureRequest, cancelLineRebindCaptureRequest, dryRunL
 
 interface LineBindingSectionProps {
   compact?: boolean;
+  expanded?: boolean;
   onUpdated?: () => void;
   customerId: string;
   lineLinkStatus: string;
@@ -25,6 +26,7 @@ interface LineBindingSectionProps {
 
 export function LineBindingSection({
   compact = false,
+  expanded = false,
   customerId,
   lineLinkStatus,
   lineUserId,
@@ -39,7 +41,8 @@ export function LineBindingSection({
   const [reason, setReason] = useState("");
   const [creatingRequest, setCreatingRequest] = useState(false);
   const [unlinkConfirmOpen, setUnlinkConfirmOpen] = useState(false);
-  const [helpOpen,setHelpOpen] = useState(false);
+  const [helpExpanded,setHelpOpen] = useState(false);
+  const helpOpen=expanded||helpExpanded;
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [status, setStatus] = useState(lineLinkStatus);
@@ -187,7 +190,7 @@ export function LineBindingSection({
   </div>;
 
   if(compact) return <div className="space-y-2 text-sm">
-    <div className="flex min-h-11 flex-wrap items-center gap-3"><span>LINE：{status === "LINKED" ? "已綁定" : status === "BLOCKED" ? "顧客已封鎖" : "未綁定"}</span>{helpOpen && status === "UNLINKED" && canManageLineRebind && !activeLineRebindRequest && <button type="button" disabled={pending} onClick={handleStartPhoneRebind} className="min-h-11 rounded-lg bg-primary-700 px-4 font-medium text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700 disabled:opacity-50">重新綁定</button>}<button type="button" disabled={pending} aria-expanded={helpOpen} onClick={()=>setHelpOpen(!helpOpen)} className="min-h-11 px-3 text-primary-700">{helpOpen ? "收合" : "⋯ 管理"}</button></div>
+    <div className="flex min-h-11 flex-wrap items-center gap-3"><span>LINE：{status === "LINKED" ? "已綁定" : status === "BLOCKED" ? "顧客已封鎖" : "未綁定"}</span>{helpOpen && status === "UNLINKED" && canManageLineRebind && !activeLineRebindRequest && <button type="button" disabled={pending} onClick={handleStartPhoneRebind} className="min-h-11 rounded-lg bg-primary-700 px-4 font-medium text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700 disabled:opacity-50">重新綁定</button>}{!expanded&&<button type="button" disabled={pending} aria-expanded={helpOpen} onClick={()=>setHelpOpen(!helpOpen)} className="min-h-11 px-3 text-primary-700">{helpOpen ? "收合" : "⋯ 管理"}</button>}</div>
     {helpOpen && !(status === "UNLINKED" && canManageLineRebind && !activeLineRebindRequest) && <div className="space-y-2 border-t border-earth-100 py-2">
       {canManageLineRebind && (status === "LINKED" || status === "BLOCKED") && <>
         <button type="button" disabled={pending} onClick={() => setUnlinkConfirmOpen(true)} className="min-h-11 rounded border border-red-200 px-3 text-red-700">取消 LINE 綁定</button>
