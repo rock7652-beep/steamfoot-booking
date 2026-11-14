@@ -4,18 +4,19 @@ import type { PlanGridAction } from "@/components/admin/plan-grid-actions";
 import { saveCourseCardManagement } from "@/server/actions/course-card-management";
 import { saveCourseSessionAdjustment } from "@/server/actions/course-session-adjustment";
 import type {CourseCustomerSource} from "./member-source";
+import {CoursePlanUsageHistory} from "./plan-usage-history";
 import { useCardDetail } from "./use-card-detail";
 
-export function CourseInlinePlanManagement({storeId,customerId,cardId,action,dataScope,revision,music,onDirtyChange,onPending,onSaved,onCancel,source}:{
- storeId:string;customerId:string;cardId:string;action:PlanGridAction;dataScope?:"operational"|"legacy";revision:number;music:boolean;
- source?:CourseCustomerSource;
+export function CourseInlinePlanManagement({storeId,customerId,cardId,action,dataScope,revision,music,onDirtyChange,onPending,onSaved,onCancel,source,canManage=false}:{
+ storeId:string;customerId:string;cardId:string;action:PlanGridAction|"history";dataScope?:"operational"|"legacy";revision:number;music:boolean;
+ source?:CourseCustomerSource;canManage?:boolean;
  onDirtyChange:(dirty:boolean)=>void;onPending:(pending:boolean)=>void;onSaved:()=>void;onCancel:()=>void;
 }){
  const detail=useCardDetail(true,cardId,revision,source?.browseCards??dataScope,true,undefined,{storeId,revision,preloadSource:source?.preloadCardDetails}),card=detail.data;
  const belongs=card?.members.some(member=>member.id===customerId);
- const blocked=card&&(card.id!==cardId||!belongs||card.closed||card.openingImported||card.templateRestricted);
+ const blocked=card&&(card.id!==cardId||!belongs||action!=='history'&&(card.closed||card.openingImported||card.templateRestricted));
  return <div aria-label="同頁方案操作" className="min-w-0" aria-busy={detail.loading}>
-  {detail.loading?<p role="status" className="py-2 text-sm">讀取方案資料中…</p>:detail.error?<p role="alert" className="py-2 text-sm text-red-700">{detail.error}<button type="button" className="ml-2 min-h-11 underline" onClick={detail.retry}>重試</button></p>:blocked?<p role="alert" className="py-2 text-sm">方案狀態已變更，請重新核對；來源方案或補課權益須由原專用流程處理。</p>:card&&source?source.cardManagement?.(card,{initialAction:action,showActions:false,onCancel,onDirtyChange,onPending,onSaved}):card?<PlanManagementControls key={`${card.id}:${revision}:${action}`} storeId={storeId} card={card} save={saveCourseCardManagement} initialAction={action} showActions={false} sessionAdjustment={card.unit==='SESSION'?{save:saveCourseSessionAdjustment,records:card.sessionAdjustments??[],members:card.members}:undefined} unitLabel={card.unit==='SESSION'?'堂':'點'} expiryHint={music&&card.musicValidityDays?'儲存後以指定到期日為準，首次上課與恢復點名不再重算本方案期限；既有補課權益仍保留。':undefined} onDirtyChange={onDirtyChange} onPending={onPending} onSaved={onSaved} onCancel={onCancel}/>:null}
+  {detail.loading?<p role="status" className="py-2 text-sm">讀取方案資料中…</p>:detail.error?<p role="alert" className="py-2 text-sm text-red-700">{detail.error}<button type="button" className="ml-2 min-h-11 underline" onClick={detail.retry}>重試</button></p>:blocked?<p role="alert" className="py-2 text-sm">方案狀態已變更，請重新核對；來源方案或補課權益須由原專用流程處理。</p>:card&&source&&!source.cardManagement&&action==='history'?<section aria-label="使用紀錄"><CoursePlanUsageHistory card={card} customerId={customerId} source={source} music={music}/><button type="button" className="min-h-11 px-3" onClick={onCancel}>收合</button></section>:card&&source?source.cardManagement?.(card,{history:<CoursePlanUsageHistory card={card} customerId={customerId} source={source} music={music}/>,initialAction:action,showActions:false,onCancel,onDirtyChange,onPending,onSaved}):card?<PlanManagementControls canManage={canManage} key={`${card.id}:${revision}:${action}`} history={<CoursePlanUsageHistory card={card} customerId={customerId} music={music}/>} storeId={storeId} card={card} save={saveCourseCardManagement} initialAction={action} showActions={false} sessionAdjustment={{save:saveCourseSessionAdjustment,records:card.sessionAdjustments??[],members:card.members}} unitLabel={card.unit==='SESSION'?'堂':'點'} expiryHint={music&&card.musicValidityDays?'儲存後以指定到期日為準，首次上課與恢復點名不再重算本方案期限；既有補課權益仍保留。':undefined} onDirtyChange={onDirtyChange} onPending={onPending} onSaved={onSaved} onCancel={onCancel}/>:null}
   {(detail.loading||detail.error||blocked)&&<button type="button" className="min-h-11 rounded-lg border border-earth-200 px-3 text-sm" onClick={onCancel}>取消</button>}
  </div>;
 }

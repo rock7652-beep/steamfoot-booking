@@ -7,7 +7,7 @@ vi.mock('@/lib/store',()=>({resolveWriteStoreId:m.store}));
 vi.mock('@/lib/industry-module-server',()=>({requireSteamfootStore:m.module}));
 vi.mock('@/lib/manager-visibility',()=>({getManagerCustomerWhere:()=>({})}));
 vi.mock('@/lib/db',()=>({prisma:{$transaction:m.transaction}}));
-vi.mock('@/server/services/steam-wallet-management',()=>({closeSteamWallet:m.core}));
+vi.mock('@/server/services/steam-wallet-management',()=>({manageSteamWallet:m.core}));
 import {closeSteamPlan} from '@/server/actions/steam-wallet-management';
 const input={expectedStoreId:'store',requestKey:'00000000-0000-4000-8000-000000000001',cardId:'wallet',operation:'close',expectedRemaining:3,expectedExpiresAt:null,reason:'顧客確認'};
 beforeEach(()=>{vi.resetAllMocks();m.permission.mockResolvedValue({id:'manager',role:'OWNER',staffId:'staff',name:'Synthetic'});m.store.mockResolvedValue('store');m.query.mockResolvedValue([{id:'store'}]);m.wallet.mockResolvedValue({customerId:'customer'});m.customer.mockResolvedValue({id:'customer'});m.core.mockResolvedValue({id:'wallet',remaining:0,expiresAt:null,closed:true});m.transaction.mockImplementation(async work=>work({$queryRaw:m.query,customerPlanWallet:{findFirst:m.wallet},customer:{findFirst:m.customer}}));});

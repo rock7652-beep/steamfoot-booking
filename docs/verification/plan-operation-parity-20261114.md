@@ -1,28 +1,35 @@
 # 四模組方案操作盤點與修正
 
-## 最新範圍
+## 使用者最新決策
 
-2026-11-14 使用者要求移除「調整剩餘額度」及「使用紀錄」操作入口，保留續購、補登、部分額度註銷、期限調整及整份方案註銷；四模組共用選單順序、語意色及可切換的同頁表單。移除入口不刪歷史資料，不改帳務及權限規則。
+顧客方案共用核心與操作，依模組顯示「上課／堂」或「服務／次」。移除直接設定剩餘額度的入口，保留使用紀錄。補登、部分註銷、調整期限、整份方案註銷在卡片右側選單；未送出時可任意切換，不因草稿存在而反灰。送出中或結果未知仍保留同一請求，防止重複扣除。表單密度透過減少重複欄位及橫向排列提高，保留字級及 44px 操作高度。
 
-## 程式與後端逐項對照
+## 逐項程式與後端對照
 
-| 操作 | 蒸足 | 音樂／運動 | 美業 | 本次差異判定與處理 |
-| --- | --- | --- | --- | --- |
-| 續購同方案 | `AssignPlanForm`、`assignPlanToCustomer` | 原 `assign`／購課付款流程 | 原 `source.assign`、`assignBeautyNativeCard`／購買意圖流程 | 後端已有；音樂、運動、美業缺卡片直接入口。依原商品 ID 預選仍上架的同方案，仍經原付款確認，不直接重發或複製歷史售價。 |
-| 補登 | `BackfillUsedSessionsForm`、`backfillUsedSessions` | `saveCourseSessionAdjustment` 的 BACKFILL | `saveBeautySessionAdjustment` 的 BACKFILL | 後端及入口均已有；統一選單，修正美業服務／次數用詞，總覽沿用權威資料讀取後展開表單。 |
-| 註銷部分額度 | `voidWalletSession` → `voidAvailableSession` | `saveCourseSessionAdjustment` 的 VOID | `saveBeautySessionAdjustment` 的 VOID | 蒸足能力藏在單堂明細，移除紀錄入口後須補直接入口。新增選擇 AVAILABLE 堂次的確認表單，沿用原單堂交易；保留逐堂與數量型後端的業務差異，沒有用設定剩餘數冒充註銷。 |
-| 調整期限 | `ExtendWalletExpiryForm`、`extendWalletExpiry` | `saveCourseCardManagement` 的 expiry | `saveBeautyCardManagement` 的 expiry | 都已實作；解除只因展開表單而停用其他操作的 UI 條件。 |
-| 註銷整份方案 | `closeSteamPlan` | `saveCourseCardManagement` 的 close | `saveBeautyCardManagement` 的 close | 都已實作；保留原門市／角色／模組／占用檢查、原因與確認及未知結果重試。 |
-| 調整剩餘額度／使用紀錄 | 移除方案卡片選單的兩個入口 | 不增加對應入口 | 不增加對應入口 | 顧客抽屜及蒸足獨立顧客網址一併移除本次指定的管理入口；日期格、顧客紀錄分頁、歷史稽核及原後端資料保留。 |
+| 操作 | 蒸足 | 音樂／運動 | 美業 |
+| --- | --- | --- | --- |
+| 續購 | 原 `AssignPlanForm`／購買交易 | 原購課流程，以商品及穩定教學項目 ID 預選 | 原 `source.assign`／購買意圖與付款流程 |
+| 補登／部分註銷 | 新 `saveSteamSessionAdjustment` adapter；鎖定原單堂資料，數量型操作整批成功或回滾 | 原 `saveCourseSessionAdjustment` 的 BACKFILL／VOID | 原 `saveBeautySessionAdjustment` 的 BACKFILL／VOID |
+| 更正返還 | 原紀錄及單堂版本核對後全數返還，新增 REVERSE 紀錄；舊逐堂紀錄仍可更正 | 原調整紀錄全數反向更正，不刪除原紀錄 | 原 ledger／event 全數反向更正，不刪除原紀錄 |
+| 期限／整份註銷 | `saveSteamPlanManagement`，沿用原狀態／預約檢查，加入共用 receipt | 原 `saveCourseCardManagement` | 原 `saveBeautyCardManagement` |
+| 使用紀錄 | 原單堂明細＋不可變調整紀錄；未存過的舊餘額不補造 | 指定方案的出席／預約、調整紀錄及 ledger | 指定方案的服務／預約、調整紀錄及 ledger；補上後端 cardId 篩選 |
 
-`CourseMemberWorkspace` 的 `dirty || !!inlineEntry` 與 `PlanManagementControls` 的 `!!mode` 是純編輯即整組反灰的來源。本次改成送出中／結果未知才阻擋切換；單純編輯可切換，舊未送出表單隨切換卸載，不發出交易。選單沿用 `ExclusiveMenu` 的選取即收起。
+所有模組管理表單使用 `PlanManagementControls`／`PlanSessionAdjustment`，蒸足只轉接自己的資料模型與寫入交易。補登 amber、期限綠、部分及整份註銷 red、紀錄中性色。日期格及可預約額度／到期日維持既有共用位置。操作中隱藏不相干的共卡儲存按鈕。
 
-美業總覽原本選操作會轉入獨立方案詳情，現在注入美業 reader／cardManagement 到同頁操作，仍先讀權威方案、檢查持有人與狀態。詳情中的共卡儲存按鈕只在共卡編輯可用且未展開另一管理表單時呈現，避免以「儲存共卡成員」冒充補登儲存。
+蒸足舊版後端確實是逐堂註銷，不是數量型註銷；因此本次補上 transaction adapter，沒有用設定剩餘數冒充註銷。保留 legacy endpoints 相容性及歷史資料。新寫入只改原堂次／快取餘額與不可變稽核，不新增收款、退款、真實出席或薪資；不更改 schema。原本點數方案的調整後端支援點數，本次維持該能力，不以堂數型限制誤刪。
 
-共用色：補登 amber、期限 primary 綠、部分及整份註銷 red，並保留文字及可見焦點；不以顏色代替操作名稱。
+## 隔離與交易條件
 
-音樂續購只依原方案及持有方案的穩定教學項目 ID 預選，若仍有多個可選項目則保留選擇，不以名稱推測。運動點數型方案保留期限／整份註銷，沒有補登上課／註銷堂數入口，因原 session adjustment 後端只接受堂數型方案。
+- 每次寫入重新驗證角色、權限、店家、模組與顧客可見範圍；讀取快照不取代交易檢查。
+- 蒸足補登／註銷在 Serializable transaction 內先鎖 Store 與原單堂資料，核對剩餘額度與期限；不改 RESERVED／COMPLETED，也不挪用他人額度。
+- 同請求識別碼只套用一次；相同識別碼不同內容拒絕。稽核寫入失敗整批回滾；更正需原單堂版本相符，已更正或重用的堂次不能重複返還。
+- 期限不能縮短跨越既有預約；整份註銷保留原收款與歷史，不自動退款。
+- 使用紀錄在已結束方案仍可讀，無管理權限不顯示更正寫入。
 
-## 驗證與限制
+## 本機證據
 
-實測結果、精確版本與 Preview 在 PR 驗收後補記。單元驗證包括直接切換、未送出不寫入、未知結果鎖定與原請求重試、美業用詞、蒸足僅 AVAILABLE 可選與明確確認後才呼叫原註銷動作。正式站不執行交易或外發驗收。
+2026-11-14：11 個相關測試檔、108 個測試通過；TypeScript 6GB heap 檢查通過。實際一次性 loopback PostgreSQL：蒸足新增 11 個案例通過，既有音樂／運動／美業調整 14 個及方案管理 10 個案例通過。測試資料庫位於 /tmp，與店家／Preview／正式資料庫隔離，無通知程序。精確 Preview、最終 CI 及瀏覽器驗收於完成後更新，不能把本機通過當作正式發布。
+
+## 驗收目標與限制
+
+驗收顧客總覽與方案詳情、蒸足直接網址；四模組桌機 1366×900、iPad 模擬尺寸 1024×768／768×1024、手機窄容器 390×844。檢查五個選單互切、原因草稿不送出、單一面板、語意色、密度、捲動與溢出。正式站不提交交易／通知，不宣稱真機或正式登入驗收。新版需完成 Preview 後才可供發布決策。

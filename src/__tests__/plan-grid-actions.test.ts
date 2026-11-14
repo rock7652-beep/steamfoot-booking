@@ -14,11 +14,11 @@ async function render(initialAction?:PlanGridAction){await act(async()=>root.ren
 async function click(text:string){let b=[...document.querySelectorAll('button')].find(b=>b.textContent===text&&!b.closest('[hidden]'));if(!b&&text!=='⋯'){const menu=document.querySelector<HTMLButtonElement>('button[aria-label="方案 更多操作"]');expect(menu).toBeTruthy();await act(async()=>menu!.click());b=[...document.querySelectorAll('button')].find(b=>b.textContent===text&&!b.closest('[hidden]'));}expect(b).toBeTruthy();await act(async()=>b!.click());}
 it.each(['BACKFILL','VOID'] as const)('opens the correct %s form without a financial write',async action=>{
  await render();expect(host.querySelector('[aria-label="調整類型"]')).toBeNull();await click(action==='VOID'?'註銷堂數':'補登已上課');
- expect(host.querySelector<HTMLSelectElement>('[aria-label="調整類型"]')?.value).toBe(action);
+ expect(host.querySelector(`[aria-label="${action==='VOID'?'註銷堂數':'補登已上課'}"]`)).not.toBeNull();
  expect(!!host.querySelector('[aria-label="實際上課日期"]')).toBe(action==='BACKFILL');expect(adjust).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled();
 });
 it.each(['BACKFILL','VOID'] as const)('a grid shortcut preselects %s after opening the authoritative detail',async action=>{
- await render(action);expect(host.querySelector<HTMLSelectElement>('[aria-label="調整類型"]')?.value).toBe(action);expect(adjust).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled();
+ await render(action);expect(host.querySelector(`[aria-label="${action==='VOID'?'註銷堂數':'補登已上課'}"]`)).not.toBeNull();expect(adjust).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled();
 });
 it('keeps whole-plan cancellation inside More and retains explicit confirmation',async()=>{
  await render();expect(document.querySelector('button[aria-label="方案 更多操作"]')).not.toBeNull();expect([...host.querySelectorAll('button')].some(b=>b.textContent==='註銷方案')).toBe(false);
@@ -26,7 +26,7 @@ it('keeps whole-plan cancellation inside More and retains explicit confirmation'
  expect([...host.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='確認註銷')?.disabled).toBe(true);
 });
 it('cancel then choose another operation does not retain the previous type',async()=>{
- await render();await click('註銷堂數');await click('取消');await click('補登已上課');expect(host.querySelector<HTMLSelectElement>('[aria-label="調整類型"]')?.value).toBe('BACKFILL');expect(adjust).not.toHaveBeenCalled();
+ await render();await click('註銷堂數');await click('取消');await click('補登已上課');expect(host.querySelector('[aria-label="補登已上課"]')).not.toBeNull();expect(adjust).not.toHaveBeenCalled();
 });
 it('disabled navigation cannot select a different financial operation',async()=>{
  const select=vi.fn();await act(async()=>root.render(React.createElement(PlanGridActions,{disabled:true,onSelect:select})));await click('補登已上課');await click('⋯');await click('註銷方案');expect(select).not.toHaveBeenCalled();
@@ -37,10 +37,10 @@ it('consumes the shortcut once so a refreshed balance does not reopen the adjust
   const [entry,setEntry]=React.useState<PlanGridAction|undefined>('VOID'),[revision,setRevision]=React.useState(0);
   return React.createElement(PlanManagementControls,{key:revision,compactActions:true,initialAction:entry,onInitialActionConsumed:()=>setEntry(undefined),storeId:'store',card:{...card,remaining:revision?7:8},save,sessionAdjustment:{save:adjust,records:[],members:[{id:'learner',name:'學員'}]},onSaved:()=>setRevision(n=>n+1)});
  }
- await act(async()=>root.render(React.createElement(Holder)));expect(host.querySelector<HTMLSelectElement>('[aria-label="調整類型"]')?.value).toBe('VOID');
+ await act(async()=>root.render(React.createElement(Holder)));expect(host.querySelector('[aria-label="註銷堂數"]')).not.toBeNull();
  await click('確認調整');expect(adjust).toHaveBeenCalledOnce();expect(host.querySelector('[aria-label="調整類型"]')).toBeNull();expect(save).not.toHaveBeenCalled();
 });
-it('keeps point plans free of session adjustments',async()=>{
+it('respects the caller availability flag for quota adjustments',async()=>{
  const select=vi.fn();await act(async()=>root.render(React.createElement(PlanGridActions,{allowSession:false,onSelect:select})));await click('⋯');
  expect([...document.querySelectorAll('button')].some(b=>/補登|註銷堂數/.test(b.textContent??''))).toBe(false);
  await click('調整期限');expect(select).toHaveBeenCalledWith('expiry');
@@ -52,10 +52,10 @@ it('switches directly between all operations and discards unsent fields without 
  await render();await click('補登已上課');
  const input=host.querySelector('textarea')!;
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(input,'尚未送出的原因');input.dispatchEvent(new Event('input',{bubbles:true}));});
- await click('註銷堂數');expect(host.querySelector<HTMLSelectElement>('[aria-label="調整類型"]')?.value).toBe('VOID');expect(host.querySelector('textarea')?.value).toBe('');
+ await click('註銷堂數');expect(host.querySelector('[aria-label="註銷堂數"]')).not.toBeNull();expect(host.querySelector('textarea')?.value).toBe('');
  await click('調整期限');expect(host.querySelector('[aria-label="新到期日"]')).not.toBeNull();expect(host.querySelector('[aria-label="調整類型"]')).toBeNull();
  await click('註銷方案');expect(host.querySelector('[aria-label="新到期日"]')).toBeNull();expect(host.textContent).toContain('收回剩餘 8 堂');
- await click('補登已上課');expect(host.querySelector<HTMLSelectElement>('[aria-label="調整類型"]')?.value).toBe('BACKFILL');expect(host.textContent).not.toContain('收回剩餘 8 堂');
+ await click('補登已上課');expect(host.querySelector('[aria-label="補登已上課"]')).not.toBeNull();expect(host.textContent).not.toContain('收回剩餘 8 堂');
  expect(adjust).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled();expect(document.querySelector('button[aria-label="方案 更多操作"]')?.getAttribute('aria-expanded')).toBe('false');
 });
 it('locks other operations after an uncertain adjustment and retries the same request',async()=>{
@@ -68,4 +68,19 @@ it('locks other operations after an uncertain adjustment and retries the same re
 it('uses Beauty service vocabulary throughout the adjustment form',async()=>{
  await act(async()=>root.render(React.createElement(PlanManagementControls,{compactActions:true,initialAction:'BACKFILL',storeId:'store',card,save,sessionAdjustment:{save:adjust,records:[],members:[{id:'customer',name:'顧客'}]},unitLabel:'次',onSaved})));
  expect(host.querySelector('[aria-label="實際服務日期"]')).not.toBeNull();expect(host.textContent).toContain('補登已服務');expect(host.textContent).toContain('次數');expect(host.textContent).not.toContain('已上課');expect(host.textContent).not.toContain('堂數');
+});
+
+it.each(['堂','次'])('switches each menu entry to every other entry in %s vocabulary without a write',async unitLabel=>{
+ const labels=[unitLabel==='次'?'補登已服務':'補登已上課',unitLabel==='次'?'註銷次數':'註銷堂數','調整期限','使用紀錄','註銷方案'];
+ await act(async()=>root.render(React.createElement(PlanManagementControls,{compactActions:true,history:React.createElement('p',null,'既有紀錄'),storeId:'store',card,save,sessionAdjustment:{save:adjust,records:[],members:[{id:'learner',name:'學員'}]},unitLabel,onSaved})));
+ for(const from of labels)for(const to of labels.filter(v=>v!==from)){
+  await click(from);const reason=host.querySelector('textarea');if(reason)await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(reason,'未送出草稿');reason.dispatchEvent(new Event('input',{bubbles:true}));});
+  await click(to);
+  expect(save).not.toHaveBeenCalled();expect(adjust).not.toHaveBeenCalled();
+  expect(host.querySelector('textarea')?.value??'').toBe('');
+ }
+});
+it('keeps history readable on closed plans and never offers a correction write',async()=>{
+ await act(async()=>root.render(React.createElement(PlanManagementControls,{compactActions:true,initialAction:'history',history:React.createElement('p',null,'已保留歷史'),storeId:'store',card:{...card,closed:true},save,sessionAdjustment:{save:adjust,records:[{id:'old',cardId:card.id,customerId:'learner',customerName:'學員',operation:'VOID',quantity:1,occurredOn:null,reason:'原原因',recordedAt:'2026-11-11T02:00:00Z',actorName:'店長',reversalOf:null}],members:[{id:'learner',name:'學員'}]},onSaved})));
+ expect(host.textContent).toContain('已保留歷史');expect(host.textContent).not.toContain('undefined');expect([...host.querySelectorAll('button')].some(b=>b.textContent==='更正返還')).toBe(false);await click('⋯');expect([...document.querySelectorAll('button')].filter(b=>!b.closest('[hidden]')).some(b=>b.textContent==='註銷方案')).toBe(false);
 });
