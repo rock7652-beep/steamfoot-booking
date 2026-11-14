@@ -1,4 +1,5 @@
 "use client";
+import {CLOSED_PLAN_LABEL} from "@/lib/plan-status-label";
 import {PlanCardHeader} from "@/components/admin/plan-card-header";
 import {PlanGridActions} from "@/components/admin/plan-grid-actions";
 import {SteamPlanManagement} from "@/components/admin/steam-plan-management";
@@ -225,7 +226,7 @@ export function CustomerDetailDrawerContent({
                     className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 rounded-lg border border-earth-200 bg-earth-50 px-3 py-2"
                   >
                     <PlanCardHeader summary={<>
-                      <strong className="tabular-nums text-primary-900">{expired || w.status === "EXPIRED" ? "已到期" : w.status === "CANCELLED" ? "已取消" : w.status === "USED_UP" ? "已用完" : `可預約 ${available} 堂`}</strong>
+                      <strong className="tabular-nums text-primary-900">{w.status === "CANCELLED" ? CLOSED_PLAN_LABEL : expired || w.status === "EXPIRED" ? "已到期" : w.status === "USED_UP" ? "已用完" : `可預約 ${available} 堂`}</strong>
                       {expiry ? <span className={`tabular-nums ${expired ? "text-red-600" : "text-earth-500"}`}>{toLocalDateStr(expiry)} 到期</span> : <span className="text-earth-500">無期限</span>}
                     </>} actions={<>
                       {!readOnly && customer.canAssignPlan && plans.some(plan=>plan.id===w.plan.id&&plan.category!=="TRIAL")&&<button type="button" className="min-h-11 shrink-0 whitespace-nowrap rounded-lg border border-primary-300 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>{if(allowNavigation()){setActiveEditor(null);handleReorder(w.plan.id);}}}>續購同方案</button>}

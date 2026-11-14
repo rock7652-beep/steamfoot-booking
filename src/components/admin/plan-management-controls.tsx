@@ -18,7 +18,8 @@ export function PlanManagementControls({storeId,card,save,unitLabel='堂',allowE
   const [adjustmentOperation,setAdjustmentOperation]=useState<'BACKFILL'|'VOID'>(initialAction==='VOID'?'VOID':'BACKFILL');
   const entryConsumed=useRef(false);
   useEffect(()=>{if(initialAction&&!entryConsumed.current){entryConsumed.current=true;onInitialActionConsumed?.();}},[initialAction,onInitialActionConsumed]);
- useEffect(()=>{onEditingChange?.(!!mode&&mode!=='history');return()=>onEditingChange?.(false);},[mode,onEditingChange]);
+ // History can open a reversal editor, so keep unrelated parent actions hidden too.
+ useEffect(()=>{onEditingChange?.(!!mode);return()=>onEditingChange?.(false);},[mode,onEditingChange]);
  const [pending,setPending]=useState(false),[uncertain,setUncertain]=useState(false),[message,setMessage]=useState('');
  const busy=useRef(false),frozen=useRef<PlanManagementInput|null>(null),blocked=pending||uncertain;
  async function submit(){

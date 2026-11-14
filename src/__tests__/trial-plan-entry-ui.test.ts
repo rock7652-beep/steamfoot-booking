@@ -85,3 +85,19 @@ it("keeps historical TRIAL wallets visible but offers renewal only for an availa
   expect(host.querySelector("[data-selected-plan]")?.getAttribute("data-selected-plan")).toBe("package");
   expect(host.textContent).toContain("預約");
 });
+
+it('keeps a cancelled wallet labelled closed even when its former expiry date has passed', async () => {
+  const customer = {
+    id: 'customer', storeId: 'store', name: '驗收顧客', phone: null, lineUserId: null, lineLinkStatus: 'UNLINKED', authSource: 'MANUAL',
+    canAssignPlan: true, canBook: true, canReadBookings: true, customerStage: 'ACTIVE',
+    planWallets: [{ id: 'closed', createdAt: new Date('2019-01-01'), status: 'CANCELLED', remainingSessions: 0, sessions: [], expiryDate: new Date('2020-01-01'), plan: { id: 'plan', name: '已關閉方案', sessionCount: 10 } }],
+    _count: { planWallets: 1, sponsoredCustomers: 0, bookings: 0 }, createdAt: new Date(), updatedAt: new Date(),
+  } as unknown as React.ComponentProps<typeof CustomerDetailDrawerContent>['customer'];
+  await act(async () => root.render(React.createElement(CustomerDetailDrawerContent, { customer, plans: [], canDiscount: false, canAssign: false, canEditNote: false, staffOptions: [], onClose: vi.fn(), onMutated: vi.fn(), titleId: 'customer-title' })));
+  const history = [...host.querySelectorAll('button')].find(b => b.textContent?.startsWith('歷史方案'));
+  expect(history).toBeTruthy();
+  await act(async () => history!.click());
+  const summary = host.querySelector('[role="group"][aria-label="方案摘要"]');
+  expect(summary?.textContent).toContain('已註銷');
+  expect(summary?.textContent).not.toContain('已到期');
+});

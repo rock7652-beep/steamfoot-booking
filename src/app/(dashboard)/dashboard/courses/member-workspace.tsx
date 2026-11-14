@@ -1,4 +1,5 @@
 "use client";
+import {CLOSED_PLAN_LABEL} from "@/lib/plan-status-label";
 import {mergeCoursePlanCatalog} from "@/lib/course-plan-catalog";
 import {CustomerPrimaryContent} from "@/components/admin/customer-primary-content";
 import {useCustomerPlanPreload} from "@/components/admin/use-customer-plan-preload";
@@ -932,7 +933,7 @@ export function CourseCardSummary({ card,sessionUnitLabel="堂" }: {sessionUnitL
       </p>
       {card.openingIssue && <p className="text-amber-800">{card.openingIssue}</p>}
       <p>{card.members.length>1?"共同餘額 · 共卡人":"持有人"}：{card.members.map((m) => m.name).join("、")}</p>
-      {(card.closed || card.expired) ? <p>{card.closed ? "已停用" : "已到期"} · 剩餘額度僅供查詢</p> : card.remaining>0 && card.available===0 && card.held>=card.remaining ? <p>額度已全數預約</p> : card.remaining===0 ? <p>額度已用完</p> : null}
+      {(card.closed || card.expired) ? <p>{card.closed ? CLOSED_PLAN_LABEL : "已到期"} · 剩餘額度僅供查詢</p> : card.remaining>0 && card.available===0 && card.held>=card.remaining ? <p>額度已全數預約</p> : card.remaining===0 ? <p>額度已用完</p> : null}
     </div>
   );
 }
