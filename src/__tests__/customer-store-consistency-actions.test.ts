@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const drawerSummary=vi.hoisted(()=>vi.fn(()=>new Promise(()=>{})));
+vi.mock("@/server/actions/customer-panel-summary",()=>({getCustomerPanelSummary:drawerSummary}));
+
 const CUSTOMER_ID = "ck0000000000000000000c01";
 const STAFF_TAICHUNG = "ck0000000000000000000s01";
 const STAFF_ZHUBEI = "ck0000000000000000000s02";
@@ -216,5 +219,29 @@ describe("customer actions — store consistency", () => {
       where: { id: CUSTOMER_ID },
       data: { assignedStaffId: "ck0000000000000000000s03" },
     });
+  });
+});
+
+describe("customer drawer primary read", () => {
+  it("returns the basic detail without requesting the secondary summary", async () => {
+    const { getCustomerDrawerDetailForUser } = await import("@/server/queries/customer");
+    const context = await import("@/lib/store-view-context-server");
+    const detail = { id: CUSTOMER_ID, name: "fixture" } as Awaited<ReturnType<typeof getCustomerDrawerDetailForUser>>;
+    vi.mocked(getCustomerDrawerDetailForUser).mockResolvedValue(detail);
+    vi.mocked(context.storeIdForViewContext).mockReturnValue("store-taichung");
+    vi.mocked(context.userForViewContext).mockImplementation(user => user);
+    const { getCustomerDrawerDetailAction } = await import("@/server/actions/customer");
+    expect(await getCustomerDrawerDetailAction(CUSTOMER_ID)).toEqual({success:true,data:detail});
+    expect(getCustomerDrawerDetailForUser).toHaveBeenCalledWith(expect.objectContaining({id:USER_ID}),CUSTOMER_ID,"store-taichung");
+    expect(drawerSummary).not.toHaveBeenCalled();
+  });
+
+  it("rejects permission failures before reading customer details", async () => {
+    const { AppError } = await import("@/lib/errors");
+    h.requirePermission.mockRejectedValueOnce(new AppError("FORBIDDEN", "denied"));
+    const { getCustomerDrawerDetailForUser } = await import("@/server/queries/customer");
+    const { getCustomerDrawerDetailAction } = await import("@/server/actions/customer");
+    expect(await getCustomerDrawerDetailAction(CUSTOMER_ID)).toEqual({success:false,error:"denied"});
+    expect(getCustomerDrawerDetailForUser).not.toHaveBeenCalled();
   });
 });

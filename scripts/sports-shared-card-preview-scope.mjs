@@ -4,8 +4,10 @@ export const SPORTS_SHARED_CARD_PREVIEW_BRANCH = "feat/sports-shared-card-contro
 export const CALENDAR_PHASE_PREVIEW_BRANCH = "chore/calendar-phase-timing-20261103";
 export const SCHEDULE_CONFLICT_PREVIEW_BRANCH = "fix/schedule-conflicts-20261103";
 export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-photo-20261016";
+export const ANALYSIS_CUSTOMER_PREVIEW_BRANCH = "fix/analysis-30day-renewals-20261114";
 export const CUSTOMER_PRIMARY_PREVIEW_BRANCH = "fix/customer-primary-read-priority";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
+  ANALYSIS_CUSTOMER_PREVIEW_BRANCH,
   CUSTOMER_PRIMARY_PREVIEW_BRANCH,
   "fix/plan-name-conflict-20261112",
   "fix/course-retained-store-route-20261112",

@@ -2,6 +2,14 @@
 
 範圍：`src` 內 RightSheet、SettingsPanel 與自訂側滑入口。全站共用核心不保證所有首次請求零等待。帳號、角色、職員、門市、查看門市、模組與權限由 dashboard layout 的 keyed OperationScope 隔離；不持久化個資。
 
+## 2026-11-14 蒸足搜尋選取與顧客摘要分段讀取（未發布）
+
+顧客清單搜尋候選改接既有 `openCustomer`，與姓名列共用立即開窗、短暫展示快取、未儲存防護、URL／返回及晚到回應隔離；候選不必在目前分頁。開窗不再以整頁清單導航為前置，開窗期間不送出尚未開始的搜尋計時器導航。沒有清單視窗接手的入口才沿用原導航。
+
+`getCustomerDrawerDetailAction` 保留登入、角色、目前／查看門市與顧客範圍檢查，只回傳既有主要資料；預約、待收款與健康摘要由獨立同源 `summary-read` GET 讀取，沿用 `getCustomerPanelSummary` 授權，回應 `private, no-store`、`Vary: Cookie`。摘要不再佔用客戶端 Server Action 序列；載入、失敗重試、15 秒逾時與換人／卸載中止各自處理，異動後重新讀取。付款仍使用原 action，不從摘要授權。
+
+主要 action 與摘要 GET 分別輸出固定 `customer-drawer-primary`／`customer-drawer-summary` 計時標籤，沒有顧客識別或內容。這是伺服器進入函式後的讀取時間，不是完整網路、冷啟動或操作時間。局部合成預覽已驗 1366×900、768×1024 的摘要載入／錯誤／重試，並非實體 iPad 或正式登入端到端效能證據；尚未部署，不宣稱店家回報的一分鐘已消除。其餘模組查詢、全站手動篩選與消費搜尋計時器仍不在此次修正範圍。
+
 ## 2026-11-13 顧客主要資料支線改造
 
 音樂／運動的 `customer-primary-snapshot` 與美業 `module-primary-snapshot` 對準顧客總覽：同次回應包含當頁方案、日期格及下次預約，先安裝同範圍子快取才掛載主要區塊；原生也帶入電話查看與補課狀態。清單最多20位先讀主要資料，不等待完整方案、LINE 管理、歷史或學費分頁。蒸足沿用完整 drawer／預約 context，不重算錢包。

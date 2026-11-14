@@ -56,17 +56,18 @@ describe("selected-period facts", () => {
   it("distinguishes new conversion, tracked conversion and renewal and ignores cancelled wallets", () => {
     const purchases = [purchase("a", "2026-09-22"), purchase("a", "2026-09-24"), purchase("b", "2026-09-25"), purchase("c", "2026-09-24", "CANCELLED")];
     const result = selectPeriodFacts(range, previous, visits, first, trials, purchases);
-    expect(result.counts).toMatchObject({ currentTrialConversions: 1, trackedConversions: 1, convertedCustomers: 2, conversionRate: 100, unconvertedCustomers: 0 });
+    expect(result.counts).toMatchObject({ currentTrialConversions: 1, trackedConversions: 1, trialCustomers: 1, convertedCustomers: 1, renewedCustomers: 1, conversionRate: 100, unconvertedCustomers: 0 });
     expect(result.segments["monthly-converted"].size).toBe(result.counts.convertedCustomers);
+    expect([...result.segments["monthly-renewed"]]).toEqual(["a"]);
   });
   it("updates the original trial cohort when a purchase happens later, without moving the payment date", () => {
     const result = selectConversionCustomerIds("2026-09", trials, [purchase("a", "2026-09-27")], range);
-    expect(result.convertedCustomerIds.size).toBe(0);
+    expect(result.convertedCustomerIds.size).toBe(1);
     expect(result.unconvertedCustomerIds.has("a")).toBe(false);
   });
   it("uses Taiwan paid date at midnight and rejects renewal before the selected range", () => {
     const result = selectConversionCustomerIds("2026-09", trials, [purchase("b", "2026-09-20"), purchase("b", "2026-09-25"), { ...purchase("a", "2026-09-22"), paidAt: new Date("2026-09-26T16:00:00Z") }], range);
-    expect(result.convertedCustomerIds.size).toBe(0);
+    expect([...result.convertedCustomerIds]).toEqual(["a"]);
   });
 });
 
@@ -95,4 +96,25 @@ describe("calendar-month retention cohort", () => {
     expect(analysisRetentionCohort({ startDate: "2026-01-01", endDate: "2026-01-11" })).toEqual({ startDate: "2025-12-01", endDate: "2025-12-31" });
     expect(analysisRetentionCohort({ startDate: "2024-03-15", endDate: "2024-04-02" })).toEqual({ startDate: "2024-02-01", endDate: "2024-02-29" });
   });
+});
+
+
+describe("one-period conversion totals", () => {
+ it("shows 3 trial people, 2 openings and 2/3 conversion even when one opening is next month", () => {
+  const range={startDate:"2026-10-01",endDate:"2026-10-31"};
+  const visits=["same-month","next-month","not-converted"].map(customerId=>({customerId,bookingDate:date("2026-10-25"),bookingType:"FIRST_TRIAL",people:1}));
+  const purchases=[{customerId:"same-month",transactionDate:new Date("2026-10-28T04:00:00Z"),customerPlanWallet:{status:"ACTIVE"}},
+   {customerId:"next-month",transactionDate:new Date("2026-11-04T04:00:00Z"),customerPlanWallet:{status:"ACTIVE"}},
+   {customerId:"same-month",transactionDate:new Date("2026-11-05T04:00:00Z"),customerPlanWallet:{status:"ACTIVE"}}];
+  const result=selectPeriodFacts(range,{startDate:"2026-09-01",endDate:"2026-09-30"},visits,new Map(),visits,purchases);
+  expect(result.counts.trialCustomers).toBe(3);
+  expect(result.counts.convertedCustomers).toBe(2);
+  expect(result.counts.conversionRate).toBeCloseTo(200/3);
+  expect(result.counts.renewedCustomers).toBe(0);
+  expect([...result.segments["monthly-converted"]]).toEqual(["same-month","next-month"]);
+  expect(result.segments["monthly-conversion-trial"].size).toBe(3);
+  const november=selectPeriodFacts({startDate:"2026-11-01",endDate:"2026-11-14"},range,visits,new Map(),visits,purchases);
+  expect(november.counts.convertedCustomers).toBe(0);
+  expect(november.counts.renewedCustomers).toBe(1);
+ });
 });
