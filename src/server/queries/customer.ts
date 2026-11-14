@@ -368,7 +368,7 @@ export async function getCustomerDetailForUser(
           sessions: {
             orderBy: { sessionNo: "asc" },
             include: {
-              booking: { select: { bookingDate: true, slotTime: true } },
+              booking: { select: { bookingDate: true, bookingStatus: true, slotTime: true } },
               voidedByStaff: { select: { displayName: true } },
             },
           },
@@ -471,7 +471,7 @@ export async function getCustomerDrawerDetailForUser(
       planWallets: {
         include: {
           plan: { select: { id: true, name: true, sessionCount: true } },
-          sessions: { select: { status: true,...(canReadBookings&&canReadWallets?{id:true,completedAt:true,voidedAt:true,booking:{select:{bookingDate:true,storeId:true,customerId:true}}}: {}) } },
+          sessions: { select: { status: true,...(canReadBookings&&canReadWallets?{id:true,completedAt:true,voidedAt:true,booking:{select:{bookingDate:true,bookingStatus:true,storeId:true,customerId:true}}}: {}) } },
           bookings: { select: { bookingStatus: true, isMakeup: true, people: true } },
         },
         orderBy: { createdAt: "desc" },

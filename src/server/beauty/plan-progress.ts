@@ -1,7 +1,7 @@
 import 'server-only';
 import type { Tx } from './booking';
 import type {SessionAdjustmentRecord} from '@/lib/plan-session-adjustment';
-export type BeautyProgressUsage={visits:Array<{id:string;startsAt:Date;customerId:string|null;personName:string;serviceName:string}>;adjustments:SessionAdjustmentRecord[];closes:Array<{id:string;delta:number;createdAt:Date}>};
+export type BeautyProgressUsage={visits:Array<{id:string;status:string;startsAt:Date;customerId:string|null;personName:string;serviceName:string}>;adjustments:SessionAdjustmentRecord[];closes:Array<{id:string;delta:number;createdAt:Date}>};
 import { beautySessionAdjustmentRecords } from './session-adjustment';
 import { activeSessionAdjustments } from '@/lib/plan-session-adjustment';
 import { parseTaipeiDateTime } from '@/lib/date-utils';
@@ -13,14 +13,14 @@ export async function beautyPlanProgress(tx: Tx, storeId: string, card: { id: st
   if (!Number.isSafeInteger(card.sessions) || card.sessions < 1 || card.sessions > 2000) return unavailablePlanProgress();
   if (visibleIds && card.memberIds.some(id => !visibleIds.includes(id))) return unavailablePlanProgress();
   const [visits, adjustments, closes] = usage ? [usage.visits,usage.adjustments,usage.closes] : await Promise.all([
-    tx.beautyAppointment.findMany({ where: { storeId, cardId: card.id, debit: true }, select: { id: true, startsAt: true, customerId: true, personName: true, serviceName: true }, orderBy: [{ startsAt: 'asc' }, { id: 'asc' }], take: 2001 }),
+    tx.beautyAppointment.findMany({ where: { storeId, cardId: card.id, debit: true }, select: { id: true, status: true, startsAt: true, customerId: true, personName: true, serviceName: true }, orderBy: [{ startsAt: 'asc' }, { id: 'asc' }], take: 2001 }),
     beautySessionAdjustmentRecords(tx, storeId, [card.id]),
     tx.beautyLedger.findMany({ where: { storeId, cardId: card.id, kind: 'CLOSE' }, select: { id: true, delta: true, createdAt: true } }),
   ]);
   const active = activeSessionAdjustments(adjustments);
   if (visits.length > 2000 || (visibleIds && (visits.some(r => !r.customerId || !visibleIds.includes(r.customerId)) || active.some(r => !visibleIds.includes(r.customerId)))) || active.some(r => !Number.isSafeInteger(r.quantity) || r.quantity < 1 || r.quantity > 2000) || closes.some(r => !Number.isSafeInteger(r.delta) || r.delta > 0 || r.delta < -2000)) return unavailablePlanProgress();
   if (visits.length + active.reduce((sum,r) => sum+r.quantity,0) + closes.reduce((sum,r) => sum-r.delta,0) > 2000) return unavailablePlanProgress();
-  const completed: PlanUsageDate[] = visits.map(r => ({ id: r.id, date: r.startsAt.toISOString(), customerName: r.personName, courseName: r.serviceName }));
+  const completed: PlanUsageDate[] = visits.map(r => ({ id: r.id, date: r.startsAt.toISOString(), customerName: r.personName, courseName: r.serviceName, ...(r.status==='NO_SHOW'?{usageKind:'NO_SHOW' as const}:{}) }));
   const voided: PlanUsageDate[] = [];
   for (const row of active) {
     const date = row.operation === 'BACKFILL' ? row.occurredOn && parseTaipeiDateTime(row.occurredOn, '00:00')?.toISOString() : row.recordedAt;

@@ -73,10 +73,10 @@ export async function readBeautyNativeProgressBatch(input:unknown){
    const visible=await prisma.customer.findMany({where:{...s.customerWhere,id:{in:[...new Set(cards.flatMap(c=>c.memberIds))]}},select:{id:true}});
    const ids=visible.map(p=>p.id);
    const [visits,adjustments,closes]=await Promise.all([
-    tx.$queryRaw<Array<{cardId:string;id:string;startsAt:Date;customerId:string|null;personName:string;serviceName:string}>>`
+    tx.$queryRaw<Array<{cardId:string;id:string;status:string;startsAt:Date;customerId:string|null;personName:string;serviceName:string}>>`
      SELECT v.* FROM unnest(${cardIds}::text[]) AS c(id)
      CROSS JOIN LATERAL (
-      SELECT a."cardId",a.id,a."startsAt",a."customerId",a."personName",a."serviceName"
+      SELECT a."cardId",a.id,a.status,a."startsAt",a."customerId",a."personName",a."serviceName"
       FROM "BeautyAppointment" a WHERE a."storeId"=${s.storeId} AND a."cardId"=c.id AND a.debit=true
       ORDER BY a."startsAt",a.id LIMIT 2001
      ) v`,

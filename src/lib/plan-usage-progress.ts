@@ -1,4 +1,4 @@
-export type PlanUsageDate = { id: string; date: string; customerName?: string; courseName?: string };
+export type PlanUsageDate = { id: string; date: string; customerName?: string; courseName?: string; usageKind?: 'NO_SHOW' | 'LEAVE' };
 export type PlanUsageProgress = { available: false; reason: string } | { available: true; total: number; completed: PlanUsageDate[]; voided: PlanUsageDate[] };
 export const unavailablePlanProgress = (): PlanUsageProgress => ({ available: false, reason: '使用日期與方案餘額待核對，請查看完整紀錄。' });
 
