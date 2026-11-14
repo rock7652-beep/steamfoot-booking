@@ -15,6 +15,13 @@ export function useSettingsPanelDismissal(searchString: string) {
   return { dismissed, dismiss };
 }
 
+export type SettingsPanelNavigationOptions = { ignoreDirtyFor?: string };
+/** Only the explicitly replaced editor may discard its draft; pending work always blocks. */
+export function canNavigateSettingsPanel(states:ReadonlyMap<string,SettingsPanelState>,confirmDiscard:()=>boolean,options?:SettingsPanelNavigationOptions) {
+  if([...states.values()].some(state=>state.pending))return false;
+  return ![...states.entries()].some(([id,state])=>state.dirty&&id!==options?.ignoreDirtyFor)||confirmDiscard();
+}
+
 export type SettingsPanelState = { dirty: boolean; pending: boolean };
 export type SettingsPanelReader = (href: string) => Promise<void> | null;
 /** Only the active panel may register a narrow, authenticated data reader. */
@@ -33,10 +40,11 @@ export const SettingsPanelContext = createContext<{
 } | null>(null);
 
 /** Optional: standalone pages retain their original behavior. */
-export function useSettingsPanelGuard(dirty: boolean, pending: boolean) {
+export function useSettingsPanelGuard(dirty: boolean, pending: boolean, guardId?: string) {
   const context = useContext(SettingsPanelContext);
   const report = context?.report;
-  const id = useId();
+  const generatedId = useId();
+  const id = guardId ?? generatedId;
   useEffect(() => { report?.(id, { dirty, pending }); }, [report, id, dirty, pending]);
   useEffect(() => () => report?.(id, null), [report, id]);
 }

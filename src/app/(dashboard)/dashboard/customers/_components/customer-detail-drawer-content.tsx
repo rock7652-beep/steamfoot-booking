@@ -1,4 +1,5 @@
 "use client";
+import type {SettingsPanelNavigationOptions} from "@/components/admin/settings-panel-context";
 import {CLOSED_PLAN_LABEL} from "@/lib/plan-status-label";
 import {PlanCardHeader} from "@/components/admin/plan-card-header";
 import {PlanGridActions} from "@/components/admin/plan-grid-actions";
@@ -8,7 +9,7 @@ import { CustomerPhoneLink } from "@/components/customer-detail-fields";
 import {CustomerProfileNavigation,CustomerProfileSectionHeading,CustomerRecordsFilter,CustomerProfileConnection,customerProfileLineLabel} from "@/components/admin/customer-profile-layout";
 import { CustomerLabels } from "@/components/customer-labels";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { BookingServiceNoteEditor } from "../../bookings/booking-service-note-editor";
 import { CustomerAttributionForm } from "@/components/customer-attribution-form";
 import { AssignPlanForm } from "../[id]/assign-plan-form";
@@ -57,7 +58,7 @@ interface Props {
   /** "plan" → 自動展開「指派新方案」並滾到方案區 */
   focus?: "plan" | null;
   onClose: () => void;
-  allowNavigation?: () => boolean;
+  allowNavigation?: (options?:SettingsPanelNavigationOptions) => boolean;
   /** drawer 內成功操作後 → 父層只 refetch 本人 slim 資料（不整頁 refresh） */
   onMutated: () => void;
   titleId: string;
@@ -95,6 +96,7 @@ export function CustomerDetailDrawerContent({
   const [view, setView] = useState<"overview" | "booking" | "edit">("overview");
   const [activeEditor,setActiveEditor] = useState<string | null>(null);
   const [managementPending,setManagementPending]=useState(false);
+  const managementGuardId=useId();
   const editingAttribution=activeEditor === "attribution";
   const setEditingAttribution=(open:boolean)=>setActiveEditor(open ? "attribution" : null);
   const [panelTab, setPanelTab] = useState<"overview" | "bookings" | "consumption" | "profile" | "health" | "connection">("overview");
@@ -226,14 +228,14 @@ export function CustomerDetailDrawerContent({
                       {expiry ? <span className={`tabular-nums ${expired ? "text-red-600" : "text-earth-500"}`}>{toLocalDateStr(expiry)} 到期</span> : <span className="text-earth-500">無期限</span>}
                     </>} actions={<>
                       {!readOnly && customer.canAssignPlan && plans.some(plan=>plan.id===w.plan.id&&plan.category!=="TRIAL")&&<button type="button" className="min-h-11 shrink-0 whitespace-nowrap rounded-lg border border-primary-300 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100" onClick={()=>{if(allowNavigation()){setActiveEditor(null);handleReorder(w.plan.id);}}}>續購同方案</button>}
-                      {customer.canReadWallets&&<PlanGridActions disabled={managementPending} label={w.plan.name} allowSession={!readOnly&&customer.canAdjustWallet&&w.status==="ACTIVE"&&available>0} allowExpiry={!readOnly&&customer.canAdjustWallet&&!!w.expiryDate&&["ACTIVE","EXPIRED"].includes(w.status)} allowClose={!readOnly&&customer.canAdjustWallet&&["ACTIVE","EXPIRED"].includes(w.status)} onHistory={()=>{if(!managementPending&&allowNavigation())setActiveEditor(`${w.id}:history`);}} onSelect={action=>{if(!managementPending&&allowNavigation())setActiveEditor(`${w.id}:${action}`);}}/>}
+                      {customer.canReadWallets&&<PlanGridActions disabled={managementPending} label={w.plan.name} allowSession={!readOnly&&customer.canAdjustWallet&&w.status==="ACTIVE"&&available>0} allowExpiry={!readOnly&&customer.canAdjustWallet&&!!w.expiryDate&&["ACTIVE","EXPIRED"].includes(w.status)} allowClose={!readOnly&&customer.canAdjustWallet&&["ACTIVE","EXPIRED"].includes(w.status)} onHistory={()=>{if(!managementPending&&allowNavigation({ignoreDirtyFor:managementGuardId}))setActiveEditor(`${w.id}:history`);}} onSelect={action=>{if(!managementPending&&allowNavigation({ignoreDirtyFor:managementGuardId}))setActiveEditor(`${w.id}:${action}`);}}/>}
                     </>}>
-                      <button type="button" disabled={managementPending||!customer.canReadWallets} className="min-h-11 break-words text-left text-sm font-semibold text-earth-900" onClick={()=>{if(customer.canReadWallets&&allowNavigation())setActiveEditor(`${w.id}:history`);}}>{w.plan.name}</button>
+                      <button type="button" disabled={managementPending||!customer.canReadWallets} className="min-h-11 break-words text-left text-sm font-semibold text-earth-900" onClick={()=>{if(!managementPending&&customer.canReadWallets&&allowNavigation({ignoreDirtyFor:managementGuardId}))setActiveEditor(`${w.id}:history`);}}>{w.plan.name}</button>
                     </PlanCardHeader>
                     <div className="w-full min-w-0 text-sm text-earth-600"><p>購買 {w.purchasedAt ? toLocalDateStr(new Date(w.purchasedAt)) : "—"} · {w.purchasedPrice == null ? "方案金額待核對" : `方案金額 NT$ ${w.purchasedPrice.toLocaleString("zh-TW")}`}</p></div>
                     <div className="w-full min-w-0">
                       {customer.canReadWallets&&customer.canReadBookings&&<CustomerPanelSessions key={`${w.id}-${revision}`} storeId={w.storeId} customerId={customer.id} walletId={w.id} totalSessions={w.totalSessions} remainingSessions={remaining} initialProgress={w.usageProgress} hideDetailsToggle planName={w.plan.name} canVoid={!readOnly && customer.canAdjustWallet && w.status!=='CANCELLED'} onMutated={handleMutated} />}
-                      {activeEditor?.startsWith(`${w.id}:`)&&<div className="mt-2 min-w-0"><SteamPlanManagement onPending={setManagementPending} key={w.id} customerId={customer.id} customerName={customer.name} walletId={w.id} storeId={w.storeId} action={activeEditor.slice(w.id.length+1) as import('@/components/admin/plan-grid-actions').PlanGridAction|'history'} readOnly={readOnly||!customer.canAdjustWallet} onCancel={()=>setActiveEditor(null)} onSaved={()=>{setActiveEditor(null);handleMutated();}}/></div>}
+                      {activeEditor?.startsWith(`${w.id}:`)&&<div className="mt-2 min-w-0"><SteamPlanManagement guardId={managementGuardId} onPending={setManagementPending} key={activeEditor} customerId={customer.id} customerName={customer.name} walletId={w.id} storeId={w.storeId} action={activeEditor.slice(w.id.length+1) as import('@/components/admin/plan-grid-actions').PlanGridAction|'history'} readOnly={readOnly||!customer.canAdjustWallet} onCancel={()=>setActiveEditor(null)} onSaved={()=>{setActiveEditor(null);handleMutated();}}/></div>}
 
                     </div>
                   </li>
