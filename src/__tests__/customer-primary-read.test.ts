@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { LessonProgressGrid } from "@/components/admin/lesson-progress-grid";
 const m = vi.hoisted(() => ({ primary: vi.fn() }));
 vi.mock("@/server/actions/customer", () => ({ getCustomerDrawerDetailAction: m.primary }));
 import { GET } from "@/app/(dashboard)/dashboard/customers/primary-read/route";
@@ -22,7 +25,9 @@ it("preserves the scoped URL and restores nested dates without coercing note tex
   window.history.replaceState(null, "", "/s/fixture/admin/dashboard/customers");
   const iso = "2026-11-15T00:00:00.000Z";
   const fetch = vi.fn(async () => ({ ok: true, json: async () => ({ success: true, data: {
-    serviceNote: iso, birthday: iso, planWallets: [{ expiryDate: iso, purchasedAt: iso }],
+    serviceNote: iso, birthday: iso, planWallets: [{ expiryDate: iso, purchasedAt: iso,
+      usageProgress: {available:true,total:3,completed:[{id:"used",date:iso}],voided:[{id:"void",date:"2026-11-16T00:00:00.000Z"}]},
+    }],
     bookings: [{ bookingDate: iso }], recentConsumption: [{ date: iso }],
   } }) }));
   vi.stubGlobal("fetch", fetch);
@@ -35,4 +40,22 @@ it("preserves the scoped URL and restores nested dates without coercing note tex
   expect(result.data.bookings[0].bookingDate).toBeInstanceOf(Date);
   expect(result.data.recentConsumption?.[0].date).toBeInstanceOf(Date);
   expect(result.data.serviceNote).toBe(iso);
+  const progress = result.data.planWallets[0].usageProgress;
+  if (!progress?.available) throw Error("missing progress");
+  expect(progress.completed[0].date).toBe(iso);
+  expect(typeof progress.voided[0].date).toBe("string");
+  // Exercise the real date-grid sort, not only the transport's field types.
+  const html = renderToStaticMarkup(createElement(LessonProgressGrid,progress));
+  expect(html).toContain("11/15");
+  expect(html).toContain("11/16");
+  expect(html).toContain("註銷");
+});
+
+it("preserves omitted booking data and null consumption for a restricted reader",async()=>{
+  vi.stubGlobal("fetch",vi.fn(async()=>({ok:true,json:async()=>({success:true,data:{planWallets:[],recentConsumption:null}})})));
+  const result=await readCustomerDrawerPrimary("restricted");
+  expect(result.success).toBe(true);
+  if(!result.success)throw Error("unexpected failure");
+  expect(result.data.bookings).toBeUndefined();
+  expect(result.data.recentConsumption).toBeNull();
 });
