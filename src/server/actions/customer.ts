@@ -1,5 +1,6 @@
 "use server";
 
+import { ServerTiming } from "@/lib/perf";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache-tags";
@@ -21,7 +22,6 @@ import {
   updateCustomerServiceNoteSchema,
 } from "@/lib/validators/customer";
 import type { ActionResult } from "@/types";
-import type { CustomerPanelSummary } from "./customer-panel-summary";
 import { getCustomerDrawerDetailForUser } from "@/server/queries/customer";
 import { checkCustomerLimit } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
@@ -685,7 +685,8 @@ export async function setSelfBookingEnabled(
 
 export async function getCustomerDrawerDetailAction(
   customerId: string,
-): Promise<ActionResult<Awaited<ReturnType<typeof getCustomerDrawerDetailForUser>> & { panelSummary?: CustomerPanelSummary }>> {
+): Promise<ActionResult<Awaited<ReturnType<typeof getCustomerDrawerDetailForUser>>>> {
+  const timer = new ServerTiming("customer-drawer-primary");
   try {
     const user = await requirePermission("customer.read");
     const storeViewContext = await resolveStoreViewContextFromCookie(user);
@@ -697,10 +698,10 @@ export async function getCustomerDrawerDetailAction(
       customerId,
       activeStoreId,
     );
-    const { getCustomerPanelSummary } = await import("./customer-panel-summary");
-    const summary = await getCustomerPanelSummary(customerId);
-    return { success: true, data: {...data, panelSummary: summary.success ? summary.data : undefined} };
+    return { success: true, data };
   } catch (e) {
     return handleActionError(e);
+  } finally {
+    timer.finish();
   }
 }

@@ -22,6 +22,7 @@ vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-detail-drawe
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-drawer-skeleton", () => ({ CustomerDrawerSkeleton: () => React.createElement("span", null, "loading") }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/bulk-assign-bar", () => ({ BulkAssignBar: () => null }));
 import { CustomersListWithDrawer } from "@/app/(dashboard)/dashboard/customers/_components/customers-list-with-drawer";
+import { requestCustomerDrawerOpen } from "@/lib/customer-drawer-open";
 import { PanelReadProvider } from "@/components/operations/panel-read-cache";
 
 let host: HTMLDivElement, root: Root;
@@ -66,4 +67,37 @@ it("keeps the newly selected customer when the saved customer's rows refresh arr
   await click("saved"); await click("view B old");
   await render(rows.map(row => ({...row, serviceNote: "new"})));
   expect(host.querySelector("strong")?.textContent).toBe("B");
+});
+
+it("opens a search candidate outside the current page before its detail read completes", async () => {
+  let resolve!: (value: unknown) => void;
+  m.detail.mockImplementation((id: string) => id === "off-page" ? new Promise(done => { resolve = done; }) : Promise.resolve({success:true,data:{id,name:id}}));
+  await render();
+  await act(async () => { expect(requestCustomerDrawerOpen("off-page", "/dashboard/customers")).toBe(true); });
+  expect(host.querySelector("section")?.textContent).toContain("loading");
+  expect(m.refresh).not.toHaveBeenCalled();
+  expect(new URLSearchParams(window.location.search).get("customerId")).toBe("off-page");
+  expect(new URLSearchParams(window.location.search).get("search")).toBe("kept");
+  await act(async () => resolve({success:true,data:{id:"off-page",name:"Outside page"}}));
+  expect(host.querySelector("strong")?.textContent).toBe("Outside page");
+});
+
+it("does not install a late search selection after another customer opens or the drawer closes", async () => {
+  let resolve!: (value: unknown) => void;
+  m.detail.mockImplementation((id: string) => id === "slow" ? new Promise(done => { resolve = done; }) : Promise.resolve({success:true,data:{id,name:id.toUpperCase()}}));
+  await render();
+  await act(async () => { requestCustomerDrawerOpen("slow", "/dashboard/customers"); });
+  await click("view B old");
+  expect(host.querySelector("strong")?.textContent).toBe("B");
+  await click("close");
+  await act(async () => resolve({success:true,data:{id:"slow",name:"Must not reappear"}}));
+  expect(host.querySelector("section")).toBeNull();
+});
+
+it("ignores a selection from another route and removes the listener on unmount", async () => {
+  await render();
+  expect(requestCustomerDrawerOpen("a", "/s/other/admin/customers")).toBe(false);
+  expect(host.querySelector("section")).toBeNull();
+  await act(async () => root.render(null));
+  expect(requestCustomerDrawerOpen("a", "/dashboard/customers")).toBe(false);
 });

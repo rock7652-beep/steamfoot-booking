@@ -1,0 +1,20 @@
+// Actual ReportsPage markup from isolated unit fixtures; no database or business actions.
+import {readFileSync,writeFileSync} from 'node:fs';
+import {createServer} from 'node:http';
+import {createRequire} from 'node:module';
+import path from 'node:path';
+const root=process.cwd(),require=createRequire(path.join(root,'package.json'));
+const postcss=require('postcss'),tailwind=require('@tailwindcss/postcss');
+const out=process.env.ANALYSIS_REVIEW_DIR||'/tmp/steamfoot-analysis-30day-review';
+const rendered=readFileSync(path.join(out,'report.html'),'utf8');
+const start=rendered.indexOf('<section aria-labelledby="conversion-analysis-title"');
+if(start<0)throw new Error('Actual conversion section missing');
+const end=rendered.indexOf('</section>',start)+10;
+const observation=rendered.slice(end).match(/^<p role="status"[^>]*>.*?<\/p>/)?.[0]||'';
+const css=(await postcss([tailwind({base:root})]).process(readFileSync('src/app/globals.css','utf8'),{from:path.join(root,'src/app/globals.css')})).css;
+const moduleCss=postcss.parse(readFileSync('src/components/admin/management-layout.module.css','utf8'));
+moduleCss.walkRules(rule=>{if(rule.selector==='.metrics')rule.selector='[data-analysis-metrics]';else if(rule.selector==='.workspace')rule.selector='section';else rule.remove();});
+const html='<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>蒸足五項分析｜合成預覽</title><style>'+css+moduleCss.toString()+'</style></head><body class="bg-earth-50 text-earth-900"><main class="mx-auto max-w-6xl space-y-4 p-4"><header><h1 class="text-xl font-semibold">營運分析 · 成交分析</h1><p class="text-sm text-earth-600">本機合成資料預覽，使用實際分析頁輸出的內容與樣式；未連正式資料。</p></header>'+rendered.slice(start,end)+observation+'</main></body></html>';
+writeFileSync(path.join(out,'preview.html'),html);
+console.log('Preview artifact: '+path.join(out,'preview.html'));
+if(process.argv.includes('--serve'))createServer((req,res)=>{if(req.url!=='/'&&req.url!=='/preview.html'){res.writeHead(404);res.end('No business endpoint in synthetic preview');return;}res.setHeader('Content-Type','text/html;charset=utf-8');res.end(html);}).listen(5198,'127.0.0.1',()=>console.log('Preview: http://127.0.0.1:5198/'));

@@ -241,6 +241,7 @@ beforeEach(() => {
       mom: { difference: 0, percentage: null },
       yoy: { difference: 0, percentage: null },
     },
+    trialCustomers: { current: 2, mom: { difference: 2, percentage: null }, yoy: { difference: 1, percentage: 100 } },
     trialAttendees: {
       current: 2,
       mom: { difference: 2, percentage: null },
@@ -256,6 +257,8 @@ beforeEach(() => {
       mom: { difference: 0, percentage: null },
       yoy: { difference: 0, percentage: null },
     },
+    renewedCustomers: { current: 3, mom: { difference: 1, percentage: 50 }, yoy: { difference: 3, percentage: null } },
+    observingTrialCustomers: { current: 1, mom: { difference: 0, percentage: 0 }, yoy: { difference: 1, percentage: null } },
     convertedCustomers: {
       current: 1,
       mom: { difference: 1, percentage: null },
@@ -322,7 +325,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).not.toMatch(/基本報表|進階報表/);
     expect(html).not.toContain("經營診斷 →");
     expect(html).toContain("月結管理 →");
-    expect(html).toContain("體驗開卡率");
+    expect(html).toContain("轉化率");
     expect(html).toContain("所選期間的來客去重計算");
     expect(html).toContain("date range");
     expect(mockMonthlyStoreSummary).toHaveBeenCalledTimes(1);
@@ -369,24 +372,28 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(mockGetPeriodMetrics).not.toHaveBeenCalled();
   });
 
-  it("shows purchase-month opening attribution below customer flow", async () => {
+  it("uses five shared business metrics with 30-day openings and renewals", async () => {
     const html = renderToStaticMarkup(
       await ReportsPage({ searchParams: Promise.resolve({ preset: "month", view: "detail", category: "customers" }) }),
     );
 
     expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String), true);
     expect(html).toContain("成交分析");
-    expect(html).toContain("本月體驗開卡");
-    expect(html).toContain("追蹤開卡");
-    expect(html).toContain("本月總開卡");
-    expect(html).toContain("本月體驗開卡率");
-    expect(html).toContain("未開卡顧客");
-    expect(html).toMatch(/segment=monthly-unconverted/);
-    expect(html).toMatch(/segment=monthly-converted/);
-    expect(html).toMatch(/segment=monthly-current-trial-converted/);
-    expect(html).toMatch(/segment=monthly-tracked-converted/);
-    expect(html.indexOf("成交分析")).toBeGreaterThan(html.indexOf("客流分析"));
-    expect(html).toContain("不含續卡");
+    const conversionSection = html.match(/<section aria-labelledby="conversion-analysis-title"[\s\S]*?<\/section>/)?.[0] ?? "";
+    for (const label of ["來客人次", "體驗人數", "新卡人數", "續卡人數", "體驗開卡率"]) expect(conversionSection).toContain(label);
+    expect(conversionSection.match(/min-h-20 rounded-xl border border-earth-200 bg-white p-3/g)).toHaveLength(5);
+    expect(conversionSection).not.toMatch(/本月體驗開卡|追蹤開卡|本月總開卡|未開卡顧客/);
+    expect(conversionSection).toMatch(/segment=monthly-conversion-trial/);
+    expect(conversionSection).toMatch(/segment=monthly-converted/);
+    expect(conversionSection).toMatch(/segment=monthly-renewed/);
+    expect(conversionSection).not.toMatch(/segment=monthly-current-trial-converted|segment=monthly-tracked-converted/);
+    if (process.env.ANALYSIS_REVIEW_DIR) {
+      fs.mkdirSync(process.env.ANALYSIS_REVIEW_DIR, { recursive: true });
+      fs.writeFileSync(path.join(process.env.ANALYSIS_REVIEW_DIR, "report.html"), html);
+    }
+    expect(html).toContain("仍在 30 天觀察期");
+    expect(html.indexOf("成交分析")).toBeLessThan(html.indexOf("營運摘要"));
+    expect(html).toContain("即使跨月也計入這批體驗的開卡人數與轉化率");
     expect(html).toContain("基期為 0，無法比較");
     expect(html).not.toMatch(/成交率|客單價|來源分析/);
   });
@@ -421,7 +428,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).not.toContain('aria-label="詳細分析分類"');
     expect(html).toContain("startDate=2026-09-01&amp;endDate=2026-09-07&amp;preset=custom");
     expect(html.indexOf("營運摘要")).toBeLessThan(html.indexOf('id="revenue-mix-title"'));
-    expect(html).toContain("本期體驗開卡率");
+    expect(html).toContain("轉化率");
   });
 
   it("keeps the original percentage cards and source conversion rates for a custom range", async () => {
@@ -431,7 +438,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
       assignedCustomers: 2, planRate: 66.7,
     }]);
     const html = renderToStaticMarkup(await ReportsPage({ searchParams: Promise.resolve({ startDate: "2026-09-01", endDate: "2026-09-07" }) }));
-    expect(html).toContain("本期體驗開卡率");
+    expect(html).toContain("轉化率");
     expect(html).toContain("50.0%");
     expect(html).toContain("整體體驗到店率");
     expect(html).toContain("75.0%");

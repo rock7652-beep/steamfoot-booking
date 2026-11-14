@@ -28,6 +28,9 @@ import { PerformanceTrendChart } from "./performance-trend-chart";
 import { RevenueMixTrend } from "@/components/revenue-mix-trend";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
+import { BusinessMetric } from "@/components/admin/business-metric";
+import managementStyles from "@/components/admin/management-layout.module.css";
+
 interface PageProps {
   searchParams: Promise<{
     preset?: string;
@@ -218,6 +221,53 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         <ReportDateRange key={`${activePreset}-${startDate}-${effectiveEndDate}`} activePreset={activePreset} startDate={startDate} endDate={effectiveEndDate} />
         <p className="text-xs text-earth-500">營收、客流、開卡、來源與回流均依 {startDate}～{effectiveEndDate} 統計；與前一段相同進度比較。下方長期趨勢固定顯示最近月份。</p>
 
+        <section aria-labelledby="conversion-analysis-title" className={managementStyles.workspace}>
+          <div>
+            <h2 id="conversion-analysis-title" className="text-sm font-semibold text-earth-800">成交分析</h2>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">
+              依所選期間首次完成體驗的顧客統計；體驗後 30 天內首次開卡，即使跨月也計入這批體驗的開卡人數與轉化率。體驗開卡率＝新卡人數÷體驗人數；續卡人數依所選期間付款紀錄按顧客去重。
+            </p>
+          </div>
+          {conversionMetrics ? (
+            <div data-analysis-metrics className={`mt-3 gap-3 ${managementStyles.metrics}`}>
+              {[
+                ["來客人次", conversionMetrics.completedServices, "count", null, "人次"],
+                ["體驗人數", conversionMetrics.trialCustomers, "count", "monthly-conversion-trial", "人"],
+                ["新卡人數", conversionMetrics.convertedCustomers, "count", "monthly-converted", "人"],
+                ["續卡人數", conversionMetrics.renewedCustomers, "count", "monthly-renewed", "人"],
+                ["體驗開卡率", conversionMetrics.conversionRate, "rate", null, "%"],
+              ].map(([label, metric, kind, segment, unit]) => {
+                const value = metric as (typeof conversionMetrics)["convertedCustomers"];
+                const isRate = kind === "rate";
+                return (
+                  <BusinessMetric
+                    key={label as string}
+                    label={label as string}
+                    value={isRate ? `${value.current.toFixed(1)}%` : `${value.current} ${unit as string}`}
+                    note={isRate ? `${conversionMetrics.convertedCustomers.current} / ${conversionMetrics.trialCustomers.current} 位體驗者` : undefined}
+                    action={<>
+                      <div className="mt-2 space-y-1 text-xs text-earth-500">
+                        <p>較前期：{formatConversionComparison(value.mom, isRate, unit as string)}</p>
+                        <p>去年同期：{formatConversionComparison(value.yoy, isRate, unit as string)}</p>
+                      </div>
+                      {segment ? (
+                        <DashboardLink href={growthLink(segment as string)} className="mt-2 inline-flex min-h-11 items-center text-xs font-medium text-primary-700 hover:text-primary-800">查看名單 →</DashboardLink>
+                      ) : null}
+                    </>}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-lg bg-earth-50 px-3 py-2 text-xs text-earth-500">HQ 全店視角暫不提供成交分析；請先選擇店舖，避免跨店顧客被錯誤加總。</p>
+          )}
+        </section>
+
+        {conversionMetrics && conversionMetrics.observingTrialCustomers.current > 0 && <p role="status" className="text-sm text-earth-600">本期有 {conversionMetrics.observingTrialCustomers.current} 位體驗顧客仍在 30 天觀察期，轉化率尚未定案。</p>}
+        {conversionMetrics && conversionMetrics.unidentifiedTrialVisits.current > 0 && <p className="text-sm text-amber-800">
+          舊整組資料有 {conversionMetrics.unidentifiedTrialVisits.current} 人次未建檔同行者；開卡率只計算可辨識的顧客，這些人次不會被當成已建檔顧客。
+        </p>}
+
         <section aria-labelledby="operations-summary-title">
           <div className="mb-2">
             <h2 id="operations-summary-title" className="text-sm font-semibold text-earth-800">營運摘要</h2>
@@ -312,7 +362,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                       <p>去年同期：{formatCustomerFlowComparison(value.yoy, unit as string)}</p>
                     </div>
                     {segment ? (
-                      <DashboardLink href={growthLink(segment as string)} className="mt-2 inline-flex text-[11px] font-medium text-primary-700 hover:text-primary-800">查看顧客 →</DashboardLink>
+                      <DashboardLink href={growthLink(segment as string)} className="mt-2 inline-flex min-h-11 items-center text-[11px] font-medium text-primary-700 hover:text-primary-800">查看顧客 →</DashboardLink>
                     ) : null}
                   </div>
                 );
@@ -323,50 +373,6 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           )}
         </section>
 
-        <section aria-labelledby="conversion-analysis-title" className="rounded-xl border border-earth-200 bg-white p-3">
-          <div>
-            <h2 id="conversion-analysis-title" className="text-sm font-semibold text-earth-800">成交分析</h2>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">
-              體驗開卡率按本人首次體驗期間計算，之後購買也回算原體驗期間；總開卡依實際付款期間統計，不含續卡。
-            </p>
-          </div>
-          {conversionMetrics ? (
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
-              {[
-                ["體驗人次", conversionMetrics.trialAttendees, "count", null, "人次"],
-                [`${periodWord}體驗開卡`, conversionMetrics.currentTrialConversions, "count", "monthly-current-trial-converted", "位"],
-                ["追蹤開卡", conversionMetrics.trackedConversions, "count", "monthly-tracked-converted", "位"],
-                [`${periodWord}總開卡`, conversionMetrics.convertedCustomers, "count", "monthly-converted", "位"],
-                [`${periodWord}體驗開卡率`, conversionMetrics.conversionRate, "rate", null, "%"],
-                ["未開卡顧客", conversionMetrics.unconvertedCustomers, "count", "monthly-unconverted", "位"],
-              ].map(([label, metric, kind, segment, unit]) => {
-                const value = metric as (typeof conversionMetrics)["convertedCustomers"];
-                const isRate = kind === "rate";
-                return (
-                  <div key={label as string} className="rounded-lg bg-earth-50/70 p-3">
-                    <p className="text-[11px] font-medium text-earth-500">{label as string}</p>
-                    <p className="mt-1 text-xl font-bold tabular-nums text-earth-900">
-                      {isRate ? `${value.current.toFixed(1)}%` : `${value.current} ${unit as string}`}
-                    </p>
-                    <div className="mt-2 space-y-1 text-[11px] text-earth-500">
-                      <p>較前期：{formatConversionComparison(value.mom, isRate, unit as string)}</p>
-                      <p>去年同期：{formatConversionComparison(value.yoy, isRate, unit as string)}</p>
-                    </div>
-                    {segment ? (
-                      <DashboardLink href={growthLink(segment as string)} className="mt-2 inline-flex text-[11px] font-medium text-primary-700 hover:text-primary-800">查看顧客 →</DashboardLink>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="mt-3 rounded-lg bg-earth-50 px-3 py-2 text-xs text-earth-500">HQ 全店視角暫不提供成交分析；請先選擇店舖，避免跨店顧客被錯誤加總。</p>
-          )}
-        </section>
-
-        {conversionMetrics && conversionMetrics.unidentifiedTrialVisits.current > 0 && <p className="text-sm text-amber-800">
-          舊整組資料有 {conversionMetrics.unidentifiedTrialVisits.current} 人次未建檔同行者；開卡率只計算可辨識的顧客，這些人次不會被當成已建檔顧客。
-        </p>}
         {trialSourceMetrics ? (
           <section aria-labelledby="trial-source-title" className="rounded-xl border border-earth-200 bg-white p-3">
             <h2 id="trial-source-title" className="text-sm font-semibold text-earth-800">體驗預約來源</h2>
