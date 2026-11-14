@@ -58,6 +58,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/customer-parallel-read-20261114": false,
       "fix/instant-filter-clear-state-20261114": false,
       "fix/site-instant-filters-20261114": false,
       "fix/all-module-catalog-name-conflicts-20261112": false,

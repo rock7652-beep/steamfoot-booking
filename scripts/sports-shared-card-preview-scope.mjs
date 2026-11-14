@@ -7,10 +7,12 @@ export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-
 export const ANALYSIS_CUSTOMER_PREVIEW_BRANCH = "fix/analysis-30day-renewals-20261114";
 export const CUSTOMER_PROFILE_DENSITY_PREVIEW_BRANCH = "feat/customer-profile-density-20261114";
 export const CUSTOMER_PROFILE_PREVIEW_BRANCH = "feat/customer-profile-simplification-20261114";
+export const CUSTOMER_PARALLEL_PREVIEW_BRANCH = "fix/customer-parallel-read-20261114";
 export const CUSTOMER_PRIMARY_PREVIEW_BRANCH = "fix/customer-primary-read-priority";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   ANALYSIS_CUSTOMER_PREVIEW_BRANCH,
   CUSTOMER_PRIMARY_PREVIEW_BRANCH,
+  CUSTOMER_PARALLEL_PREVIEW_BRANCH,
   CUSTOMER_PROFILE_DENSITY_PREVIEW_BRANCH,
   CUSTOMER_PROFILE_PREVIEW_BRANCH,
   "fix/plan-name-conflict-20261112",

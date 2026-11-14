@@ -232,7 +232,7 @@ describe("customer drawer primary read", () => {
     vi.mocked(context.userForViewContext).mockImplementation(user => user);
     const { getCustomerDrawerDetailAction } = await import("@/server/actions/customer");
     expect(await getCustomerDrawerDetailAction(CUSTOMER_ID)).toEqual({success:true,data:detail});
-    expect(getCustomerDrawerDetailForUser).toHaveBeenCalledWith(expect.objectContaining({id:USER_ID}),CUSTOMER_ID,"store-taichung");
+    expect(getCustomerDrawerDetailForUser).toHaveBeenCalledWith(expect.objectContaining({id:USER_ID}),CUSTOMER_ID,"store-taichung",expect.objectContaining({measure:expect.any(Function)}));
     expect(drawerSummary).not.toHaveBeenCalled();
   });
 

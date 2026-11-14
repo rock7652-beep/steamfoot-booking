@@ -4,8 +4,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { CustomerRow } from "@/app/(dashboard)/dashboard/customers/_components/customers-table";
 
-const m = vi.hoisted(() => ({ refresh: vi.fn(), detail: vi.fn(), params: new URLSearchParams() }));
+const m = vi.hoisted(() => ({ refresh: vi.fn(), detail: vi.fn(), summary: vi.fn(), params: new URLSearchParams() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh }), usePathname: () => "/dashboard/customers", useSearchParams: () => m.params }));
+vi.mock("@/lib/customer-drawer-primary-read", () => ({ readCustomerDrawerPrimary: m.detail }));
+vi.mock("@/lib/customer-panel-summary-read", () => ({ readCustomerPanelSummary: m.summary }));
 vi.mock("@/server/actions/customer", () => ({ getCustomerDrawerDetailAction: m.detail, bulkUpdateCustomerAssignment: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/admin/right-sheet", () => ({ RightSheet: ({ open, children }: {open: boolean; children: React.ReactNode}) => open ? React.createElement("section", null, children) : null }));
@@ -38,6 +40,7 @@ async function click(text: string) {
 }
 beforeEach(() => {
   Object.assign(globalThis, {IS_REACT_ACT_ENVIRONMENT: true});
+  m.summary.mockReset(); m.summary.mockResolvedValue({success:true,data:{next:null,pending:[],healthEnabled:false,health:null,canConfirm:false}});
   m.refresh.mockReset(); m.detail.mockReset(); m.params = new URLSearchParams();
   m.detail.mockImplementation(async (id: string) => ({success: true, data: {id, name: id.toUpperCase()}}));
   window.history.replaceState(null, "", "/dashboard/customers?search=kept");
@@ -75,6 +78,7 @@ it("opens a search candidate outside the current page before its detail read com
   await render();
   await act(async () => { expect(requestCustomerDrawerOpen("off-page", "/dashboard/customers")).toBe(true); });
   expect(host.querySelector("section")?.textContent).toContain("loading");
+  expect(m.summary).toHaveBeenCalledWith("off-page");
   expect(m.refresh).not.toHaveBeenCalled();
   expect(new URLSearchParams(window.location.search).get("customerId")).toBe("off-page");
   expect(new URLSearchParams(window.location.search).get("search")).toBe("kept");
