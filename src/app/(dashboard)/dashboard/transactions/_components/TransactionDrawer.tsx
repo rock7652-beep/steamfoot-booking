@@ -1,7 +1,7 @@
 "use client";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
@@ -77,7 +77,8 @@ interface DrawerProps {
   canRefund: boolean;
 }
 
-type View = "main" | "void-confirm" | "refund-confirm";
+const TransactionReplacementForm = lazy(() => import("./TransactionReplacementForm"));
+type View = "main" | "void-confirm" | "refund-confirm" | "replacement";
 
 export function TransactionDrawer({
   open,
@@ -96,7 +97,8 @@ export function TransactionDrawer({
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
   const [noteFeedback, setNoteFeedback] = useState<string | null>(null);
-  const isPending = transitionPending || noteSaving;
+  const [replacementPending, setReplacementPending] = useState(false);
+  const isPending = transitionPending || noteSaving || replacementPending;
   const [loadedData, setData] = useState<TransactionDetailDTO | null>(null);
   const data = loadedData?.id === transactionId ? loadedData : null;
   const [loading, setLoading] = useState(false);
@@ -241,7 +243,8 @@ export function TransactionDrawer({
   };
 
   const handleClose = () => {
-    if (noteRequest.current) return;
+    if (noteRequest.current || isPending) return;
+    if (view === "replacement" && !window.confirm("補登尚未完成，確定離開？原交易已取消，可稍後從原交易繼續補登。")) return;
     onClose();
   };
 
@@ -299,7 +302,8 @@ export function TransactionDrawer({
       const res = await voidTransaction({ transactionId, reason: voidReason });
       if (requestVersion.current !== version) { router.refresh(); return; }
       if (res.success) {
-        setView("main");
+        setView(data?.customerId && ["SINGLE_PURCHASE", "PACKAGE_PURCHASE"].includes(data.transactionType)
+          && ["SUCCESS", "CONFIRMED"].includes(data.paymentStatus) ? "replacement" : "main");
         refresh();
       } else {
         setError(res.error ?? "取消失敗");
@@ -367,7 +371,7 @@ export function TransactionDrawer({
             <button
               type="button"
               onClick={handleClose}
-              disabled={noteSaving}
+              disabled={isPending}
               className="text-earth-400 hover:text-earth-600"
               aria-label="關閉"
             >
@@ -387,7 +391,7 @@ export function TransactionDrawer({
               </span>
               <span>{TX_TYPE_LABEL[data.transactionType] ?? data.transactionType}</span>
               <span>·</span>
-              <span>{formatTWTime(data.createdAt)}</span>
+              <span>{formatTWTime(data.transactionDate ?? data.createdAt)}</span>
             </div>
           )}
         </div>
@@ -405,6 +409,16 @@ export function TransactionDrawer({
 
           {data && view === "main" && (
             <>
+              {isVoided && canVoid && data.customerId && ["SINGLE_PURCHASE", "PACKAGE_PURCHASE"].includes(data.transactionType)
+                && ["SUCCESS", "CONFIRMED"].includes(data.paymentStatus) && (
+                <Section title="交易已取消">
+                  {data.auditLogs.some(log => log.afterJson && typeof log.afterJson === "object"
+                    && "kind" in log.afterJson && log.afterJson.kind === "PURCHASE_REPLACEMENT")
+                    ? <p className="text-sm text-primary-700">已補登正確收費</p>
+                    : <button type="button" disabled={isPending} onClick={() => setView("replacement")}
+                      className="min-h-11 rounded bg-primary-700 px-4 py-2 text-sm font-medium text-white">補登正確收費</button>}
+                </Section>
+              )}
               {/* 基本資訊 */}
               <Section title="基本資訊">
                 <Row label="顧客" value={data.customerName} />
@@ -684,7 +698,7 @@ export function TransactionDrawer({
                       >
                         <div className="flex justify-between">
                           <span className="font-medium text-earth-800">
-                            {ACTION_LABEL[log.action] ?? log.action}
+                            {log.afterJson && typeof log.afterJson === "object" && "kind" in log.afterJson && log.afterJson.kind === "PURCHASE_REPLACEMENT" ? "補登正確收費" : ACTION_LABEL[log.action] ?? log.action}
                           </span>
                           <span className="text-earth-400">
                             {formatTWTime(log.createdAt)}
@@ -700,6 +714,13 @@ export function TransactionDrawer({
                 )}
               </Section>
             </>
+          )}
+
+          {data && view === "replacement" && transactionId && (
+            <Suspense fallback={<p role="status" className="py-3 text-sm">正在讀取補登資料…</p>}>
+              <TransactionReplacementForm key={transactionId} sourceId={transactionId}
+                onPendingChange={setReplacementPending} onSuccess={() => { setView("main"); refresh(); }} />
+            </Suspense>
           )}
 
           {data && view === "void-confirm" && (

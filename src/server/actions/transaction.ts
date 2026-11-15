@@ -1365,6 +1365,7 @@ export async function fetchTransactionDetailDTO(
       revenueStaffName: tx.revenueStaff.displayName,
       serviceStaffName: tx.serviceStaff?.displayName ?? null,
       createdAt: tx.createdAt.toISOString(),
+      transactionDate: tx.transactionDate.toISOString(),
       voidedAt: tx.voidedAt?.toISOString() ?? null,
       voidedByName: tx.voidedBy?.name ?? null,
       voidReason: tx.voidReason,
@@ -1420,6 +1421,7 @@ export type TransactionDetailDTO = {
   revenueStaffName: string;
   serviceStaffName: string | null;
   createdAt: string;
+  transactionDate: string;
   voidedAt: string | null;
   voidedByName: string | null;
   voidReason: string | null;

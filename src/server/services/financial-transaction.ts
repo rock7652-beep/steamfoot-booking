@@ -7,7 +7,8 @@ const cashTypes = ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUP
 /** Cash writes share the drawer version guard; non-cash, pending and point
  * deductions do not affect the physical drawer. Explicitly pin the date so a
  * midnight transition cannot lock one day and write into the next. */
-export async function createFinancialTransaction(tx: Prisma.TransactionClient, args: Prisma.TransactionCreateArgs) {
+export async function createFinancialTransaction(tx: Prisma.TransactionClient, args: Prisma.TransactionCreateArgs,
+  options: { allowClosedReplacement?: boolean } = {}) {
   const data = args.data;
   const transactionDate = data.transactionDate ? new Date(data.transactionDate) : new Date();
   const splits = data.paymentSplits?.create;
@@ -17,7 +18,9 @@ export async function createFinancialTransaction(tx: Prisma.TransactionClient, a
   if (data.storeId && hasCash && cashTypes.includes(data.transactionType)
     && (data.status ?? "SUCCESS") === "SUCCESS"
     && ["SUCCESS", "CONFIRMED"].includes(data.paymentStatus ?? "SUCCESS")) {
-    await lockCashDay(tx, data.storeId, parseTaiwanDateToDbDate(toLocalDateStr(transactionDate)));
+    await lockCashDay(tx, data.storeId, parseTaiwanDateToDbDate(toLocalDateStr(transactionDate)), {
+      allowClosedSupplement: options.allowClosedReplacement,
+    });
   }
   return tx.transaction.create({ ...args, data: { ...data, transactionDate } });
 }

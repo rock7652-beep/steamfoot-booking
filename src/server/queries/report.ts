@@ -65,7 +65,7 @@ export async function monthlyStaffRevenueSummary(month: string, activeStoreId?: 
         ...revenueFilter,
         transactionType: { in: REVENUE_TYPES as never },
         status: REVENUE_VALID_STATUS,
-        createdAt: { gte: monthStart, lte: monthEnd },
+        transactionDate: { gte: monthStart, lte: monthEnd },
       },
       _sum: { amount: true },
       _count: { id: true },
@@ -139,7 +139,7 @@ export async function monthlyStaffNetSummary(month: string, activeStoreId?: stri
       ...revenueFilter,
       transactionType: { in: REVENUE_TYPES as never },
       status: REVENUE_VALID_STATUS,
-      createdAt: { gte: monthStart, lte: monthEnd },
+      transactionDate: { gte: monthStart, lte: monthEnd },
     },
     _sum: { amount: true },
   });
@@ -253,7 +253,7 @@ export async function monthlyStoreSummary(
         ...revenueFilter,
         transactionType: { in: REVENUE_TYPES as never },
         status: REVENUE_VALID_STATUS,
-        createdAt: { gte: monthStart, lte: monthEnd },
+        transactionDate: { gte: monthStart, lte: monthEnd },
       },
       _sum: { amount: true },
       _count: { id: true },
@@ -264,7 +264,7 @@ export async function monthlyStoreSummary(
         ...revenueFilter,
         transactionType: "REFUND",
         status: REVENUE_VALID_STATUS,
-        createdAt: { gte: monthStart, lte: monthEnd },
+        transactionDate: { gte: monthStart, lte: monthEnd },
       },
       _sum: { amount: true },
     }),
@@ -453,7 +453,7 @@ export async function monthlyRevenueByCategory(
       ...revenueFilter,
       transactionType: { in: REVENUE_TYPES as never },
       status: REVENUE_VALID_STATUS,
-      createdAt: { gte: monthStart, lte: monthEnd },
+      transactionDate: { gte: monthStart, lte: monthEnd },
     },
     _sum: { amount: true },
     _count: { id: true },
@@ -466,7 +466,7 @@ export async function monthlyRevenueByCategory(
       ...revenueFilter,
       transactionType: "REFUND",
       status: REVENUE_VALID_STATUS,
-      createdAt: { gte: monthStart, lte: monthEnd },
+      transactionDate: { gte: monthStart, lte: monthEnd },
     },
     _sum: { amount: true },
   });
@@ -552,10 +552,10 @@ export async function customerConsumptionDetail(customerId: string, month?: stri
   }
 
   // Build date filter if month provided
-  let dateFilter: { createdAt?: { gte: Date; lte: Date } } = {};
+  let dateFilter: { transactionDate?: { gte: Date; lte: Date } } = {};
   if (month) {
     const { monthStart, monthEnd } = monthRange(month);
-    dateFilter = { createdAt: { gte: monthStart, lte: monthEnd } };
+    dateFilter = { transactionDate: { gte: monthStart, lte: monthEnd } };
   }
 
   const [transactions, wallets] = await Promise.all([

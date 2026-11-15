@@ -72,3 +72,15 @@ describe("closed-day transaction cancellation", () => {
     expect(tx.$executeRaw).toHaveBeenCalledOnce();
   });
 });
+
+
+it("allows a verified replacement on its closed original day without changing drawer snapshots", async () => {
+  const tx = client("CLOSED");
+  await createFinancialTransaction(tx as unknown as Prisma.TransactionClient, { data: {
+    storeId: "store", customerId: "customer", revenueStaffId: "staff", transactionType: "PACKAGE_PURCHASE",
+    paymentMethod: "CASH", amount: 5990, transactionDate: new Date("2026-10-05T16:01:00Z"),
+  } }, { allowClosedReplacement: true });
+  expect(tx.transaction.create).toHaveBeenCalledOnce();
+  expect(tx.$queryRaw.mock.calls[0][2]).toEqual(day);
+  expect(tx.$executeRaw).not.toHaveBeenCalled();
+});

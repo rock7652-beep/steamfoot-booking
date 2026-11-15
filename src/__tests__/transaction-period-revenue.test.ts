@@ -55,7 +55,7 @@ describe("listTransactions period revenue", () => {
           expect.objectContaining({
             storeId: "store-1",
             revenueStaffId: "staff-2",
-            createdAt: {
+            transactionDate: {
               gte: new Date("2026-06-30T16:00:00.000Z"),
               lte: new Date("2026-07-31T15:59:59.999Z"),
             },
