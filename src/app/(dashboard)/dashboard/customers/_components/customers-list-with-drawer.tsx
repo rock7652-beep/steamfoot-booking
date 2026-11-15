@@ -15,6 +15,7 @@ import {
 } from "@/server/actions/customer";
 import { readCustomerDrawerPrimary } from "@/lib/customer-drawer-primary-read";
 import { readCustomerPanelSummary } from "@/lib/customer-panel-summary-read";
+import { observeSummarySelection } from "@/lib/customer-read-timing";
 import type { getCustomerDrawerDetail } from "@/server/queries/customer";
 
 import { CUSTOMER_DRAWER_OPEN_EVENT, type CustomerDrawerOpenRequest } from "@/lib/customer-drawer-open";
@@ -146,10 +147,11 @@ export function CustomersListWithDrawer({
   const applyOpen = useCallback(
     (customerId: string, f: "plan" | null) => {
       if (visibleCustomerRef.current && visibleCustomerRef.current !== customerId && !allowNavigation()) return false;
+      const selectedAt = performance.now();
       visibleCustomerRef.current = customerId;
       setOpenId(customerId);
       // Start independently of primary data; catch even if the drawer closes before mounting.
-      const promise = readCustomerPanelSummary(customerId).catch(() => ({ success: false as const, error: "摘要暫時無法載入" }));
+      const promise = observeSummarySelection(readCustomerPanelSummary(customerId).catch(() => ({ success: false as const, error: "摘要暫時無法載入" })), selectedAt);
       setSummaryRead({ id: customerId, promise });
       setLoadError(null);
       setFocus(f);

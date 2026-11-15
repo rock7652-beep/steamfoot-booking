@@ -15,6 +15,7 @@ it("delegates to the permission checked reader and never caches a denied result"
  const response=await GET(new Request("https://test/dashboard/customers/summary-read?customerId=other&storeId=untrusted"));
  expect(m.summary).toHaveBeenCalledWith("other");expect(await response.json()).toEqual({success:false,error:"顧客不存在"});
  expect(response.headers.get("Vary")).toBe("Cookie");expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+ expect(response.headers.get("Server-Timing")).toMatch(/^summary;dur=\d+$/);
 });
 it("reads the scoped route independently with no-store and restores appointment dates",async()=>{
  window.history.replaceState(null,"","/s/fixture/admin/dashboard/customers");

@@ -1,4 +1,5 @@
 import type { getCustomerDrawerDetailAction } from "@/server/actions/customer";
+import { readTimedCustomerJson } from "@/lib/customer-read-timing";
 
 // Only restore direct model fields. Nested progress.date is intentionally text.
 function restoreModelDates<T extends object>(value: T): T {
@@ -14,11 +15,9 @@ export async function readCustomerDrawerPrimary(customerId: string): Promise<Awa
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
-    const response = await fetch(`${prefix}/dashboard/customers/primary-read?customerId=${encodeURIComponent(customerId)}`, {
+    const result = await readTimedCustomerJson<Awaited<ReturnType<typeof getCustomerDrawerDetailAction>>>("primary", `${prefix}/dashboard/customers/primary-read?customerId=${encodeURIComponent(customerId)}`, {
       credentials: "same-origin", cache: "no-store", signal: controller.signal,
-    });
-    if (!response.ok) throw new Error("顧客資料暫時無法載入");
-    const result = await response.json();
+    }, "顧客資料暫時無法載入");
     if (typeof result?.success !== "boolean") throw new Error("顧客資料讀取失敗");
     const typed = result as Awaited<ReturnType<typeof getCustomerDrawerDetailAction>>;
     if (!typed.success) return typed;
