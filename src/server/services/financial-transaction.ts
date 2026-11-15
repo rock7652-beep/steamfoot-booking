@@ -26,12 +26,16 @@ export async function lockExistingTransactionCash(tx: Prisma.TransactionClient, 
   storeId: string; transactionDate: Date; transactionType: string;
   paymentMethod: string; paymentStatus: string; status: string; amount: unknown;
   paymentSplits?: Array<{ paymentMethod: string; amount: unknown }>;
-}, nextMethod?: string) {
+}, nextMethod?: string, options: { allowClosedCancellation?: boolean } = {}) {
   const hasCash = entry.paymentSplits?.length
     ? entry.paymentSplits.some(part => part.paymentMethod === "CASH" && Number(part.amount) !== 0)
     : entry.paymentMethod === "CASH" && Number(entry.amount) !== 0;
   if ((hasCash || nextMethod === "CASH") && cashTypes.includes(entry.transactionType)
     && entry.status === "SUCCESS" && ["SUCCESS", "CONFIRMED"].includes(entry.paymentStatus)) {
-    await lockCashDay(tx, entry.storeId, parseTaiwanDateToDbDate(toLocalDateStr(entry.transactionDate)));
+    // Cancellations retain the closed drawer snapshot as the historical count.
+    // Still acquire the row lock to serialize against a concurrent closing.
+    await lockCashDay(tx, entry.storeId, parseTaiwanDateToDbDate(toLocalDateStr(entry.transactionDate)), {
+      allowClosedSupplement: options.allowClosedCancellation,
+    });
   }
 }

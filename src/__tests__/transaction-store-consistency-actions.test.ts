@@ -886,3 +886,25 @@ it("voids a trial payment in HTTP context with audit and cache expiration, witho
   expect(h.revalidateTag).toHaveBeenCalled();
   expect(h.revalidatePath).toHaveBeenCalledWith(`/dashboard/customers/${CUSTOMER_ID}`);
 });
+
+
+it("cancels a paid transaction on a closed cash day and retains the audit record", async () => {
+  const original = {
+    id: "closed-trial", storeId: "store-taichung", customerId: CUSTOMER_ID,
+    status: "SUCCESS", paymentStatus: "SUCCESS", paymentMethod: "CASH",
+    transactionType: "TRIAL_PURCHASE", customerPlanWalletId: null, amount: 499,
+    transactionDate: new Date("2026-11-14T03:00:00Z"),
+  };
+  h.transactionFindUnique.mockResolvedValueOnce(original);
+  h.txTransactionFindUnique.mockResolvedValueOnce(original);
+  h.txQueryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "closed-drawer", status: "CLOSED" }]);
+  const { voidTransaction } = await import("@/server/actions/transaction");
+  const result = await voidTransaction({ transactionId: original.id, reason: "方案調整後補登" });
+  expect(result.success).toBe(true);
+  expect(h.txTransactionUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+    data: expect.objectContaining({ status: "VOIDED" }),
+  }));
+  expect(h.transactionAuditCreate).toHaveBeenCalledWith(expect.objectContaining({
+    data: expect.objectContaining({ action: "VOID", reason: "方案調整後補登" }),
+  }));
+});

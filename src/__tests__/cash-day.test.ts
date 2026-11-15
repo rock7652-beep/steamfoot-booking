@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { lockCashDay } from "@/server/services/cash-day";
-import { createFinancialTransaction } from "@/server/services/financial-transaction";
+import { createFinancialTransaction, lockExistingTransactionCash } from "@/server/services/financial-transaction";
 import type { Prisma } from "@prisma/client";
 
 function client(status?: string) {
@@ -45,5 +45,30 @@ describe("cash-day write guard", () => {
     }
     expect(tx.$queryRaw).not.toHaveBeenCalled();
     expect(tx.transaction.create).toHaveBeenCalledTimes(2);
+  });
+});
+
+
+describe("closed-day transaction cancellation", () => {
+  const entry = {
+    storeId: "store", transactionDate: day, transactionType: "PACKAGE_PURCHASE",
+    paymentMethod: "CASH", paymentStatus: "SUCCESS", status: "SUCCESS", amount: 5990,
+  };
+  it("permits cancellation while preserving the historical drawer snapshot", async () => {
+    const tx = client("CLOSED");
+    await expect(lockExistingTransactionCash(tx as unknown as Prisma.TransactionClient, entry,
+      undefined, { allowClosedCancellation: true })).resolves.toBeUndefined();
+    expect(tx.$queryRaw).toHaveBeenCalledOnce();
+    expect(tx.$executeRaw).not.toHaveBeenCalled();
+  });
+  it("continues to reject other changes to closed-day cash transactions", async () => {
+    const tx = client("CLOSED");
+    await expect(lockExistingTransactionCash(tx as unknown as Prisma.TransactionClient, entry)).rejects.toThrow("結帳");
+  });
+  it("still advances the drawer version when cancelling on an open day", async () => {
+    const tx = client("OPEN");
+    await lockExistingTransactionCash(tx as unknown as Prisma.TransactionClient, entry,
+      undefined, { allowClosedCancellation: true });
+    expect(tx.$executeRaw).toHaveBeenCalledOnce();
   });
 });
