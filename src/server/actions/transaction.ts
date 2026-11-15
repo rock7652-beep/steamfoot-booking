@@ -1022,7 +1022,7 @@ export async function voidTransaction(
       });
       if (!lockedOriginal) throw new AppError("NOT_FOUND", "交易紀錄不存在");
       const current = lockedOriginal;
-      await lockExistingTransactionCash(tx, current);
+      await lockExistingTransactionCash(tx, current, undefined, { allowClosedCancellation: true });
 
       if (current.transactionType === "PACKAGE_PURCHASE" && !current.customerPlanWalletId) {
         throw new AppError("BUSINESS_RULE", "套餐購買缺少錢包關聯，無法取消");
