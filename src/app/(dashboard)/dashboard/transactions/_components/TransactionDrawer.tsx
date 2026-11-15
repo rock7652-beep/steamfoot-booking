@@ -302,8 +302,7 @@ export function TransactionDrawer({
       const res = await voidTransaction({ transactionId, reason: voidReason });
       if (requestVersion.current !== version) { router.refresh(); return; }
       if (res.success) {
-        setView(data?.customerId && ["SINGLE_PURCHASE", "PACKAGE_PURCHASE"].includes(data.transactionType)
-          && ["SUCCESS", "CONFIRMED"].includes(data.paymentStatus) ? "replacement" : "main");
+        setView("main");
         refresh();
       } else {
         setError(res.error ?? "取消失敗");

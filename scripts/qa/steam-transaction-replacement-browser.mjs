@@ -37,6 +37,9 @@ const results=[];try{
   });
   await page.addStyleTag({path:path.join(out,'fixture.css')});await page.addScriptTag({path:path.join(out,'fixture.js')});
   await page.getByRole('button',{name:'取消交易',exact:true}).waitFor({timeout:5000}).catch(async e=>{console.log(JSON.stringify({errors,body:await page.locator('body').innerText()}));throw e;});await page.getByRole('button',{name:'取消交易',exact:true}).click();if(width===1024)await page.getByPlaceholder('取消原因（選填）').fill('方案調整後補登正確收費');await page.getByRole('button',{name:'確認取消交易',exact:true}).click();
+  const replacement=page.getByRole('button',{name:'補登正確收費',exact:true});await replacement.waitFor();
+  if(await page.locator('form').count()!==0||(await page.evaluate(()=>window.qaCalls)).length!==0)throw Error('Cancellation incorrectly forced a replacement');
+  await replacement.click();
   await page.getByRole('heading',{name:'補登正確收費',exact:true}).waitFor();
   if(!await page.getByText('沿用原交易日期 2026-11-14',{exact:false}).isVisible())throw Error('Missing original-date context');
   await page.locator('select[name="planId"]').selectOption('twenty');
@@ -49,7 +52,7 @@ const results=[];try{
   const reasons=await page.evaluate(()=>window.qaVoidReasons);if(reasons.length!==1||reasons[0]!== (width===1024?'方案調整後補登正確收費':''))throw Error('Optional cancellation reason failed');
   const calls=await page.evaluate(()=>window.qaCalls);if(calls.length!==1||calls[0].replacementOfTransactionId!=='synthetic-original'||calls[0].planId!=='twenty')throw Error('Wrong or duplicate replacement');
   await page.screenshot({path:path.join(out,`completed-${width}.png`)});
-  if(errors.length)throw Error(errors.join('\n'));results.push({width,height,cancelThenReplace:true,optionalCancellationReason:true,originalDateVisible:true,noPageOverflow:true,submittedExactlyOnce:true,...(width===1366?{failedRequestRetainsDraft:true}:{})});await page.close();
+  if(errors.length)throw Error(errors.join('\n'));results.push({width,height,cancelThenReplace:true,optionalCancellationReason:true,noForcedReplacement:true,originalDateVisible:true,noPageOverflow:true,submittedExactlyOnce:true,...(width===1366?{failedRequestRetainsDraft:true}:{})});await page.close();
  }
  writeFileSync(path.join(out,'results.json'),JSON.stringify({scope:'synthetic browser UI only; business logic tested separately in disposable PostgreSQL',results},null,2));console.log(JSON.stringify({output:out,results}));
 }finally{await browser.close();}
