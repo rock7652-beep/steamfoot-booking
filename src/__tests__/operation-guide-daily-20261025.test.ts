@@ -10,16 +10,16 @@ const guide = (id: string) => operationGuides.find((item) => item.id === id)!;
 
 describe("2026-10-25 backend guide audit", () => {
   it("records the exact main range and backend-only accounting", () => {
-    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state.json", "utf8"));
+    const state = JSON.parse(readFileSync("docs/operation-guide-audit-state-20261025.json", "utf8"));
     expect(state.auditDateTaipei).toBe("2026-10-25");
     expect(state.previousSuccessfulAuditCommit).toBe("7cb8c26127f60337c159b05391bc90f3263246ad");
     expect(state.lastInventoriedMainCommit).toBe("4efcd72bf513953521665f2556f719d1f73b5e8c");
     expect(state.currentMainAudit.pullRequests).toEqual([1395, 1396, 1399]);
     expect(state.newGuideIds).toEqual(["C177"]);
     expect(state.updatedGuideIds).toEqual(["B11", "C123", "C130", "C144", "C148", "C149", "C150", "C152", "C154"]);
-    expect(state.backendInteractionPendingCount).toBe(94);
+    expect(state.backendInteractionPendingCount).toBe(93);
     expect(state.frontendInteractionPendingGuideIds).toEqual([]);
-    expect(operationGuides).toHaveLength(203);
+    expect(operationGuides).toHaveLength(229);
     expect(guideCategories).toHaveLength(15);
   });
 
@@ -36,5 +36,20 @@ describe("2026-10-25 backend guide audit", () => {
     expect(guide("C149").details.join(" ")).toContain("累計期數");
     expect(guide("C150").details.join(" ")).toContain("非本期收款");
     expect(guide("C154").details.join(" ")).toContain("最前面的未繳期");
+  });
+});
+
+describe("mixed enrollment and compact checkout guide search", () => {
+  it("finds both teaching modules from the actual shared toggle label", () => {
+    const ids = findOperationGuides("同時安排固定學員", access).map(g => g.id);
+    expect(ids).toEqual(expect.arrayContaining(["C144", "C173", "C177"]));
+    const steam: GuideAccess = {...access, module:"steamfoot"};
+    expect(findOperationGuides("同時安排固定學員", steam)).toEqual([]);
+  });
+  it("finds new steamfoot entry labels while retaining article permission checks", () => {
+    const steam: GuideAccess = {...access,module:"steamfoot"};
+    expect(findOperationGuides("確認收款",steam).map(g=>g.id)).toContain("A16");
+    expect(findOperationGuides("基本／健康資料",steam).map(g=>g.id)).toContain("C03");
+    expect(findOperationGuides("確認收款",{...steam,permissions:["booking.read"]}).map(g=>g.id)).not.toContain("A16");
   });
 });

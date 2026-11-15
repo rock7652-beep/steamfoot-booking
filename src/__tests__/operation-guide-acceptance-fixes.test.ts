@@ -5,8 +5,8 @@ const hq: GuideAccess = { module: "steamfoot", hqScope: true, permissions: ["aud
 
 describe("operation guide logged-in acceptance corrections", () => {
   it("keeps HQ recommendations scoped and permission filtered", () => {
-    expect(availableGuides(hq).map(g => g.id)).toEqual(["I11", "I12", "I18", "I19"]);
-    for (const path of ["/dashboard", "/dashboard/operation-audits"]) expect(relatedOperationGuides(path, hq).map(g => g.id)).toEqual(["I11", "I12", "I18", "I19"]);
+    expect(availableGuides(hq).map(g => g.id)).toEqual(["REF02", "I11", "I12", "I18", "I19"]);
+    for (const path of ["/dashboard", "/dashboard/operation-audits"]) expect(relatedOperationGuides(path, hq).map(g => g.id)).toEqual(["REF02", "I11", "I12", "I18", "I19"]);
     expect(availableGuides({ ...hq, permissions: ["audit.read"] }).map(g => g.id)).toEqual(["I11", "I12"]);
     expect(availableGuides({ ...hq, permissions: ["staff.manage"] })).toEqual([]);
   });
