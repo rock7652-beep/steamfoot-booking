@@ -8,6 +8,8 @@ export function calendarProxyReadOperation(method:string,url:Pick<URL,"pathname"
   if(method==="GET"&&path==="/api/bookings/detail")return "steam-booking-detail";
   if(method==="GET"&&path==="/api/beauty/roster")return "beauty-roster";
   const dashboard=/^(?:\/s\/[^/]+\/admin|\/hq)?\/dashboard\/(.+)$/.exec(path)?.[1];
+  if(method==="GET"&&dashboard==="customers/primary-read")return "customer-primary";
+  if(method==="GET"&&dashboard==="customers/summary-read")return "customer-summary";
   if(method==="POST"&&dashboard==="courses/calendar-sync")return "sports-month-sync";
   if(method==="POST"&&dashboard==="courses/calendar-read")return "course-month-read";
   if(method==="POST"&&dashboard==="courses/session-detail")return "sports-roster";
@@ -25,8 +27,9 @@ export async function traceCalendarProxyRead<T>(operation:string,work:()=>T|Prom
       const response=await work();
       timings.total=Math.round(performance.now()-started);
       if(response instanceof Response){
-        response.headers.set(operation==="steam-booking-detail"?"X-Booking-Proxy-Timing":"X-Calendar-Proxy-Timing",JSON.stringify(timings));
-        const pool=operation==="steam-booking-detail"?null:databaseConnectionPoolInfo();
+        const customer=operation==="customer-primary"||operation==="customer-summary";
+        response.headers.set(customer?"X-Customer-Proxy-Timing":operation==="steam-booking-detail"?"X-Booking-Proxy-Timing":"X-Calendar-Proxy-Timing",JSON.stringify(timings));
+        const pool=customer||operation==="steam-booking-detail"?null:databaseConnectionPoolInfo();
         if(pool)response.headers.set("X-Calendar-DB-Pool",JSON.stringify(pool));
       }
       return response;

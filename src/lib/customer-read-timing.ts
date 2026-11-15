@@ -13,17 +13,37 @@ function handlerDuration(header: string | null | undefined) {
   return value !== undefined && Number.isFinite(value) ? value : undefined;
 }
 
+/** Read only known numeric durations, never log the raw response header. */
+function proxyDurations(header: string | null | undefined): Record<string, number> {
+  if (!header || header.length > 4096) return {};
+  try {
+    const value: unknown = JSON.parse(header);
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    const result: Record<string, number> = {};
+    for (const [source, target] of [
+      ["total", "proxyMs"], ["proxy.authentication", "proxyAuthMs"],
+      ["session.staffState", "proxyStaffStateMs"], ["proxy.retiredStore", "proxyRetiredStoreMs"],
+    ]) {
+      const duration = (value as Record<string, unknown>)[source];
+      if (typeof duration === "number" && Number.isFinite(duration) && duration >= 0) result[target] = duration;
+    }
+    return result;
+  } catch { return {}; }
+}
+
 export async function readTimedCustomerJson<T>(
   operation: "primary" | "summary", url: string, init: RequestInit, errorMessage: string,
 ): Promise<T> {
   const trace = enabled();
   const started = performance.now();
   let headersMs: number | undefined, bodyMs: number | undefined, handlerMs: number | undefined;
+  let proxy: Record<string, number> = {};
   let outcome = "request-error";
   try {
     const response = await fetch(url, init);
     headersMs = Math.round(performance.now() - started);
     handlerMs = handlerDuration(response.headers?.get("Server-Timing"));
+    if (trace) proxy = proxyDurations(response.headers?.get("X-Customer-Proxy-Timing"));
     if (!response.ok) throw new Error(errorMessage);
     const bodyStarted = performance.now();
     const result = await response.json();
@@ -32,7 +52,7 @@ export async function readTimedCustomerJson<T>(
     return result as T;
   } finally {
     if (trace) report({ event: "request", operation, outcome,
-      elapsedMs: Math.round(performance.now() - started), headersMs, bodyMs, handlerMs });
+      elapsedMs: Math.round(performance.now() - started), headersMs, bodyMs, handlerMs, ...proxy });
   }
 }
 

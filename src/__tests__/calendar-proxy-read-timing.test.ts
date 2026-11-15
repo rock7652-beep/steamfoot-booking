@@ -5,6 +5,11 @@ afterEach(()=>vi.restoreAllMocks());
 it.each([
  ['GET','/api/bookings/detail?bookingId=private&storeId=secret','steam-booking-detail'],
  ['POST','/api/bookings/detail',null],['GET','/api/bookings/status',null],
+ ['GET','/s/private-store/admin/dashboard/customers/summary-read?customerId=private','customer-summary'],
+ ['GET','/hq/dashboard/customers/primary-read?customerId=private','customer-primary'],
+ ['GET','/dashboard/customers/summary-read','customer-summary'],
+ ['POST','/dashboard/customers/summary-read',null],
+ ['GET','/dashboard/customers/summary-read/extra',null],
  ['POST','/s/store/admin/dashboard/courses/calendar-sync','sports-month-sync'],
  ['POST','/hq/dashboard/courses/calendar-read','course-month-read'],
  ['GET','/hq/dashboard/courses/calendar-sync',null],
@@ -17,6 +22,20 @@ it.each([
  ['GET','/hq/dashboard/music-read?operation=purchases',null],['POST','/api/course/checkout',null],
 ])('profiles only known calendar operations: %s %s',(method,path,operation)=>{
  expect(calendarProxyReadOperation(method,new URL(path,'https://qa.test'))).toBe(operation);
+});
+
+it('measures customer proxy authentication separately and retains authorization responses',async()=>{
+ const log=vi.spyOn(console,'info').mockImplementation(()=>{});
+ let now=0;vi.spyOn(performance,'now').mockImplementation(()=>now);
+ const input=new Response('private denial',{status:403,headers:{'Cache-Control':'private, no-store','Vary':'Cookie','X-Other':'keep'}});
+ const output=await traceCalendarProxyRead('customer-summary',()=>measureMusicRead('proxy.authentication',async()=>{
+   await measureMusicRead('session.staffState',async()=>{now=450;});now=500;return input;
+ }));
+ expect(output).toBe(input);expect(output.status).toBe(403);
+ expect(output.headers.get('Cache-Control')).toBe('private, no-store');expect(output.headers.get('Vary')).toBe('Cookie');
+ expect(JSON.parse(output.headers.get('X-Customer-Proxy-Timing')!)).toMatchObject({total:500,'proxy.authentication':500,'session.staffState':450});
+ expect(output.headers.has('X-Calendar-Proxy-Timing')).toBe(false);expect(output.headers.has('X-Calendar-DB-Pool')).toBe(false);
+ expect(JSON.stringify(log.mock.calls)).not.toContain('private denial');
 });
 it('preserves the response and only attaches numeric timings',async()=>{
  vi.spyOn(console,'info').mockImplementation(()=>{});
