@@ -13,7 +13,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/admin/right-sheet", () => ({ RightSheet: ({ open, children }: {open: boolean; children: React.ReactNode}) => open ? React.createElement("section", null, children) : null }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customers-table", () => ({
   isInactiveRow: () => false,
-  CustomersTable: ({rows, onView}: {rows: CustomerRow[]; onView: (row: CustomerRow) => void}) => React.createElement("div", null, ...rows.map(row => React.createElement("button", {key: row.id, onClick: () => onView(row)}, `view ${row.name} ${row.serviceNote}`))),
+  CustomersTable: ({rows, onView, onPrefetch}: {rows: CustomerRow[]; onView: (row: CustomerRow) => void; onPrefetch: (row: CustomerRow) => void}) => React.createElement("div", null, ...rows.map(row => React.createElement("button", {key: row.id, onClick: () => onView(row), onMouseEnter: () => onPrefetch(row), onFocus: () => onPrefetch(row), onTouchStart: () => onPrefetch(row)}, `view ${row.name} ${row.serviceNote}`))),
 }));
 vi.mock("@/app/(dashboard)/dashboard/customers/_components/customer-detail-drawer-content", () => ({
   CustomerDetailDrawerContent: ({customer, onMutated, onClose}: {customer: {name: string}; onMutated: () => void; onClose: () => void}) => React.createElement("div", null,
@@ -104,4 +104,28 @@ it("ignores a selection from another route and removes the listener on unmount",
   expect(host.querySelector("section")).toBeNull();
   await act(async () => root.render(null));
   expect(requestCustomerDrawerOpen("a", "/dashboard/customers")).toBe(false);
+});
+
+it.each(['mouseover', 'focusin', 'touchstart'])("keeps a foreground slot after two %s prefetches", async (eventName) => {
+  vi.useFakeTimers();
+  const releases: Array<() => void> = [];
+  m.detail.mockImplementation((id: string) => id === 'c'
+    ? Promise.resolve({success:true,data:{id,name:'C'}})
+    : new Promise(done => { releases.push(() => done({success:true,data:{id,name:id.toUpperCase()}})); }));
+  try {
+    await render([...rows, {id:'c',name:'C',serviceNote:'old'} as CustomerRow]);
+    const buttons = host.querySelectorAll('button');
+    await act(async () => buttons[0].dispatchEvent(new Event(eventName, {bubbles:true})));
+    await act(async () => buttons[1].dispatchEvent(new Event(eventName, {bubbles:true})));
+    await click('view C old');
+    expect(m.detail).toHaveBeenCalledWith('c');
+    expect(host.querySelector('strong')?.textContent).toBe('C');
+    // Late speculative work must not replace the selected customer's data.
+    await act(async () => releases.forEach(release => release()));
+    expect(host.querySelector('strong')?.textContent).toBe('C');
+    expect(m.summary).toHaveBeenCalledWith('c');
+  } finally {
+    await act(async () => releases.forEach(release => release()));
+    vi.useRealTimers();
+  }
 });

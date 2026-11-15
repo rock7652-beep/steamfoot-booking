@@ -139,8 +139,8 @@ export function CustomersListWithDrawer({
   }, [cache, requestGate,readDetail]);
 
   const prefetchDetail = useCallback((customerId: string) => {
-    // Hover/focus failures stay silent; an actual open always allows retry.
-    void readDetail(customerId).catch(()=>{});
+    // Speculative hover/focus/touch reads must leave capacity for actual opens.
+    void readDetail(customerId, false).catch(()=>{});
   }, [readDetail]);
 
   // 開啟：cache 命中即時填入；未命中先 skeleton + 背景 fetch。
