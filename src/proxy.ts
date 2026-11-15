@@ -3,6 +3,7 @@ import { courseAgreementPublicBoundary } from '@/lib/course-agreement-public-bou
 import {digitalManagerCronPreviewPathAllowed} from "../scripts/digital-manager-cron-preview-scope.mjs";
 import {calendarProxyReadOperation,traceCalendarProxyRead} from "@/lib/calendar-proxy-read-timing";
 import {measureMusicRead} from "@/lib/music-read-timing";
+import {parallelCustomerProxyChecks} from "@/lib/customer-proxy-checks";
 import { isRetiredModuleRoute } from "@/lib/retired-module-routes";
 import { legacyOperationsDestination } from "@/lib/operations-navigation";
 import { beautySandboxRewriteUrl } from "../scripts/beauty-sandbox-qa-scope.mjs";
@@ -804,8 +805,12 @@ function dispatchProxy(...args: Parameters<typeof authenticatedProxy>) {
   const retirement = retiredStoreBoundary(req, DOMAIN_STORE_MAP[host]);
   const profiling=calendarProxyReadOperation(req.method,req.nextUrl);
   const authenticate=()=>profiling?measureMusicRead("proxy.authentication",async()=>authenticatedProxy(...args)):authenticatedProxy(...args);
-  return retirement
-    ? (profiling?measureMusicRead("proxy.retiredStore",()=>retirement):retirement).then(response => response ?? authenticate())
+  const retirementRead=retirement&&(profiling?measureMusicRead("proxy.retiredStore",()=>retirement):retirement);
+  // Only these read-only customer endpoints overlap the two independent checks.
+  if(retirementRead&&(profiling==="customer-primary"||profiling==="customer-summary"))
+    return parallelCustomerProxyChecks(retirementRead,authenticate);
+  return retirementRead
+    ? retirementRead.then(response => response ?? authenticate())
     : authenticate();
 }
 
