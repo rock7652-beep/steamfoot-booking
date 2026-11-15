@@ -3,6 +3,7 @@ import {SteamCustomerHealthTracking} from "@/components/steam-customer-health-tr
 import { useEffect, useRef, useState } from "react";
 import type { CustomerPanelSummary } from "@/server/actions/customer-panel-summary";
 import { readCustomerPanelSummary } from "@/lib/customer-panel-summary-read";
+import { reportSummaryCommit } from "@/lib/customer-read-timing";
 import { confirmTransactionPayment } from "@/server/actions/transaction";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { formatTWTime } from "@/lib/date-utils";
@@ -38,6 +39,7 @@ export function CustomerPanelSummaryView({customerId,readOnly,onMutated,revision
     return()=>{gate.current++;clearTimeout(timeout);controller.abort();};
   },[customerId,revision,initialData,initialRead,attempt]);
   useEffect(()=>{if(data)onHealthEnabled?.(data.healthEnabled);},[data,onHealthEnabled]);
+  useEffect(()=>{if(data && revision===0 && attempt===0)reportSummaryCommit(initialRead);},[data,revision,attempt,initialRead]);
   async function receive(id:string) {
     if(pending)return;
     setPending(true);setPaymentError("");

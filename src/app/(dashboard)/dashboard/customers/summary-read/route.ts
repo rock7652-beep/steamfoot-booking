@@ -9,7 +9,8 @@ export async function GET(request: Request) {
   try {
     // The existing action independently checks customer.read, active/viewed
     // store, merged/suspended customer and each summary permission.
-    return Response.json(await getCustomerPanelSummary(id), { headers });
+    const result = await getCustomerPanelSummary(id);
+    return Response.json(result, { headers: { ...headers, "Server-Timing": `summary;dur=${timer.totalMs}` } });
   } finally {
     timer.finish();
   }
