@@ -47,3 +47,21 @@ it("reports each tracked selection only once and does not mix separate promises"
   reportSummaryCommit(second);reportSummaryCommit(second);reportSummaryCommit(first);
   expect(log.mock.calls.map(call=>JSON.parse(call[1]).selectionToCommitMs)).toEqual([200,400]);
 });
+
+it('logs only allowlisted finite numeric proxy durations',async()=>{
+ window.history.replaceState(null,'','/dashboard/customers?customerReadTiming=1');
+ const log=vi.spyOn(console,'info').mockImplementation(()=>{});
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,headers:new Headers({'X-Customer-Proxy-Timing':JSON.stringify({total:500,'proxy.authentication':490,'session.staffState':450,'proxy.retiredStore':-1,'private-name':'private-value','proxy.authentication.count':1})}),json:async()=>({success:true})})));
+ await readTimedCustomerJson('summary','/private-url',{},'read failed');
+ expect(JSON.parse(log.mock.calls[0][1])).toMatchObject({proxyMs:500,proxyAuthMs:490,proxyStaffStateMs:450});
+ expect(JSON.stringify(log.mock.calls)).not.toMatch(/private-|proxyRetiredStoreMs|count/);
+});
+
+it.each(['invalid-private-header','null','[]','{"total":"private"}', '{"total":1e999}', 'x'.repeat(4097)])('does not break a read on an invalid proxy header',async header=>{
+ window.history.replaceState(null,'','/dashboard/customers?customerReadTiming=1');
+ const log=vi.spyOn(console,'info').mockImplementation(()=>{});
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,headers:new Headers({'X-Customer-Proxy-Timing':header}),json:async()=>({success:true})})));
+ expect(await readTimedCustomerJson('summary','/read',{},'failed')).toEqual({success:true});
+ expect(JSON.parse(log.mock.calls[0][1])).not.toHaveProperty('proxyMs');
+ expect(JSON.stringify(log.mock.calls)).not.toContain('private');
+});
