@@ -3,6 +3,7 @@ import {useRef,useState} from 'react';
 import {toast} from 'sonner';
 import {formatTWDateTime,toLocalDateStr} from '@/lib/date-utils';
 import {activeSessionAdjustments,type BackfillDuplicateReview,type SessionAdjustmentInput,type SessionAdjustmentHistoryRecord,type SessionAdjustmentResult} from '@/lib/plan-session-adjustment';
+import {PlanDateInput} from './plan-date-input';
 import type {ManagedPlan} from './plan-management-controls';
 
 export type SessionAdjustmentPort={
@@ -58,10 +59,10 @@ export function PlanSessionAdjustment({storeId,card,port,unitLabel,onPending,onD
     {port.blockedReason?<p role="status">{port.blockedReason}</p>:<>
       {operation==='REVERSE'?<p>更正「{original?.operation==='BACKFILL'?backfillLabel:voidLabel}」紀錄，返還 {amount} {unitLabel}。原紀錄保留。</p>:!compact&&<label className="block">調整類型<select className={field+' mt-1'} aria-label="調整類型" disabled={blocked} value={operation} onChange={e=>{setOperation(e.target.value as 'BACKFILL'|'VOID');onDirtyChange?.(true);}}><option value="BACKFILL">{backfillLabel}</option><option value="VOID">{voidLabel}</option></select></label>}
       {port.members.length>1?<label className="block">{service?'顧客':'學員／顧客'}<select className={field+' mt-1'} aria-label={service?'調整顧客':'調整學員'} disabled={blocked||operation==='REVERSE'} value={customerId} onChange={e=>{setCustomerId(e.target.value);onDirtyChange?.(true);}}><option value="">請選擇</option>{port.members.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>:!compact&&<p>{port.members[0]?.name}</p>}
-      <div className="grid min-w-0 grid-cols-2 gap-2 @min-[560px]:grid-cols-3">
-        <label className="block">{quantityLabel}<input type="number" aria-label="調整數量" className={field+' mt-1'} min={1} max={operation==='REVERSE'?1000:available} step={1} value={quantity} disabled={blocked||operation==='REVERSE'} onChange={e=>{setQuantity(e.target.value);onDirtyChange?.(true);}}/></label>
-        {operation==='BACKFILL'&&<label className="block">{dateLabel}<input type="date" aria-label={dateLabel} className={field+' mt-1'} max={toLocalDateStr()} value={date} disabled={blocked} onChange={e=>{setDate(e.target.value);onDirtyChange?.(true);}}/></label>}
-      <label className="col-span-2 block @min-[560px]:col-span-1">原因（選填）<textarea style={{minHeight:44,height:44}} rows={1} aria-label="調整原因（選填）" className={field+' mt-1 resize-y'} maxLength={500} value={reason} disabled={blocked} onChange={e=>{setReason(e.target.value);onDirtyChange?.(true);}}/></label></div>
+      <div className="grid min-w-0 grid-cols-1 gap-2 @min-[320px]:grid-cols-2 @min-[560px]:grid-cols-3">
+        <label className="block min-w-0">{quantityLabel}<input type="number" aria-label="調整數量" className={field+' mt-1'} min={1} max={operation==='REVERSE'?1000:available} step={1} value={quantity} disabled={blocked||operation==='REVERSE'} onChange={e=>{setQuantity(e.target.value);onDirtyChange?.(true);}}/></label>
+        {operation==='BACKFILL'&&<label className="block min-w-0">{dateLabel}<PlanDateInput aria-label={dateLabel} className="mt-1" max={toLocalDateStr()} value={date} disabled={blocked} onChange={e=>{setDate(e.target.value);onDirtyChange?.(true);}}/></label>}
+      <label className="col-span-1 block min-w-0 @min-[320px]:col-span-2 @min-[560px]:col-span-1">原因（選填）<textarea style={{minHeight:44,height:44}} rows={1} aria-label="調整原因（選填）" className={field+' mt-1 resize-y'} maxLength={500} value={reason} disabled={blocked} onChange={e=>{setReason(e.target.value);onDirtyChange?.(true);}}/></label></div>
       <p className="text-earth-600" aria-live="polite">剩餘 {remaining} → {Number.isInteger(amount)&&amount>0?remaining+(operation==='REVERSE'?amount:-amount):'—'} {unitLabel}{operation!=='REVERSE'&&`；目前可調整 ${available} ${unitLabel}（不含預約占用）`}。</p>
       {!compact&&<p className="text-earth-600">{operation==='BACKFILL'?(service?'補記實際服務並扣除方案額度；不新增收款、薪資或業績。':'補記實際上課並扣除方案額度；不新增收款、薪資或業績。'):operation==='VOID'?(service?'僅收回方案額度，不記為服務，也不自動退款。':'僅收回方案額度，不記為上課，也不自動退款。'):'以新紀錄返還額度，不刪除原紀錄。'}</p>}
     </>}

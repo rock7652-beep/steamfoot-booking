@@ -1,6 +1,6 @@
 "use client";
 
-import {useState,type ReactNode} from "react";
+import {useState,type ReactNode,type Ref} from "react";
 import {CustomerPhoneLink} from "@/components/customer-detail-fields";
 import {ExclusiveMenu} from "./exclusive-menu";
 import {getLineNotificationStatus,lineNotificationShortLabel} from "@/lib/line-notification-status";
@@ -22,10 +22,10 @@ export function CustomerRecordsFilter({value,onChange,canReadBookings,canReadTra
 }
 
 /** Shared profile chrome; permissions, reads and writes stay with each module. */
-export function CustomerProfileHeader({name,labelledById,busy,editing,onEdit,onBack,onClose,more,actions}:{
-  name:string;labelledById:string;busy:boolean;editing:boolean;onEdit?:()=>void;onBack:()=>void;onClose:()=>void;more?:ReactNode;actions?:ReactNode;
+export function CustomerProfileHeader({name,labelledById,busy,editing,onEdit,onBack,onClose,more,actions,headerRef}:{
+  name:string;labelledById:string;busy:boolean;editing:boolean;onEdit?:()=>void;onBack:()=>void;onClose:()=>void;more?:ReactNode;actions?:ReactNode;headerRef?:Ref<HTMLElement>;
 }) {
-  return <header className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-earth-100 px-4 py-2">
+  return <header ref={headerRef} tabIndex={-1} className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-earth-100 px-4 py-2 outline-none">
     <div className="flex min-w-0 flex-1 items-start gap-1">
       <h2 id={labelledById} className="min-w-0 break-words py-3 text-base font-semibold text-primary-900">{name}</h2>
       {onEdit&&!editing&&<button type="button" aria-label="編輯顧客資料" disabled={busy} onClick={onEdit} className="min-h-11 min-w-11 shrink-0 rounded-lg text-primary-700 disabled:opacity-50">✎</button>}
@@ -38,20 +38,20 @@ export function CustomerProfileHeader({name,labelledById,busy,editing,onEdit,onB
   </header>;
 }
 
-export function CustomerProfileIdentity({phone,connection,labels,actions}:{phone:string;connection?:ReactNode;labels:ReactNode;actions:ReactNode}) {
+export function CustomerProfileIdentity({phone,connection,labels,actions,details,attribution}:{phone:string;connection?:ReactNode;labels:ReactNode;actions:ReactNode;details?:ReactNode;attribution?:ReactNode}) {
   return <section aria-label="顧客聯絡與常用操作" className="space-y-1 pb-1">
     <div className="flex min-w-0 flex-wrap items-start gap-x-4 gap-y-1"><CustomerPhoneLink phone={phone}/>{connection}</div>
+    {(details||attribution)&&<section aria-label="基本資料" className="min-w-0 space-y-1 text-sm">{details}{attribution}</section>}
     {labels}
     <div className="flex flex-wrap gap-2">{actions}</div>
   </section>;
 }
 
-export function CustomerOverviewBody({next,cards,attribution,note,details,actions}:{
-  next?:ReactNode;cards?:ReactNode;attribution?:ReactNode;note?:ReactNode;details?:ReactNode;actions?:ReactNode;
+export function CustomerOverviewBody({next,cards,note,actions}:{
+  next?:ReactNode;cards?:ReactNode;note?:ReactNode;actions?:ReactNode;
 }) {
   return <section aria-label="顧客總覽" className="space-y-2 pt-2">
-    {next}{cards}{attribution}
-    {details&&<section aria-label="基本資料" className="border-t border-earth-100 py-2 text-sm">{details}</section>}
+    {next}{cards}
     {note}{actions}
   </section>;
 }

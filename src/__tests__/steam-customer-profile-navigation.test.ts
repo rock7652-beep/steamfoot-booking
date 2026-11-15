@@ -73,3 +73,11 @@ it('keeps the expired steam editor mounted until its pending transaction is conf
  await click('確認交易結果');expect(collapse.disabled).toBe(false);expect(host.querySelector('[data-plan-action]')).toBe(editor);
  await click('收合歷史方案');expect(host.querySelector('[data-plan-action]')).toBeNull();
 });
+
+
+it('keeps one editable attribution with contact details above plans inside the scroll area',async()=>{
+ await act(async()=>root.render(createElement(CustomerDetailDrawerContent,props)));
+ const header=host.querySelector('header')!,identity=host.querySelector('[aria-label="顧客聯絡與常用操作"]')!,attribution=host.querySelector('[aria-label="顧客歸屬"]')!,grid=host.querySelector('[data-grid]')!;
+ expect(identity.contains(attribution)).toBe(true);expect(header.contains(identity)).toBe(false);expect(identity.closest('.overflow-y-auto')).not.toBeNull();expect(attribution.compareDocumentPosition(grid)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();expect(host.querySelectorAll('[aria-label="顧客歸屬"]')).toHaveLength(1);expect(header.textContent).not.toContain('LINE 通知');
+ await click('編輯');expect(attribution.querySelector('[data-editor="attribution"]')).not.toBeNull();expect(host.querySelector('[data-grid]')).toBe(grid);
+});
