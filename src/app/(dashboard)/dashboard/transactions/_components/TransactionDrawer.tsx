@@ -733,7 +733,7 @@ export function TransactionDrawer({
                 <textarea
                   value={voidReason}
                   onChange={(e) => setVoidReason(e.target.value)}
-                  placeholder="取消原因（必填）"
+                  placeholder="取消原因（選填）"
                   rows={3}
                   maxLength={500}
                   className="w-full rounded border border-earth-300 px-2 py-1 text-sm focus:outline-none focus:border-primary-400"
@@ -748,7 +748,7 @@ export function TransactionDrawer({
                   </button>
                   <button
                     type="button"
-                    disabled={isPending || !voidReason.trim()}
+                    disabled={isPending}
                     onClick={handleVoidConfirm}
                     className="inline-flex min-h-10 items-center rounded bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-50"
                   >

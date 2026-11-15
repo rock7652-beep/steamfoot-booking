@@ -1,11 +1,12 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({manager:vi.fn(),feature:vi.fn(),tx:vi.fn(),find:vi.fn(),refund:vi.fn(),confirm:vi.fn(),settlement:vi.fn()}));
+const m=vi.hoisted(()=>({manager:vi.fn(),feature:vi.fn(),tx:vi.fn(),find:vi.fn(),refund:vi.fn(),confirm:vi.fn(),settlement:vi.fn(),correct:vi.fn()}));
 vi.mock('next/cache',()=>({revalidatePath:vi.fn()}));
 vi.mock('@/server/beauty/access',()=>({beautyManager:m.manager,beautyTransaction:m.tx}));
 vi.mock('@/lib/feature-gate',()=>({requireStoreFeature:m.feature}));
+vi.mock('@/server/beauty/transaction-correction',()=>({correctBeautyTransaction:m.correct}));
 vi.mock('@/server/beauty/commerce',()=>({refund:m.refund}));
 vi.mock('@/server/actions/beauty',()=>({confirmBeautyPurchase:m.confirm,confirmBeautySettlement:m.settlement}));
-import {refundBeautyNativeTransaction,confirmBeautyNativeTransaction,confirmBeautyNativeSettlement} from '@/server/actions/beauty-native-transactions';
+import {refundBeautyNativeTransaction,confirmBeautyNativeTransaction,confirmBeautyNativeSettlement,voidBeautyNativeTransaction,editBeautyNativeTransaction} from '@/server/actions/beauty-native-transactions';
 const a={storeId:'a',userId:'owner',manager:true},key='00000000-0000-4000-8000-000000000001';
 const input={purchaseId:'payment',expectedStoreId:'a',requestKey:key,amount:500,method:'OTHER',reason:'協商退款',expectedRemaining:5,expectedRefundedAmount:0};
 const tx={beautyPayment:{findFirst:m.find}};
@@ -16,3 +17,12 @@ it('cannot refund a foreign sale or a card without its read permission',async()=
 it('keeps transaction and feature checks on all native commands',async()=>{m.manager.mockRejectedValue(Error('denied'));expect(await refundBeautyNativeTransaction(input)).toMatchObject({success:false});expect(await confirmBeautyNativeTransaction(input)).toMatchObject({success:false});expect(await confirmBeautyNativeSettlement({expectedStoreId:'a',requestKey:key,month:'2026-10',fingerprint:'a'.repeat(64)})).toMatchObject({success:false});expect(m.refund).not.toHaveBeenCalled();expect(m.confirm).not.toHaveBeenCalled();expect(m.settlement).not.toHaveBeenCalled();});
 it('routes pending-order confirmation through the existing idempotent issuer',async()=>{await confirmBeautyNativeTransaction(input);expect(m.confirm).toHaveBeenCalledWith({id:'payment',requestKey:key});expect(await confirmBeautyNativeTransaction({...input,expectedStoreId:'other'})).toMatchObject({success:false});expect(m.confirm).toHaveBeenCalledTimes(1);});
 it('preserves the fingerprint and stable request key for monthly confirmation',async()=>{const payload={expectedStoreId:'a',requestKey:key,month:'2026-10',fingerprint:'a'.repeat(64)};await confirmBeautyNativeSettlement(payload);expect(m.settlement).toHaveBeenCalledWith(payload);expect(m.manager).toHaveBeenCalledWith('teacher.settlement.confirm',true);});
+
+it.each([undefined,'','   '])('accepts an optional native void reason: %j',async reason=>{
+ expect(await voidBeautyNativeTransaction({purchaseId:'payment',expectedStoreId:'a',requestKey:key,expectedRevision:0,...(reason===undefined?{}:{reason})})).toMatchObject({success:true});
+ expect(m.correct).toHaveBeenCalledWith(tx,a,expect.objectContaining({operation:'void',reason:''}));
+});
+it('keeps reasons required for native metadata corrections',async()=>{
+ expect(await editBeautyNativeTransaction({purchaseId:'payment',expectedStoreId:'a',requestKey:key,expectedRevision:0,note:'備註',revenueStaffId:null})).toMatchObject({success:false});
+ expect(m.correct).not.toHaveBeenCalled();
+});

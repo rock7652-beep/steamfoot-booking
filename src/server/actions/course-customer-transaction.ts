@@ -30,6 +30,6 @@ export async function loadCourseCustomerTransaction(input:unknown){
   const order=result.rows[0];
   if(!order)throw new AppError("NOT_FOUND","此交易不在目前資料範圍");
   const readOnly=actor.isChildStoreView||view?.isViewMode||data.dataScope==="legacy";
-  return {success:true as const,order,staffOptions:staff.map(s=>({id:s.id,name:s.displayName})),canRefund:!readOnly&&permissions[0],canConfirm:!readOnly&&permissions[1],canEdit:!readOnly&&permissions[2],canVoid:!readOnly&&permissions[3]&&order.tuitionDue===undefined};
+  return {success:true as const,order,staffOptions:staff.map(s=>({id:s.id,name:s.displayName})),canRefund:!readOnly&&permissions[0],canConfirm:!readOnly&&permissions[1],canEdit:!readOnly&&permissions[2],canVoid:!readOnly&&permissions[3]};
  }catch(error){const result=handleActionError(error);return {success:false as const,error:result.success?"交易讀取失敗":result.error};}
 }

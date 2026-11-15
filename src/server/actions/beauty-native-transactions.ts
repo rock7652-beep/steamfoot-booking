@@ -39,7 +39,7 @@ export async function confirmBeautyNativeSettlement(input:unknown){
 const correction=z.object({purchaseId:key,expectedStoreId:key,requestKey:z.string().uuid(),expectedRevision:z.number().int().nonnegative(),reason:z.string().trim().min(1).max(500)});
 async function correct(input:unknown,operation:'edit'|'void'){
  try{
-  const d=(operation==='edit'?correction.extend({note:z.string().trim().max(500),revenueStaffId:key.nullable()}):correction).parse(input);
+  const d=(operation==='edit'?correction.extend({note:z.string().trim().max(500),revenueStaffId:key.nullable()}):correction.extend({reason:z.string().trim().max(500).optional().default('')})).parse(input);
   const a=await beautyManager(operation==='edit'?'transaction.create':'transaction.void',true);await requireStoreFeature(a.storeId,FEATURES.TRANSACTION_MANAGEMENT);
   if(a.storeId!==d.expectedStoreId)throw new AppError('CONFLICT','目前門市已切換，請重新開啟交易');
   await beautyTransaction(a,async tx=>{

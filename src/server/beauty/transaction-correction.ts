@@ -44,15 +44,15 @@ export async function correctBeautyTransaction(tx:Tx,a:BeautyActor,input:Input&{
     const receipts=await tx.$queryRaw<{amount:unknown;type:string;paymentMethod:string;entryDate:Date}[]>`SELECT amount,type::text,"paymentMethod"::text,"entryDate" FROM "CashbookEntry" WHERE id=${'beauty:'+payment.id} AND "storeId"=${a.storeId} FOR UPDATE`;
     const receipt=receipts[0];
     if(!receipt||Number(receipt.amount)!==payment.amount||receipt.type!=='INCOME'||receipt.paymentMethod!==(payment.method==='CASH'?'CASH':'OTHER'))throw new AppError('CONFLICT','原收款與收支帳不一致，尚未作廢');
-    if(payment.method==='CASH')await lockCashDay(tx,a.storeId,receipt.entryDate,{requireOpen:true});
-    await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") SELECT ${'beauty-void:'+payment.id},"storeId","entryDate",'EXPENSE',"paymentMethod",'美業誤建沖銷',amount,${'作廢：'+input.reason},${a.userId},NOW() FROM "CashbookEntry" WHERE id=${'beauty:'+payment.id} AND "storeId"=${a.storeId}`;
+    if(payment.method==='CASH')await lockCashDay(tx,a.storeId,receipt.entryDate,{requireOpen:true,allowClosedSupplement:true});
+    await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") SELECT ${'beauty-void:'+payment.id},"storeId","entryDate",'EXPENSE',"paymentMethod",'美業誤建沖銷',amount,${input.reason?'作廢：'+input.reason:'交易作廢'},${a.userId},NOW() FROM "CashbookEntry" WHERE id=${'beauty:'+payment.id} AND "storeId"=${a.storeId}`;
    }
    await tx.beautyCard.update({where:{id:card.id},data:{remaining:0,closedAt:new Date()}});
    await tx.beautyLedger.create({data:{storeId:a.storeId,cardId:card.id,kind:'VOID',delta:-card.remaining,actorUserId:a.userId}});
    await tx.beautyPurchase.updateMany({where:{storeId:a.storeId,cardId:card.id},data:{status:'VOIDED'}});
   }
   const originalStaff=input.operation==='void'&&!prior&&payment?.cardId?(await beautyCardSaleAttribution(tx,a.storeId)).get(payment.cardId)??null:null;
-  const correction={storeId:a.storeId,transactionId:row.id,revision:(prior?.revision??0)+1,note:input.operation==='edit'?input.note!:prior?.note??payment?.note??'',revenueStaffId:input.operation==='edit'?input.revenueStaffId??null:prior?prior.revenueStaffId:originalStaff,voidedAt:input.operation==='void'?new Date():null,voidReason:input.operation==='void'?input.reason:null,actorUserId:a.userId!};
+  const correction={storeId:a.storeId,transactionId:row.id,revision:(prior?.revision??0)+1,note:input.operation==='edit'?input.note!:prior?.note??payment?.note??'',revenueStaffId:input.operation==='edit'?input.revenueStaffId??null:prior?prior.revenueStaffId:originalStaff,voidedAt:input.operation==='void'?new Date():null,voidReason:input.operation==='void'?(input.reason||null):null,actorUserId:a.userId!};
   await tx.beautyTransactionRevision.create({data:correction});
   await audit(tx,a,input.operation==='edit'?'EDIT_TRANSACTION':'VOID_TRANSACTION',JSON.stringify({id:row.id,before:{note:prior?.note??payment?.note??'',revenueStaffId:prior?.revenueStaffId??null,revision:prior?.revision??0},...input}));
   return {id:row.id};
