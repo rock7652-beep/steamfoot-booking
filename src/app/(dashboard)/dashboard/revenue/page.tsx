@@ -179,7 +179,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         <span
           className={`tabular-nums text-sm ${isVoidedTransaction(transaction) ? "text-earth-400" : "text-earth-800"}`}
         >
-          {formatTWTime(transaction.createdAt, { dateOnly: true })}
+          {formatTWTime(transaction.transactionDate, { dateOnly: true })}
         </span>
       ),
     },

@@ -70,7 +70,7 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
     } : {}),
     ...(dateFrom || dateTo
       ? {
-          createdAt: {
+          transactionDate: {
             ...(dateFrom ? { gte: dayRange(dateFrom).start } : {}),
             ...(dateTo ? { lte: dayRange(dateTo).end } : {}),
           },

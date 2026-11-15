@@ -23,7 +23,7 @@ import {GET as api} from '@/app/api/reports/store-revenue/route';
 import {GET as monthlyCsv} from '@/app/api/export/store-monthly/route';
 import {GET as excel} from '@/app/api/reports/export/route';
 const filters={startDate:'2026-10-01',endDate:'2026-10-29',storeFilter:{storeId:'store'}};
-const payment=(id:string,type:string,amount:number)=>({id,transactionType:type,amount,planType:'PACKAGE',planNameSnapshot:'十次方案',customerId:'customer',customer:{name:'私人姓名',phone:'0900000000'},revenueStaffId:'staff',revenueStaff:{displayName:'店長',user:{role:'OWNER'}},soldByStaff:{displayName:'店長'},paymentMethod:'CASH',paymentSplits:[],createdAt:new Date('2026-10-01T02:00:00Z'),transactionDate:new Date('2026-09-01T00:00:00Z'),isFirstPurchase:false,note:'私人備註'});
+const payment=(id:string,type:string,amount:number)=>({id,transactionType:type,amount,planType:'PACKAGE',planNameSnapshot:'十次方案',customerId:'customer',customer:{name:'私人姓名',phone:'0900000000'},revenueStaffId:'staff',revenueStaff:{displayName:'店長',user:{role:'OWNER'}},soldByStaff:{displayName:'店長'},paymentMethod:'CASH',paymentSplits:[],createdAt:new Date('2026-10-01T02:00:00Z'),transactionDate:new Date('2026-10-01T02:00:00Z'),isFirstPurchase:false,note:'私人備註'});
 const cash=(id:string,category:string,type:string,amount:number)=>({id,category,type,amount,entryDate:new Date('2026-10-29T00:00:00Z'),createdAt:new Date('2026-10-29T02:00:00Z'),customerId:'customer',customer:{name:'私人姓名',phone:'0900000000'},staffId:'staff',staff:{displayName:'店長',user:{role:'OWNER'}},createdBy:{name:'店長'},paymentMethod:'OTHER',note:'私人備註'});
 beforeEach(()=>{
  vi.resetAllMocks();m.permission.mockResolvedValue(true);m.feature.mockResolvedValue(true);m.view.mockResolvedValue(null);m.module.mockResolvedValue('steamfoot');
@@ -36,7 +36,7 @@ it('nets original receipts, replacements, corrections and later refunds once',as
  expect(report.classification).toEqual({trial:0,single:0,plan:1000,supplement:0,retail:1000,other:50});
  expect(report.data.find(r=>r.id==='sale')?.transactionDate).toBe('2026-10-01');
  expect(report.data.find(r=>r.receiptKind==='CORRECTION')).toMatchObject({netAmount:-500,receiptSource:'INVENTORY'});
- expect(m.transactions.mock.calls[0][0].where.createdAt.lte).toEqual(new Date('2026-10-29T15:59:59.999Z'));
+ expect(m.transactions.mock.calls[0][0].where.transactionDate.lte).toEqual(new Date('2026-10-29T15:59:59.999Z'));
  expect(m.cash.mock.calls[0][0].where.entryDate).toEqual({gte:new Date('2026-10-01T00:00:00Z'),lte:new Date('2026-10-29T00:00:00Z')});
 });
 it('redacts customer identities and notes while retaining financial source IDs',async()=>{
@@ -83,4 +83,10 @@ it('returns a permission error instead of an empty or partial financial report',
  m.finance.mockRejectedValue(new AppError('FORBIDDEN','無完整財務檢視權限'));
  expect((await api(new NextRequest('https://local/api/reports/store-revenue?startDate=2026-10-01&endDate=2026-10-29'))).status).toBe(403);
  expect((await excel(new NextRequest('https://local/api/reports/export?startDate=2026-10-01&endDate=2026-10-29'))).status).toBe(403);expect(m.transactions).not.toHaveBeenCalled();
+});
+
+it('reports a replacement on its original business date and retains the actual creation time for audit',async()=>{
+ m.transactions.mockResolvedValue([{...payment('replacement','PACKAGE_PURCHASE',5990),transactionDate:new Date('2026-10-14T04:00:00Z'),createdAt:new Date('2026-11-15T04:00:00Z')}]);m.cash.mockResolvedValue([]);
+ const report=await getSteamfootRevenueReport('store',filters,{customers:true,reader:user as never});
+ expect(report.data[0]).toMatchObject({transactionDate:'2026-10-14',sourceCreatedAt:'2026-11-15T04:00:00.000Z'});
 });

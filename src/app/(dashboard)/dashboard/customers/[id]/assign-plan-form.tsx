@@ -36,16 +36,18 @@ interface Props {
   onPendingChange?: (pending: boolean) => void;
   /** PR-5.5：預選方案（用於「續購同方案」）。改變時需要搭配 key 強制重 mount。 */
   defaultPlanId?: string;
+  replacementOfTransactionId?: string;
+  defaultPaymentMethod?: PaymentMethod;
 }
 
 type PaymentMethod = "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER" | "UNPAID";
 type StaffPaymentStatus = "CONFIRMED" | "PENDING";
 
-export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysOpen = false, onSuccess, onPendingChange, defaultPlanId }: Props) {
+export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysOpen = false, onSuccess, onPendingChange, defaultPlanId, replacementOfTransactionId, defaultPaymentMethod = "CASH" }: Props) {
   const submitting = useRef(false);
   const [open, setOpen] = useState(alwaysOpen);
   const [selectedPlanId, setSelectedPlanId] = useState(defaultPlanId ?? "");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(defaultPaymentMethod);
   const [paymentSplits, setPaymentSplits] = useState<PaymentSplitInput[] | undefined>();
   const [paymentSplitsValid, setPaymentSplitsValid] = useState(true);
   const [paymentStatus, setPaymentStatus] = useState<StaffPaymentStatus>("CONFIRMED");
@@ -121,6 +123,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
         const result = await assignPlanToCustomer({
           customerId,
           planId,
+          replacementOfTransactionId,
           paymentMethod,
           paymentSplits,
           paymentStatus,
@@ -141,7 +144,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
             expiryMode === "CUSTOM_DATE" ? customExpiryDate : undefined,
         });
         if (result.success) {
-          const msg = isPending
+          const msg = replacementOfTransactionId ? "正確收費已補登，營收與堂數已更新" : isPending
             ? "方案已建立，請至「待確認付款」確認入帳"
             : "方案已成功指派";
           toast.success(msg);
@@ -165,6 +168,10 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
         }
         toast.error(result.error ?? "指派失敗");
         return { error: result.error ?? "發生錯誤" };
+      } catch {
+        const error = "送出結果尚未確認，請保留原內容重試";
+        toast.error(error);
+        return { error };
       } finally { submitting.current = false; }
     },
     { error: null }
@@ -189,11 +196,12 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
       if (submitting.current) { event.preventDefault(); return; }
       submitting.current = true;
     }} action={action} className="rounded-lg border border-primary-200 bg-primary-50 p-4">
-      <h3 className="mb-3 text-sm font-semibold text-primary-800">指派課程方案</h3>
+      <h3 className="mb-3 text-sm font-semibold text-primary-800">{replacementOfTransactionId ? "補登正確收費" : "指派課程方案"}</h3>
       {state.error && (
         <p className="mb-2 rounded bg-red-50 px-2 py-1 text-xs text-red-600">{state.error}</p>
       )}
 
+      <fieldset disabled={pending} className="min-w-0">
       {/* 方案選擇 */}
       <div className="mb-3">
         <label className="block text-xs font-medium text-earth-600">課程方案</label>
@@ -235,7 +243,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
           <option value="LINE_PAY">LINE Pay</option>
           <option value="CREDIT_CARD">信用卡</option>
           <option value="OTHER">其他</option>
-          <option value="UNPAID">未付款</option>
+          {!replacementOfTransactionId && <option value="UNPAID">未付款</option>}
         </select>
       </div>
 
@@ -250,7 +258,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
       )}
 
       {/* 款項狀態：後台由店長核帳，預設已確認收款 */}
-      <div className="mb-3">
+      {!replacementOfTransactionId && <div className="mb-3">
         <label className="block text-xs font-medium text-earth-600">款項狀態</label>
         <select
           value={paymentStatus}
@@ -273,7 +281,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
             ? "送出後會進入待確認付款清單，暫不發放堂數。"
             : "店長已確認收到款項，送出後立即發放堂數。"}
         </p>
-      </div>
+      </div>}
 
       {/* 轉帳參考資訊（TRANSFER / UNPAID 才顯示；optional）*/}
       {showsTransferDetails && (
@@ -533,7 +541,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
               處理中...
             </span>
           ) : (
-            "確認購買"
+            replacementOfTransactionId ? "確認補登" : "確認購買"
           )}
         </button>
         {!alwaysOpen && (
@@ -559,6 +567,7 @@ export function AssignPlanForm({ customerId, plans, canDiscount = false, alwaysO
           </button>
         )}
       </div>
+      </fieldset>
     </form>
   );
 }

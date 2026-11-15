@@ -4,6 +4,8 @@ import { activationExpiry } from "@/lib/plan-activation-notification";
 import { kickPlanActivationNotifications } from "@/server/services/plan-activation-notification-kick";
 
 import { createFinancialTransaction } from "@/server/services/financial-transaction";
+import { resolveTransactionReplacement, recordTransactionReplacement } from "@/server/services/transaction-replacement";
+import { revalidateTransactions } from "@/lib/revalidation";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -95,6 +97,11 @@ export async function assignPlanToCustomer(
     const user = await requireWritablePermission("wallet.create");
     const data = assignPlanSchema.parse(input);
     const operationStoreId = currentStoreId(user);
+    if (data.replacementOfTransactionId) {
+      await requireWritablePermission("transaction.void");
+      if (data.paymentStatus === "PENDING")
+        throw new AppError("VALIDATION", "補登正確收費請確認原實收金額與付款方式");
+    }
 
     // 折扣權限檢查：如果有折扣，需要 transaction.discount 權限
     const hasDiscount = data.discountType && data.discountType !== "none" && data.discountValue;
@@ -185,6 +192,14 @@ export async function assignPlanToCustomer(
     // 使用 Prisma transaction 確保原子性
     const result = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${data.customerId} FOR UPDATE`;
+      const replacement = data.replacementOfTransactionId ? await resolveTransactionReplacement(tx, {
+        sourceId: data.replacementOfTransactionId, storeId: operationStoreId, customerId: data.customerId,
+        fingerprint: JSON.stringify(data),
+      }) : null;
+      if (replacement?.existing) return {
+        wallet: replacement.existing.customerPlanWalletId ? { id: replacement.existing.customerPlanWalletId } : null,
+        transaction: { id: replacement.existing.id },
+      };
       const activationTime = new Date();
       const lockedCustomer = await tx.customer.findUnique({
         where: { id: data.customerId },
@@ -254,10 +269,16 @@ export async function assignPlanToCustomer(
           note: data.note,
           storeId,
           ...snapshot,
+          ...(replacement && { transactionDate: replacement.source.transactionDate }),
           // Override the reporting snapshot explicitly: PENDING partial unique
           // index requires a non-null planId, even if the helper is changed.
           planId: plan.id,
         },
+      }, { allowClosedReplacement: !!replacement });
+
+      if (replacement) await recordTransactionReplacement(tx, {
+        sourceId: replacement.source.id, replacementId: transaction.id, storeId,
+        actorUserId: user.id, fingerprint: JSON.stringify(data),
       });
 
       // 3. 更新顧客狀態 + 發首儲推薦獎勵
@@ -299,6 +320,14 @@ export async function assignPlanToCustomer(
 
     kickPlanActivationNotifications(operationStoreId);
     revalidatePath(`/dashboard/customers/${data.customerId}`);
+    if (data.replacementOfTransactionId) {
+      revalidateTransactions();
+      revalidatePath("/dashboard/revenue");
+      revalidatePath("/dashboard/store-revenue");
+      revalidatePath("/dashboard/coach-revenue");
+      revalidatePath("/dashboard/cash-drawer");
+      revalidatePath("/dashboard/cashbook");
+    }
     return {
       success: true,
       data: { walletId: result.wallet?.id ?? null, transactionId: result.transaction.id },

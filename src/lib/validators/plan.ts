@@ -32,6 +32,7 @@ export const assignPlanSchema = z
     // guard 控制，ID 格式不是關卡。
     customerId: z.string().min(1),
     planId: z.string().min(1),
+    replacementOfTransactionId: z.string().min(1).max(100).optional(),
     paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER", "UNPAID"]),
     paymentSplits: z.array(paymentSplitSchema).min(2).max(5).optional(),
     // 後台指派方案預設代表店長已核帳；只有明確選擇 PENDING 才延後發堂。

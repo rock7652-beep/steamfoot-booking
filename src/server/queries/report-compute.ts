@@ -40,7 +40,7 @@ export async function computeStoreSummary(month: string, storeId: string) {
       where: {
         transactionType: { in: REVENUE_TYPES as never },
         status: REVENUE_VALID_STATUS,
-        createdAt: { gte: monthStart, lte: monthEnd },
+        transactionDate: { gte: monthStart, lte: monthEnd },
         ...storeFilter,
       },
       _sum: { amount: true },
@@ -50,7 +50,7 @@ export async function computeStoreSummary(month: string, storeId: string) {
       where: {
         transactionType: "REFUND",
         status: REVENUE_VALID_STATUS,
-        createdAt: { gte: monthStart, lte: monthEnd },
+        transactionDate: { gte: monthStart, lte: monthEnd },
         ...storeFilter,
       },
       _sum: { amount: true },
@@ -177,7 +177,7 @@ export async function computeRevenueByCategory(month: string, storeId: string) {
     where: {
       transactionType: { in: REVENUE_TYPES as never },
       status: REVENUE_VALID_STATUS,
-      createdAt: { gte: monthStart, lte: monthEnd },
+      transactionDate: { gte: monthStart, lte: monthEnd },
       ...storeFilter,
     },
     _sum: { amount: true },
@@ -189,7 +189,7 @@ export async function computeRevenueByCategory(month: string, storeId: string) {
     where: {
       transactionType: "REFUND",
       status: REVENUE_VALID_STATUS,
-      createdAt: { gte: monthStart, lte: monthEnd },
+      transactionDate: { gte: monthStart, lte: monthEnd },
       ...storeFilter,
     },
     _sum: { amount: true },

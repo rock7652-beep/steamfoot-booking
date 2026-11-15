@@ -206,7 +206,7 @@ describe("reports view mode support", () => {
     const { monthlyStoreSummary } = await import("@/server/queries/report");
     await monthlyStoreSummary("2026-10", { activeStoreId: STORE_PARENT, startDate: "2026-10-01", endDate: "2026-10-29" });
     expect(mockCashbookGroupBy).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({entryDate:{gte:new Date("2026-10-01T00:00:00Z"),lte:new Date("2026-10-29T00:00:00Z")}})}));
-    expect(mockTransactionGroupBy).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({createdAt:{gte:new Date("2026-09-30T16:00:00Z"),lte:new Date("2026-10-29T15:59:59.999Z")}})}));
+    expect(mockTransactionGroupBy).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({transactionDate:{gte:new Date("2026-09-30T16:00:00Z"),lte:new Date("2026-10-29T15:59:59.999Z")}})}));
   });
 
   it("forces store revenue API reads to the viewed store", async () => {

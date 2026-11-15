@@ -35,6 +35,9 @@ const mockWalletCreate = vi.fn();
 const mockTransactionCreate = vi.fn();
 const mockCustomerUpdate = vi.fn();
 const mockTx = vi.fn();
+const mockSourceFind = vi.fn();
+const mockReplacementAuditFind = vi.fn();
+const mockReplacementAuditCreate = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -89,7 +92,7 @@ vi.mock("@/lib/store-context", () => ({ getStoreContext: vi.fn(async () => null)
 vi.mock("@/server/queries/customer-completion", () => ({
   resolveCustomerForUser: vi.fn(),
 }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), updateTag: vi.fn() }));
 
 const PLAN_90D = {
   id: PLAN_ID_90D,
@@ -137,10 +140,14 @@ beforeEach(() => {
     id: "ck0000000000000000000t01",
   }));
   mockCustomerUpdate.mockResolvedValue(undefined);
+  mockSourceFind.mockResolvedValue({ id: "voided-source", storeId: STORE_A, customerId: CUSTOMER_ID, status: "VOIDED", paymentStatus: "SUCCESS", transactionType: "PACKAGE_PURCHASE", transactionDate: new Date("2026-05-02T04:00:00Z") });
+  mockReplacementAuditFind.mockResolvedValue(null);
+  mockReplacementAuditCreate.mockResolvedValue({});
   mockTx.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
       customerPlanWallet: { create: mockWalletCreate, update: vi.fn() },
-      transaction: { create: mockTransactionCreate },
+      transaction: { create: mockTransactionCreate, findUnique: mockSourceFind },
+      transactionAuditLog: { findFirst: mockReplacementAuditFind, create: mockReplacementAuditCreate },
       customer: { update: mockCustomerUpdate, findUnique: vi.fn().mockResolvedValue(CUSTOMER) },
       $queryRaw: vi.fn().mockImplementation(async (sql: TemplateStringsArray) => sql.join("?").includes("CashDrawerSession") ? [] : [{ id: CUSTOMER_ID }]),
     }),
@@ -486,4 +493,50 @@ describe("assignPlanToCustomer — 其他不變", () => {
       PLAN_90D.sessionCount,
     );
   });
+});
+
+
+describe("cancel then replace purchase", () => {
+  const input = { customerId: CUSTOMER_ID, planId: PLAN_ID_90D, paymentMethod: "CASH" as const, replacementOfTransactionId: "voided-source" };
+  it("issues the corrected wallet and receipt on the original date with an audit link", async () => {
+    mockServicePlanFindUnique.mockResolvedValue({ ...PLAN_90D, sessionCount: 20, price: 11980 });
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+    expect((await assignPlanToCustomer(input)).success).toBe(true);
+    expect(mockWalletCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ totalSessions: 20, remainingSessions: 20, purchasedPrice: 11980 }) }));
+    expect(mockTransactionCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ transactionDate: new Date("2026-05-02T04:00:00Z"), amount: 11980, paymentStatus: "SUCCESS" }) }));
+    expect(mockReplacementAuditCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ transactionId: "voided-source", afterJson: expect.objectContaining({ kind: "PURCHASE_REPLACEMENT", replacementTransactionId: "ck0000000000000000000t01" }) }) }));
+  });
+  it.each([
+    { storeId: "another-store" }, { customerId: "another-customer" }, { status: "SUCCESS" },
+    { transactionType: "REFUND" }, { paymentStatus: "PENDING" },
+  ])("rejects an invalid original before issuing a wallet: %j", async patch => {
+    mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
+    mockSourceFind.mockResolvedValue({ ...(await mockSourceFind()), ...patch });
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+    expect((await assignPlanToCustomer(input)).success).toBe(false);
+    expect(mockWalletCreate).not.toHaveBeenCalled(); expect(mockTransactionCreate).not.toHaveBeenCalled();
+  });
+  it("never issues a second wallet when the original already has a replacement", async () => {
+    mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
+    mockReplacementAuditFind.mockResolvedValue({ afterJson: { kind: "PURCHASE_REPLACEMENT", fingerprint: "different-input" } });
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+    expect((await assignPlanToCustomer(input)).success).toBe(false);
+    expect(mockWalletCreate).not.toHaveBeenCalled(); expect(mockTransactionCreate).not.toHaveBeenCalled();
+  });
+  it("rejects a pending replacement before entering the write transaction", async () => {
+    const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+    expect((await assignPlanToCustomer({ ...input, paymentStatus: "PENDING" })).success).toBe(false);
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+});
+
+it("returns the confirmed replacement on a same-content retry without issuing another wallet", async () => {
+  mockServicePlanFindUnique.mockResolvedValue(PLAN_90D);
+  const input = { customerId: CUSTOMER_ID, planId: PLAN_ID_90D, paymentMethod: "CASH" as const, replacementOfTransactionId: "voided-source" };
+  const { assignPlanSchema } = await import("@/lib/validators/plan");
+  mockReplacementAuditFind.mockResolvedValue({ afterJson: { kind: "PURCHASE_REPLACEMENT", fingerprint: JSON.stringify(assignPlanSchema.parse(input)), replacementTransactionId: "existing-replacement" } });
+  mockSourceFind.mockResolvedValueOnce(await mockSourceFind()).mockResolvedValueOnce({ id: "existing-replacement", storeId: STORE_A, customerId: CUSTOMER_ID, status: "SUCCESS", customerPlanWalletId: "existing-wallet" });
+  const { assignPlanToCustomer } = await import("@/server/actions/wallet");
+  expect(await assignPlanToCustomer(input)).toEqual({ success: true, data: { walletId: "existing-wallet", transactionId: "existing-replacement" } });
+  expect(mockWalletCreate).not.toHaveBeenCalled(); expect(mockTransactionCreate).not.toHaveBeenCalled();
 });
