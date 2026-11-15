@@ -908,3 +908,23 @@ it("cancels a paid transaction on a closed cash day and retains the audit record
     data: expect.objectContaining({ action: "VOID", reason: "方案調整後補登" }),
   }));
 });
+
+
+it.each([undefined, "", "   "])("allows cancellation with an optional reason: %j", async reason => {
+  const { voidTransaction } = await import("@/server/actions/transaction");
+  const input = reason === undefined ? { transactionId: "optional-reason" } : { transactionId: "optional-reason", reason };
+  expect((await voidTransaction(input)).success).toBe(true);
+  expect(h.txTransactionUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "VOIDED", voidReason: null }) }));
+  expect(h.transactionAuditCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "VOID", reason: null, actorUserId: USER_ID }) }));
+  expect(h.walletSessionUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ voidReason: "交易取消" }) }));
+});
+it("retains a supplied cancellation reason after trimming whitespace", async () => {
+  const { voidTransaction } = await import("@/server/actions/transaction");
+  expect((await voidTransaction({ transactionId: "optional-reason", reason: "  方案調整  " })).success).toBe(true);
+  expect(h.transactionAuditCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ reason: "方案調整" }) }));
+});
+it("still rejects an overlong cancellation reason before changing the transaction", async () => {
+  const { voidTransaction } = await import("@/server/actions/transaction");
+  expect((await voidTransaction({ transactionId: "optional-reason", reason: "字".repeat(501) })).success).toBe(false);
+  expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
+});

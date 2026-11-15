@@ -109,7 +109,7 @@ try{
   await page.getByRole('button',{name:'作廢交易',exact:true}).click();
   await page.getByRole('heading',{name:'作廢交易',exact:true}).waitFor();
   const voidDialog=page.getByRole('dialog');const voidBox=await voidDialog.boundingBox();if(width>=768){assert.ok(voidBox.width<=520);assert.ok(voidBox.height<500);}
-  const reason=page.getByLabel('作廢原因（必填）',{exact:true});await reason.fill('誤建測試');await page.screenshot({path:path.join(output,`void-${width}.png`),fullPage:true});
+  const reason=page.getByLabel('作廢原因（選填）',{exact:true});await reason.fill('誤建測試');await page.screenshot({path:path.join(output,`void-${width}.png`),fullPage:true});
   await page.getByRole('button',{name:'確認作廢',exact:true}).click();await page.getByRole('status').filter({hasText:'交易已作廢'}).waitFor();
   assert.equal((await page.evaluate(()=>window.voidSubmitted)).reason,'誤建測試');assert.equal((await page.evaluate(()=>window.voidSubmitted)).expectedStoreId,'synthetic');
   await page.getByRole('button',{name:'關閉',exact:true}).click();

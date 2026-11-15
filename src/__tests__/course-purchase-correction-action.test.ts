@@ -28,3 +28,12 @@ it("does not invalidate pages after a failed correction", async () => {
   expect(await voidCoursePurchase({ purchaseId: "purchase", reason: "核對更正" })).toMatchObject({ success: false });
   expect(revalidatePath).not.toHaveBeenCalled();
 });
+
+it.each([undefined,"","   "])("allows an optional cancellation reason: %j", async reason => {
+  expect(await voidCoursePurchase({ purchaseId: "purchase", ...(reason === undefined ? {} : { reason }) })).toMatchObject({success:true});
+  expect(m.voidPurchase).toHaveBeenCalledWith("locked-tx", {storeId:"own-store",userId:"manager"}, {purchaseId:"purchase",reason:""});
+});
+it("keeps the reason required for metadata corrections",async()=>{
+  expect(await editCoursePurchase({purchaseId:"purchase",note:"備註",revenueStaffId:null})).toMatchObject({success:false});
+  expect(m.edit).not.toHaveBeenCalled();
+});

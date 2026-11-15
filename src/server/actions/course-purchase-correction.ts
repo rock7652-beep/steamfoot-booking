@@ -9,7 +9,7 @@ const base = z.object({ purchaseId: z.string().min(1).max(100), reason: z.string
 function refresh() { for (const path of ["/dashboard", "/dashboard/courses/unassigned-plans", "/dashboard/revenue", "/dashboard/transactions", "/dashboard/cashbook", "/dashboard/cash-drawer", "/dashboard/courses", "/book"]) revalidatePath(path); }
 export async function voidCoursePurchase(input: unknown) {
   try {
-    const data = base.parse(input);
+    const data = base.extend({ reason: z.string().trim().max(500).optional().default("") }).parse(input);
     await requireWritablePermission("transaction.void");
     const { storeId, user } = await courseManager("transaction.void");
     await courseTransaction(storeId, (tx) => voidCoursePurchaseInTransaction(tx, { storeId, userId: user.id }, data));

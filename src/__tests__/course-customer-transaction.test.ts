@@ -37,3 +37,9 @@ it.each(["legacy","child","view"])("disables all mutations for %s scope",async s
 it("omits capabilities the actor does not have",async()=>{
  m.permission.mockResolvedValue(false);expect(await loadCourseCustomerTransaction(input)).toMatchObject({success:true,canRefund:false,canConfirm:false,canEdit:false,canVoid:false});
 });
+
+it("allows an authorized music purchase to expose cancellation even with independent receipt history",async()=>{
+ const original=await m.read();
+ m.read.mockResolvedValue({...original,rows:original.rows.map((row:Record<string,unknown>)=>({...row,tuitionDue:1200,tuitionReceipts:[{id:'receipt',amount:900,method:'CASH'}]}))});
+ expect(await loadCourseCustomerTransaction(input)).toMatchObject({success:true,canVoid:true});
+});

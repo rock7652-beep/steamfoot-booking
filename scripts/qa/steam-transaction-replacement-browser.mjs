@@ -25,18 +25,21 @@ const results=[];try{
   await page.route('**/*',route=>route.request().url()==='https://synthetic.invalid/'?route.fulfill({contentType:'text/html',body:'<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'}):route.abort());
   await page.goto('https://synthetic.invalid/');
   await page.evaluate(()=>{
-   window.qaCalls=[];window.qaVoided=false;window.qaReplaced=false;
+   window.qaCalls=[];window.qaVoidReasons=[];window.qaVoided=false;window.qaReplaced=false;
    const detail=()=>({success:true,data:{id:'synthetic-original',storeId:'synthetic-store',customerId:'synthetic-customer',customerName:'合成測試顧客',status:window.qaVoided?'VOIDED':'SUCCESS',transactionType:'PACKAGE_PURCHASE',paymentMethod:'CASH',paymentSplits:[],paymentStatus:'SUCCESS',amount:5990,originalAmount:null,note:'',revenueStaffId:'synthetic-staff',revenueStaffName:'合成店長',serviceStaffName:null,createdAt:'2026-11-14T04:00:00Z',transactionDate:'2026-11-14T04:00:00Z',voidedAt:window.qaVoided?'2026-11-15T04:00:00Z':null,voidedByName:null,voidReason:null,booking:null,customerPlanWallet:{id:'synthetic-wallet',planName:'十堂方案',totalSessions:10,remainingSessions:window.qaVoided?0:10,walletStatus:window.qaVoided?'CANCELLED':'ACTIVE',sessionsBreakdown:{available:window.qaVoided?0:10,reserved:0,completed:0,voided:window.qaVoided?10:0}},auditLogs:window.qaReplaced?[{id:'audit',action:'UPDATE_NOTE',actorName:'合成店長',reason:'取消原交易後補登正確收費',createdAt:'2026-11-15T04:00:00Z',afterJson:{kind:'PURCHASE_REPLACEMENT'}}]:[]}});
    window.qaAction=async(name,...args)=>{
     if(name==='fetchTransactionDetailDTO')return detail();
-    if(name==='voidTransaction'){window.qaVoided=true;return {success:true,data:{transactionId:'synthetic-original'}};}
+    if(name==='voidTransaction'){window.qaVoidReasons.push(args[0].reason);window.qaVoided=true;return {success:true,data:{transactionId:'synthetic-original'}};}
     if(name==='fetchTransactionReplacementContext')return {success:true,data:{customerId:'synthetic-customer',businessDate:'2026-11-14',paymentMethod:'CASH',canDiscount:false,plans:[{id:'twenty',name:'二十堂方案',category:'PACKAGE',price:11980,sessionCount:20,validityDays:90}]}};
     if(name==='assignPlanToCustomer'){if(window.qaFailNext){window.qaFailNext=false;throw Error('Synthetic transport interruption');}window.qaCalls.push(args[0]);await new Promise(r=>setTimeout(r,300));window.qaReplaced=true;return {success:true,data:{walletId:'new-wallet',transactionId:'replacement'}};}
     throw Error('Unexpected synthetic action: '+name);
    };
   });
   await page.addStyleTag({path:path.join(out,'fixture.css')});await page.addScriptTag({path:path.join(out,'fixture.js')});
-  await page.getByRole('button',{name:'取消交易',exact:true}).waitFor({timeout:5000}).catch(async e=>{console.log(JSON.stringify({errors,body:await page.locator('body').innerText()}));throw e;});await page.getByRole('button',{name:'取消交易',exact:true}).click();await page.getByPlaceholder('取消原因（必填）').fill('方案調整後補登正確收費');await page.getByRole('button',{name:'確認取消交易',exact:true}).click();
+  await page.getByRole('button',{name:'取消交易',exact:true}).waitFor({timeout:5000}).catch(async e=>{console.log(JSON.stringify({errors,body:await page.locator('body').innerText()}));throw e;});await page.getByRole('button',{name:'取消交易',exact:true}).click();if(width===1024)await page.getByPlaceholder('取消原因（選填）').fill('方案調整後補登正確收費');await page.getByRole('button',{name:'確認取消交易',exact:true}).click();
+  const replacement=page.getByRole('button',{name:'補登正確收費',exact:true});await replacement.waitFor();
+  if(await page.locator('form').count()!==0||(await page.evaluate(()=>window.qaCalls)).length!==0)throw Error('Cancellation incorrectly forced a replacement');
+  await replacement.click();
   await page.getByRole('heading',{name:'補登正確收費',exact:true}).waitFor();
   if(!await page.getByText('沿用原交易日期 2026-11-14',{exact:false}).isVisible())throw Error('Missing original-date context');
   await page.locator('select[name="planId"]').selectOption('twenty');
@@ -46,9 +49,10 @@ const results=[];try{
   if(width===1366){await page.evaluate(()=>{window.qaFailNext=true;});await button.click();await page.getByText('送出結果尚未確認，請保留原內容重試',{exact:true}).first().waitFor();if(await page.locator('select[name="planId"]').inputValue()!=='twenty')throw Error('Draft lost after failed request');}
   await button.click();
   await page.getByText('已補登正確收費',{exact:true}).waitFor();
+  const reasons=await page.evaluate(()=>window.qaVoidReasons);if(reasons.length!==1||reasons[0]!== (width===1024?'方案調整後補登正確收費':''))throw Error('Optional cancellation reason failed');
   const calls=await page.evaluate(()=>window.qaCalls);if(calls.length!==1||calls[0].replacementOfTransactionId!=='synthetic-original'||calls[0].planId!=='twenty')throw Error('Wrong or duplicate replacement');
   await page.screenshot({path:path.join(out,`completed-${width}.png`)});
-  if(errors.length)throw Error(errors.join('\n'));results.push({width,height,cancelThenReplace:true,originalDateVisible:true,noPageOverflow:true,submittedExactlyOnce:true,...(width===1366?{failedRequestRetainsDraft:true}:{})});await page.close();
+  if(errors.length)throw Error(errors.join('\n'));results.push({width,height,cancelThenReplace:true,optionalCancellationReason:true,noForcedReplacement:true,originalDateVisible:true,noPageOverflow:true,submittedExactlyOnce:true,...(width===1366?{failedRequestRetainsDraft:true}:{})});await page.close();
  }
  writeFileSync(path.join(out,'results.json'),JSON.stringify({scope:'synthetic browser UI only; business logic tested separately in disposable PostgreSQL',results},null,2));console.log(JSON.stringify({output:out,results}));
 }finally{await browser.close();}

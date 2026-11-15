@@ -1,6 +1,6 @@
-import {readMusicTuition} from "./music-tuition";
+import {readMusicTuition,readMusicReceipts} from "./music-tuition";
 import "server-only";
-import { lockCourseCashDay } from "./course-assignment-checkout";
+import { lockCashDay } from "./cash-day";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
 import {resolveDigitalManagerNotice} from "./digital-manager-notices";
@@ -13,7 +13,7 @@ export async function voidCoursePurchaseInTransaction(tx: Prisma.TransactionClie
   const order = await tx.coursePurchase.findFirst({ where: { id: input.purchaseId, storeId: actor.storeId }, include: { refunds: true } });
   if (!order) throw new AppError("NOT_FOUND", "找不到本店交易");
   if (order.status === "VOIDED") {
-    if (order.voidReason !== input.reason) throw new AppError("CONFLICT", "此交易已作廢，請查看原作廢原因");
+    if ((order.voidReason ?? "") !== input.reason) throw new AppError("CONFLICT", "此交易已作廢，請查看原作廢原因");
     return order;
   }
   if (order.refunds.length || !["PENDING", "CONFIRMED"].includes(order.status))
@@ -31,22 +31,48 @@ export async function voidCoursePurchaseInTransaction(tx: Prisma.TransactionClie
     await tx.coursePointEntry.create({ data: { storeId: actor.storeId, cardId: card.id, kind: "VOID", points: card.remaining, actorUserId: actor.userId } });
   }
   if (order.status === "CONFIRMED" && order.price > 0) {
-    if((await readMusicTuition(tx,actor.storeId,[order.id])).has(order.id))throw new AppError("BUSINESS_RULE","此筆有獨立繳費紀錄，請使用退款保留每次收款與退回紀錄");
+    if((await readMusicTuition(tx,actor.storeId,[order.id])).has(order.id)) {
+      await reverseMusicPurchaseReceipts(tx,actor,{id:order.id,price:order.price},input.reason);
+    } else {
     const receipts = await tx.$queryRaw<Array<{ amount: unknown; type: string; paymentMethod: string }>>`SELECT amount,type::text,"paymentMethod"::text FROM "CashbookEntry" WHERE id=${"course-purchase:" + order.id} AND "storeId"=${actor.storeId} FOR UPDATE`;
     if (!receipts[0] || Number(receipts[0].amount) !== order.price || receipts[0].type !== "INCOME" || receipts[0].paymentMethod !== (order.paymentMethod === "CASH" ? "CASH" : "OTHER"))
       throw new AppError("BUSINESS_RULE", "原收款紀錄不一致，尚未作廢。");
     if(order.paymentMethod === "CASH") {
       const dates=await tx.$queryRaw<Array<{entryDate:Date}>>`SELECT "entryDate" FROM "CashbookEntry" WHERE id=${"course-purchase:"+order.id} AND "storeId"=${actor.storeId}`;
-      await lockCourseCashDay(tx,actor.storeId,dates[0].entryDate);
+      await lockCashDay(tx,actor.storeId,dates[0].entryDate,{requireOpen:true,allowClosedSupplement:true});
     }
     // Reverse the erroneous receipt on its original accounting date.
     // Keep both rows and audit; never represent a void as a real customer refund.
-    await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") SELECT ${"course-void:" + order.id},"storeId","entryDate",'EXPENSE',"paymentMethod",'課程誤建沖銷',amount,${"作廢：" + input.reason},${actor.userId},NOW() FROM "CashbookEntry" WHERE id=${"course-purchase:" + order.id} AND "storeId"=${actor.storeId}`;
+    await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") SELECT ${"course-void:" + order.id},"storeId","entryDate",'EXPENSE',"paymentMethod",'課程誤建沖銷',amount,${input.reason ? "作廢：" + input.reason : "交易作廢"},${actor.userId},NOW() FROM "CashbookEntry" WHERE id=${"course-purchase:" + order.id} AND "storeId"=${actor.storeId}`;
+    }
   }
-  const result = await tx.coursePurchase.update({ where: { id: order.id }, data: { status: "VOIDED", voidedAt: new Date(), voidedBy: actor.userId, voidReason: input.reason } });
+  const result = await tx.coursePurchase.update({ where: { id: order.id }, data: { status: "VOIDED", voidedAt: new Date(), voidedBy: actor.userId, voidReason: input.reason || null } });
   if(order.status === "PENDING")await resolveDigitalManagerNotice(tx,{storeId:actor.storeId,eventKey:`course-purchase-pending:${order.id}`,actorUserId:actor.userId,actorName:"門市人員"});
   await audit(tx, actor, order.id, "VOID", { status: order.status, price: order.price }, { status: "VOIDED", reason: input.reason });
   return result;
+}
+
+/** Preserve each original installment and reverse only its linked cashbook row. */
+async function reverseMusicPurchaseReceipts(tx:Prisma.TransactionClient,actor:Actor,order:{id:string;price:number},reason:string) {
+  const receipts=await readMusicReceipts(tx,actor.storeId,[order.id]);
+  if(!receipts.length || receipts.reduce((n,r)=>n+r.amount,0)!==order.price)
+    throw new AppError("CONFLICT","原繳費紀錄與實收不一致，尚未作廢");
+  const entries=await tx.$queryRaw<Array<{id:string;amount:unknown;type:string;paymentMethod:string;entryDate:Date}>>`
+    SELECT id,amount,type::text,"paymentMethod"::text,"entryDate" FROM "CashbookEntry"
+    WHERE "storeId"=${actor.storeId} AND id=ANY(${receipts.map(r=>"music-receipt:"+r.id)}::text[]) FOR UPDATE`;
+  if(entries.length!==receipts.length || receipts.some(receipt=>{
+    const entry=entries.find(e=>e.id==="music-receipt:"+receipt.id);
+    return !entry || receipt.amount<=0 || Number(entry.amount)!==receipt.amount || entry.type!=="INCOME"
+      || entry.paymentMethod!==(receipt.method==="CASH"?"CASH":"OTHER");
+  }))throw new AppError("CONFLICT","原繳費與收支帳不一致，尚未作廢");
+  // Stable order also serializes multi-day corrections against drawer closing/reopening.
+  entries.sort((a,b)=>a.entryDate.getTime()-b.entryDate.getTime()||a.id.localeCompare(b.id));
+  for(const entry of entries){
+    if(entry.paymentMethod==="CASH")await lockCashDay(tx,actor.storeId,entry.entryDate,{requireOpen:true,allowClosedSupplement:true});
+    await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt")
+      SELECT ${"course-void:"+order.id+":"+entry.id},"storeId","entryDate",'EXPENSE',"paymentMethod",'課程誤建沖銷',amount,${reason?"作廢："+reason:"交易作廢"},${actor.userId},NOW()
+      FROM "CashbookEntry" WHERE id=${entry.id} AND "storeId"=${actor.storeId}`;
+  }
 }
 export async function editCoursePurchaseInTransaction(tx: Prisma.TransactionClient, actor: Actor, input: { purchaseId: string; note: string; revenueStaffId: string | null; reason: string }) {
   const order = await tx.coursePurchase.findFirst({ where: { id: input.purchaseId, storeId: actor.storeId } });

@@ -694,7 +694,7 @@ const updateOwnerStaffSchema = z.object({
 
 const voidTransactionSchema = z.object({
   transactionId: z.string().min(1),
-  reason: z.string().min(1, "請填寫取消原因").max(500),
+  reason: z.string().trim().max(500).optional().default(""),
 });
 
 /**
@@ -934,11 +934,12 @@ export async function updateTransactionOwnerStaff(
  * 一致性：整段在 prisma.$transaction 裡
  */
 export async function voidTransaction(
-  input: z.infer<typeof voidTransactionSchema>,
+  input: z.input<typeof voidTransactionSchema>,
 ): Promise<ActionResult<{ transactionId: string }>> {
   try {
     const user = await requireWritablePermission("transaction.void");
     const data = voidTransactionSchema.parse(input);
+    const reason = data.reason || null;
 
     const original = await prisma.transaction.findUnique({
       where: { id: data.transactionId },
@@ -1131,7 +1132,7 @@ export async function voidTransaction(
           data: {
             status: "VOIDED",
             voidedAt: now,
-            voidReason: `交易取消：${data.reason}`,
+            voidReason: reason ? `交易取消：${reason}` : "交易取消",
             voidedByStaffId: user.staffId ?? null,
           },
         });
@@ -1164,7 +1165,7 @@ export async function voidTransaction(
           ...(current.paymentStatus === "PENDING" && { paymentStatus: "CANCELLED" }),
           voidedAt: now,
           voidedByUserId: user.id,
-          voidReason: data.reason,
+          voidReason: reason,
         },
       });
       if (result.count === 0) {
@@ -1311,10 +1312,10 @@ export async function voidTransaction(
           ["status", "voidedAt", "voidedByUserId", "voidReason"],
         ),
         after: pickAuditFields(
-          { status: "VOIDED", voidedAt: now, voidedByUserId: user.id, voidReason: data.reason },
+          { status: "VOIDED", voidedAt: now, voidedByUserId: user.id, voidReason: reason },
           ["status", "voidedAt", "voidedByUserId", "voidReason"],
         ),
-        reason: data.reason,
+        reason,
       });
     });
 
