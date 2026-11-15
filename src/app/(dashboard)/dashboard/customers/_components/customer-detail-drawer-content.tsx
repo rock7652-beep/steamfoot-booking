@@ -5,8 +5,7 @@ import {PlanCardHeader} from "@/components/admin/plan-card-header";
 import {PlanGridActions} from "@/components/admin/plan-grid-actions";
 import {SteamPlanManagement} from "@/components/admin/steam-plan-management";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
-import { CustomerPhoneLink } from "@/components/customer-detail-fields";
-import {CustomerProfileNavigation,CustomerProfileSectionHeading,CustomerRecordsFilter,CustomerProfileConnection,customerProfileLineLabel} from "@/components/admin/customer-profile-layout";
+import {CustomerProfileHeader,CustomerProfileIdentity,CustomerProfileNavigation,CustomerProfileSectionHeading,CustomerRecordsFilter,CustomerProfileConnection,customerProfileLineLabel} from "@/components/admin/customer-profile-layout";
 import { CustomerLabels } from "@/components/customer-labels";
 
 import { useEffect, useId, useRef, useState } from "react";
@@ -67,11 +66,6 @@ interface Props {
 
 
 
-function formatPhoneForStaff(phone: string | null | undefined): string {
-  if (!phone) return "—";
-  if (phone.startsWith("_oauth_")) return "—";
-  return phone;
-}
 
 
 
@@ -143,7 +137,6 @@ export function CustomerDetailDrawerContent({
     planSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  const phoneDisplay = formatPhoneForStaff(customer.phone);
   const sponsor = customer.sponsor;
 
   // 有效方案：ACTIVE 且未過期（已過期會由 backend 標 EXPIRED，這裡只篩 ACTIVE）
@@ -158,44 +151,20 @@ export function CustomerDetailDrawerContent({
 
   // 身份異常旗標：來源是 LINE 但實際 LINE 未綁定時提示
 
+  const attribution = (<section aria-label="顧客歸屬">
+          <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm"><span>歸屬店長：{staffOptions.find(staff=>staff.id===customer.assignedStaffId)?.displayName ?? "未指派"}</span><span>推薦人：{sponsor?.name ?? "未設定"}</span>{canAssign && !readOnly && <button type="button" disabled={managementPending} onClick={()=>{if(!managementPending&&allowNavigation()){setEditingAttribution(!editingAttribution);}}} className="min-h-11 px-3 text-primary-700">{editingAttribution ? "收合" : "編輯"}</button>}</div>
+
+          {editingAttribution && <CustomerAttributionForm customerId={customer.id} currentStaffId={customer.assignedStaffId} currentSponsor={sponsor ? {id:sponsor.id,name:sponsor.name} : null} staffOptions={staffOptions} canAssign={canAssign && !readOnly} readOnly={readOnly} onSaved={()=>{setEditingAttribution(false);handleMutated();}} />}
+        </section>);
+  const detailFields = ((customer.email||customer.lineName||customer.gender||customer.birthday||customer.height)&&<div className="py-1">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm @min-[560px]/customer-detail:grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
+            {[["Email", customer.email], ["LINE 名稱", customer.lineName], ["性別", customer.gender === "MALE" ? "男" : customer.gender === "FEMALE" ? "女" : null], ["生日", customer.birthday ? formatTWTime(customer.birthday, {dateOnly:true}) : null], ["身高", customer.height ? `${customer.height} cm` : null]].filter(([,value])=>!!value && value !== "—").map(([label,value]) => <div key={label} className="contents"><dt className="text-earth-500">{label}</dt><dd className="break-words text-earth-800">{value || "—"}</dd></div>)}
+          </dl>
+        </div>);
+
   return (
     <div data-customer-detail className="@container/customer-detail flex h-full min-h-0 flex-col">
-      {/* Header */}
-      <header
-        ref={headerRef}
-        tabIndex={-1}
-        className="sticky top-0 z-10 flex items-start justify-between border-b border-earth-100 bg-white px-5 py-2 outline-none"
-      >
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-1">
-          <div className="min-w-0"><div className="flex flex-wrap items-center gap-x-3"><div className="flex items-center gap-2"><h2 id={titleId} className="truncate text-base font-semibold text-primary-900">
-            {customer.name}
-          </h2>{!readOnly && canEditNote && <button type="button" onClick={() => setView("edit")} aria-label="編輯顧客資料" className="min-h-11 min-w-11 rounded text-sm text-primary-700">✎</button>}</div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-earth-500">
-            {phoneDisplay !== "—" && <CustomerPhoneLink phone={customer.phone}/>}
-            <CustomerProfileConnection label={customerProfileLineLabel(customer.lineLinkStatus,customer.lineName,customer.lineUserId)} onManage={()=>switchTab("connection","line")}/>
-          </div>
-          </div><div className="flex flex-wrap items-center gap-2"><CustomerLabels maxVisible={2} readOnly={readOnly || !canEditNote} customerId={customer.id}/>
-          <div>
-            {customer.customerStage !== "ACTIVE" && <CustomerStatusBadge
-              stage={customer.customerStage}
-              lineLinkStatus={customer.lineLinkStatus}
-            />}
-          </div></div></div>
-          {!readOnly && <div className="flex flex-wrap gap-2">{customer.canBook && <button type="button" onClick={() => { if (allowNavigation()) setView("booking"); }} className="min-h-11 rounded-md bg-primary-700 px-3 text-sm text-white">新增預約</button>}{customer.canAssignPlan && <button type="button" onClick={() => { if (!allowNavigation()) return; setView("overview"); setPanelTab("overview"); setAssignOpen(true); requestAnimationFrame(() => planSectionRef.current?.scrollIntoView({block:"start"})); }} className="min-h-11 rounded-md border border-earth-200 px-3 text-sm text-primary-700">新增方案</button>}</div>}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="關閉"
-          className="ml-2 min-h-11 min-w-11 shrink-0 rounded p-1 text-earth-400 hover:bg-earth-100 hover:text-earth-700"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
-      </header>
-
-      {view==="overview"&&<CustomerProfileNavigation value={panelTab==="health"?"health":panelTab==="profile"?"data":"overview"} healthEnabled={healthEnabled} disabled={managementPending} onChange={value=>switchTab(value==="data"?"profile":value)}/>}
+      <CustomerProfileHeader headerRef={headerRef} name={customer.name} labelledById={titleId} busy={managementPending} editing={false} onEdit={!readOnly&&canEditNote?()=>setView("edit"):undefined} onBack={()=>{if(allowNavigation())setView("overview");}} onClose={onClose}/>
       {/* Body */}
       <div ref={bodyRef} hidden={view !== "overview"} className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-5 py-3 space-y-3">
         {readOnly ? (
@@ -204,6 +173,8 @@ export function CustomerDetailDrawerContent({
           </div>
         ) : null}
 
+        {panelTab==="overview"&&<CustomerProfileIdentity phone={customer.phone??""} details={detailFields} attribution={attribution} connection={<CustomerProfileConnection label={customerProfileLineLabel(customer.lineLinkStatus,customer.lineName,customer.lineUserId)} onManage={()=>switchTab("connection","line")}/>} labels={<div className="flex flex-wrap items-center gap-2"><CustomerLabels maxVisible={2} readOnly={readOnly||!canEditNote} customerId={customer.id}/>{customer.customerStage!=="ACTIVE"&&<CustomerStatusBadge stage={customer.customerStage} lineLinkStatus={customer.lineLinkStatus}/>}</div>} actions={!readOnly&&<>{customer.canBook&&<button type="button" disabled={managementPending} onClick={()=>{if(allowNavigation())setView("booking");}} className="min-h-11 rounded-md bg-primary-700 px-3 text-sm text-white">新增預約</button>}{customer.canAssignPlan&&<button type="button" disabled={managementPending} onClick={()=>{if(!allowNavigation())return;setView("overview");setPanelTab("overview");setAssignOpen(true);requestAnimationFrame(()=>planSectionRef.current?.scrollIntoView({block:"start"}));}} className="min-h-11 rounded-md border border-earth-200 px-3 text-sm text-primary-700">新增方案</button>}</>}/>}
+        <CustomerProfileNavigation value={panelTab==="health"?"health":panelTab==="profile"?"data":"overview"} healthEnabled={healthEnabled} disabled={managementPending} onChange={value=>switchTab(value==="data"?"profile":value)}/>
         <div hidden={panelTab !== "overview" && panelTab !== "health"}><CustomerPanelSummaryView onHealthEnabled={setHealthEnabled} section={panelTab === "health" ? "health" : "overview"} initialData={initialSummary} initialRead={initialSummaryRead} customerId={customer.id} readOnly={readOnly} onMutated={handleMutated} revision={revision} /></div>
         <section hidden={panelTab !== "overview"} className="space-y-2">
         {/* 課程方案 / 堂數 */}
@@ -281,19 +252,12 @@ export function CustomerDetailDrawerContent({
 
 
 
-        <section aria-label="顧客歸屬">
-          <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1 text-sm"><span>歸屬店長：{staffOptions.find(staff=>staff.id===customer.assignedStaffId)?.displayName ?? "未指派"}</span><span>推薦人：{sponsor?.name ?? "未設定"}</span>{canAssign && !readOnly && <button type="button" disabled={managementPending} onClick={()=>{if(!managementPending&&allowNavigation()){setEditingAttribution(!editingAttribution);}}} className="min-h-11 px-3 text-primary-700">{editingAttribution ? "收合" : "編輯"}</button>}</div>
 
-          {editingAttribution && <CustomerAttributionForm customerId={customer.id} currentStaffId={customer.assignedStaffId} currentSponsor={sponsor ? {id:sponsor.id,name:sponsor.name} : null} staffOptions={staffOptions} canAssign={canAssign && !readOnly} readOnly={readOnly} onSaved={()=>{setEditingAttribution(false);handleMutated();}} />}
-        </section>
-        {(customer.canReadBookings||customer.recentConsumption!==null)&&<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>switchTab(customer.canReadBookings?"bookings":"consumption")}>全部紀錄</button>}
-        {(customer.email||customer.lineName||customer.gender||customer.birthday||customer.height)&&<section aria-label="基本資料" className="border-t border-earth-100 py-2">
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm @min-[560px]/customer-detail:grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            {[["Email", customer.email], ["LINE 名稱", customer.lineName], ["性別", customer.gender === "MALE" ? "男" : customer.gender === "FEMALE" ? "女" : null], ["生日", customer.birthday ? formatTWTime(customer.birthday, {dateOnly:true}) : null], ["身高", customer.height ? `${customer.height} cm` : null]].filter(([,value])=>!!value && value !== "—").map(([label,value]) => <div key={label} className="contents"><dt className="text-earth-500">{label}</dt><dd className="break-words text-earth-800">{value || "—"}</dd></div>)}
-          </dl>
-        </section>}
+
+
         <BookingServiceNoteEditor compact optimistic customerId={customer.id} value={customer.serviceNote}
           canEdit={canEditNote && !readOnly} onSaved={() => handleMutated()} />
+        {(customer.canReadBookings||customer.recentConsumption!==null)&&<button type="button" className="min-h-11 text-sm text-primary-700" onClick={()=>switchTab(customer.canReadBookings?"bookings":"consumption")}>全部紀錄</button>}
 
         </section>
 

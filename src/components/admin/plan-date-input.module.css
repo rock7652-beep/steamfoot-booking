@@ -1,0 +1,5 @@
+.frame { display: block; min-width: 0; width: 100%; max-width: 100%; overflow: hidden; border-radius: .5rem; }
+.input { display: block; box-sizing: border-box; appearance: none; -webkit-appearance: none; min-inline-size: 0; min-width: 0; max-width: 100%; width: 100%; min-height: 44px; margin: 0; padding: .5rem .75rem; border: 1px solid var(--color-earth-200, #ded7cb); border-radius: .5rem; background: white; color: inherit; font: inherit; font-size: 1rem; }
+.input::-webkit-date-and-time-value { min-width: 0; min-height: 1.5em; text-align: left; }
+.input::-webkit-datetime-edit { min-width: 0; padding: 0; }
+.input:focus-visible { outline: 2px solid var(--color-primary-600, #527c6e); outline-offset: -2px; }

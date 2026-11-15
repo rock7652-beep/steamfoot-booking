@@ -370,3 +370,12 @@ it('normalizes an old data-tab link to the visible overview with one attribution
  expect(host.querySelector('[aria-label="顧客總覽"]')).not.toBeNull();expect(host.querySelectorAll('[aria-label="歸屬設定"]')).toHaveLength(1);expect(host.textContent).toContain('qa@example.invalid');
  expect([...host.querySelectorAll('nav button')].some(button=>button.textContent==='資料')).toBe(false);
 });
+
+
+it.each(['music','sports','beauty'])('places %s attribution with identity before plans and keeps the original edit flow',async module=>{
+ const source=module==='beauty'?{browseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),bookings:vi.fn().mockResolvedValue({success:true,data:[],hasMore:false}),choices:[],sessionUnitLabel:'次',basePath:'/dashboard/beauty'} as unknown as import('@/app/(dashboard)/dashboard/courses/member-source').CourseCustomerSource:undefined;
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,music:module==='music',source,canAssignManager:true,people:[{...props.people[0],email:'qa@example.invalid'}]})));
+ const identity=host.querySelector('[aria-label="顧客聯絡與常用操作"]')!,attribution=host.querySelector('[aria-label="歸屬設定"]')!,overview=host.querySelector('[aria-label="顧客總覽"]')!;
+ expect(identity.contains(attribution)).toBe(true);expect(host.querySelector('header')?.contains(identity)).toBe(false);expect(identity.closest('[data-course-person-scroll]')).not.toBeNull();expect(attribution.compareDocumentPosition(overview)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();expect(host.querySelectorAll('[aria-label="歸屬設定"]')).toHaveLength(1);expect(identity.textContent).toContain('qa@example.invalid');
+ await click('修改歸屬');expect(attribution.textContent).toContain('取消修改');expect(host.querySelector('[aria-label="顧客總覽"]')).toBe(overview);
+});
