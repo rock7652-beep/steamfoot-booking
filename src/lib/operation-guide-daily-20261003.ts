@@ -110,27 +110,73 @@ export const dailyOperationGuides20261003: OperationGuide[] = [
     summary: "三種教練 LINE 通知各自開關且預設關閉；它們與頂欄的後台異動通知、教師工作權限分開。",
     answer: "顧客明日上課提醒為前一天台灣時間 18:00；教師／教練明日摘要為前一天 21:00、無課不發。通知連結只開本人工作課表與指定日期，不放寬權限。",
     path: "設定 → 通知與顧客經營 → 提醒管理 → 教練／老師",
-    keywords: "教練通知 明日授課摘要 21:00 課程異動 體驗學員 預覽 LINE 發送紀錄 重試 後台異動通知 頂欄鈴鐺 工作權限",
-    steps: ["進入教練／老師提醒，分別決定明日授課摘要、課程異動、體驗學員通知是否開啟。", "用預覽核對內容；預覽不儲存也不發 LINE。開啟後再以新建立或新異動的測試事件核對紀錄。", "從發送紀錄查收件人、狀態與略過原因；通知連結應開啟本人工作課表及正確日期。"],
+    keywords: "教練通知 明日授課摘要 21:00 課程異動 體驗學員 預覽 LINE 發送紀錄 重試 後台異動通知 頂欄數位管家 工作權限 核准恢復時間 舊事件不補發",
+    steps: [
+  "進入教練／老師提醒，分別決定明日授課摘要、課程異動、體驗學員通知是否開啟。",
+  "用預覽核對內容；預覽不儲存也不發 LINE。開啟後再以新建立或新異動的測試事件核對紀錄。",
+  "從發送紀錄查收件人、狀態與略過原因；通知連結應開啟本人工作課表及正確日期。"
+],
     important: "未綁定 LINE、店家提醒關閉、通道不可用、預覽隔離或事件無效都可能略過；課程操作成功不等於訊息送達。",
     success: "三個開關互不影響，新事件有可追查紀錄；無課摘要不發，預覽不產生真實通知。",
-    details: ["蒸管家全版本不再限制每月提醒則數；這不代表官方 LINE 方案無限發送，也不省略綁定與資格檢查。", "摘要只列本人授課並含體驗人數；超過 8 筆會收合，已送摘要後新增隔日課程可補充通知。", "同交易、同教練、同類型合併通知；失敗會依固定內容重試，超過 23 小時停止自動重送。", "這三個開關控制傳給教練／教師的 LINE，不控制店長後台頂欄的數位管家；數位管家持續接收門市通知，查看與處理見 C170。教師本人能否代請假、改期或看薪酬，也另在人員管理設定。", "正式 LINE 送達仍須在確認收件人的受控環境另外驗收，不能用預覽圖替代。"],
-    references: [{ guideId: "C170", label: "課程門市異動通知如何查看、處理或復原？" }],
-    modules: ["course"], permission: "business_hours.manage", feature: "line_reminder", kind: "howto", verification: "source-reviewed",
-    sources: ["src/app/(dashboard)/dashboard/courses/reminders/coach-notification-settings.tsx", "src/lib/course-coach-notifications.ts", "docs/course-coach-notifications.md"],
+    details: [
+  "LINE 外發改依核准切換時間控管：時間未設定、格式無效或尚未到時仍停送；已恢復也只送符合時間及偏好的新事件，不補送舊佇列。LINE 入站身分處理另行核對，不能因沒有回覆就重複綁定；見 F14。",
+  "蒸管家全版本不再限制每月提醒則數；這不代表官方 LINE 方案無限發送，也不省略綁定與資格檢查。",
+  "摘要只列本人授課並含體驗人數；超過 8 筆會收合，已送摘要後新增隔日課程可補充通知。",
+  "同交易、同教練、同類型合併通知；失敗會依固定內容重試，超過 23 小時停止自動重送。",
+  "這三個開關控制傳給教練／教師的 LINE，不控制店長後台頂欄數位管家；數位管家持續接收門市通知，查看與處理見 C170。教師本人能否代請假、改期或看薪酬，也另在人員管理設定。",
+  "正式 LINE 送達仍須在確認收件人的受控環境另外驗收，不能用預覽圖替代。"
+],
+    references: [
+  {
+    "guideId": "C170",
+    "label": "課程門市異動通知如何查看、處理或復原？"
+  }
+],
+    modules: [
+  "course"
+], permission: "business_hours.manage", feature: "line_reminder", kind: "howto", verification: "source-reviewed",
+    sources: [
+  "src/app/(dashboard)/dashboard/courses/reminders/coach-notification-settings.tsx",
+  "src/lib/course-coach-notifications.ts",
+  "docs/course-coach-notifications.md",
+  "src/lib/line-delivery-pause.ts"
+],
   },
   {
     id: "C165", category: "booking", title: "課表月、週、日怎麼搜尋與篩選課程？",
     summary: "月／週／日共用名稱搜尋、課程與所屬教練篩選；課程與租借用不同色點及計數。",
     answer: "篩選只改目前查看範圍，不會更改課次。空白時段可直接新增排課或租借，送出仍會重查衝突。",
     path: "課表排程 → 月／週／日",
-    keywords: "課表 月表 週表 日表 搜尋 課程篩選 所屬教練 色點 租借 空白時段 點名完成度",
+    keywords: "課表 月表 週表 日表 搜尋 課程篩選 所屬教練 色點 租借 空白時段 點名完成度 教學項目 名單完整 首次載入 切月份 重新讀取 跨月 音樂 讀取失敗 課表同步 資訊小卡 滑入 Escape 觸控",
     steps: ["先切月、週或日並選日期，再輸入名稱或選課程、所屬教練篩選。", "依色點、課程堂數、租借筆數及點名完成度找到正確項目；月表可開啟該日完整清單。", "需要新增時點空白時段，選排課或租借；儲存後清除篩選核對完整課表。"],
     important: "租借不是課程，不會顯示教練、容量、加入學員或點名；隱藏筆數只代表目前畫面收合。",
     success: "三種檢視顯示相同日期與正確篩選結果，課程／租借不混淆，清除條件後資料完整。",
-    details: ["完成度以已處理點名／應點名人數計算；教師請假或曠課顯示免點名。", "週表與日表依營業時間排列，一次最多顯示 12 個小時格，超過才在課表內捲動；卡片只列摘要，詳細狀態請點開課次或當日清單。", "新增排課與租借都會檢查教室占用；篩選結果不能代替衝突檢查。"],
+    details: [
+  "切月份後排課或移動課次，網址與目前課表月份維持一致；若重新讀取遇延遲，先查原課次，不因畫面跳回舊月份就重建。",
+  "課表月、週、日沿用各模組背景更新節奏；新版運動安全閱讀時約 3 秒，舊課表約 60 秒，失敗會延長重試。切回可見分頁、重新連線或回到視窗時會再核對。編輯、提交或結果未確認時暫停，不會自動儲存草稿，也不是即時推播。名單明細另有自己的更新節奏。",
+  "完成度以已處理點名／應點名人數計算；教師請假或曠課顯示免點名。",
+  "週表與日表依營業時間排列，一次最多顯示 12 個小時格，超過才在課表內捲動；卡片只列摘要，詳細狀態請點開課次或當日清單。",
+  "新增排課與租借都會檢查教室占用；篩選結果不能代替衝突檢查。",
+  "運動課表以關聯教學項目名稱顯示，不以學員購買的收費方案名稱替代；舊快照或名稱尾碼不等於另一堂新課。",
+  "課表首次開啟及切月份會準備當前範圍完整名單，點課次後核對人數、姓名及必要欄位；不能只因外框出現就當資料已齊。讀取失敗保留原日期與篩選，按重新讀取，不把空畫面當成零人。",
+  "修改成功後重讀受影響資料，較舊月份或名單回覆不能覆蓋目前選擇；已載入的名單不取代點名、扣堂或收款時的最新權限與額度檢查。",
+  "音樂與新版運動切月會讀取所選月份的課表資料，固定課標記須包含跨月系列；切到別月後，較晚抵達的舊月份回覆不能取代目前畫面。載入或同步失敗先沿原月份重新讀取，不能以 HTTP 成功、空白或舊名單判定已完成，不另建課次補畫面。",
+  "音樂／運動課表滑入或鍵盤聚焦可看既有已載入的課程、學員、時間、教室與授課者摘要；離開、Escape、捲動或點擊收合。觸控仍一次點擊開原明細，不需多點一次，也不以摘要代替最新完整名單或交易核對。"
+],
     modules: ["course"], permission: "booking.read", feature: null, kind: "howto", verification: "source-reviewed",
-    sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/app/(dashboard)/dashboard/courses/roster.tsx", "src/app/(dashboard)/dashboard/courses/rental-panel.tsx"],
+    sources: [
+  "src/app/(dashboard)/dashboard/courses/workspace.tsx",
+  "src/app/(dashboard)/dashboard/courses/roster.tsx",
+  "src/app/(dashboard)/dashboard/courses/rental-panel.tsx",
+  "src/lib/sports-background-sync.ts",
+  "src/lib/course-template-presentation.ts",
+  "src/server/services/course-calendar-rosters.ts",
+  "src/server/services/calendar-roster-preload.ts",
+  "src/lib/sports-calendar-client.ts",
+  "src/app/(dashboard)/dashboard/courses/calendar-read/route.ts",
+  "src/app/(dashboard)/dashboard/courses/calendar-sync/route.ts",
+  "src/server/services/music-calendar-recurrence.ts"
+],
   },
   {
     id: "I14", category: "settings", title: "總部的功能狀態：隱藏、鎖定、啟用與跟隨方案有何差別？",
