@@ -19,7 +19,7 @@ function RecipientNames({people,results=false}:{people:Array<{id:string;name:str
   const render=(person:typeof people[number])=><li key={person.id} className="min-w-0 break-words py-1"><span className="font-medium">{person.name}</span>{person.phone&&<span className="ml-2 text-sm text-earth-500">{person.phone}</span>}{results&&person.status&&<span className="ml-2 text-sm text-earth-600">{messageRecipientStatusText[person.status]??person.status}</span>}{results&&person.reason&&<p className="text-sm text-earth-500">{person.reason}</p>}</li>;
   return <div className="min-w-0">
     <ul>{people.slice(0,3).map(render)}</ul>
-    {people.length>3&&<details><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-primary-700">另 {people.length-3} 位・查看完整名單{results?"與結果":""}</summary><ul className="max-h-64 overflow-y-auto">{people.map(render)}</ul></details>}
+    {people.length>3&&<details><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-primary-700">另 {people.length-3} 位・查看完整名單{results?"與結果":""}</summary><ul className="max-h-64 overflow-y-auto">{people.slice(3).map(render)}</ul></details>}
   </div>;
 }
 export function CustomerMessageComposer({options,initial,initialHistory,historyOnly=false,selectionToken="",initialSelected=[]}:{options:MessageOptions;initial:SearchResult;initialHistory:MessageHistory[];historyOnly?:boolean;selectionToken?:string;initialSelected?:MessagePerson[]}) {
