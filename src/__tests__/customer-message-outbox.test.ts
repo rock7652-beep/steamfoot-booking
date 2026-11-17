@@ -35,6 +35,17 @@ beforeEach(async()=>{await pg.exec('TRUNCATE "CustomerMessageRecipient","Custome
 const draft=()=>({customerIds:['one','two'],body:'今天請從側門進入\n謝謝您！',timing:'now'});
 async function queued(){const p=await previewCustomerMessage('shop-a','manager-a',draft());await confirmCustomerMessage('shop-a','manager-a',p.id);return p;}
 describe('manual LINE durable outbox with real PostgreSQL semantics',()=>{
+ it('history returns the original recipient names and individual results only within the authorized store',async()=>{
+   await queued();state.people.get('one')!.name='後來改名';
+   const history=await customerMessageHistory('shop-a');
+   expect(history[0].recipients).toEqual(expect.arrayContaining([
+     expect.objectContaining({name:'王小美',status:'PENDING',reason:null}),
+     expect.objectContaining({name:'李小華',status:'SKIPPED',reason:expect.any(String)}),
+   ]));
+   expect(history[0].recipients).toHaveLength(2);
+   expect(Object.keys(history[0].recipients[0]).sort()).toEqual(['id','name','reason','status']);
+   expect(await customerMessageHistory('shop-b')).toEqual([]);
+ });
  it('preview excludes unreachable people and never makes a job deliverable',async()=>{const p=await previewCustomerMessage('shop-a','manager-a',draft());expect(p.ready.map(p=>p.id)).toEqual(['one']);expect(p.excluded.map(p=>p.id)).toEqual(['two']);expect(await claimCustomerMessage()).toBeNull();expect(await customerMessageHistory('shop-a')).toEqual([]);});
  it('confirmation replays reuse one batch, preserve body, and cannot cross stores or users',async()=>{const p=await queued();await confirmCustomerMessage('shop-a','manager-a',p.id);expect((await pg.query('SELECT * FROM "CustomerMessageBatch"')).rows).toHaveLength(1);await expect(confirmCustomerMessage('shop-b','manager-b',p.id)).rejects.toThrow('找不到');await expect(confirmCustomerMessage('shop-a','manager-b',p.id)).rejects.toThrow('找不到');const job=await claimCustomerMessage('shop-a');expect(job?.batch.body).toBe(draft().body);expect(await claimCustomerMessage('shop-a')).toBeNull();});
  it('scheduled messages are not claimed early and previews expire',async()=>{const p=await previewCustomerMessage('shop-a','manager-a',{...draft(),timing:'scheduled',date:'2099-01-01',time:'10:00'}).catch(e=>e);expect(p).toBeInstanceOf(Error);const valid=await queued();await pg.query('UPDATE "CustomerMessageBatch" SET "scheduledAt"=NOW()+interval \'1 day\' WHERE id=$1',[valid.id]);expect(await claimCustomerMessage()).toBeNull();const expired=await previewCustomerMessage('shop-a','manager-a',draft());await pg.query('UPDATE "CustomerMessageBatch" SET "expiresAt"=NOW()-interval \'1 minute\' WHERE id=$1',[expired.id]);await expect(confirmCustomerMessage('shop-a','manager-a',expired.id)).rejects.toThrow('過期');});

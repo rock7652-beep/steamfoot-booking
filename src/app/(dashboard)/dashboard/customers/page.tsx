@@ -196,6 +196,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       <FormSuccessToast />
       <PageHeader
         title="顧客管理"
+        actionsClassName="min-w-0 !shrink flex-wrap gap-2 sm:justify-end"
         subtitle={
           isViewMode
             ? "查看下層店顧客資料。查看模式下不可新增、編輯、匯出或指派。"
@@ -215,7 +216,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
               <Link
                 href="/api/export/customers"
                 prefetch={false}
-                className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+                className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
               >
                 匯出
               </Link>
@@ -224,12 +225,11 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                 {dataExportLockedLabel}
               </span>
             )}
-            <CustomerMessageActions/>
             {healthRecordsEnabled && (
               <Link
                 href="/dashboard/health"
                 prefetch={false}
-                className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+                className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
               >
                 健康資料
               </Link>
@@ -237,16 +237,17 @@ export default async function CustomersPage({ searchParams }: PageProps) {
             <Link
               href="/dashboard/customers/central-binding"
               prefetch={false}
-              className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+              className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
             >
               中央綁定狀態
             </Link>
+            <CustomerMessageActions/>
             <Link
               href="/dashboard/customers/new"
               prefetch={false}
-              className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
+              className="inline-flex min-h-11 items-center rounded-lg bg-primary-700 px-3 py-2 text-sm font-medium text-white hover:bg-primary-800"
             >
-              + 新增顧客
+              新增顧客
             </Link>
             </>
           )

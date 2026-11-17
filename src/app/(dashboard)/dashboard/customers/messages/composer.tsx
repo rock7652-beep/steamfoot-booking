@@ -2,7 +2,7 @@
 import { useEffect,useRef,useState } from "react";
 import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { searchMessageCustomers,selectMessageCustomers,previewMessage,confirmMessage,cancelMessage,loadMessageHistory } from "@/server/actions/customer-messages";
-import { CUSTOMER_MESSAGE_LIMIT,CUSTOMER_MESSAGE_MAX_LENGTH,messageDateLabel,messageSchedule,messageStatusText,type MessageFilters,type MessagePerson,type MessageOptions,type MessagePreview,type MessageHistory } from "@/lib/customer-message";
+import { CUSTOMER_MESSAGE_LIMIT,CUSTOMER_MESSAGE_MAX_LENGTH,messageDateLabel,messageSchedule,messageStatusText,messageRecipientStatusText,type MessageFilters,type MessagePerson,type MessageOptions,type MessagePreview,type MessageHistory } from "@/lib/customer-message";
 import { toLocalDateStr } from "@/lib/date-utils";
 import {loadMessageSelection} from "@/server/actions/customer-messages";
 import {messageSelectionKey,readMessageSelection} from "@/lib/customer-message-selection";
@@ -15,6 +15,13 @@ const button="inline-flex min-h-11 items-center justify-center rounded-lg border
 const primary="inline-flex min-h-11 items-center justify-center rounded-lg border border-primary-700 bg-primary-700 px-4 text-sm font-medium text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50";
 const field="min-h-11 w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-base text-earth-900";
 type SearchResult={rows:MessagePerson[];total:number;page:number};
+function RecipientNames({people,results=false}:{people:Array<{id:string;name:string;phone?:string;status?:string;reason?:string|null}>;results?:boolean}){
+  const render=(person:typeof people[number])=><li key={person.id} className="min-w-0 break-words py-1"><span className="font-medium">{person.name}</span>{person.phone&&<span className="ml-2 text-sm text-earth-500">{person.phone}</span>}{results&&person.status&&<span className="ml-2 text-sm text-earth-600">{messageRecipientStatusText[person.status]??person.status}</span>}{results&&person.reason&&<p className="text-sm text-earth-500">{person.reason}</p>}</li>;
+  return <div className="min-w-0">
+    <ul>{people.slice(0,3).map(render)}</ul>
+    {people.length>3&&<details><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-primary-700">另 {people.length-3} 位・查看完整名單{results?"與結果":""}</summary><ul className="max-h-64 overflow-y-auto">{people.slice(3).map(render)}</ul></details>}
+  </div>;
+}
 export function CustomerMessageComposer({options,initial,initialHistory,historyOnly=false,selectionToken="",initialSelected=[]}:{options:MessageOptions;initial:SearchResult;initialHistory:MessageHistory[];historyOnly?:boolean;selectionToken?:string;initialSelected?:MessagePerson[]}) {
   const [filtersOpen,setFiltersOpen]=useState(false);
   const [step,setStep]=useState(initialSelected.length?1:0),[filters,setFilters]=useState(initialFilters),[result,setResult]=useState(initial);
@@ -91,6 +98,11 @@ export function CustomerMessageComposer({options,initial,initialHistory,historyO
         <h2 id="message-step-title" tabIndex={-1} ref={heading} className="text-lg font-semibold outline-none">{steps[step]}</h2>
         <span className="text-sm text-earth-600">{options.storeName}・本店 LINE</span>
       </div>
+      {(step===1||step===2)&&<section aria-label="接收對象" className="mb-5 rounded-lg bg-primary-50 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-primary-900">傳給誰・已選 {count} 位顧客</h3><button type="button" className={button} disabled={busy} onClick={()=>{setStep(0);setPreview(null);setError("");}}>修改對象</button></div>
+        <RecipientNames people={selectedPeople}/>
+        <p className="mt-1 text-sm text-earth-600">可發送名單會在預覽時核對。</p>
+      </section>}
       {step===0&&<fieldset disabled={busy} className="min-w-0 space-y-3">
         <legend className="sr-only">選擇收件顧客</legend>
         <form className="flex flex-wrap items-end gap-2" onSubmit={e=>{e.preventDefault();if(!composing.current)void search({...filters,search:searchInput.current?.value??""});}}>
@@ -175,9 +187,7 @@ export function CustomerMessageComposer({options,initial,initialHistory,historyO
         <div className="space-y-4">
           <div><p className="text-sm text-earth-500">傳給誰</p>
             <p className="mt-1 text-xl font-semibold text-primary-900">預計發送 {preview.ready.length} 位顧客</p>
-            <details><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">查看收件人</summary>
-              <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">{preview.ready.map(p=><li key={p.id}>{p.name}</li>)}</ul>
-            </details>
+            <RecipientNames people={preview.ready}/>
           </div>
           <div><p className="text-sm text-earth-500">何時發送</p><p className="mt-1 font-semibold">{preview.immediate?"確認後立即發送":messageDateLabel(preview.scheduledAt)+"（台灣時間）"}</p></div>
           {preview.excluded.length>0&&<details open className="rounded-lg bg-amber-50 px-3 text-amber-900">
@@ -238,6 +248,7 @@ export function CustomerMessageComposer({options,initial,initialHistory,historyO
             }}>取消未發送訊息</button>}
           </div>
           <p className="line-clamp-2 whitespace-pre-wrap break-words text-sm">{item.body}</p>
+          <div className="rounded-lg bg-earth-50 px-3 py-2"><p className="text-sm text-earth-500">接收對象・{item.total} 位</p><RecipientNames people={item.recipients} results/></div>
           <p className="text-sm text-earth-600">LINE 已接受 {item.accepted}・待處理 {item.pending}・未接受 {item.failed}・未發送 {item.skipped}{item.unknown>0?`・結果待確認 ${item.unknown}`:""}</p>
         </li>)}</ul>:<p className="py-3 text-earth-500">尚無發送紀錄</p>}
       </div>

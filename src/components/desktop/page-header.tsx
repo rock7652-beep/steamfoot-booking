@@ -19,9 +19,10 @@ interface PageHeaderProps {
   subtitle?: string;
   /** 右側 actions — 通常是 2–3 個 Link 或按鈕。不放主要 CTA（主 CTA 應該在頁內決策區） */
   actions?: React.ReactNode;
+  actionsClassName?: string;
 }
 
-export function PageHeader({ title, subtitle, actions, compact = false }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, actions, actionsClassName = "", compact = false }: PageHeaderProps) {
   return (
     <div data-page-header className={`flex min-w-0 flex-col items-stretch sm:flex-row sm:justify-between ${compact ? "gap-2 sm:items-center" : "gap-3 pb-1 sm:items-start"}`}>
       <div className="min-w-0">
@@ -31,7 +32,7 @@ export function PageHeader({ title, subtitle, actions, compact = false }: PageHe
         ) : null}
       </div>
       {actions ? (
-        <div className={`flex shrink-0 items-center gap-1.5 self-start ${compact ? "[&>a]:min-h-11 [&>a]:items-center [&>a]:text-sm" : ""}`}>
+        <div className={`flex shrink-0 items-center gap-1.5 self-start ${compact ? "[&>a]:min-h-11 [&>a]:items-center [&>a]:text-sm" : ""} ${actionsClassName}`}>
           {actions}
         </div>
       ) : null}

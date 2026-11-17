@@ -22,10 +22,10 @@ export async function previewMessage(_store:string,input:MessageDraft){
 export async function confirmMessage(_store:string,id:string){
   window.__messageQA.calls.push({operation:"confirm",id});
   const p=previews.get(id)!;
-  if(!history.some(h=>h.id===id))history.unshift({id,body:p.body,scheduledAt:p.scheduledAt,createdAt:new Date().toISOString(),status:"QUEUED",total:p.ready.length+p.excluded.length,accepted:0,pending:p.ready.length,failed:0,skipped:p.excluded.length,unknown:0});
+  if(!history.some(h=>h.id===id))history.unshift({id,body:p.body,scheduledAt:p.scheduledAt,createdAt:new Date().toISOString(),status:"QUEUED",total:p.ready.length+p.excluded.length,accepted:0,pending:p.ready.length,failed:0,skipped:p.excluded.length,unknown:0,recipients:[...p.ready.map(r=>({...r,status:"PENDING",reason:null})),...p.excluded.map(r=>({...r,status:"SKIPPED"}))]});
   if(window.__messageQA.failConfirmation){window.__messageQA.failConfirmation=false;throw new Error("Response lost after commit");}
   return {success:true as const,data:{id,status:"QUEUED"}};
 }
 export async function loadMessageHistory(){return {success:true as const,data:[...history]};}
 export async function loadMessageSelection(_store:string,ids:string[]){return {success:true as const,data:ids.map(id=>people.find(p=>p.id===id)!)};}
-export async function cancelMessage(_store:string,id:string){history=history.map(h=>h.id===id?{...h,status:"CANCELLED",skipped:h.skipped+h.pending,pending:0}:h);return {success:true as const,data:{id}};}
+export async function cancelMessage(_store:string,id:string){history=history.map(h=>h.id===id?{...h,status:"CANCELLED",skipped:h.skipped+h.pending,pending:0,recipients:h.recipients.map(r=>r.status==="PENDING"?{...r,status:"CANCELLED"}:r)}:h);return {success:true as const,data:{id}};}
