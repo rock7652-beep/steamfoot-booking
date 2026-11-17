@@ -120,8 +120,9 @@ export async function customerMessageHistory(storeId:string):Promise<MessageHist
       COUNT(*) FILTER(WHERE r.status IN ('PENDING','SENDING'))::int AS pending,
       COUNT(*) FILTER(WHERE r.status='FAILED')::int AS failed,
       COUNT(*) FILTER(WHERE r.status IN ('SKIPPED','CANCELLED'))::int AS skipped,
-      COUNT(*) FILTER(WHERE r.status='UNKNOWN')::int AS unknown
-    FROM "CustomerMessageBatch" b JOIN "CustomerMessageRecipient" r ON r."batchId"=b.id
+      COUNT(*) FILTER(WHERE r.status='UNKNOWN')::int AS unknown,
+      jsonb_agg(jsonb_build_object('id',r.id,'name',r."nameSnapshot",'status',r.status,'reason',r.reason) ORDER BY r."nameSnapshot",r.id) AS recipients
+    FROM "CustomerMessageBatch" b JOIN "CustomerMessageRecipient" r ON r."batchId"=b.id AND r."storeId"=b."storeId"
     WHERE b."storeId"=${storeId} AND b.status<>'DRAFT' GROUP BY b.id ORDER BY b."createdAt" DESC LIMIT 30`;
   return rows.map(r=>({...r,scheduledAt:r.scheduledAt.toISOString(),createdAt:r.createdAt.toISOString()}));
 }

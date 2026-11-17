@@ -558,7 +558,7 @@ export function CourseMemberWorkspace({
       )}
       </div>}
       <div className="flex flex-wrap items-center gap-2">
-        {view === "customers" && !music && <h1 className="admin-page-title mr-auto">顧客管理</h1>}
+        {view === "customers" && <h1 className="admin-page-title">{music?"學員管理":"顧客管理"}</h1>}
         {view === "customers"&&<div className="ml-auto"><CustomerMessageActions/></div>}
 
         {view === "plans" && planArea === "catalog" && <input
@@ -587,7 +587,7 @@ export function CourseMemberWorkspace({
         {view==="plans"&&planArea==="catalog"&&canEdit&&catalogSource?.form.servicePricing&&<button type="button" className={button} disabled={!confirmedPrices.rows.length} onClick={()=>{if(open('service-price'))setPricingId(confirmedPrices.rows.find(row=>row.id===templateFilter)?.id??confirmedPrices.rows[0]?.id??'');}}>一般／體驗設定</button>}
         {canCreate && (view!=="plans"||!sportsNative||activeModes?.selfBookingEnabled!==false||activeModes?.assignedSchedulingEnabled!==false) && (view === "customers" || planArea === "catalog") && (
           <button
-            className="ml-auto min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800"
+            className={`${view === "customers"?"":"ml-auto "}min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800`}
             onClick={() => {
               if (view === "customers") {
                 setPerson(null);
