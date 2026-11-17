@@ -26,10 +26,11 @@ const navigation = `
     push(){throw Error('Unexpected navigation');},replace(){throw Error('Unexpected navigation');},prefetch(){}};
   export const useRouter=()=>router;
   export const usePathname=()=>'/s/synthetic/admin/dashboard/courses';
-  let savedSearch,savedParams;
-  for(const method of ['pushState','replaceState']){const original=window.history[method].bind(window.history);window.history[method]=(...args)=>{const result=original(...args);window.dispatchEvent(new Event('qa:url'));return result;};}
+  let savedSearch,savedParams,observedSearch=window.location.search;
+  const deferred=new URLSearchParams(window.location.search).get("deferredParams")==="1";
+  for(const method of ['pushState','replaceState']){const original=window.history[method].bind(window.history);window.history[method]=(...args)=>{const result=original(...args);const notify=()=>{observedSearch=window.location.search;window.dispatchEvent(new Event('qa:url'));};if(deferred)setTimeout(notify,150);else notify();return result;};}
   const subscribe=listener=>{window.addEventListener('qa:url',listener);return()=>window.removeEventListener('qa:url',listener);};
-  export const useSearchParams=()=>{const search=useSyncExternalStore(subscribe,()=>window.location.search,()=>window.location.search);if(savedSearch!==search){savedSearch=search;savedParams=new URLSearchParams(search);}return savedParams;};
+  export const useSearchParams=()=>{const search=useSyncExternalStore(subscribe,()=>deferred?observedSearch:window.location.search,()=>window.location.search);if(savedSearch!==search){savedSearch=search;savedParams=new URLSearchParams(search);}return savedParams;};
   export const unstable_rethrow=()=>{};
 `;
 const server = await createServer({ root, configFile: false, define:{"process.env":"{}"}, cacheDir: "/tmp/calendar-customer-preload-vite", optimizeDeps: { include: ["react", "react-dom", "react-dom/client", "sonner", "zod"] }, plugins: [react(), {
@@ -78,7 +79,7 @@ try{
    }
    await route.continue();
   });
-  await page.goto(origin+'/s/synthetic/admin/dashboard/courses?scheduleView=month&date=2026-11-04&profile='+profile);
+  await page.goto(origin+'/s/synthetic/admin/dashboard/courses?scheduleView=month&date=2026-11-04&deferredParams=1&profile='+profile);
   const input=page.getByLabel('課表日期',{exact:true});await input.waitFor();
   const day=month=>page.getByRole('button',{name:new RegExp('^'+month+'-04，1')}).first();
   await day('2026-11').waitFor();

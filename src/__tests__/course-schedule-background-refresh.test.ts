@@ -323,3 +323,19 @@ it('keeps the native date control focused and commits tracked input/blur values 
   expect(m.nativeRead).toHaveBeenCalledTimes(2);expect(input.value).toBe('2027-01-02');
  }finally{replace(null,'',original);}
 });
+
+
+it('keeps a native date draft while Next search params still contain the previous date',async()=>{
+ const original=window.location.href,replace=window.history.replaceState.bind(window.history);
+ let nextQuery='';m.query='date=2026-10-17&scheduleView=month';replace(null,'','/s/sports-test/admin/dashboard/courses?'+m.query);
+ vi.spyOn(window.history,'replaceState').mockImplementation((data,title,url)=>{replace(data,title,url);nextQuery=new URL(window.location.href).searchParams.toString();});
+ m.nativeRead.mockImplementation(async(date:string)=>({success:true,data:{month:date.slice(0,7),sessions:[],calendarDays:{},cancelledBookings:[],staffAvailabilityExceptions:[]}}));
+ try{
+  await render('MUSIC');const input=host.querySelector<HTMLInputElement>('[aria-label="課表日期"]')!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'2026-12-02');input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));});
+  expect(input.value).toBe('2026-12-02');expect(new URL(window.location.href).searchParams.get('date')).toBe('2026-12-02');
+  expect(m.nativeRead).toHaveBeenCalledOnce();
+  await render('MUSIC');expect(input.value).toBe('2026-12-02');
+  m.query=nextQuery;await render('MUSIC');expect(input.value).toBe('2026-12-02');
+ }finally{replace(null,'',original);}
+});
