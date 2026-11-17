@@ -220,6 +220,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                 {dataExportLockedLabel}
               </span>
             )}
+            {await checkPermission(user.role, user.staffId, "customer.message.send") && <Link href="/dashboard/customers/messages" prefetch={false} className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 text-sm font-medium">發送訊息</Link>}
             {healthRecordsEnabled && (
               <Link
                 href="/dashboard/health"

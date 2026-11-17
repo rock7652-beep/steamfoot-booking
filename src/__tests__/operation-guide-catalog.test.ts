@@ -9,7 +9,9 @@ describe("guide catalogue", () => {
     const permissions = [...new Set(operationGuides.flatMap(g => [g.permission, ...(g.additionalPermissions ?? [])]).filter(Boolean))];
     const features = Object.fromEntries(operationGuides.filter(g => g.feature).map(g => [g.feature!, true]));
     const course: GuideAccess = { module: "course", permissions, features };
-    expect(availableGuides(course)).toHaveLength(129);
+    expect(availableGuides(course)).toHaveLength(130);
+    expect(availableGuides(course).some(g => g.id === "LINE-MANUAL-01")).toBe(true);
+    expect(availableGuides({...course, permissions:course.permissions.filter(p=>p!=="customer.message.send")}).some(g=>g.id==="LINE-MANUAL-01")).toBe(false);
     for(const moduleName of ["steamfoot","course","beauty"] as const)expect(availableGuides({...course,module:moduleName}).find(guide=>guide.id==="C04")?.path).toContain("全部紀錄");
     expect(availableGuides({...course, features:{}}).some(g => g.id === "C135")).toBe(false);
     expect(availableGuides({...course, permissions:["customer.read"]}).some(g => g.id === "C128")).toBe(false);
@@ -40,7 +42,7 @@ describe("guide catalogue", () => {
       ],
       features: {line_reminder: true, basic_reports: true},
     };
-    expect(operationGuides).toHaveLength(203);
+    expect(operationGuides).toHaveLength(204);
     expect(availableGuides(allCourse).map(g => g.id)).toEqual(expect.arrayContaining([
       "C102", "C103", "C104", "C105", "C106", "C107", "C108", "C109",
       "C110", "C111", "C112", "C113", "C114", "C115", "C116", "C117",

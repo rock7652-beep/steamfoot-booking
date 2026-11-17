@@ -63,6 +63,7 @@ export const ALL_PERMISSIONS = [
   "customer.update",
   "customer.assign",   // 指派/變更所屬店長
   "customer.export",
+  "customer.message.send",
   "customer.identity.rebind", // 店長核准式 LINE 重新綁定（捕捉/執行分離）
   "teacher.booking.leave",
   "teacher.booking.reschedule",
@@ -133,7 +134,7 @@ export const PERMISSION_GROUPS: Record<string, { label: string; codes: Permissio
   inventory: {label:"進銷存",codes:["inventory.read","inventory.write","inventory.manage","inventory.cost.read","inventory.receive","inventory.purchase.pay","inventory.price.manage","inventory.price.override","inventory.refund","inventory.payment.correct"]},
   customer: {
     label: "顧客管理",
-    codes: ["customer.read", "customer.create", "customer.update", "customer.assign", "customer.export", "customer.identity.rebind"],
+    codes: ["customer.read", "customer.create", "customer.update", "customer.assign", "customer.export", "customer.identity.rebind", "customer.message.send"],
   },
   teacher_booking: {label:"授課操作",codes:["teacher.booking.leave","teacher.booking.reschedule","teacher.session.leave","teacher.session.reschedule"]},
   booking: {
@@ -208,6 +209,7 @@ export const PERMISSION_LABELS: Record<PermissionCode, string> = {
   "inventory.price.manage":"設定商品身份價格",
   "inventory.price.override":"調整銷貨單價與優惠",
   "customer.read": "查看顧客",
+  "customer.message.send": "發送顧客訊息",
   "customer.create": "新增顧客",
   "customer.update": "編輯顧客",
   "customer.assign": "指派所屬店長",
@@ -271,6 +273,7 @@ export const DEFAULT_MANAGER_PERMISSIONS: PermissionCode[] = [
   "customer.update",
   "customer.assign",
   "customer.export",
+  "customer.message.send",
   "customer.identity.rebind",
   "booking.read",
   "booking.create",
