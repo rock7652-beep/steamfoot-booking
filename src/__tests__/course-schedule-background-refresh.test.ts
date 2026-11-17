@@ -301,3 +301,25 @@ it('keeps a visited music month usable after 75 seconds and restores the initial
   expect(host.querySelector('[aria-label="課表載入"]')).toBeNull();
  }finally{replace(null,'',original);}
 });
+
+
+it('keeps the native date control focused and commits tracked input/blur values only once',async()=>{
+ const original=window.location.href,replace=window.history.replaceState.bind(window.history);
+ vi.spyOn(window.history,'replaceState').mockImplementation((data,title,url)=>{replace(data,title,url);m.query=new URL(window.location.href).searchParams.toString();});
+ m.nativeRead.mockImplementation(async(date:string)=>({success:true,data:{month:date.slice(0,7),sessions:[],calendarDays:{},cancelledBookings:[],staffAvailabilityExceptions:[]}}));
+ try{
+  await render('MUSIC');const input=host.querySelector<HTMLInputElement>('[aria-label="課表日期"]')!;input.focus();
+  // The native control has already updated React's value tracker before the event.
+  await act(async()=>{input.value='2026-12-02';input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));});await render('MUSIC');
+  expect(m.nativeRead).toHaveBeenCalledOnce();expect(m.nativeRead).toHaveBeenLastCalledWith('2026-12-01');
+  expect(new URL(window.location.href).searchParams.get('date')).toBe('2026-12-02');
+  expect(host.querySelector('[aria-label="課表日期"]')).toBe(input);expect(document.activeElement).toBe(input);expect(input.value).toBe('2026-12-02');
+  await act(async()=>{input.value='2027-01-02';input.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));});await render('MUSIC');
+  expect(m.nativeRead).toHaveBeenCalledTimes(2);expect(m.nativeRead).toHaveBeenLastCalledWith('2027-01-01');
+  expect(new URL(window.location.href).searchParams.get('date')).toBe('2027-01-02');
+  // A delayed commit for the same selection must not issue another read.
+  await act(async()=>input.dispatchEvent(new Event('change',{bubbles:true})));expect(m.nativeRead).toHaveBeenCalledTimes(2);
+  await act(async()=>{input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));});
+  expect(m.nativeRead).toHaveBeenCalledTimes(2);expect(input.value).toBe('2027-01-02');
+ }finally{replace(null,'',original);}
+});

@@ -427,6 +427,8 @@ export function CourseWorkspace({
   const requestedDate = sportsNative?nativeDate:params.get("date");
   const committedDate=requestedDate&&parseTaipeiDateTime(requestedDate,"00:00")?requestedDate:loadedDate;
   const [selectedDate,selectCalendarDate]=useOptimistic(committedDate,(_previous:string,next:string)=>next);
+  const dateInputSelection = useRef(selectedDate);
+  useLayoutEffect(() => { dateInputSelection.current = selectedDate; }, [selectedDate]);
   const calendarDataReady=calendarMonthReady(sportsNative||businessProfile==="MUSIC",selectedDate,nativeCalendar?.month??loadedDate.slice(0,7));
   useEffect(()=>{if((sportsNative||musicCalendar)&&!calendarDataReady&&calendarTargetMonth.current!==committedDate.slice(0,7)){
     if(sportsNative&&!calendarSource)setNativeDate(nativeDate);
@@ -765,6 +767,18 @@ export function CourseWorkspace({
       // Even returning to the loaded month must supersede an older in-flight navigation.
       return router.replace(`${pathname}?${next}`, { scroll: false });
     });
+  }
+  function commitDateInput(input: HTMLInputElement, restoreInvalid = false) {
+    const date = input.value;
+    if (!parseTaipeiDateTime(date, "00:00")) {
+      if (restoreInvalid) input.value = selectedDate;
+      return;
+    }
+    if (date === dateInputSelection.current) return;
+    // Native pickers can update the value before React observes a change event.
+    // Input, change and blur must commit the same selection at most once.
+    dateInputSelection.current = date;
+    go(date);
   }
   function open(next: typeof panel) {
     if (pending) return;
@@ -1179,15 +1193,13 @@ export function CourseWorkspace({
               <label className="sr-only" htmlFor="course-schedule-date">課表日期</label>
               <input
                 id="course-schedule-date"
-                key={selectedDate}
                 aria-label="課表日期"
                 type="date"
-                defaultValue={selectedDate}
+                value={selectedDate}
                 disabled={pending||inlineBusy}
-                onChange={(event) => {
-                  const date = event.target.value;
-                  if (parseTaipeiDateTime(date, "00:00")) go(date);
-                }}
+                onInput={(event) => commitDateInput(event.currentTarget)}
+                onChange={(event) => commitDateInput(event.currentTarget)}
+                onBlur={(event) => commitDateInput(event.currentTarget, true)}
                 className="min-h-9 rounded-lg border border-earth-200 bg-white px-2.5 text-sm text-earth-700"
               />
               {businessProfile === "MUSIC" && scheduleMode !== "month" && <div role="group" aria-label="當日資訊" className="flex shrink-0 items-center gap-1">
