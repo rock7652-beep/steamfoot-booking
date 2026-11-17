@@ -60,12 +60,50 @@ const server = await createServer({ root, configFile: false, define:{"process.en
 await server.listen();
 let browser;
 const results=[],errors=[];
-const edges=process.argv.includes("--edge"),mutation=process.argv.includes("--mutation");
+const edges=process.argv.includes("--edge"),mutation=process.argv.includes("--mutation"),datePicker=process.argv.includes("--date-picker");
 const modules=["sports","music","beauty"].filter(m=>!process.argv.some(arg=>arg.startsWith("--profile="))||process.argv.includes("--profile="+m));
 try{
- browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+ browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  const origin=`http://127.0.0.1:${server.httpServer.address().port}`;
- if(!process.argv.includes("--customers")&&!mutation)for(const profile of modules)for(const [width,height] of (edges?[[1366,900]]:[[1366,900],[1920,1080],[1024,768],[768,1024]])){
+ if(datePicker)for(const profile of modules.filter(profile=>profile!=='beauty'))for(const [width,height] of [[1366,900],[1920,1080],[1024,768],[768,1024]]){
+  const context=await browser.newContext({viewport:{width,height}}),page=await context.newPage(),requests=[];
+  page.on('pageerror',e=>errors.push({profile,error:e.message}));
+  await page.route('**/*',async route=>{
+   const req=route.request(),url=new URL(req.url());
+   if(url.origin!==origin){await route.abort();return;}
+   if(url.pathname.includes('calendar-read')||url.pathname.includes('calendar-sync')||url.pathname==='/__qa/beauty-month'){
+    const month=req.postDataJSON().date.slice(0,7);requests.push(month);
+    await new Promise(r=>setTimeout(r,month==='2027-01'?900:100));
+    await route.fulfill({json:{success:true,data:{storeId:'synthetic',month,calendarDays:{},cancelledBookings:[],staffAvailabilityExceptions:[],sessions:[{id:month,templateId:'template',nameSnapshot:'合成 '+month+' 課程',startsAt:month+'-04T01:00:00Z',endsAt:month+'-04T02:00:00Z',roomId:'room',coachId:'coach',capacity:1,pointCost:1,bookings:[]}]}}});return;
+   }
+   await route.continue();
+  });
+  await page.goto(origin+'/s/synthetic/admin/dashboard/courses?scheduleView=month&date=2026-11-04&profile='+profile);
+  const input=page.getByLabel('課表日期',{exact:true});await input.waitFor();
+  const day=month=>page.getByRole('button',{name:new RegExp('^'+month+'-04，1')}).first();
+  await day('2026-11').waitFor();
+  // Native date controls can report an input before a committed change.
+  async function nativeEvent(value,type){await input.evaluate((el,{value,type})=>{
+   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,value);
+   el.dispatchEvent(new Event(type,{bubbles:true}));
+  },{value,type});}
+  await input.focus();await nativeEvent('2026-12-02','input');
+  await page.waitForURL(url=>url.searchParams.get('date')==='2026-12-02',{timeout:5000});
+  await day('2026-12').waitFor();assert.equal(await input.inputValue(),'2026-12-02');
+  assert.equal(await input.evaluate(el=>el===document.activeElement),true,'date input lost focus');
+  await nativeEvent('2026-12-02','change');
+  await nativeEvent('2026-11-02','change');await day('2026-11').waitFor();
+  assert.equal(new URL(page.url()).searchParams.get('date'),'2026-11-02');
+  await nativeEvent('2027-01-02','input');await nativeEvent('2027-02-02','input');
+  await day('2027-02').waitFor();await page.waitForTimeout(1100);
+  assert.equal(new URL(page.url()).searchParams.get('date'),'2027-02-02');
+  assert.equal(await day('2027-01').count(),0,'late month replaced current date');
+  await input.fill('2026-12-02');await day('2026-12').waitFor();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'page overflow');
+  await page.screenshot({path:path.join(out,`date-picker-${profile}-${width}.png`),fullPage:true});
+  const result={profile,width,height,inputEvent:true,changeEvent:true,rapidSwitch:true,focusRetained:true};results.push(result);console.log(JSON.stringify(result));await context.close();
+ }
+ if(!datePicker&&!process.argv.includes("--customers")&&!mutation)for(const profile of modules)for(const [width,height] of (edges?[[1366,900]]:[[1366,900],[1920,1080],[1024,768],[768,1024]])){
   const context=await browser.newContext({viewport:{width,height}}),page=await context.newPage(),requests=[];
   let failMonth='',delay=650;const monthDelays={};
   const dayWithData=month=>page.getByRole('button',{name:new RegExp('^'+month+'-04，1')}).first();
@@ -105,7 +143,7 @@ try{
   await page.screenshot({path:path.join(out,profile+'-'+width+'.png'),fullPage:true});results.push(sample);console.log(JSON.stringify(sample));await context.close();
  }
 
- if(!edges)for(const profile of modules)for(const [width,height] of [[1366,900],[1024,768],[768,1024]]){
+ if(!datePicker&&!edges)for(const profile of modules)for(const [width,height] of [[1366,900],[1024,768],[768,1024]]){
   const context=await browser.newContext({viewport:{width,height}}),page=await context.newPage(),requests=[];
   let purchased=false;
   page.on('pageerror',e=>errors.push({profile,kind:'customers',error:e.message}));
