@@ -267,6 +267,7 @@ export async function beautyDashboard(
         ["customerEdit", "customer.update"],
         ["customerAssign", "customer.assign"],
         ["customerExport", "customer.export"],
+        ["customerMessage", "customer.message.send"],
         ["plan", "plans.edit"],
         ["technician", "staff.manage"],
         ["location", "business_hours.manage"],
@@ -281,6 +282,7 @@ export async function beautyDashboard(
   );
   manage.customerMerge=manage.customerEdit&&customerAccess&&(u?.role==="OWNER"||u?.role==="ADMIN");
   manage.customerExport=manage.customerExport&&customerAccess&&(await hasStoreFeature(a.storeId,FEATURES.DATA_EXPORT));
+  manage.customerMessage=manage.customerMessage&&customerAccess&&(await hasStoreFeature(a.storeId,FEATURES.LINE_REMINDER));
   manage.card = manage.card && manage.collect;
   manage.technician =
     manage.technician &&

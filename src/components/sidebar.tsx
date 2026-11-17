@@ -844,13 +844,13 @@ export default function DashboardShell({
       };
       const beautyItem = (label:keyof typeof icons, permission:NavItem["permission"], feature?:FeatureKey):NavItem => ({label:beautyText(label),icon:icons[label],href:`/dashboard/beauty?tab=${encodeURIComponent(label)}`,permission,requiredFeature:feature});
       return [
-        {id:"store-daily",label:"日常工作",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("首頁","booking.read"),beautyItem("班表","booking.read",FEATURES.BASIC_BOOKING),beautyItem("顧客管理","customer.read",FEATURES.CUSTOMER_MANAGEMENT),{...entry("/dashboard/customers"),href:"/dashboard/customers/messages",label:"顧客訊息",permission:"customer.message.send",requiredFeature:FEATURES.LINE_REMINDER},beautyItem("顧客經營","customer.read",FEATURES.CUSTOMER_CARE),operationsItem,beautyItem("分析","report.read",FEATURES.BASIC_REPORTS),entry("/dashboard/work-orders"),entry("/dashboard/inventory")]},
+        {id:"store-daily",label:"日常工作",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("首頁","booking.read"),beautyItem("班表","booking.read",FEATURES.BASIC_BOOKING),beautyItem("顧客管理","customer.read",FEATURES.CUSTOMER_MANAGEMENT),beautyItem("顧客經營","customer.read",FEATURES.CUSTOMER_CARE),operationsItem,beautyItem("分析","report.read",FEATURES.BASIC_REPORTS),entry("/dashboard/work-orders"),entry("/dashboard/inventory")]},
         {id:"store-management",label:"店務管理",defaultOpen:true,alwaysOpen:true,icon:<></>,items:[beautyItem("位置管理","business_hours.view"),beautyItem("服務項目","plans.edit",FEATURES.PLAN_MANAGEMENT),beautyItem("收費方式","plans.edit",FEATURES.PLAN_MANAGEMENT),...(steamfootAddOnsEnabled?[{href:"/dashboard/add-ons",label:"加購商品",permission:"add_ons.manage" as const,requiredFeature:FEATURES.ADD_ONS,icon:<ServiceCatalogIcon/>}]:[]),beautyItem("技師管理","staff.view",FEATURES.STAFF_MANAGEMENT),entry("/dashboard/staff"),{...entry("/dashboard/settings"),href:"/dashboard/image-announcements",label:"圖片公告",icon:<ImageAnnouncementIcon />,permission:"business_hours.view",requiredFeature:undefined},beautyItem("設定","business_hours.view")]},
       ];
     }
 
     const course = industryModuleId === "course";
-    const messageEntry:NavItem = {...entry("/dashboard/customers"),href:"/dashboard/customers/messages",label:"顧客訊息",permission:"customer.message.send",requiredFeature:FEATURES.LINE_REMINDER};
+
 
     const growth = { ...entry("/dashboard/growth"), alternativeFeatures: [FEATURES.CUSTOMER_CARE, FEATURES.DIGITAL_BUTLER] };
     // When only the digital butler is enabled, its list remains directly reachable.
@@ -860,7 +860,7 @@ export default function DashboardShell({
       { ...entry("/dashboard"), permission: course ? "booking.read" : undefined },
       { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : "/dashboard/bookings", label: course ? (musicEnabled ? "課表" : "課表排程") : "預約管理" },
       { ...entry("/dashboard/customers"), label: musicEnabled ? "學員管理" : "顧客管理", href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
-      messageEntry,
+
       growthEntry,
       ...(!course ? [entry("/dashboard/work-orders"), entry("/dashboard/inventory")] : []),
       operationsItem,

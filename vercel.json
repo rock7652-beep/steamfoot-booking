@@ -62,6 +62,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "feat/customer-message-entry-20261117": false,
       "fix/customer-parallel-read-20261114": false,
       "fix/instant-filter-clear-state-20261114": false,
       "fix/site-instant-filters-20261114": false,

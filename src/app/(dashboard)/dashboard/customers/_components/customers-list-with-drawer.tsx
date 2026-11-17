@@ -1,4 +1,5 @@
 "use client";
+import {useCustomerMessageSelection} from "@/components/customer-message-entry";
 
 import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import { useId, useCallback, useState, useMemo, useRef, useEffect } from "react";
@@ -413,6 +414,7 @@ export function CustomersListWithDrawer({
   );
 
   const canWriteAssign = canAssign && !readOnly;
+  const canSendMessages=useCustomerMessageSelection(selectedIds)&&!readOnly;
 
   return (
     <>
@@ -425,7 +427,7 @@ export function CustomersListWithDrawer({
         onPrefetch={(row) => prefetchDetail(row.id)}
         buildViewHref={(row) => buildHref(row.id, null)}
         onQuickAssign={canWriteAssign ? (row) => openCustomer(row.id, "plan") : undefined}
-        selectionEnabled={canWriteAssign}
+        selectionEnabled={canWriteAssign||canSendMessages}
         selectedIds={selectedIds}
         onToggleRow={toggleRow}
         onToggleAll={toggleAll}

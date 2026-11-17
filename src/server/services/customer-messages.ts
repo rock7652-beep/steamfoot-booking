@@ -43,6 +43,12 @@ export async function customerMessageSearch(storeId:string,input:unknown,page=1,
   ]);
   return {rows:rows.map(r=>({id:r.id,name:r.name,phone:r.phone,lineStatus:r.lineLinkStatus,stage:r.customerStage})) as MessagePerson[],total,page};
 }
+export async function customerMessageSelection(storeId:string,ids:string[]) {
+  const rows=await prisma.customer.findMany({where:{AND:[{storeId,id:{in:ids},mergedIntoCustomerId:null},musicCustomerWhere(storeId)]},select:{id:true,name:true,phone:true,lineLinkStatus:true,customerStage:true}});
+  if(rows.length!==ids.length)throw new Error("部分顧客已變更或不在目前門市，請返回顧客管理重新選取");
+  const people=new Map(rows.map(r=>[r.id,{id:r.id,name:r.name,phone:r.phone,lineStatus:r.lineLinkStatus,stage:r.customerStage}]));
+  return ids.map(id=>people.get(id)!) as MessagePerson[];
+}
 /** Database evidence for preview. Network reachability is checked again by the worker. */
 export async function customerMessageRecipient(storeId:string,customerId:string) {
   const person=await prisma.customer.findFirst({where:{AND:[{id:customerId,storeId,mergedIntoCustomerId:null},musicCustomerWhere(storeId)]},select:{id:true,name:true,lineUserId:true,lineLinkStatus:true,user:{select:{status:true}}}});

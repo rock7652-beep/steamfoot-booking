@@ -27,4 +27,5 @@ export async function confirmMessage(_store:string,id:string){
   return {success:true as const,data:{id,status:"QUEUED"}};
 }
 export async function loadMessageHistory(){return {success:true as const,data:[...history]};}
+export async function loadMessageSelection(_store:string,ids:string[]){return {success:true as const,data:ids.map(id=>people.find(p=>p.id===id)!)};}
 export async function cancelMessage(_store:string,id:string){history=history.map(h=>h.id===id?{...h,status:"CANCELLED",skipped:h.skipped+h.pending,pending:0}:h);return {success:true as const,data:{id}};}
