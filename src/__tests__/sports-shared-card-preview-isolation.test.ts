@@ -56,6 +56,16 @@ function run(overrides: Record<string, string | undefined>) {
 }
 
 describe("sports shared-card Preview preflight", () => {
+  it("customer messages Preview skips migrations and rejects production connections", () => {
+    const branch = "feat/customer-messages-20261117";
+    expect(run({ VERCEL_GIT_COMMIT_REF: branch }).status).toBe(0);
+    const native = { VERCEL_GIT_COMMIT_REF: branch, VERCEL_PROJECT_ID: "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR", SPORTS_REDESIGN_PREVIEW: "1", SPORTS_REDESIGN_STAGING: "1" };
+    expect(run(native).status).toBe(0);
+    for (const overrides of [{ VERCEL_PROJECT_ID: "other" }, { SPORTS_REDESIGN_STAGING: "" }, { DATABASE_URL: production }, { VERCEL_ENV: "production" }]) expect(run({ ...native, ...overrides }).status).not.toBe(0);
+    for (const overrides of [{ DATABASE_URL: production }, { DIRECT_URL: production }, { VERCEL_ENV: "production" }, { VERCEL_GIT_REPO_OWNER: "other" }, { WORKERS_CI_BRANCH: branch }, { VERCEL_GIT_COMMIT_REF: branch + "-other" }]) {
+      expect(run({ VERCEL_GIT_COMMIT_REF: branch, ...overrides }).status).not.toBe(0);
+    }
+  });
   it('allows only the calendar/customer preload branch with the existing isolation gates',()=>{
     const branch='fix/calendar-customer-preload-20261109';
     const result=run({VERCEL_GIT_COMMIT_REF:branch});

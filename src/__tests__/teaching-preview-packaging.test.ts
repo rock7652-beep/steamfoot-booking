@@ -6,6 +6,12 @@ import {assertTeachingPreviewPackaging,teachingReviewImagePaths,TEACHING_PREVIEW
 import {CUSTOMER_PRIMARY_PREVIEW_BRANCH} from '../../scripts/sports-shared-card-preview-scope.mjs';
 const direct='postgresql://postgres@db.ttworfzgwejdeolegkxl.supabase.co/postgres';
 const valid={VERCEL:'1',VERCEL_ENV:'preview',VERCEL_PROJECT_ID:'prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR',VERCEL_GIT_COMMIT_REF:TEACHING_PREVIEW_BRANCH,VERCEL_GIT_REPO_OWNER:'rock7652-beep',VERCEL_GIT_REPO_SLUG:'steamfoot-booking',DATABASE_URL:direct,DIRECT_URL:direct};
+it('allows customer messages packaging only inside its isolated build sandbox',()=>{
+ const env={...valid,VERCEL_GIT_COMMIT_REF:'feat/customer-messages-20261117'};
+ expect(()=>assertTeachingPreviewPackaging(env,'/vercel/path0')).not.toThrow();
+ for(const overrides of [{VERCEL_ENV:'production'},{VERCEL_GIT_COMMIT_REF:env.VERCEL_GIT_COMMIT_REF+'-copy'},{DATABASE_URL:direct.replace('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf')},{VERCEL_PROJECT_ID:'other'},{WORKERS_CI_BRANCH:env.VERCEL_GIT_COMMIT_REF}])expect(()=>assertTeachingPreviewPackaging({...env,...overrides},'/vercel/path0')).toThrow();
+ expect(()=>assertTeachingPreviewPackaging(env,'/workspace/steamfoot-booking')).toThrow();
+});
 it('limits packaging to the exact isolated Preview build without changing production gates',()=>{
  expect(()=>assertTeachingPreviewPackaging(valid,'/vercel/path0')).not.toThrow();
  expect(()=>assertTeachingPreviewPackaging({...valid,VERCEL_GIT_COMMIT_REF:CUSTOMER_PRIMARY_PREVIEW_BRANCH},'/vercel/path0')).not.toThrow();

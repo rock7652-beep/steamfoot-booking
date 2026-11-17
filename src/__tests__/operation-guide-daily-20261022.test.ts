@@ -26,9 +26,9 @@ describe("2026-10-22 backend guide audit", () => {
     expect(state.currentMainAudit.commitCount).toBe(237);
     expect(state.newGuideIds).toEqual(["C177"]);
     expect(state.updatedGuideIds).toHaveLength(9);
-    expect(state.backendInteractionPendingCount).toBe(94);
+    expect(state.backendInteractionPendingCount).toBe(95);
     expect(state.frontendInteractionPendingGuideIds).toEqual([]);
-    expect(operationGuides).toHaveLength(203);
+    expect(operationGuides).toHaveLength(204);
     expect(guideCategories).toHaveLength(15);
   });
 

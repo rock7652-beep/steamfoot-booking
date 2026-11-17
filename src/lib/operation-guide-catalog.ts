@@ -1,4 +1,5 @@
 import { planActivationGuideDetail } from "./operation-guide-plan-activation";
+import { customerMessagesGuide } from "./operation-guide-customer-messages";
 import {sessionAdjustmentGuide} from './operation-guide-session-adjustment';
 import {retiredSpaCatalogGuides} from "./operation-guide-retired-spa";
 import type { OperationGuide, GuideCategory } from "./operation-guide-types";
@@ -139,6 +140,7 @@ const catalogGuideCategories: GuideCategory[] = [
 export const guideCategories = catalogGuideCategories.filter(category => category.id !== "spa");
 
 export const additionalGuides: OperationGuide[] = [
+  customerMessagesGuide,
   sessionAdjustmentGuide,
   {
     "id": "S01",
