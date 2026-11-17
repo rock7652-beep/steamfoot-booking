@@ -1,5 +1,7 @@
 import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { CustomerLabelsSeed } from "@/components/customer-labels";
+import {CustomerMessageSelectionProvider,CustomerMessageActions} from "@/components/customer-message-entry";
+import {customerMessageEntryAllowed} from "@/server/services/customer-message-entry";
 import { customerLabelSnapshot } from "@/server/services/customer-label-snapshot";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
@@ -186,7 +188,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     : DATA_EXPORT_SELECT_STORE_MESSAGE;
 
   const labelSnapshot = await customerLabelSnapshot(rows.map(c=>c.id));
+  const canSendMessages=!isViewMode&&await customerMessageEntryAllowed(customersStoreId);
   return (
+    <CustomerMessageSelectionProvider key={`${user.id}:${customersStoreId}`} storeId={customersStoreId??""} enabled={canSendMessages}>
     <CustomerLabelsSeed initial={labelSnapshot}>
     <PageShell>
       <FormSuccessToast />
@@ -220,7 +224,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                 {dataExportLockedLabel}
               </span>
             )}
-            {await checkPermission(user.role, user.staffId, "customer.message.send") && <Link href="/dashboard/customers/messages" prefetch={false} className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 text-sm font-medium">發送訊息</Link>}
+            <CustomerMessageActions/>
             {healthRecordsEnabled && (
               <Link
                 href="/dashboard/health"
@@ -294,6 +298,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       </div>
     </PageShell>
     </CustomerLabelsSeed>
+    </CustomerMessageSelectionProvider>
   );
 }
 

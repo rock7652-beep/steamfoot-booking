@@ -5,6 +5,7 @@ import { customerMessageAccess } from "@/server/services/customer-message-access
 import { previewCustomerMessage,confirmCustomerMessage,cancelCustomerMessage,customerMessageSearch,customerMessageHistory } from "@/server/services/customer-messages";
 import { AppError } from "@/lib/errors";
 import type { MessageResult } from "@/lib/customer-message";
+import {customerMessageSelection} from "@/server/services/customer-messages";
 const scope=z.string().min(1).max(100),id=z.string().uuid();
 async function action<T>(run:()=>Promise<T>):Promise<MessageResult<T>> {
   try{return {success:true,data:await run()};}
@@ -20,5 +21,10 @@ export async function confirmMessage(storeId:string,batchId:string){return actio
 });}
 export async function cancelMessage(storeId:string,batchId:string){return action(async()=>{await customerMessageAccess(scope.parse(storeId));return cancelCustomerMessage(storeId,id.parse(batchId));});}
 export async function loadMessageHistory(storeId:string){return action(async()=>{await customerMessageAccess(scope.parse(storeId));return customerMessageHistory(storeId);});}
+export async function loadMessageSelection(storeId:string,customerIds:unknown){return action(async()=>{
+  await customerMessageAccess(scope.parse(storeId));
+  const ids=z.array(z.string().min(1).max(100)).min(1).max(500).refine(values=>new Set(values).size===values.length,"顧客名單重複，請重新選取").parse(customerIds);
+  return customerMessageSelection(storeId,ids);
+});}
 
 export async function selectMessageCustomers(storeId:string,filters:unknown){return action(async()=>{await customerMessageAccess(scope.parse(storeId));const result=await customerMessageSearch(storeId,filters,1,500);if(result.total>500)throw new Error("符合顧客超過 500 位，請縮小篩選範圍");return result.rows;});}

@@ -3,6 +3,7 @@ import { isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 export const SPORTS_SHARED_CARD_PREVIEW_BRANCH = "feat/sports-shared-card-controls-20261007";
 export const COURSE_DATE_PICKER_PREVIEW_BRANCH = "fix/course-date-picker-sync-20261117";
 export const CUSTOMER_MESSAGES_PREVIEW_BRANCH = "feat/customer-messages-20261117";
+export const CUSTOMER_MESSAGE_ENTRY_PREVIEW_BRANCH = "feat/customer-message-entry-20261117";
 export const CALENDAR_PHASE_PREVIEW_BRANCH = "chore/calendar-phase-timing-20261103";
 export const SCHEDULE_CONFLICT_PREVIEW_BRANCH = "fix/schedule-conflicts-20261103";
 export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-photo-20261016";
@@ -16,6 +17,7 @@ export const STEAM_TRANSACTION_REPLACEMENT_PREVIEW_BRANCH = "fix/steam-transacti
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   COURSE_DATE_PICKER_PREVIEW_BRANCH,
   CUSTOMER_MESSAGES_PREVIEW_BRANCH,
+  CUSTOMER_MESSAGE_ENTRY_PREVIEW_BRANCH,
   STEAM_TRANSACTION_REPLACEMENT_PREVIEW_BRANCH,
   ANALYSIS_CUSTOMER_PREVIEW_BRANCH,
   CUSTOMER_PRIMARY_PREVIEW_BRANCH,

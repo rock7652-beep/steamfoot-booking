@@ -5,6 +5,8 @@ import { getCustomerPanelContext } from "@/server/actions/customer-panel-context
 import { CustomerStandaloneDetail } from "../_components/customer-standalone-detail";
 import { StoreMemberConnectionPanel } from "@/components/admin/store-member-connection-panel";
 import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
+import {customerMessageEntryAllowed} from "@/server/services/customer-message-entry";
+import {CustomerMessageSingleLink} from "@/components/customer-message-entry";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { FrontendPreviewQuickLink } from "@/components/frontend-preview/quick-link";
 import { FeatureEntry } from "@/components/feature-presentation";
@@ -345,6 +347,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   const quickActionBase =
     "flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50";
+  const canSendMessages=!isViewMode&&await customerMessageEntryAllowed(customer.storeId);
 
   return (
     <PageShell>
@@ -362,6 +365,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         <header className="space-y-4">
           <div>
             <h1 className="admin-page-title">{customer.name}</h1>
+            <CustomerMessageSingleLink customerId={id} enabled={canSendMessages}/>
             <FrontendPreviewQuickLink storeId={effectiveStoreId} personId={id} />
             <a href={`tel:${customer.phone}`} className="inline-flex min-h-11 items-center text-base text-primary-700 underline underline-offset-4">{customer.phone}</a>
           </div>
@@ -393,6 +397,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             <Link href="/dashboard/customers" className={headerActionBase}>
               ← 顧客列表
             </Link>
+            <CustomerMessageSingleLink customerId={id} enabled={canSendMessages}/>
             {isViewMode ? (
               <span className={disabledActionBase}>查看模式</span>
             ) : (

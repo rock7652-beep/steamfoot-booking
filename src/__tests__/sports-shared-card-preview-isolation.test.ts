@@ -56,7 +56,7 @@ function run(overrides: Record<string, string | undefined>) {
 }
 
 describe("sports shared-card Preview preflight", () => {
-  it.each(["feat/customer-messages-20261117","fix/course-date-picker-sync-20261117"])("%s Preview skips migrations and rejects production connections", (branch) => {
+  it.each(["fix/course-date-picker-sync-20261117","feat/customer-messages-20261117","feat/customer-message-entry-20261117"])("%s skips migrations and rejects production connections", branch => {
     expect(run({ VERCEL_GIT_COMMIT_REF: branch }).status).toBe(0);
     const native = { VERCEL_GIT_COMMIT_REF: branch, VERCEL_PROJECT_ID: "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR", SPORTS_REDESIGN_PREVIEW: "1", SPORTS_REDESIGN_STAGING: "1" };
     expect(run(native).status).toBe(0);

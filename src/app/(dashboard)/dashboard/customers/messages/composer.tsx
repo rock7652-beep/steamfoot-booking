@@ -4,6 +4,8 @@ import { useCourseDraftGuard } from "@/components/admin/use-course-draft-guard";
 import { searchMessageCustomers,selectMessageCustomers,previewMessage,confirmMessage,cancelMessage,loadMessageHistory } from "@/server/actions/customer-messages";
 import { CUSTOMER_MESSAGE_LIMIT,CUSTOMER_MESSAGE_MAX_LENGTH,messageDateLabel,messageSchedule,messageStatusText,type MessageFilters,type MessagePerson,type MessageOptions,type MessagePreview,type MessageHistory } from "@/lib/customer-message";
 import { toLocalDateStr } from "@/lib/date-utils";
+import {loadMessageSelection} from "@/server/actions/customer-messages";
+import {messageSelectionKey,readMessageSelection} from "@/lib/customer-message-selection";
 
 const steps=["選顧客","寫內容","選發送時間","預覽確認","發送"];
 const initialFilters:MessageFilters={search:"",stage:"",line:"",labelId:"",staffId:""};
@@ -13,10 +15,11 @@ const button="inline-flex min-h-11 items-center justify-center rounded-lg border
 const primary="inline-flex min-h-11 items-center justify-center rounded-lg border border-primary-700 bg-primary-700 px-4 text-sm font-medium text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50";
 const field="min-h-11 w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-base text-earth-900";
 type SearchResult={rows:MessagePerson[];total:number;page:number};
-export function CustomerMessageComposer({options,initial,initialHistory}:{options:MessageOptions;initial:SearchResult;initialHistory:MessageHistory[]}) {
+export function CustomerMessageComposer({options,initial,initialHistory,historyOnly=false,selectionToken="",initialSelected=[]}:{options:MessageOptions;initial:SearchResult;initialHistory:MessageHistory[];historyOnly?:boolean;selectionToken?:string;initialSelected?:MessagePerson[]}) {
   const [filtersOpen,setFiltersOpen]=useState(false);
-  const [step,setStep]=useState(0),[filters,setFilters]=useState(initialFilters),[result,setResult]=useState(initial);
-  const [selected,setSelected]=useState<Record<string,MessagePerson>>({}),[body,setBody]=useState("");
+  const [step,setStep]=useState(initialSelected.length?1:0),[filters,setFilters]=useState(initialFilters),[result,setResult]=useState(initial);
+  const [selected,setSelected]=useState<Record<string,MessagePerson>>(()=>Object.fromEntries(initialSelected.map(p=>[p.id,p]))),[body,setBody]=useState("");
+  const [selectionLoading,setSelectionLoading]=useState(!!selectionToken&&!historyOnly);
   const [timing,setTiming]=useState<"now"|"scheduled">("now"),[date,setDate]=useState(""),[time,setTime]=useState("10:00");
   const [preview,setPreview]=useState<MessagePreview|null>(null),[history,setHistory]=useState(initialHistory);
   const [error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false),[searching,setSearching]=useState(false),[searchError,setSearchError]=useState("");
@@ -25,6 +28,18 @@ export function CustomerMessageComposer({options,initial,initialHistory}:{option
   const request=useRef(0),pending=useRef(false),dirty=useRef(false),composing=useRef(false);
   const searchInput=useRef<HTMLInputElement>(null),heading=useRef<HTMLHeadingElement>(null);
   const selectedPeople=Object.values(selected),count=selectedPeople.length;
+  useEffect(()=>{
+    if(!selectionToken||historyOnly)return;
+    let active=true;
+    async function load(){try{
+      const ids=readMessageSelection(sessionStorage.getItem(messageSelectionKey(selectionToken)),options.storeId);
+      const response=await loadMessageSelection(options.storeId,ids);
+      if(!active)return;
+      if(!response.success)throw new Error(response.error);
+      setSelected(Object.fromEntries(response.data.map(p=>[p.id,p])));setStep(1);
+    }catch(e){if(active)setError(e instanceof Error?e.message:"顧客名單無法讀取，請重新選取");}finally{if(active)setSelectionLoading(false);}}
+    void load();return()=>{active=false;};
+  },[selectionToken,options.storeId,historyOnly]);
   useCourseDraftGuard(false,busy||uncertain);
   useEffect(()=>{dirty.current=!completed&&(count>0||body.trim().length>0);},[completed,count,body]);
   useEffect(()=>{const handler=(e:BeforeUnloadEvent)=>{if(dirty.current){e.preventDefault();e.returnValue="";}};window.addEventListener("beforeunload",handler);return()=>window.removeEventListener("beforeunload",handler);},[]);
@@ -63,6 +78,7 @@ export function CustomerMessageComposer({options,initial,initialHistory}:{option
   const filterSummary=[filters.stage?stages[filters.stage]:null,filters.line?`LINE ${lines[filters.line]}`:null,options.labels.find(l=>l.id===filters.labelId)?.name,options.staff.find(s=>s.id===filters.staffId)?.name].filter(Boolean).join("、");
   function clearFilters(){if(searchInput.current)searchInput.current.value="";void search(initialFilters);}
   return <div className="space-y-4 text-base text-earth-900">
+    {selectionLoading?<p role="status" className="py-6">正在帶入勾選顧客…</p>:!historyOnly&&<>
     <p className="text-sm font-medium text-primary-800 sm:hidden">步驟 {step+1}／{steps.length}</p>
     <ol aria-label="發送步驟" className="hidden grid-cols-5 gap-2 rounded-xl bg-earth-50 p-3 sm:grid">
       {steps.map((label,i)=><li key={label} aria-current={step===i?"step":undefined} className={`flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm ${step===i?"bg-white font-semibold text-primary-800 shadow-sm":"text-earth-500"}`}>
@@ -201,7 +217,9 @@ export function CustomerMessageComposer({options,initial,initialHistory}:{option
           </button>}
       </div>}
     </section>
-    <details key={completed??"draft"} open={!!completed} className="rounded-xl border border-earth-200 bg-white px-4 sm:px-5">
+    </>}
+    {historyOnly&&error&&<p role="alert" className="text-sm text-red-800">{error}</p>}
+    <details key={completed??"draft"} open={historyOnly||!!completed} className="rounded-xl border border-earth-200 bg-white px-4 sm:px-5">
       <summary className="min-h-11 cursor-pointer py-4 text-base font-semibold">發送紀錄{history.length>0?`（${history.length}）`:""}</summary>
       <div className="border-t border-earth-100 pb-4 pt-3">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
