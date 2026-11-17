@@ -48,3 +48,19 @@ it('does not restore router history when a roster reselects the current date',as
  const original=window.location.href;window.history.replaceState(null,'','/dashboard/courses?date=2026-11-12&scheduleView=week&coach=qa');
  try{await act(async()=>root.render(React.createElement(OperationScope,{scope:'same-date'},React.createElement(DateProbe))));const replace=vi.spyOn(window.history,'replaceState');try{await act(async()=>host.querySelector('button')!.click());expect(replace).not.toHaveBeenCalled();expect(host.textContent).toBe('2026-11-12');expect(window.location.search).toContain('scheduleView=week');}finally{replace.mockRestore();}}finally{window.history.replaceState(null,'',original);}
 });
+
+
+it('keeps the selected sports date when router params lag behind native history',async()=>{
+ const original=window.location.href;
+ function DelayedDate({requested}:{requested:string}){
+  const [date,setDate]=useSportsCalendarDate(true,'2026-10-30',requested,'/dashboard/courses');
+  return React.createElement('button',{onClick:()=>setDate('2026-12-02')},date);
+ }
+ try{
+  window.history.replaceState(null,'','/dashboard/courses?date=2026-10-30');
+  const draw=async(requested:string)=>act(async()=>root.render(React.createElement(DelayedDate,{requested})));
+  await draw('2026-10-30');await act(async()=>host.querySelector('button')!.click());
+  expect(host.textContent).toBe('2026-12-02');await draw('2026-10-30');expect(host.textContent).toBe('2026-12-02');
+  await draw('2026-12-02');expect(host.textContent).toBe('2026-12-02');
+ }finally{window.history.replaceState(null,'',original);}
+});
