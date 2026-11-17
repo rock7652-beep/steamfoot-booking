@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireDashboardCoreFeature } from "@/lib/dashboard-core-feature";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -8,6 +9,7 @@ import { PageHeader,PageShell } from "@/components/desktop";
 import { CustomerMessageComposer } from "./composer";
 export const maxDuration=300;
 export default async function CustomerMessagesPage() {
+  await requireDashboardCoreFeature("customer_management");
   const user=await getCurrentUser();
   if(!user || !await checkPermission(user.role,user.staffId,"customer.message.send") || !await checkPermission(user.role,user.staffId,"customer.read"))notFound();
   const storeId=await getActiveStoreForRead(user);

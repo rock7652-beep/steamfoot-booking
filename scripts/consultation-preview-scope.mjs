@@ -291,6 +291,7 @@ export function assertReviewedReleaseEnvironment(env) {
   // Exact feature Preview only: existing isolated data, no migrations or external delivery.
   if (env.VERCEL_GIT_COMMIT_REF === "feat/customer-messages-20261117") {
     assertModuleRosterPreviewEnvironment(env);
+    if (env.SPORTS_REDESIGN_PREVIEW) assertSportsRedesignPreviewEnvironment(env);
     if (env.PRODUCTION_MIGRATION_TARGET) throw new Error("Customer messages Preview cannot run production migrations.");
     return "module-roster-preview";
   }

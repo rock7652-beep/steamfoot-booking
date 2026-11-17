@@ -36,7 +36,8 @@
     "A17",
     "F13",
     "C177",
-    "PLAN-SESSION-ADJUST"
+    "PLAN-SESSION-ADJUST",
+    "LINE-MANUAL-01"
   ],
   "cumulativeDraftUpdatedGuideIds": [
     "A03",
@@ -208,9 +209,10 @@
     "BEAUTY02",
     "BEAUTY03",
     "BEAUTY04",
-    "PLAN-SESSION-ADJUST"
+    "PLAN-SESSION-ADJUST",
+    "LINE-MANUAL-01"
   ],
-  "articleCount": 203,
+  "articleCount": 204,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -557,8 +559,8 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 94,
-  "totalInteractionPendingCount": 94,
+  "backendInteractionPendingCount": 95,
+  "totalInteractionPendingCount": 95,
   "reviewedMainCommitCount": 237,
   "reviewedStandaloneCommits": [
     "1e133b93",
@@ -1070,6 +1072,13 @@
     "note": "新增 LINE 額度 Email 通知文章；正式寄信網域已由功能 PR 驗證，但指南驗收仍不得寄測試信或以送信紀錄替代登入後操作。"
   },
   "catalogAmendments": [
+    {
+      "dateTaipei": "2026-11-17",
+      "sourceFeatureBranch": "feat/customer-messages-20261117",
+      "guideIds": ["LINE-MANUAL-01"],
+      "status": "source-reviewed-awaiting-hosted-acceptance",
+      "note": "新增店長對顧客 LINE 自訂訊息指南；保留既有完整 main 盤點時間及驗收狀態，不把 fixture 當作登入驗收。"
+    },
     {
       "dateTaipei": "2026-10-31",
       "sourceMainCommit": "2d9a4354b9d1f1036427581a74daacbc86b97246",
