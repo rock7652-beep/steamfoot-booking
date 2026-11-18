@@ -34,6 +34,8 @@ const h = vi.hoisted(() => ({
   txRun: vi.fn(),
   buildSnapshot: vi.fn(),
   revalidateTransactions: vi.fn(),
+  revalidateBookings: vi.fn(),
+  restoreVoidedTrial: vi.fn(),
   revalidatePath: vi.fn(),
   revalidateTag: vi.fn(),
 }));
@@ -72,7 +74,8 @@ vi.mock("@/server/queries/transaction", () => ({ getTransactionDetail: vi.fn() }
 vi.mock("@/server/services/referral-points", () => ({
   awardFirstTopupReferralPointsIfEligible: vi.fn(),
 }));
-vi.mock("@/lib/revalidation", () => ({ revalidateTransactions: h.revalidateTransactions }));
+vi.mock("@/lib/revalidation", () => ({ revalidateTransactions: h.revalidateTransactions, revalidateBookings: h.revalidateBookings }));
+vi.mock("@/server/services/booking-participant-lifecycle", () => ({ restoreVoidedTrialService: h.restoreVoidedTrial }));
 
 vi.mock("next/cache", () => ({ revalidatePath: h.revalidatePath, revalidateTag: h.revalidateTag }));
 
@@ -927,4 +930,26 @@ it("still rejects an overlong cancellation reason before changing the transactio
   const { voidTransaction } = await import("@/server/actions/transaction");
   expect((await voidTransaction({ transactionId: "optional-reason", reason: "字".repeat(501) })).success).toBe(false);
   expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
+});
+
+it("restores trial service in the void transaction and invalidates booking summaries", async () => {
+  h.transactionFindUnique.mockResolvedValue({ id: "trial-restore", bookingId: BOOKING_ID, storeId: "store-taichung", customerId: CUSTOMER_ID,
+    status: "SUCCESS", paymentStatus: "SUCCESS", paymentMethod: "CASH", transactionType: "TRIAL_PURCHASE", customerPlanWalletId: null, amount: 499 });
+  const { voidTransaction } = await import("@/server/actions/transaction");
+  const result = await voidTransaction({ transactionId: "trial-restore", reason: "誤操作" });
+  expect(result.success).toBe(true);
+  expect(h.restoreVoidedTrial).toHaveBeenCalledWith(expect.objectContaining({ transaction: expect.any(Object) }), {
+    storeId: "store-taichung", bookingId: BOOKING_ID, transactionId: "trial-restore", actorUserId: USER_ID,
+  });
+  expect(h.revalidateBookings).toHaveBeenCalledWith(CUSTOMER_ID);
+});
+
+it("fails the void when trial service restoration fails", async () => {
+  h.transactionFindUnique.mockResolvedValue({ id: "trial-fail", bookingId: BOOKING_ID, storeId: "store-taichung", customerId: CUSTOMER_ID,
+    status: "SUCCESS", paymentStatus: "SUCCESS", paymentMethod: "CASH", transactionType: "TRIAL_PURCHASE", customerPlanWalletId: null, amount: 499 });
+  h.restoreVoidedTrial.mockRejectedValueOnce(new Error("restore failed"));
+  const { voidTransaction } = await import("@/server/actions/transaction");
+  expect((await voidTransaction({ transactionId: "trial-fail", reason: "誤操作" })).success).toBe(false);
+  expect(h.transactionAuditCreate).not.toHaveBeenCalled();
+  expect(h.revalidateBookings).not.toHaveBeenCalled();
 });

@@ -3,6 +3,7 @@ import { enqueuePlanActivation } from "@/server/services/plan-activation-enqueue
 import { activationExpiry } from "@/lib/plan-activation-notification";
 import { kickPlanActivationNotifications } from "@/server/services/plan-activation-notification-kick";
 
+import { restoreVoidedTrialService } from "@/server/services/booking-participant-lifecycle";
 import { createFinancialTransaction, lockExistingTransactionCash } from "@/server/services/financial-transaction";
 
 import { z } from "zod";
@@ -16,7 +17,7 @@ import { AppError, handleActionError } from "@/lib/errors";
 import { checkCurrentStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { revalidateTransactions } from "@/lib/revalidation";
-import { revalidateBookingTransactionMutation } from "@/lib/booking-route-mutation";
+import { revalidateBookingMutation, revalidateBookingTransactionMutation } from "@/lib/booking-route-mutation";
 import type { ActionResult } from "@/types";
 import { Prisma } from "@prisma/client";
 import type { PaymentMethod, TransactionType, TransactionAuditAction } from "@prisma/client";
@@ -947,6 +948,7 @@ export async function voidTransaction(
         id: true,
         storeId: true,
         customerId: true,
+        bookingId: true,
         status: true,
         transactionType: true,
         customerPlanWalletId: true,
@@ -990,6 +992,10 @@ export async function voidTransaction(
     const now = new Date();
 
     await prisma.$transaction(async (tx) => {
+      // Match checkout's lock order: booking before customer/cash/receipt.
+      if (original.transactionType === "TRIAL_PURCHASE" && original.bookingId && !original.customerPlanWalletId) {
+        await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${original.bookingId} AND "storeId" = ${original.storeId} FOR UPDATE`;
+      }
       // 同一顧客的取消流程必須序列化，避免兩筆購買同時取消後遺漏狀態還原。
       await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${original.customerId} FOR UPDATE`;
 
@@ -999,6 +1005,7 @@ export async function voidTransaction(
           id: true,
           storeId: true,
           customerId: true,
+          bookingId: true,
           status: true,
           transactionType: true,
           customerPlanWalletId: true,
@@ -1172,6 +1179,11 @@ export async function voidTransaction(
         throw new AppError("CONFLICT", "此交易狀態已變更，無法取消");
       }
 
+      if (current.transactionType === "TRIAL_PURCHASE" && current.bookingId && !current.customerPlanWalletId) {
+        await restoreVoidedTrialService(tx, { storeId: current.storeId, bookingId: current.bookingId,
+          transactionId: current.id, actorUserId: user.id });
+      }
+
       // 只還原由正式方案開通流程留下的狀態快照；人工補帳不會誤改顧客資料。
       if (current.conversionEffectsApplied) {
         if (!current.customerId) throw new AppError("BUSINESS_RULE", "方案轉換缺少顧客資料");
@@ -1319,6 +1331,9 @@ export async function voidTransaction(
       });
     });
 
+    if (original.transactionType === "TRIAL_PURCHASE" && original.bookingId && !original.customerPlanWalletId) {
+      revalidateBookingMutation(original.customerId ?? undefined);
+    }
     revalidateBookingTransactionMutation(original.customerId ?? undefined);
     return { success: true, data: { transactionId: original.id } };
   } catch (e) {
