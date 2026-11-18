@@ -56,6 +56,14 @@ function run(overrides: Record<string, string | undefined>) {
 }
 
 describe("sports shared-card Preview preflight", () => {
+  it("trial void Preview permits only its pinned test project and never runs migrations", () => {
+    const branch = "fix/shared-trial-void-restore-20261118";
+    const scoped = { VERCEL_GIT_COMMIT_REF: branch, VERCEL_PROJECT_ID: "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR", BEAUTY_MODULE_ENABLED: "1", BEAUTY_DATABASE_MODE: "legacy", BEAUTY_NOTIFICATIONS_ENABLED: "0", SPORTS_REDESIGN_PREVIEW: "1", SPORTS_REDESIGN_STAGING: "1" };
+    expect(run(scoped).status).toBe(0);
+    expect(run(scoped).output).toContain("migrations_skipped=true");
+    for (const overrides of [{ DATABASE_URL: production }, { DIRECT_URL: production }, { VERCEL_ENV: "production" }, { VERCEL_PROJECT_ID: "other" }, { BEAUTY_DATABASE_MODE: "dedicated" }, { BEAUTY_DATABASE_URL: production }, { BEAUTY_NOTIFICATIONS_ENABLED: "1" }, { VERCEL_GIT_REPO_OWNER: "other" }]) expect(run({ ...scoped, ...overrides }).status).not.toBe(0);
+  });
+
   it.each(["fix/course-date-picker-sync-20261117","feat/customer-messages-20261117","feat/customer-message-entry-20261117"])("%s skips migrations and rejects production connections", branch => {
     expect(run({ VERCEL_GIT_COMMIT_REF: branch }).status).toBe(0);
     const native = { VERCEL_GIT_COMMIT_REF: branch, VERCEL_PROJECT_ID: "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR", SPORTS_REDESIGN_PREVIEW: "1", SPORTS_REDESIGN_STAGING: "1" };

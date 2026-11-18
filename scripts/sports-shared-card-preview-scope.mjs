@@ -1,5 +1,6 @@
 import { isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 
+export const TRIAL_VOID_PREVIEW_BRANCH = "fix/shared-trial-void-restore-20261118";
 export const SPORTS_SHARED_CARD_PREVIEW_BRANCH = "feat/sports-shared-card-controls-20261007";
 export const COURSE_DATE_PICKER_PREVIEW_BRANCH = "fix/course-date-picker-sync-20261117";
 export const CUSTOMER_MESSAGES_PREVIEW_BRANCH = "feat/customer-messages-20261117";
@@ -15,6 +16,7 @@ export const CUSTOMER_PARALLEL_PREVIEW_BRANCH = "fix/customer-parallel-read-2026
 export const CUSTOMER_PRIMARY_PREVIEW_BRANCH = "fix/customer-primary-read-priority";
 export const STEAM_TRANSACTION_REPLACEMENT_PREVIEW_BRANCH = "fix/steam-transaction-replacement";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
+  TRIAL_VOID_PREVIEW_BRANCH,
   COURSE_DATE_PICKER_PREVIEW_BRANCH,
   CUSTOMER_MESSAGES_PREVIEW_BRANCH,
   CUSTOMER_MESSAGE_ENTRY_PREVIEW_BRANCH,
