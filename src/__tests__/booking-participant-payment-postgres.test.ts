@@ -18,7 +18,7 @@ import { computeRefundPlan } from "@/lib/refund-plan";
 import { initializeBookingParticipants, linkBookingParticipantCustomer } from "@/server/services/booking-participants";
 import { collectParticipantTrialInTransaction, completeParticipantOwnPlan, resolveUnattendedParticipant } from "@/server/services/booking-participant-payment";
 
-import { selectParticipantPlan, revertParticipantService, cancelParticipantPlan, completePreviouslyPaidParticipant } from "@/server/services/booking-participant-lifecycle";
+import { restoreVoidedTrialService, selectParticipantPlan, revertParticipantService, cancelParticipantPlan, completePreviouslyPaidParticipant } from "@/server/services/booking-participant-lifecycle";
 
 let db: PGlite;
 function client(connection: { query: PGlite["query"] }): Prisma.TransactionClient {
@@ -86,7 +86,7 @@ beforeAll(async () => {
     CREATE TABLE "Booking" (id TEXT PRIMARY KEY, "storeId" TEXT NOT NULL, "customerId" TEXT NOT NULL, people INT,
       "bookingType" TEXT, "bookingStatus" "BookingStatus", "isMakeup" BOOLEAN DEFAULT false,
       "bookingDate" DATE DEFAULT '2026-10-09', "slotTime" TEXT DEFAULT '13:30', "servicePlanId" TEXT,
-      "attendedPeople" INT, "isCheckedIn" BOOLEAN DEFAULT false, "updatedAt" TIMESTAMP DEFAULT now());
+      "customerPlanWalletId" TEXT, "serviceStaffId" TEXT, "attendedPeople" INT, "isCheckedIn" BOOLEAN DEFAULT false, "updatedAt" TIMESTAMP DEFAULT now());
     CREATE TABLE "Transaction" (id TEXT PRIMARY KEY, "storeId" TEXT NOT NULL, "bookingId" TEXT, "customerId" TEXT,
       "transactionType" TEXT, amount INT, "paymentMethod" TEXT, status TEXT DEFAULT 'SUCCESS', "paymentStatus" TEXT DEFAULT 'SUCCESS', note TEXT, "refundAmount" INT DEFAULT 0, "customerPlanWalletId" TEXT, "refundOfTransactionId" TEXT);
     CREATE TABLE "AuditLog" (id TEXT PRIMARY KEY,"storeId" TEXT,"targetType" TEXT,"targetId" TEXT,action TEXT,"beforeJson" JSONB,"afterJson" JSONB);`);
@@ -98,6 +98,7 @@ beforeAll(async () => {
   await db.exec(readFileSync("docs/sql/booking-participants-companion-removal-upgrade.sql", "utf8"));
 });
 beforeEach(async () => {
+  await db.exec(readFileSync("docs/sql/booking-unregistered-participant-payment-upgrade.sql", "utf8"));
   await db.exec(readFileSync("docs/sql/booking-participants-companion-removal-upgrade.sql", "utf8"));
   vi.resetAllMocks(); h.capacity = 4;
   h.snapshot.mockResolvedValue({}); h.award.mockResolvedValue(undefined);
@@ -443,5 +444,77 @@ describe("reserved and added companion deletion", () => {
     await collect(guest.id, 2);
     await expect(remove(2, 3)).rejects.toThrow(/紀錄/);
     expect(await init()).toHaveLength(2);
+  });
+});
+
+
+describe("voided trial service restoration", () => {
+  const restore = (transactionId: string, storeId = "a") => db.transaction(async tx => {
+    await tx.query(`UPDATE "Transaction" SET status='VOIDED' WHERE id=$1 AND "storeId"=$2`, [transactionId, storeId]);
+    await restoreVoidedTrialService(client(tx), { storeId, bookingId: "booking", transactionId, actorUserId: "owner" });
+  });
+  it("restores only the voided person, preserves the companion and allows checkout again", async () => {
+    const [primary, friend] = await init();
+    await db.transaction(tx => linkBookingParticipantCustomer(client(tx), { storeId: "a", participantId: friend.id, customerId: "guest", revision: 1 }));
+    const receipt = await collect(primary.id);
+    const other = await collect(friend.id, 2);
+    expect(await booking()).toMatchObject({ bookingStatus: "COMPLETED", attendedPeople: 2 });
+    await restore(receipt.transactionId);
+    const [pending, completed] = await init();
+    expect(pending).toMatchObject({ id: primary.id, status: "PENDING", revision: 3 });
+    expect(completed).toMatchObject({ id: friend.id, status: "COMPLETED", revision: 3 });
+    expect(await booking()).toMatchObject({ bookingStatus: "PENDING", attendedPeople: 1 });
+    expect((await db.query(`SELECT "arrivedAt", "completedAt", "collectionTransactionId" FROM "BookingParticipant" WHERE id=$1`, [primary.id])).rows[0])
+      .toEqual({ arrivedAt: null, completedAt: null, collectionTransactionId: null });
+    await collect(primary.id, pending.revision);
+    expect(await booking()).toMatchObject({ bookingStatus: "COMPLETED", attendedPeople: 2 });
+    expect((await db.query(`SELECT status FROM "Transaction" WHERE id=$1`, [other.transactionId])).rows[0]).toEqual({ status: "SUCCESS" });
+    expect((await db.query(`SELECT status FROM "Transaction" WHERE id=$1`, [receipt.transactionId])).rows[0]).toEqual({ status: "VOIDED" });
+    expect(h.award).toHaveBeenCalledTimes(2);
+  });
+  it("restores a free anonymous trial while retaining the immutable receipt subject", async () => {
+    vi.stubEnv("BOOKING_UNREGISTERED_PARTICIPANTS_ENABLED", "true");
+    const [, friend] = await init(); const receipt = await collect(friend.id, 1, 0);
+    await restore(receipt.transactionId);
+    const pending = (await init())[1]; await collect(friend.id, pending.revision, 0);
+    expect((await db.query(`SELECT status, "customerId", "unregisteredParticipantId" FROM "Transaction" WHERE id=$1`, [receipt.transactionId])).rows[0])
+      .toEqual({ status: "VOIDED", customerId: null, unregisteredParticipantId: friend.id });
+  });
+  it("also clears a receipt after completion was manually reverted", async () => {
+    const [person] = await init(); const receipt = await collect(person.id);
+    await db.transaction(tx => revertParticipantService(client(tx), { storeId: "a", participantId: person.id, revision: 2, actorUserId: "owner" }));
+    await restore(receipt.transactionId);
+    await collect(person.id, (await init())[0].revision);
+    expect(h.award).toHaveBeenCalledTimes(1);
+  });
+  it("rejects a live or foreign-store receipt without altering service", async () => {
+    const [person] = await init(); const receipt = await collect(person.id);
+    await expect(db.transaction(tx => restoreVoidedTrialService(client(tx), { storeId: "a", bookingId: "booking", transactionId: receipt.transactionId, actorUserId: "owner" })))
+      .rejects.toThrow(/尚未作廢/);
+    await expect(restore(receipt.transactionId, "b")).rejects.toThrow(/尚未作廢/);
+    expect((await init())[0]).toMatchObject({ status: "COMPLETED", revision: 2 });
+  });
+  it("rolls the receipt void back when correction guards are unavailable", async () => {
+    const [person] = await init(); const receipt = await collect(person.id);
+    await db.exec(`CREATE OR REPLACE FUNCTION public.booking_participant_wallet_guard() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$`);
+    try {
+      await expect(restore(receipt.transactionId)).rejects.toThrow(/更新尚未完成/);
+      expect((await db.query(`SELECT status FROM "Transaction" WHERE id=$1`, [receipt.transactionId])).rows[0]).toEqual({ status: "SUCCESS" });
+      expect((await init())[0]).toMatchObject({ status: "COMPLETED", revision: 2 });
+    } finally { await db.exec(readFileSync("docs/sql/booking-participants-lifecycle-upgrade.sql", "utf8")); }
+  });
+  it("restores a legacy whole-booking trial without creating participant rows", async () => {
+    await db.exec(`UPDATE "Booking" SET "bookingStatus"='COMPLETED', "isCheckedIn"=true, "attendedPeople"=2;
+      INSERT INTO "Transaction" (id,"storeId","bookingId","customerId","transactionType",amount) VALUES ('old','a','booking','primary','TRIAL_PURCHASE',998)`);
+    await restore("old");
+    expect(await booking()).toMatchObject({ bookingStatus: "PENDING", attendedPeople: null });
+    expect((await db.query(`SELECT * FROM "BookingParticipant"`)).rows).toHaveLength(0);
+  });
+  it("does not reset legacy service when another valid receipt remains", async () => {
+    await db.exec(`UPDATE "Booking" SET "bookingStatus"='COMPLETED', "isCheckedIn"=true, "attendedPeople"=2;
+      INSERT INTO "Transaction" (id,"storeId","bookingId","customerId","transactionType",amount) VALUES
+      ('old','a','booking','primary','TRIAL_PURCHASE',998),('valid','a','booking','primary','TRIAL_PURCHASE',998)`);
+    await restore("old");
+    expect(await booking()).toMatchObject({ bookingStatus: "COMPLETED", attendedPeople: 2 });
   });
 });
