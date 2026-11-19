@@ -39,3 +39,7 @@ TypeScript `tsc --noEmit --incremental false` 通過；修改原始碼 ESLint �
 `sports-shared-card-preview-isolation.test.ts` 與 `teaching-preview-packaging.test.ts`：2 檔、43 項通過。涵蓋新分支正向案例及正式資料庫／環境／專案／通知設定錯誤時的拒絕。修改檔案 ESLint 及 diff check 通過。新增防線與本節仍為本機差異，尚未 push；舊 head 的 CI 不代表這些新差異已通過 CI。
 
 下一階段為一次隔離 Preview 建置與測試庫（steamfoot-preview）服務操作驗收；舊 Preview 的 SHA 不符而無法沿用。可能產生 Vercel 建置／執行費用，無法精確估算。使用者已回覆「允許」，授權本次隔離 Preview、分支專用設定與測試庫操作驗收；正式資料與通知不變。合併及正式發布未獲授權。
+
+## 首次預覽建置與打包修正
+
+`c185e17cce60a60afc19d601d5c847e7463177e0` 的預覽 `dpl_98VQj4Uo7LudzaM5CQDRy9znveZi`：隔離測試庫、通知阻擋與 migration 跳過檢查通過，編譯通過，部署輸出時因 `_middleware` 254.96 MB 超過 250 MB 而失敗，未成為可用預覽。原因是新分支未加入既有 `teaching-preview-packaging` 範圍。修正只將本分支加入既有清理流程，沿用 PostgreSQL runtime 資產保留與精確預覽環境檢查；加入本分支正向與正式環境拒絕測試。需重跑預覽建置，已向使用者說明增加一次建置用量，仍限本次隔離預覽驗收。
