@@ -16,3 +16,8 @@ export function beautyServiceTime(startsAt:string,endsAt:string){
 }
 
 export function memberAppointmentEnd(items:readonly {endsAt:string}[]){return items.reduce((latest,item)=>Date.parse(item.endsAt)>Date.parse(latest)?item.endsAt:latest,items[0]?.endsAt??'');}
+
+/** Identified recipients can have multiple service segments; unnamed companions remain separate. */
+export function memberAppointmentPeopleCount(items:readonly {id:string;customerId?:string|null}[]){
+ return new Set(items.map(item=>item.customerId?`customer:${item.customerId}`:`appointment:${item.id}`)).size;
+}

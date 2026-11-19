@@ -1,6 +1,6 @@
 import {expect,it} from 'vitest';
 import {memberPartyInput,halfHourRule,cardAllowsRecipient} from '@/lib/beauty/member-booking';
-import {memberAppointmentGroups,beautyServiceTime} from '@/lib/beauty/portal-groups';
+import {memberAppointmentGroups,memberAppointmentPeopleCount,beautyServiceTime} from '@/lib/beauty/portal-groups';
 it('strips caller-supplied identities and trial switches and requires half-hour starts',()=>{
  const d={requestKey:crypto.randomUUID(),date:'2026-10-24',time:'09:30',contactName:'spoof',phone:'0900000000',isTrial:true,people:[{serviceId:'s',name:'spoof',phone:'0900000000',customerId:'foreign',pendingIdentity:true}]};
  const parsed=memberPartyInput.parse(d);expect(parsed).not.toHaveProperty('contactName');expect(parsed).not.toHaveProperty('isTrial');expect(parsed.people[0]).not.toHaveProperty('customerId');expect(()=>memberPartyInput.parse({...d,time:'09:15'})).toThrow();
@@ -16,4 +16,13 @@ it('shows a repeated date only when a service ends after midnight and denies for
 });
 it('accepts per-person trial choices without allowing trial cards or anonymous companion trials through the resolver',()=>{
  const d={requestKey:crypto.randomUUID(),date:'2026-10-24',time:'09:30',people:[{serviceId:'s',isTrial:true}]};expect(memberPartyInput.parse(d).people[0]).toMatchObject({isTrial:true,cardId:null});expect(()=>memberPartyInput.parse({...d,people:[{serviceId:'s',isTrial:true,cardId:'c'}]})).toThrow('體驗不使用一般方案');
+});
+
+it('counts recipients independently of matching service or person names',()=>{
+ const rows=[{id:'a',customerId:'member',personName:'同名',serviceName:'按摩'},{id:'b',customerId:'companion',personName:'同名',serviceName:'按摩'}];
+ expect(memberAppointmentPeopleCount(rows)).toBe(2);
+ expect(memberAppointmentPeopleCount([...rows,{...rows[0],id:'second-service',serviceName:'保養'}])).toBe(2);
+ expect(memberAppointmentPeopleCount([rows[0],{...rows[0],id:'second-service'}])).toBe(1);
+ expect(memberAppointmentPeopleCount([{id:'a',customerId:null},{id:'b',customerId:null}])).toBe(2);
+ expect(memberAppointmentPeopleCount([])).toBe(0);
 });
