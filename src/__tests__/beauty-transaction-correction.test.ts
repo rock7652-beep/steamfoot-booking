@@ -56,9 +56,9 @@ it('allows a cash purchase cancellation after closing without requiring a reason
  expect(tx.$executeRaw.mock.calls.some(call=>call[0].join('?').includes('SELECT'))).toBe(true);
 });
 
-it('voids a completed trial through the existing attendance lifecycle and preserves the receipt',async()=>{
+it.each([true,false])('voids a completed direct service (trial=%s) and preserves its receipt',async isTrial=>{
  tx.beautyPayment.findFirst.mockResolvedValue({...sale,cardId:null,appointmentId:'trial'});
- tx.beautyAppointment.findFirst.mockResolvedValue({id:'trial',isTrial:true,cardId:null,status:'COMPLETED',revision:4});
+ tx.beautyAppointment.findFirst.mockResolvedValue({id:'trial',isTrial,cardId:null,status:'COMPLETED',revision:4});
  await correctBeautyTransaction(tx as unknown as Tx,a,base);
  expect(m.transition).toHaveBeenCalledWith(tx,a,{id:'trial',revision:4,target:'RESERVED',reason:'誤建'});
  expect(tx.beautyTransactionRevision.create).toHaveBeenCalledWith({data:expect.objectContaining({transactionId:'sale',voidedAt:expect.any(Date)})});
@@ -74,5 +74,20 @@ it('fails the void if restoring the original trial would conflict',async()=>{
  tx.beautyAppointment.findFirst.mockResolvedValue({id:'trial',isTrial:true,cardId:null,status:'COMPLETED',revision:4});
  m.transition.mockRejectedValue(new Error('原時段已有其他服務'));
  await expect(correctBeautyTransaction(tx as unknown as Tx,a,base)).rejects.toThrow('原時段');
+ expect(tx.beautyTransactionRevision.create).not.toHaveBeenCalled();expect(tx.$executeRaw).not.toHaveBeenCalled();
+});
+
+it('rejects a card-service add-on receipt without resetting attendance',async()=>{
+ tx.beautyPayment.findFirst.mockResolvedValue({...sale,cardId:null,appointmentId:'card-service'});
+ tx.beautyAppointment.findFirst.mockResolvedValue({id:'card-service',isTrial:false,cardId:'card',status:'COMPLETED',revision:4});
+ await expect(correctBeautyTransaction(tx as unknown as Tx,a,base)).rejects.toThrow('加做收款');
+ expect(m.transition).not.toHaveBeenCalled();expect(tx.beautyTransactionRevision.create).not.toHaveBeenCalled();
+});
+
+it('does not mark a single receipt void when its original cash disagrees',async()=>{
+ tx.beautyPayment.findFirst.mockResolvedValue({...sale,cardId:null,appointmentId:'single'});
+ tx.beautyAppointment.findFirst.mockResolvedValue({id:'single',isTrial:false,cardId:null,status:'RESERVED',revision:2});
+ tx.$queryRaw.mockResolvedValue([{amount:999,type:'INCOME',paymentMethod:'OTHER'}]);
+ await expect(correctBeautyTransaction(tx as unknown as Tx,a,base)).rejects.toThrow('原收款');
  expect(tx.beautyTransactionRevision.create).not.toHaveBeenCalled();expect(tx.$executeRaw).not.toHaveBeenCalled();
 });

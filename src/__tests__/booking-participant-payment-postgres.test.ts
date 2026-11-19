@@ -18,7 +18,7 @@ import { computeRefundPlan } from "@/lib/refund-plan";
 import { initializeBookingParticipants, linkBookingParticipantCustomer } from "@/server/services/booking-participants";
 import { collectParticipantTrialInTransaction, completeParticipantOwnPlan, resolveUnattendedParticipant } from "@/server/services/booking-participant-payment";
 
-import { restoreVoidedTrialService, selectParticipantPlan, revertParticipantService, cancelParticipantPlan, completePreviouslyPaidParticipant } from "@/server/services/booking-participant-lifecycle";
+import { restoreVoidedPaidService, selectParticipantPlan, revertParticipantService, cancelParticipantPlan, completePreviouslyPaidParticipant } from "@/server/services/booking-participant-lifecycle";
 
 let db: PGlite;
 function client(connection: { query: PGlite["query"] }): Prisma.TransactionClient {
@@ -451,7 +451,7 @@ describe("reserved and added companion deletion", () => {
 describe("voided trial service restoration", () => {
   const restore = (transactionId: string, storeId = "a") => db.transaction(async tx => {
     await tx.query(`UPDATE "Transaction" SET status='VOIDED' WHERE id=$1 AND "storeId"=$2`, [transactionId, storeId]);
-    await restoreVoidedTrialService(client(tx), { storeId, bookingId: "booking", transactionId, actorUserId: "owner" });
+    await restoreVoidedPaidService(client(tx), { storeId, bookingId: "booking", transactionId, actorUserId: "owner" });
   });
   it("restores only the voided person, preserves the companion and allows checkout again", async () => {
     const [primary, friend] = await init();
@@ -489,7 +489,7 @@ describe("voided trial service restoration", () => {
   });
   it("rejects a live or foreign-store receipt without altering service", async () => {
     const [person] = await init(); const receipt = await collect(person.id);
-    await expect(db.transaction(tx => restoreVoidedTrialService(client(tx), { storeId: "a", bookingId: "booking", transactionId: receipt.transactionId, actorUserId: "owner" })))
+    await expect(db.transaction(tx => restoreVoidedPaidService(client(tx), { storeId: "a", bookingId: "booking", transactionId: receipt.transactionId, actorUserId: "owner" })))
       .rejects.toThrow(/尚未作廢/);
     await expect(restore(receipt.transactionId, "b")).rejects.toThrow(/尚未作廢/);
     expect((await init())[0]).toMatchObject({ status: "COMPLETED", revision: 2 });
@@ -509,6 +509,26 @@ describe("voided trial service restoration", () => {
     await restore("old");
     expect(await booking()).toMatchObject({ bookingStatus: "PENDING", attendedPeople: null });
     expect((await db.query(`SELECT * FROM "BookingParticipant"`)).rows).toHaveLength(0);
+  });
+  it.each(["COMPLETED", "CONFIRMED", "PENDING"])("restores a wallet-free single receipt from %s and permits a new receipt", async status => {
+    await db.query(`UPDATE "Booking" SET "bookingType"='SINGLE', "bookingStatus"=$1, "isCheckedIn"=true, "attendedPeople"=2`, [status]);
+    await db.exec(`INSERT INTO "Transaction" (id,"storeId","bookingId","customerId","transactionType",amount) VALUES ('single','a','booking','primary','SINGLE_PURCHASE',799)`);
+    await restore("single");
+    expect(await booking()).toMatchObject({ bookingStatus: "PENDING", attendedPeople: null });
+    expect((await db.query(`SELECT "isCheckedIn", "serviceStaffId" FROM "Booking"`)).rows[0]).toEqual({isCheckedIn:false,serviceStaffId:null});
+    expect((await db.query(`SELECT id FROM "Transaction" WHERE "bookingId"='booking' AND status='SUCCESS'`)).rows).toHaveLength(0);
+    await db.exec(`INSERT INTO "Transaction" (id,"storeId","bookingId","customerId","transactionType",amount) VALUES ('retry','a','booking','primary','SINGLE_PURCHASE',799)`);
+    expect((await db.query(`SELECT id,status FROM "Transaction" ORDER BY id`)).rows).toEqual([{id:"retry",status:"SUCCESS"},{id:"single",status:"VOIDED"}]);
+  });
+  it.each(["CANCELLED", "NO_SHOW"])("preserves a single booking that is %s", async status => {
+    await db.query(`UPDATE "Booking" SET "bookingType"='SINGLE', "bookingStatus"=$1`,[status]);
+    await db.exec(`INSERT INTO "Transaction" (id,"storeId","bookingId","customerId","transactionType",amount) VALUES ('single','a','booking','primary','SINGLE_PURCHASE',799)`);
+    await restore("single");expect(await booking()).toMatchObject({bookingStatus:status});
+  });
+  it("preserves another effective single receipt", async () => {
+    await db.exec(`UPDATE "Booking" SET "bookingType"='SINGLE', "bookingStatus"='COMPLETED';
+      INSERT INTO "Transaction" (id,"storeId","bookingId","customerId","transactionType",amount) VALUES ('single','a','booking','primary','SINGLE_PURCHASE',799),('valid-single','a','booking','primary','SINGLE_PURCHASE',799)`);
+    await restore("single");expect(await booking()).toMatchObject({bookingStatus:"COMPLETED"});
   });
   it("does not reset legacy service when another valid receipt remains", async () => {
     await db.exec(`UPDATE "Booking" SET "bookingStatus"='COMPLETED', "isCheckedIn"=true, "attendedPeople"=2;
