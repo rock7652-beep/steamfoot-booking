@@ -33,8 +33,8 @@ export async function correctBeautyTransaction(tx:Tx,a:BeautyActor,input:Input&{
   }else if(payment){
    if(payment.appointmentId){
     const appointment=await tx.beautyAppointment.findFirst({where:{id:payment.appointmentId,storeId:a.storeId}});
-    if(!appointment?.isTrial||appointment.cardId||payment.cardId)throw new AppError('BUSINESS_RULE','此處只作廢體驗錯帳或未使用方案；其他服務請先核對退款');
-    if(appointment.status==='COMPLETED'||appointment.status==='NO_SHOW')await transition(tx,a,{id:appointment.id,revision:appointment.revision,target:'RESERVED',reason:input.reason||'體驗交易作廢'});
+    if(!appointment||appointment.cardId||payment.cardId)throw new AppError('BUSINESS_RULE','方案服務與加做收款請先核對退款');
+    if(appointment.status==='COMPLETED'||appointment.status==='NO_SHOW')await transition(tx,a,{id:appointment.id,revision:appointment.revision,target:'RESERVED',reason:input.reason||'服務收款作廢'});
     await reverseMistakenReceiptCash(tx,a,payment,input.reason);
    }else{
    if(!payment.cardId)throw new AppError('BUSINESS_RULE','服務收款請先取消服務並使用退款；此處只作廢未使用的方案誤建交易');

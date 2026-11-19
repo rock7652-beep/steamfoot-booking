@@ -12,3 +12,9 @@ it.each([{trial:true,permission:true,expected:true},{trial:true,permission:false
  renderToStaticMarkup(createElement(BeautyNativeTransaction,{storeId:'store',order,canRefund:false,canConfirm:false,cardAccess:false,canEdit:false,canVoid:permission,staffOptions:[]}));
  expect(h.canVoid).toBe(expected);
 });
+
+it.each([true,false])('exposes regular service void only with permission: %s',permission=>{
+ const order={id:'single',name:'單次服務',customerName:'測試顧客',status:'CONFIRMED',price:799,note:'',revenueStaffId:null,voidReason:null,points:0,remaining:null,reserved:0,attended:0,usedQuota:0,expiresAt:null,transferLastFive:'',unit:'MONEY',refunds:[],servicePayment:true};
+ renderToStaticMarkup(createElement(BeautyNativeTransaction,{storeId:'store',order,canRefund:false,canConfirm:false,cardAccess:false,canEdit:false,canVoid:permission,staffOptions:[]}));
+ expect(h.canVoid).toBe(permission);
+});

@@ -178,13 +178,14 @@ export async function completePreviouslyPaidParticipant(tx: Prisma.TransactionCl
 /** Called after the receipt is voided, in the same transaction. Keep the voided
  * receipt for accounting, but release its service link so checkout can be retried.
  */
-export async function restoreVoidedTrialService(tx: Prisma.TransactionClient, input: {
+export async function restoreVoidedPaidService(tx: Prisma.TransactionClient, input: {
   storeId: string; bookingId: string; transactionId: string; actorUserId: string;
 }) {
-  const [receipt] = await tx.$queryRaw<{ id: string }[]>`
-    SELECT id FROM "Transaction" WHERE id = ${input.transactionId} AND "storeId" = ${input.storeId}
-      AND "bookingId" = ${input.bookingId} AND "transactionType"::text = 'TRIAL_PURCHASE' AND status::text = 'VOIDED'`;
-  if (!receipt) throw new AppError("CONFLICT", "原體驗款項尚未作廢，無法還原服務");
+  const [receipt] = await tx.$queryRaw<{ id: string; transactionType: string }[]>`
+    SELECT id, "transactionType"::text AS "transactionType" FROM "Transaction" WHERE id = ${input.transactionId} AND "storeId" = ${input.storeId}
+      AND "bookingId" = ${input.bookingId} AND "customerPlanWalletId" IS NULL AND "transactionType"::text IN ('TRIAL_PURCHASE', 'SINGLE_PURCHASE') AND status::text = 'VOIDED'`;
+  if (!receipt) throw new AppError("CONFLICT", "原服務款項尚未作廢，無法還原服務");
+  const service = receipt.transactionType === "SINGLE_PURCHASE" ? "SINGLE" : "FIRST_TRIAL";
   const [linked] = await tx.$queryRaw<{ id: string }[]>`
     SELECT id FROM "BookingParticipant" WHERE "collectionTransactionId" = ${input.transactionId}
       AND "storeId" = ${input.storeId}`;
@@ -192,11 +193,11 @@ export async function restoreVoidedTrialService(tx: Prisma.TransactionClient, in
     await assertLifecycleReady(tx);
     const person = await lockPaymentParticipant(tx, input.storeId, linked.id);
     if (person.bookingId !== input.bookingId || person.collectionTransactionId !== input.transactionId ||
-        person.service !== "FIRST_TRIAL" || person.walletSessionId || !["PENDING", "COMPLETED"].includes(person.status)) {
-      throw new AppError("CONFLICT", "體驗服務狀態已變更，請重新核對");
+        person.service !== service || person.walletSessionId || !["PENDING", "COMPLETED"].includes(person.status)) {
+      throw new AppError("CONFLICT", "服務狀態已變更，請重新核對");
     }
     const correction = { ...input, participantId: person.id, revision: person.revision,
-      summary: "體驗交易作廢，恢復待到店並解除原收款關聯" };
+      summary: "服務交易作廢，恢復待服務並解除原收款關聯" };
     await authorizeCorrection(tx, correction, person, "PENDING");
     await tx.$executeRaw`UPDATE "BookingParticipant" SET status = 'PENDING', "arrivedAt" = NULL, "completedAt" = NULL,
       "collectionTransactionId" = NULL, revision = revision + 1, "updatedAt" = CURRENT_TIMESTAMP
@@ -209,7 +210,7 @@ export async function restoreVoidedTrialService(tx: Prisma.TransactionClient, in
   await tx.$executeRaw`UPDATE "Booking" b SET "bookingStatus" = 'PENDING', "isCheckedIn" = false,
     "attendedPeople" = NULL, "serviceStaffId" = NULL, "updatedAt" = CURRENT_TIMESTAMP
     WHERE b.id = ${input.bookingId} AND b."storeId" = ${input.storeId}
-      AND b."bookingType"::text = 'FIRST_TRIAL' AND b."bookingStatus"::text = 'COMPLETED'
+      AND b."bookingType"::text = ${service} AND b."bookingStatus"::text IN ('PENDING', 'CONFIRMED', 'COMPLETED')
       AND b."customerPlanWalletId" IS NULL AND NOT b."isMakeup"
       AND NOT EXISTS (SELECT 1 FROM "BookingParticipantGroup" g WHERE g."bookingId" = b.id AND g."storeId" = b."storeId")
       AND NOT EXISTS (SELECT 1 FROM "Transaction" t WHERE t."bookingId" = b.id AND t."storeId" = b."storeId"

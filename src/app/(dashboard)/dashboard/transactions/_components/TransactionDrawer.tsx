@@ -331,6 +331,9 @@ export function TransactionDrawer({
     });
   };
 
+  const restoresService = !!data?.booking && !data.customerPlanWallet && ["TRIAL_PURCHASE", "SINGLE_PURCHASE"].includes(data.transactionType);
+  const voidLabel = restoresService ? "作廢收款並恢復待服務" : "取消交易";
+
   // 退款試算（pure helper；server action 會以同樣 logic 再驗一次）
   const refundPlan =
     data &&
@@ -672,14 +675,14 @@ export function TransactionDrawer({
               {!isVoided && canVoid && (
                 <Section title="危險操作" tone="danger">
                   <p className="mb-2 text-xs text-earth-500">
-                    適用於 Key 錯、重複建單或未實際收款；作廢原交易並扣回營收與未使用堂數。
+                    {restoresService ? "作廢本筆收款並恢復待服務，保留原交易紀錄。" : "適用於 Key 錯、重複建單或未實際收款；作廢原交易並扣回營收與未使用堂數。"}
                   </p>
                   <button
                     type="button"
                     onClick={() => setView("void-confirm")}
                     className="inline-flex min-h-10 items-center rounded border border-red-300 bg-white px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
                   >
-                    取消交易
+                    {voidLabel}
                   </button>
                 </Section>
               )}
@@ -724,10 +727,9 @@ export function TransactionDrawer({
 
           {data && view === "void-confirm" && (
             <div>
-              <Section title="確認取消交易" tone="danger">
+              <Section title={voidLabel} tone="danger">
                 <p className="mb-3 text-sm text-earth-700">
-                  確定取消這筆交易？系統會自動扣回營收
-                  {data.customerPlanWallet ? "與未使用堂數" : ""}。
+                  {restoresService ? "確認作廢本筆收款並恢復待服務？其他有效收款及已取消的預約維持原狀。" : <>確定取消這筆交易？系統會自動扣回營收{data.customerPlanWallet ? "與未使用堂數" : ""}。</>}
                 </p>
                 <textarea
                   value={voidReason}
@@ -751,7 +753,7 @@ export function TransactionDrawer({
                     onClick={handleVoidConfirm}
                     className="inline-flex min-h-10 items-center rounded bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-50"
                   >
-                    {isPending ? "處理中…" : "確認取消交易"}
+                    {isPending ? "處理中…" : restoresService ? voidLabel : "確認取消交易"}
                   </button>
                 </div>
               </Section>

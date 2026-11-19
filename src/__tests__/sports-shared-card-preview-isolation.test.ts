@@ -56,8 +56,7 @@ function run(overrides: Record<string, string | undefined>) {
 }
 
 describe("sports shared-card Preview preflight", () => {
-  it("trial void Preview permits only its pinned test project and never runs migrations", () => {
-    const branch = "fix/shared-trial-void-restore-20261118";
+  it.each(["fix/shared-trial-void-restore-20261118", "fix/shared-single-service-void-restore-20261118"])("%s Preview permits only its pinned test project and never runs migrations", branch => {
     const scoped = { VERCEL_GIT_COMMIT_REF: branch, VERCEL_PROJECT_ID: "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR", BEAUTY_MODULE_ENABLED: "1", BEAUTY_DATABASE_MODE: "legacy", BEAUTY_NOTIFICATIONS_ENABLED: "0", SPORTS_REDESIGN_PREVIEW: "1", SPORTS_REDESIGN_STAGING: "1" };
     expect(run(scoped).status).toBe(0);
     expect(run(scoped).output).toContain("migrations_skipped=true");
