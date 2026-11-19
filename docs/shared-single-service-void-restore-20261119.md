@@ -31,3 +31,11 @@ TypeScript `tsc --noEmit --incremental false` 通過；修改原始碼 ESLint �
 ## 待交付與授權
 
 使用者於 2026-11-19 回覆「允許」，授權本次新分支不自動部署設定與 push／草稿 PR（跑 CI）。`vercel.json` 僅新增本分支的 `git.deploymentEnabled=false`；不更動其他分支與正式通知設定。Hosted Preview、合併、正式部署及歷史資料修復不在本次授權內。PR 與最終 CI 狀態以 GitHub 的 commit／checks 為準。
+
+## 隔離預覽準備（2026-11-19）
+
+使用者要求「下一步」後，核對 #1587 仍為草稿且 CI 通過，head `393d7bed404f2d0b7510e16b0e1ecc5755c445a3` 無可沿用部署。新分支尚未納入既有預覽防線，已在本機補齊精確分支範圍；沿用固定測試專案、兩個資料庫連線隔離檢查、通知停發與不執行 migration 規則，不更動正式 main 判斷。
+
+`sports-shared-card-preview-isolation.test.ts` 與 `teaching-preview-packaging.test.ts`：2 檔、43 項通過。涵蓋新分支正向案例及正式資料庫／環境／專案／通知設定錯誤時的拒絕。修改檔案 ESLint 及 diff check 通過。新增防線與本節仍為本機差異，尚未 push；舊 head 的 CI 不代表這些新差異已通過 CI。
+
+下一階段為一次隔離 Preview 建置與測試庫（steamfoot-preview）服務操作驗收；舊 Preview 的 SHA 不符而無法沿用。可能產生 Vercel 建置／執行費用，無法精確估算。使用者已回覆「允許」，授權本次隔離 Preview、分支專用設定與測試庫操作驗收；正式資料與通知不變。合併及正式發布未獲授權。
