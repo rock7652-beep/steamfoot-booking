@@ -16,18 +16,42 @@ export const dailyOperationGuides20261010: OperationGuide[] = [
     sources: ["src/lib/single-booking-price.ts", "src/app/(dashboard)/dashboard/bookings/compute-amount.ts", "src/app/(dashboard)/dashboard/bookings/collect-single-modal.tsx", "src/server/actions/single-booking.ts"],
   },
   {
-    id: "I20", category: "settings", title: "店主如何查看本店操作紀錄？為什麼沒有入口？",
-    summary: "只有獨立開通且仍有效的 OWNER 可查本店業務紀錄；試用或方案內含不會自動開通。",
-    answer: "店主本人須有本店啟用中的店主人員身分；總部另開通本店操作紀錄後才有入口，不能查看登入、安全或私人備註。",
-    path: "店家後台 → 操作紀錄；原業務資料 → 查看紀錄",
-    keywords: "店主 OWNER 本店操作紀錄 獨立開通 功能未開通 到期 隱藏 稽核 誰修改 唯讀",
-    steps: ["確認目前是自己的營運中或試營運門市，登入身分為 OWNER 且本店人員仍啟用。", "開啟「操作紀錄」，選開始與結束日期並查詢，再展開目標操作核對時間、操作人及業務異動。", "需要修正時關閉紀錄，回原預約、收款或庫存功能處理；沒有入口時請 HQ 核對本店獨立授權與有效期間。"],
-    important: "MANAGER、STAFF、PARTNER、母店查看子店及未開通 OWNER 不取得此權利；HQ 切店也只看該店範圍，完整 HQ 稽核需返回總部。",
-    details: ["只提供已核准的業務動作及有限數值、狀態，不提供登入連結、IP、安全資訊、私人文字備註或總部事件。未知或缺少當時身分的舊紀錄可能僅 HQ 可查。", "關閉、隱藏或到期會收回查看權，不會停止原業務紀錄保存；無入口不代表原紀錄遭刪除。", "紀錄唯讀，不能還原、退款、扣堂或發通知；沒有可顯示欄位也不能直接判定原資料沒有異動。"],
-    success: "授權店主只能查正確本店業務紀錄；完整登入與安全資料仍留在 HQ。",
-    modules: ["steamfoot", "spa", "course"], permission: "store.audit.read", feature: "store_operation_audit", kind: "howto", verification: "source-reviewed",
-    sources: ["src/server/services/store-operation-audit-access.ts", "src/server/services/store-operation-audit-reader.ts", "src/lib/store-operation-audit-policy.ts", "src/app/(dashboard)/dashboard/operation-audits/store-operation-audit-view.tsx", "src/components/sidebar.tsx"],
-  },
+  "id": "I20",
+  "category": "settings",
+  "title": "店主如何查看本店操作紀錄？為什麼沒有入口？",
+  "summary": "只有獨立開通且仍有效的 OWNER 可查本店業務紀錄；試用或方案內含不會自動開通。",
+  "answer": "店主本人須有本店啟用中的店主人員身分；總部另開通本店操作紀錄後才有入口，不能查看登入、安全或私人備註。",
+  "path": "店家後台 → 操作紀錄；原業務資料 → 查看紀錄",
+  "keywords": "店主 OWNER 本店操作紀錄 獨立開通 功能未開通 到期 隱藏 稽核 誰修改 唯讀 自動篩選 清除 返回",
+  "steps": [
+    "確認目前是自己的營運中或試營運門市，登入身分為 OWNER 且本店人員仍啟用。",
+    "開啟「操作紀錄」，選開始與結束日期並查詢，再展開目標操作核對時間、操作人及業務異動。",
+    "需要修正時關閉紀錄，回原預約、收款或庫存功能處理；沒有入口時請 HQ 核對本店獨立授權與有效期間。"
+  ],
+  "important": "MANAGER、STAFF、PARTNER、母店查看子店及未開通 OWNER 不取得此權利；HQ 切店也只看該店範圍，完整 HQ 稽核需返回總部。",
+  "details": [
+    "只提供已核准的業務動作及有限數值、狀態，不提供登入連結、IP、安全資訊、私人文字備註或總部事件。未知或缺少當時身分的舊紀錄可能僅 HQ 可查。",
+    "關閉、隱藏或到期會收回查看權，不會停止原業務紀錄保存；無入口不代表原紀錄遭刪除。",
+    "紀錄唯讀，不能還原、退款、扣堂或發通知；沒有可顯示欄位也不能直接判定原資料沒有異動。",
+    "只讀搜尋／日期篩選自動更新，中文組字完成後才查詢；清除及返回不帶回舊草稿。查看紀錄、下載或業務確認仍需明確操作，權限未擴張。"
+  ],
+  "success": "授權店主只能查正確本店業務紀錄；完整登入與安全資料仍留在 HQ。",
+  "modules": [
+    "steamfoot",
+    "course"
+  ],
+  "permission": "store.audit.read",
+  "feature": "store_operation_audit",
+  "kind": "howto",
+  "verification": "source-reviewed",
+  "sources": [
+    "src/server/services/store-operation-audit-access.ts",
+    "src/server/services/store-operation-audit-reader.ts",
+    "src/lib/store-operation-audit-policy.ts",
+    "src/app/(dashboard)/dashboard/operation-audits/store-operation-audit-view.tsx",
+    "src/components/sidebar.tsx"
+  ]
+},
   {
     id: "J24", category: "spa", title: "SPA 當日名單怎麼原地編輯本次備註？",
     summary: "待確認或已預約的原列可用鉛筆編輯本次備註，不必開整筆預約明細。",
