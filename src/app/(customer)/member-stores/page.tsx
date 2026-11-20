@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { totalAvailableToBook } from "@/lib/wallet-availability";
 import { prisma } from "@/lib/db";
+import { getSelectableMemberMemberships } from "@/server/services/member-store-selection";
 import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 import { selectCentralMemberStoreAction } from "@/server/actions/central-member-store";
 
@@ -10,10 +11,11 @@ export default async function MemberStoresPage() {
   if (!user || user.role !== "CUSTOMER") redirect("/");
 
   const resolved = await resolveCentralMembershipsForUser(user.id);
-  if (resolved.memberships.length === 0) redirect("/store-select");
+  const selectable = await getSelectableMemberMemberships(resolved.memberships);
+  if (selectable.length === 0) redirect("/store-select");
 
   const stores = await Promise.all(
-    resolved.memberships.map(async (membership) => {
+    selectable.map(async (membership) => {
       const [wallets, pendingPeople] = await Promise.all([
         prisma.customerPlanWallet.findMany({
           where: { customerId: membership.customerId, status: "ACTIVE" },

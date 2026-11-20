@@ -62,6 +62,7 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/member-store-switching-consistency-20261120": false,
       "fix/liff-home-booking-people-20261120": false,
       "fix/beauty-booking-people-20261119": false,
       "fix/liff-booking-people-20261119": false,

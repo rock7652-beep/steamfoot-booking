@@ -102,7 +102,7 @@ const time = (s: string) =>
 function CoursePortalContent(serverData: CoursePortalData & { sharedCardState?: FeaturePresentationState; readOnly?: boolean; initialDate?: string; initialView?: "home" | "bookings" | "plans" | "schedule" | "shop" | "health"; initialCoach?: boolean }) {
   const membershipStores = useCustomerMembershipStores();
   const currentStoreSlug = serverData.prefix.split("/")[2] ?? "";
-  const canSwitchStores = !serverData.readOnly && membershipStores.length > 1 && membershipStores.some(store => store.storeSlug === currentStoreSlug);
+  const canSwitchStores = !serverData.readOnly && membershipStores.some(store => store.storeSlug !== currentStoreSlug);
   const personnelText = useCoursePersonnelText();
   const [confirmedBookings, setConfirmedBookings] = useState<Array<{cardId: string | null; confirmedAt: number; booking: CoursePortalData["bookings"][number]}>>([]);
   const outstanding = confirmedBookings.filter(row => serverData.serverNow < row.confirmedAt && !serverData.bookings.some(b => b.id === row.booking.id));
