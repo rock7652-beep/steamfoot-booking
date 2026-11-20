@@ -287,7 +287,7 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
         if(subPath==='/beauty'&&req.nextUrl.searchParams.get('view')==='book')login.searchParams.set('next','beauty-book');
         if (req.method === "GET") {
           const target = customerResumePath(req.nextUrl.pathname + req.nextUrl.search, storeSlug, "web");
-          if (target) login.searchParams.set("returnTo", target);
+          if (target && target !== `/s/${storeSlug}/book`) login.searchParams.set("returnTo", target);
         }
         return NextResponse.redirect(login);
       }
