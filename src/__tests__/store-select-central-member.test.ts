@@ -13,7 +13,8 @@ describe("central member store selection fallback", () => {
     expect(page).toContain("getCurrentUser()");
     expect(page).toContain('user?.role === "CUSTOMER"');
     expect(page).toContain("resolveCentralMembershipsForUser(user.id)");
-    expect(page).toContain("resolved.memberships.map");
+    expect(page).toContain("getSelectableMemberMemberships(resolved.memberships)");
+    expect(page).toContain("selectable.map");
     expect(page).toContain("selectCentralMemberStoreAction");
   });
 

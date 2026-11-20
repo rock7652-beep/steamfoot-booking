@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import { selectCentralMemberStoreAction } from "@/server/actions/central-member-store";
+import { getSelectableMemberMemberships } from "@/server/services/member-store-selection";
 import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 
 export default async function StoreSelectPage() {
@@ -10,23 +11,25 @@ export default async function StoreSelectPage() {
       ? await resolveCentralMembershipsForUser(user.id)
       : { memberships: [], conflicts: [] };
 
+  const selectable = await getSelectableMemberMemberships(resolved.memberships);
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
       <div className="text-center">
         <p className="text-sm font-semibold text-primary-700">蒸管家中央會員</p>
         <h1 className="mt-2 text-2xl font-bold text-earth-900">
-          {resolved.memberships.length > 0 ? "請選擇您的門市" : "無法確認店舖資訊"}
+          {selectable.length > 0 ? "請選擇您的門市" : "無法確認店舖資訊"}
         </h1>
         <p className="mt-3 text-sm leading-6 text-earth-600">
-          {resolved.memberships.length > 0
+          {selectable.length > 0
             ? "只會顯示已連結到您帳號的門市，各店方案、堂數與預約分開管理。"
             : "目前找不到可選擇的門市，請由店家提供的專屬連結重新進入，或請聯絡店家協助確認會員資料。"}
         </p>
       </div>
 
-      {resolved.memberships.length > 0 ? (
+      {selectable.length > 0 ? (
         <div className="mt-8 space-y-3">
-          {resolved.memberships.map((membership) => (
+          {selectable.map((membership) => (
             <form key={membership.storeId} action={selectCentralMemberStoreAction}>
               <input type="hidden" name="storeSlug" value={membership.storeSlug} />
               <button

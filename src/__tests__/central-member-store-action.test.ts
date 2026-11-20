@@ -1,11 +1,12 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m=vi.hoisted(()=>({session:vi.fn(),memberships:vi.fn(),set:vi.fn(),redirect:vi.fn((url:string):never=>{throw new Error(`REDIRECT:${url}`);})}));
+const m=vi.hoisted(()=>({stores:vi.fn(),session:vi.fn(),memberships:vi.fn(),set:vi.fn(),redirect:vi.fn((url:string):never=>{throw new Error(`REDIRECT:${url}`);})}));
+vi.mock("@/lib/db",()=>({prisma:{store:{findMany:m.stores}}}));
 vi.mock("@/lib/session",()=>({requireSession:m.session}));
 vi.mock("@/server/services/central-member-resolver",()=>({resolveCentralMembershipsForUser:m.memberships}));
 vi.mock("next/headers",()=>({cookies:async()=>({set:m.set})}));
 vi.mock("next/navigation",()=>({redirect:m.redirect}));
 import { selectCentralMemberStoreAction } from "@/server/actions/central-member-store";
-beforeEach(()=>{vi.clearAllMocks();m.session.mockResolvedValue({id:"verified-user",role:"CUSTOMER"});m.memberships.mockResolvedValue({memberships:[{storeSlug:"fitness-member-store"},{storeSlug:"steamfoot-member-store"}]});});
+beforeEach(()=>{vi.clearAllMocks();m.stores.mockResolvedValue([{id:"fitness"},{id:"steamfoot"}]);m.session.mockResolvedValue({id:"verified-user",role:"CUSTOMER"});m.memberships.mockResolvedValue({memberships:[{storeId:"fitness",storeSlug:"fitness-member-store",storeOperatingStatus:"ACTIVE"},{storeId:"steamfoot",storeSlug:"steamfoot-member-store",storeOperatingStatus:"TRIAL"}]});});
 function form(slug:string){const data=new FormData();data.set("storeSlug",slug);return data;}
 it("switches only to a current server-verified membership and keeps the fixed return route",async()=>{
   await expect(selectCentralMemberStoreAction(form("steamfoot-member-store"))).rejects.toThrow("REDIRECT:/s/steamfoot-member-store/book?storeSwitched=1");
@@ -28,4 +29,14 @@ it("returns LINE-origin course members to the selected store's LIFF shell",async
 it("does not accept a client-provided external redirect as the entry mode",async()=>{
   const data=form("fitness-member-store");data.set("memberEntry","https://evil.example");
   await expect(selectCentralMemberStoreAction(data)).rejects.toThrow("REDIRECT:/s/fitness-member-store/book?storeSwitched=1");
+});
+
+it.each(['PAUSED','INACTIVE'])('rejects a verified but %s membership before writing the selection cookie',async status=>{
+ m.memberships.mockResolvedValue({memberships:[{storeId:'blocked',storeSlug:'blocked',storeOperatingStatus:status}]});
+ await expect(selectCentralMemberStoreAction(form('blocked'))).rejects.toThrow('REDIRECT:/store-select');expect(m.set).not.toHaveBeenCalled();expect(m.stores).not.toHaveBeenCalled();
+});
+it('rechecks archive and current operating status at submission time',async()=>{
+ m.stores.mockResolvedValue([]);
+ await expect(selectCentralMemberStoreAction(form('steamfoot-member-store'))).rejects.toThrow('REDIRECT:/store-select');expect(m.set).not.toHaveBeenCalled();
+ expect(m.stores).toHaveBeenCalledWith({where:{id:{in:['fitness','steamfoot']},archivedAt:null,operatingStatus:{in:['ACTIVE','TRIAL']}},select:{id:true}});
 });

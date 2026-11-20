@@ -1,0 +1,19 @@
+// Synthetic data only; runner blocks all real server actions and network requests.
+import {createRoot} from 'react-dom/client';
+import {BeautyPortal} from '@/components/beauty/portal';
+import {CoursePortalClient} from '@/app/(customer)/book/course-portal-client';
+import {CustomerMembershipProvider} from '@/app/(customer)/customer-membership-context';
+import {MemberPortalHeader} from '@/components/member-portal-header';
+import {LiffStoreSwitcher} from '@/app/(liff)/liff/liff-store-switcher';
+import {FrontendAccountMenu} from '@/components/frontend-account-menu';
+import {PanelReadProvider} from '@/components/operations/panel-read-cache';
+const date='2026-11-20T02:00:00Z';
+const mode=new URLSearchParams(location.search).get('module')??'beauty';
+const allStores=[{storeId:'steam',storeSlug:'steam',storeName:'暖暖蒸足'},{storeId:'music',storeSlug:'music',storeName:'銀百合音樂／舞蹈'},{storeId:'sports',storeSlug:'sports',storeName:'運動門市'},{storeId:'beauty',storeSlug:'beauty',storeName:'舒生活Soulife肩頸按摩'},...Array.from({length:12},(_,i)=>({storeId:'extra-'+i,storeSlug:'extra-'+i,storeName:i===0?'名稱很長的已驗證會員門市（完整店名顯示，不截斷）':'其他會員門市 '+i}))];
+const stores=new URLSearchParams(location.search).has('archived-current')?allStores.filter(s=>s.storeSlug!==mode):new URLSearchParams(location.search).has('single')?allStores.filter(s=>s.storeSlug===mode):allStores;
+const current=allStores.find(s=>s.storeSlug===mode)!;
+const beautyData={store:{id:'beauty',slug:'beauty',name:current.storeName},scopeKey:'synthetic',announcementItems:[],work:new URLSearchParams(location.search).has('work'),canWork:new URLSearchParams(location.search).has('work'),customer:{id:'member',name:'合成會員',phone:''},cards:[],members:[],items:[],plans:[],purchases:[],grants:[],income:[],bank:null,services:[],techs:[],policy:{selfBooking:true,selfCancel:true,selfReschedule:true}} as unknown as Parameters<typeof BeautyPortal>[0]['data'];
+const courseData=(musicStore:boolean)=>({readOnly:true,selfBookingEnabled:true,initialRole:'member',rolePreferenceKey:'synthetic',month:'2026-11',serverNow:Date.parse('2026-11-11T08:00Z'),initialDate:'2026-11-11',initialView:'plans',memberEnabled:true,hasWork:false,customerId:'member',customerName:'合成顧客',storeName:'合成店家',prefix:'/s/synthetic',musicStore,companionBookingEnabled:false,cancellationLeadMinutes:120,cards:[{id:'card',name:musicStore?'鋼琴十堂方案':'運動十堂方案',unit:'SESSION',termSessionIds:[],templateIds:[],allowShared:false,available:9,remaining:9,held:0,entries:[],expired:false,closed:false,expiresAt:'2027-12-31',members:[{id:'member',name:'合成顧客'}],grid:{total:10,dates:[date],completed:[{id:'used',date}]},purchases:[{id:'purchase',price:3000,points:10,status:'CONFIRMED',createdAt:'2026-10-20T02:00Z'}]}],plans:[],templates:[],bookings:[],orders:[],hours:[],special:[],config:{},bookingWindow:{closesAt:'2027-12-31T00:00Z'},nextBooking:null,nextWork:null,work:[],sessions:[]}) as unknown as Parameters<typeof CoursePortalClient>[0];
+const p={...courseData(mode==='music'),readOnly:false,initialView:'home' as const,storeName:current.storeName,prefix:'/s/'+mode,cards:[],announcementItems:[]};
+const native=<main className="mx-auto max-w-md"><MemberPortalHeader padded store={<LiffStoreSwitcher currentStoreName={current.storeName} currentStoreSlug={mode} stores={stores}/>} caption="會員中心" account={<FrontendAccountMenu storeSlug={mode} name="合成會員"/>}/><p>原生蒸足會員首頁（合成資料）</p></main>;
+createRoot(document.getElementById('root')!).render(<CustomerMembershipProvider stores={stores}><PanelReadProvider><p>隔離預覽・不會切換正式門市</p>{mode==='beauty'?<BeautyPortal data={beautyData} preview={new URLSearchParams(location.search).has('preview')?{selection:{},memberId:'member'} as unknown as Parameters<typeof BeautyPortal>[0]['preview']:undefined}/>:mode==='steam'?native:<CoursePortalClient {...p}/>}</PanelReadProvider></CustomerMembershipProvider>);

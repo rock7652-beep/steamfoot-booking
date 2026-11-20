@@ -12,6 +12,7 @@ import { getStoreContext } from "@/lib/store-context";
 import { getCustomerFacingStoreName, resolveStoreBySlug } from "@/lib/store-resolver";
 import { getStoreOperatingStatus, getStoreUnavailableMessage, isStoreCustomerPortalBlocked } from "@/lib/store-operating-status";
 import { resolveCustomerCompletionStatus } from "@/server/queries/customer-completion";
+import { getSelectableMemberMemberships } from "@/server/services/member-store-selection";
 import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 import { CENTRAL_MEMBER_STORE_COOKIE } from "@/lib/central-member-store";
 import { CentralMemberStoreSwitcher } from "./central-member-store-switcher";
@@ -147,7 +148,8 @@ export default async function CustomerLayout({
   }
 
   const centralMemberships = await resolveCentralMembershipsForUser(user.id);
-  const membershipStores = centralMemberships.memberships.map((membership) => ({
+  const selectableMemberships = await getSelectableMemberMemberships(centralMemberships.memberships);
+  const membershipStores = selectableMemberships.map((membership) => ({
     storeId: membership.storeId,
     storeName: membership.storeName,
     storeSlug: membership.storeSlug,
@@ -234,7 +236,7 @@ export default async function CustomerLayout({
   }
   if (industryModule === "beauty") {
     if (!["/beauty", "/profile", "/member-stores", "/member-link"].some(p=>pathname.startsWith(p))) redirect(`/s/${storeCtx.storeSlug}/beauty`);
-    return withSessionResume(<div className="min-h-screen bg-earth-50">{children}</div>);
+    return withSessionResume(<CustomerMembershipProvider key={`${user.id}:${storeCtx.storeId}`} stores={membershipStores}><div className="min-h-screen bg-earth-50">{children}</div></CustomerMembershipProvider>);
   }
   const isSpaMemberPortal = industryModule === "spa";
   const healthAssessmentEnabled = await hasStoreFeature(
