@@ -25,7 +25,9 @@ import { BookingsList } from "./bookings-list";
 
 export const dynamic = "force-dynamic";
 
-export default async function LiffMyBookingsPage() {
+export default async function LiffMyBookingsPage({ searchParams }: {
+  searchParams: Promise<{ bookingStore?: string | string[] }>;
+}) {
   const storeSlug = await resolveStoreSlugForLiff();
   if (!storeSlug) {
     return <NotOpenForLiff message={liffMessages.error.cannotConfirmStore} />;
@@ -40,6 +42,19 @@ export default async function LiffMyBookingsPage() {
   if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
+  // A shared LIFF URL lands under its registered endpoint store first.
+  // Only carry the return store across when it uses the same LIFF app.
+  const { bookingStore } = await searchParams;
+  let returnStoreSlug: string | undefined;
+  if (bookingStore !== undefined) {
+    if (typeof bookingStore !== "string" || !/^[a-z0-9-]{1,100}$/.test(bookingStore)) notFound();
+    if (bookingStore !== storeSlug) {
+      const returnStore = await resolveStorePresentation(bookingStore);
+      if (!returnStore || await resolveCentralMemberLiffId(returnStore.slug) !== liffId) notFound();
+      returnStoreSlug = returnStore.slug;
+    }
+  }
+
   const industryModule = await getStoreIndustryModule(presentation.id);
   const webUser = null;
 
@@ -53,6 +68,7 @@ export default async function LiffMyBookingsPage() {
       storeMapUrl={presentation.mapUrl}
       dataSource={industryModule}
       allowBrowserSession={Boolean(webUser)}
+      returnStoreSlug={returnStoreSlug}
     />
   );
 }

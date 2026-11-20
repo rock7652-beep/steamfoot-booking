@@ -37,6 +37,7 @@ export function InfoBlock({
   title,
   body,
   showRetry,
+  lineReentryHref,
   showContactStore,
   storeSlug,
   contactUrl,
@@ -45,6 +46,7 @@ export function InfoBlock({
   title?: string;
   body: string;
   showRetry?: boolean;
+  lineReentryHref?: string;
   showContactStore?: boolean;
   storeSlug: string;
   /** PR-E：per-store LINE OA 連結；showContactStore=true 時必填。 */
@@ -61,8 +63,16 @@ export function InfoBlock({
       className={`flex flex-col gap-3 rounded-xl border px-4 py-5 text-sm ${toneClasses[tone]}`}
     >
       {title && <p className="font-medium">{title}</p>}
-      <p className="text-xs break-words opacity-90">{body}</p>
+      <p className="break-words opacity-90">{body}</p>
       <div className="flex flex-wrap gap-2">
+        {lineReentryHref && (
+          <a
+            href={lineReentryHref}
+            className="inline-flex min-h-11 items-center rounded-md border border-current bg-white/70 px-3 py-2 text-sm font-medium hover:bg-white"
+          >
+            重新驗證 LINE
+          </a>
+        )}
         {showRetry && (
           <button
             type="button"

@@ -4,6 +4,7 @@ import { liffMessages } from "@/lib/liff/messages";
 import { readLiffPublicContext } from "@/server/queries/liff-public-context";
 import { LiffShell } from "./liff-shell";
 import { publicTrialPrimaryIntent } from "@/lib/liff/public-trial-intent";
+import { renderLiffResume } from "./resume/render-resume";
 import PublicTrialLiffPage from "./public-trial/page";
 
 /**
@@ -30,6 +31,7 @@ export default async function LiffEntryPage({ searchParams }: {
 }) {
   const intent = publicTrialPrimaryIntent((await searchParams)["liff.state"]);
   if (intent.kind === "invalid") notFound();
+  if (intent.kind === "resume") return renderLiffResume(intent, true);
   if (intent.kind === "trial") {
     return PublicTrialLiffPage({ searchParams: Promise.resolve({ bookingStore: intent.bookingStore }) });
   }

@@ -23,7 +23,7 @@ type State =
   | { kind: "initializing" }
   | { kind: "not_in_line_app" }
   | { kind: "expired" }
-  | { kind: "identity_review_required" }
+  | { kind: "identity_review_required"; referenceId?: string }
   | { kind: "service_unavailable" }
   | {
       kind: "ready";
@@ -43,6 +43,7 @@ interface Props {
   storeMapUrl: string;
   dataSource: IndustryModuleId;
   allowBrowserSession?: boolean;
+  returnStoreSlug?: string;
 }
 
 export function BookingsList({
@@ -54,6 +55,7 @@ export function BookingsList({
   storeMapUrl,
   dataSource,
   allowBrowserSession = false,
+  returnStoreSlug,
 }: Props) {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "initializing" });
@@ -180,6 +182,12 @@ export function BookingsList({
       }
       if (cancelled) return;
 
+      // Complete LIFF initialization at the registered endpoint before leaving it.
+      if (returnStoreSlug) {
+        router.replace(`/s/${returnStoreSlug}/liff/bookings`);
+        return;
+      }
+
       if (!isInLineClient()) {
         {
           setState({ kind: "not_in_line_app" });
@@ -200,7 +208,9 @@ export function BookingsList({
           return;
         }
         if (session.status !== "session_created") {
-          setState({ kind: session.status });
+          setState(session.status === "identity_review_required"
+            ? { kind: session.status, referenceId: session.referenceId }
+            : { kind: session.status });
           return;
         }
       }
@@ -219,8 +229,7 @@ export function BookingsList({
       if (cancelled) return;
 
       if (result.status === "no_customer") {
-        // session 不在 / canonical resolve null → 顧客面歸入 expired（請重新進入）
-        setState({ kind: "expired" });
+        setState({ kind: "service_unavailable" });
         return;
       }
       if (result.status === "service_unavailable") {
@@ -236,7 +245,7 @@ export function BookingsList({
     return () => {
       cancelled = true;
     };
-  }, [allowBrowserSession, dataSource, liffId, storeSlug, router]);
+  }, [allowBrowserSession, dataSource, liffId, storeSlug, router, returnStoreSlug]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">
@@ -266,8 +275,8 @@ export function BookingsList({
       {state.kind === "expired" && (
         <InfoBlock
           tone="yellow"
-          body={liffMessages.error.expired}
-          showRetry
+          body="請重新驗證 LINE，完成後即可查看這家店的預約。"
+          lineReentryHref={`https://liff.line.me/${encodeURIComponent(liffId)}/bookings?bookingStore=${encodeURIComponent(storeSlug)}`}
           storeSlug={storeSlug}
           contactUrl={contactUrl}
         />
@@ -275,7 +284,7 @@ export function BookingsList({
       {state.kind === "identity_review_required" && (
         <InfoBlock
           tone="red"
-          body={liffMessages.bookings.loadFailed}
+          body={`${liffMessages.error.identityReview}${state.referenceId ? ` 查核編號：${state.referenceId}` : ""}`}
           showContactStore
           storeSlug={storeSlug}
           contactUrl={contactUrl}

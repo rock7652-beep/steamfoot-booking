@@ -1,3 +1,4 @@
+import { CustomerSessionResume } from "@/components/customer-session-resume";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
@@ -219,16 +220,21 @@ export default async function CustomerLayout({
     resolveStoreBySlug(storeCtx.storeSlug),
     getStoreIndustryModule(storeCtx.storeId),
   ]);
+  const withSessionResume = (content: React.ReactNode) => (
+    <CustomerSessionResume key={`${user.id}:${storeCtx.storeSlug}`} channel="web" storeSlug={storeCtx.storeSlug} userId={user.id}>
+      {content}
+    </CustomerSessionResume>
+  );
   const customerFacingStoreName = getCustomerFacingStoreName(currentStore);
   if (industryModule === "course" && !["/profile", "/member-stores", "/member-link"].some(p => pathname.startsWith(p))) {
     // Income has its own server-side staff/feature/opt-in checks. Let the page
     // enforce them instead of redirecting every signed-in person to the portal.
     if (!["/book", "/book/reminders", "/book/income"].includes(pathname)) redirect(`/s/${storeCtx.storeSlug}/book`);
-    return <CustomerMembershipProvider key={`${user.id}:${storeCtx.storeId}`} stores={membershipStores}><div className="mx-auto min-h-screen w-full max-w-[430px] bg-earth-50">{children}</div></CustomerMembershipProvider>;
+    return withSessionResume(<CustomerMembershipProvider key={`${user.id}:${storeCtx.storeId}`} stores={membershipStores}><div className="mx-auto min-h-screen w-full max-w-[430px] bg-earth-50">{children}</div></CustomerMembershipProvider>);
   }
   if (industryModule === "beauty") {
     if (!["/beauty", "/profile", "/member-stores", "/member-link"].some(p=>pathname.startsWith(p))) redirect(`/s/${storeCtx.storeSlug}/beauty`);
-    return <div className="min-h-screen bg-earth-50">{children}</div>;
+    return withSessionResume(<div className="min-h-screen bg-earth-50">{children}</div>);
   }
   const isSpaMemberPortal = industryModule === "spa";
   const healthAssessmentEnabled = await hasStoreFeature(
@@ -266,7 +272,7 @@ export default async function CustomerLayout({
     fullHref: `${prefix}${item.href}`,
   }));
 
-  return (
+  return withSessionResume(
     <div className="min-h-screen bg-earth-50 text-base leading-normal text-[color:var(--color-text-primary)]">
       {(
         <MobileNav
