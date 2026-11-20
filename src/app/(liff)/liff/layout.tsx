@@ -1,6 +1,7 @@
 import { LiffMemberFrame } from "@/components/liff-member-frame";
 import { LiffBottomNav } from "./liff-bottom-nav";
-import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
+import { CustomerSessionResume } from "@/components/customer-session-resume";
+import { resolveCentralMemberLiffId, resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import { readLiffPublicContext } from "@/server/queries/liff-public-context";
 import { LiffBrandHeader } from "./liff-brand-header";
 import BuildFooter from "@/components/build-footer";
@@ -14,10 +15,13 @@ import BuildFooter from "@/components/build-footer";
  */
 export default async function LiffLayout({ children }: { children: React.ReactNode }) {
   const slug = await resolveStoreSlugForLiff();
-  const context = slug ? await readLiffPublicContext(slug) : null;
+  const [context, liffId] = slug ? await Promise.all([
+    readLiffPublicContext(slug),
+    resolveCentralMemberLiffId(slug).catch(() => null),
+  ]) : [null, null];
   const store = context?.store;
   const healthEnabled = context?.healthEnabled ?? false;
-  return (
+  const content = (
     <LiffMemberFrame>
       <LiffBrandHeader storeSlug={store?.slug} />
       <main className="flex-1">{children}</main>
@@ -25,5 +29,9 @@ export default async function LiffLayout({ children }: { children: React.ReactNo
       {store && <LiffBottomNav storeSlug={store.slug} healthAssessmentEnabled={healthEnabled} />}
     </LiffMemberFrame>
   );
+  return store && liffId ? (
+    <CustomerSessionResume key={store.slug} channel="line" liffId={liffId} storeSlug={store.slug}>
+      {content}
+    </CustomerSessionResume>
+  ) : content;
 }
-

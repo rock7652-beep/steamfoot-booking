@@ -1,5 +1,6 @@
 "use server";
 
+import { customerResumePath } from "@/lib/customer-resume-path";
 import { prisma } from "@/lib/db";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { Prisma } from "@prisma/client";
@@ -46,7 +47,7 @@ export async function customerLoginAction(
       phone,
       password,
       storeId,
-      redirectTo: `/s/${storeSlug}/${landing}`,
+      redirectTo: customerResumePath(formData.get("returnTo"), storeSlug, "web") ?? `/s/${storeSlug}/${landing}`,
     });
   } catch (e) {
     if (e instanceof AuthError) {

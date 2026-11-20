@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { isCustomerPortalPath } from "@/lib/customer-resume-path";
 
 function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -13,7 +14,8 @@ describe("central member self-link entry", () => {
 
     expect(profile).toContain('href={`${prefix}/member-link`}');
     expect(profile).toContain("連結我的會員資料");
-    expect(proxy).toContain('"/member-link"');
+    expect(proxy).toContain("isCustomerPortalPath(subPath)");
+    expect(isCustomerPortalPath("/member-link")).toBe(true);
   });
 
   it("routes LINE linking through the guarded OAuth account-link handshake", () => {

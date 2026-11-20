@@ -1,3 +1,5 @@
+import { reportLiffMemberSessionExpired } from "./session-events";
+
 export type LiffSessionInput = { idToken: string; storeSlug: string };
 export type LiffSessionResult =
   | { status: "session_created"; displayName: string | null }
@@ -6,12 +8,24 @@ export type LiffSessionResult =
   | { status: "expired" }
   | { status: "service_unavailable" };
 
+// Used only to decide whether the currently rendered view can stay mounted.
+let verifiedMember: { storeSlug: string; customerId: string; idToken: string } | undefined;
+
+export function currentVerifiedLiffCustomer(storeSlug: string) {
+  return verifiedMember?.storeSlug === storeSlug ? verifiedMember.customerId : undefined;
+}
+
+export function hasVerifiedLiffTokenChanged(storeSlug: string, idToken: string | null) {
+  return verifiedMember?.storeSlug === storeSlug && verifiedMember.idToken !== idToken;
+}
+
 /** Every LIFF entry verifies the current LINE identity before using cookies.
  * No success cache: another entry or account may have replaced the session.
  */
 export async function refreshLiffSession(
   input: LiffSessionInput,
   exchange?: (input: LiffSessionInput) => Promise<unknown>,
+  signal?: AbortSignal,
 ): Promise<LiffSessionResult> {
   if (!input.idToken) return { status: "expired" };
   try {
@@ -22,6 +36,7 @@ export async function refreshLiffSession(
         credentials: "same-origin",
         cache: "no-store",
         body: JSON.stringify(payload),
+        ...(signal ? { signal } : {}),
       });
       const value: unknown = await response.json();
       if (!response.ok && !(value && typeof value === "object" &&
@@ -30,6 +45,9 @@ export async function refreshLiffSession(
     }))(input);
     if (!body || typeof body !== "object" || !("status" in body)) {
       return { status: "service_unavailable" };
+    }
+    if (body.status === "session_created" && !exchange && "customerId" in body && typeof body.customerId === "string") {
+      verifiedMember = { storeSlug: input.storeSlug, customerId: body.customerId, idToken: input.idToken };
     }
     if (body.status === "session_created" || body.status === "need_onboarding") {
       return { status: body.status, displayName:
@@ -40,6 +58,7 @@ export async function refreshLiffSession(
     }
     if (body.status === "error" && "code" in body &&
         (body.code === "ID_TOKEN_EXPIRED" || body.code === "ID_TOKEN_INVALID")) {
+      if (!exchange) reportLiffMemberSessionExpired(input.storeSlug);
       return { status: "expired" };
     }
     return { status: "service_unavailable" };
