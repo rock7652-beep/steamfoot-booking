@@ -591,7 +591,7 @@ function MemberHomeContent({
             <div>
               <p className="text-2xl font-semibold">{formatBookingDateLabel(nextBooking.bookingDate)}</p>
               <p className="mt-1 text-base text-earth-200">
-                {nextBooking.slotTime} · {STATUS_LABEL[nextBooking.bookingStatus] ?? nextBooking.bookingStatus}
+                {nextBooking.slotTime} · {STATUS_LABEL[nextBooking.bookingStatus] ?? nextBooking.bookingStatus} · {nextBooking.people} 位
               </p>
             </div>
             <Link href={resolvedMemberLinks.bookings} className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-earth-100">預約詳情</Link>
