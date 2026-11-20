@@ -1,6 +1,7 @@
 export type PublicTrialPrimaryIntent =
   | { kind: "member" }
   | { kind: "invalid" }
+  | { kind: "resume"; store: string; next: string }
   | { kind: "trial"; bookingStore?: string };
 
 /** Select the trial initializer from LINE's primary redirect BEFORE mounting
@@ -16,6 +17,13 @@ export function publicTrialPrimaryIntent(value: string | string[] | undefined): 
     if (state.startsWith("//") || state.includes("\\") || /^[a-z][a-z0-9+.-]*:/i.test(state)) return { kind: "invalid" };
     if (/^public-trial(?:[/?#]|$)/.test(state)) state = `/${state}`;
     const url = new URL(state, "https://liff-intent.invalid");
+    if (url.pathname === "/resume") {
+      const stores = url.searchParams.getAll("store");
+      const targets = url.searchParams.getAll("next");
+      return stores.length === 1 && targets.length === 1
+        ? { kind: "resume", store: stores[0], next: targets[0] }
+        : { kind: "invalid" };
+    }
     if (url.pathname !== "/public-trial" && url.pathname !== "/public-trial/") return { kind: "member" };
     const stores = url.searchParams.getAll("bookingStore");
     if (stores.length > 1 || stores.length === 1 && !/^[a-z0-9-]{1,100}$/.test(stores[0])) return { kind: "invalid" };

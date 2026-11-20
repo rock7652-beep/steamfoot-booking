@@ -1,3 +1,4 @@
+import { customerResumePath, isCustomerPortalPath } from "@/lib/customer-resume-path";
 import {assertSubscriptionReferralQa,referralQaRoute} from "../scripts/subscription-referral-qa-scope.mjs";
 import { courseAgreementPublicBoundary } from '@/lib/course-agreement-public-boundary';
 import {digitalManagerCronPreviewPathAllowed} from "../scripts/digital-manager-cron-preview-scope.mjs";
@@ -278,27 +279,16 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
     }
 
     // ── 分店 customer routes ──
-    const customerPrefixes = [
-      "/beauty",
-      "/book",
-      "/my-bookings",
-      "/my-plans",
-      "/my-points",
-      "/my-referrals",
-      "/my-growth",
-      "/health",
-      "/profile",
-      "/member-stores",
-      "/member-link",
-    ];
-    const isCustomerRoute = customerPrefixes.some(
-      (p) => subPath === p || subPath.startsWith(p + "/")
-    );
+    const isCustomerRoute = isCustomerPortalPath(subPath);
 
     if (isCustomerRoute) {
       if (!isLoggedIn) {
         const login=new URL(`/s/${storeSlug}/`,req.url);
         if(subPath==='/beauty'&&req.nextUrl.searchParams.get('view')==='book')login.searchParams.set('next','beauty-book');
+        if (req.method === "GET") {
+          const target = customerResumePath(req.nextUrl.pathname + req.nextUrl.search, storeSlug, "web");
+          if (target) login.searchParams.set("returnTo", target);
+        }
         return NextResponse.redirect(login);
       }
       if (role && isStaffRole(role)) {
@@ -306,6 +296,10 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
           return NextResponse.redirect(new URL("/hq/dashboard", req.url));
         }
         return NextResponse.redirect(new URL(`/s/${storeSlug}/admin/dashboard`, req.url));
+      }
+      if (req.method === "GET" && role === "CUSTOMER" && subPath === "/book") {
+        const target = customerResumePath(req.nextUrl.searchParams.get("returnTo"), storeSlug, "web");
+        if (target) return NextResponse.redirect(new URL(target, req.url));
       }
       // 不再做 session.storeSlug vs URL slug 的 mismatch redirect —
       // 舊邏輯 `if (userSlug && userSlug !== storeSlug)` 會把任何與 session 不符的
@@ -340,7 +334,8 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
         if (role === "CUSTOMER") {
           // 使用 URL slug 而非 session's userSlug（含 zhubei fallback）:
           // 無效 URL slug 會被 customer layout gate（PR3）擋下，不會靜默改站。
-          return NextResponse.redirect(new URL(`/s/${storeSlug}/book`, req.url));
+          const target = customerResumePath(req.nextUrl.searchParams.get("returnTo"), storeSlug, "web");
+          return NextResponse.redirect(new URL(target ?? `/s/${storeSlug}/book`, req.url));
         }
         if (role === "ADMIN") {
           return NextResponse.redirect(new URL("/hq/dashboard", req.url));
