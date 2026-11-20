@@ -48,6 +48,11 @@ try{
   await mount('&single');if(await trigger.count())throw Error('Single-store membership shows selector');
   await mount('&archived-current');await trigger.waitFor();await trigger.click();if(await page.getByRole('menuitem').count()!==15)throw Error('Cannot leave hidden current store');
   if(moduleName==='beauty')for(const suppressed of ['work','preview']){await mount('&'+suppressed);await page.getByText('合成會員',{exact:true}).first().waitFor({state:'attached'});if(await trigger.count())throw Error('Non-member context offers switching');}
+  if(moduleName==='beauty'){
+   await page.goto('https://synthetic.invalid/?module=beauty');await page.evaluate(()=>window.qaSelections=[]);await page.addStyleTag({path:path.join(out,'fixture.css')});await page.addScriptTag({path:path.join(out,'fixture.js')});
+   await trigger.click();await page.getByRole('menuitem',{name:/暖暖蒸足/}).click();await page.waitForFunction(()=>window.qaSelections.length===1);
+   if((await page.evaluate(()=>window.qaSelections[0])).entry!==null)throw Error('Browser entry was forced through LINE');
+  }
   if(errors.length)throw Error(moduleName+': '+errors.join('\n'));
   results.push({moduleName,width,height,choices:16,guard:moduleName==='beauty',singleHidden:true,hiddenCurrentCanLeave:true,overflow:false});await page.close();
  }

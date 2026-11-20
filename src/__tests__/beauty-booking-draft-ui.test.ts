@@ -2,14 +2,15 @@
 import {act,createElement as h} from 'react';
 import {createRoot} from 'react-dom/client';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({push:vi.fn(),refresh:vi.fn(),book:vi.fn(),slots:vi.fn(),plan:vi.fn(),status:vi.fn(),records:vi.fn(),role:vi.fn(),intentRead:vi.fn()}));
-vi.mock('next/navigation',()=>({useRouter:()=>({push:m.push,refresh:m.refresh,replace:vi.fn()}),usePathname:()=>'/s/test/beauty',useSearchParams:()=>new URLSearchParams()}));
+const m=vi.hoisted(()=>({push:vi.fn(),refresh:vi.fn(),replace:vi.fn(),query:'',book:vi.fn(),slots:vi.fn(),plan:vi.fn(),status:vi.fn(),records:vi.fn(),role:vi.fn(),intentRead:vi.fn()}));
+vi.mock('next/navigation',()=>({useRouter:()=>({push:m.push,refresh:m.refresh,replace:m.replace}),usePathname:()=>'/s/test/beauty',useSearchParams:()=>new URLSearchParams(m.query)}));
 vi.mock('@/server/actions/beauty',()=>({bookBeautyParty:m.book,submitBeautyTrial:m.book,readBeautySlots:m.slots,requestBeautyPlan:m.plan,changeBeautyStatus:m.status}));
 vi.mock('@/server/actions/beauty-member-purchase-intent',()=>({prepareBeautyMemberPurchaseIntent:vi.fn(),readBeautyMemberPurchaseIntent:m.intentRead,cancelBeautyMemberPurchaseIntent:vi.fn(),acknowledgeBeautyMemberPurchaseIntent:vi.fn()}));
 vi.mock('@/components/course-health-workspace',()=>({CourseHealthWorkspace:()=>h('section',null,'健康追蹤內容')}));
 vi.mock('@/server/actions/beauty-member',()=>({saveBeautyMemberProfile:vi.fn(),saveBeautyMemberPassword:vi.fn()}));
 vi.mock('@/lib/beauty/portal-role-read',()=>({readBeautyPortalRole:m.role}));
 vi.mock('@/lib/beauty/portal-detail-read',()=>({readBeautyCardProgress:vi.fn().mockResolvedValue({success:true,data:{progress:{available:true,total:5,completed:[],voided:[]},purchasedAt:"2026-10-01",price:4500,shared:false}}),readBeautyCardHistory:vi.fn(),readBeautyOwnIncome:vi.fn(),readBeautyWorkRecords:m.records}));
+vi.mock('@/server/actions/central-member-store',()=>({selectCentralMemberStoreAction:vi.fn()}));
 vi.mock('@/server/actions/auth',()=>({logoutAction:vi.fn()}));
 vi.mock('@/components/image-announcements/carousel',()=>({StoreImageAnnouncements:()=>h('div',{'data-testid':'announcements'})}));
 vi.mock('@/components/beauty/reschedule-panel',()=>({BeautyReschedulePanel:({onSaved}:{onSaved:()=>void})=>h('button',{onClick:onSaved},'模擬改期成功')}));
@@ -38,7 +39,7 @@ it('summarizes the sole selected plan while retaining an explicit change to sing
  await act(async()=>button(host,'查詢可用時段').click());
  expect(m.slots.mock.calls.at(-1)?.[2].people[0].cardId).toBeNull();expect(m.book).not.toHaveBeenCalled();
 });
-beforeEach(()=>{vi.clearAllMocks();vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-21T02:00:00Z'));vi.spyOn(window,'scrollTo').mockImplementation(()=>{});m.role.mockImplementation(async(work:boolean)=>({success:true,data:{...data,work}}));m.records.mockResolvedValue({success:true,data:{items:[],hasMore:false}});m.plan.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});m.book.mockResolvedValue({success:true,data:{groupId:'new-group',ids:['one','two']}});m.slots.mockResolvedValue({success:true,data:{slots:['09:00','10:00']}});});
+beforeEach(()=>{vi.clearAllMocks();m.query='';vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-21T02:00:00Z'));vi.spyOn(window,'scrollTo').mockImplementation(()=>{});m.role.mockImplementation(async(work:boolean)=>({success:true,data:{...data,work}}));m.records.mockResolvedValue({success:true,data:{items:[],hasMore:false}});m.plan.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});m.book.mockResolvedValue({success:true,data:{groupId:'new-group',ids:['one','two']}});m.slots.mockResolvedValue({success:true,data:{slots:['09:00','10:00']}});});
 afterEach(()=>{for(const {root,host}of roots.splice(0)){act(()=>root.unmount());host.remove();}vi.restoreAllMocks();vi.unstubAllGlobals();vi.useRealTimers();});
 it('starts on the selected calendar date, validates a seeded time against fresh slots',async()=>{
  const host=mount(h(BeautyBookingForm,{catalog,mode:'manager',slug:'test',initialDate:'2026-10-27',initialTime:'10:00',customer:data.customer}));
@@ -198,4 +199,15 @@ it('preloads member plan dates before opening plans and reuses them with the pri
  act(()=>button(host,'我的').click());await act(async()=>button(host,'我的方案 ›').click());
  expect(readBeautyCardProgress).toHaveBeenCalledOnce();expect(host.querySelectorAll('[data-lesson-slot]')).toHaveLength(5);expect(host.querySelector('[data-lesson-slot]')?.closest('details')).toBeNull();
  expect(host.querySelector('article.cp-plan')?.textContent).toContain('方案金額 NT$ 4,500');
+});
+
+it('preserves the LINE return mode through health navigation and member/work role changes',async()=>{
+ m.query='memberEntry=liff';
+ const host=mount(h(BeautyPortal,{data:{...data,healthEnabled:true}}));
+ await act(async()=>button(host,'健康').click());
+ expect(m.replace).toHaveBeenLastCalledWith('/s/test/beauty?view=health&memberEntry=liff',{scroll:false});
+ await act(async()=>button(host,'首頁').click());
+ expect(m.replace).toHaveBeenLastCalledWith('/s/test/beauty?memberEntry=liff',{scroll:false});
+ await act(async()=>button(host,'我的工作').click());expect(window.location.search).toContain('memberEntry=liff');expect(window.location.search).toContain('work=1');
+ await act(async()=>button(host,'會員').click());expect(window.location.search).toBe('?memberEntry=liff');
 });

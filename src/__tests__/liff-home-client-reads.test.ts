@@ -34,8 +34,8 @@ it('does not start access or summary reads before session verification completes
 it.each([
  ['course',false,'/s/isolated/book?memberEntry=liff'],
  ['course',true,'/s/isolated/book?memberEntry=liff&view=schedule'],
- ['beauty',false,'/s/isolated/beauty'],
- ['beauty',true,'/s/isolated/beauty?view=book'],
+ ['beauty',false,'/s/isolated/beauty?memberEntry=liff'],
+ ['beauty',true,'/s/isolated/beauty?memberEntry=liff&view=book'],
 ] as const)('routes verified %s members (booking %s) before any Steam reads',async(moduleName,intent,path)=>{
  const replace=vi.fn();vi.stubGlobal('window',{location:{search:'',replace}});
  await render(moduleName,intent);
