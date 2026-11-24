@@ -9,7 +9,7 @@ vi.mock("@/lib/industry-module-server",()=>({getStoreIndustryModule:m.module}));
 vi.mock("@/lib/revalidation",()=>({revalidateBusinessHoursInRoute:m.cache}));
 vi.mock("@/lib/error-logger",()=>({logError:vi.fn(),categorizeError:()=>"UNKNOWN"}));
 import {saveServiceHours} from "@/server/services/service-hours-save";
-import {readServiceHoursState,serviceHoursRevision} from "@/server/services/service-hours-state";
+import {readServiceHoursState,serviceHoursRevision,serviceHoursReceipt} from "@/server/services/service-hours-state";
 import {savedServiceHours} from "@/lib/service-hours-save";
 let db:PGlite,client:Pick<PGlite,"query">;
 const sql=(s:TemplateStringsArray)=>s.reduce((r,p,i)=>r+(i?`$${i}`:"")+p,"");
@@ -122,4 +122,13 @@ it("protects the Taiwan business date near midnight independently of the process
  expect(rows).toEqual([{bookingDate:new Date('2030-10-11T00:00:00Z'),startTime:'00:15',endTime:'01:00',people:1}]);
  expect((await db.query('SELECT id FROM "BusinessHours" WHERE "storeId"=\'s\' AND "dayOfWeek"=5')).rows).toEqual([]);
  expect((await db.query('SELECT id FROM "AuditLog"')).rows).toEqual([]);
+});
+
+it('persists two periods on a closed weekday and returns both periods and every enabled start on a fresh read',async()=>{
+ await db.exec(`UPDATE "BusinessHours" SET "isOpen"=false,"openTime"=NULL,"closeTime"=NULL,segments=NULL WHERE "storeId"='s';`);
+ const periods=[{openTime:'10:00',closeTime:'12:00',slotInterval:60,defaultCapacity:6},{openTime:'14:00',closeTime:'17:00',slotInterval:60,defaultCapacity:6}];
+ const result=await saveServiceHours(await input({periods}));expect(result.success).toBe(true);if(!result.success)throw Error(result.error);
+ expect(result.data.day.periods).toEqual(periods);expect(result.data.day.slots.filter(s=>s.isEnabled).map(s=>s.startTime)).toEqual(['10:00','11:00','14:00','15:00','16:00']);
+ const fresh=serviceHoursReceipt(await readServiceHoursState(tx as never,'s'),'2030-10-10',true);expect(fresh.day.periods).toEqual(periods);expect(fresh.day.slots).toEqual(result.data.day.slots);
+ expect(fresh.summary['2030-10-10']).toMatchObject({status:'custom',slotCount:5});
 });
