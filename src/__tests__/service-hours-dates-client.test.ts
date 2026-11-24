@@ -29,7 +29,7 @@ afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAl
 
 function pickerDay(n:number){return [...host.querySelectorAll<HTMLButtonElement>('button[aria-pressed]')].find(b=>b.querySelector("span")?.textContent===String(n))!;}
 it("types selected-date hours and retains them when the save fails",async()=>{
- const fields=[...host.querySelectorAll<HTMLInputElement>('input[placeholder="HH:MM"]')];expect(fields.length).toBe(2);
+ const fields=[...host.querySelectorAll<HTMLInputElement>('input[type="time"]')];expect(fields.length).toBe(2);
  async function type(field:HTMLInputElement,value:string){await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(field,value);field.dispatchEvent(new Event('input',{bubbles:true}));});}
  await type(fields[0],'10:15');await type(fields[1],'18:30');
  if(!beauty)await type(host.querySelector<HTMLInputElement>('input[aria-label="預約時段間隔（分鐘）"]')!,'30');
