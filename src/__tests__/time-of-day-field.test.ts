@@ -15,3 +15,12 @@ it('selects stable times, preserves off-grid values and allows typed custom minu
  act(()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'10:17');input.dispatchEvent(new Event('input',{bubbles:true}));});expect(changed).toHaveBeenLastCalledWith('10:17');
  act(()=>host.querySelector('button')!.click());expect(host.querySelector('select')!.value).toBe('10:17');
 });
+
+it.each([false,true])('starts with direct keyboard input when requested (selectTimes=%s)',selectTimes=>{
+ const changed=vi.fn();function Form(){const [value,setValue]=useState('09:15');return h(TimeOfDayField,{keyboardInput:true,selectTimes,value,required:true,'aria-label':'開始',onChange:e=>{setValue(e.target.value);changed(e.target.value);}});}
+ act(()=>root.render(h(Form)));const input=host.querySelector('input')!;expect(input.type).toBe('text');expect(input.value).toBe('09:15');
+ for(const value of ['10:30','10:15','10:60','2','']){
+  act(()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));});
+  expect(changed).toHaveBeenLastCalledWith(value);expect(input.checkValidity()).toBe(['10:30','10:15'].includes(value));
+ }
+});
