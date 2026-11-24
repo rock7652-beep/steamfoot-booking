@@ -28,6 +28,17 @@ beforeEach(async()=>{
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
 
 function pickerDay(n:number){return [...host.querySelectorAll<HTMLButtonElement>('button[aria-pressed]')].find(b=>b.querySelector("span")?.textContent===String(n))!;}
+it("types selected-date hours and retains them when the save fails",async()=>{
+ const fields=[...host.querySelectorAll<HTMLInputElement>('input[placeholder="HH:MM"]')];expect(fields.length).toBe(2);
+ async function type(field:HTMLInputElement,value:string){await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(field,value);field.dispatchEvent(new Event('input',{bubbles:true}));});}
+ await type(fields[0],'10:15');await type(fields[1],'18:30');
+ if(!beauty)await type(host.querySelector<HTMLInputElement>('input[aria-label="預約時段間隔（分鐘）"]')!,'30');
+ await act(async()=>pickerDay(2).click());await click('檢查變更');
+ m.fetch.mockResolvedValueOnce({json:async()=>({success:false,error:'隔離儲存失敗'})});await click('確認並儲存');
+ expect(JSON.parse(m.fetch.mock.calls[0][1].body).values.periods).toEqual([{openTime:'10:15',closeTime:'18:30',slotInterval:30,defaultCapacity:6}]);
+ expect(fields[0].value).toBe('10:15');expect(fields[1].value).toBe('18:30');expect(host.textContent).toContain('隔離儲存失敗');
+});
+
 it("applies selected dates with existing adjustments without a conflict-mode choice, then adopts the receipt and offers undo",async()=>{
  await act(async()=>pickerDay(2).click());
  expect(host.textContent).not.toContain("保留原設定並略過");
