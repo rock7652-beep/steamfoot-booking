@@ -2,6 +2,12 @@
 
 目前是隔離開發候選，不是正式上線指南。架構、成本與隱私以 [工程契約](digital-butler-core.md) 為準。
 
+## Serverless Transaction 模式修正（2026-11-25）
+
+`f91812d65` / `dpl_8YqUEmkALgZTMKqCmED9AzMbfmWL` 已 READY。沿用原角色與密碼成功登入，Supabase 有合成店長 SUCCESS 稽核；TLS／路由／密碼驗證通過。Session 5432 在登入頁面預讀時持有 8 條 idle 連線，觸及此角色原始上限 8，使部分頁面回 500。關閉測試瀏覽器後連線已自行釋放，沒有提高上限或終止其他角色連線。
+
+依官方 serverless 指引，改用同一已確認 `aws-1-ap-northeast-1.pooler.supabase.com` 的 Shared Transaction port 6543，`AI_PREVIEW_POOLER_MODE=shared-transaction-aws1`、pgbouncer=true。這不是 Dedicated 6543，也不是猜另一 Host；角色、密碼、8 條限制、CA 與隔離 tuple 不變。只設定本 AI Preview 支線。113 項相關回歸、ESLint、完整型別與 diff check 通過，待此修正版必要建置及實際 UI／Mock／API 驗證；global stop 仍為 true。
+
 ## Shared Session Pooler 已確認（2026-11-25）
 
 使用者已從官方介面確認 `aws-1-ap-northeast-1.pooler.supabase.com:5432`、database postgres。測試 username 為 `steamfoot_ai_preview_20261125.ttworfzgwejdeolegkxl`。不再使用 aws-0，也不購買 IPv4 add-on。

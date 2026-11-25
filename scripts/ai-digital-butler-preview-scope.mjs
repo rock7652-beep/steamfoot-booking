@@ -31,7 +31,7 @@ export function assertAiPreview(env = process.env) {
     || env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH
     || env.AI_DIGITAL_BUTLER_PREVIEW !== '1'
     || env.AI_EXTERNAL_DELIVERY_DISABLED !== '1') fail();
-  if (env.AI_PREVIEW_POOLER_MODE !== undefined && env.AI_PREVIEW_POOLER_MODE !== 'shared-session-aws1') fail();
+  if (env.AI_PREVIEW_POOLER_MODE !== undefined && !['shared-session-aws1', 'shared-transaction-aws1'].includes(env.AI_PREVIEW_POOLER_MODE)) fail();
   if (![env.DATABASE_URL, env.DIRECT_URL].every(isAiPreviewDatabaseUrl)) fail();
   // Reject secondary clients inheriting production secrets, even when unused.
   if (env.BEAUTY_DATABASE_MODE !== 'legacy'
@@ -57,8 +57,9 @@ export function resolveAiPreviewDatabaseUrl(base, env = process.env) {
     throw new Error('AI Shared Pooler requires the isolated test role and project suffix.');
   }
   url.hostname = 'aws-1-ap-northeast-1.pooler.supabase.com';
-  url.port = '5432';
-  url.searchParams.set('pgbouncer', 'false');
+  const transaction = env.AI_PREVIEW_POOLER_MODE === 'shared-transaction-aws1';
+  url.port = transaction ? '6543' : '5432';
+  url.searchParams.set('pgbouncer', transaction ? 'true' : 'false');
   url.searchParams.set('sslmode', 'require');
   url.searchParams.set('sslaccept', 'strict');
   return url.toString();

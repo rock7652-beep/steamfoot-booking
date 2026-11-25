@@ -43,6 +43,14 @@ it('pins the bundled Supabase CA after checking the complete AI Preview scope',(
  expect(selected.searchParams.get('pgbouncer')).toBe('false');
  expect(selected.searchParams.get('sslaccept')).toBe('strict');
  expect(selected.searchParams.get('sslcert')).toBe(url.searchParams.get('sslcert'));
+ vi.stubEnv('AI_PREVIEW_POOLER_MODE','shared-transaction-aws1');
+ const transaction=new URL(buildDatabaseUrl());
+ expect(transaction.hostname).toBe(selected.hostname);
+ expect(transaction.port).toBe('6543');
+ expect(transaction.searchParams.get('pgbouncer')).toBe('true');
+ expect(transaction.password).toBe(url.password);
+ expect(transaction.searchParams.get('sslaccept')).toBe('strict');
+ expect(transaction.searchParams.get('sslcert')).toBe(url.searchParams.get('sslcert'));
  expect(()=>buildDatabaseUrl(connection.replace('ttworfzgwejdeolegkxl','qijlnhtpbintanzpxkvf'))).toThrow();
  expect(()=>buildDatabaseUrl(connection.replace('steamfoot_ai_preview_20261125','postgres'))).toThrow('isolated test role');
  vi.stubEnv('AI_PREVIEW_POOLER_MODE','arbitrary-host');

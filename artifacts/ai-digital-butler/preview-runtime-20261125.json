@@ -143,6 +143,19 @@
     "tls": "strict and pinned public CA",
     "globalStopped": true,
     "requests": 0,
-    "actualRuntimeVerification": "PENDING"
+    "actualRuntimeVerification": "Authentication and strict TLS passed; session mode exhausted role limit 8 during page prefetch; all 8 were idle and released after browser close",
+    "deploymentId": "dpl_8YqUEmkALgZTMKqCmED9AzMbfmWL",
+    "sourceSha": "f91812d65f1952fbaf7d9af8fc2e1625d3e28780",
+    "login": "SUCCESS",
+    "rolePasswordReused": true
+  },
+  "sharedTransactionFollowup": {
+    "host": "aws-1-ap-northeast-1.pooler.supabase.com",
+    "port": 6543,
+    "mode": "shared-transaction-aws1",
+    "roleLimitUnchanged": 8,
+    "credentialsUnchanged": true,
+    "tls": "strict and pinned CA",
+    "runtimeVerification": "PENDING"
   }
 }
