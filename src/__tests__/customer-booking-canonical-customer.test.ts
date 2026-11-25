@@ -16,7 +16,7 @@
  *   5. customerPlanWalletId 不可指定別人的 wallet — 需屬於 canonical customerId
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/industry-module-server", () => ({
   getStoreIndustryModule: vi.fn(async () => "steamfoot"),
@@ -123,7 +123,8 @@ vi.mock("@/lib/usage-gate", () => ({
   checkMonthlyBookingLimitOrThrow: vi.fn(async () => undefined),
 }));
 
-vi.mock("@/lib/date-utils", () => ({
+vi.mock("@/lib/date-utils", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/date-utils")>(),
   toLocalDateStr: () => "2026-04-26",
   getNowTaipeiHHmm: () => "00:00",
   dayRange: (date: string) => ({
@@ -231,6 +232,13 @@ const REAL_CUSTOMER_RECORD = {
 };
 
 // ── Test 1：CUSTOMER 不傳 customerId 也應能成立預約（走 resolver）──
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-04-26T00:00:00Z"));
+});
+
+afterEach(() => vi.useRealTimers());
+
 describe("CUSTOMER createBooking — server 強制覆寫 customerId", () => {
   beforeEach(() => {
     vi.clearAllMocks();

@@ -16,7 +16,7 @@
  *   - customerId / storeId / bookingStatus 全對齊
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Authentication is stubbed for this business unit test; audit DB writes remain real mocks.
 vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => null) }));
@@ -255,7 +255,8 @@ vi.mock("@/lib/usage-gate", () => ({
   checkMonthlyBookingLimitOrThrow: vi.fn(async () => undefined),
 }));
 
-vi.mock("@/lib/date-utils", () => ({
+vi.mock("@/lib/date-utils", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/date-utils")>(),
   toLocalDateStr: () => "2026-04-26",
   getNowTaipeiHHmm: () => "00:00",
   dayRange: (date: string) => ({
@@ -311,6 +312,8 @@ const REAL_CUSTOMER_RECORD = {
 };
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-04-26T00:00:00Z"));
   vi.clearAllMocks();
   bookingsStore.length = 0;
 });
@@ -495,3 +498,5 @@ describe("Booking write-read contract — createBooking → listBookings → get
     );
   });
 });
+
+afterEach(() => vi.useRealTimers());

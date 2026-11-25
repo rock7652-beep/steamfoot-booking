@@ -1,5 +1,6 @@
 "use server";
 
+import { steamBookingTimeLeft, STEAM_SLOT_CLOSED_MESSAGE } from "@/lib/steam-customer-booking-cutoff";
 import { getEffectiveActorRole } from "@/lib/hq-store-view-context";
 import { Prisma } from "@prisma/client";
 import type { z } from "zod";
@@ -259,6 +260,9 @@ export async function createRecurringBookings(
         }
       }
 
+      if (user.role === "CUSTOMER" && steamBookingTimeLeft(dates[0], data.slotTime) < 0) {
+        eligibility("SLOT_DISABLED", STEAM_SLOT_CLOSED_MESSAGE, 1, dates[0]);
+      }
       const group = await tx.bookingRecurrenceGroup.create({ data: {
         storeId,
         customerId: effectiveCustomerId,

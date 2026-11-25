@@ -1,5 +1,6 @@
 "use server";
 
+import { steamBookingTimeLeft, STEAM_SLOT_CLOSED_MESSAGE } from "@/lib/steam-customer-booking-cutoff";
 import { loadSelectedBookingServices, selectedServicesCoverDate } from "@/server/services/booking-service-selection";
 import {addonsPrisma} from '@/lib/addons-db';
 import {persistCustomerBookingGoods} from "@/server/services/customer-booking-goods";
@@ -546,15 +547,8 @@ export async function createBooking(
     const bookingDateObj = new Date(data.bookingDate + "T00:00:00Z");
     const backfilled = user.role !== "CUSTOMER" && (data.bookingDate < todayStr || data.bookingDate === todayStr && data.slotTime <= getNowTaipeiHHmm());
 
-    // Customer deadlines remain enforced; authorized staff may backfill actual visits.
-    if (user.role === "CUSTOMER" && data.bookingDate === todayStr) {
-      const nowHHmm = getNowTaipeiHHmm();
-      if (data.slotTime <= nowHHmm) {
-        throw new AppError(
-          "BUSINESS_RULE",
-          `不可預約已過時段（${data.slotTime} 已過）`
-        );
-      }
+    if (user.role === "CUSTOMER" && steamBookingTimeLeft(data.bookingDate, data.slotTime) < 0) {
+      throw new AppError("BUSINESS_RULE", STEAM_SLOT_CLOSED_MESSAGE);
     }
 
     // ── 6. 預約數限制（出席才扣堂制：remainingSessions - 待到店筆數 > 0）
@@ -697,6 +691,9 @@ export async function createBooking(
         });
       }
 
+      if (user.role === "CUSTOMER" && steamBookingTimeLeft(data.bookingDate, data.slotTime) < 0) {
+        throw new AppError("BUSINESS_RULE", STEAM_SLOT_CLOSED_MESSAGE);
+      }
       const created = await tx.booking.create({
         data: {
           customerId: effectiveCustomerId,

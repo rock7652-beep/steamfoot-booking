@@ -1,5 +1,6 @@
 "use server";
 
+import { steamBookingTimeLeft } from "@/lib/steam-customer-booking-cutoff";
 import { loadSelectedBookingServices, selectedServicesCoverDate } from "@/server/services/booking-service-selection";
 
 import { Prisma } from "@prisma/client";
@@ -211,6 +212,7 @@ export type CustomerBookingRescheduleSlotReason =
 
 export type CustomerBookingRescheduleSlotsResult = {
   slots: string[];
+  bookingTimesLeftMs?: Record<string, number>;
   unavailableReason: CustomerBookingRescheduleSlotReason | null;
 };
 
@@ -246,8 +248,7 @@ export async function getCustomerBookingRescheduleSlots(
       const canonical = canonicalizeBookingSlotTime(slot.startTime);
       return (
         slot.isEnabled &&
-        !(date === booking.bookingDate.toISOString().slice(0, 10) && sameSlotTime(canonical, booking.slotTime)) &&
-        outsideCutoff(date, canonical, now)
+        !(date === booking.bookingDate.toISOString().slice(0, 10) && sameSlotTime(canonical, booking.slotTime))
       );
     });
   if (candidateSlots.length === 0) return empty("no_open_slots");
@@ -294,19 +295,21 @@ export async function getCustomerBookingRescheduleSlots(
     .map((slot) => canonicalizeBookingSlotTime(slot.startTime));
   return {
     slots,
+    bookingTimesLeftMs: Object.fromEntries(slots.map((slot) => [slot, steamBookingTimeLeft(date, slot)])),
     unavailableReason: slots.length === 0 ? "fully_booked" : null,
   };
 }
 
 export async function listCustomerBookingRescheduleSlots(bookingId: string, date: string): Promise<string[]> {
-  return (await getCustomerBookingRescheduleSlots(bookingId, date)).slots;
+  const { slots, bookingTimesLeftMs } = await getCustomerBookingRescheduleSlots(bookingId, date);
+  return slots.filter((slot) => (bookingTimesLeftMs?.[slot] ?? -1) >= 0);
 }
 
 export async function rescheduleCustomerBooking(
   bookingId: string,
   date: string,
   slotTime: string,
-): Promise<"rescheduled" | "unavailable" | "slot_full"> {
+): Promise<"rescheduled" | "unavailable" | "slot_full" | "slot_closed"> {
   const now = new Date();
   const booking = await loadAuthorizedBooking(bookingId);
   if (
@@ -316,11 +319,11 @@ export async function rescheduleCustomerBooking(
     date < toLocalDateStr(now) ||
     !entitlementCoversDate(booking, date) ||
     !(await storeBookingHorizonAllows(booking.storeId, date)) ||
-    !outsideCutoff(date, slotTime, now) ||
     (date === booking.bookingDate.toISOString().slice(0, 10) && sameSlotTime(slotTime, booking.slotTime)) ||
     !(await storeAllowsReschedule(booking.storeId))
   ) return "unavailable";
 
+  if (steamBookingTimeLeft(date, slotTime) < 0) return "slot_closed";
   if (!selectedServicesCoverDate(await loadSelectedBookingServices(booking), date)) return "unavailable";
   const ctx = await loadDayBusinessHoursContext(booking.storeId, date);
   const slot = ctx.rule.closed
@@ -406,6 +409,7 @@ export async function rescheduleCustomerBooking(
         _sum: { people: true },
       });
       if ((occupied._sum.people ?? 0) + current.people > slot.capacity) return "slot_full";
+      if (steamBookingTimeLeft(date, slotTime) < 0) return "slot_closed";
       await tx.booking.update({
         where: { id: booking.id },
         data: {

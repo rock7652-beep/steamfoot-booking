@@ -10,7 +10,7 @@ const h = vi.hoisted(() => ({
 vi.mock("@/server/services/trial-booking-self-service", () => ({
   confirmTrialBooking: h.confirmTrialBooking,
   cancelTrialBooking: h.cancelTrialBooking,
-  listTrialRescheduleSlots: vi.fn(),
+  listTrialRescheduleSlotOptions: vi.fn(),
   rescheduleTrialBooking: h.rescheduleTrialBooking,
 }));
 

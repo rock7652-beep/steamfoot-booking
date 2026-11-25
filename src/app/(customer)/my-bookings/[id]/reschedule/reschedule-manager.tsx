@@ -1,5 +1,7 @@
 "use client";
 
+import { STEAM_SLOT_CLOSED_LABEL, STEAM_SLOT_CLOSED_MESSAGE } from "@/lib/steam-customer-booking-cutoff";
+import { useSteamBookingCutoff } from "@/hooks/use-steam-booking-cutoff";
 import { LoadingStatus } from "@/components/loading-status";
 
 import { useEffect, useState, useTransition } from "react";
@@ -7,6 +9,7 @@ import { AppLink as Link } from "@/components/app-link";
 import { useStoreSlugRequired } from "@/lib/store-context-client";
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
 import {
+  type CustomerBookingRescheduleSlotsResult,
   getCustomerBookingRescheduleStatus,
   getCustomerBookingRescheduleSlots,
   rescheduleCustomerBooking,
@@ -24,6 +27,10 @@ const SLOT_REASON_MESSAGE: Record<string, string> = {
   unavailable: "這一天目前無法自行改期，請選擇其他日期或聯絡店家。",
 };
 
+function slotOptions(result: CustomerBookingRescheduleSlotsResult) {
+  return result.slots.map((startTime) => ({ startTime, bookingTimeLeftMs: result.bookingTimesLeftMs?.[startTime] }));
+}
+
 function slotResultMessage(reason: string | null): string {
   return reason ? SLOT_REASON_MESSAGE[reason] ?? SLOT_REASON_MESSAGE.unavailable : "";
 }
@@ -33,7 +40,7 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
   const prefix = `/s/${storeSlug}`;
   const [date, setDate] = useState("");
   const [current, setCurrent] = useState("");
-  const [slots, setSlots] = useState<string[]>([]);
+  const [slots, setSlots] = useState<ReturnType<typeof slotOptions>>([]);
   const [selected, setSelected] = useState("");
   const [message, setMessage] = useState("");
   const [canReschedule, setCanReschedule] = useState(false);
@@ -41,6 +48,10 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
   const [maxDate, setMaxDate] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [pending, startTransition] = useTransition();
+  const isBookingClosed = useSteamBookingCutoff(slots, selected, () => {
+    setSelected("");
+    setMessage(STEAM_SLOT_CLOSED_MESSAGE);
+  });
   const [slotRequestGate] = useState(createLatestRequestGate);
 
   useEffect(() => {
@@ -61,7 +72,7 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
           void getCustomerBookingRescheduleSlots(bookingId, status.bookingDate)
             .then((next) => {
               if (!slotRequestGate.isCurrent(requestId)) return;
-              setSlots(next.slots);
+              setSlots(slotOptions(next));
               setLoadingSlots(false);
               setMessage(slotResultMessage(next.unavailableReason));
             })
@@ -97,7 +108,7 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
     try {
       const next = await getCustomerBookingRescheduleSlots(bookingId, nextDate);
       if (slotRequestGate.isCurrent(requestId)) {
-        setSlots(next.slots);
+        setSlots(slotOptions(next));
         setLoadingSlots(false);
         setMessage(slotResultMessage(next.unavailableReason));
       }
@@ -124,6 +135,9 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
           setSelected("");
           setMessage("這個時段剛好額滿，請重新選擇。");
           await loadSlots(date);
+        } else if (result === "slot_closed") {
+          await loadSlots(date);
+          setMessage(STEAM_SLOT_CLOSED_MESSAGE);
         } else {
           setMessage("目前無法自行改期，請確認距離預約仍有 12 小時以上，或聯絡店家協助。");
         }
@@ -137,7 +151,7 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
     <div className="py-6">
       <div className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
         <h1 className="text-2xl font-bold text-earth-900">更改預約時間</h1>
-        <p className="mt-2 text-sm text-earth-600">每筆預約可自行改期一次，且須在原預約與新時段的 12 小時以前完成。</p>
+        <p className="mt-2 text-sm text-earth-600">每筆預約可自行改期一次，須在原預約開始前至少 12 小時完成。新時段須在開始前至少 30 分鐘預約。</p>
         {!current && !message && <LoadingStatus>讀取預約資料中，請稍候…</LoadingStatus>}
         {current && <p className="mt-4 rounded-xl bg-earth-50 p-3 text-earth-800">目前預約：<strong>{current}</strong></p>}
         {message && <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{message}</p>}
@@ -167,17 +181,21 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
             )}
             {slots.length > 0 && (
               <div className="mt-4 grid grid-cols-3 gap-2">
-                {slots.map((slot) => (
-                  <button
-                    key={slot}
-                    type="button"
-                    disabled={pending || loadingSlots}
-                    onClick={() => setSelected(slot)}
-                    className={`min-h-[44px] rounded-xl border px-3 py-2 font-medium disabled:opacity-50 ${selected === slot ? "border-primary-600 bg-primary-100 text-primary-800" : "border-earth-300 text-earth-800"}`}
-                  >
-                    {slot}
-                  </button>
-                ))}
+                {slots.map((slot) => {
+                  const closed = isBookingClosed(slot);
+                  return (
+                    <button
+                      key={slot.startTime}
+                      type="button"
+                      disabled={pending || loadingSlots || closed}
+                      onClick={() => { setSelected(slot.startTime); setMessage(""); }}
+                      className={`min-h-[44px] rounded-xl border px-3 py-2 font-medium disabled:opacity-50 ${closed ? "border-earth-200 bg-earth-50 text-earth-600" : selected === slot.startTime ? "border-primary-600 bg-primary-100 text-primary-800" : "border-earth-300 text-earth-800"}`}
+                    >
+                      {slot.startTime}
+                      {closed && <span className="block text-sm">{STEAM_SLOT_CLOSED_LABEL}</span>}
+                    </button>
+                  );
+                })}
               </div>
             )}
             {selected && (

@@ -29,13 +29,15 @@ describe("trial booking self-service action token", () => {
 describe("trial booking reschedule target safety", () => {
   const now = new Date("2026-08-11T02:00:00.000Z"); // 10:00 Asia/Taipei
 
-  it("rejects elapsed and targets inside the twelve-hour cutoff", () => {
+  it("rejects elapsed and targets inside the thirty-minute cutoff", () => {
     expect(isTrialRescheduleTargetAllowed("2026-08-11", "09:30", now)).toBe(false);
-    expect(isTrialRescheduleTargetAllowed("2026-08-11", "21:59", now)).toBe(false);
+    expect(isTrialRescheduleTargetAllowed("2026-08-11", "10:29", now)).toBe(false);
   });
 
   it("accepts a valid target at twelve hours or later and rejects malformed input", () => {
-    expect(isTrialRescheduleTargetAllowed("2026-08-11", "22:00", now)).toBe(true);
+    expect(isTrialRescheduleTargetAllowed("2026-08-11", "10:30", now)).toBe(true);
+    expect(isTrialRescheduleTargetAllowed("2026-08-11", "10:30", new Date(now.getTime() + 1))).toBe(false);
+    expect(isTrialRescheduleTargetAllowed("2026-08-12", "00:15", new Date("2026-08-11T15:45:00.000Z"))).toBe(true);
     expect(isTrialRescheduleTargetAllowed("2026-08-12", "09:00", now)).toBe(true);
     expect(isTrialRescheduleTargetAllowed("bad-date", "22:30", now)).toBe(false);
     expect(isTrialRescheduleTargetAllowed("2026-99-99", "22:30", now)).toBe(false);

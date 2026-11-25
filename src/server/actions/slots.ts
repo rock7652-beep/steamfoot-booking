@@ -1,5 +1,6 @@
 "use server";
 
+import { steamBookingTimeLeft } from "@/lib/steam-customer-booking-cutoff";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
@@ -141,6 +142,7 @@ export async function fetchMonthAvailability(
 
   const todayStr = toLocalDateStr();
   const nowHHmm = getNowTaipeiHHmm();
+  const now = Date.now();
 
   const days: Record<string, MonthDayAvailability> = {};
 
@@ -162,10 +164,11 @@ export async function fetchMonthAvailability(
       if (!s.isEnabled) continue; // disabled override 不計入
       const booked = bookedMap.get(`${dateStr}|${s.startTime}`) ?? 0;
       const isPast = isToday && s.startTime <= nowHHmm;
-      const effectiveCap = isPast ? booked : s.capacity;
+      const unavailable = isPast || (user.role === "CUSTOMER" && steamBookingTimeLeft(dateStr, s.startTime, now) < 0);
+      const effectiveCap = unavailable ? booked : s.capacity;
 
       totalCap += s.capacity;
-      totalBooked += isPast ? s.capacity : booked;
+      totalBooked += unavailable ? s.capacity : booked;
       slotInfos.push({ startTime: s.startTime, capacity: effectiveCap, booked });
     }
 
@@ -253,6 +256,7 @@ export async function fetchDaySlots(date: string, requestedStoreId?: string, opt
   const isToday = date === todayStr;
   const nowHHmm = isToday ? getNowTaipeiHHmm() : null;
 
+  const now = Date.now();
   const result: SlotAvailability[] = [];
   for (const s of resolvedSlots) {
     if (!s.isEnabled) continue;
@@ -262,13 +266,15 @@ export async function fetchDaySlots(date: string, requestedStoreId?: string, opt
     }
     const booked = bookedMap.get(s.startTime) ?? 0;
     const isPast = isToday && nowHHmm !== null && s.startTime <= nowHHmm;
+    const bookingTimeLeftMs = user.role === "CUSTOMER" ? steamBookingTimeLeft(date, s.startTime, now) : undefined;
     result.push({
       startTime: s.startTime,
       capacity: s.capacity,
       bookedCount: booked,
-      available: isPast && !allowPast ? 0 : Math.max(0, s.capacity - booked),
+      available: (isPast && !allowPast) || (bookingTimeLeftMs !== undefined && bookingTimeLeftMs < 0) ? 0 : Math.max(0, s.capacity - booked),
       isEnabled: true,
       isPast,
+      ...(bookingTimeLeftMs !== undefined && { bookingTimeLeftMs }),
     });
   }
 

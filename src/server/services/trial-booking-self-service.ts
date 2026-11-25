@@ -1,3 +1,4 @@
+import { steamBookingTimeLeft } from "@/lib/steam-customer-booking-cutoff";
 import { loadSelectedBookingServices, selectedBookingServiceName, selectedServicesCoverDate } from "./booking-service-selection";
 import { acquireBookingSlotLocks } from "./booking-slot-lock";
 import { createHmac, timingSafeEqual } from "node:crypto";
@@ -48,8 +49,7 @@ function selfServiceAllowed(booking: { bookingDate: Date; slotTime: string }, no
 }
 
 export function isTrialRescheduleTargetAllowed(date: string, slotTime: string, now: Date): boolean {
-  const startsAt = parseTaipeiDateTime(date, slotTime);
-  return startsAt !== null && startsAt.getTime() - now.getTime() >= SELF_SERVICE_CUTOFF_MS;
+  return steamBookingTimeLeft(date, slotTime, now.getTime()) >= 0;
 }
 
 function isValidTrialRescheduleDate(date: string): boolean {
@@ -117,14 +117,20 @@ export async function cancelTrialBooking(token: string, now = new Date()): Promi
   return updated.count ? "cancelled" : "already_cancelled";
 }
 
-export async function listTrialRescheduleSlots(token: string, date: string, now = new Date()) {
-  const booking = await loadAuthorizedBooking(token, now);
+export async function listTrialRescheduleSlots(token: string, date: string, now?: Date) {
+  const slots = await listTrialRescheduleSlotOptions(token, date, now);
+  return slots.filter((slot) => slot.bookingTimeLeftMs >= 0).map((slot) => slot.startTime);
+}
+
+export async function listTrialRescheduleSlotOptions(token: string, date: string, now?: Date) {
+  const requestedAt = now ?? new Date();
+  const booking = await loadAuthorizedBooking(token, requestedAt);
   if (
     !booking ||
     booking.customerRescheduleCount >= 1 ||
-    !selfServiceAllowed(booking, now) ||
+    !selfServiceAllowed(booking, requestedAt) ||
     !isValidTrialRescheduleDate(date) ||
-    date < toLocalDateStr(now)
+    date < toLocalDateStr(requestedAt)
   ) return [];
   if (!(await isRescheduleStoreWritable(booking.storeId))) return [];
   if (!selectedServicesCoverDate(await loadSelectedBookingServices(booking), date)) return [];
@@ -147,29 +153,30 @@ export async function listTrialRescheduleSlots(token: string, date: string, now 
   ]);
   const used = new Map(grouped.map(row => [row.slotTime, row._sum.people ?? 0]));
   const duty = new Set(dutyRows.map(row => row.slotTime));
+  const clock = now?.getTime() ?? Date.now();
   return applySlotOverrides(ctx.rule, ctx.slotOverrides)
     .filter(slot =>
       slot.isEnabled &&
       !(date === booking.bookingDate.toISOString().slice(0, 10) && slot.startTime === booking.slotTime) &&
-      isTrialRescheduleTargetAllowed(date, slot.startTime, now) &&
       (!dutyEnabled || duty.has(slot.startTime)) &&
       (slot.capacity - (used.get(slot.startTime) ?? 0)) >= booking.people
     )
-    .map(slot => slot.startTime);
+    .map(({ startTime }) => ({ startTime, bookingTimeLeftMs: steamBookingTimeLeft(date, startTime, clock) }));
 }
 
-export async function rescheduleTrialBooking(token: string, date: string, slotTime: string, now = new Date()): Promise<"rescheduled" | "unavailable" | "slot_full"> {
+export async function rescheduleTrialBooking(token: string, date: string, slotTime: string, requestedAt?: Date): Promise<"rescheduled" | "unavailable" | "slot_full" | "slot_closed"> {
+  const now = requestedAt ?? new Date();
   const booking = await loadAuthorizedBooking(token, now);
   if (
     !booking ||
     booking.customerRescheduleCount >= 1 ||
     !selfServiceAllowed(booking, now) ||
-    !isTrialRescheduleTargetAllowed(date, slotTime, now) ||
     (date === booking.bookingDate.toISOString().slice(0, 10) && slotTime === booking.slotTime) ||
     date < toLocalDateStr(now)
   ) return "unavailable";
   if (!(await isRescheduleStoreWritable(booking.storeId))) return "unavailable";
   if (!selectedServicesCoverDate(await loadSelectedBookingServices(booking), date)) return "unavailable";
+  if (!isTrialRescheduleTargetAllowed(date, slotTime, now)) return "slot_closed";
   const ctx = await loadDayBusinessHoursContext(booking.storeId, date);
   const slot = !ctx.rule.closed
     ? applySlotOverrides(ctx.rule, ctx.slotOverrides).find(item => item.isEnabled && item.startTime === slotTime)
@@ -197,7 +204,6 @@ export async function rescheduleTrialBooking(token: string, date: string, slotTi
       if (current.bookingDate.getTime() !== booking.bookingDate.getTime() || current.slotTime !== booking.slotTime ||
         !selfServiceAllowed(current, now) || !selectedServicesCoverDate(await loadSelectedBookingServices(booking, tx), date)) return "unavailable";
       if (date === current.bookingDate.toISOString().slice(0, 10) && slotTime === current.slotTime) return "unavailable";
-      if (!isTrialRescheduleTargetAllowed(date, slotTime, now)) return "unavailable";
       if (dutyEnabled) {
         const duty = await tx.dutyAssignment.findFirst({
           where: { storeId: booking.storeId, date: ctx.dateObj, slotTime },
@@ -207,6 +213,7 @@ export async function rescheduleTrialBooking(token: string, date: string, slotTi
       }
       const occupied = await tx.booking.aggregate({ where: { storeId: booking.storeId, bookingDate: ctx.dateObj, slotTime, bookingStatus: { in: [...PENDING_STATUSES] }, NOT: { id: booking.id } }, _sum: { people: true } });
       if ((occupied._sum.people ?? 0) + current.people > slot.capacity) return "slot_full";
+      if (!isTrialRescheduleTargetAllowed(date, slotTime, requestedAt ?? new Date())) return "slot_closed";
       await tx.booking.update({ where: { id: booking.id }, data: {
         originalBookingDate: current.bookingDate, originalSlotTime: current.slotTime,
         bookingDate: parseTaiwanDateToDbDate(date), slotTime, customerRescheduleCount: { increment: 1 }, customerRescheduledAt: now, customerConfirmedAt: null,
