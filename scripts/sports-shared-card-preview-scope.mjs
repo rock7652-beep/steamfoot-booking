@@ -17,6 +17,7 @@ export const CUSTOMER_PARALLEL_PREVIEW_BRANCH = "fix/customer-parallel-read-2026
 export const CUSTOMER_PRIMARY_PREVIEW_BRANCH = "fix/customer-primary-read-priority";
 export const STEAM_TRANSACTION_REPLACEMENT_PREVIEW_BRANCH = "fix/steam-transaction-replacement";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
+  "fix/steam-customer-booking-cutoff-20261125",
   TRIAL_VOID_PREVIEW_BRANCH,
   SINGLE_SERVICE_VOID_PREVIEW_BRANCH,
   COURSE_DATE_PICKER_PREVIEW_BRANCH,
