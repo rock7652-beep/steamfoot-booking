@@ -1,8 +1,13 @@
+import { aiIdentity } from "@/server/ai/service";
+import { getStoreFeaturePresentation, hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
+import { claimsAiPreview, assertAiPreview } from "../../../../../../scripts/ai-digital-butler-preview-scope.mjs";
+import { aiButlerRepository } from "@/server/ai/database";
+import { AiButlerPanel } from "./ai-panel";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
-import { requireDigitalButlerEntitlement } from "@/lib/digital-butler-entitlement";
 import {
   hasCompleteDigitalButlerLeadCollection,
   isLeadCollectionTrigger,
@@ -18,8 +23,17 @@ export default async function DigitalButlerSettingsPage() {
   if (!user || !(await checkPermission(user.role, user.staffId, "plans.edit"))) notFound();
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
-  await requireDigitalButlerEntitlement(storeId).catch(() => notFound());
-  const flows = await new DigitalButlerService().listFlows(storeId);
+  const [butlerAllowed, aiState] = await Promise.all([hasStoreFeature(storeId, FEATURES.DIGITAL_BUTLER), getStoreFeaturePresentation(storeId, FEATURES.AI_DIGITAL_BUTLER)]);
+  if (!butlerAllowed && aiState !== "ENABLED") notFound();
+  const flows = butlerAllowed ? await new DigitalButlerService().listFlows(storeId) : [];
+  let ai: { setting: Awaited<ReturnType<ReturnType<typeof aiButlerRepository>["setting"]>>; usage: Awaited<ReturnType<ReturnType<typeof aiButlerRepository>["usage"]>>; handoff: boolean } | null = null;
+  if (aiState === "ENABLED" && claimsAiPreview() && /^ai-preview-(steamfoot|beauty|fitness|music)$/.test(storeId)) {
+    assertAiPreview();
+    const repository = aiButlerRepository();
+    const identity = aiIdentity({ storeId, actorId: user.id, channel: "TEST", channelAccountId: "dashboard-synthetic-test", module: "STEAMFOOT" }, "read-state", process.env.AI_IDENTITY_SECRET ?? "");
+    const [setting, usage, state] = await Promise.all([repository.setting(storeId), repository.usage(storeId, new Date()), repository.conversationState(identity)]);
+    ai = { setting, usage, handoff: state.handoff };
+  }
   const store = await prisma.store.findUnique({ where: { id: storeId }, select: { name: true, slug: true, industryModule: true } });
   if (!store) notFound();
   const canUpgradeLeadCollection = store.industryModule !== "COURSE" && (user.role === "OWNER" || user.role === "ADMIN")
@@ -41,11 +55,13 @@ export default async function DigitalButlerSettingsPage() {
           </Link>
         }
       />
-      <DigitalButlerFlowEditor
+      {!ai && aiState === "ENABLED" && <p className="text-sm text-earth-600">AI 數位店長尚未在此環境開放，正式客服尚未啟用。</p>}
+      {ai && <AiButlerPanel key={storeId} setting={ai.setting.setting} revision={ai.setting.revision} liveTestAvailable={process.env.AI_OPENAI_TEST_ENABLED === "1"} requestCount={ai.usage.requests} reservedMicros={ai.usage.reservedMicros} budgetMicros={ai.usage.budgetMicros} alerts={ai.usage.alerts} initialHandoff={ai.handoff} />}
+      {butlerAllowed && <DigitalButlerFlowEditor
         flows={flows}
         courseMode={store.industryModule === "COURSE"}
         leadCollectionUpgrade={canUpgradeLeadCollection ? { storeName: store.name, storeSlug: store.slug } : null}
-      />
+      />}
     </PageShell>
   );
 }

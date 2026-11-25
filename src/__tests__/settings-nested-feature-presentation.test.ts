@@ -183,7 +183,7 @@ describe("nested entries retain the destination role policy", () => {
     expect(referral).toContain("hasStoreFeature(storeId, FEATURES.REFERRAL_SHARE)");
     const butler = read("settings/digital-butler");
     expect(butler).toContain('checkPermission(user.role, user.staffId, "plans.edit")');
-    expect(butler).toContain("requireDigitalButlerEntitlement(storeId)");
+    // Independent AI and deterministic route access is exercised by ai-digital-butler-page.test.ts.
     const leads = read("digital-butler/leads");
     expect(leads).toContain('checkPermission(user.role, user.staffId, "customer.read")');
     expect(leads).toContain("requireDigitalButlerEntitlement(storeId)");

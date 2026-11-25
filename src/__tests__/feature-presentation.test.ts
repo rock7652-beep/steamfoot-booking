@@ -1,7 +1,7 @@
 import { createElement as h } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { FeatureEntry, FeaturePresentationProvider } from "@/components/feature-presentation";
+import { DigitalButlerSettingsEntry, FeatureEntry, FeaturePresentationProvider } from "@/components/feature-presentation";
 import { FEATURES } from "@/lib/feature-flags";
 
 describe("feature entry rendering", () => {
@@ -14,4 +14,9 @@ describe("feature entry rendering", () => {
     if(state === "HIDDEN") expect(html).toBe("");
     if(state === "LOCKED") {expect(html).toContain("顧客標籤");expect(html).toContain("未開通");}
   });
+});
+
+it("AI-only entitlement reuses the one Butler settings entry without granting the deterministic editor", () => {
+  const html = renderToStaticMarkup(h(FeaturePresentationProvider, {states:{digital_butler:"HIDDEN",ai_digital_butler:"ENABLED"},children:h(DigitalButlerSettingsEntry,{children:h("a",{href:"/dashboard/settings/digital-butler"},"manage")})}));
+  expect(html).toContain("/dashboard/settings/digital-butler");
 });

@@ -11,7 +11,7 @@ import { getCachedShopConfig, getCachedBusinessHours } from "@/lib/query-cache";
 import { listReminderRules } from "@/server/queries/reminder";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { FEATURES } from "@/lib/feature-flags";
-import { FeatureEntry } from "@/components/feature-presentation";
+import { FeatureEntry, DigitalButlerSettingsEntry } from "@/components/feature-presentation";
 import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -167,9 +167,9 @@ export default async function SettingsIndexPage({ searchParams }: SettingsPagePr
               action="編輯"
             />
           </FeatureEntry>
-          <FeatureEntry feature={FEATURES.DIGITAL_BUTLER} label="數位管家">
-            <SettingsListRow title="數位管家" summary="已開通" href="/dashboard/settings/digital-butler" action="管理" />
-          </FeatureEntry>
+          <DigitalButlerSettingsEntry>
+            <SettingsListRow title="數位管家" summary="管理已開通的互動功能" href="/dashboard/settings/digital-butler" action="管理" />
+          </DigitalButlerSettingsEntry>
         </>
       ) : null}
       {canReadCustomers ? (

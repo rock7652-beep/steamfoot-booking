@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-11-25",
+  "projectId": "ttworfzgwejdeolegkxl",
+  "database": "postgres",
+  "requests": 0,
+  "rlsTables": 4,
+  "roleCanLogin": false,
+  "globalStopped": true,
+  "roleBypassRls": false,
+  "syntheticStoreCount": 4,
+  "roleCanWriteBookings": false,
+  "browserCanReadRequests": false,
+  "enabledSyntheticSettings": 0,
+  "vercelCredentialTransfer": "blocked by automatic approval review; not performed",
+  "productionChanges": false
+}

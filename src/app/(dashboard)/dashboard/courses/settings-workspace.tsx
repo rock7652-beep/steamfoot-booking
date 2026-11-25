@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { trialSettingsRevision } from "@/lib/shop-settings-save";
 import { useConfirmedSettingsRows } from "@/components/admin/use-confirmed-settings-rows";
 import { courseDisplayText } from "@/lib/course-display-text";
-import { FeatureEntry, useFeaturePresentation } from "@/components/feature-presentation";
+import { DigitalButlerSettingsEntry, FeatureEntry, useFeaturePresentation } from "@/components/feature-presentation";
 import { FEATURES } from "@/lib/feature-flags";
 import { CustomerLabelsSettings } from "@/components/customer-labels";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type ContextType } from "react";
@@ -119,7 +119,9 @@ export function CourseSettingsWorkspace(sourceProps: CourseSettingsWorkspaceProp
   const personnel = useCoursePersonnelLabel();
   const reminderState = useFeaturePresentation(FEATURES.LINE_REMINDER);
   const referralState = useFeaturePresentation(FEATURES.REFERRAL_SHARE);
-  const butlerState = useFeaturePresentation(FEATURES.DIGITAL_BUTLER);
+  const deterministicButlerState = useFeaturePresentation(FEATURES.DIGITAL_BUTLER);
+  const aiButlerState = useFeaturePresentation(FEATURES.AI_DIGITAL_BUTLER);
+  const butlerState = aiButlerState === "ENABLED" ? "ENABLED" : deterministicButlerState;
   type SectionRow={id:string;values:CourseSettingsSectionInput|TrialSettings};
   const sources=useMemo<SectionRow[]>(()=>[
     {id:"personnel",values:{section:"personnel",personnelLabel:personnel.label}},
@@ -289,7 +291,7 @@ export function CourseNotificationSettings(props:CourseSettingsWorkspaceProps&{b
         {props.canUnassignedPlans ? <Row title="提醒管理" summary={personnelText(courseDisplayText("顧客待辦・顧客提醒・教師通知・發送紀錄", !!props.music))} action="管理" href={props.links?.reminders??"/dashboard/courses/reminders?tab=manager"} /> : props.canReminders && <FeatureEntry feature={FEATURES.LINE_REMINDER} label="提醒管理"><Row title="提醒管理" summary={personnelText(courseDisplayText("顧客提醒・人員通知・教練通知・發送紀錄", !!props.music))} action="管理" href={props.links?.reminders??"/dashboard/courses/reminders?tab=customer"} /></FeatureEntry>}
         {props.canCare && <Row title="顧客關懷" summary={props.careSummary??"生日・未回課・方案關懷"} action="查看" href={props.links?.care??"/dashboard/growth"} />}
         {props.canReferralShare && <FeatureEntry feature={FEATURES.REFERRAL_SHARE} label="推薦分享"><Row title="推薦分享" summary="已開通" action="編輯" href={props.links?.referral??"/dashboard/settings/referral-share"} /></FeatureEntry>}
-        {props.canDigitalButler && <FeatureEntry feature={FEATURES.DIGITAL_BUTLER} label="數位管家"><Row title="數位管家" summary="已開通" action="管理" href={props.links?.butler??"/dashboard/settings/digital-butler"} /></FeatureEntry>}
+        {props.canDigitalButler && <DigitalButlerSettingsEntry><Row title="數位管家" summary="管理已開通的互動功能" action="管理" href={props.links?.butler??"/dashboard/settings/digital-butler"} /></DigitalButlerSettingsEntry>}
         {!hasNotificationEntries && <p className="py-5 text-sm text-earth-500">目前沒有可使用的通知設定，請聯絡有權限的管理者。</p>}
  </>;
 }

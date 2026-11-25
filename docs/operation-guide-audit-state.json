@@ -37,7 +37,8 @@
     "F13",
     "C177",
     "PLAN-SESSION-ADJUST",
-    "LINE-MANUAL-01"
+    "LINE-MANUAL-01",
+    "AI-BUTLER-PREVIEW-01"
   ],
   "cumulativeDraftUpdatedGuideIds": [
     "A03",
@@ -210,9 +211,10 @@
     "BEAUTY03",
     "BEAUTY04",
     "PLAN-SESSION-ADJUST",
-    "LINE-MANUAL-01"
+    "LINE-MANUAL-01",
+    "AI-BUTLER-PREVIEW-01"
   ],
-  "articleCount": 204,
+  "articleCount": 205,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -559,8 +561,8 @@
   },
   "frontendInteractionPendingGuideIds": [],
   "frontendArticleCount": 0,
-  "backendInteractionPendingCount": 95,
-  "totalInteractionPendingCount": 95,
+  "backendInteractionPendingCount": 96,
+  "totalInteractionPendingCount": 96,
   "reviewedMainCommitCount": 237,
   "reviewedStandaloneCommits": [
     "1e133b93",
@@ -1072,6 +1074,13 @@
     "note": "新增 LINE 額度 Email 通知文章；正式寄信網域已由功能 PR 驗證，但指南驗收仍不得寄測試信或以送信紀錄替代登入後操作。"
   },
   "catalogAmendments": [
+    {
+      "dateTaipei": "2026-11-25",
+      "sourceFeatureBranch": "feat/ai-digital-butler-core",
+      "guideIds": ["AI-BUTLER-PREVIEW-01"],
+      "status": "source-reviewed-awaiting-hosted-acceptance",
+      "note": "新增受獨立 AI 功能及設定權限限制的合成測試指南；正式客服未開放。保留既有完整 main 盤點及驗收歷史，Mock/RWD fixture 不抵扣登入驗收。"
+    },
     {
       "dateTaipei": "2026-11-17",
       "sourceFeatureBranch": "feat/customer-messages-20261117",

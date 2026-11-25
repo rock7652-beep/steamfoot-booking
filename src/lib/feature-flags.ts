@@ -19,6 +19,7 @@ export const FEATURES = {
   FRONTEND_PREVIEW: "frontend_preview",
   DEVICE_PREVIEW: "device_preview",
   DIGITAL_BUTLER: "digital_butler",
+  AI_DIGITAL_BUTLER: "ai_digital_butler",
   // ── EXPERIENCE（體驗版）──
   BASIC_BOOKING: "basic_booking",
   CUSTOMER_MANAGEMENT: "customer_management",
@@ -80,7 +81,7 @@ export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
 
 export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
   // Full trial includes expansion features; role permissions still apply.
-  EXPERIENCE: Object.values(FEATURES).filter(feature => feature !== FEATURES.SHARED_CARD && feature !== FEATURES.STORE_OPERATION_AUDIT && feature !== FEATURES.ADD_ONS && feature !== FEATURES.BEAUTY_SERVICE_ADD_ONS),
+  EXPERIENCE: Object.values(FEATURES).filter(feature => feature !== FEATURES.AI_DIGITAL_BUTLER && feature !== FEATURES.SHARED_CARD && feature !== FEATURES.STORE_OPERATION_AUDIT && feature !== FEATURES.ADD_ONS && feature !== FEATURES.BEAUTY_SERVICE_ADD_ONS),
   BASIC: [
     "line_reminder",
     "device_preview",

@@ -1,0 +1,57 @@
+{
+  "kind": "local Chromium synthetic UI, mocked actions; not authenticated business QA or physical devices",
+  "results": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "overflow": false,
+      "selectedModule": "MUSIC",
+      "touch": true
+    },
+    {
+      "width": 1366,
+      "height": 900,
+      "overflow": false,
+      "selectedModule": "MUSIC",
+      "touch": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false,
+      "selectedModule": "MUSIC",
+      "touch": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "selectedModule": "MUSIC",
+      "touch": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "selectedModule": "MUSIC",
+      "touch": true
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "overflow": false,
+      "selectedModule": "MUSIC",
+      "touch": true
+    }
+  ],
+  "cases": [
+    "expand",
+    "toggle-confirmed-save",
+    "resize-preserves-selection",
+    "test-reply",
+    "human-handoff-and-resume",
+    "failed-save-preserves-status",
+    "network-retry-retains-event-id"
+  ],
+  "consoleErrors": []
+}

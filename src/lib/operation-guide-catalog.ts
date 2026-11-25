@@ -1,3 +1,4 @@
+import { aiDigitalButlerGuide } from "./operation-guide-ai-digital-butler";
 import { planActivationGuideDetail } from "./operation-guide-plan-activation";
 import { customerMessagesGuide } from "./operation-guide-customer-messages";
 import {sessionAdjustmentGuide} from './operation-guide-session-adjustment';
@@ -140,6 +141,7 @@ const catalogGuideCategories: GuideCategory[] = [
 export const guideCategories = catalogGuideCategories.filter(category => category.id !== "spa");
 
 export const additionalGuides: OperationGuide[] = [
+  aiDigitalButlerGuide,
   customerMessagesGuide,
   sessionAdjustmentGuide,
   {
