@@ -31,6 +31,7 @@ export function assertAiPreview(env = process.env) {
     || env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH
     || env.AI_DIGITAL_BUTLER_PREVIEW !== '1'
     || env.AI_EXTERNAL_DELIVERY_DISABLED !== '1') fail();
+  if (env.AI_PREVIEW_POOLER_MODE !== undefined && env.AI_PREVIEW_POOLER_MODE !== 'shared-session-aws1') fail();
   if (![env.DATABASE_URL, env.DIRECT_URL].every(isAiPreviewDatabaseUrl)) fail();
   // Reject secondary clients inheriting production secrets, even when unused.
   if (env.BEAUTY_DATABASE_MODE !== 'legacy'
@@ -43,4 +44,22 @@ export function assertAiDatabaseConnection(base, env = process.env) {
   if (!claimsAiPreview(env)) return;
   assertAiPreview(env);
   if (!isAiPreviewDatabaseUrl(base)) throw new Error('AI Preview rejected a secondary database connection.');
+}
+
+/** Preserve write-only credentials while selecting the dashboard-confirmed endpoint.
+ * No caller-supplied hostname or port can override the isolated destination.
+ */
+export function resolveAiPreviewDatabaseUrl(base, env = process.env) {
+  assertAiDatabaseConnection(base, env);
+  if (!claimsAiPreview(env) || env.AI_PREVIEW_POOLER_MODE === undefined) return base;
+  const url = new URL(base);
+  if (url.username !== AI_PREVIEW_DATABASE_ROLE + '.ttworfzgwejdeolegkxl') {
+    throw new Error('AI Shared Pooler requires the isolated test role and project suffix.');
+  }
+  url.hostname = 'aws-1-ap-northeast-1.pooler.supabase.com';
+  url.port = '5432';
+  url.searchParams.set('pgbouncer', 'false');
+  url.searchParams.set('sslmode', 'require');
+  url.searchParams.set('sslaccept', 'strict');
+  return url.toString();
 }

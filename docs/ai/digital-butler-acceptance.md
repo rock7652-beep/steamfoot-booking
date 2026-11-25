@@ -2,6 +2,32 @@
 
 狀態：Phase 0/1 可安全實作已交付；雲端與真實 API 驗收未完成。不得作為正式發布或店家試營運通過證據。
 
+## Shared Session Pooler 已確認（2026-11-25）
+
+使用者已從官方介面確認 `aws-1-ap-northeast-1.pooler.supabase.com:5432`、database postgres。測試 username 為 `steamfoot_ai_preview_20261125.ttworfzgwejdeolegkxl`。不再使用 aws-0，也不購買 IPv4 add-on。
+
+既有 Sensitive DB 值不可回讀，沿用其中的角色與密碼；新增僅本 AI Preview 支線的 `AI_PREVIEW_POOLER_MODE=shared-session-aws1`。共用後端 URL builder 先驗證原連線的隔離專案、完整 Vercel tuple 與專用角色，再固定套用此已確認 Host／5432／session mode（pgbouncer=false）；保留密碼、單連線限制與嚴格 TLS／固定指紋公用 CA。不接受任意 Host、錯模式或管理角色，不將正式憑證重寫為測試 Host。DIRECT_URL 原始 Sensitive 值不變；本支線所有自動 migration 仍跳過。
+
+本次 113 項連線／隔離回歸、AI actions／Page、ESLint、完整型別與 diff check 已通過。此設定不會熱更新既有部署；只做本版本所需的一次驗收建置，再實際驗證角色登入、AI stop、Mock 與最小真實 API。以下 Dedicated／尚缺 Host 是先前歷史紀錄。
+
+## Dedicated Pooler 核對補充（2026-11-25）
+
+使用者已從 Connect 確認 `db.ttworfzgwejdeolegkxl.supabase.co:6543` 是 Dedicated PgBouncer、資料庫 postgres、預設 IPv6。此模式的測試 username 為裸角色 `steamfoot_ai_preview_20261125`；Shared Supavisor 才加 `.ttworfzgwejdeolegkxl`，不可混用。
+
+DNS 查無 IPv4 A、查得 IPv6 AAAA；本執行器對此端點 TCP 連線回 ENETUNREACH（101），未完成 TLS 握手或角色密碼驗證。Supabase 2026-11-04 的官方相容性文件明列 Vercel 為 IPv4-only，因此未為已知不相容的 Dedicated 路徑另建置。既有 guard 目前亦不接受 Dedicated 6543；沒有為不可用路徑放寬。嚴格 TLS、固定指紋公用 CA、隔離角色與通知封鎖維持。
+
+官方資料確認每個專案都有 IPv4 Shared Pooler；應取得 Connect 的 Session pooler／Shared Supavisor Host，不能從 region 或 Dedicated Host 推算索引。現有 API 工具只有 Direct Host，未暴露官方 pooler config 讀取端點，也無已登入管理瀏覽器。先前成功 Preview、支線與 Sensitive 變數排查限制仍適用。尚待該 Shared Host；未購買 IPv4 add-on、未改環境變數／角色權限，新增建置 0、模型請求 0、global stop=true、四店 enabled=false。Mock／真實 API 仍等待實際 DB 連線與權限驗證通過。
+
+來源：https://supabase.com/kb/troubleshooting/supabase--your-network-ipv4-and-ipv6-compatibility-cHe3BP 及 https://supabase.com/docs/guides/database/connecting-to-postgres 。
+
+## 2026-11-25 最新阻擋：Pooler 路由
+
+修正版 `912c64c60aaf655057655f6f44b117eba605272e` 已部署 READY（`dpl_A58y7dAd23QEmaALRSuvgMJrrD6H`），全量 CI 1,851 檔／17,478 項通過、337 項跳過，型別、lint、目標與相關 PostgreSQL 整合通過。嚴格 TLS／固定 CA 已通過握手；實際登入入口仍回 500，原因改為 `ENOTFOUND tenant/user`。目前 `aws-0-ap-northeast-1.pooler.supabase.com` 無法配對此隔離專案與角色；不能僅依 region 猜 `aws-1` 或以此錯誤推定密碼錯誤。
+
+已核對成功的近期 Preview 建置／runtime logs、五條既有支線變數及早期 QA 記錄；可讀來源沒有正確 Host。共用 Preview DB 是 Sensitive，API 不回傳值；舊 QA 部署／專案已不存在，目前僅一個 steamfoot 專案。其他可讀連線不屬此隔離專案，未使用、未輸出密碼或完整字串。Supabase project API 只有 Direct Host，現有工具無 pooler config 或已登入管理瀏覽器能力。角色與連線格式正確、LOGIN／有效期／CONNECT／schema USAGE 通過；仍需 Supabase Connect 顯示的正確 Host 才能繼續。
+
+DB global stop=true、enabledStores=0、requests=0；未做真實 OpenAI 呼叫。保留 SSO，手動測試短期通行憑證已撤銷，暫存密碼與 session 檔已刪除。未再觸發建置或改用正式 DB；正式環境未變。精確來源與限制見 `artifacts/ai-digital-butler/preview-runtime-20261125.json`。以下進度及初次準備段落保留為歷史紀錄。
+
 ## 最新補充：Preview 連線驗證
 
 `a0c0aee` 全量 CI 已通過：1,851 檔、17,476 項通過，337 項跳過。首次雲端建置因 Function 255.77 MB 超過 250 MB 失敗；只加本支線 Large Functions 設定後第二次 READY，但實際登入入口回 500，runtime log 為 Supabase CA 信任失敗。此刻尚無已登入 UI／Mock／真實 API 通過證據，模型請求仍為 0，DB 總開關維持停止。
