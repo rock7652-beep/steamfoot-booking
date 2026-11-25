@@ -1,3 +1,10 @@
+import { claimsAiPreview, assertAiPreview } from "./scripts/ai-digital-butler-preview-scope.mjs";
+// Vercel may invoke next build directly instead of npm's prebuild lifecycle.
+if (claimsAiPreview()) {
+  assertAiPreview();
+  console.info("[ai-preview] next_config_scope_verified=true");
+}
+
 // Isolated feature review: hosted builds must stop before migrations or deployment.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/image-announcements")) {
   throw new Error("Image announcements review cannot deploy or execute migrations; use the isolated local Preview.");

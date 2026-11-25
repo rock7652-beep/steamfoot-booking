@@ -181,6 +181,12 @@ describe("Preview isolation", () => {
     const output = execFileSync(process.execPath, ["scripts/ci-migrate.mjs"], { env: { ...env, NODE_ENV: "test", PATH: process.env.PATH }, encoding: "utf8", timeout: 10000 });
     expect(output).toContain("migrations_skipped=true");
   });
+  it("checks isolation when the framework loads Next config directly", () => {
+    const command = ['--experimental-strip-types', '--input-type=module', '-e', 'await import("./next.config.ts")'];
+    const configEnv = { ...env, NODE_ENV: "test" as const, PATH: process.env.PATH };
+    expect(execFileSync(process.execPath, command, { env: configEnv, encoding: 'utf8', timeout: 10000 })).toContain('next_config_scope_verified=true');
+    expect(() => execFileSync(process.execPath, command, { env: { ...configEnv, VERCEL_ENV: 'production' }, stdio: 'pipe', timeout: 10000 })).toThrow();
+  });
   it("AI branch blocks external integration even with conflicting production or test flags", () => {
     vi.stubEnv("VERCEL_GIT_COMMIT_REF", AI_PREVIEW_BRANCH);
     vi.stubEnv("VERCEL_ENV", "production");

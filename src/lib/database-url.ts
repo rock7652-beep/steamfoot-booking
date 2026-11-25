@@ -1,4 +1,5 @@
-import { assertAiDatabaseConnection } from "../../scripts/ai-digital-butler-preview-scope.mjs";
+import { assertAiDatabaseConnection, claimsAiPreview } from "../../scripts/ai-digital-butler-preview-scope.mjs";
+import { beautyProductionCaPath as supabaseCaPath, verifyBeautyProductionCa as verifySupabaseCa } from "../../scripts/beauty-production-ca.mjs";
 
 /** Build the pooled Postgres URL shared by the physically separate clients. */
 export function buildDatabaseUrl(base = process.env.DATABASE_URL ?? ""): string {
@@ -6,6 +7,14 @@ export function buildDatabaseUrl(base = process.env.DATABASE_URL ?? ""): string 
   if (!base) return base;
 
   const url = new URL(base);
+  // The shared Supabase pooler uses its public CA. Keep certificate verification
+  // strict and use the fingerprint-checked bundled certificate in this Preview.
+  if (claimsAiPreview()) {
+    verifySupabaseCa();
+    url.searchParams.set("sslmode", "require");
+    url.searchParams.set("sslaccept", "strict");
+    url.searchParams.set("sslcert", supabaseCaPath());
+  }
   const isPooler =
     /pooler\.supabase\.com$/i.test(url.hostname) || url.port === "6543";
   const isServerless =

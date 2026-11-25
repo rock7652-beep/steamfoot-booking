@@ -12,7 +12,16 @@
 - 三個業務 client 最終經共用 URL builder／dispatcher；Beauty 必須 legacy 且不含專用憑證，Addons 專用連線不得繼承。LINE/Messenger/Email 原外發守衛加上 AI branch 強制封鎖；Preview cron 不可移至正式排程執行。
 - 現行 Vercel 專案 SSO 保護涵蓋所有 Previews。不得為測試解除保護或公開分享帶密鑰網址。
 
-## 現在停在哪裡
+## 2026-11-25 Preview 實測進度
+
+使用者已親自設定 OPENAI_API_KEY；只核對 Sensitive、Preview、指定支線的中繼資料，未讀取金鑰。驗收用 AI flags 已載入為 1，但 DB global stop 仍為 true、四店 enabled=false、模型請求數 0。
+
+- `a0c0aee` 全量 CI：1,851 檔／17,476 項通過，337 項跳過；型別、ESLint、目標與相關 PostgreSQL 整合通過。Cloudflare 額外建置失敗原因仍未取得。
+- 首次 Vercel build `dpl_F4BD6TcefvN8R5irmjWke67kP8yA` 完成編譯，但 `_middleware` 255.77 MB 超過 250 MB，部署失敗。只在本 AI Preview 支線加 `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` 後，第二次 `dpl_87xcqDrJ2y8XBYCnbxPmqftoknVj` READY。沿用既有 Turbo，未變更專案 Build Machine。
+- 第二次實際 GET `/hq/login?store=ai-preview-steamfoot` 回 500；runtime log 證實是 Prisma 嚴格 TLS 不信任 Supabase CA。沒有關閉 TLS 驗證；修正為 AI Preview 專用載入既有指紋固定的公用 CA，並在 Next config 入口補完整隔離檢查，等待修正版部署驗證。
+- 新增四個 `ai-preview-owner-*` 合成店長與 Staff／ShopConfig；未複製營運帳號。`preview-auth-scope.sql` 僅讓受限角色讀取四店及四帳號，並寫入配對合成帳號的 SUCCESS 登入稽核，不增加 Booking 或營運寫入權限。
+
+## 初次環境準備紀錄（歷史狀態）
 
 2026-11-25 已把 `preview-install.sql` 與 `preview-fixtures.sql` 安裝到上述隔離 DB，新增四張私有 AI 表與四家 `ai-preview-*` 合成店。沒有執行正式 migration、複製顧客或修改既有店家。
 
