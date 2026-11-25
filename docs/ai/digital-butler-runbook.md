@@ -18,18 +18,20 @@
 
 新增受限角色 `steamfoot_ai_preview_20261125`，無 superuser、bypass RLS、建庫或建角色能力；只讀既有隔離 schema，AI 寫入受四家合成店 RLS 約束，不能寫 Booking。role 本身具備的權限不取代應用層跨店驗證。
 
-**自動審查拒絕把此新角色的資料庫連線憑證存入 Vercel，理由是需要更明確的第三方憑證傳送授權。未重試或換路傳送。**目前 Vercel 只成功建立本支線的 `AI_DIGITAL_BUTLER_PREVIEW=1`，其餘 AI 設定未寫入。角色已回復 NOLOGIN，global stopped=true，所有合成店 setting.enabled=false，請求數 0；所以目前不能建立可用的雲端 Preview。
+2026-11-25 使用者已在本 chat 明確「批准」憑證傳送，前次自動審查阻擋已解除，**不要重新要求同範圍批准**。已為此角色產生新密碼，並把 DATABASE_URL、DIRECT_URL、AI_IDENTITY_SECRET 設為 Sensitive，僅綁定 `feat/ai-digital-butler-core` Preview。另補外發封鎖、Beauty legacy／通知關閉、AI 與 OpenAI 測試關閉及有期限的費率設定，共 10 個本支線專屬變數；未更改 Production、Development 或其他 Preview 支線。
 
-本機對隔離 pooler 5432 的連線兩個候選 host 都回 ECONNREFUSED；不把此結果當成憑證或端點正確性的證明。Supabase connector 已確認隔離資料表、權限與狀態，正式網路登入需後續實測。
+角色已啟用 LOGIN，有效至 **2026-12-02 22:15:52（台灣時間）**。global stopped=true、所有合成店 enabled=false、請求數 0。已用實際設定通過隔離 URL guard，實際 migration runner 確認跳過所有 migration。OpenAI Key 尚未設定，也未執行雲端建置。
 
-## 取得該範圍明確批准後的最小步驟
+本機對隔離 pooler 的 5432／6543 連線回 ECONNREFUSED 或逾時；不把設定檢查當成密碼驗證／網路登入成功。Supabase connector 已確認 schema、角色權限、RLS 與停止狀態，但其管理連線不能 SET ROLE 為此新角色，未透過額外 admin membership 繞過。實際網路登入、合成帳號及後台 Mock 必須在必要的 Vercel Preview 驗證完成，通過前不解除全域停止或開模型。
 
-1. 再核對遠端 branch/head、自動部署 false、專案身份、SSO。只為該 branch 新產生隔離角色密碼（不沿用正式密碼），啟用 LOGIN 並設定失效期限；不要解開 BYPASSRLS 或營運寫入權限。
-2. 在同一 Vercel Project，僅針對 `feat/ai-digital-butler-core` Preview 設定下表。不得覆寫 Production、Development、所有 Preview 或其他支線。確認沒有帶入額外 Beauty/Addons DB secret。
-3. 確認全部連線的 project ref、role 及 URL allowlist；以角色登入執行唯讀 postflight。若沒有合成測試登入帳號，在隔離店建立新測試帳號；不改真實帳號或寄通知。當前尚未建立這些帳號。
-4. 這些條件全部確認後，才一次性請使用者到 [Vercel 環境變數](https://vercel.com/rock7652-2111s-projects/steamfoot-booking/settings/environment-variables) 自行設定 `OPENAI_API_KEY`，Type Secret/Sensitive，僅該 branch Preview。不得貼到聊天、Git、PR、文件、fixture、前端或 Log，沒有 NEXT_PUBLIC 前綴。
-5. 全部本機檢查通過後，核對同 SHA 沒有可重用 Preview，再做一個必要的隔離建置。說明 Vercel 可能費用；不改全專案 machine，也不為看畫面重建。若 API 支援單次 Enhanced，再於該次必要 build 使用並記錄，否則維持現狀。
-6. 先在認證後的合成店完成 Mock，然後在隔離 DB 明確解除 global stop，店家自行開啟 TEST。核對費率配置後，才用 `AI_OPENAI_TEST_ENABLED=1` 做一次 Luna 營業時間情境；token／成本／結算與安全失敗都檢查。不自動測三模型或重試未知請求。
+## 已批准範圍內的下一階段步驟
+
+1. 憑證與有期限的 LOGIN 已完成。後續持續核對遠端 branch/head、自動部署 false、專案身份、SSO；不要解除 BYPASSRLS 限制或增加營運寫入權限。
+2. 下表除 OpenAI Key 外已完成本支線設定。不得覆寫 Production、Development、所有 Preview 或其他支線。維持沒有額外 Beauty/Addons DB secret。
+3. 全部連線的 project ref、role、URL allowlist 及角色目錄 postflight 已確認。執行環境的角色網路登入與合成登入帳號尚待必要 Preview 驗證；若需建立，只新增隔離合成帳號，不改真實帳號或寄通知。
+4. 支線隔離設定與目錄守衛已確認，可以一次性請使用者到 [Vercel 環境變數](https://vercel.com/rock7652-2111s-projects/steamfoot-booking/settings/environment-variables) 自行設定 `OPENAI_API_KEY`，Type Secret/Sensitive，僅該 branch Preview。不得貼到聊天、Git、PR、文件、fixture、前端或 Log，沒有 NEXT_PUBLIC 前綴。
+5. 全部本機檢查與 Key 設定確認後，先集中該次驗收需要的 runtime flags，再核對同 SHA 沒有可重用 Preview，做一個必要的隔離建置。環境變數不會熱更新舊部署，不為先 Mock、後真實測試而分拆相同 SHA 建置；全域 DB stop 與店家開關保持關閉到實際連線驗證通過。說明 Vercel 可能費用；不改全專案 machine，也不為看畫面重建。若 API 支援單次 Enhanced，再於該次必要 build 使用並記錄，否則維持現狀。
+6. Key／本機 Mock 與費率配置確認後，若同次部署要驗真實 API，可在第 5 步一併載入 AI_DIGITAL_BUTLER_ENABLED=1、AI_OPENAI_TEST_ENABLED=1；載入可用選項不代表已呼叫模型。實際連線與權限驗證通過後，僅在隔離 DB 明確解除 global stop，店家自行開啟 TEST；依序先完成認證後 Mock，再明確選 OpenAI 做一次 Luna 營業時間情境；token／成本／結算與安全失敗都檢查。不自動測三模型或重試未知請求。
 7. 相容性、用量、預算、跨店、人工接手與六尺寸通過後交付 Preview；保持正式 AI 關閉，等待獨立正式發布授權。不得將連著隔離 DB 的 Preview 直接 promote。
 
 | Key | 候選值／處理 | Type |
@@ -40,8 +42,8 @@
 | BEAUTY_DATABASE_MODE | legacy | Plain |
 | BEAUTY_NOTIFICATIONS_ENABLED | 0 | Plain |
 | AI_IDENTITY_SECRET | 新產生至少 32 字元；只做本支線 HMAC | Secret/Sensitive |
-| AI_DIGITAL_BUTLER_ENABLED | Mock 驗收準備完成後 1 | Plain |
-| AI_OPENAI_TEST_ENABLED | 先 0，Key／費率／Mock 確認後才 1 | Plain |
+| AI_DIGITAL_BUTLER_ENABLED | 已設 0；Mock 執行條件確認後才改 1 | Plain |
+| AI_OPENAI_TEST_ENABLED | 已設 0，Key／費率／Mock 確認後才 1 | Plain |
 | AI_VERIFIED_MODEL_CONFIG_JSON | 逐模型已核對能力、保守費率、來源與最多 7 天期限 | Secret/Sensitive |
 | OPENAI_API_KEY | 使用者親自輸入，不由聊天傳遞 | Secret/Sensitive |
 

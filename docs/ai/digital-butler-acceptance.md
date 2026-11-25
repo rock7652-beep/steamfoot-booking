@@ -58,14 +58,20 @@
 
 已確認：4 張 AI 表啟用 RLS、anon 無請求表讀取權、四家合成店全部 enabled=false、global stopped=true、請求數 0。新角色無 bypass RLS、無 Booking 寫入，現在 NOLOGIN。Supabase security advisors 已查詢，未出現 AiButler 相關 finding；不是全專案安全零風險聲明。
 
-Vercel 精確支線的環境變數可建立，`AI_DIGITAL_BUTLER_PREVIEW=1` 已成功。自動審查拒絕將新隔離角色的 `DATABASE_URL` 密碼與連線資訊傳送到 Vercel，要求更明確的傳送授權；沒有換路或重試。原憑證只短暫存在權限 600 的暫存檔，已刪除，角色也已停用登入。後續核准後應重新產生憑證。
+Vercel 在使用者明確「批准」後，已成功存入新產生的 DATABASE_URL、DIRECT_URL、AI_IDENTITY_SECRET（Sensitive、僅指定 Preview branch），並補上停發／停用／模型費率設定，共 10 個支線變數。沒有重用正式憑證；Production、Development、其他支線未改。角色 LOGIN 有效至 2026-12-02 22:15:52（台灣時間），仍無 bypass RLS／Booking 寫入權限。暫存憑證檔已刪除，不含於 Git 或 PR。
 
-Vercel 分支部署查詢確認 0 筆，沒有新增雲端建置或 OpenAI API 呼叫。專案既有 SSO 覆蓋所有 Previews，但尚未實際登入該支線 UI。未解除保護或發送外部訊息。Cloudflare 不是本次路由／部署依賴；任何 Cloudflare branch claim 反而會被 AI 守衛拒絕，沒有改 Cloudflare 設定。
+實際設定的隔離 guard 與 migration runner 通過，global stopped=true、enabledStores=0、requests=0。參見 `artifacts/ai-digital-butler/credential-setup-20261125.json`；先前 `hosted-postflight.json` 的 NOLOGIN 是取得新批准之前的歷史快照。
+
+實際 PostgreSQL 網路登入未驗：本 Cloud 執行器連到 pooler 5432/6543 出現拒絕或逾時，管理 connector 也不具 SET ROLE 權限；未增加 admin membership 繞過。目錄檢查不能當成執行環境連線成功。Vercel 執行環境的網路登入／Mock 驗收通過之前，AI 保持全域停止，Key 設定本身不會啟用模型。
+
+原 head 的 GitHub targeted tests、Typecheck、changed ESLint 與三項 Postgres 整合 job 通過；Full Vitest baseline 為 17,457 通過、19 失敗、337 跳過，19 個失敗都來自過往指南測試把本次新目錄 205 題寫死為 204 題。已更新相關當前總數、96 題待驗與 17 題累計新草稿期待值，保留歷史驗收與來源基準，40 個指南測試檔／212 項在本機重驗通過；待新 head 的 CI 重驗。這與原 658 個核心／權限／回歸案例合計 870 個不同本機案例。
+
+Vercel 分支部署查詢仍為 0 筆，沒有新增 Vercel 建置或 OpenAI 請求。現有 Cloudflare Workers Builds 額外回報失敗；GitHub output 僅有 Build ID、無 annotations 或原因，未聲稱是預期 guard，也未改 Cloudflare 或重跑其建置。精確 AI scope 仍拒絕 Cloudflare provider claim，正式站路由與設定未變。
 
 ## 未驗及待下一階段
 
-- Vercel branch DB / HMAC Secret 寫入與隔離連線驗證、合成登入帳號準備、認證後 server action + UI。
-- 使用者親自設定 OpenAI Key 後的最小真實 Responses 相容性／Token 與費用測試；尚未通知貼 Key，因隔離準備仍被阻擋。
+- Vercel 執行環境的隔離角色網路登入、合成登入帳號準備、認證後 server action + UI；branch DB / HMAC Secret 已寫入。
+- 使用者親自設定 OpenAI Key 後的最小真實 Responses 相容性／Token 與費用測試；支線環境設定已確認，下一步請使用者僅在該 Preview 支線自行設定 Key。
 - 必要的一次隔離 Preview build、全頁含側欄的 RWD／登入流程、真實裝置與 LIFF 業務驗收。
 - Phase 2 的知識管理／權威營運設定 adapter、原 Webhook 未命中整合、原真人客服工作台接手、對話保留清理實作與帳號資料控制核對。
 - Phase 3 的身分驗證業務讀取／受控預約交易、正式 migration／正式 API Project／店家試營運均未執行。

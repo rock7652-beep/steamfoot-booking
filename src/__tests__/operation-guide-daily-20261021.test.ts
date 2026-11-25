@@ -30,8 +30,8 @@ describe("2026-10-21 backend guide audit", () => {
     );
     expect(state.newGuideIds).toEqual(["C177"]);
     expect(state.updatedGuideIds).toHaveLength(9);
-    expect(state.totalInteractionPendingCount).toBe(95);
-    expect(operationGuides).toHaveLength(204);
+    expect(state.totalInteractionPendingCount).toBe(96);
+    expect(operationGuides).toHaveLength(205);
   });
 
   it("finds the two new backend articles", () => {
