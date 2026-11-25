@@ -43,7 +43,7 @@ LINE 現行簽章與 destination 解析在 Webhook；保留指令、方案回應
 
 `AI_VERIFIED_MODEL_CONFIG_JSON` 逐模型載入 input/output 的保守美元 micro 上界、官方來源、verifiedAt、validUntil 及能力確認；核對有效期最長 7 天，過期或缺失禁止新 OpenAI 請求。不把促銷福利當固定免費或支出硬上限。
 
-2026-11-25 官方文件核對：Standard 公開價（每百萬 Tokens）Luna input US$0.10 / output US$0.50；5.4 mini US$0.75 / US$4.50；Sol US$2 / US$10。快取寫入、保留時間及處理區域可能額外影響費率，因此**預留與估算不能直接只用公開 input 基價**。本次尚未寫入 Vercel 費率設定或做真實帳單核對；候選上界 Luna 1/1、mini 1/5、Sol 10/20 USD per million，實際開測前仍須重核配置與 API 回應能力。
+2026-11-25 官方文件核對：Standard 公開價（每百萬 Tokens）Luna input US$0.10 / output US$0.50；5.4 mini US$0.75 / US$4.50；Sol US$2 / US$10。快取寫入、保留時間及處理區域可能額外影響費率，因此**預留與估算不能直接只用公開 input 基價**。已寫入僅指定 Preview 支線的有期限費率配置，尚未核對供應商實際帳單；本次保守上界 Luna 1/1、mini 1/5、Sol 10/20 USD per million，每次重測前仍須確認配置有效期；本次只對 Luna 完成真實 API，相容性結果見驗收紀錄。
 
 ledger 的 `heldMicros` 含已計入及未明成本，`estimatedMicros` 是以實際 Token 數乘保守上界的估算，**不是供應商實際扣款**。目前未取得實際美元成本或帳單 API 權限，不假稱已對帳。50/80/100% 由同一設定產生用量提示，沒有對外寄信或推播提醒。這個預算只管經本系統的請求，不能限制平台外部用量。
 
@@ -61,6 +61,6 @@ OpenAI `store:false` 不等於帳號已具 Zero Data Retention；預設濫用監
 
 ## 目前邊界與後續驗收
 
-Phase 1 Mock 核心與 UI 可在本機驗收；隔離資料表已建立但所有 AI 開關保持關閉。實際 OpenAI 相容性、隔離連線登入、真實 server action + 認證 UI、Vercel build 與 Preview 尚未驗過。知識編輯／發布管理、現行營運資料 adapter、原通路未命中整合、真人客服工作台交接、真實業務讀取／寫入均未開放，不能視為 Phase 2/3 已完成。
+2026-11-26（台灣時間）完成 Phase 0/1 隔離 Preview：原憑證連線、認證 UI／server actions、Mock、Luna 兩筆最小 API、Token／預算結算與 RWD。收尾 global stop=true、四合成店 enabled=false；正式 AI 未開放。Provider 明示已驗證的 PUBLISHED 參考來源、schema 限定單筆已提供 ID，後端仍重新核對來源並呈現原核准文字。知識編輯／發布管理、現行營運資料 adapter、原通路未命中整合、真人客服工作台交接、真實業務讀取／寫入均未開放，不能視為 Phase 2/3 已完成。
 
 見 [Runbook](digital-butler-runbook.md)、[驗收紀錄](digital-butler-acceptance.md)。

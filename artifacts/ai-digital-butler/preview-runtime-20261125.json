@@ -181,5 +181,43 @@
     "replayTransport": "same-origin browser fetch",
     "replayResult": "DUPLICATE",
     "apiKeyReadOrLogged": false
+  },
+  "finalResult": {
+    "verifiedAtTaipei": "2026-11-26T00:32:50+08:00",
+    "codeSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+    "preview": "https://steamfoot-booking-1qt2ihx64-rock7652-2111s-projects.vercel.app",
+    "acceptance": "PASSED",
+    "report": "hosted-results.json",
+    "postflight": {
+      "role": {
+        "name": "steamfoot_ai_preview_20261125",
+        "login": true,
+        "expires": "2026-12-02T14:15:52+00:00",
+        "bypassRls": false,
+        "superuser": false,
+        "connectionLimit": 8
+      },
+      "requests": 12,
+      "bookingWrite": false,
+      "enabledStores": 0,
+      "globalStopped": true,
+      "openaiRequests": 2,
+      "aiTablesWithRls": 4,
+      "syntheticBookings": 0,
+      "unsettledRequests": 0,
+      "syntheticCustomers": 0,
+      "estimatedOpenaiMicros": 607
+    },
+    "liveRequestCount": 2,
+    "estimatedOpenaiMicros": 607,
+    "productionChanged": false
+  },
+  "sourceSelectionFix": {
+    "sourceSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+    "deploymentId": "dpl_9avchKdGUK3y4ZahU5gXMzABdTzk",
+    "publishedStatusInPayload": true,
+    "sourceEnumAndSingleSourceLimit": true,
+    "finalLiveOutcome": "ANSWER",
+    "estimatedMicros": 360
   }
 }
