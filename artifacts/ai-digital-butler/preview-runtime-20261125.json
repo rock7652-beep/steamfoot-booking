@@ -156,6 +156,30 @@
     "roleLimitUnchanged": 8,
     "credentialsUnchanged": true,
     "tls": "strict and pinned CA",
-    "runtimeVerification": "PENDING"
+    "runtimeVerification": "Authentication, settings, global stop, Mock, deduplication, handoff and cross-store denial PASS",
+    "sourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+    "deploymentId": "dpl_4zZPueFLpZFTVMMn8RywKdoeBfAY",
+    "roleConnectionsObserved": 3
+  },
+  "firstLiveApi": {
+    "model": "gpt-6-luna",
+    "status": "COMPLETE",
+    "outcome": "HANDOFF",
+    "inputTokens": 227,
+    "outputTokens": 20,
+    "estimatedMicros": 247,
+    "latencyMs": 4136,
+    "connectionAndAccounting": "PASS",
+    "knownHoursAnswer": "NOT_PASSED",
+    "automaticRetries": 0
+  },
+  "testToolRecovery": {
+    "temporaryCookieErrorLog": "redacted",
+    "shareGrantRevoked": true,
+    "syntheticUserSessionVersionUpdated": true,
+    "realAccountsChanged": false,
+    "replayTransport": "same-origin browser fetch",
+    "replayResult": "DUPLICATE",
+    "apiKeyReadOrLogged": false
   }
 }

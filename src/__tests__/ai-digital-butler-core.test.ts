@@ -147,6 +147,14 @@ describe("AI orchestration and knowledge safety", () => {
 });
 
 describe("OpenAI boundary", () => {
+  it("marks validated published references and limits selection to one supplied source", () => {
+    const knowledge = syntheticAiKnowledge("a", "STEAMFOOT", now);
+    const input = { model: "gpt-6-luna" as const, message: "營業時間？", knowledge, summary: [] };
+    const body = aiResponseBody(input);
+    expect(JSON.parse(body.input[0].content).knowledge).toMatchObject([{ id: knowledge[0].id, status: "PUBLISHED" }]);
+    expect(body.text.format.schema.properties.sourceIds).toMatchObject({ maxItems: 1, items: { enum: [knowledge[0].id] } });
+    expect(() => aiResponseBody({ ...input, knowledge: [{ ...knowledge[0], status: "DRAFT" }] })).toThrow("AI_KNOWLEDGE_NOT_PUBLISHED");
+  });
   it("validates model rate/capability per model with an expiry", () => {
     const env = { AI_VERIFIED_MODEL_CONFIG_JSON: JSON.stringify({ "gpt-6-luna": rate }) };
     expect(verifiedAiRate("gpt-6-luna", env, now)).toEqual(rate);

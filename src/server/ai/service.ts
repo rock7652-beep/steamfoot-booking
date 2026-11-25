@@ -47,6 +47,13 @@ export class AiButlerService {
       if (![result.inputTokens, result.outputTokens].every(n => Number.isSafeInteger(n) && n >= 0)) throw new Error("AI_USAGE_INVALID");
       const cost = rate ? aiCostMicros(rate, result.inputTokens, result.outputTokens) : 0;
       const rendered = renderAiAnswer(answer, selectAiKnowledge(scope.storeId, scope.module, knowledge, this.clock()));
+      if (this.provider.kind === "openai" && /^ai-preview-(steamfoot|beauty|fitness|music)$/.test(scope.storeId)) {
+        // Synthetic Preview diagnostics only; no text, IDs, credentials or actor data.
+        console.info("[ai-preview] source_selection", { model, action: answer.action,
+          suppliedSources: knowledge.length, selectedSources: answer.sourceIds.length,
+          selectedSourceAllowed: answer.sourceIds.length === 1 && knowledge.some(row => row.id === answer.sourceIds[0]),
+          handoff: rendered.handoff });
+      }
       // Identity/HQ/global/tenant state is checked again after the network await.
       await this.authorize(scope);
       const allowed = await this.repository.settle(identity, { cost, inputTokens: result.inputTokens, outputTokens: result.outputTokens,
