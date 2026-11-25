@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const STORE_ID = "store-zhubei";
 const LINE_USER_ID = "U-line-customer";
@@ -45,7 +45,11 @@ vi.mock("next/headers", () => ({
     delete: vi.fn(),
   })),
 }));
-vi.mock("@/lib/date-utils", () => ({ getNowTaipeiHHmm: () => "09:00", toLocalDateStr: () => "2026-08-13" }));
+vi.mock("@/lib/date-utils", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/date-utils")>(),
+  getNowTaipeiHHmm: () => "09:00",
+  toLocalDateStr: () => "2026-08-13",
+}));
 vi.mock("@/lib/business-hours-resolver", () => ({
   applySlotOverrides: (rule: { slots: Array<{ startTime: string; capacity: number; isEnabled: boolean }> }) => rule.slots,
   loadDayBusinessHoursContext: vi.fn(async () => ({
@@ -105,6 +109,8 @@ const input = {
 };
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-08-13T01:00:00.000Z"));
   vi.clearAllMocks();
   state.customerName = "顧客";
   state.customerPhone = "0911689313";
@@ -329,3 +335,22 @@ describe("submitPublicTrialBooking — LINE placeholder customer name", () => {
     expect(state.customerUpdateMany).not.toHaveBeenCalled();
   });
 });
+
+describe("public trial booking cutoff", () => {
+  it("accepts exactly 30 minutes before the slot", async () => {
+    vi.setSystemTime(new Date("2026-08-19T01:30:00.000Z"));
+    await expect(submitPublicTrialBooking({ ...input, entry: undefined })).resolves.toMatchObject({ status: "ok" });
+  });
+
+  it("checks the deadline again before writing if availability was read earlier", async () => {
+    vi.setSystemTime(new Date("2026-08-19T01:30:00.000Z"));
+    state.bookingAggregate.mockImplementationOnce(async () => {
+      vi.setSystemTime(new Date("2026-08-19T01:30:00.001Z"));
+      return { _sum: { people: 0 } };
+    });
+    await expect(submitPublicTrialBooking({ ...input, entry: undefined })).resolves.toEqual({ status: "slot_closed" });
+    expect(state.bookingCreate).not.toHaveBeenCalled();
+  });
+});
+
+afterEach(() => vi.useRealTimers());

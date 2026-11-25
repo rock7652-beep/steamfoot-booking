@@ -5,7 +5,7 @@ import {
   cancelTrialBooking,
   confirmTrialBooking,
   getTrialBookingManagementStatus,
-  listTrialRescheduleSlots,
+  listTrialRescheduleSlotOptions,
   rescheduleTrialBooking,
 } from "@/server/services/trial-booking-self-service";
 import { revalidateBookings } from "@/lib/revalidation";
@@ -24,7 +24,7 @@ export async function cancelTrialBookingFromChat(token: string) {
   return result;
 }
 export async function getTrialRescheduleSlotsFromChat(token: string, date: string) {
-  return listTrialRescheduleSlots(tokenSchema.parse(token), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(date));
+  return listTrialRescheduleSlotOptions(tokenSchema.parse(token), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(date));
 }
 export async function getTrialBookingManagementStatusFromChat(token: string) {
   return getTrialBookingManagementStatus(tokenSchema.parse(token));
