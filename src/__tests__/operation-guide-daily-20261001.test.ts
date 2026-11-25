@@ -55,10 +55,10 @@ describe("October 1 guide review", () => {
     const item = guide("I12");
     expect(item.path).toContain("操作與登入紀錄");
     expect(item.steps.join(" ")).toContain("更多篩選");
-    for (const label of ["查看當次登入", "查看這次操作", "返回紀錄列表"]) {
+    for (const label of ["操作人姓名", "查看這次操作", "返回紀錄列表"]) {
       expect(item.steps.join(" ")).toContain(label);
     }
-    expect(item.details.join(" ")).toContain("登入紀錄則需點「查詢」");
+    expect(item.details.join(" ")).toContain("登入紀錄亦自動更新");
     expect(item.details.join(" ")).toContain("最近使用約每 5 分鐘更新");
     expect(item.important).toContain("不要因此重做交易");
     expect(item.steps.join(" ")).not.toMatch(/資料 ID|原始 JSON/);

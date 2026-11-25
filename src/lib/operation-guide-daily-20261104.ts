@@ -1,0 +1,46 @@
+import type { OperationGuide } from './operation-guide-types';
+
+/** Backend instructions checked against main d3125942; authenticated acceptance is separate. */
+export const dailyOperationGuides20261104: OperationGuide[] = [
+  {
+    id: 'BEAUTY11', category: 'booking', title: '同一位顧客如何合併不同主服務？',
+    summary: '使用不同主服務的有效多次方案依序安排；每段保留自己的方案、技師及整理時間。',
+    answer: '在美業新增預約選定具名顧客、主服務及可用方案，有其他適用方案時展開「合併其他服務」；需要不同技師才勾選「分別安排技師」。',
+    path: '美業班表 → 新增預約 → 顧客與使用方案 → 合併其他服務',
+    keywords: '美業 合併其他服務 同一顧客 多主服務 服務段 分別安排技師 整理時間 加做 多次方案 合併預約',
+    steps: ['先核對具名顧客與第一項主服務的有效方案，不用同名或電話代替原顧客。', '展開合併其他服務，選不同主服務及其可用多次方案；各段的加做項目在該服務下選取。', '預設沿用同一技師；需換人時勾分別安排技師，再逐段指定合格技師或不指定。核對各段時間及位置後才送出。', '成立後從班表及明細核對同組服務段、方案與預留次數；改期或取消先選正確服務段，不能以一段的結果推定整組已改。'],
+    important: '各段依序安排，下一段從前段含加做與整理的占用結束後開始；不是同時服務，也不提供整組一起移動或自行插入間隔。',
+    success: '同一顧客各段時間不重疊，分別對應原方案、技師及位置；失敗沒有只成立一部分或重複預約。',
+    details: ['原主服務之外最多再選 5 項其他服務；整筆含所有同行者最多 12 段。每段使用不同多次方案，同一主服務不可重複加入，持有多張同服務卡也不例外。', '只適用該顧客可用且有效、可用次數足夠的不同主服務方案；體驗與資料後補不適用。沒有其他適用方案時不顯示入口，不代表原單項預約不可用。', '每段預留原方案一次，完成或取消仍依各段原規則結算或釋放。加做另收單次費，可增加該段時長，不以主服務方案抵付加做。', '後端逐段核對資格、營業／技師時間、位置、顧客與租借占用及整理時間，整筆一起確認；衝突先核對日期、資源與占用區間。結果未知先查原請求，不另建整組。'],
+    modules: ['beauty'], permission: 'booking.create', additionalPermissions: ['customer.read'], feature: null,
+    kind: 'howto', verification: 'source-reviewed',
+    sources: ['src/components/admin/service-reservation-form.tsx', 'src/components/beauty/additional-services.tsx', 'src/lib/beauty/service-journey.ts', 'src/lib/beauty/expand-service-journey.ts', 'src/lib/beauty/contracts.ts', 'src/server/beauty/booking.ts'],
+  },
+  {
+    id: 'BEAUTY12', category: 'money', title: '美業服務與加做如何登錄混合付款？',
+    summary: '同次實收可拆不同付款方式；拆分合計必須等於本次收款，退款回原紀錄。',
+    answer: '在原服務或加做的收款表單核對應收、已收與本次金額，再勾選「混合付款」，逐項填寫付款方式與實收金額。',
+    path: '美業班表 → 原預約名單 → 收款 → 混合付款',
+    keywords: '美業 混合付款 分次實收 現金 轉帳 刷卡 其他 拆分 合計 加做 收款結果待確認 原收款退款',
+    steps: ['開啟原服務收款，等待最新應收核對完成，確認本次各段實收金額；使用方案的主服務不另重收方案費。', '有兩種以上方式時勾混合付款，選現金、轉帳、刷卡或其他，填各方式實收；方式不重複且每項金額大於零。', '核對拆分合計等於本次收款，再確認一次；金額或應收變更後重新核對拆分，不沿用舊合計。', '重新開啟原交易核對各方式實收與現金帳；需退款時找到原收款紀錄依原權限處理，不刪改原紀錄。'],
+    important: '只是登錄實際已收到的款項，不會向銀行扣款或自動退刷；本題不涵蓋方案購買與共同商品的其他收款流程。',
+    success: '各付款方式合計與本次實收一致，未超收、重收或以應收金額當成已收。',
+    details: ['收款需 transaction.create、booking.read 及交易功能資格；調優惠另需 transaction.discount，退款需 transaction.refund。看得到班表不等於可收退款。', '有現金實收時仍須先開啟當日現金抽屜；非現金照原現金帳分類記錄。多段款項依本次服務順序分配，不能假設每段各付款方式都相同。', '拆分、原應收版本、實收及相關帳目由同一請求一起確認；若應收已更新請重開核對。結果未知保留原請求查結果，不另開收款；已成功但畫面同步失敗只重新讀取。', '全額折抵的零元收款沿用原規則，不填兩筆零元拆分；方案扣次、服務拆帳與退款限制維持原規則。'],
+    modules: ['beauty'], permission: 'transaction.create', additionalPermissions: ['booking.read'], feature: 'transaction_management',
+    kind: 'howto', verification: 'source-reviewed',
+    sources: ['src/components/beauty/collection-panel.tsx', 'src/components/admin/payment-split-fields.tsx', 'src/lib/beauty/payment-splits.ts', 'src/server/actions/beauty.ts', 'src/server/beauty/commerce.ts', 'src/server/actions/beauty-native-transactions.ts'],
+  },
+  {
+    id: 'BEAUTY13', category: 'hours', title: '美業如何臨時開放或關閉當日時段？',
+    summary: '班表直接管理單日時段；不改整週服務時間、名額或原預約。',
+    answer: '在班表選好日期，點右上角「管理時段」，切換單格開放／關閉或加入臨時時段，確認並儲存後才生效。',
+    path: '美業班表 → 選日期 → 管理時段',
+    keywords: '美業 管理時段 當日開放 關閉 加開 半點 30分鐘 全天休息 進修 整理時間 既有預約 草稿',
+    steps: ['核對門市與面板日期，等待時段完整載入；失敗按重試，不把空白當沒有設定。', '點單格切換開放或關閉；臨時加開選整點或半點，點「加入草稿」。美業不在此調整名額。', '核對連續開放區間是否容納服務、加做及整理時間；全天休息或進修日先調整當日服務時間，不能直接照蒸足公休日加開流程操作。', '按「確認並儲存」，成功後返回班表核對。取消或關閉有變更時確認捨棄，不把加入草稿當儲存完成。'],
+    important: '只影響所選日期，既有預約與帳務保留；開放時段仍須符合技師、位置及占用條件，不保證一定可排。',
+    success: '重開看到正確當日狀態，整週時間及原預約沒有被修改。',
+    details: ['需本店設定入口資格及 business_hours.manage，後端仍檢查可操作門市；唯讀不提供異動。', '臨時加開每格 30 分鐘，相鄰時段合成連續開放區間；中間關閉一格會中斷，不能只看開始時間可選就認為完整服務可排。', '他人已改服務時間或切換門市時須重新讀取核對；儲存結果未確認先查原日期，不反覆新增。不要為了驗收開放正式時段。'],
+    modules: ['beauty'], permission: 'business_hours.manage', feature: null, kind: 'howto', verification: 'source-reviewed',
+    sources: ['src/components/beauty/schedule-workspace.tsx', 'src/app/(dashboard)/dashboard/bookings/day-slot-manager.tsx', 'src/server/actions/business-hours.ts', 'src/lib/beauty/open-time-windows.ts'],
+  },
+];
