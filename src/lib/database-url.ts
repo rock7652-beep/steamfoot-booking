@@ -1,6 +1,8 @@
+import { assertAiDatabaseConnection } from "../../scripts/ai-digital-butler-preview-scope.mjs";
 
 /** Build the pooled Postgres URL shared by the physically separate clients. */
 export function buildDatabaseUrl(base = process.env.DATABASE_URL ?? ""): string {
+  assertAiDatabaseConnection(base);
   if (!base) return base;
 
   const url = new URL(base);

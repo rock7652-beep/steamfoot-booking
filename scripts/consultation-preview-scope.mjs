@@ -1,3 +1,4 @@
+import { claimsAiPreview, assertAiPreview } from "./ai-digital-butler-preview-scope.mjs";
 import {assertSubscriptionReferralQa} from './subscription-referral-qa-scope.mjs';
 import {assertCompactOperationsPreview} from "./compact-operations-preview-scope.mjs";
 import {isMarketingPublicationLocalQa} from './marketing-publication-local-qa.mjs';
@@ -288,6 +289,7 @@ export function assertConsultationPreviewEnvironment(env) {
  * @returns {"subscription-referral-qa" | "marketing-local-qa" | "compact-operations-preview" | "beauty-hosted-preview" | "mocked-unit-test" | "production" | "music-opening-preview" | "beauty-release-qa" | "beauty-production-qa" | "local-beauty-qa" | "beauty-sandbox-qa" | "local-image-announcements-qa" | "local-sports-qa" | "member-workorder-preview" | "consultation-preview" | "sports-shared-card-preview" | "sports-roster-preview" | "course-self-booking-preview" | "module-roster-preview" | "hq-intake-list-preview" | "hq-legacy-import-preview" | "operation-guide-preview" | "store-operation-audit-preview" | "booking-participants-preview"}
  */
 export function assertReviewedReleaseEnvironment(env) {
+  if (claimsAiPreview(env)) { assertAiPreview(env); return "module-roster-preview"; }
   if ([TRIAL_VOID_PREVIEW_BRANCH, SINGLE_SERVICE_VOID_PREVIEW_BRANCH].includes(env.VERCEL_GIT_COMMIT_REF)) {
     assertModuleRosterPreviewEnvironment(env);
     if (env.VERCEL_PROJECT_ID !== "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR" || env.PRODUCTION_MIGRATION_TARGET ||
