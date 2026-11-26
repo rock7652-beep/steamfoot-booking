@@ -1,5 +1,7 @@
 // Read-only, exact AI Preview only. Never prints a URL, password, token or raw error.
 import { pathToFileURL } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { beautyProductionCaPath as supabaseCaPath, verifyBeautyProductionCa as verifySupabaseCa } from './beauty-production-ca.mjs';
 import { claimsAiPreview, assertAiPreview, resolveAiPreviewDatabaseUrl, AI_PREVIEW_DATABASE_ROLE } from './ai-digital-butler-preview-scope.mjs';
 /** @param {Readonly<Record<string,string|undefined>>} [env] */
 export async function checkBrandPreviewConnection(env=process.env, factory) {
@@ -9,8 +11,10 @@ export async function checkBrandPreviewConnection(env=process.env, factory) {
   const url=new URL(resolveAiPreviewDatabaseUrl(env.DATABASE_URL,env));
   // pg connection-string ssl parameters can override explicit SSL settings; remove all of them.
   for(const key of ['sslmode','sslaccept','sslcert','sslkey','sslrootcert','uselibpqcompat'])url.searchParams.delete(key);
+  verifySupabaseCa();
+  const ca=readFileSync(supabaseCaPath(),'utf8');
   const create=factory??(async options=>{const {Client}=await import('pg');return new Client(options);});
-  const client=await create({connectionString:url.toString(),ssl:{rejectUnauthorized:true},connectionTimeoutMillis:10_000,query_timeout:10_000,application_name:'steamfoot-ai-brand-preview-preflight'});
+  const client=await create({connectionString:url.toString(),ssl:{rejectUnauthorized:true,ca},connectionTimeoutMillis:10_000,query_timeout:10_000,application_name:'steamfoot-ai-brand-preview-preflight'});
   try {
     await client.connect();
     if(client.connection?.stream?.authorized!==true||client.connection?.stream?.encrypted!==true)throw Error('AI_BRAND_PREFLIGHT_TLS_NOT_VERIFIED');

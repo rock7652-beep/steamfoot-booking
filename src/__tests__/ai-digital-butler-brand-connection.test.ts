@@ -5,8 +5,8 @@ const data={role:"steamfoot_ai_preview_20261125",readonly:"on",stopped:true,disa
 function fixture(changes={}){const client={connect:vi.fn(async()=>{}),end:vi.fn(async()=>{}),connection:{stream:{authorized:true,encrypted:true}},query:vi.fn(async(sql:string)=>({rows:sql.startsWith("SELECT")?[{...data,...changes}]:[]}))};return{client,factory:vi.fn(async()=>client)};}
 it("uses existing scoped credentials with strict TLS and only read-only SQL",async()=>{
  const {client,factory}=fixture();expect(await checkBrandPreviewConnection(env,factory)).toMatchObject({roleVerified:true,tlsVerified:true,readonly:true,globalStopped:true,totalMicros:"2690"});
- const options=(factory.mock.calls as unknown as [[{connectionString:string;ssl:{rejectUnauthorized:boolean}}]])[0][0];
- expect(options.ssl.rejectUnauthorized).toBe(true);expect(options.connectionString).not.toMatch(/sslmode|sslaccept|sslrootcert|sslkey/);
+ const options=(factory.mock.calls as unknown as [[{connectionString:string;ssl:{rejectUnauthorized:boolean;ca:string}}]])[0][0];
+ expect(options.ssl.rejectUnauthorized).toBe(true);expect(options.ssl.ca).toContain("BEGIN CERTIFICATE");expect(options.connectionString).not.toMatch(/sslmode|sslaccept|sslrootcert|sslkey/);
  expect(client.query.mock.calls.every(([sql])=>/^(BEGIN READ ONLY|SELECT|COMMIT)/.test(sql))).toBe(true);expect(client.end).toHaveBeenCalledTimes(1);
 });
 it("does nothing in other branches",async()=>{const {factory}=fixture();expect(await checkBrandPreviewConnection({VERCEL_GIT_COMMIT_REF:"main"},factory)).toEqual({skipped:true});expect(factory).not.toHaveBeenCalled();});

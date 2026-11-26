@@ -34,9 +34,9 @@ HQ HIDDEN 不出現服務入口，LOCKED 顯示不可用，ENABLED 仍須角色�
 
 目標 steamfoot-preview / ttworfzgwejdeolegkxl，唯讀核對 ACTIVE_HEALTHY、全域停止、四店關閉、Brand HIDDEN / false / unpublished。既有角色 connlimit=8、無 superuser / BYPASSRLS / create DB / create role，有效期 2026-12-02T14:15:52Z 未改。共用帳本 total=2690 micros / concurrent=0。
 
-新 prebuild 在指定 Preview 使用既有 Vercel sensitive DATABASE_URL，嚴格 TLS 實際連線既有角色，BEGIN READ ONLY 核對上述停止狀態、current_user 及聚合。剝除 pg URL 可覆蓋 SSL 的參數，設定 rejectUnauthorized=true，檢查 TLS authorized/encrypted。失敗立即阻止 Next 編譯，只輸出安全代碼，不輸出連線字串／密碼。其他部署直接 skip，不連線、不安裝 schema、不更改資料。雲端成功證據須以新部署 build log 為準。
+新 prebuild 在指定 Preview 使用既有 Vercel sensitive DATABASE_URL，嚴格 TLS 實際連線既有角色，BEGIN READ ONLY 核對上述停止狀態、current_user 及聚合。剝除 pg URL 可覆蓋 SSL 的參數，沿用現有 Prisma 已使用、指紋核對的 Supabase Root 2021 CA，設定 rejectUnauthorized=true，檢查 TLS authorized/encrypted。失敗立即阻止 Next 編譯，只輸出安全代碼，不輸出連線字串／密碼。其他部署直接 skip，不連線、不安裝 schema、不更改資料。雲端成功證據須以新部署 build log 為準。
 
-舊部署 005ce6e61 沒有本輪介面，不能驗新版。原支線 auto Vercel disabled 維持原樣；集中修改與本機測試後，只建立一次既有專案 Preview，成本無法由現有工具精確預估。未改 Production / Webhook / 發送 / Cloudflare 設定。
+舊部署 005ce6e61 沒有本輪介面，不能驗新版。原支線 auto Vercel disabled 維持原樣；集中修改與本機測試後，目標為一次成功的既有專案 Preview，成本無法由現有工具精確預估。首次嘗試 dpl_B5UNj6BEXWsTBka48w65WNZgHJSp 在新增 pg 前檢因未載入既有 Supabase CA 而 SELF_SIGNED_CERT_IN_CHAIN，於 Next 編譯前安全拒絕；修正為重用指紋核對的既有 CA，不放寬 TLS。連線及資料庫 URL 回歸 29 項通過後才補建修正版。未改 Production / Webhook / 發送 / Cloudflare 設定。
 
 ## 雲端六尺寸登入的精確待批准範圍
 
