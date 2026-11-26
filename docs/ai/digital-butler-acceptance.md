@@ -2,6 +2,8 @@
 
 **2026-11-26（台灣時間）：本次隔離 Preview 驗收完成；正式 AI 未啟用。**
 
+本文件保留 Phase 0/1 歷史；最新店家知識管理與目前收尾狀態見 [Phase 2 驗收](digital-butler-knowledge-acceptance.md)。
+
 ## 版本與證據
 
 - 原 PR [#1596](https://github.com/rock7652-beep/steamfoot-booking/pull/1596)，支線 feat/ai-digital-butler-core。
@@ -51,8 +53,8 @@ RWD 使用 Chromium 視窗模擬，不是實體 iPad／手機驗收。其他店�
 
 Cloudflare Workers 額外檢查仍 failure，GitHub output 僅 Build ID、annotations 0，未取得原因；未更改 CF，也不宣稱整個 PR 全綠或可正式發布。它不是本次已驗證 Vercel 路徑的執行依賴。
 
-全程六次必要既有專案建置，各有失敗／修正證據；沒有為重看畫面另建置。沿用既有 Turbo，未切換全專案 machine；Vercel／GitHub 實際費用未取得。新增付費服務、專案及 IPv4 add-on 均為 0。
+Phase 0/1 共六次既有專案建置，各有失敗／修正證據；沒有為重看畫面另建置。沿用既有 Turbo，未切換全專案 machine；Vercel／GitHub 實際費用未取得。新增付費服務、專案及 IPv4 add-on 均為 0。
 
-未驗／未開放：另外兩模型的真實 API、真實通路及實體裝置、真模型對抗測試、OpenAI 專案權限／資料控制與實際帳單核對、Phase 2 知識編輯／權威 adapter／真人工作台／實體清理、Phase 3 業務工具／正式 migration／試營運。指南 205 題／96 題待驗歷史未擅改；本次不是全站業務或全部指南驗收。
+Phase 0/1 當時未驗／未開放（知識管理後續已驗，見頁首連結）：另外兩模型的真實 API、真實通路及實體裝置、真模型對抗測試、OpenAI 專案權限／資料控制與實際帳單核對、Phase 2 知識編輯／權威 adapter／真人工作台／實體清理、Phase 3 業務工具／正式 migration／試營運。指南 205 題／96 題待驗歷史未擅改；本次不是全站業務或全部指南驗收。
 
 下一階段與緊急處理遵循 [Runbook](digital-butler-runbook.md)，不得直接將本隔離 Preview promote 正式。

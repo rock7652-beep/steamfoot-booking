@@ -1,5 +1,7 @@
 # AI 數位店長驗收證據
 
+最新知識管理證據：[Phase 2 summary](phase2/summary.json)、[驗收與限制](../../docs/ai/digital-butler-knowledge-acceptance.md)。以下保留 Phase 0/1 歷史。
+
 ## 最新隔離 Preview（2026-11-26 台灣時間）
 
 - `hosted-results.json`：版本、受保護 URL、認證入口、四合成店／四產業 Mock、去重／人工接手／跨店、兩筆真實 API、CI、RWD 與收尾狀態；不含密碼、Cookie 或金鑰。

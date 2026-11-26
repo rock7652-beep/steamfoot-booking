@@ -1,0 +1,433 @@
+{
+  "runtimeSha": "0a094209baf7858eff55c0feb47cb77c552cf302",
+  "deploymentId": "dpl_HbC6fvk9u8ud8gJcCz4qh8iG9LNc",
+  "preview": "https://steamfoot-booking-jn6wva5bq-rock7652-2111s-projects.vercel.app",
+  "project": "ttworfzgwejdeolegkxl",
+  "baselineRequests": 12,
+  "phase2": {
+    "mock": 27,
+    "openai": 1,
+    "inputTokens": 668,
+    "outputTokens": 35,
+    "estimatedMicros": 703,
+    "latencyMs": 3760
+  },
+  "safety": {
+    "stopped": true,
+    "enabledStores": 0,
+    "ledger": [
+      {
+        "provider": "mock",
+        "status": "COMPLETE",
+        "requests": 37,
+        "micros": "0"
+      },
+      {
+        "provider": "openai",
+        "status": "COMPLETE",
+        "requests": 3,
+        "micros": "1310"
+      }
+    ],
+    "pending": 0,
+    "bookingRows": 0,
+    "customerRows": 0,
+    "fixturePrice": "600",
+    "knowledge": [
+      {
+        "store": "ai-preview-beauty",
+        "revision": 2,
+        "publishedVersion": 1,
+        "published": true
+      },
+      {
+        "store": "ai-preview-fitness",
+        "revision": 2,
+        "publishedVersion": 1,
+        "published": true
+      },
+      {
+        "store": "ai-preview-music",
+        "revision": 2,
+        "publishedVersion": 1,
+        "published": true
+      },
+      {
+        "store": "ai-preview-steamfoot",
+        "revision": 6,
+        "publishedVersion": 2,
+        "published": false
+      }
+    ],
+    "rls": [
+      {
+        "table": "AiButlerControl",
+        "enabled": true
+      },
+      {
+        "table": "AiButlerConversation",
+        "enabled": true
+      },
+      {
+        "table": "AiButlerKnowledgeDocument",
+        "enabled": true
+      },
+      {
+        "table": "AiButlerRequest",
+        "enabled": true
+      },
+      {
+        "table": "AiButlerSetting",
+        "enabled": true
+      }
+    ],
+    "role": {
+      "superuser": false,
+      "bypassRls": false,
+      "createRole": false,
+      "connectionLimit": 8,
+      "validUntil": "2026-12-02T14:15:52+00:00",
+      "bookingInsert": false
+    }
+  },
+  "cleanup": {
+    "temporaryShareGrantsRevoked": true,
+    "syntheticSessionStampsUpdated": true,
+    "privateFilesDeleted": true
+  },
+  "ci": {
+    "runId": 45731375762,
+    "passedFiles": 1853,
+    "skippedFiles": 36,
+    "passedTests": 17499,
+    "skippedTests": 337,
+    "localTargetedTests": 61,
+    "typecheck": "passed",
+    "changedLint": "passed",
+    "postgresAudits": 3
+  },
+  "apiLedger": [
+    {
+      "model": "gpt-6-luna",
+      "status": "COMPLETE",
+      "outcome": "ANSWER",
+      "inputTokens": 668,
+      "outputTokens": 35,
+      "estimatedMicros": "703",
+      "latencyMs": 3760,
+      "createdAt": "2026-11-26 00:58:33.146+00",
+      "finishedAt": "2026-11-26 00:58:36.906+00"
+    },
+    {
+      "model": "gpt-6-luna",
+      "status": "COMPLETE",
+      "outcome": "ANSWER",
+      "inputTokens": 335,
+      "outputTokens": 25,
+      "estimatedMicros": "360",
+      "latencyMs": 4716,
+      "createdAt": "2026-11-25 16:18:40.574+00",
+      "finishedAt": "2026-11-25 16:18:45.29+00"
+    },
+    {
+      "model": "gpt-6-luna",
+      "status": "COMPLETE",
+      "outcome": "HANDOFF",
+      "inputTokens": 227,
+      "outputTokens": 20,
+      "estimatedMicros": "247",
+      "latencyMs": 4136,
+      "createdAt": "2026-11-25 16:04:59.622+00",
+      "finishedAt": "2026-11-25 16:05:03.758+00"
+    }
+  ],
+  "browserResults": [
+    {
+      "stage": "crud",
+      "suffix": "steamfoot",
+      "entryMs": 16824,
+      "totalMs": 22549,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "mock",
+      "suffix": "steamfoot",
+      "entryMs": 6244,
+      "totalMs": 23648,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "rwd",
+      "suffix": "steamfoot",
+      "entryMs": 4472,
+      "totalMs": 6031,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "crud",
+      "suffix": "beauty",
+      "entryMs": 10429,
+      "totalMs": 15657,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "mock",
+      "suffix": "beauty",
+      "entryMs": 3916,
+      "totalMs": 18718,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "rwd",
+      "suffix": "beauty",
+      "entryMs": 4886,
+      "totalMs": 5600,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "crud",
+      "suffix": "fitness",
+      "entryMs": 11787,
+      "totalMs": 16626,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "mock",
+      "suffix": "fitness",
+      "entryMs": 4579,
+      "totalMs": 22254,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "rwd",
+      "suffix": "fitness",
+      "entryMs": 4503,
+      "totalMs": 5469,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "crud",
+      "suffix": "music",
+      "entryMs": 11586,
+      "totalMs": 16364,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "mock",
+      "suffix": "music",
+      "entryMs": 4020,
+      "totalMs": 21067,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "rwd",
+      "suffix": "music",
+      "entryMs": 4214,
+      "totalMs": 5490,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "price",
+      "suffix": "steamfoot",
+      "entryMs": 6039,
+      "totalMs": 9425,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "openai",
+      "suffix": "steamfoot",
+      "entryMs": 6796,
+      "totalMs": 12923,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "conflict",
+      "suffix": "steamfoot",
+      "entryMs": 3816,
+      "totalMs": 21400,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "dirty",
+      "suffix": "steamfoot",
+      "entryMs": 3901,
+      "totalMs": 4313,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "stage": "scope",
+      "suffix": "steamfoot",
+      "entryMs": 3815,
+      "totalMs": 7064,
+      "errors": [],
+      "failures": []
+    }
+  ],
+  "rwd": [
+    {
+      "store": "steamfoot",
+      "viewportWidth": 1920,
+      "pngWidth": 1920,
+      "pngHeight": 1595,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "steamfoot",
+      "viewportWidth": 1366,
+      "pngWidth": 1366,
+      "pngHeight": 1615,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "steamfoot",
+      "viewportWidth": 1024,
+      "pngWidth": 1024,
+      "pngHeight": 1655,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "steamfoot",
+      "viewportWidth": 768,
+      "pngWidth": 768,
+      "pngHeight": 1655,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "steamfoot",
+      "viewportWidth": 390,
+      "pngWidth": 390,
+      "pngHeight": 1829,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "steamfoot",
+      "viewportWidth": 360,
+      "pngWidth": 360,
+      "pngHeight": 1849,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "beauty",
+      "viewportWidth": 1366,
+      "pngWidth": 1366,
+      "pngHeight": 1615,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "beauty",
+      "viewportWidth": 1024,
+      "pngWidth": 1024,
+      "pngHeight": 1655,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "beauty",
+      "viewportWidth": 768,
+      "pngWidth": 768,
+      "pngHeight": 1655,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "fitness",
+      "viewportWidth": 1366,
+      "pngWidth": 1366,
+      "pngHeight": 1677,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "fitness",
+      "viewportWidth": 1024,
+      "pngWidth": 1024,
+      "pngHeight": 1717,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "fitness",
+      "viewportWidth": 768,
+      "pngWidth": 768,
+      "pngHeight": 1717,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "music",
+      "viewportWidth": 1366,
+      "pngWidth": 1366,
+      "pngHeight": 1677,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "music",
+      "viewportWidth": 1024,
+      "pngWidth": 1024,
+      "pngHeight": 1717,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    },
+    {
+      "store": "music",
+      "viewportWidth": 768,
+      "pngWidth": 768,
+      "pngHeight": 1717,
+      "horizontalOverflow": false,
+      "draftPreserved": true
+    }
+  ],
+  "timings": {
+    "crud": {
+      "samples": 4,
+      "medianMs": 11686.5,
+      "minMs": 10429,
+      "maxMs": 16824
+    },
+    "mock": {
+      "samples": 4,
+      "medianMs": 4299.5,
+      "minMs": 3916,
+      "maxMs": 6244
+    },
+    "rwd": {
+      "samples": 4,
+      "medianMs": 4487.5,
+      "minMs": 4214,
+      "maxMs": 4886
+    }
+  },
+  "timingLimit": "Single sample per store/stage; pooled four-store descriptive statistics, not a controlled before/after performance comparison. CRUD includes login; later entries use fresh browser contexts with saved synthetic sessions.",
+  "sourceSelection": {
+    "model": "gpt-6-luna",
+    "action": "answer",
+    "suppliedSources": 5,
+    "selectedSources": 1,
+    "selectedSourceAllowed": true,
+    "handoff": false
+  }
+}
