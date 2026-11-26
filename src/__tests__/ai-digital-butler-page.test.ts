@@ -8,7 +8,7 @@ vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.scope }));
 vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.deterministic, getStoreFeaturePresentation: m.ai }));
 vi.mock("@/lib/db", () => ({ prisma: { store: { findUnique: m.store } } }));
-vi.mock("@/server/ai/database", () => ({ aiButlerRepository: m.repository }));
+vi.mock("@/server/ai/database", () => ({ aiButlerRepository: m.repository, aiButlerDatabase: vi.fn() }));
 vi.mock("../../scripts/ai-digital-butler-preview-scope.mjs", () => ({ claimsAiPreview: () => true, assertAiPreview: vi.fn() }));
 vi.mock("@/server/services/digital-butler", () => ({ DigitalButlerService: class { listFlows = m.flows; } }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NOT_FOUND"); } }));
@@ -16,6 +16,8 @@ vi.mock("@/components/settings/settings-navigation", () => ({ SettingsReturnLink
 vi.mock("@/components/desktop", () => ({ PageShell: ({ children }: { children: ReactNode }) => h("main", null, children), PageHeader: () => null }));
 vi.mock("../app/(dashboard)/dashboard/settings/digital-butler/flow-editor", () => ({ DigitalButlerFlowEditor: m.editor }));
 vi.mock("../app/(dashboard)/dashboard/settings/digital-butler/ai-panel", () => ({ AiButlerPanel: m.panel }));
+vi.mock("@/server/ai/knowledge-repository", () => ({ AiKnowledgeRepository: class { read = async () => ({ draft: { introduction: "", faqs: [], prohibitedTerms: [], references: { hours: false, services: false, prices: false } }, published: null, revision: 0, publishedVersion: 0, publishedAt: null }); } }));
+vi.mock("../app/(dashboard)/dashboard/settings/digital-butler/ai-knowledge-panel", () => ({ AiKnowledgePanel: () => h("div", null, "KNOWLEDGE_PANEL") }));
 import Page from "../app/(dashboard)/dashboard/settings/digital-butler/page";
 beforeEach(() => {
   vi.clearAllMocks(); vi.stubEnv("AI_IDENTITY_SECRET", "s".repeat(40));
@@ -27,7 +29,7 @@ beforeEach(() => {
 });
 it("AI-only grant mounts the existing settings page without querying or mounting deterministic flows", async () => {
   const html = renderToStaticMarkup(await Page());
-  expect(html).toContain("AI_PANEL"); expect(html).not.toContain("DETERMINISTIC_EDITOR"); expect(m.flows).not.toHaveBeenCalled();
+  expect(html).toContain("AI_PANEL"); expect(html).toContain("KNOWLEDGE_PANEL"); expect(html).not.toContain("DETERMINISTIC_EDITOR"); expect(m.flows).not.toHaveBeenCalled();
   expect(m.panel.mock.calls[0][0].initialHandoff).toBe(true);
 });
 it("the existing Butler still works with AI off, without touching AI persistence", async () => {

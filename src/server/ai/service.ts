@@ -2,6 +2,8 @@ import "server-only";
 import { createHmac } from "node:crypto";
 import { z } from "zod";
 import { AI_HANDOFF_TEXT, AI_LIMITS, aiAnswerSchema, aiChannelSchema, aiModuleSchema, aiModelSchema, redactAiText, type AiChannel, type AiModule } from "./contracts";
+import { aiTopicBlocked, aiProtectedRequest } from "./knowledge-document";
+import type { AiKnowledgeSnapshot } from "./knowledge-sources";
 import { selectAiKnowledge, renderAiAnswer } from "./knowledge";
 import { aiCostMicros, assertAiInputBound, type AiProvider, type AiRate } from "./provider";
 import type { AiButlerRepository } from "./repository";
@@ -19,7 +21,7 @@ export class AiButlerService {
   constructor(private readonly repository: AiButlerRepository, private readonly provider: AiProvider,
     private readonly authorize: (scope: TrustedAiScope) => Promise<void>, private readonly identitySecret: string,
     private readonly rateForModel: (model: import("./contracts").AiModel) => AiRate | null, private readonly enabled: () => boolean, private readonly clock = () => new Date()) {}
-  async respond(scope: TrustedAiScope, eventId: string, message: string, records: unknown[]): Promise<AiServiceResult> {
+  async respond(scope: TrustedAiScope, eventId: string, message: string, records: unknown[], published?: { snapshot: AiKnowledgeSnapshot; reload: () => Promise<AiKnowledgeSnapshot> }): Promise<AiServiceResult> {
     const stopped: AiServiceResult = { outcome: "STOPPED", text: "AI 目前暫停服務，既有預約及數位管家不受影響。", sourceIds: [] };
     let identity: ReturnType<typeof aiIdentity> | undefined;
     let reserved = false;
@@ -37,16 +39,25 @@ export class AiButlerService {
       const rate = this.rateForModel(model);
       if (this.provider.kind === "openai" && !rate) return stopped;
       const ceiling = rate ? aiCostMicros(rate, AI_LIMITS.maxInputTokens, AI_LIMITS.maxOutputTokens) : 0;
+      assertAiInputBound({ model, message: safeMessage, knowledge, summary: Array(4).fill("SOURCE:" + "x".repeat(100)) });
       const claim = await this.repository.reserve({ ...identity, model, heldMicros: ceiling, provider: this.provider.kind, now: started }, scope.channel);
       if (claim.duplicate) return { outcome: "DUPLICATE", text: "", sourceIds: [] };
       reserved = true;
       const providerInput = { model, message: safeMessage, knowledge, summary: claim.summary };
       assertAiInputBound(providerInput);
-      const result = await this.provider.respond(providerInput);
+      const blocked = aiProtectedRequest(message) || (published && (published.snapshot.module !== scope.module || !knowledge.length || aiTopicBlocked(message, published.snapshot.prohibitedTerms)));
+      const result = blocked ? { answer: { action: "handoff" as const, sourceIds: [] }, inputTokens: 0, outputTokens: 0 } : await this.provider.respond(providerInput);
       const answer = aiAnswerSchema.parse(result.answer);
       if (![result.inputTokens, result.outputTokens].every(n => Number.isSafeInteger(n) && n >= 0)) throw new Error("AI_USAGE_INVALID");
       const cost = rate ? aiCostMicros(rate, result.inputTokens, result.outputTokens) : 0;
-      const rendered = renderAiAnswer(answer, selectAiKnowledge(scope.storeId, scope.module, knowledge, this.clock()));
+      let currentKnowledge = knowledge;
+      if (published) {
+        try {
+          const current = await published.reload();
+          currentKnowledge = current.fingerprint === published.snapshot.fingerprint && current.module === scope.module && !aiTopicBlocked(message, current.prohibitedTerms) ? current.records : [];
+        } catch { currentKnowledge = []; }
+      }
+      const rendered = renderAiAnswer(answer, selectAiKnowledge(scope.storeId, scope.module, currentKnowledge, this.clock()));
       if (this.provider.kind === "openai" && /^ai-preview-(steamfoot|beauty|fitness|music)$/.test(scope.storeId)) {
         // Synthetic Preview diagnostics only; no text, IDs, credentials or actor data.
         console.info("[ai-preview] source_selection", { model, action: answer.action,

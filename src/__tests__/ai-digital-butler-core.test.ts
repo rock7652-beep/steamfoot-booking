@@ -205,3 +205,25 @@ describe("Preview isolation", () => {
     expect(rows[0].denied).toBe(true);
   });
 });
+
+describe("published knowledge late-result protection", () => {
+  const snapshot = () => ({ module: scope.module, records: syntheticAiKnowledge(scope.storeId, scope.module, now), prohibitedTerms: ["禁止詞"], fingerprint: "v1" });
+  it("a prohibited question transfers with zero provider calls and zero cost", async () => {
+    const respond = vi.fn();
+    const source = snapshot();
+    const result = await service({ kind: "openai", respond }).respond(scope, "policy", "禁止 詞？", source.records, { snapshot: source, reload: async () => source });
+    expect(result.outcome).toBe("HANDOFF"); expect(respond).not.toHaveBeenCalled();
+    expect((await repo.usage(scope.storeId, now)).reservedMicros).toBe("0");
+    expect((await repo.conversationState(identity("policy"))).handoff).toBe(true);
+  });
+  it.each(["withdraw", "price-change", "module-change", "source-unavailable"])("suppresses a paid late result after %s without retaining an unknown reservation", async reason => {
+    const source = snapshot();
+    const provider: AiProvider = { kind: "openai", respond: async () => ({ answer: { action: "answer", sourceIds: [source.records[0].id] }, inputTokens: 100, outputTokens: 20 }) };
+    const result = await service(provider).respond(scope, "late", "營業時間？", source.records, { snapshot: source, reload: async () => {
+      if (reason === "source-unavailable") throw new Error("offline");
+      return { ...source, ...(reason === "module-change" ? { module: "MUSIC" as const } : { fingerprint: "v2" }), ...(reason === "withdraw" ? { records: [] } : {}) };
+    } });
+    expect(result.outcome).toBe("HANDOFF"); expect(result.sourceIds).toEqual([]);
+    expect((await db.query('SELECT status,"estimatedMicros" FROM "AiButlerRequest"')).rows).toEqual([{ status: "COMPLETE", estimatedMicros: 120 }]);
+  });
+});

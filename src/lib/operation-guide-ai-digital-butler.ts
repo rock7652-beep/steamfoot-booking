@@ -1,14 +1,14 @@
 import type { OperationGuide } from "./operation-guide-types";
 export const aiDigitalButlerGuide: OperationGuide = {
-  id: "AI-BUTLER-PREVIEW-01", category: "care", title: "如何測試 AI 數位店長與真人接手？",
-  summary: "目前僅開放合成測試店，先模擬回覆，再確認人工接手與用量。",
+  id: "AI-BUTLER-PREVIEW-01", category: "care", title: "如何管理 AI 店家知識與測試回覆？",
+  summary: "目前僅開放合成測試店；知識先存草稿、再發布，測試引用已發布版本。",
   answer: "在數位管家設定內開啟 AI 測試，選擇合成產業及情境並測試回覆；真人接手後須明確恢復 AI。正式客服尚未開放。",
   path: "後台 → 設定 → 通知與顧客經營 → 數位管家",
-  keywords: "AI 數位店長 模擬回覆 真人接手 測試 額度 用量 知識庫 未開放",
-  steps: ["切換到已授權的合成測試店，從原數位管家入口查看 AI 狀態。", "開啟測試並展開，先選模擬回覆及測試情境；不輸入真實顧客資料。", "點測試回覆，確認回覆、未知問題轉接及用量摘要。", "模擬真人接手後確認 AI 暫停，再明確恢復測試。關閉 AI 不影響原流程、預約或通知。"],
-  important: "此功能尚未正式上線。知識庫編輯、真實 LINE/Messenger 客服、即時查詢及預約操作尚未開放。",
+  keywords: "AI 數位店長 模擬回覆 真人接手 測試 額度 用量 知識庫 草稿 發布 撤下 FAQ 禁止事項",
+  steps: ["切換到已授權的合成測試店，從原數位管家入口查看 AI 狀態。", "開啟測試並展開，先選模擬回覆及測試情境；不輸入真實顧客資料。", "點測試回覆，確認回覆、未知問題轉接及用量摘要。", "展開店家知識，填寫介紹、FAQ 與禁止關鍵詞；引用營業時間、公開服務或公開方案定價時，先核對原設定。", "儲存知識草稿後發布；修改草稿不影響已發布版本。版本衝突時保留本機草稿，核對後再重新載入。", "在已發布知識測試區輸入合成問題，先用模擬回覆（完整問題比對），再視授權選用 OpenAI；撤下後停止引用。", "模擬真人接手後確認 AI 暫停，再明確恢復測試。關閉 AI 不影響原流程、預約或通知。"],
+  important: "此功能尚未正式上線。知識管理僅供隔離測試。真實 LINE/Messenger 客服、即時查詢及預約操作尚未開放。",
   success: "測試回覆及用量可核對，接手後停止 AI，失敗顯示在原位置。",
-  details: ["HQ AI 授權獨立於原數位管家與訂閱方案；僅開通權益不會自動啟用客服。", "OpenAI 測試需工程人員先完成隔離、金鑰與預算檢查，供應商費用另計。用量顯示含預留及保守估算，不是實際帳單。"],
+  details: ["HQ AI 授權獨立於原數位管家與訂閱方案；僅開通權益不會自動啟用客服。", "禁止事項採關鍵詞正規化比對，不能取代完整客服規則。引用每次讀取原設定；缺少公開資料、超過六項或安全內容上限時，請先核對來源。", "OpenAI 測試需工程人員先完成隔離、金鑰與預算檢查，供應商費用另計。用量顯示含預留及保守估算，不是實際帳單。"],
   modules: ["steamfoot", "beauty", "course"], permission: "plans.edit", feature: "ai_digital_butler", kind: "howto", verification: "source-reviewed",
-  sources: ["src/app/(dashboard)/dashboard/settings/digital-butler/page.tsx", "src/app/(dashboard)/dashboard/settings/digital-butler/ai-panel.tsx", "docs/ai/digital-butler-runbook.md"],
+  sources: ["src/app/(dashboard)/dashboard/settings/digital-butler/page.tsx", "src/app/(dashboard)/dashboard/settings/digital-butler/ai-panel.tsx", "src/app/(dashboard)/dashboard/settings/digital-butler/ai-knowledge-panel.tsx", "docs/ai/digital-butler-runbook.md"],
 };

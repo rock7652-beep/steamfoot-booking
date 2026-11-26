@@ -95,7 +95,10 @@ export class MockAiProvider implements AiProvider {
   readonly kind = "mock" as const;
   async respond(input: AiProviderInput): Promise<AiProviderResult> {
     assertAiInputBound(input);
-    const known = /^(?:測試店的)?營業時間[？?]?$/.test(input.message.trim()) && input.knowledge[0];
+    const normalize = (text: string) => text.normalize("NFKC").replace(/[？?。\s]/gu, "");
+    const question = normalize(input.message);
+    const known = input.knowledge.find(row => normalize(row.question) === question)
+      ?? (/^(?:測試店的)?營業時間$/.test(question) ? input.knowledge.find(row => row.question.includes("營業時間")) : undefined);
     return { answer: { action: known ? "answer" : "handoff", sourceIds: known ? [known.id] : [] }, inputTokens: 100, outputTokens: 20 };
   }
 }
