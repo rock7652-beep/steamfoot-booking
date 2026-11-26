@@ -16,7 +16,7 @@ describe("incremental guide audit accounting", () => {
     expect(frontendPending.size).toBe(state.frontendInteractionPendingGuideIds.length);
     expect(state.backendInteractionPendingCount).toBe(pending.size);
     expect(state.totalInteractionPendingCount).toBe(pending.size + frontendPending.size);
-    expect(state.totalInteractionPendingCount).toBe(95);
+    expect(state.totalInteractionPendingCount).toBe(151);
     expect(state.maintenanceScope).toBe("backend-only");
     expect(state.frontendInteractionPendingGuideIds).toEqual([]);
     expect(state.frontendGuideRetirement.status).toBe("retired-not-verified");
@@ -32,14 +32,20 @@ describe("incremental guide audit accounting", () => {
   });
 
   it("records the current main and attributes prior acceptance without clearing new revisions", () => {
-    expect(state.lastInventoriedMainCommit).toBe("4efcd72bf513953521665f2556f719d1f73b5e8c");
-    expect(state.previousSuccessfulAuditCommit).toBe("7cb8c26127f60337c159b05391bc90f3263246ad");
+    expect(state.lastInventoriedMainCommit).toBe("378cd9475317f6c4ab804f0e48642f1d4f0f567a");
+    expect(state.previousSuccessfulAuditCommit).toBe("480532648bbba30fae97e91207fb7514119c6223");
     expect(state.priorUserAcceptance.status).toBe("user-confirmed-passed");
     expect(state.authenticatedAcceptance.guideIdsCleared).toEqual([]);
     expect(state.backendCatalogFrontendRetirement.articleCount).toBe(8);
     expect(state.frontendNewGuideIds).toEqual([]);
     const history = JSON.parse(readFileSync(state.previousAuditSnapshot, "utf8"));
-    expect(history.lastInventoriedMainCommit).toBe("84aca95aa5ec3ce30c56a492037acf066ad10291");
-    expect(history.totalInteractionPendingCount).toBe(155);
+    expect(history.lastInventoriedMainCommit).toBe("480532648bbba30fae97e91207fb7514119c6223");
+    expect(history.totalInteractionPendingCount).toBe(151);
+    expect(state.interactionPendingGuideIds.filter((id: string) => !history.interactionPendingGuideIds.includes(id))).toEqual([]);
+    expect(history.interactionPendingGuideIds.every((id: string) => state.interactionPendingGuideIds.includes(id))).toBe(true);
+    const reconciliation = JSON.parse(readFileSync(state.acceptanceReconciliation.data, "utf8"));
+    expect(reconciliation.rows.map((row: { id: string }) => row.id).sort()).toEqual([...state.interactionPendingGuideIds].sort());
+    expect(reconciliation.priorGuideAcceptancePreserved).toBe(92);
+    expect(reconciliation.noPerGuideLoginEvidence).toBe(59);
   });
 });
