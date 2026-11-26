@@ -1,0 +1,18 @@
+{
+  "run": 45782713571,
+  "head": "62ab14c21119351efef5f0cf8996156f7c7abe13",
+  "initialAttempt": {
+    "testsPassed": 17713,
+    "testsFailed": 2,
+    "testsSkipped": 340,
+    "failure": "Two existing PGlite migration cases timed out at the default 5000 ms; no assertion failure",
+    "files": ["booking-participants-production-release.test.ts", "image-announcements-migration.test.ts"]
+  },
+  "localReproduction": {"files": 2, "passed": 2, "failed": 2, "sameTimeouts": true},
+  "repair": "Explicit 30000 ms only on the two engine-backed cases; all assertions, RLS checks, SQL and production code unchanged",
+  "localAfterRepair": {"filesPassed": 2, "testsPassed": 4, "testsFailed": 0, "seconds": 8.77},
+  "supersededRerun": "Only the failed full-suite job was queued, then cancelled after local reproduction established the need for the targeted timeout repair",
+  "newPreviewBuildsForRepair": 0,
+  "newModelCallsForRepair": 0,
+  "finalCi": "See the PR checks for the repair commit; do not treat the initial failed run as green"
+}

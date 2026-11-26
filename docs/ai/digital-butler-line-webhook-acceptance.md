@@ -4,7 +4,7 @@
 
 ## 版本及結果
 
-- Runtime `005ce6e61562a1e5694b7537fbcbdb5d04eab5da`；後續文件／證據提交不修改產品程式。
+- Runtime `005ce6e61562a1e5694b7537fbcbdb5d04eab5da`；後續文件／證據及測試時限提交不修改產品程式。
 - [受保護 Preview](https://steamfoot-booking-26jkkka2o-rock7652-2111s-projects.vercel.app)，deployment `dpl_8XMZsnsSwHjMs9cFRRSqSYbm2Nn1`，READY、來源 SHA 相符。一次必要建置，無環境變數或 schema 修改，不重建文件。
 - 本機 10 檔／223 項通過；最後兩個新檔 56 項再驗（與前述重疊），型別及 ESLint 通過。
 - [runtime CI 45780302669](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/45780302669) 四個 job 成功，1,866 檔／17,715 項 passed、36 檔／340 項 skipped，558.78 秒。音樂、運動、混合課程隔離 workflow 通過；Booking／Editorial 依條件 skipped，不冒稱執行。
@@ -50,3 +50,9 @@
 真實 LINE OA／LINE HTTP 來源、Messaging 傳送及回執、真實會員權益與 Login、CENTRAL／共用 OA、正式原流程跨事件 repository、其他模型、真機及暖暖試營運仍未驗。顧客身分衝突及預算上限的完整矩陣在本機替代權威來源／PGlite 測試，不能算真實會員雲端驗收。HTTP fixture 身分永遠 GUEST，不開放會員工具；fixture 原流程仍 request-local。固定 Mock 與阻擋 sink 是本輪範圍，沒有啟用真實 OA 或付費 Provider。
 
 本輪沒有修改 UI 或 HQ 控制。依 Framework 保留原入口、既有待人工清單與確認恢復，不新增第二個工作台；HQ 三態後端權限有測試。後台指南仍 source-reviewed、205／96 不變，不新增前台指南。
+
+## 最終文件提交的 CI 逾時修正
+
+文件／證據提交 62ab14c21 的 CI 45782713571 首次全量為 17,713 passed、2 failed、340 skipped。兩個既有 PGlite migration 案例（booking-participants-production-release、image-announcements-migration）觸及預設 5 秒逾時，本機單獨重跑也重現相同兩項逾時，沒有斷言失敗。僅這兩個引擎案例明訂 30 秒，保留全部 SQL、RLS、外鍵、跨店及權限斷言；兩檔四項再驗通過（8.77 秒）。沒有修改相關產品模組或全域測試設定。
+
+失敗 full-suite job 原先已排單獨重跑，定位後取消該次重跑，改由此小修的最終提交執行 CI；結果以 PR checks 為準。[診斷](../../artifacts/ai-digital-butler/line-webhook/ci-timeout-diagnostic.json)保留初次失敗，不把它改寫成成功。此修正無需重新部署，仍沿用已驗 005ce6e61 的 Preview，新增模型／外發／建置皆 0。

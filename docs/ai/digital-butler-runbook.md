@@ -5,7 +5,7 @@
 ## 已驗證版本與目前狀態
 
 - PR [#1596](https://github.com/rock7652-beep/steamfoot-booking/pull/1596)，支線 `feat/ai-digital-butler-core`。
-- 程式／Preview SHA：`005ce6e61562a1e5694b7537fbcbdb5d04eab5da`；後續純文件／證據提交以 PR head 為準，不另建相同程式 Preview。
+- 程式／Preview SHA：`005ce6e61562a1e5694b7537fbcbdb5d04eab5da`；後續文件／證據及測試時限提交以 PR head 為準，不另建相同程式 Preview。
 - [受保護 Preview](https://steamfoot-booking-26jkkka2o-rock7652-2111s-projects.vercel.app)，deployment `dpl_8XMZsnsSwHjMs9cFRRSqSYbm2Nn1`，READY。
 - 2026-11-26（台灣時間）完成核心與知識管理的隔離登入、發布／撤下、來源引用、Mock、最小真實 API、帳本與 RWD 驗收。
 - 收尾狀態：**global stopped=true、四店 enabled=false**，53 筆請求全部 COMPLETE，RESERVED／UNKNOWN 0；48 筆 Mock、5 筆 OpenAI，累計保守估算 US$0.002690。累計估算不是供應商帳單；早期串接新增 7 Mock；人工接手管理本身不呼叫模型；最新合成 LINE 演練新增 2 筆真實 API／2 筆 Mock，累計 113 筆 Dispatch 全部 COMPLETE、12 筆恢復 audit。原先 1 筆合成接手旗標保留。
