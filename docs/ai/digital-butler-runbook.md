@@ -111,3 +111,7 @@ Phase 0/1 六次部署的版本、失敗及修正保留在 [runtime 歷史](../.
 新版接入與安全契約見 [LINE Webhook](digital-butler-line-webhook.md)。HTTP 固定 Mock、回覆只記 OUTBOUND_BLOCKED，沒有修改 TEST 開關、額度或真實外發；不沿用前輪一次性連結授權。實際 CI／部署／雲端證據依該階段補記，不將本機 fixture 當正式 OA 驗收。
 
 實測已完成：[14 項雲端驗收](digital-butler-line-webhook-acceptance.md)，新增兩筆 Mock、真實 OpenAI 0、全部回覆只記阻擋 sink；美業當日 15／20。QA 登出修正版雲端通過，原失敗保留；總停止／四店關閉、密碼清除及兩條短效連結撤銷均已核對。不代表真實 OA 或外發已驗。
+
+## 獨立測試 OA 準備（仍停止）
+
+[唯讀盤查與離線預檢](digital-butler-line-platform-preparation.md)記錄下一輪真實 LINE 平台收發的阻擋與授權順序。新增工具不連線、不啟用 sender，沒有 runtime 或環境設定修改；尚未選定專用測試 OA、開通平台入口或核對其憑證。原停止、四店關閉、外發封鎖與已驗 Preview 均保留。
