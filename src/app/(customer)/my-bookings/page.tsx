@@ -7,6 +7,11 @@ import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import { getFrontendPlans } from "@/server/queries/plan";
 import { getShopConfig } from "@/lib/shop-config";
 import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
+import { claimsAiPreview } from "../../../../scripts/ai-digital-butler-preview-scope.mjs";
+import { aiMemberContext } from "@/server/ai/member-context";
+import { AiMemberBookingsPanel } from "./ai-member-bookings-panel";
+import { addTaiwanDuration, toLocalDateStr } from "@/lib/date-utils";
 import { AppLink as Link } from "@/components/app-link";
 import type { PlanCategory } from "@prisma/client";
 import {
@@ -38,6 +43,10 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/");
+  let aiMemberViewKey: string | null = null;
+  if (claimsAiPreview() && ["ai-preview-member-user-a", "ai-preview-member-user-b"].includes(user.id)) {
+    try { aiMemberViewKey = (await aiMemberContext()).viewKey; } catch { notFound(); }
+  }
 
   const tab: Tab = params.tab ?? "upcoming";
   const storeCtx = await getStoreContext();
@@ -146,6 +155,7 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
         )}
       </div>
 
+      {aiMemberViewKey && <AiMemberBookingsPanel key={aiMemberViewKey} viewKey={aiMemberViewKey} initialDate={addTaiwanDuration(toLocalDateStr(), 1, "DAY")} />}
       {/* 方案摘要 — 整張卡可點 */}
       <Link
         href={cardHref}

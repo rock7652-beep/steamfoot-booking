@@ -87,3 +87,30 @@ export async function readFetchLiffBookings({ storeId, customerId }: { storeId: 
     history: history.map(toRow),
   };
 }
+
+/** Minimal self-service read. Confirmed membership only; no contact recovery,
+ * binding writes, staff impersonation or caller-supplied customer/store. */
+export async function listConfirmedMyBookings(input: { date: string; page: number }) {
+  const { z } = await import("zod");
+  const { requireSession } = await import("@/lib/session");
+  const { getCanonicalCustomerForSession } = await import("@/lib/customer-identity");
+  const { AppError } = await import("@/lib/errors");
+  const parsed = z.object({ date: z.string().date(), page: z.number().int().min(1).max(1000) }).strict().parse(input);
+  const user = await requireSession();
+  if (user.role !== "CUSTOMER") throw new AppError("FORBIDDEN", "請以本人會員身分登入");
+  const identity = await getCanonicalCustomerForSession(user, { confirmedOnly: true });
+  if (!identity?.verifiedUserVersion) throw new AppError("FORBIDDEN", "無法確認本人會員關係");
+  const where = { storeId: identity.storeId, customerId: identity.id, bookingDate: new Date(`${parsed.date}T00:00:00Z`) };
+  const [rows, total] = await prisma.$transaction([
+    prisma.booking.findMany({ where, select: { bookingDate: true, slotTime: true, bookingStatus: true, people: true },
+      orderBy: [{ slotTime: "asc" }, { id: "asc" }], take: 25, skip: (parsed.page - 1) * 25 }),
+    prisma.booking.count({ where }),
+  ], { isolationLevel: "RepeatableRead" });
+  const current = await getCanonicalCustomerForSession(user, { confirmedOnly: true });
+  if (!current || current.id !== identity.id || current.storeId !== identity.storeId || current.verifiedUserVersion !== identity.verifiedUserVersion) {
+    throw new AppError("FORBIDDEN", "會員關係已變更，請重新確認");
+  }
+  return { identity: { userId: user.id, customerId: identity.id, storeId: identity.storeId, userVersion: identity.verifiedUserVersion },
+    date: parsed.date, page: parsed.page, pageSize: 25 as const, total,
+    bookings: rows.map(row => ({ date: row.bookingDate.toISOString().slice(0, 10), time: row.slotTime, status: row.bookingStatus, people: row.people })) };
+}

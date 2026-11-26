@@ -44,6 +44,8 @@ export interface CanonicalCustomer {
   storeId: string;
   /** 是否走 fallback path 救回（A path stale 後從 userId/email 找回）— 後台診斷用 */
   recoveredFromStaleSession: boolean;
+  /** Only returned by the confirmed, read-only path; never taken from JWT. */
+  verifiedUserVersion?: string;
 }
 
 /**
@@ -59,7 +61,20 @@ export interface CanonicalCustomer {
  */
 export async function getCanonicalCustomerForSession(
   user: SessionLikeForIdentity,
+  options?: { confirmedOnly?: boolean },
 ): Promise<CanonicalCustomer | null> {
+  if (options?.confirmedOnly) {
+    if (!user.id || !user.storeId || user.storeId === "__all__") return null;
+    const { prisma } = await import("@/lib/db");
+    const { resolveCentralMemberCustomerForStore } = await import("@/server/services/central-member-resolver");
+    const account = await prisma.user.findUnique({ where: { id: user.id }, select: { status: true, updatedAt: true } });
+    if (!account || account.status !== "ACTIVE") return null;
+    const membership = await resolveCentralMemberCustomerForStore(user.id, user.storeId);
+    if (!membership || membership.userId !== user.id || membership.storeId !== user.storeId) return null;
+    return { id: membership.customerId, storeId: membership.storeId,
+      recoveredFromStaleSession: user.customerId !== membership.customerId,
+      verifiedUserVersion: account.updatedAt.toISOString() };
+  }
   const resolved = await resolveCustomerForUser({
     userId: user.id,
     sessionCustomerId: user.customerId ?? null,
