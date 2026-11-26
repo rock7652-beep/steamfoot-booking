@@ -1,0 +1,1097 @@
+{
+  "kind": "Local real Brand management/core -> matching PGlite/RLS/minimum role/real AuditLog triggers; not cloud acceptance",
+  "schema": {
+    "columnsMatched": 12,
+    "constraintsMatched": 10,
+    "policiesMatched": 4,
+    "knowledgeTriggers": 0,
+    "auditTriggers": 2
+  },
+  "cases": [
+    {
+      "case": "reads the actual published Brand knowledge and records one zero-cost Mock event with trusted audit",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "6ef84772fd51f5229ceb26beb75e7632ba383aabca51607bb752166d1d2038c6",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 47,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:02.205Z",
+          "finishedAt": "2026-11-26T20:42:02.252Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "6ef84772fd51f5229ceb26beb75e7632ba383aabca51607bb752166d1d2038c6",
+            "operation": "test",
+            "commandDigest": "f273e283b9444ea165eb42f1d80e4a2bb27bd77bd809b0d7ed3ec896142a0558"
+          }
+        }
+      ],
+      "conversation": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "handoff": false,
+          "revision": 0,
+          "summary": [
+            "SOURCE:brand-ba1929268e4dcbe951e5c005-1"
+          ],
+          "expiresAt": "2026-12-03T20:42:02.252Z"
+        }
+      ],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "never-published knowledge cannot be cited and persists an automatic human handoff",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "b5687e0f4255b695fc525adb9ad491e6368660b420a91c4c69912cb1eaf99549",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "latencyMs": 28,
+          "outcome": "HANDOFF",
+          "createdAt": "2026-11-26T20:42:02.311Z",
+          "finishedAt": "2026-11-26T20:42:02.339Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 0,
+              "knowledgeRevision": 0
+            },
+            "eventKey": "b5687e0f4255b695fc525adb9ad491e6368660b420a91c4c69912cb1eaf99549",
+            "operation": "test",
+            "commandDigest": "2a820a4af5f4a2e15cf7427c98921fa5bd268fb891a43b158a5419a5a2ad8163"
+          }
+        }
+      ],
+      "conversation": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "handoff": true,
+          "revision": 1,
+          "summary": [
+            "HANDOFF"
+          ],
+          "expiresAt": "2026-12-03T20:42:02.339Z"
+        }
+      ],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "withdrawn knowledge cannot be cited and persists an automatic human handoff",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "755370f400df17985d9aed6b1363dc7958dc9a4b57015f10e10e79fa9fbb7186",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "latencyMs": 25,
+          "outcome": "HANDOFF",
+          "createdAt": "2026-11-26T20:42:02.384Z",
+          "finishedAt": "2026-11-26T20:42:02.410Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 2,
+              "knowledgeRevision": 2
+            },
+            "eventKey": "755370f400df17985d9aed6b1363dc7958dc9a4b57015f10e10e79fa9fbb7186",
+            "operation": "test",
+            "commandDigest": "505142fb4761778f0cbd7e3b11c1c5dde2117865d112efe8fcee562c6cf0b529"
+          }
+        }
+      ],
+      "conversation": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "handoff": true,
+          "revision": 1,
+          "summary": [
+            "HANDOFF"
+          ],
+          "expiresAt": "2026-12-03T20:42:02.410Z"
+        }
+      ],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "keeps the published version until re-publication and never cites a previous version afterwards",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "2a52f68dd4b096d2f30caa2c72d23f95e542f9e69284aac80d73d67afddd6ffb",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 21,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:02.571Z",
+          "finishedAt": "2026-11-26T20:42:02.592Z"
+        },
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "9d33af1f4960e5cffb8ef8215c85882b0baca8e514120fce1bfa76ac591fea2d",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 35,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:02.469Z",
+          "finishedAt": "2026-11-26T20:42:02.504Z"
+        },
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "e96fbed688c8b6667f1cfb6c9d590b67434b2bd6411827aff03d872fe153b9a1",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 18,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:02.531Z",
+          "finishedAt": "2026-11-26T20:42:02.549Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "9d33af1f4960e5cffb8ef8215c85882b0baca8e514120fce1bfa76ac591fea2d",
+            "operation": "test",
+            "commandDigest": "4c0fb737a23b0519f8f30d4912bdf5b58cfcccda7dabf1af47356daf213a49d9"
+          }
+        },
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 2
+            },
+            "eventKey": "e96fbed688c8b6667f1cfb6c9d590b67434b2bd6411827aff03d872fe153b9a1",
+            "operation": "test",
+            "commandDigest": "07fc9fbcc2f5b95a63745f5100566cdc7fed82ae1925a3f39bf9c4dd70629306"
+          }
+        },
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 3,
+              "knowledgeRevision": 3
+            },
+            "eventKey": "2a52f68dd4b096d2f30caa2c72d23f95e542f9e69284aac80d73d67afddd6ffb",
+            "operation": "test",
+            "commandDigest": "6afd384faa85d263aea113601a3859dffe38d88ec3e861d874d9e49d536f0dff"
+          }
+        }
+      ],
+      "conversation": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "handoff": false,
+          "revision": 0,
+          "summary": [
+            "SOURCE:brand-670344e3762696e4a4d9b61f-1",
+            "SOURCE:brand-670344e3762696e4a4d9b61f-1",
+            "SOURCE:brand-65f566e7ea30f0c4732ea3c0-1"
+          ],
+          "expiresAt": "2026-12-03T20:42:02.592Z"
+        }
+      ],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "a withdraw during Mock selection suppresses stale sources",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "a623f3ea1ec7c14a7de2aff395a7f524c4788ca9b15149493445302781dd8ca6",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 25,
+          "outcome": "HANDOFF",
+          "createdAt": "2026-11-26T20:42:02.639Z",
+          "finishedAt": "2026-11-26T20:42:02.664Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "a623f3ea1ec7c14a7de2aff395a7f524c4788ca9b15149493445302781dd8ca6",
+            "operation": "test",
+            "commandDigest": "a07aa8c89c852f3efb2eceed3b875ada685f84c2ba71ef144bca45184d342895"
+          }
+        }
+      ],
+      "conversation": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "handoff": true,
+          "revision": 1,
+          "summary": [
+            "HANDOFF"
+          ],
+          "expiresAt": "2026-12-03T20:42:02.664Z"
+        }
+      ],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "a republish during Mock selection suppresses stale sources",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "4c97d96d8338dc3075143b3658f97dd5fb477faba49865a42d7e250ccfdf640b",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 26,
+          "outcome": "HANDOFF",
+          "createdAt": "2026-11-26T20:42:02.701Z",
+          "finishedAt": "2026-11-26T20:42:02.727Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "4c97d96d8338dc3075143b3658f97dd5fb477faba49865a42d7e250ccfdf640b",
+            "operation": "test",
+            "commandDigest": "63534645bfe2e130332627d09ad1aac00fcd2d57f5137449829a0d317ea6312b"
+          }
+        }
+      ],
+      "conversation": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "handoff": true,
+          "revision": 1,
+          "summary": [
+            "HANDOFF"
+          ],
+          "expiresAt": "2026-12-03T20:42:02.727Z"
+        }
+      ],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "unknown questions enter persisted handoff and subsequent questions stay silent without a new ledger",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "82ee4f718bf71753a30fe0fe6955e70492f867913a6ce7fd7e178876da36d33f",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 40,
+          "outcome": "HANDOFF",
+          "createdAt": "2026-11-26T20:42:02.772Z",
+          "finishedAt": "2026-11-26T20:42:02.812Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "82ee4f718bf71753a30fe0fe6955e70492f867913a6ce7fd7e178876da36d33f",
+            "operation": "test",
+            "commandDigest": "4641987ee88695f348c7b89425ec96e29800273a29c7ac49d4ecec06cd87c65a"
+          }
+        }
+      ],
+      "conversation": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "handoff": true,
+          "revision": 1,
+          "summary": [
+            "HANDOFF"
+          ],
+          "expiresAt": "2026-12-03T20:42:02.812Z"
+        }
+      ],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "identical event replay, including changed text, does not call the provider or charge/create another ledger",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "c6b14347d2592e4e0db56cd7be2ead50132435d082507bf64f6a7e66a84e9055",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 20,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:02.908Z",
+          "finishedAt": "2026-11-26T20:42:02.928Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "c6b14347d2592e4e0db56cd7be2ead50132435d082507bf64f6a7e66a84e9055",
+            "operation": "test",
+            "commandDigest": "e27e221c34b313100a1edd6fad069adda36ed5c9450ef75123296f09074f3f2e"
+          }
+        }
+      ],
+      "conversation": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "handoff": false,
+          "revision": 0,
+          "summary": [
+            "SOURCE:brand-1eed78ad97bb6cd9c89b4c90-1"
+          ],
+          "expiresAt": "2026-12-03T20:42:02.928Z"
+        }
+      ],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "setting-off rejects answers without usage or audit writes",
+      "ledger": [],
+      "audits": [],
+      "conversation": [],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "global-stop rejects answers without usage or audit writes",
+      "ledger": [],
+      "audits": [],
+      "conversation": [],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "framework-off rejects answers without usage or audit writes",
+      "ledger": [],
+      "audits": [],
+      "conversation": [],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "locked rejects answers without usage or audit writes",
+      "ledger": [],
+      "audits": [],
+      "conversation": [],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "hidden rejects answers without usage or audit writes",
+      "ledger": [],
+      "audits": [],
+      "conversation": [],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "expired-window rejects answers without usage or audit writes",
+      "ledger": [],
+      "audits": [],
+      "conversation": [],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "global-stop while the Mock response is pending suppresses the answer and settles once",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "8a6810eddf831212b6c1d5b07da15b1a2fb31d23afd9257a43a75c6ead00f655",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "SUPPRESSED",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 18,
+          "outcome": "SUPPRESSED",
+          "createdAt": "2026-11-26T20:42:03.166Z",
+          "finishedAt": "2026-11-26T20:42:03.184Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "8a6810eddf831212b6c1d5b07da15b1a2fb31d23afd9257a43a75c6ead00f655",
+            "operation": "test",
+            "commandDigest": "13cc651f44b4e03aa9ce4a343e5f7c04310eb6ea19911c2afceb3e3b813ea7fa"
+          }
+        }
+      ],
+      "conversation": [],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "setting-off while the Mock response is pending suppresses the answer and settles once",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "286d12a23a4d823b098ed870ccaec3a6d589e87df23a0dcdd353fa1383922c5c",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "SUPPRESSED",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 22,
+          "outcome": "SUPPRESSED",
+          "createdAt": "2026-11-26T20:42:03.223Z",
+          "finishedAt": "2026-11-26T20:42:03.245Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "286d12a23a4d823b098ed870ccaec3a6d589e87df23a0dcdd353fa1383922c5c",
+            "operation": "test",
+            "commandDigest": "0a4d16d0a15a040f1d5c9837d6a1f662b449f5ae425fa783f6591c37df753d04"
+          }
+        }
+      ],
+      "conversation": [],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "reservation audit failure rolls back the request and does not invoke the Mock provider",
+      "ledger": [],
+      "audits": [],
+      "conversation": [],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "settlement audit failure rolls back settlement then conservatively marks the original request UNKNOWN",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "ceb9f20de3c5fde477c8b473486e3ff2b0872b8ecd9d82571acbf056a5d6e62f",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "UNKNOWN",
+          "heldMicros": 0,
+          "estimatedMicros": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "latencyMs": null,
+          "outcome": "PROVIDER_OR_SETTLEMENT_UNKNOWN",
+          "createdAt": "2026-11-26T20:42:03.387Z",
+          "finishedAt": "2026-11-26T20:42:03.421Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "ceb9f20de3c5fde477c8b473486e3ff2b0872b8ecd9d82571acbf056a5d6e62f",
+            "operation": "test",
+            "commandDigest": "4d464c4894908f651c18e8fb02613d439ddcbf724e06ce8da26167c95fc475a9"
+          }
+        }
+      ],
+      "conversation": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:42:03.421Z"
+        }
+      ],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "a throwing Mock provider preserves one UNKNOWN reservation and never retries",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "5ec4682312c7ebd9433ad5c37c951e6870d3dde5847bab5e32e667627e26d988",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "UNKNOWN",
+          "heldMicros": 0,
+          "estimatedMicros": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "latencyMs": null,
+          "outcome": "PROVIDER_OR_SETTLEMENT_UNKNOWN",
+          "createdAt": "2026-11-26T20:42:03.486Z",
+          "finishedAt": "2026-11-26T20:42:03.504Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "5ec4682312c7ebd9433ad5c37c951e6870d3dde5847bab5e32e667627e26d988",
+            "operation": "test",
+            "commandDigest": "a3edab976766f8e0d3d67ad9c7e02285b89965f03514e622c396178b2984f85b"
+          }
+        }
+      ],
+      "conversation": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:42:03.504Z"
+        }
+      ],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "Brand operator inputs cannot inject Store ownership or choose OpenAI",
+      "ledger": [],
+      "audits": [],
+      "conversation": [],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "concurrent copies of one event reserve and settle only one Mock request",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "b14009ff7b8108c219a5c215b99f157e995070e3a2dc2ff18ed5461bf9e19853",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 33,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:03.589Z",
+          "finishedAt": "2026-11-26T20:42:03.622Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "b14009ff7b8108c219a5c215b99f157e995070e3a2dc2ff18ed5461bf9e19853",
+            "operation": "test",
+            "commandDigest": "2b731ccbd64932ae62c602c8585e40ddc42dccb55c65af736a33eb3549cc55f3"
+          }
+        }
+      ],
+      "conversation": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "handoff": false,
+          "revision": 0,
+          "summary": [
+            "SOURCE:brand-6afa792edbea53bc6ddf9ebb-1"
+          ],
+          "expiresAt": "2026-12-03T20:42:03.622Z"
+        }
+      ],
+      "storeDataUnchanged": true
+    },
+    {
+      "case": "eight-event cap permits replay but refuses a ninth event without resetting budgets",
+      "ledger": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "1406d69b57c92b8740549a01f8c2800a665f7901aa2894e44094a2e3d6a62abb",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 17,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:03.670Z",
+          "finishedAt": "2026-11-26T20:42:03.687Z"
+        },
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "2791d027ac8530b176299a6dcc74ac2f0f4ac8fd69f3ac53dbf7da9d043a82b6",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 22,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:03.906Z",
+          "finishedAt": "2026-11-26T20:42:03.928Z"
+        },
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "32334ba82bbfe30f7847e2ef51f536182ff108befce7fe5e275ecd790fbd4451",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 20,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:03.804Z",
+          "finishedAt": "2026-11-26T20:42:03.824Z"
+        },
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "3bb8c2fdbd127a7e5d9c4d9173e0b213f9c2b8fdba10543f9f185bf2a19f0264",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 21,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:03.846Z",
+          "finishedAt": "2026-11-26T20:42:03.867Z"
+        },
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "807eed5d6c7308ccebdb95260610037712a4ed518d19a3f838dca1b46bf60622",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 25,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:03.749Z",
+          "finishedAt": "2026-11-26T20:42:03.774Z"
+        },
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "ae8ddd4f8425c08a8a1cc694a59f638b8ce2f08cf85adf7ad97110d5ea42b3a5",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 20,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:03.704Z",
+          "finishedAt": "2026-11-26T20:42:03.724Z"
+        },
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "b2ea84ad7e0c951cb1835e7aa6b73dbe0eaa61e46b5fbc3e2440c4a41ca85d50",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 25,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:03.949Z",
+          "finishedAt": "2026-11-26T20:42:03.974Z"
+        },
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "eb63e7916cd55aaa3df1e06d0aa8d91c8b07b085554bc28ffd256a7fed16cfa3",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 19,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:42:04.008Z",
+          "finishedAt": "2026-11-26T20:42:04.027Z"
+        }
+      ],
+      "audits": [
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "807eed5d6c7308ccebdb95260610037712a4ed518d19a3f838dca1b46bf60622",
+            "operation": "test",
+            "commandDigest": "fce269551b6437a8ad92815161c3a01d7b8c1181f859823b2cfa608486c0f846"
+          }
+        },
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "2791d027ac8530b176299a6dcc74ac2f0f4ac8fd69f3ac53dbf7da9d043a82b6",
+            "operation": "test",
+            "commandDigest": "fb6cde5a474088e1d1b6a167cef994f198a8b7827aa2608e3e00d7873fb1c5f5"
+          }
+        },
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "3bb8c2fdbd127a7e5d9c4d9173e0b213f9c2b8fdba10543f9f185bf2a19f0264",
+            "operation": "test",
+            "commandDigest": "33489ddb901a417d5db8d873fe2075db9d9b9655cb6e625242956a5f970ad5f1"
+          }
+        },
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "eb63e7916cd55aaa3df1e06d0aa8d91c8b07b085554bc28ffd256a7fed16cfa3",
+            "operation": "test",
+            "commandDigest": "42c3d3166d75e950fecf8d1d7ed1a79241850276c3d86569767ec2c05534febc"
+          }
+        },
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "b2ea84ad7e0c951cb1835e7aa6b73dbe0eaa61e46b5fbc3e2440c4a41ca85d50",
+            "operation": "test",
+            "commandDigest": "8482d69240d9df4c039de9497ef49f020bfc6fc10d7061f8d42d4a0f6804c48a"
+          }
+        },
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "32334ba82bbfe30f7847e2ef51f536182ff108befce7fe5e275ecd790fbd4451",
+            "operation": "test",
+            "commandDigest": "73ab1bfc70ae9be0c66b6eedab0eafb67a53d0b8058dbcaab4b5ec29f0228eb4"
+          }
+        },
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "ae8ddd4f8425c08a8a1cc694a59f638b8ce2f08cf85adf7ad97110d5ea42b3a5",
+            "operation": "test",
+            "commandDigest": "d0f5dd5bcf6875ee6df64bf332fec73f41069ef09c792e6cce60e84190603838"
+          }
+        },
+        {
+          "actor": "ai-preview-brand-hq",
+          "role": "ADMIN",
+          "login": "local-brand-login",
+          "storeId": null,
+          "after": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 1
+            },
+            "eventKey": "1406d69b57c92b8740549a01f8c2800a665f7901aa2894e44094a2e3d6a62abb",
+            "operation": "test",
+            "commandDigest": "3f7b41b3715fba2d9c157b200cc15786b7aedafaad9927341a97283196dcf8b6"
+          }
+        }
+      ],
+      "conversation": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "3e730bfa03c7ea3d47b213074ca5d5d26b7376b9bda9f16e06ded04943d6bbbe",
+          "handoff": false,
+          "revision": 0,
+          "summary": [
+            "SOURCE:brand-4fa98e994f68603c6e91a169-1",
+            "SOURCE:brand-4fa98e994f68603c6e91a169-1",
+            "SOURCE:brand-4fa98e994f68603c6e91a169-1",
+            "SOURCE:brand-4fa98e994f68603c6e91a169-1"
+          ],
+          "expiresAt": "2026-12-03T20:42:04.027Z"
+        }
+      ],
+      "storeDataUnchanged": true
+    }
+  ],
+  "transportCalls": 0,
+  "realOpenAiCalls": 0,
+  "realOutbound": 0,
+  "remoteWrites": 0,
+  "final": {
+    "globalStopped": true,
+    "brandHidden": true,
+    "brandDisabled": true,
+    "fourStoresOff": true,
+    "knowledgeUnpublished": true
+  }
+}

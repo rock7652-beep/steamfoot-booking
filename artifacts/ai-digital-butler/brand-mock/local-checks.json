@@ -1,0 +1,29 @@
+{
+  "status": "local passed; cloud pending",
+  "baseCommit": "b2c890423d15766cfde0c1e466e1b4418a067c49",
+  "productSourceChanges": false,
+  "checks": {
+    "mockWorkflow": "22 real local PostgreSQL/RLS/trigger scenarios passed",
+    "sharedWorkspaceBrowser": "six viewport flows, lost-response same-event retry, persisted automatic handoff, stopped UI passed",
+    "brandRegression": "119 passed across 8 files, including toggle and knowledge",
+    "sharedCoreRegression": "121 passed across 6 files",
+    "typeScript": "passed",
+    "changedFileESLint": "passed without warnings"
+  },
+  "scope": {
+    "remoteDatabaseConnections": 0,
+    "remoteWrites": 0,
+    "remotePermissionChanges": 0,
+    "previewBuilds": 0,
+    "links": 0,
+    "realOpenAiCalls": 0,
+    "realOutbound": 0
+  },
+  "limitations": [
+    "matching PGlite fixture, not cloud NextAuth/HTTP/Prisma/pooler",
+    "Mock fixed 100/20 tokens are synthetic, costs zero",
+    "manual handoff/resume and real delivery not part of this task",
+    "baseline CI failed with one course-reminder-preference EnvironmentTeardownError; not modified",
+    "Cloudflare failure independently retained"
+  ]
+}

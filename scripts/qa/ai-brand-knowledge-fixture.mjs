@@ -3,8 +3,8 @@ import {readFileSync} from 'node:fs';
 import {createBrandToggleFixture} from './ai-brand-toggle-fixture.mjs';
 const read=p=>readFileSync(new URL('../../'+p,import.meta.url),'utf8');
 const metadata=JSON.parse(read('artifacts/ai-digital-butler/brand-knowledge/readonly-knowledge-metadata.json'));
-export async function createBrandKnowledgeFixture(){
- const f=await createBrandToggleFixture({operations:['save','publish','withdraw']});
+export async function createBrandKnowledgeFixture({operations=['save','publish','withdraw']}={}){
+ const f=await createBrandToggleFixture({operations});
  await f.db.exec(read('scripts/sql/ai-digital-butler/preview-knowledge.sql').split('-- Read-only authority sources')[0]);
  const sentinel={introduction:'門市隔離知識，不得混入品牌',faqs:[],prohibitedTerms:[],references:{hours:false,services:false,prices:false}};
  for(const suffix of ['steamfoot','beauty','fitness','music'])await f.db.query('INSERT INTO "AiButlerKnowledgeDocument"("storeId",draft) VALUES($1,$2::jsonb)',['ai-preview-'+suffix,JSON.stringify(sentinel)]);

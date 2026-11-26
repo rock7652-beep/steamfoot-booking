@@ -1,0 +1,44 @@
+{
+  "conclusion": "failure",
+  "headSha": "b2c890423d15766cfde0c1e466e1b4418a067c49",
+  "jobs": [
+    {
+      "name": "Typecheck",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/45891598463/job/140155355927"
+    },
+    {
+      "name": "Full Vitest baseline",
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/45891598463/job/140155356263"
+    },
+    {
+      "name": "Targeted tests",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/45891598463/job/140155356348"
+    },
+    {
+      "name": "Changed-file ESLint",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/45891598463/job/140155356382"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/45891598463",
+  "fullBaseline": {
+    "assertions": "17897 passed, 340 skipped",
+    "unhandledErrors": 1,
+    "error": "EnvironmentTeardownError: [vitest-worker]: Closing rpc while \"onUserConsoleLog\" was pending",
+    "reportedOrigin": "src/__tests__/course-reminder-preference.test.ts",
+    "modifiedByThisTask": false
+  },
+  "cloudflare": {
+    "status": "failure; independently tracked",
+    "url": "https://dash.cloudflare.com/a4a5f68f88b171641fb363810b4b48df/workers/services/view/steamfoot-booking/production/builds/d3ad44f6-c3a2-40f4-9f7f-7ddc77c9dafb",
+    "settingsChanged": false
+  }
+}
