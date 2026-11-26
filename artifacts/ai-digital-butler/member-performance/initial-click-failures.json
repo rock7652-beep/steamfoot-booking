@@ -1,0 +1,45 @@
+{
+  "sourceSha": "48a6391ec2974a6f40c98392605c2bc89fccd0d8",
+  "origin": "https://steamfoot-booking-h860efoco-rock7652-2111s-projects.vercel.app",
+  "conditions": {
+    "browser": "Chromium simulated viewport",
+    "freshBrowserContexts": 3,
+    "explicitPrefetch": false,
+    "networkIdleWait": false,
+    "serverColdStart": "not forced or established",
+    "fixture": "member A, one synthetic booking, 2026-11-27 at 10:00",
+    "journey": "login page, automated fill, login and redirect, automated tab change, native member page and first result"
+  },
+  "samples": [],
+  "failures": [
+    {
+      "trial": 1,
+      "stage": "expand-member-panel",
+      "reason": "locator.waitFor: Timeout 30000ms exceeded."
+    },
+    {
+      "trial": 2,
+      "stage": "expand-member-panel",
+      "reason": "locator.waitFor: Timeout 30000ms exceeded."
+    },
+    {
+      "trial": 3,
+      "stage": "expand-member-panel",
+      "reason": "locator.waitFor: Timeout 30000ms exceeded."
+    }
+  ],
+  "summary": {
+    "loginPage": {
+      "n": 0
+    },
+    "loginAndRedirect": {
+      "n": 0
+    },
+    "firstMemberPageUsable": {
+      "n": 0
+    },
+    "repeatedMemberPageUsable": {
+      "n": 0
+    }
+  }
+}

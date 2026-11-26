@@ -68,5 +68,10 @@
   "expectedNetworkInterruptions": 1,
   "accountRevocationVerified": true,
   "errors": [],
-  "failures": []
+  "failures": [],
+  "metricDefinitions": {
+    "entryMs": "From opening the login page through automated credential entry, login/redirect, QA tab replacement, native target navigation and networkidle wait. Not isolated page load or first query task completion.",
+    "queryMs": "Manual member-query click to the result, measured after authenticated entry.",
+    "sampling": "One completed journey per actor, plus one partial A journey at 18298ms; no controlled cold/warm or segment comparison."
+  }
 }

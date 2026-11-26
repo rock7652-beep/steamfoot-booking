@@ -1,5 +1,7 @@
 # AI 數位店長驗收證據
 
+最新會員入口效能盤查：[summary](member-performance/summary.json)、[前後量測與限制](../../docs/ai/digital-butler-member-performance.md)。更正登入合計與單頁耗時，修正首次展開漏點；模型、授權與其他模組服務不變。
+
 最新本人預約唯讀工具：[summary](member-bookings/summary.json)、[驗收與限制](../../docs/ai/digital-butler-member-bookings-acceptance.md)。既有合成會員入口、本人確認關係、最少資料與停用拒讀；模型工具及正式通路仍關閉。
 
 歷史蒸足空位唯讀工具：[summary](availability/summary.json)、[驗收與限制](../../docs/ai/digital-butler-availability-acceptance.md)。僅人工 TEST 查詢，不接真實通路、模型工具或預約寫入。

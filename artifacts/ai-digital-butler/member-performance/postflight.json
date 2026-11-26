@@ -1,0 +1,30 @@
+{
+  "database": {
+    "role": {
+      "super": false,
+      "bypass": false,
+      "connection_limit": 8
+    },
+    "audits": 8,
+    "notices": 0,
+    "stopped": true,
+    "requests": 47,
+    "dispatches": 65,
+    "unresolved": 0,
+    "total_bookings": 129,
+    "total_customers": 1367,
+    "enabled_settings": 0,
+    "estimated_micros": "1310",
+    "suspended_members": 3
+  },
+  "cleanup": {
+    "oldGrantRevoked": true,
+    "newGrantRevoked": true,
+    "privateFileRemoved": true,
+    "browsersClosed": true,
+    "ownerAccountUnchanged": true
+  },
+  "newPreviewBuilds": 1,
+  "newOpenaiRequests": 0,
+  "productionChanged": false
+}

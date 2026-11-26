@@ -69,3 +69,5 @@ OpenAI `store:false` 不等於帳號已具 Zero Data Retention；預設濫用監
 第一個 [蒸足唯讀空位工具](digital-butler-availability.md) 與 [驗收](digital-butler-availability-acceptance.md) 沿用原時段服務及顧客預約規則；其他模組 adapter、其他會員資料與預約操作仍未開放，不等同完整 Phase 3。
 
 [本人預約唯讀工具](digital-butler-member-bookings.md) 與 [隔離驗收](digital-butler-member-bookings-acceptance.md) 已完成：既有會員入口人工讀取，嚴格確認關係、帳號版本及權益重查，不以電話／Email 接管帳號。知識 Provider 的模型工具仍停用，不代表完整 Phase 3、正式會員開放或預約寫入。
+
+本人測試入口的 [效能盤查與互動修正](digital-butler-member-performance.md) 已區分登入合計、單頁可操作及查詢結果時間；SSR 準備期間先停用展開，保留全部後端確認與唯讀限制。

@@ -1,12 +1,12 @@
 # AI 數位店長隔離 Preview Runbook
 
-目前核心、Phase 2 店家知識管理、原流程 → AI → 真人的 Mock 串接、待人工處理管理、蒸足空位及本人預約唯讀工具已完成合成 TEST 驗收；正式客服未開放。架構與安全契約以 [工程契約](digital-butler-core.md) 為準，最新實測見 [本人預約唯讀驗收](digital-butler-member-bookings-acceptance.md)，[蒸足空位驗收](digital-butler-availability-acceptance.md) 保留當時結果，[待人工處理驗收](digital-butler-handoff-acceptance.md) 保留當時結果，[Mock 串接驗收](digital-butler-routing-acceptance.md) 保留當時結果，[知識管理驗收](digital-butler-knowledge-acceptance.md) 保留當時結果；[Phase 0/1 歷史](digital-butler-acceptance.md) 保留。
+目前核心、Phase 2 店家知識管理、原流程 → AI → 真人的 Mock 串接、待人工處理管理、蒸足空位及本人預約唯讀工具已完成合成 TEST 驗收；正式客服未開放。架構與安全契約以 [工程契約](digital-butler-core.md) 為準，最新互動修正及計時定義見 [會員入口效能盤查](digital-butler-member-performance.md)；功能實測見 [本人預約唯讀驗收](digital-butler-member-bookings-acceptance.md)，[蒸足空位驗收](digital-butler-availability-acceptance.md) 保留當時結果，[待人工處理驗收](digital-butler-handoff-acceptance.md) 保留當時結果，[Mock 串接驗收](digital-butler-routing-acceptance.md) 保留當時結果，[知識管理驗收](digital-butler-knowledge-acceptance.md) 保留當時結果；[Phase 0/1 歷史](digital-butler-acceptance.md) 保留。
 
 ## 已驗證版本與目前狀態
 
 - PR [#1596](https://github.com/rock7652-beep/steamfoot-booking/pull/1596)，支線 `feat/ai-digital-butler-core`。
-- 程式／Preview SHA：`48a6391ec2974a6f40c98392605c2bc89fccd0d8`；後續純文件／證據提交以 PR head 為準，不另建相同程式 Preview。
-- [受保護 Preview](https://steamfoot-booking-h860efoco-rock7652-2111s-projects.vercel.app)，deployment `dpl_G2DchZU8Dpc8UUUAabjd6YcnNxVF`，READY。
+- 程式／Preview SHA：`8fe39aaa61f9365ba16742b61e509bab405c6ce8`；後續純文件／證據提交以 PR head 為準，不另建相同程式 Preview。
+- [受保護 Preview](https://steamfoot-booking-3yxjqy6iz-rock7652-2111s-projects.vercel.app)，deployment `dpl_EfLwdm8shw7HEWF4tmUhPsFetkXw`，READY。
 - 2026-11-26（台灣時間）完成核心與知識管理的隔離登入、發布／撤下、來源引用、Mock、最小真實 API、帳本與 RWD 驗收。
 - 收尾狀態：**global stopped=true、四店 enabled=false**，47 筆請求全部 COMPLETE，RESERVED／UNKNOWN 0；44 筆 Mock、3 筆 OpenAI，累計保守估算 US$0.001310。累計估算不是供應商帳單；早期串接新增 7 Mock；最新人工接手管理新增 0 模型請求，累計 65 筆串接事件全部 COMPLETE、8 筆恢復 audit。原先 1 筆合成接手旗標保留。
 - 本輪手動建立的測試通行憑證均已撤銷，四個合成帳號登入版本已更新，暫存密碼／session 檔已刪除；SSO 保留。
@@ -97,3 +97,5 @@ Phase 0/1 六次部署的版本、失敗及修正保留在 [runtime 歷史](../.
 隔離庫保留三個合成 CUSTOMER／Customer、兩筆合成蒸足 Booking；外店只有身分對照，沒有跨模組 Booking。新增三條精確 fixture ID 的 SELECT policy，不給商業寫入權限；共用角色的 RLS 不能取代每次讀取的本人授權。三個帳號收尾 SUSPENDED、passwordHash NULL，原合成 Owner 更新登入版本，手動 grant 撤銷、私密暫存檔刪除。新工具拒絕停用後的舊 CUSTOMER session，不宣稱所有既有會員 JWT 全域失效。
 
 全量 CI 17,637 passed／340 skipped；雲端 17 項與六尺寸通過。模型帳本仍 47／Dispatch 65／audit 8，global stopped=true、四店 enabled=false。此輪一次必要 Preview，文件提交沿用同一程式 Preview；實際平台帳單未取得。
+
+會員入口已完成 [分段效能盤查](digital-butler-member-performance.md)：原 entryMs 包含登入與測試工具等待，不能當單頁耗時；修正版先等待客戶端可互動才啟用展開，九次進頁首次有效點擊均成功。會員頁可操作中位數約 1.7 秒，含登入至首次查詢結果中位數約 8.1 秒，仍有等待；不宣稱資料庫加速或真機／Production 速度。此輪帳本不變，兩個 30 分鐘手動 grant 均已撤銷，合成 A 已停用且密碼清除。

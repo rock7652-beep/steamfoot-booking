@@ -28,7 +28,9 @@
 - 先實際停用 A，再沿用原 CUSTOMER cookie 查詢，API 與 UI 都立即拒讀並清掉結果。既有 Owner 空位工具讀到 10:00 剩 5、11:00 剩 4，證明兩筆預約實際扣除占用。
 - 雲端瀏覽器使用既有環境 CA，未忽略 HTTPS 錯誤。六尺寸為 Chromium 視窗模擬，不是實體手機／iPad 或真實 LINE LIFF。
 
-第一輪部分驗收 A 入口 18,298ms，A 正向查詢及 RWD 已完成，之後 QA helper 誤把瀏覽器 Response.status 當函式而中斷。只修正 `/tmp` 測試 helper，重用同一 Preview，沒有程式重建。完整輪 A 入口 15,479ms、B 12,337ms、Owner 11,486ms；A 兩次查詢 1,563／1,438ms、重試 1,432ms，B 查詢 1,490ms。入口仍有明顯等待；不宣稱已完成載入效能優化、強制冷啟動測試或記錄完整總耗時。
+第一輪部分驗收 A 的自動化登入至入口合計 18,298ms，A 正向查詢及 RWD 已完成，之後 QA helper 誤把瀏覽器 Response.status 當函式而中斷。只修正 `/tmp` 測試 helper，重用同一 Preview，沒有程式重建。完整輪 A 合計 15,479ms、B 12,337ms、Owner 11,486ms；A 兩次查詢 1,563／1,438ms、重試 1,432ms，B 查詢 1,490ms。此合計從開啟登入頁開始，包含登入頁載入、自動填表、登入／轉址、測試工具換分頁、原生目標頁及 networkidle 等待；不是「登入後單頁載入時間」，也不是點擊至第一筆查詢結果的完整任務耗時。舊 helper 未分段，不能從這個數字判定登入、資料庫、冷啟動或頁面效能瓶頸；不宣稱已完成載入效能優化或強制冷啟動測試。
+
+2026-11-26 後續效能盤點已更正上述定義；[分段量測準備與阻擋](digital-butler-member-performance.md) 保留目前進度。
 
 隔離 DDL 首次因 UserStatus 使用不存在的 INACTIVE 失敗並完整 rollback；查核新 Users／Bookings／policies 均 0。核對實際 ACTIVE／SUSPENDED／DELETED enum，補上本機實際 enum 測試後改為 SUSPENDED，才成功安裝。未為此失敗建立 Preview。收尾唯讀查核曾用錯欄位名，依既有 schema 修正查詢後成功；沒有資料異動。
 

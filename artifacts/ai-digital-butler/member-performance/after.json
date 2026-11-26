@@ -1,0 +1,212 @@
+{
+  "sourceSha": "8fe39aaa61f9365ba16742b61e509bab405c6ce8",
+  "origin": "https://steamfoot-booking-3yxjqy6iz-rock7652-2111s-projects.vercel.app",
+  "conditions": {
+    "browser": "Chromium simulated viewport",
+    "freshBrowserContexts": 3,
+    "explicitPrefetch": false,
+    "networkIdleWait": false,
+    "expansionRetryWaitMs": 1500,
+    "maxExpansionAttempts": 3,
+    "serverColdStart": "not forced or established",
+    "fixture": "member A, one synthetic booking, 2026-11-27 at 10:00",
+    "journey": "login page, automated fill, login and redirect, automated tab change, native member page and first result"
+  },
+  "samples": [
+    {
+      "trial": 1,
+      "loginPageMs": 3825,
+      "automatedFillMs": 41,
+      "loginAndRedirectMs": 4420,
+      "automatedTabChangeMs": 53,
+      "journeyThroughMemberUsableMs": 10625,
+      "journeyThroughFirstResultMs": 11808,
+      "first": {
+        "kind": "first-navigation-in-new-browser-context",
+        "width": 1366,
+        "expansionAttempts": 1,
+        "pageUsableMs": 2286,
+        "throughFirstResultMs": 3469,
+        "firstReadMs": 1175,
+        "repeatReadMs": 983,
+        "navigation": {
+          "ttfbMs": 608,
+          "requestToFirstByteMs": 596,
+          "documentTransferMs": 329,
+          "domContentLoadedMs": 987
+        }
+      },
+      "warm": [
+        {
+          "kind": "repeat-navigation-same-context",
+          "width": 1366,
+          "expansionAttempts": 1,
+          "pageUsableMs": 1900,
+          "throughFirstResultMs": 3030,
+          "firstReadMs": 1121,
+          "repeatReadMs": 1089,
+          "navigation": {
+            "ttfbMs": 545,
+            "requestToFirstByteMs": 535,
+            "documentTransferMs": 947,
+            "domContentLoadedMs": 1496
+          }
+        },
+        {
+          "kind": "repeat-navigation-same-context",
+          "width": 390,
+          "expansionAttempts": 1,
+          "pageUsableMs": 1591,
+          "throughFirstResultMs": 2661,
+          "firstReadMs": 1063,
+          "repeatReadMs": 1222,
+          "navigation": {
+            "ttfbMs": 450,
+            "requestToFirstByteMs": 443,
+            "documentTransferMs": 822,
+            "domContentLoadedMs": 1276
+          }
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "loginPageMs": 1806,
+      "automatedFillMs": 26,
+      "loginAndRedirectMs": 2396,
+      "automatedTabChangeMs": 78,
+      "journeyThroughMemberUsableMs": 6028,
+      "journeyThroughFirstResultMs": 7059,
+      "first": {
+        "kind": "first-navigation-in-new-browser-context",
+        "width": 1366,
+        "expansionAttempts": 1,
+        "pageUsableMs": 1722,
+        "throughFirstResultMs": 2753,
+        "firstReadMs": 1022,
+        "repeatReadMs": 941,
+        "navigation": {
+          "ttfbMs": 488,
+          "requestToFirstByteMs": 480,
+          "documentTransferMs": 820,
+          "domContentLoadedMs": 1329
+        }
+      },
+      "warm": [
+        {
+          "kind": "repeat-navigation-same-context",
+          "width": 1366,
+          "expansionAttempts": 1,
+          "pageUsableMs": 1685,
+          "throughFirstResultMs": 2875,
+          "firstReadMs": 1178,
+          "repeatReadMs": 1818,
+          "navigation": {
+            "ttfbMs": 470,
+            "requestToFirstByteMs": 463,
+            "documentTransferMs": 818,
+            "domContentLoadedMs": 1292
+          }
+        },
+        {
+          "kind": "repeat-navigation-same-context",
+          "width": 390,
+          "expansionAttempts": 1,
+          "pageUsableMs": 1811,
+          "throughFirstResultMs": 3298,
+          "firstReadMs": 1480,
+          "repeatReadMs": 1415,
+          "navigation": {
+            "ttfbMs": 604,
+            "requestToFirstByteMs": 594,
+            "documentTransferMs": 798,
+            "domContentLoadedMs": 1405
+          }
+        }
+      ]
+    },
+    {
+      "trial": 3,
+      "loginPageMs": 2305,
+      "automatedFillMs": 37,
+      "loginAndRedirectMs": 2577,
+      "automatedTabChangeMs": 51,
+      "journeyThroughMemberUsableMs": 6669,
+      "journeyThroughFirstResultMs": 8119,
+      "first": {
+        "kind": "first-navigation-in-new-browser-context",
+        "width": 1366,
+        "expansionAttempts": 1,
+        "pageUsableMs": 1699,
+        "throughFirstResultMs": 3149,
+        "firstReadMs": 1441,
+        "repeatReadMs": 1458,
+        "navigation": {
+          "ttfbMs": 464,
+          "requestToFirstByteMs": 456,
+          "documentTransferMs": 824,
+          "domContentLoadedMs": 1299
+        }
+      },
+      "warm": [
+        {
+          "kind": "repeat-navigation-same-context",
+          "width": 1366,
+          "expansionAttempts": 1,
+          "pageUsableMs": 1709,
+          "throughFirstResultMs": 3203,
+          "firstReadMs": 1484,
+          "repeatReadMs": 1432,
+          "navigation": {
+            "ttfbMs": 471,
+            "requestToFirstByteMs": 465,
+            "documentTransferMs": 815,
+            "domContentLoadedMs": 1295
+          }
+        },
+        {
+          "kind": "repeat-navigation-same-context",
+          "width": 390,
+          "expansionAttempts": 1,
+          "pageUsableMs": 1870,
+          "throughFirstResultMs": 3372,
+          "firstReadMs": 1493,
+          "repeatReadMs": 1410,
+          "navigation": {
+            "ttfbMs": 618,
+            "requestToFirstByteMs": 610,
+            "documentTransferMs": 838,
+            "domContentLoadedMs": 1465
+          }
+        }
+      ]
+    }
+  ],
+  "failures": [],
+  "summary": {
+    "loginPage": {
+      "n": 3,
+      "minMs": 1806,
+      "medianMs": 2305,
+      "maxMs": 3825
+    },
+    "loginAndRedirect": {
+      "n": 3,
+      "minMs": 2396,
+      "medianMs": 2577,
+      "maxMs": 4420
+    },
+    "firstMemberPageUsable": {
+      "n": 3,
+      "minMs": 1699,
+      "medianMs": 1722,
+      "maxMs": 2286
+    },
+    "repeatedMemberPageUsable": {
+      "n": 6,
+      "minMs": 1591,
+      "medianMs": 1760,
+      "maxMs": 1900
+    }
+  }
+}

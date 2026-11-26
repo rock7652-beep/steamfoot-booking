@@ -1,0 +1,34 @@
+{
+  "sourceSha": "48a6391ec2974a6f40c98392605c2bc89fccd0d8",
+  "events": [
+    {
+      "stage": "login-dom",
+      "ms": 2558
+    },
+    {
+      "stage": "login-redirect",
+      "ms": 7512
+    },
+    {
+      "stage": "member-dom",
+      "ms": 8653
+    },
+    {
+      "stage": "heading",
+      "ms": 9093
+    },
+    {
+      "stage": "clicked",
+      "ms": 9203
+    },
+    {
+      "stage": "first-click-not-expanded",
+      "ms": 10705
+    },
+    {
+      "stage": "expanded",
+      "ms": 10746
+    }
+  ],
+  "note": "Diagnostic retry waits 1500ms before the second click; not a server timing benchmark."
+}
