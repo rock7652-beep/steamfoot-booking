@@ -62,6 +62,6 @@ OpenAI `store:false` 不等於帳號已具 Zero Data Retention；預設濫用監
 
 ## 目前邊界與後續驗收
 
-2026-11-26（台灣時間）完成 Phase 0/1 隔離 Preview：原憑證連線、認證 UI／server actions、Mock、Luna 兩筆最小 API、Token／預算結算與 RWD。收尾 global stop=true、四合成店 enabled=false；正式 AI 未開放。Provider 明示已驗證的 PUBLISHED 參考來源、schema 限定單筆已提供 ID，後端仍重新核對來源並呈現原核准文字。後續同一 PR 已完成隔離店的知識編輯／發布及公開來源投影，見 [Phase 2 知識設計](digital-butler-knowledge.md) 與 [驗收](digital-butler-knowledge-acceptance.md)。另已完成 [Mock 串接設計](digital-butler-routing.md) 與 [驗收](digital-butler-routing-acceptance.md)：原引擎新增可選 TEST identity codec，預設行為不變；對話 revision 防止接手再恢復後舊回覆復活。真實通路未命中整合、真人客服工作台、正式店業務讀取／寫入仍未開放，不能視為完整 Phase 2/3 已完成。
+2026-11-26（台灣時間）完成 Phase 0/1 隔離 Preview：原憑證連線、認證 UI／server actions、Mock、Luna 兩筆最小 API、Token／預算結算與 RWD。收尾 global stop=true、四合成店 enabled=false；正式 AI 未開放。Provider 明示已驗證的 PUBLISHED 參考來源、schema 限定單筆已提供 ID，後端仍重新核對來源並呈現原核准文字。後續同一 PR 已完成隔離店的知識編輯／發布及公開來源投影，見 [Phase 2 知識設計](digital-butler-knowledge.md) 與 [驗收](digital-butler-knowledge-acceptance.md)。另已完成 [Mock 串接設計](digital-butler-routing.md) 與 [驗收](digital-butler-routing-acceptance.md)：原引擎新增可選 TEST identity codec，預設行為不變；對話 revision 防止接手再恢復後舊回覆復活。後續同一 PR 補上 [隔離待人工處理管理](digital-butler-handoff.md) 與 [驗收](digital-butler-handoff-acceptance.md)，直接使用同一接手旗標、版本及私有操作稽核，沒有虛構原客服名單。真實通路未命中整合、正式日常真人客服工作台、正式店業務讀取／寫入仍未開放，不能視為完整 Phase 2/3 已完成。
 
 見 [Runbook](digital-butler-runbook.md)、[驗收紀錄](digital-butler-acceptance.md)。

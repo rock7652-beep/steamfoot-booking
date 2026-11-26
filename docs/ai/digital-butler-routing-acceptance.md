@@ -1,5 +1,7 @@
 # 原流程 → AI → 真人：隔離 Mock 驗收
 
+後續同一 PR 的最新隔離對話管理，見 [待人工處理驗收](digital-butler-handoff-acceptance.md)；以下保留本輪 Mock 的當時版本與帳本，不代表目前最新總數。
+
 2026-11-26（台灣時間），沿用 [PR #1596](https://github.com/rock7652-beep/steamfoot-booking/pull/1596)。四個合成店完成同頁路由演練；正式客服與通路尚未開放。[設計契約](digital-butler-routing.md)、[機器可讀證據](../../artifacts/ai-digital-butler/routing/summary.json)、[Runbook](digital-butler-runbook.md)。
 
 ## 版本與證據來源

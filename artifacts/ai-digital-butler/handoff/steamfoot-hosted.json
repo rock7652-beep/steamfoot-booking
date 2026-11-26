@@ -1,0 +1,54 @@
+{
+  "store": "steamfoot",
+  "runtimeSha": "e3dc109aa837437743d42ef17a7c3c50a52bbf47",
+  "origin": "https://steamfoot-booking-a9o36q4nn-rock7652-2111s-projects.vercel.app",
+  "entryMs": 17179,
+  "warmEntryMs": 3980,
+  "queueRefreshMs": 1852,
+  "clickReturnedMs": 67,
+  "resumeRoundTripMs": 2458,
+  "totalMs": 42493,
+  "initialPendingRows": 1,
+  "cases": [
+    "focused-reader-authorized-refresh",
+    "persistent-pending-scope-listed",
+    "cancel-no-resume",
+    "network-failure-retried-same-command",
+    "resume-authoritative-row-removed",
+    "second-session-stale-version-rejected",
+    "original-panel-state-synchronized",
+    "original-flow-after-resume-no-model",
+    "reload-confirmed",
+    "foreign-store-direct-url-denied"
+  ],
+  "rwd": [
+    {
+      "width": 1920,
+      "scrollWidth": 1920
+    },
+    {
+      "width": 1366,
+      "scrollWidth": 1366
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "width": 360,
+      "scrollWidth": 360
+    }
+  ],
+  "retrySameCommand": true,
+  "expectedNetworkInterruptions": 1,
+  "errors": [],
+  "failures": []
+}

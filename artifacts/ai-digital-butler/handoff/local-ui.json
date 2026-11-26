@@ -1,5 +1,5 @@
 {
-  "kind": "Local Chromium, mocked server actions and route refresh; not hosted/real-device evidence",
+  "kind": "Local Chromium SSR/hydration, mocked server actions and focused panel reader; not hosted/real-device evidence",
   "syntheticRows": 51,
   "sizes": [
     {
