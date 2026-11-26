@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { SettingsListRow } from "@/components/settings/settings-workspace";
 import { STATUS_LABEL } from "@/lib/booking-constants";
@@ -13,7 +13,11 @@ async function read(input: { viewKey: string; date: string; page: number }) {
   return parsed;
 }
 const button = "min-h-11 rounded-lg border border-earth-200 px-3 text-sm disabled:opacity-50";
+const subscribeHydration = () => () => {};
+const clientReady = () => true;
+const serverReady = () => false;
 export function AiMemberBookingsPanel({ viewKey, initialDate }: { viewKey: string; initialDate: string }) {
+  const ready = useSyncExternalStore(subscribeHydration, clientReady, serverReady);
   const [expanded, setExpanded] = useState(false), [date, setDate] = useState(initialDate), [page, setPage] = useState(1);
   const [result, setResult] = useState<Snapshot | null>(null), [error, setError] = useState(""), [busy, setBusy] = useState(false);
   const reader = usePanelReader("ai-confirmed-my-bookings", read, viewKey, 0), generation = useRef(0);
@@ -32,7 +36,7 @@ export function AiMemberBookingsPanel({ viewKey, initialDate }: { viewKey: strin
   }
   return <section aria-label="AI 本人預約唯讀測試" className="mb-5 min-w-0 rounded-xl border border-earth-200 bg-white px-4">
     <SettingsListRow title="本人預約唯讀測試" summary="僅限已確認身分的合成會員" expanded={expanded} keepMounted
-      controls={<button type="button" className={button} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? "收合本人查詢" : "測試本人查詢"}</button>}>
+      controls={<button type="button" className={button} disabled={!ready} aria-busy={!ready} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? "收合本人查詢" : "測試本人查詢"}</button>}>
       <div className="min-w-0 space-y-3 pb-4 text-sm">
         <p className="text-earth-600">只查看目前登入會員的預約紀錄，不會建立、改期或取消預約。</p>
         <div className="flex flex-wrap items-end gap-2"><label className="min-w-0">預約日期<input type="date" value={date} className="mt-1 block min-h-11 max-w-full rounded-lg border border-earth-200 px-3" onChange={e => {

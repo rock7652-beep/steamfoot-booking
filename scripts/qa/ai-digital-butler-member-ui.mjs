@@ -30,10 +30,11 @@ const component = './src/app/(customer)/my-bookings/ai-member-bookings-panel';
 await build({ ...shared, stdin: { contents: `import{createElement as h}from'react';import{hydrateRoot}from'react-dom/client';import{AiMemberBookingsPanel}from'${component}';let root;window.drawMember=props=>{const el=h(AiMemberBookingsPanel,{key:props.viewKey,...props});if(root)root.render(el);else root=hydrateRoot(document.getElementById('root'),el,{onRecoverableError:e=>window.hydrationErrors.push(e.message)});};`, resolveDir: root, loader: 'tsx' }, format: 'iife', outfile: path.join(temp, 'fixture.js') });
 await build({ ...shared, stdin: { contents: `import{createElement as h}from'react';import{renderToString}from'react-dom/server';import{AiMemberBookingsPanel}from'${component}';export const render=props=>renderToString(h(AiMemberBookingsPanel,props));`, resolveDir: root, loader: 'tsx' }, platform: 'node', format: 'cjs', outfile: path.join(temp, 'ssr.cjs') });
 const props = { viewKey: 'a'.repeat(64), initialDate: '2026-11-27' }, html = require(path.join(temp, 'ssr.cjs')).render(props);
+if (!/<button\b[^>]*disabled=""[^>]*>測試本人查詢<\/button>/.test(html)) throw new Error('SSR exposes an interactive expand button before hydration');
 const css = await postcss([tailwind({ base: root })]).process(readFileSync('src/app/globals.css', 'utf8'), { from: path.join(root, 'src/app/globals.css') });
 const browser = await chromium.launch({ headless: true, executablePath: '/usr/bin/chromium', args: ['--no-sandbox'] });
 try {
-  const page = await browser.newPage({ viewport: { width: 1366, height: 1024 } }), errors = [], sizes = [], cases = [];
+  const page = await browser.newPage({ viewport: { width: 1366, height: 1024 } }), errors = [], sizes = [], cases = ['pre-hydration-expand-disabled'];
   page.on('pageerror', e => errors.push(e.message));
   await page.route('**/*', r => r.request().url() === 'https://synthetic.invalid/' ? r.fulfill({ contentType: 'text/html; charset=utf-8', body: `<html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><div id="root" style="max-width:1100px;margin:auto;padding:16px">${html}</div></html>` }) : r.abort());
   await page.goto('https://synthetic.invalid/'); await page.addStyleTag({ content: css.css });
