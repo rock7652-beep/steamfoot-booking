@@ -18,9 +18,15 @@ export function AiKnowledgePanel({ initial, liveTestAvailable, serviceMode="STOR
   const brand=serviceMode==="BRAND";
   const actions:KnowledgeActions=suppliedActions??{readAiButlerKnowledge,changeAiButlerKnowledge,testAiButlerPublished,setAiButlerTestHandoff};
   const [reviewToken,setReviewToken]=useState("");
+  const [reviewRevision,setReviewRevision]=useState<number|null>(null);
   const can=(operation:"save"|"publish"|"withdraw"|"test"|"resume")=>capabilities?.[operation]!==false;
-  const [document, setDocument] = useState(initial);
-  const [draft, setDraft] = useState(initial.draft);
+  const [localDocument, setDocument] = useState(initial);
+  const [localDraft, setDraft] = useState(initial.draft);
+  // Follow newer authority only for a clean Brand editor; retain unsaved drafts.
+  const localDirty = JSON.stringify(localDraft) !== JSON.stringify(localDocument.draft);
+  const newerCleanBrand = brand && !localDirty && initial.revision > localDocument.revision;
+  const document = newerCleanBrand ? initial : localDocument;
+  const draft = newerCleanBrand ? initial.draft : localDraft;
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -29,7 +35,7 @@ export function AiKnowledgePanel({ initial, liveTestAvailable, serviceMode="STOR
   const [provider, setProvider] = useState<"mock" | "openai">("mock");
   const [reply, setReply] = useState("");
   const event = useRef<{ id: string; question: string; provider: typeof provider } | null>(null);
-  function edit(value: typeof draft) { setDraft(value); setNotice(""); setReviewToken(""); }
+  function edit(value: typeof draft) { if(newerCleanBrand)setDocument(document);setDraft(value); setNotice(""); setReviewToken(""); }
   const dirty = JSON.stringify(draft) !== JSON.stringify(document.draft);
   useEffect(() => {
     if (!dirty && !busy) return;
@@ -51,7 +57,7 @@ export function AiKnowledgePanel({ initial, liveTestAvailable, serviceMode="STOR
     }
     setBusy(true); setError(""); setNotice("");
     try {
-      const result = await actions.changeAiButlerKnowledge({ command, revision: document.revision, ...(command === "save" ? { draft } : {}), ...(command === "publish" && reviewToken ? { reviewToken } : {}) });
+      const result = await actions.changeAiButlerKnowledge({ command, revision: document.revision, ...(command === "save" ? { draft } : {}), ...(command === "publish" && reviewToken && (!brand || reviewRevision===document.revision) ? { reviewToken } : {}) });
       if (!result.success) setError(result.error);
       else { setDocument(result.document); setDraft(result.document.draft); setReviewToken(""); setNotice(command === "save" ? "草稿已儲存，已發布內容不受影響。" : command === "publish" ? "已發布，僅供隔離測試引用。" : "已撤下，草稿仍保留。"); }
     } catch { setError("連線中斷，結果尚未確認。請重新載入最新版本核對；本機草稿仍保留。"); }
@@ -80,7 +86,7 @@ export function AiKnowledgePanel({ initial, liveTestAvailable, serviceMode="STOR
   async function review() {
     if(!actions.reviewKnowledge)return;
     setBusy(true);setError("");setNotice("");
-    try { const result=await actions.reviewKnowledge({revision:document.revision});if(result.success){setReviewToken(result.token);setNotice(`版本 ${result.revision} 已核對，包含 ${result.sourceCount} 筆來源；發布仍需獨立授權。`);}else setError(result.error); }
+    try { const result=await actions.reviewKnowledge({revision:document.revision});if(result.success){setReviewToken(result.token);setReviewRevision(result.revision);setNotice(`版本 ${result.revision} 已核對，包含 ${result.sourceCount} 筆來源；發布仍需獨立授權。`);}else setError(result.error); }
     catch{setError("審核未完成，請重新核對。");}finally{setBusy(false);}
   }
   return <section className="min-w-0 rounded-xl border border-earth-200 bg-white px-4" aria-label={brand ? "品牌知識管理" : "店家知識管理"}>
@@ -98,8 +104,9 @@ export function AiKnowledgePanel({ initial, liveTestAvailable, serviceMode="STOR
           <p className="text-earth-600">問題包含關鍵詞即轉真人；採全半形、大小寫及空白正規化比對，不推測同義詞。個資、退款及即時預約仍受既有安全規則限制。</p>
           {!brand && <div className="space-y-2"><p className="font-medium">引用既有設定</p>{([ ["hours","今天的營業時間（含特殊營業日）"], ["services","公開服務／課程名稱"], ["prices","可公開購買方案的定價"] ] as const).map(([key,label]) => <label key={key} className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={draft.references[key]} onChange={e => edit({ ...draft, references: { ...draft.references, [key]: e.target.checked } })}/>{label}</label>)}<p className="text-earth-600">每次測試讀取原設定，不複製價格。來源未設定、超過 6 項或內容上限時無法發布／回覆，請洽原設定管理者。方案定價不包含優惠及個人權益。</p></div>}
         </fieldset>
-        <div className="flex flex-wrap gap-2"><button type="button" className={button} disabled={busy || !dirty || !can("save")} onClick={() => change("save")}>儲存知識草稿</button>{actions.reviewKnowledge && <button type="button" className={button} disabled={busy || dirty} onClick={review}>審核已儲存版本</button>}<button type="button" className={`${button} bg-primary-700 text-white`} disabled={busy || dirty || !can("publish") || (actions.reviewKnowledge ? !reviewToken : document.revision === 0)} onClick={() => change("publish")}>發布知識</button><button type="button" className={button} disabled={busy || !document.published || dirty || !can("withdraw")} onClick={() => change("withdraw")}>撤下知識</button><button type="button" className={button} disabled={busy} onClick={reload}>重新載入最新版本</button></div>
-        {error && <p role="alert" className="break-words text-red-700">{error}</p>}{notice && <p role="status" className="break-words text-primary-700">{notice}</p>}
+        <div className="flex flex-wrap gap-2"><button type="button" className={button} disabled={busy || !dirty || !can("save")} onClick={() => change("save")}>儲存知識草稿</button>{actions.reviewKnowledge && <button type="button" className={button} disabled={busy || dirty} onClick={review}>審核已儲存版本</button>}<button type="button" className={`${button} bg-primary-700 text-white`} disabled={busy || dirty || !can("publish") || (actions.reviewKnowledge ? !reviewToken || (brand && reviewRevision!==document.revision) : document.revision === 0)} onClick={() => change("publish")}>發布知識</button><button type="button" className={button} disabled={busy || !document.published || dirty || !can("withdraw")} onClick={() => change("withdraw")}>撤下知識</button><button type="button" className={button} disabled={busy} onClick={reload}>重新載入最新版本</button></div>
+        {brand && dirty && initial.revision>document.revision && <p role="status" className="break-words text-earth-600">已儲存資料有新版本，本機草稿仍保留；請重新載入核對。</p>}
+        {error && <p role="alert" className="break-words text-red-700">{error}</p>}{notice && <p role="status" className="break-words text-primary-700">{brand&&reviewToken&&reviewRevision!==document.revision?"內容已更新，請重新審核目前版本。":notice}</p>}
         <div className="min-w-0 space-y-2 border-t pt-3"><p className="font-medium">測試已發布知識</p><p className="text-earth-600">僅輸入合成問題，勿貼顧客資料。模擬回覆只比對完整問題；OpenAI 會判讀語意並計入額度。全域停止時不呼叫 API。</p>
           <label className="block">測試問題<input aria-label="已發布知識測試問題" className={field} maxLength={400} disabled={busy} value={question} onChange={e => setQuestion(e.target.value)}/></label>
           <label className="block">知識測試方式<select aria-label="知識測試方式" className={field} disabled={busy} value={provider} onChange={e => setProvider(e.target.value as typeof provider)}><option value="mock">模擬回覆（無 API 費用）</option>{liveTestAvailable && <option value="openai">OpenAI（計入測試額度）</option>}</select></label>

@@ -7,7 +7,8 @@ const extra=JSON.parse(read('artifacts/ai-digital-butler/brand-toggle/readonly-s
 const tableGrants=JSON.parse(read('artifacts/ai-digital-butler/brand-toggle/readonly-table-grants.json'));
 const role='steamfoot_ai_preview_20261125',sid='ai-preview-brand-steamfoot',uid='ai-preview-brand-hq';
 const identifier=x=>'"'+x.replaceAll('"','""')+'"',literal=x=>"'"+x.replaceAll("'","''")+"'";
-export async function createBrandToggleFixture(){
+export async function createBrandToggleFixture({operations=["setting"]}={}){
+ if(JSON.stringify(operations)!=='["setting"]'&&JSON.stringify(operations)!=='["save","publish","withdraw"]')throw Error("Unsupported local fixture operations");
  const db=new PGlite(),start=new Date().toISOString(),end=new Date(Date.now()+25*60_000).toISOString();
  await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role BYPASSRLS;CREATE ROLE ${role} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS CONNECTION LIMIT 8 VALID UNTIL ${literal(meta.role.validUntil)};`);
  for(const e of extra.enums)await db.exec(`CREATE TYPE ${identifier(e.name)} AS ENUM(${e.labels.map(literal).join(',')});`);
@@ -54,13 +55,13 @@ export async function createBrandToggleFixture(){
   await db.query('UPDATE "User" SET status=\'ACTIVE\',"passwordHash"=\'local-only\' WHERE id=$1',[uid]);
   const audit=`("actorUserId"='${uid}' AND "actorRoleSnapshot"='ADMIN' AND "storeId" IS NULL AND outcome='SUCCESS' AND "createdAt">=TIMESTAMPTZ '${start}' AND "createdAt"<=TIMESTAMPTZ '${end}' AND CURRENT_TIMESTAMP<TIMESTAMPTZ '${end}')`;
   await db.exec(`CREATE POLICY ai_brand_qa_user_read ON "User" FOR SELECT TO ${role} USING(id='${uid}' AND role='ADMIN' AND email='ai-preview-brand-hq@example.invalid' AND CURRENT_TIMESTAMP<TIMESTAMPTZ '${end}');CREATE POLICY ai_brand_qa_login_read ON "StaffLoginRecord" FOR SELECT TO ${role} USING ${audit};CREATE POLICY ai_brand_qa_login_insert ON "StaffLoginRecord" FOR INSERT TO ${role} WITH CHECK ${audit};CREATE POLICY ai_brand_qa_login_touch ON "StaffLoginRecord" FOR UPDATE TO ${role} USING ${audit} WITH CHECK ${audit};`);
-  await db.exec(read('scripts/sql/ai-digital-butler/brand-operations-review/audit-acl.proposed.sql').replace("IN ('save','publish','withdraw','setting','handoff','resume','test')","= 'setting'").replaceAll('__QA_WINDOW_UNTIL__',end));
+  await db.exec(read('scripts/sql/ai-digital-butler/brand-operations-review/audit-acl.proposed.sql').replace("IN ('save','publish','withdraw','setting','handoff','resume','test')",`IN (${operations.map(literal).join(',')})`).replaceAll('__QA_WINDOW_UNTIL__',end));
   await db.exec(read('scripts/sql/ai-digital-butler/brand-operations-review/audit-helper-acl.proposed.sql').replaceAll('__QA_WINDOW_UNTIL__',end));
   await db.query('INSERT INTO "StaffLoginRecord"(id,"actorUserId","actorRoleSnapshot",outcome,device) VALUES(\'local-brand-login\',$1,\'ADMIN\',\'SUCCESS\',\'local-browser\')',[uid]);
   await db.query('UPDATE "AiBrandGrant" SET status=\'ENABLED\' WHERE "serviceId"=$1',[sid]);
  }
  async function runtime(work){await db.exec(`SET ROLE ${role}`);try{return await work();}finally{await db.exec('RESET ROLE');}}
- function adapt(client){return {query:async(statement,values=[])=>{if(!/^(SELECT|WITH|INSERT INTO "AuditLog"|UPDATE "AiBrandSetting")/.test(statement.trim()))throw Error('Toggle fixture rejected an out-of-scope mutation');return(await client.query(statement,values)).rows;}};}
+ function adapt(client){return {query:async(statement,values=[])=>{if(!/^(SELECT|WITH|INSERT INTO "AuditLog")/.test(statement.trim())&&!(operations.includes("setting")&&/^UPDATE "AiBrandSetting"/.test(statement.trim()))&&!(operations.includes("save")&&/^INSERT INTO "AiBrandKnowledgeDocument"/.test(statement.trim())))throw Error('Toggle fixture rejected an out-of-scope mutation');return(await client.query(statement,values)).rows;}};}
  const database={...adapt(db),transaction:work=>db.transaction(async tx=>{await tx.query("SELECT set_config('steamfoot.audit_actor',$1,true)",[JSON.stringify({id:uid,name:'合成品牌管理者',role:'ADMIN',loginRecordId:'local-brand-login',storeId:null})]);return work(adapt(tx));})};
  async function actor(){const r=await db.query('SELECT id,role,status,"passwordHash" FROM "User" WHERE id=$1',[uid]);const u=r.rows[0];return{id:u?.id,role:u?.role,auditAllowed:u?.status==='ACTIVE'&&Boolean(u.passwordHash),storeView:false};}
  async function verifySchema(){

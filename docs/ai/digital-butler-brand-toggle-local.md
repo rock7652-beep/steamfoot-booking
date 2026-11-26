@@ -63,8 +63,8 @@ ESLint、TypeScript與既有AI／權限／導覽回歸完成。測試總數僅�
 
 目前完整本機依賴就緒後未發現其他已知開關阻礙；真正雲端driver／session／部署組合仍未重新驗證。隔離庫保持總停止、品牌HIDDEN/off、四店off，現有角色缺少helper EXECUTE及本輪已撤銷的登入／稽核短效權限，均未擅自恢復。
 
-本輪不建置。原支線Vercel自動Preview已停用，但推送仍會觸發現有Cloudflare Workers Builds；不能把Pages的skip-commit語法當成Workers已保證支援，也不擅改正式部署設定。因此本輪只交付本機commit／patch並更新原PR說明，未push，未啟動新CI／Preview。依[發布檢查Skill](../../.agents/skills/steamfoot-release-check/SKILL.md)：「不能證明副作用在授權內時，先交付本地 diff／patch」。這是遵守本輪不建置限制，不是取消原PR。
+狀態更新（2026-11-27，台北時間）：使用者已批准推送 `385281324` 並接受既有 Cloudflare 自動檢查；該提交已推送原支線，GitHub [CI](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/45889649200) 通過。開關標記為 **本機驗證通過、雲端待驗**。原支線 Vercel 自動 Preview 維持停用，沒有手動 Preview 或遠端寫入。
 
-下一階段若要同步程式及集中雲端驗證，需先批准推送所涉及的既有自動建置副作用，並再批准**僅開關**的必要新版Preview與短效驗收窗口：固定合成品牌、待審一函式EXECUTE、限定稽核13欄／政策與測試登入、HQ授權及TEST總停止短暫切換；成功／失敗均完整回復。知識、Mock、人工、成本、真實API與通路不納入。現階段不啟動這些操作。
+Cloudflare Workers Builds 仍失敗，獨立列管，沒有修改其部署設定。新的小任務為[品牌知識庫本機驗證](digital-butler-brand-knowledge-local.md)，不擴大至問答、人工或通路。若進入集中雲端驗證，仍須另批必要 Preview、限定權限、測試資料與短效操作窗口；現在不執行。
 
 本輪末次唯讀對帳：總停止true、品牌HIDDEN／false／revision1、四店off、helper EXECUTE=false、Audit INSERT=false、測試帳號SUSPENDED／密碼空；Brand Request0、Store Request53／Dispatch113維持。外發封鎖1、美業通知0、臨時寫入env0。[遠端狀態未變](../../artifacts/ai-digital-butler/brand-toggle/remote-state-unchanged.json)／[唯讀環境旗標](../../artifacts/ai-digital-butler/brand-toggle/readonly-env-flags.json)。沒有建立新短效登入、連結、遠端SQL安裝或Preview。

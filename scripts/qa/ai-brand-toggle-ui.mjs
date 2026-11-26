@@ -1,46 +1,23 @@
 // Real shared UI -> existing Brand core -> local PostgreSQL engine. No external service.
-import {build} from 'esbuild';
-import {createRequire} from 'node:module';
-import {mkdtempSync,mkdirSync,readFileSync,writeFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
-import postcss from 'postcss';
-import tailwind from '@tailwindcss/postcss';
 import {createBrandToggleFixture} from './ai-brand-toggle-fixture.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('playwright');
-const root=process.cwd(),temp=mkdtempSync(path.join(tmpdir(),'brand-toggle-')),out=path.join(root,'artifacts/ai-digital-butler/brand-toggle');mkdirSync(out,{recursive:true});
+import {loadLocalBrandCore,openLocalBrandWorkspace} from './ai-brand-local-browser.mjs';
+const root=process.cwd(),temp=mkdtempSync(path.join(tmpdir(),'brand-toggle-')),out=process.env.AI_LOCAL_REPORT_DIR??path.join(root,'artifacts/ai-digital-butler/brand-toggle');mkdirSync(out,{recursive:true});
 const f=await createBrandToggleFixture(),report={kind:'local shared workspace -> real Brand management core -> PostgreSQL engine with read-only-captured columns, RLS, ACL and both triggers; not cloud/HTTP/session acceptance',schema:await f.verifySchema(),baseline:f.baseline,cases:[],sizes:[],errors:[],failures:[]};
 let sequence=Promise.resolve(),loseResponse=false,holdNext=false,signalCommit,releaseResponse,browser;
 const queued=work=>{const pending=sequence.then(work);sequence=pending.catch(()=>{});return pending;};
 const assert=(ok,name)=>{if(!ok)throw Error(name);};
 try{
- await build({entryPoints:['src/server/ai/brand-management-core.ts'],bundle:true,platform:'node',format:'cjs',alias:{'@':path.join(root,'src')},outfile:path.join(temp,'core.cjs'),plugins:[{name:'server-only-local',setup(b){b.onResolve({filter:/^server-only$/},()=>({path:'empty',namespace:'empty'}));b.onLoad({filter:/.*/,namespace:'empty'},()=>({contents:''}));}}]});
- const {brandManagement}=require(path.join(temp,'core.cjs'));
- const errorSource=readFileSync('src/server/ai/brand-management.ts','utf8').split('export function brandManagementError')[1];
- await build({stdin:{contents:'export function brandManagementError'+errorSource,loader:'ts',resolveDir:root},platform:'node',format:'cjs',outfile:path.join(temp,'error.cjs')});const {brandManagementError}=require(path.join(temp,'error.cjs'));
+ const {brandManagement,brandManagementError}=await loadLocalBrandCore(root,temp);
  const env={AI_BRAND_PREVIEW_WRITE_OPERATIONS:'setting',AI_BRAND_PREVIEW_WRITE_UNTIL:f.end};
  const controller=()=>brandManagement({database:f.database,actor:f.actor,assertPreview:()=>{},secret:'offline-brand-toggle-only-identity-secret',env});
  await f.prepare();
  const snapshot=()=>queued(()=>f.runtime(()=>controller().snapshot()));
  const action=input=>queued(async()=>{try{const result=await f.runtime(()=>controller().saveSetting(input));if(loseResponse){loseResponse=false;throw Error('LOCAL_LOST_COMMIT_RESPONSE');}return result;}catch(e){if(e.message==='LOCAL_LOST_COMMIT_RESPONSE')throw e;return brandManagementError(e);}}).then(async result=>{if(holdNext){holdNext=false;signalCommit();await new Promise(resolve=>{releaseResponse=resolve;});}return result;});
- const actionNames=['readBrandKnowledge','reviewBrandKnowledge','changeBrandKnowledge','saveBrandSetting','testBrandScenario','setBrandHandoff','testBrandKnowledge','readBrandHandoffs','resumeBrandConversation','saveAiButlerSetting','testAiButler','setAiButlerTestHandoff','changeAiButlerKnowledge','readAiButlerKnowledge','testAiButlerPublished','readAiButlerHandoffs','resumeAiButlerConversation'];
- await build({bundle:true,jsx:'automatic',alias:{'@':path.join(root,'src')},define:{'process.env.NODE_ENV':'"development"'},format:'iife',outfile:path.join(temp,'ui.js'),stdin:{contents:`import{createRoot}from'react-dom/client';import{BrandAiWorkspace}from'./src/app/hq/dashboard/ai-services/workspace';const root=createRoot(document.getElementById('root'));window.drawBrand=s=>root.render(<BrandAiWorkspace key={s.viewKey} snapshot={s}/>);window.refreshToggle=async()=>{const s=await window.backendSnapshot();window.brandSnapshot=s;window.drawBrand(s);};window.refreshToggle();`,resolveDir:root,loader:'tsx'},plugins:[{name:'local-toggle-ui',setup(b){
- b.onResolve({filter:/(?:^|\/)(?:ai-actions|actions)$/},()=>({path:'actions',namespace:'local'}));
- b.onResolve({filter:/^@\/components\/operations\/panel-read-cache$/},()=>({path:'reader',namespace:'local'}));
- b.onResolve({filter:/^next\/navigation$/},()=>({path:'navigation',namespace:'local'}));
- b.onResolve({filter:/^@\/components\/dashboard-link$/},()=>({path:'link',namespace:'local'}));
- b.onResolve({filter:/(?:^|\/)settings-navigation$/},()=>({path:'settings',namespace:'local'}));
- b.onLoad({filter:/.*/,namespace:'local'},({path:name})=>({loader:'js',resolveDir:root,contents:name==='actions'?actionNames.map(n=>`export const ${n}=input=>${n==='saveBrandSetting'?"window.backendToggle(input)":"Promise.reject(Error('Out-of-scope action'))"};`).join(''):
- name==='reader'?`import{useMemo}from'react';export const usePanelReader=(n,action)=>useMemo(()=>({refresh:input=>action(input),clear:()=>{}}),[action]);`:
- name==='navigation'?`const router={refresh(){void window.refreshToggle();}};export const useRouter=()=>router;import{useSyncExternalStore}from'react';export const usePathname=()=>location.pathname;export const useSearchParams=()=>new URLSearchParams(useSyncExternalStore(fn=>{addEventListener('popstate',fn);return()=>removeEventListener('popstate',fn)},()=>location.search));`:
- name==='settings'?`import{createContext}from'react';export const SettingsNavigationContext=createContext(null);export const settingsWorkspaceHref=x=>x;export const useRememberSettingsLocation=()=>{};`:
- `import{createElement}from'react';export const DashboardLink=({children,...props})=>createElement('a',props,children);`}));
- }}]});
- const css=(await postcss([tailwind({base:root})]).process(readFileSync('src/app/globals.css','utf8'),{from:path.join(root,'src/app/globals.css')})).css;
- browser=await chromium.launch({headless:true,executablePath:'/usr/bin/chromium',args:['--no-sandbox']});const page=await browser.newPage();page.on('pageerror',e=>report.errors.push(e.message));
- await page.exposeFunction('backendSnapshot',snapshot);await page.exposeFunction('backendToggle',action);
- await page.route('**/*',route=>{const u=new URL(route.request().url());if(u.origin!=='https://brand-toggle.invalid')return route.abort();if(u.pathname==='/ui.js')return route.fulfill({contentType:'application/javascript',body:readFileSync(path.join(temp,'ui.js'),'utf8')});if(u.pathname==='/ui.css')return route.fulfill({contentType:'text/css',body:css});return route.fulfill({contentType:'text/html',body:'<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/ui.css"><main class="mx-auto max-w-6xl min-w-0 p-4"><div id="root"></div></main><script src="/ui.js"></script></html>'});});
- await page.goto('https://brand-toggle.invalid/hq/dashboard/ai-services');const on=()=>page.getByRole('button',{name:'開啟測試',exact:true}),off=()=>page.getByRole('button',{name:'關閉測試',exact:true});await on().waitFor();assert(await on().isDisabled(),'global stop did not disable UI');report.cases.push('global-stop-disables-enable');
+ const opened=await openLocalBrandWorkspace({root,temp,snapshot,action:(name,input)=>{if(name!=='saveBrandSetting')throw Error('Out-of-scope action');return action(input);},onPageError:e=>report.errors.push(e.message)});browser=opened.browser;const page=opened.page;
+ const on=()=>page.getByRole('button',{name:'開啟測試',exact:true}),off=()=>page.getByRole('button',{name:'關閉測試',exact:true});await on().waitFor();assert(await on().isDisabled(),'global stop did not disable UI');report.cases.push('global-stop-disables-enable');
  await queued(()=>f.db.exec('UPDATE "AiButlerControl" SET stopped=false'));await page.reload();await on().waitFor();
  async function checkState(enabled){const s=await snapshot();assert(s.setting.enabled===enabled,'database toggle mismatch');await(enabled?off():on()).waitFor();await page.getByText(new RegExp('品牌開關：'+(enabled?'開啟':'關閉'))).waitFor();return s;}
  for(const [width,height]of[[1920,1080],[1366,900],[1024,768],[768,1024],[390,844],[360,800]]){

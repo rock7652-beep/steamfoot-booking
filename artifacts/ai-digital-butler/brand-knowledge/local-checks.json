@@ -1,0 +1,27 @@
+{
+  "status": "local passed; cloud pending",
+  "baseCommit": "385281324d2c2d8d164c8fcf9a9cad0a8e86367b",
+  "checks": {
+    "knowledgeWorkflow": "passed, matching local PostgreSQL/RLS/audit triggers",
+    "sharedWorkspaceBrowser": "passed; six viewports; nine functional scenarios",
+    "toggleRegression": "passed; six viewports; nine scenarios; historical artifacts retained",
+    "existingAIAndPermissionsRegression": "503 passed, 6 skipped; supporting evidence only",
+    "typeScript": "passed",
+    "changedFileESLint": "passed without warnings"
+  },
+  "cloud": {
+    "catalogReadOnly": true,
+    "ddlOrDml": 0,
+    "permissionChanges": 0,
+    "vercelBuilds": 0,
+    "links": 0,
+    "logins": 0,
+    "providerCalls": 0,
+    "realOutbound": 0
+  },
+  "limitations": [
+    "PGlite matching fixture; not remote Prisma/pooler or NextAuth HTTP acceptance",
+    "Cloud audit redactor EXECUTE and revoked temporary login/audit permissions remain unchanged",
+    "Chromium viewport simulation, not physical devices"
+  ]
+}
