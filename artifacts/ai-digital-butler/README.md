@@ -1,5 +1,7 @@
 # AI 數位店長驗收證據
 
+LINE 格式離線合成事件補驗：[summary](line-synthetic/summary.json)、[信任邊界與限制](../../docs/ai/digital-butler-line-synthetic-acceptance.md)。只新增測試 driver，沒有新 Preview 或正式 Webhook 介接。
+
 最新 Mock 串接證據：[summary](routing/summary.json)、[驗收與限制](../../docs/ai/digital-butler-routing-acceptance.md)。最終 b25 四店停止／重送及 15 組 RWD，ec6 四店完整 Mock 情境；版本不能混為同一次執行。
 
 歷史知識管理證據：[Phase 2 summary](phase2/summary.json)、[驗收與限制](../../docs/ai/digital-butler-knowledge-acceptance.md)。以下保留 Phase 0/1 歷史。

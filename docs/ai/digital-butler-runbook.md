@@ -66,6 +66,8 @@ Git 自動部署對本支線為 false。建置沿用既有 Turbo，未更改全�
 
 同頁「原流程與 AI 串接」只用固定合成情境與 Mock。先驗原流程／等待輸入，再在已核對額度下驗已知來源與未知轉真人；真人接手持久保留，需明確恢復。同一未確認事件沿用 eventId，不以換情境或新事件重跑。安裝本輪增量 DDL 只用 `scripts/sql/ai-digital-butler/preview-routing.sql`，不可當成正式 migration。
 
+另有 [LINE 格式離線合成驗收](digital-butler-line-synthetic-acceptance.md)，使用既有簽章函式、公開 fixture secret、TEST scope 及本機 PGlite，不需要打開 Preview／四店開關，也不接正式 Webhook。測試 driver 僅位於 `src/__tests__`，不能當成已部署通路介接。
+
 ## 緊急停止與費用結果不明
 
 最即時方式是在**隔離 DB**設 AiButlerControl.stopped=true；新請求及晚到結果皆受控。單店可關 setting.enabled 或 HQ 權益。runtime env 關閉須由新部署載入，不能把修改變數當成已即時停用。此開關不影響原確定性數位管家與預約。
