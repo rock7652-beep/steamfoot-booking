@@ -242,11 +242,22 @@ it("an installed but unreadable peer ledger cannot silently bypass the global ca
   await db.exec('INSERT INTO "Store" VALUES (\'steamfoot\'); INSERT INTO "StoreFeatureEntitlement" VALUES (\'steamfoot\',\'ai_digital_butler\',\'ENABLED\',NULL,NULL);');
   await stores.saveSetting("steamfoot", { ...DEFAULT_AI_SETTING, enabled: true }, 0, now);
   const denying = (tx: AiSql): AiSql => ({ query: (text, values) => {
-    if (text.includes('FROM "AiBrandRequest"')) throw Error("PEER_ACCESS_DENIED");
+    if (text.includes("ai_owner_peer_totals")) throw Error("PEER_ACCESS_DENIED");
     return tx.query(text, values);
   } });
   const restricted: AiDatabase = { ...denying(database), transaction: work => database.transaction(tx => work(denying(tx))) };
   const repo = new AiButlerRepository(restricted);
   await expect(repo.reserve({ ...aiIdentity(storeScope, "denied", secret), model: "gpt-6-luna", provider: "openai", heldMicros: 1, now }, "TEST")).rejects.toThrow("PEER_ACCESS_DENIED");
   expect((await rows("AiButlerRequest")).rows).toHaveLength(0);
+});
+
+it("the global-cost capability sees RLS-hidden peers without granting operational row access", async () => {
+  await request("hidden-cost", "other", 123);
+  await db.exec('CREATE ROLE brand_cost_reader; GRANT USAGE ON SCHEMA public TO brand_cost_reader; GRANT EXECUTE ON FUNCTION public.ai_owner_peer_totals(text) TO brand_cost_reader; SET ROLE brand_cost_reader');
+  try {
+    await expect(db.query('SELECT * FROM "AiBrandRequest"')).rejects.toThrow("permission denied");
+    const aggregate = await db.query<{ total: string; concurrent: string }>("SELECT * FROM public.ai_owner_peer_totals('STORE')");
+    expect(aggregate.rows).toEqual([{ total: "123", concurrent: "1" }]);
+    await expect(db.query("SELECT * FROM public.ai_owner_peer_totals('INVALID')")).rejects.toThrow("AI_OWNER_INVALID");
+  } finally { await db.exec('RESET ROLE'); }
 });

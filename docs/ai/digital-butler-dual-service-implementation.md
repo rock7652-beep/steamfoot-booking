@@ -18,7 +18,7 @@
 
 儲存使用封閉的程式端表名映射；外部輸入不能提供表名／schema。品牌資料無 Store 外鍵，也不借用任何門市記錄。新 SQL 只存於 `scripts/sql/ai-digital-butler/brand-owner-schema.draft.sql`，不在 Prisma／CI migration／自動部署安裝路徑，預設沒有服務 seed、開關啟用、server-role grants 或 RLS 開放 policy。
 
-全域仍使用同一 `AiButlerControl` 鎖、總預算及同時請求上限；兩份帳本均存在時合計全域用量，服務本身日／月限制只計自己的 owner。Store 在品牌 schema 未安裝時沿用既有帳本；已安裝的另一帳本無法讀取時直接拒絕，不能忽略費用。品牌缺表／缺資格時不回退 Store。
+全域仍使用同一 `AiButlerControl` 鎖、總預算及同時請求上限；兩份帳本均存在時合計全域用量，服務本身日／月限制只計自己的 owner。Store 在品牌 schema 未安裝時沿用既有帳本；已安裝的另一帳本透過私有 `ai_owner_peer_totals` 聚合能力讀取全域合計，避免 per-owner RLS 靜默漏算；該函式固定 search_path、限定兩種模式、只回總額／並行數、row_security=off 令無完整權限時報錯，預設撤銷 EXECUTE。缺少函式／執行權限或另一帳本無法讀取時直接拒絕，不能忽略費用。品牌缺表／缺資格時不回退 Store。
 
 ## 安全及操作契約
 
@@ -45,6 +45,6 @@ AI／LINE 回歸、型別與變更檔 lint 的結果記錄於[本輪摘要](../.
 
 ## 另需授權的最小後續範圍（本輪未執行）
 
-若進入隔離環境的品牌操作驗收，只需先審核上述八張私有品牌表、指定隔離服務 ID、獨立操作員授權及 server-role 最小 ACL／RLS；同時確認該角色可以完整讀取兩份私有成本帳本所需的全域合計，不授予門市會員／營運工具權限。安裝限定隔離庫 `ttworfzgwejdeolegkxl`，總停止維持 true、四店與品牌均關閉，保留原上限；不修改 Production。**此段不是安裝指令，也沒有視為已取得授權。**
+若進入隔離環境的品牌操作驗收，只需先審核上述八張私有品牌表、私有總費用聚合函式、指定隔離服務 ID、獨立操作員授權及 server-role 最小 ACL／RLS；同時確認該角色可以完整讀取兩份私有成本帳本所需的全域合計，不授予門市會員／營運工具權限。安裝限定隔離庫 `ttworfzgwejdeolegkxl`，總停止維持 true、四店與品牌均關閉，保留原上限；不修改 Production。**此段不是安裝指令，也沒有視為已取得授權。**
 
 之後才可將品牌 owner 掛到既有 Settings／知識／人工操作入口並驗證 RWD；真實 LINE OA 接入、測試白名單、改址、憑證或外發須各自提出精確範圍。不能把本輪 backend adapter 當成上述操作已完成。

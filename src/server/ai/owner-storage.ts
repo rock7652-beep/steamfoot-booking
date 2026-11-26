@@ -16,8 +16,9 @@ export function ownerDatabase(database: AiDatabase, kind: AiStorageKind): AiData
           if (kind === "BRAND") throw new Error("AI_SCHEMA_REQUIRED");
           return [{ total: "0", concurrent: "0" }] as unknown as T[];
         }
-        // Failing to read an installed peer ledger is fatal: never undercount global usage.
-        return sql.query<T>(`SELECT COALESCE(SUM("heldMicros"),0)::text AS total, COUNT(*) FILTER (WHERE status='RESERVED')::text AS concurrent FROM "${peer}"`);
+        // Narrow aggregate capability sees the entire peer ledger despite per-owner RLS.
+        // Missing EXECUTE/function or inaccessible ledgers are fatal; no raw-SELECT fallback.
+        return sql.query<T>("SELECT total, concurrent FROM public.ai_owner_peer_totals($1)", [kind]);
       }
       let mapped = statement.replaceAll('"ownerId"', kind === "STORE" ? '"storeId"' : '"serviceId"');
       if (kind === "BRAND") {
