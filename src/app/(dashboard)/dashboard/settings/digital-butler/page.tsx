@@ -1,4 +1,6 @@
 import { aiIdentity } from "@/server/ai/service";
+import { addTaiwanDuration, toLocalDateStr } from "@/lib/date-utils";
+import { AiAvailabilityPanel } from "./ai-availability-panel";
 import { getStoreFeaturePresentation, hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { claimsAiPreview, assertAiPreview } from "../../../../../../scripts/ai-digital-butler-preview-scope.mjs";
@@ -85,6 +87,7 @@ export default async function DigitalButlerSettingsPage({ searchParams }: { sear
       <AiButlerPanel key={storeId} setting={ai.setting.setting} revision={ai.setting.revision} liveTestAvailable={process.env.AI_OPENAI_TEST_ENABLED === "1"} requestCount={ai.usage.requests} reservedMicros={ai.usage.reservedMicros} budgetMicros={ai.usage.budgetMicros} alerts={ai.usage.alerts} initialHandoff={ai.handoff} initialHandoffRevision={ai.handoffRevision} />
       <AiKnowledgePanel key={`knowledge-${storeId}`} initial={ai.knowledge} liveTestAvailable={process.env.AI_OPENAI_TEST_ENABLED === "1"} />
       <AiRoutingPanel key={`routing-${storeId}`} initial={ai.routing} />
+      {storeId === "ai-preview-steamfoot" && store.industryModule === "STEAMFOOT" && <AiAvailabilityPanel key={`availability-${handoffViewKey}`} viewKey={handoffViewKey} today={toLocalDateStr()} initialDate={addTaiwanDuration(toLocalDateStr(), 1, "DAY")} />}
       <AiHandoffPanel key={handoffViewKey} page={handoffs} viewKey={handoffViewKey} cursor={handoffCursor} readOnly={!!(await resolveStoreViewContextFromCookie(user))?.isViewMode} />
       </AiHandoffWorkspace>}
       {butlerAllowed && <DigitalButlerFlowEditor

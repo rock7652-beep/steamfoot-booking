@@ -18,12 +18,15 @@ export class AiToolRegistry {
   }
   async invoke(scope: TrustedAiScope, proposal: unknown, phase: "KNOWLEDGE" | "READ_ONLY") {
     const request = z.object({ name: z.string(), arguments: z.record(z.unknown()) }).strict().parse(proposal);
-    if (phase === "KNOWLEDGE") throw new Error("AI_TOOLS_DISABLED");
+    if (phase !== "READ_ONLY") throw new Error("AI_TOOLS_DISABLED");
+    // Capture before authorization awaits. An adapter must never observe a
+    // later mutation of the caller's trusted scope.
+    const trusted = Object.freeze({ ...scope });
     const tool = this.tools.get(request.name);
-    if (!scope.storeId || scope.storeId === "__all__" || !tool || tool.module !== scope.module || tool.mode !== "READ") throw new Error("AI_TOOL_NOT_AUTHORIZED");
+    if (!trusted.storeId || trusted.storeId === "__all__" || !trusted.actorId || !trusted.channelAccountId || !tool || tool.module !== trusted.module || tool.mode !== "READ") throw new Error("AI_TOOL_NOT_AUTHORIZED");
     if (["storeId", "userId", "customerId", "actorId"].some(key => key in request.arguments)) throw new Error("AI_TOOL_SCOPE_FORBIDDEN");
     const parameters = tool.parameters.parse(request.arguments);
-    await tool.authorize(scope);
-    return tool.execute(Object.freeze({ ...scope }), parameters);
+    await tool.authorize(trusted);
+    return tool.execute(trusted, parameters);
   }
 }
