@@ -63,3 +63,5 @@
 - 角色無 superuser／bypass RLS、connection limit 8，原 DB 密碼、嚴格 TLS、環境變數與正式資料不變。main `378cd9475317f6c4ab804f0e48642f1d4f0f567a` 未動，PR 維持 Draft、不合併／promote。[收尾證據](../../artifacts/ai-digital-butler/line-e2e/postflight.json)。
 
 本輪完成的是合成美業店的真實模型 TEST 鏈。正式 OA／HTTP Webhook／實際傳送、真實 LINE 會員綁定、原流程跨事件持久 repository、其他模型、實體裝置及預約寫入均未驗。蒸足真實 API 因既有額度滿而未重測；暖暖試營運尚未決定。後台指南只補本功能範圍，仍 source-reviewed，205 題／96 待驗不變；沒有前台指南。額外 QA probe 的修正後雲端重跑與實際帳單對帳仍屬未驗項，不把本結果當完整 Phase 2/3 或正式客服已開放。
+
+後續更新：修正版 QA 登出 probe 已於 [新版 LINE HTTP 零外發驗收](digital-butler-line-webhook-acceptance.md)在雲端通過。本文件保留本輪當時原始錯誤及未重跑的歷史狀態，不能改寫該次腳本 exit 1。

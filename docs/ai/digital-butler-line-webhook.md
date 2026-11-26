@@ -42,3 +42,5 @@ Routing／Service 的預設 capability 仍只接受 TEST；只有隔離 adapter 
 型別／ESLint、CI 與隔離部署結果另補實際證據。新版需要一次必要 Preview，舊 runtime 沒有此入口；支線 Git 自動建置 false，不為文件重建。平台單次費用／帳單未取得，無正式部署；Cloudflare 不是本次 Vercel 入口依賴。
 
 前次通行連結授權僅限舊部署，不能延伸到新版。新版受保護 URL 的正向雲端測試若需要新通行連結，須核對本部署明確授權；不改用會建立 23 小時連結的 fetch 工具。TEST 維持停止；前輪 QA 登出 probe 修正版雲端重測繼續待驗，不因本機 HTTP 通過就銷項。
+
+實際結果見 [本輪零外發驗收](digital-butler-line-webhook-acceptance.md)：14 項雲端情境、兩筆 Mock、真實 API 0，安全還原與兩條經批准連結的撤銷均已核對。前輪登出 probe 修正版已在此新版雲端重測通過，前文為執行前限制與歷史待驗狀態。

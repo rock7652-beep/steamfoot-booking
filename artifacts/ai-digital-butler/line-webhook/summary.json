@@ -1,0 +1,58 @@
+{
+  "dateTaipei": "2026-11-26",
+  "pr": 1596,
+  "runtimeSha": "005ce6e61562a1e5694b7537fbcbdb5d04eab5da",
+  "deploymentId": "dpl_8XMZsnsSwHjMs9cFRRSqSYbm2Nn1",
+  "url": "https://steamfoot-booking-26jkkka2o-rock7652-2111s-projects.vercel.app",
+  "runtimeCi": {
+    "id": 45780302669,
+    "jobsPassed": 4,
+    "testsPassed": 17715,
+    "testsSkipped": 340,
+    "filesPassed": 1866,
+    "filesSkipped": 36,
+    "seconds": 558.78
+  },
+  "localRegression": {
+    "files": 10,
+    "passed": 223
+  },
+  "hosted": {
+    "cases": 14,
+    "events": 12,
+    "sizes": 6,
+    "errors": 0,
+    "failures": []
+  },
+  "newMockRequests": 2,
+  "newRealOpenaiRequests": 0,
+  "newEstimatedApiCostMicros": 0,
+  "cumulativeEstimatedApiCostMicros": 2690,
+  "newBuilds": 1,
+  "temporaryLinksCreated": 2,
+  "bothLinksRevoked": true,
+  "remainingShareLinks": 0,
+  "previousLogoutProbeCloudRerun": true,
+  "previousLogoutProbePassed": true,
+  "finalSafety": {
+    "dispatch_unresolved": 0,
+    "requests_not_complete": 0,
+    "handoffs": 1,
+    "beauty_today": 15,
+    "role": {
+      "super": false,
+      "bypass": false,
+      "connectionLimit": 8
+    },
+    "suspended_members": 3
+  },
+  "limitations": [
+    "Actual HTTP POST with staff-authenticated signed synthetic fixture; no real LINE OA delivery.",
+    "Fixture original flow remains request-local; real OA runtime/repository not cloud accepted.",
+    "MEMBER/guest authorization tested with offline authoritative dependencies; no real LINE Login/customer acceptance.",
+    "No actual sender; delivery dedup applies to the blocked sink, not real LINE receipts.",
+    "CENTRAL and shared OA are blocked; only explicitly configured PROVIDER OA is supported by this adapter.",
+    "Browser viewport emulation; no physical devices or production/pilot acceptance."
+  ],
+  "firstAttempt": "hosted-attempt1.json"
+}

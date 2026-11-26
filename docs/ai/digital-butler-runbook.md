@@ -1,15 +1,15 @@
 # AI 數位店長隔離 Preview Runbook
 
-目前核心、Phase 2 店家知識管理、原流程 → AI → 真人的 Mock 串接、待人工處理管理、蒸足空位及本人預約唯讀工具已完成合成 TEST 驗收；正式客服未開放。架構與安全契約以 [工程契約](digital-butler-core.md) 為準，最新合成 LINE 主流程與真實 API 結果見 [端到端驗收](digital-butler-line-e2e-acceptance.md)，其中額外 QA 登出 probe 的空值判讀錯誤另有診斷；互動修正及計時定義見 [會員入口效能盤查](digital-butler-member-performance.md)；功能實測見 [本人預約唯讀驗收](digital-butler-member-bookings-acceptance.md)，[蒸足空位驗收](digital-butler-availability-acceptance.md) 保留當時結果，[待人工處理驗收](digital-butler-handoff-acceptance.md) 保留當時結果，[Mock 串接驗收](digital-butler-routing-acceptance.md) 保留當時結果，[知識管理驗收](digital-butler-knowledge-acceptance.md) 保留當時結果；[Phase 0/1 歷史](digital-butler-acceptance.md) 保留。
+目前核心、Phase 2 店家知識管理、原流程 → AI → 真人的 Mock 串接、待人工處理管理、蒸足空位及本人預約唯讀工具已完成合成 TEST 驗收；正式客服未開放。架構與安全契約以 [工程契約](digital-butler-core.md) 為準，最新 LINE HTTP 零外發結果見 [Webhook 驗收](digital-butler-line-webhook-acceptance.md)；合成 LINE 主流程與真實 API 結果見 [端到端驗收](digital-butler-line-e2e-acceptance.md)，其中額外 QA 登出 probe 的空值判讀錯誤另有診斷；互動修正及計時定義見 [會員入口效能盤查](digital-butler-member-performance.md)；功能實測見 [本人預約唯讀驗收](digital-butler-member-bookings-acceptance.md)，[蒸足空位驗收](digital-butler-availability-acceptance.md) 保留當時結果，[待人工處理驗收](digital-butler-handoff-acceptance.md) 保留當時結果，[Mock 串接驗收](digital-butler-routing-acceptance.md) 保留當時結果，[知識管理驗收](digital-butler-knowledge-acceptance.md) 保留當時結果；[Phase 0/1 歷史](digital-butler-acceptance.md) 保留。
 
 ## 已驗證版本與目前狀態
 
 - PR [#1596](https://github.com/rock7652-beep/steamfoot-booking/pull/1596)，支線 `feat/ai-digital-butler-core`。
-- 程式／Preview SHA：`20d51680f4d63bbfa6e4729a0da6d3f72e590357`；後續純文件／證據提交以 PR head 為準，不另建相同程式 Preview。
-- [受保護 Preview](https://steamfoot-booking-oz4gthq8u-rock7652-2111s-projects.vercel.app)，deployment `dpl_2c4S9qYspkuzNSTgrCtJMSYZR7xX`，READY。
+- 程式／Preview SHA：`005ce6e61562a1e5694b7537fbcbdb5d04eab5da`；後續純文件／證據提交以 PR head 為準，不另建相同程式 Preview。
+- [受保護 Preview](https://steamfoot-booking-26jkkka2o-rock7652-2111s-projects.vercel.app)，deployment `dpl_8XMZsnsSwHjMs9cFRRSqSYbm2Nn1`，READY。
 - 2026-11-26（台灣時間）完成核心與知識管理的隔離登入、發布／撤下、來源引用、Mock、最小真實 API、帳本與 RWD 驗收。
-- 收尾狀態：**global stopped=true、四店 enabled=false**，51 筆請求全部 COMPLETE，RESERVED／UNKNOWN 0；46 筆 Mock、5 筆 OpenAI，累計保守估算 US$0.002690。累計估算不是供應商帳單；早期串接新增 7 Mock；人工接手管理本身不呼叫模型；最新合成 LINE 演練新增 2 筆真實 API／2 筆 Mock，累計 78 筆串接事件全部 COMPLETE、10 筆恢復 audit。原先 1 筆合成接手旗標保留。
-- 本輪單一 30 分鐘通行連結已撤銷，回應顯示 shareable-link 0；合成美業 OWNER 臨時密碼已清除、原 session 回傳 null，私密設定與瀏覽器已清理；SSO 保留。
+- 收尾狀態：**global stopped=true、四店 enabled=false**，53 筆請求全部 COMPLETE，RESERVED／UNKNOWN 0；48 筆 Mock、5 筆 OpenAI，累計保守估算 US$0.002690。累計估算不是供應商帳單；早期串接新增 7 Mock；人工接手管理本身不呼叫模型；最新合成 LINE 演練新增 2 筆真實 API／2 筆 Mock，累計 113 筆 Dispatch 全部 COMPLETE、12 筆恢復 audit。原先 1 筆合成接手旗標保留。
+- 最新 HTTP 驗收第一條與替代 30 分鐘通行連結均經分別批准，已全部撤銷，回應顯示 shareable-link 0；合成美業 OWNER 臨時密碼已清除、修正後登出 probe 雲端通過，私密設定與瀏覽器已清理；SSO 保留。
 - 沒有變更 Production、Development、其他 Preview 支線或正式 DB，沒有正式 migration、真實 LINE／Messenger／Email 外發、新專案或 IPv4 add-on。
 
 ## 連線與隔離範圍
@@ -109,3 +109,5 @@ Phase 0/1 六次部署的版本、失敗及修正保留在 [runtime 歷史](../.
 ## LINE HTTP 接入（零外發）
 
 新版接入與安全契約見 [LINE Webhook](digital-butler-line-webhook.md)。HTTP 固定 Mock、回覆只記 OUTBOUND_BLOCKED，沒有修改 TEST 開關、額度或真實外發；不沿用前輪一次性連結授權。實際 CI／部署／雲端證據依該階段補記，不將本機 fixture 當正式 OA 驗收。
+
+實測已完成：[14 項雲端驗收](digital-butler-line-webhook-acceptance.md)，新增兩筆 Mock、真實 OpenAI 0、全部回覆只記阻擋 sink；美業當日 15／20。QA 登出修正版雲端通過，原失敗保留；總停止／四店關閉、密碼清除及兩條短效連結撤銷均已核對。不代表真實 OA 或外發已驗。

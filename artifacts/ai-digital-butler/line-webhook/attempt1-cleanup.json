@@ -1,0 +1,13 @@
+{
+  "failure": "Chromium did not trust the current execution environment proxy CA; navigation failed before login",
+  "webhookCasesExecuted": 0,
+  "newMockRequests": 0,
+  "newOpenaiRequests": 0,
+  "stopped": true,
+  "allFourStoresDisabled": true,
+  "ownerPasswordCleared": true,
+  "grantRevoked": true,
+  "remainingShareLinks": 0,
+  "privateConfigRemoved": true,
+  "strictTlsPreserved": true
+}

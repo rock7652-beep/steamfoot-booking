@@ -73,3 +73,5 @@ OpenAI `store:false` 不等於帳號已具 Zero Data Retention；預設濫用監
 本人測試入口的 [效能盤查與互動修正](digital-butler-member-performance.md) 已區分登入合計、單頁可操作及查詢結果時間；SSR 準備期間先停用展開，保留全部後端確認與唯讀限制。
 
 [合成 LINE 演練契約](digital-butler-line-e2e.md) 與 [真實 API 主流程驗收](digital-butler-line-e2e-acceptance.md) 已補同次已發布知識、模型來源選擇、持久接手與原清單稽核恢復。只在合成美業 TEST 跑兩筆 API，仍無正式 Webhook 或 sender。13 個主流程情境通過，額外登出 QA probe 的空值判讀錯誤及未重跑限制保留；不改寫成正式客服已驗收。
+
+2026-11-26 增量：[LINE HTTP 零外發接入](digital-butler-line-webhook.md)／[實際驗收](digital-butler-line-webhook-acceptance.md)。隔離 Preview 在舊 handler 前核對簽章與門市，使用共用核心、雙 alias 防重及阻擋回覆收據；沒有啟用正式通路、外發或自動預約。

@@ -1,0 +1,9 @@
+{
+  "strictTls": true,
+  "shareGrantUsed": false,
+  "targetStatuses": [
+    302
+  ],
+  "errors": [],
+  "passed": true
+}

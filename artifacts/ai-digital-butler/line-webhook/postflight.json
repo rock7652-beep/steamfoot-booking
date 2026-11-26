@@ -1,0 +1,104 @@
+{
+  "dateTaipei": "2026-11-26",
+  "runtimeSha": "005ce6e61562a1e5694b7537fbcbdb5d04eab5da",
+  "deployment": "dpl_8XMZsnsSwHjMs9cFRRSqSYbm2Nn1",
+  "snapshot": {
+    "mock": 48,
+    "audits": 12,
+    "openai": 5,
+    "stopped": true,
+    "bookings": 129,
+    "requests": 53,
+    "settings": [
+      {
+        "store": "ai-preview-beauty",
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 11
+      },
+      {
+        "store": "ai-preview-fitness",
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 7
+      },
+      {
+        "store": "ai-preview-music",
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 7
+      },
+      {
+        "store": "ai-preview-steamfoot",
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 8
+      }
+    ],
+    "customers": 1367,
+    "dispatches": 113,
+    "unresolved": 0,
+    "ownerCleared": true,
+    "estimatedMicros": 2690
+  },
+  "settingsComparison": [
+    {
+      "store": "ai-preview-beauty",
+      "capsAndSettingsUnchanged": true,
+      "revisionDelta": 2
+    },
+    {
+      "store": "ai-preview-fitness",
+      "capsAndSettingsUnchanged": true,
+      "revisionDelta": 0
+    },
+    {
+      "store": "ai-preview-music",
+      "capsAndSettingsUnchanged": true,
+      "revisionDelta": 0
+    },
+    {
+      "store": "ai-preview-steamfoot",
+      "capsAndSettingsUnchanged": true,
+      "revisionDelta": 0
+    }
+  ],
+  "grantRevoked": true,
+  "remainingShareLinks": 0,
+  "privateRemoved": true,
+  "browsersClosed": true,
+  "newMock": 2,
+  "newOpenai": 0
+}

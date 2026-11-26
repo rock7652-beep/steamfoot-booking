@@ -33,3 +33,5 @@ LINE 格式離線合成事件補驗：[summary](line-synthetic/summary.json)、[
 - 本機重現介面：`node scripts/qa/ai-digital-butler-ui.mjs`；編譯 JS/CSS 不進版控。
 
 單一維護紀錄：[驗收與限制](../../docs/ai/digital-butler-acceptance.md)、[Runbook](../../docs/ai/digital-butler-runbook.md)、[工程契約](../../docs/ai/digital-butler-core.md)。
+
+最新 LINE HTTP 零外發驗收：[`line-webhook/summary.json`](line-webhook/summary.json)，runtime 005ce6e61；14 項／六尺寸、兩筆 Mock、真實 API 0，前輪登出 probe 雲端重測通過。第一條連結遇到 Chrome 信任庫限制的原失敗與收尾保留，取得新批准的替代連結通過後也已撤銷。契約與限制見 [驗收](../../docs/ai/digital-butler-line-webhook-acceptance.md)。
