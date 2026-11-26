@@ -128,3 +128,13 @@ it("original engine exceptions fail closed, persist receipt unknown and never ca
  expect(test.ports.ai).not.toHaveBeenCalled();expect((await repository.conversationState(identity())).handoff).toBe(true);
  expect((await test.run()).outcome).toBe("RESULT_UNKNOWN");
 });
+
+it("an unknown receipt blocks a new event in the same generation even if the handoff write did not finish",async()=>{
+ await receipts.claim(identity(),"f".repeat(64),false,now);
+ await receipts.unknown(identity(),now);
+ const next=setup("original","after-unknown");
+ expect(await next.run()).toMatchObject({route:"BLOCKED",outcome:"BUSY",providerCalls:0});
+ expect(next.ports.original).not.toHaveBeenCalled();
+ await repository.handoff(identity(),false,now);
+ expect((await setup("original","after-explicit-resume").run()).route).toBe("ORIGINAL");
+});

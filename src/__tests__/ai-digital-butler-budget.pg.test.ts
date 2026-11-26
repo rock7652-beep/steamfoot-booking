@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
+import { AiRoutingRepository } from "@/server/ai/routing-repository";
 import { AiButlerRepository, type AiSql, type AiDatabase } from "@/server/ai/repository";
 import { DEFAULT_AI_SETTING } from "@/server/ai/contracts";
 import { aiIdentity } from "@/server/ai/service";
@@ -77,4 +78,17 @@ it.skipIf(!enabled)("rehearses hosted fixtures and the restricted role without g
     await expect(clients[0].query('UPDATE "AiButlerSetting" SET setting=\'{}\' WHERE "storeId"=\'a\' RETURNING *')).resolves.toMatchObject({ rows: [] });
     expect((await clients[0].query("SELECT NOT rolbypassrls AND NOT rolcreaterole AND NOT rolsuper AS safe FROM pg_roles WHERE rolname=current_user")).rows[0].safe).toBe(true);
   } finally { await clients[0].query("RESET ROLE"); }
+});
+
+it.skipIf(!enabled)("unknown routing receipts block a new event until the operator changes generation",async()=>{
+ await clients[0].query(readFileSync("scripts/sql/ai-digital-butler/preview-routing.sql","utf8"));
+ const c=clients[0];
+ const adapt:AiSql={query:async(sql,values)=>(await c.query(sql,values)).rows as never};
+ const routes=new AiRoutingRepository({...adapt,transaction:async work=>{await c.query("BEGIN");try{const result=await work(adapt);await c.query("COMMIT");return result;}catch(error){await c.query("ROLLBACK");throw error;}}});
+ const id={storeId:"ai-preview-beauty",scopeKey:"f".repeat(64),eventKey:"a".repeat(64)},fingerprint="b".repeat(64);
+ expect((await routes.claim(id,fingerprint,false,now)).state).toBe("CLAIMED");
+ await routes.unknown(id,now);
+ expect((await routes.claim({...id,eventKey:"c".repeat(64)},fingerprint,false,now)).state).toBe("BUSY");
+ await repositories[0].handoff(id,false,now);
+ expect((await routes.claim({...id,eventKey:"d".repeat(64)},fingerprint,false,now)).state).toBe("CLAIMED");
 });

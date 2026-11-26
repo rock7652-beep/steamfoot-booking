@@ -20,7 +20,7 @@ export class AiRoutingRepository {
       await tx.query('INSERT INTO "AiButlerConversation" ("storeId","scopeKey","expiresAt") VALUES ($1,$2,$3::timestamptz) ON CONFLICT ("storeId","scopeKey") DO NOTHING', [id.storeId,id.scopeKey,new Date(now.getTime()+AI_LIMITS.retentionDays*86400_000)]);
       const [conversation] = await tx.query<{ revision: number; handoff: boolean }>('SELECT revision,handoff FROM "AiButlerConversation" WHERE "storeId"=$1 AND "scopeKey"=$2', [id.storeId,id.scopeKey]);
       if (!conversation) throw new Error("AI_SCOPE_INVALID");
-      const busy = await tx.query('SELECT 1 FROM "AiButlerDispatch" WHERE "storeId"=$1 AND "scopeKey"=$2 AND "scopeRevision"=$3 AND status=\'CLAIMED\' LIMIT 1', [id.storeId,id.scopeKey,conversation.revision]);
+      const busy = await tx.query('SELECT 1 FROM "AiButlerDispatch" WHERE "storeId"=$1 AND "scopeKey"=$2 AND "scopeRevision"=$3 AND status IN (\'CLAIMED\',\'UNKNOWN\') LIMIT 1', [id.storeId,id.scopeKey,conversation.revision]);
       if (busy.length && !interrupt && !conversation.handoff) return { state: "BUSY" as const, revision: conversation.revision };
       await tx.query('INSERT INTO "AiButlerDispatch" ("storeId","scopeKey","eventKey",fingerprint,"scopeRevision",status,"createdAt") VALUES ($1,$2,$3,$4,$5,\'CLAIMED\',$6::timestamptz)',[id.storeId,id.scopeKey,id.eventKey,fingerprint,conversation.revision,now]);
       return { state: "CLAIMED" as const, revision: conversation.revision, handoff: conversation.handoff };
