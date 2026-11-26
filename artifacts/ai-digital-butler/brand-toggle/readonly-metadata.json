@@ -1,0 +1,1323 @@
+{
+  "role": {
+    "super": false,
+    "bypass": false,
+    "validUntil": "2026-12-02T14:15:52+00:00",
+    "connectionLimit": 8
+  },
+  "state": {
+    "stopped": true,
+    "brandOff": true,
+    "brandGrant": "HIDDEN",
+    "fourStoresOff": true
+  },
+  "columns": [
+    {
+      "name": "serviceId",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AiBrandGrant",
+      "default_expr": null
+    },
+    {
+      "name": "featureKey",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AiBrandGrant",
+      "default_expr": "'ai_brand_support'::text"
+    },
+    {
+      "name": "status",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AiBrandGrant",
+      "default_expr": "'HIDDEN'::text"
+    },
+    {
+      "name": "startsAt",
+      "type": "timestamp with time zone",
+      "not_null": false,
+      "table_name": "AiBrandGrant",
+      "default_expr": null
+    },
+    {
+      "name": "expiresAt",
+      "type": "timestamp with time zone",
+      "not_null": false,
+      "table_name": "AiBrandGrant",
+      "default_expr": null
+    },
+    {
+      "name": "serviceId",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AiBrandKnowledgeDocument",
+      "default_expr": null
+    },
+    {
+      "name": "draft",
+      "type": "jsonb",
+      "not_null": true,
+      "table_name": "AiBrandKnowledgeDocument",
+      "default_expr": null
+    },
+    {
+      "name": "published",
+      "type": "jsonb",
+      "not_null": false,
+      "table_name": "AiBrandKnowledgeDocument",
+      "default_expr": null
+    },
+    {
+      "name": "revision",
+      "type": "integer",
+      "not_null": true,
+      "table_name": "AiBrandKnowledgeDocument",
+      "default_expr": "0"
+    },
+    {
+      "name": "publishedVersion",
+      "type": "integer",
+      "not_null": true,
+      "table_name": "AiBrandKnowledgeDocument",
+      "default_expr": "0"
+    },
+    {
+      "name": "publishedAt",
+      "type": "timestamp with time zone",
+      "not_null": false,
+      "table_name": "AiBrandKnowledgeDocument",
+      "default_expr": null
+    },
+    {
+      "name": "id",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AiBrandService",
+      "default_expr": null
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AiBrandService",
+      "default_expr": null
+    },
+    {
+      "name": "serviceId",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AiBrandSetting",
+      "default_expr": null
+    },
+    {
+      "name": "setting",
+      "type": "jsonb",
+      "not_null": true,
+      "table_name": "AiBrandSetting",
+      "default_expr": null
+    },
+    {
+      "name": "revision",
+      "type": "integer",
+      "not_null": true,
+      "table_name": "AiBrandSetting",
+      "default_expr": "0"
+    },
+    {
+      "name": "id",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AiButlerControl",
+      "default_expr": null
+    },
+    {
+      "name": "stopped",
+      "type": "boolean",
+      "not_null": true,
+      "table_name": "AiButlerControl",
+      "default_expr": "true"
+    },
+    {
+      "name": "id",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "actorUserId",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "targetType",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "targetId",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "action",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "beforeJson",
+      "type": "jsonb",
+      "not_null": false,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "afterJson",
+      "type": "jsonb",
+      "not_null": false,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "createdAt",
+      "type": "timestamp(3) without time zone",
+      "not_null": true,
+      "table_name": "AuditLog",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "name": "storeId",
+      "type": "text",
+      "not_null": false,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "module",
+      "type": "text",
+      "not_null": false,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "summary",
+      "type": "text",
+      "not_null": false,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "actorNameSnapshot",
+      "type": "text",
+      "not_null": false,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "source",
+      "type": "text",
+      "not_null": true,
+      "table_name": "AuditLog",
+      "default_expr": "'MANUAL'::text"
+    },
+    {
+      "name": "actorRoleSnapshot",
+      "type": "text",
+      "not_null": false,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "loginRecordId",
+      "type": "text",
+      "not_null": false,
+      "table_name": "AuditLog",
+      "default_expr": null
+    },
+    {
+      "name": "id",
+      "type": "text",
+      "not_null": true,
+      "table_name": "StaffLoginRecord",
+      "default_expr": null
+    },
+    {
+      "name": "actorUserId",
+      "type": "text",
+      "not_null": false,
+      "table_name": "StaffLoginRecord",
+      "default_expr": null
+    },
+    {
+      "name": "actorNameSnapshot",
+      "type": "text",
+      "not_null": false,
+      "table_name": "StaffLoginRecord",
+      "default_expr": null
+    },
+    {
+      "name": "actorRoleSnapshot",
+      "type": "text",
+      "not_null": false,
+      "table_name": "StaffLoginRecord",
+      "default_expr": null
+    },
+    {
+      "name": "storeId",
+      "type": "text",
+      "not_null": false,
+      "table_name": "StaffLoginRecord",
+      "default_expr": null
+    },
+    {
+      "name": "outcome",
+      "type": "text",
+      "not_null": true,
+      "table_name": "StaffLoginRecord",
+      "default_expr": null
+    },
+    {
+      "name": "reason",
+      "type": "text",
+      "not_null": false,
+      "table_name": "StaffLoginRecord",
+      "default_expr": null
+    },
+    {
+      "name": "device",
+      "type": "text",
+      "not_null": true,
+      "table_name": "StaffLoginRecord",
+      "default_expr": null
+    },
+    {
+      "name": "createdAt",
+      "type": "timestamp(3) without time zone",
+      "not_null": true,
+      "table_name": "StaffLoginRecord",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "name": "lastUsedAt",
+      "type": "timestamp(3) without time zone",
+      "not_null": false,
+      "table_name": "StaffLoginRecord",
+      "default_expr": null
+    },
+    {
+      "name": "id",
+      "type": "text",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "slug",
+      "type": "text",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "domain",
+      "type": "text",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "isDefault",
+      "type": "boolean",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": "false"
+    },
+    {
+      "name": "parentStoreId",
+      "type": "text",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "plan",
+      "type": "\"PricingPlan\"",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": "'EXPERIENCE'::\"PricingPlan\""
+    },
+    {
+      "name": "planStatus",
+      "type": "\"StorePlanStatus\"",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": "'ACTIVE'::\"StorePlanStatus\""
+    },
+    {
+      "name": "planEffectiveAt",
+      "type": "timestamp(3) without time zone",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "planExpiresAt",
+      "type": "timestamp(3) without time zone",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "currentSubscriptionId",
+      "type": "text",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "maxStaffOverride",
+      "type": "integer",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "maxCustomersOverride",
+      "type": "integer",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "maxMonthlyBookingsOverride",
+      "type": "integer",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "maxMonthlyReportsOverride",
+      "type": "integer",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "maxReminderSendsOverride",
+      "type": "integer",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "maxStoresOverride",
+      "type": "integer",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "createdAt",
+      "type": "timestamp(3) without time zone",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "name": "updatedAt",
+      "type": "timestamp(3) without time zone",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "isDemo",
+      "type": "boolean",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": "false"
+    },
+    {
+      "name": "lineDestination",
+      "type": "text",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "liffId",
+      "type": "text",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "operatingStatus",
+      "type": "\"StoreOperatingStatus\"",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": "'ACTIVE'::\"StoreOperatingStatus\""
+    },
+    {
+      "name": "googleReviewUrl",
+      "type": "text",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "digitalButlerEnabled",
+      "type": "boolean",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": "false"
+    },
+    {
+      "name": "industryModule",
+      "type": "\"IndustryModule\"",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": "'STEAMFOOT'::\"IndustryModule\""
+    },
+    {
+      "name": "managerRecipientsMigrated",
+      "type": "boolean",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": "false"
+    },
+    {
+      "name": "archivedAt",
+      "type": "timestamp(3) without time zone",
+      "not_null": false,
+      "table_name": "Store",
+      "default_expr": null
+    },
+    {
+      "name": "catalogSortOrder",
+      "type": "integer",
+      "not_null": true,
+      "table_name": "Store",
+      "default_expr": "0"
+    },
+    {
+      "name": "id",
+      "type": "text",
+      "not_null": true,
+      "table_name": "User",
+      "default_expr": null
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "not_null": true,
+      "table_name": "User",
+      "default_expr": null
+    },
+    {
+      "name": "email",
+      "type": "text",
+      "not_null": false,
+      "table_name": "User",
+      "default_expr": null
+    },
+    {
+      "name": "phone",
+      "type": "text",
+      "not_null": false,
+      "table_name": "User",
+      "default_expr": null
+    },
+    {
+      "name": "emailVerified",
+      "type": "timestamp(3) without time zone",
+      "not_null": false,
+      "table_name": "User",
+      "default_expr": null
+    },
+    {
+      "name": "image",
+      "type": "text",
+      "not_null": false,
+      "table_name": "User",
+      "default_expr": null
+    },
+    {
+      "name": "passwordHash",
+      "type": "text",
+      "not_null": false,
+      "table_name": "User",
+      "default_expr": null
+    },
+    {
+      "name": "role",
+      "type": "\"UserRole\"",
+      "not_null": true,
+      "table_name": "User",
+      "default_expr": "'CUSTOMER'::\"UserRole\""
+    },
+    {
+      "name": "status",
+      "type": "\"UserStatus\"",
+      "not_null": true,
+      "table_name": "User",
+      "default_expr": "'ACTIVE'::\"UserStatus\""
+    },
+    {
+      "name": "createdAt",
+      "type": "timestamp(3) without time zone",
+      "not_null": true,
+      "table_name": "User",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "name": "updatedAt",
+      "type": "timestamp(3) without time zone",
+      "not_null": true,
+      "table_name": "User",
+      "default_expr": null
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "SELECT",
+      "qual": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiBrandGrant",
+      "policyname": "ai_brand_preview_select",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiBrandKnowledgeDocument",
+      "policyname": "ai_brand_preview_insert",
+      "with_check": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiBrandKnowledgeDocument",
+      "policyname": "ai_brand_preview_select",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiBrandKnowledgeDocument",
+      "policyname": "ai_brand_preview_update",
+      "with_check": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(id = 'ai-preview-brand-steamfoot'::text)",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiBrandService",
+      "policyname": "ai_brand_preview_select",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiBrandSetting",
+      "policyname": "ai_brand_preview_insert",
+      "with_check": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiBrandSetting",
+      "policyname": "ai_brand_preview_select",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiBrandSetting",
+      "policyname": "ai_brand_preview_update",
+      "with_check": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "true",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiButlerControl",
+      "policyname": "ai_preview_server",
+      "with_check": "true"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((\"actorRoleSnapshot\" = 'OWNER'::text) AND (outcome = 'SUCCESS'::text) AND (\"storeId\" = ANY (ARRAY['ai-preview-steamfoot'::text, 'ai-preview-beauty'::text, 'ai-preview-fitness'::text, 'ai-preview-music'::text])) AND (\"actorUserId\" = ('ai-preview-owner-'::text || SUBSTRING(\"storeId\" FROM 12))))",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "StaffLoginRecord",
+      "policyname": "ai_preview_fixture_login",
+      "with_check": "((\"actorRoleSnapshot\" = 'OWNER'::text) AND (outcome = 'SUCCESS'::text) AND (\"storeId\" = ANY (ARRAY['ai-preview-steamfoot'::text, 'ai-preview-beauty'::text, 'ai-preview-fitness'::text, 'ai-preview-music'::text])) AND (\"actorUserId\" = ('ai-preview-owner-'::text || SUBSTRING(\"storeId\" FROM 12))))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(id = ANY (ARRAY['ai-preview-steamfoot'::text, 'ai-preview-beauty'::text, 'ai-preview-fitness'::text, 'ai-preview-music'::text]))",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "Store",
+      "policyname": "ai_preview_fixture_read",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(id = ANY (ARRAY['ai-preview-owner-steamfoot'::text, 'ai-preview-owner-beauty'::text, 'ai-preview-owner-fitness'::text, 'ai-preview-owner-music'::text]))",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "User",
+      "policyname": "ai_preview_fixture_read",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((id = ANY (ARRAY['ai-preview-member-user-a'::text, 'ai-preview-member-user-b'::text, 'ai-preview-member-user-c'::text])) AND (role = 'CUSTOMER'::\"UserRole\"))",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "User",
+      "policyname": "ai_preview_member_user_read",
+      "with_check": null
+    }
+  ],
+  "triggers": [
+    {
+      "name": "music_retirement_write_guard",
+      "table": "AuditLog",
+      "definition": "CREATE TRIGGER music_retirement_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.\"AuditLog\" FOR EACH ROW EXECUTE FUNCTION music_retirement_write_guard()"
+    },
+    {
+      "name": "stamp_verified_audit_actor",
+      "table": "AuditLog",
+      "definition": "CREATE TRIGGER stamp_verified_audit_actor BEFORE INSERT ON public.\"AuditLog\" FOR EACH ROW EXECUTE FUNCTION stamp_verified_audit_actor()"
+    }
+  ],
+  "functions": [
+    {
+      "body": "\nDECLARE doc jsonb; olddoc jsonb; ownkey text; fld record;\nBEGIN\n doc=CASE WHEN TG_OP='DELETE' THEN to_jsonb(OLD) ELSE to_jsonb(NEW) END;\n olddoc=CASE WHEN TG_OP='INSERT' THEN doc ELSE to_jsonb(OLD) END;\n IF (doc->>'storeId') IS DISTINCT FROM 'store-lubymusic' AND (olddoc->>'storeId') IS DISTINCT FROM 'store-lubymusic' THEN\n  IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;\n END IF;\n ownkey=CASE TG_TABLE_NAME WHEN 'CourseCompensationSnapshot' THEN olddoc->>'sessionId' WHEN 'CourseMusicTuition' THEN olddoc->>'purchaseId' WHEN 'CourseCardMember' THEN (olddoc->>'cardId')||'|'||(olddoc->>'customerId') ELSE olddoc->>'id' END;\n IF olddoc->>'storeId'='store-lubymusic' AND EXISTS(SELECT 1 FROM \"MusicOperationalArchive\" a WHERE a.\"storeId\"='store-lubymusic' AND a.\"entityType\"=TG_TABLE_NAME AND a.\"rowKey\"=ownkey) THEN\n  RAISE EXCEPTION 'MUSIC_RECORD_ARCHIVED: 封存資料僅供查閱，不可修改';\n END IF;\n IF doc->>'storeId'='store-lubymusic' AND TG_TABLE_NAME NOT IN ('AuditLog','MusicSourceImportBatch') AND TG_OP<>'DELETE' THEN\n  FOR fld IN SELECT key,value FROM jsonb_each_text(doc) WHERE key IN ('customerId','reserverCustomerId','cardId','reserverCardId','sessionId','purchaseId','templateId','roomId','coachId','musicOpeningMakeupEntitlementId') LOOP\n   IF EXISTS(SELECT 1 FROM \"MusicOperationalArchive\" a WHERE a.\"storeId\"='store-lubymusic' AND a.\"entityType\"=CASE fld.key WHEN 'customerId' THEN 'Customer' WHEN 'reserverCustomerId' THEN 'Customer' WHEN 'cardId' THEN 'CoursePointCard' WHEN 'reserverCardId' THEN 'CoursePointCard' WHEN 'sessionId' THEN 'CourseSession' WHEN 'purchaseId' THEN 'CoursePurchase' WHEN 'templateId' THEN 'CourseTemplate' WHEN 'roomId' THEN 'CourseRoom' WHEN 'coachId' THEN 'Staff' WHEN 'musicOpeningMakeupEntitlementId' THEN 'CourseMusicOpeningMakeupEntitlement' END AND a.\"rowKey\"=fld.value) THEN\n    RAISE EXCEPTION 'MUSIC_RECORD_ARCHIVED: 封存資料不可新增營運關聯';\n   END IF;\n  END LOOP;\n END IF;\n IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;\nEND ",
+      "name": "music_retirement_write_guard",
+      "definition": "CREATE OR REPLACE FUNCTION public.music_retirement_write_guard()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public'\nAS $function$\nDECLARE doc jsonb; olddoc jsonb; ownkey text; fld record;\nBEGIN\n doc=CASE WHEN TG_OP='DELETE' THEN to_jsonb(OLD) ELSE to_jsonb(NEW) END;\n olddoc=CASE WHEN TG_OP='INSERT' THEN doc ELSE to_jsonb(OLD) END;\n IF (doc->>'storeId') IS DISTINCT FROM 'store-lubymusic' AND (olddoc->>'storeId') IS DISTINCT FROM 'store-lubymusic' THEN\n  IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;\n END IF;\n ownkey=CASE TG_TABLE_NAME WHEN 'CourseCompensationSnapshot' THEN olddoc->>'sessionId' WHEN 'CourseMusicTuition' THEN olddoc->>'purchaseId' WHEN 'CourseCardMember' THEN (olddoc->>'cardId')||'|'||(olddoc->>'customerId') ELSE olddoc->>'id' END;\n IF olddoc->>'storeId'='store-lubymusic' AND EXISTS(SELECT 1 FROM \"MusicOperationalArchive\" a WHERE a.\"storeId\"='store-lubymusic' AND a.\"entityType\"=TG_TABLE_NAME AND a.\"rowKey\"=ownkey) THEN\n  RAISE EXCEPTION 'MUSIC_RECORD_ARCHIVED: 封存資料僅供查閱，不可修改';\n END IF;\n IF doc->>'storeId'='store-lubymusic' AND TG_TABLE_NAME NOT IN ('AuditLog','MusicSourceImportBatch') AND TG_OP<>'DELETE' THEN\n  FOR fld IN SELECT key,value FROM jsonb_each_text(doc) WHERE key IN ('customerId','reserverCustomerId','cardId','reserverCardId','sessionId','purchaseId','templateId','roomId','coachId','musicOpeningMakeupEntitlementId') LOOP\n   IF EXISTS(SELECT 1 FROM \"MusicOperationalArchive\" a WHERE a.\"storeId\"='store-lubymusic' AND a.\"entityType\"=CASE fld.key WHEN 'customerId' THEN 'Customer' WHEN 'reserverCustomerId' THEN 'Customer' WHEN 'cardId' THEN 'CoursePointCard' WHEN 'reserverCardId' THEN 'CoursePointCard' WHEN 'sessionId' THEN 'CourseSession' WHEN 'purchaseId' THEN 'CoursePurchase' WHEN 'templateId' THEN 'CourseTemplate' WHEN 'roomId' THEN 'CourseRoom' WHEN 'coachId' THEN 'Staff' WHEN 'musicOpeningMakeupEntitlementId' THEN 'CourseMusicOpeningMakeupEntitlement' END AND a.\"rowKey\"=fld.value) THEN\n    RAISE EXCEPTION 'MUSIC_RECORD_ARCHIVED: 封存資料不可新增營運關聯';\n   END IF;\n  END LOOP;\n END IF;\n IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;\nEND $function$\n",
+      "runtimeExecute": false,
+      "securityDefiner": false
+    },
+    {
+      "body": "\nDECLARE result jsonb; key text; item jsonb;\nBEGIN\n  IF value IS NULL THEN RETURN NULL; END IF;\n  IF depth > 12 THEN RETURN to_jsonb('[內容過深]'::text); END IF;\n  IF jsonb_typeof(value) = 'object' THEN\n    result := '{}'::jsonb;\n    FOR key, item IN SELECT * FROM jsonb_each(value) LOOP\n      result := result || jsonb_build_object(key,\n        CASE WHEN key ~* 'password|secret|token|authorization|cookie|otp|verificationcode'\n        THEN to_jsonb('[已隱藏]'::text) ELSE public.redact_audit_json(item, depth + 1) END);\n    END LOOP;\n    RETURN result;\n  ELSIF jsonb_typeof(value) = 'array' THEN\n    result := '[]'::jsonb;\n    FOR item IN SELECT * FROM jsonb_array_elements(value) LOOP\n      result := result || jsonb_build_array(public.redact_audit_json(item, depth + 1));\n    END LOOP;\n    RETURN result;\n  END IF;\n  RETURN value;\nEND;\n",
+      "name": "redact_audit_json",
+      "definition": "CREATE OR REPLACE FUNCTION public.redact_audit_json(value jsonb, depth integer DEFAULT 0)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE result jsonb; key text; item jsonb;\nBEGIN\n  IF value IS NULL THEN RETURN NULL; END IF;\n  IF depth > 12 THEN RETURN to_jsonb('[內容過深]'::text); END IF;\n  IF jsonb_typeof(value) = 'object' THEN\n    result := '{}'::jsonb;\n    FOR key, item IN SELECT * FROM jsonb_each(value) LOOP\n      result := result || jsonb_build_object(key,\n        CASE WHEN key ~* 'password|secret|token|authorization|cookie|otp|verificationcode'\n        THEN to_jsonb('[已隱藏]'::text) ELSE public.redact_audit_json(item, depth + 1) END);\n    END LOOP;\n    RETURN result;\n  ELSIF jsonb_typeof(value) = 'array' THEN\n    result := '[]'::jsonb;\n    FOR item IN SELECT * FROM jsonb_array_elements(value) LOOP\n      result := result || jsonb_build_array(public.redact_audit_json(item, depth + 1));\n    END LOOP;\n    RETURN result;\n  END IF;\n  RETURN value;\nEND;\n$function$\n",
+      "runtimeExecute": false,
+      "securityDefiner": false
+    },
+    {
+      "body": "\nDECLARE context jsonb; login_id text; candidate_store text; target_table text;\nBEGIN\n  context := nullif(current_setting('steamfoot.audit_actor', true), '')::jsonb;\n  IF context IS NOT NULL AND context <> 'null'::jsonb THEN\n    IF context->>'id' = NEW.\"actorUserId\" THEN\n      NEW.\"actorNameSnapshot\" := context->>'name';\n      NEW.\"actorRoleSnapshot\" := context->>'role';\n      login_id := context->>'loginRecordId';\n      NEW.\"loginRecordId\" := NULL;\n      IF login_id IS NOT NULL AND EXISTS (\n        SELECT 1 FROM public.\"StaffLoginRecord\" l WHERE l.id = login_id\n        AND l.\"actorUserId\" = NEW.\"actorUserId\" AND l.outcome = 'SUCCESS'\n      ) THEN NEW.\"loginRecordId\" := login_id; END IF;\n    ELSE\n      NEW.\"loginRecordId\" := NULL;\n      NEW.\"actorRoleSnapshot\" := NULL;\n    END IF;\n  END IF;\n  NEW.\"beforeJson\" := public.redact_audit_json(NEW.\"beforeJson\");\n  NEW.\"afterJson\" := public.redact_audit_json(NEW.\"afterJson\");\n  IF NEW.\"storeId\" IS NULL THEN\n    candidate_store := COALESCE(NEW.\"afterJson\"->>'storeId', NEW.\"beforeJson\"->>'storeId',\n      CASE WHEN NEW.\"targetType\" = 'Store' OR NEW.action = 'COURSE_BULK_ASSIGN' THEN NEW.\"targetId\" END);\n    IF candidate_store IS NULL AND NEW.\"targetType\" IN (\n      'Booking','Customer','Staff','CustomerPlanWallet','CashDrawerSession','CashbookEntry','Transaction',\n      'CourseBooking','CourseSession','CoursePointCard','CoursePurchase','CourseRental','CourseTemplate',\n      'CoursePointPlan','CourseTrialPayment','CourseMonthlySettlement','SpaBooking','SpaReceipt','SpaCreditSale'\n    ) THEN\n      target_table := format('public.%I', NEW.\"targetType\");\n      IF to_regclass(target_table) IS NOT NULL AND EXISTS (\n        SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass(target_table)\n        AND attname = 'storeId' AND NOT attisdropped\n      ) THEN EXECUTE format('SELECT \"storeId\" FROM %s WHERE id = $1', target_table)\n        INTO candidate_store USING NEW.\"targetId\"; END IF;\n    END IF;\n    candidate_store := COALESCE(candidate_store,\n      CASE WHEN context->>'id' = NEW.\"actorUserId\" AND context->>'role' <> 'ADMIN'\n      THEN context->>'storeId' END);\n    IF EXISTS (SELECT 1 FROM public.\"Store\" s WHERE s.id = candidate_store) THEN\n      NEW.\"storeId\" := candidate_store;\n    END IF;\n  END IF;\n  IF NEW.\"storeId\" IS NOT NULL AND (NEW.module = 'COURSE' OR\n    (NEW.module IS NULL AND NEW.\"targetType\" LIKE 'Course%' AND NEW.\"targetType\" <> 'CourseTeacherFinanceScope'))\n    AND to_regclass('public.\"StoreFeatureEntitlement\"') IS NOT NULL THEN\n    IF EXISTS (SELECT 1 FROM public.\"StoreFeatureEntitlement\" e WHERE e.\"storeId\" = NEW.\"storeId\"\n      AND e.\"featureKey\" = 'business.music' AND e.status = 'ENABLED') THEN NEW.module := 'MUSIC';\n    ELSE NEW.module := 'FITNESS'; END IF;\n  END IF;\n  IF NEW.action ~ '(^|_)AUTO_' THEN NEW.source := 'SYSTEM'; END IF;\n  RETURN NEW;\nEND;\n",
+      "name": "stamp_verified_audit_actor",
+      "definition": "CREATE OR REPLACE FUNCTION public.stamp_verified_audit_actor()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\nDECLARE context jsonb; login_id text; candidate_store text; target_table text;\nBEGIN\n  context := nullif(current_setting('steamfoot.audit_actor', true), '')::jsonb;\n  IF context IS NOT NULL AND context <> 'null'::jsonb THEN\n    IF context->>'id' = NEW.\"actorUserId\" THEN\n      NEW.\"actorNameSnapshot\" := context->>'name';\n      NEW.\"actorRoleSnapshot\" := context->>'role';\n      login_id := context->>'loginRecordId';\n      NEW.\"loginRecordId\" := NULL;\n      IF login_id IS NOT NULL AND EXISTS (\n        SELECT 1 FROM public.\"StaffLoginRecord\" l WHERE l.id = login_id\n        AND l.\"actorUserId\" = NEW.\"actorUserId\" AND l.outcome = 'SUCCESS'\n      ) THEN NEW.\"loginRecordId\" := login_id; END IF;\n    ELSE\n      NEW.\"loginRecordId\" := NULL;\n      NEW.\"actorRoleSnapshot\" := NULL;\n    END IF;\n  END IF;\n  NEW.\"beforeJson\" := public.redact_audit_json(NEW.\"beforeJson\");\n  NEW.\"afterJson\" := public.redact_audit_json(NEW.\"afterJson\");\n  IF NEW.\"storeId\" IS NULL THEN\n    candidate_store := COALESCE(NEW.\"afterJson\"->>'storeId', NEW.\"beforeJson\"->>'storeId',\n      CASE WHEN NEW.\"targetType\" = 'Store' OR NEW.action = 'COURSE_BULK_ASSIGN' THEN NEW.\"targetId\" END);\n    IF candidate_store IS NULL AND NEW.\"targetType\" IN (\n      'Booking','Customer','Staff','CustomerPlanWallet','CashDrawerSession','CashbookEntry','Transaction',\n      'CourseBooking','CourseSession','CoursePointCard','CoursePurchase','CourseRental','CourseTemplate',\n      'CoursePointPlan','CourseTrialPayment','CourseMonthlySettlement','SpaBooking','SpaReceipt','SpaCreditSale'\n    ) THEN\n      target_table := format('public.%I', NEW.\"targetType\");\n      IF to_regclass(target_table) IS NOT NULL AND EXISTS (\n        SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass(target_table)\n        AND attname = 'storeId' AND NOT attisdropped\n      ) THEN EXECUTE format('SELECT \"storeId\" FROM %s WHERE id = $1', target_table)\n        INTO candidate_store USING NEW.\"targetId\"; END IF;\n    END IF;\n    candidate_store := COALESCE(candidate_store,\n      CASE WHEN context->>'id' = NEW.\"actorUserId\" AND context->>'role' <> 'ADMIN'\n      THEN context->>'storeId' END);\n    IF EXISTS (SELECT 1 FROM public.\"Store\" s WHERE s.id = candidate_store) THEN\n      NEW.\"storeId\" := candidate_store;\n    END IF;\n  END IF;\n  IF NEW.\"storeId\" IS NOT NULL AND (NEW.module = 'COURSE' OR\n    (NEW.module IS NULL AND NEW.\"targetType\" LIKE 'Course%' AND NEW.\"targetType\" <> 'CourseTeacherFinanceScope'))\n    AND to_regclass('public.\"StoreFeatureEntitlement\"') IS NOT NULL THEN\n    IF EXISTS (SELECT 1 FROM public.\"StoreFeatureEntitlement\" e WHERE e.\"storeId\" = NEW.\"storeId\"\n      AND e.\"featureKey\" = 'business.music' AND e.status = 'ENABLED') THEN NEW.module := 'MUSIC';\n    ELSE NEW.module := 'FITNESS'; END IF;\n  END IF;\n  IF NEW.action ~ '(^|_)AUTO_' THEN NEW.source := 'SYSTEM'; END IF;\n  RETURN NEW;\nEND;\n$function$\n",
+      "runtimeExecute": false,
+      "securityDefiner": false
+    }
+  ],
+  "constraints": [
+    {
+      "name": "AiBrandGrant_check",
+      "table": "AiBrandGrant",
+      "definition": "CHECK (((\"startsAt\" IS NULL) OR (\"expiresAt\" IS NULL) OR (\"expiresAt\" >= \"startsAt\")))"
+    },
+    {
+      "name": "AiBrandGrant_featureKey_check",
+      "table": "AiBrandGrant",
+      "definition": "CHECK ((\"featureKey\" = 'ai_brand_support'::text))"
+    },
+    {
+      "name": "AiBrandGrant_pkey",
+      "table": "AiBrandGrant",
+      "definition": "PRIMARY KEY (\"serviceId\")"
+    },
+    {
+      "name": "AiBrandGrant_serviceId_fkey",
+      "table": "AiBrandGrant",
+      "definition": "FOREIGN KEY (\"serviceId\") REFERENCES \"AiBrandService\"(id) ON DELETE RESTRICT"
+    },
+    {
+      "name": "AiBrandGrant_status_check",
+      "table": "AiBrandGrant",
+      "definition": "CHECK ((status = ANY (ARRAY['HIDDEN'::text, 'LOCKED'::text, 'ENABLED'::text])))"
+    },
+    {
+      "name": "AiBrandSetting_pkey",
+      "table": "AiBrandSetting",
+      "definition": "PRIMARY KEY (\"serviceId\")"
+    },
+    {
+      "name": "AiBrandSetting_serviceId_fkey",
+      "table": "AiBrandSetting",
+      "definition": "FOREIGN KEY (\"serviceId\") REFERENCES \"AiBrandService\"(id) ON DELETE RESTRICT"
+    },
+    {
+      "name": "AiButlerControl_id_check",
+      "table": "AiButlerControl",
+      "definition": "CHECK ((id = 'global'::text))"
+    },
+    {
+      "name": "AiButlerControl_pkey",
+      "table": "AiButlerControl",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "AuditLog_actorUserId_fkey",
+      "table": "AuditLog",
+      "definition": "FOREIGN KEY (\"actorUserId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "name": "AuditLog_pkey",
+      "table": "AuditLog",
+      "definition": "PRIMARY KEY (id)"
+    }
+  ],
+  "columnPrivileges": [
+    {
+      "table": "AuditLog",
+      "column": "action",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AuditLog",
+      "column": "actorNameSnapshot",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "actorNameSnapshot",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "actorNameSnapshot",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "actorNameSnapshot",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "AuditLog",
+      "column": "actorRoleSnapshot",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "actorRoleSnapshot",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "actorRoleSnapshot",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "actorRoleSnapshot",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "AuditLog",
+      "column": "actorUserId",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "actorUserId",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "actorUserId",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "actorUserId",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "AuditLog",
+      "column": "afterJson",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "archivedAt",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AuditLog",
+      "column": "beforeJson",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "catalogSortOrder",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AuditLog",
+      "column": "createdAt",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "createdAt",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "createdAt",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "createdAt",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "Store",
+      "column": "createdAt",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "User",
+      "column": "createdAt",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "currentSubscriptionId",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "device",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "device",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "device",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "Store",
+      "column": "digitalButlerEnabled",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "domain",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "User",
+      "column": "email",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "User",
+      "column": "emailVerified",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "googleReviewUrl",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AiButlerControl",
+      "column": "id",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "AiButlerControl",
+      "column": "id",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AiButlerControl",
+      "column": "id",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "AuditLog",
+      "column": "id",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "id",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "id",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "id",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "Store",
+      "column": "id",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "User",
+      "column": "id",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "User",
+      "column": "image",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "industryModule",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "isDefault",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "isDemo",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "lastUsedAt",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "lastUsedAt",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "lastUsedAt",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "Store",
+      "column": "liffId",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "lineDestination",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AuditLog",
+      "column": "loginRecordId",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "managerRecipientsMigrated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "maxCustomersOverride",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "maxMonthlyBookingsOverride",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "maxMonthlyReportsOverride",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "maxReminderSendsOverride",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "maxStaffOverride",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "maxStoresOverride",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AuditLog",
+      "column": "module",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "name",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "User",
+      "column": "name",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "operatingStatus",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "outcome",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "outcome",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "outcome",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "Store",
+      "column": "parentStoreId",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "User",
+      "column": "passwordHash",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "User",
+      "column": "phone",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "plan",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "planEffectiveAt",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "planExpiresAt",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "planStatus",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "reason",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "reason",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "reason",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "AiBrandSetting",
+      "column": "revision",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "AiBrandSetting",
+      "column": "revision",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AiBrandSetting",
+      "column": "revision",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "User",
+      "column": "role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AiBrandSetting",
+      "column": "serviceId",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "AiBrandSetting",
+      "column": "serviceId",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AiBrandSetting",
+      "column": "serviceId",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "AiBrandSetting",
+      "column": "setting",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "AiBrandSetting",
+      "column": "setting",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AiBrandSetting",
+      "column": "setting",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "Store",
+      "column": "slug",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AuditLog",
+      "column": "source",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "User",
+      "column": "status",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AiButlerControl",
+      "column": "stopped",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "AiButlerControl",
+      "column": "stopped",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AiButlerControl",
+      "column": "stopped",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "AuditLog",
+      "column": "storeId",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "storeId",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "storeId",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "StaffLoginRecord",
+      "column": "storeId",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "AuditLog",
+      "column": "summary",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AuditLog",
+      "column": "targetId",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "AuditLog",
+      "column": "targetType",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "Store",
+      "column": "updatedAt",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "User",
+      "column": "updatedAt",
+      "privilege": "SELECT"
+    }
+  ]
+}

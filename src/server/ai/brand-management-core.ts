@@ -54,11 +54,12 @@ export function brandManagement(ports: Ports) {
     const [row]=await sql.query<{used:number;duplicate:boolean}>('SELECT COUNT(*) FILTER(WHERE "createdAt">=$2)::int AS used,COALESCE(bool_or("eventKey"=$3),false) AS duplicate FROM "AiBrandRequest" WHERE "serviceId"=$1',[BRAND_PREVIEW_SERVICE,start,eventKey]);
     if(!row||typeof row.duplicate!=="boolean"||!Number.isSafeInteger(row.used)||row.used<0||(!row.duplicate&&row.used>=8))throw Error("AI_BRAND_TEST_LIMIT");
   }
-  const mutationDatabase = (actor:Actor,operation:BrandOperation,commandKey?:string): AiDatabase => ({
+  const mutationDatabase = (actor:Actor,operation:BrandOperation,commandKey?:string,enableRequested=false): AiDatabase => ({
     query: ports.database.query.bind(ports.database),
     transaction: work => ports.database.transaction(async tx => {
       // Same lock order as shared budget/settings: control first, then entitlement.
-      await tx.query('SELECT id FROM "AiButlerControl" WHERE id=\'global\' FOR UPDATE');
+      const [control]=await tx.query<{stopped:boolean}>('SELECT id,stopped FROM "AiButlerControl" WHERE id=\'global\' FOR UPDATE');
+      if(operation==="setting"&&enableRequested&&control?.stopped!==false)throw Error("AI_GLOBAL_STOPPED");
       if(!writeWindow(operation))throw Error("AI_BRAND_READ_ONLY");
       const [audit]=await tx.query<{allowed:boolean}>("SELECT COALESCE(has_function_privilege(current_user,to_regprocedure('public.redact_audit_json(jsonb,integer)'),'EXECUTE'),false) AS allowed");
       if(audit?.allowed!==true)throw Error("AI_BRAND_AUDIT_NOT_READY");
@@ -76,7 +77,7 @@ export function brandManagement(ports: Ports) {
       return result;
     }),
   });
-  const app = (actor: Actor, operation?: BrandOperation,commandKey?:string) => createBrandAi({ serviceId: BRAND_PREVIEW_SERVICE, database: operation ? mutationDatabase(actor,operation,commandKey) : ports.database, identitySecret: ports.secret,
+  const app = (actor: Actor, operation?: BrandOperation,commandKey?:string,enableRequested=false) => createBrandAi({ serviceId: BRAND_PREVIEW_SERVICE, database: operation ? mutationDatabase(actor,operation,commandKey,enableRequested) : ports.database, identitySecret: ports.secret,
     provider: new MockAiProvider(), rateForModel: () => null, clock: now, enabled: () => ports.env.AI_DIGITAL_BUTLER_ENABLED === "1",
     authorize: async () => { await authorize(actor); },
     authorizeOperator: async operatorOperation => { if (!(operation==="resume"&&operatorOperation==="HANDOFF_RESUME")) await authorize(actor); if (["KNOWLEDGE_WRITE","SETTINGS_WRITE","HANDOFF_RESUME"].includes(operatorOperation) && !brandOperationSchema.options.filter(op=>op!=="test").some(writeWindow)) throw Error("AI_BRAND_READ_ONLY"); },
@@ -129,7 +130,7 @@ export function brandManagement(ports: Ports) {
     // UI cannot increase or reset the reviewed service limits through an enable toggle.
     const current = await app(actor).settings.read();
     if (JSON.stringify({ ...data.setting,enabled:false }) !== JSON.stringify({ ...current.setting,enabled:false })) throw Error("AI_BRAND_SETTING_SCOPE");
-    const result = await app(actor,"setting").settings.save(data.setting,data.revision,now()); await authorize(actor);
+    const result = await app(actor,"setting",undefined,data.setting.enabled).settings.save(data.setting,data.revision,now()); await authorize(actor);
     return { success:true as const,...result };
   }
   async function readHandoffs(input: unknown) {

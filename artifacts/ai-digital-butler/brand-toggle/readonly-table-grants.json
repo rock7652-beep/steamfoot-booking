@@ -1,0 +1,70 @@
+[
+  {
+    "table_name": "AiBrandGrant",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "AiBrandKnowledgeDocument",
+    "privilege_type": "INSERT"
+  },
+  {
+    "table_name": "AiBrandKnowledgeDocument",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "AiBrandKnowledgeDocument",
+    "privilege_type": "UPDATE"
+  },
+  {
+    "table_name": "AiBrandService",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "AiBrandSetting",
+    "privilege_type": "INSERT"
+  },
+  {
+    "table_name": "AiBrandSetting",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "AiBrandSetting",
+    "privilege_type": "UPDATE"
+  },
+  {
+    "table_name": "AiButlerControl",
+    "privilege_type": "INSERT"
+  },
+  {
+    "table_name": "AiButlerControl",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "AiButlerControl",
+    "privilege_type": "UPDATE"
+  },
+  {
+    "table_name": "AuditLog",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "StaffLoginRecord",
+    "privilege_type": "INSERT"
+  },
+  {
+    "table_name": "StaffLoginRecord",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "StaffLoginRecord",
+    "privilege_type": "UPDATE"
+  },
+  {
+    "table_name": "Store",
+    "privilege_type": "SELECT"
+  },
+  {
+    "table_name": "User",
+    "privilege_type": "SELECT"
+  }
+]

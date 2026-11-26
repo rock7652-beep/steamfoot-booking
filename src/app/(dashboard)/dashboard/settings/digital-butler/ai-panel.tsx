@@ -11,8 +11,13 @@ type Props = { serviceMode?: "STORE" | "BRAND"; actions?: PanelActions; canToggl
 export function AiButlerPanel(props: Props) {
   const brand = props.serviceMode === "BRAND";
   const actions = props.actions ?? { saveAiButlerSetting, testAiButler, setAiButlerTestHandoff };
-  const [setting, setSetting] = useState(props.setting);
-  const [revision, setRevision] = useState(props.revision);
+  const [localSetting, setSetting] = useState(props.setting);
+  const [localRevision, setRevision] = useState(props.revision);
+  // A late action response must not replace a newer authoritative Brand revision.
+  // Store panels retain their existing local editing behavior.
+  const newerBrand = brand && props.revision > localRevision;
+  const setting = newerBrand ? props.setting : localSetting;
+  const revision = newerBrand ? props.revision : localRevision;
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -35,7 +40,7 @@ export function AiButlerPanel(props: Props) {
       const result = await actions.saveAiButlerSetting({ setting: { ...setting, enabled: !setting.enabled }, revision });
       if (!result.success) setError(result.error);
       else { setSetting(result.setting); setRevision(result.revision); setNotice("已儲存 ✓"); }
-    } catch { setError("連線中斷，請重新確認設定。"); } finally { setBusy(false); }
+    } catch { setError(brand ? "連線中斷，結果尚未確認。請重新載入核對。" : "連線中斷，請重新確認設定。"); } finally { setBusy(false); }
   }
   async function test() {
     setBusy(true); setError("");

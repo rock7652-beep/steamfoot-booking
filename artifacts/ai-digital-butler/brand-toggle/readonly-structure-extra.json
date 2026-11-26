@@ -1,0 +1,136 @@
+{
+  "rls": [
+    {
+      "table": "AiBrandGrant",
+      "forced": false,
+      "enabled": true
+    },
+    {
+      "table": "AiBrandKnowledgeDocument",
+      "forced": false,
+      "enabled": true
+    },
+    {
+      "table": "AiBrandService",
+      "forced": false,
+      "enabled": true
+    },
+    {
+      "table": "AiBrandSetting",
+      "forced": false,
+      "enabled": true
+    },
+    {
+      "table": "AiButlerControl",
+      "forced": false,
+      "enabled": true
+    },
+    {
+      "table": "AuditLog",
+      "forced": false,
+      "enabled": true
+    },
+    {
+      "table": "StaffLoginRecord",
+      "forced": false,
+      "enabled": true
+    },
+    {
+      "table": "Store",
+      "forced": false,
+      "enabled": true
+    },
+    {
+      "table": "User",
+      "forced": false,
+      "enabled": true
+    }
+  ],
+  "enums": [
+    {
+      "name": "IndustryModule",
+      "labels": [
+        "STEAMFOOT",
+        "SPA",
+        "COURSE",
+        "BEAUTY"
+      ]
+    },
+    {
+      "name": "PricingPlan",
+      "labels": [
+        "EXPERIENCE",
+        "BASIC",
+        "GROWTH",
+        "ALLIANCE"
+      ]
+    },
+    {
+      "name": "StoreOperatingStatus",
+      "labels": [
+        "TRIAL",
+        "ACTIVE",
+        "PAUSED",
+        "INACTIVE"
+      ]
+    },
+    {
+      "name": "StorePlanStatus",
+      "labels": [
+        "TRIAL",
+        "ACTIVE",
+        "PAYMENT_PENDING",
+        "PAST_DUE",
+        "SCHEDULED_DOWNGRADE",
+        "CANCELLED",
+        "EXPIRED"
+      ]
+    },
+    {
+      "name": "UserRole",
+      "labels": [
+        "ADMIN",
+        "OWNER",
+        "PARTNER",
+        "CUSTOMER",
+        "MANAGER",
+        "STAFF"
+      ]
+    },
+    {
+      "name": "UserStatus",
+      "labels": [
+        "ACTIVE",
+        "SUSPENDED",
+        "DELETED"
+      ]
+    }
+  ],
+  "constraints": [
+    {
+      "name": "StaffLoginRecord_pkey",
+      "table": "StaffLoginRecord",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "Store_currentSubscriptionId_fkey",
+      "table": "Store",
+      "definition": "FOREIGN KEY (\"currentSubscriptionId\") REFERENCES \"StoreSubscription\"(id) ON UPDATE CASCADE ON DELETE SET NULL"
+    },
+    {
+      "name": "Store_parentStoreId_fkey",
+      "table": "Store",
+      "definition": "FOREIGN KEY (\"parentStoreId\") REFERENCES \"Store\"(id) ON UPDATE CASCADE ON DELETE SET NULL"
+    },
+    {
+      "name": "Store_pkey",
+      "table": "Store",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "User_pkey",
+      "table": "User",
+      "definition": "PRIMARY KEY (id)"
+    }
+  ]
+}
