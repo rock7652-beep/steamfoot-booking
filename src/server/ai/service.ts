@@ -20,7 +20,7 @@ export type AiServiceResult = { outcome: "ANSWER" | "HANDOFF" | "STOPPED" | "DUP
 export class AiButlerService {
   constructor(private readonly repository: AiButlerRepository, private readonly provider: AiProvider,
     private readonly authorize: (scope: TrustedAiScope) => Promise<void>, private readonly identitySecret: string,
-    private readonly rateForModel: (model: import("./contracts").AiModel) => AiRate | null, private readonly enabled: () => boolean, private readonly clock = () => new Date()) {}
+    private readonly rateForModel: (model: import("./contracts").AiModel) => AiRate | null, private readonly enabled: () => boolean, private readonly clock = () => new Date(), private readonly channels: readonly AiChannel[] = ["TEST"]) {}
   async respond(scope: TrustedAiScope, eventId: string, message: string, records: unknown[], published?: { snapshot: AiKnowledgeSnapshot; reload: () => Promise<AiKnowledgeSnapshot>; conversationRevision?: number }): Promise<AiServiceResult> {
     const stopped: AiServiceResult = { outcome: "STOPPED", text: "AI 目前暫停服務，既有預約及數位管家不受影響。", sourceIds: [] };
     let identity: ReturnType<typeof aiIdentity> | undefined;
@@ -30,8 +30,8 @@ export class AiButlerService {
       if (!this.enabled()) return stopped;
       await this.authorize(scope);
       identity = aiIdentity(scope, eventId, this.identitySecret);
-      // Phase 1 runtime intentionally has no customer-channel entry point.
-      if (scope.channel !== "TEST") return stopped;
+      // Channel capability is opt-in by the isolated, verified Webhook adapter.
+      if (!this.channels.includes(scope.channel)) return stopped;
       const safeMessage = redactAiText(z.string().min(1).max(AI_LIMITS.maxMessageChars).parse(message));
       const knowledge = selectAiKnowledge(scope.storeId, scope.module, records, started);
       const { setting } = await this.repository.setting(scope.storeId);
@@ -70,7 +70,7 @@ export class AiButlerService {
       const allowed = await this.repository.settle(identity, { cost, inputTokens: result.inputTokens, outputTokens: result.outputTokens,
         latencyMs: Math.max(0, this.clock().getTime() - started.getTime()), handoff: rendered.handoff,
         summary: rendered.handoff ? "HANDOFF" : `SOURCE:${answer.sourceIds[0]}`,
-        conversationRevision: claim.conversationRevision,
+        conversationRevision: claim.conversationRevision, channel: scope.channel,
         overrun: result.inputTokens > AI_LIMITS.maxInputTokens || result.outputTokens > AI_LIMITS.maxOutputTokens || cost > ceiling }, this.clock());
       reserved = false;
       if (!allowed || !this.enabled()) return stopped;

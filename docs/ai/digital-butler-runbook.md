@@ -105,3 +105,7 @@ Phase 0/1 六次部署的版本、失敗及修正保留在 [runtime 歷史](../.
 [契約](digital-butler-line-e2e.md) 與 [驗收／QA 診斷](digital-butler-line-e2e-acceptance.md) 記錄同次 signed fixture → 原流程 → 已發布知識 → 真實 Responses → 人工接手／確認恢復。合成美業的已知回答與未知轉接兩筆 API 均 COMPLETE，1,324 input／56 output tokens，新增保守估算 US$0.001380，非實際帳單。重送與接手靜默不新增模型請求。
 
 13 個必要情境與六尺寸通過；額外登出 probe 對 null session 的存取錯誤保留，helper 已離線修正、未增加連結或 API 重跑。收尾 stopped=true、四店關閉，額度未提高／重置；美業當日 13／20，蒸足仍不重測。真實 OA／Webhook、實際傳送、正式顧客與預約寫入仍未開放。
+
+## LINE HTTP 接入（零外發）
+
+新版接入與安全契約見 [LINE Webhook](digital-butler-line-webhook.md)。HTTP 固定 Mock、回覆只記 OUTBOUND_BLOCKED，沒有修改 TEST 開關、額度或真實外發；不沿用前輪一次性連結授權。實際 CI／部署／雲端證據依該階段補記，不將本機 fixture 當正式 OA 驗收。

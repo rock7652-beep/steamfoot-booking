@@ -1,0 +1,71 @@
+{
+  "project": "ttworfzgwejdeolegkxl",
+  "dateTaipei": "2026-11-26",
+  "snapshot": {
+    "audits": 10,
+    "openai": 5,
+    "stopped": true,
+    "bookings": 129,
+    "requests": 51,
+    "settings": [
+      {
+        "store": "ai-preview-beauty",
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 9
+      },
+      {
+        "store": "ai-preview-fitness",
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 7
+      },
+      {
+        "store": "ai-preview-music",
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 7
+      },
+      {
+        "store": "ai-preview-steamfoot",
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 8
+      }
+    ],
+    "customers": 1367,
+    "dispatches": 78
+  }
+}

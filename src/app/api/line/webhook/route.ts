@@ -1,3 +1,4 @@
+import { claimsAiPreview } from "../../../../../scripts/ai-digital-butler-preview-scope.mjs";
 import { bindStoreLineNotificationRecipient } from "@/server/services/store-line-notification-binding";
 import { handleMemberConnectionWebhook } from "@/server/services/store-member-connection-webhook";
 import { handleConfiguredCourseLineWebhook } from "@/server/services/configured-course-line-webhook";
@@ -75,6 +76,11 @@ async function updateStoreLineRecipient(
 // ── POST: 處理 LINE events ──
 
 export async function POST(req: Request) {
+  // Own the isolated Preview before legacy handlers can mutate contacts or send replies.
+  if (claimsAiPreview()) {
+    const { handleAiLineWebhookRequest } = await import("@/server/ai/line-webhook-runtime");
+    return handleAiLineWebhookRequest(req);
+  }
   try {
     const body = await req.text();
     const signature = req.headers.get("x-line-signature");

@@ -15,15 +15,15 @@ type Ports = {
   ai(text: string, conversationRevision: number): Promise<AiServiceResult>;
   providerCalls(): number;
 };
-/** Coordinator returns intents for the isolated UI only. It has no channel sender. */
+/** Shared coordinator returns intents to isolated callers. It has no channel sender. */
 export class AiButlerRouting {
-  constructor(private readonly receipts: AiRoutingRepository, private readonly conversations: AiButlerRepository, private readonly secret: string, private readonly clock=()=>new Date()) {}
+  constructor(private readonly receipts: AiRoutingRepository, private readonly conversations: AiButlerRepository, private readonly secret: string, private readonly clock=()=>new Date(), private readonly channels: readonly import("./contracts").AiChannel[] = ["TEST"]) {}
   async respond(scope: TrustedAiScope, eventId: string, scenario: string, message: string, ports: Ports): Promise<AiRoutingResult> {
     const result = (route: AiRoutingResult["route"], outcome: string, text="", originalOutcome: string|null=null): AiRoutingResult => ({ route,outcome,text,originalOutcome,providerCalls:ports.providerCalls() });
     let identity: ReturnType<typeof aiIdentity>|undefined;
     let claimed=false;
     try {
-      if (scope.channel!=="TEST") return result("BLOCKED","TEST_ONLY");
+      if (!this.channels.includes(scope.channel)) return result("BLOCKED","TEST_ONLY");
       await ports.authorize(scope);
       identity=aiIdentity(scope,eventId,this.secret);
       const command=classifyDigitalButlerGlobalCommand(message);

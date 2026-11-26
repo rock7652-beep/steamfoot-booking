@@ -79,7 +79,7 @@ export class AiButlerRepository {
       return { duplicate: false, conversationRevision: conversation[0]?.revision ?? 0, summary: Array.isArray(summary) ? summary.filter(s => typeof s === "string" && s.length < 120).slice(-AI_LIMITS.historyTurns) : [] };
     });
   }
-  async settle(input: AiIdentity, result: { cost: number; inputTokens: number; outputTokens: number; latencyMs: number; handoff: boolean; summary: string; overrun: boolean; conversationRevision: number }, now: Date): Promise<boolean> {
+  async settle(input: AiIdentity, result: { cost: number; inputTokens: number; outputTokens: number; latencyMs: number; handoff: boolean; summary: string; overrun: boolean; conversationRevision: number; channel?: import("./contracts").AiChannel }, now: Date): Promise<boolean> {
     scoped(input);
     return this.db.transaction(async tx => {
       const controls = await tx.query<{ stopped: boolean }>('SELECT stopped FROM "AiButlerControl" WHERE id=\'global\' FOR UPDATE');
@@ -89,7 +89,7 @@ export class AiButlerRepository {
       try { await entitled(tx, input.storeId, now); } catch { allowed = false; }
       const settings = await tx.query<{ setting: unknown }>('SELECT setting FROM "AiButlerSetting" WHERE "storeId"=$1', [input.storeId]);
       const currentSetting = aiSettingSchema.safeParse(settings[0]?.setting);
-      allowed = allowed && currentSetting.success && currentSetting.data.enabled;
+      allowed = allowed && currentSetting.success && currentSetting.data.enabled && (!result.channel || currentSetting.data.channels.includes(result.channel));
       const prior = await tx.query<{ handoff: boolean; summary: string[]; revision: number }>('SELECT handoff, summary,revision FROM "AiButlerConversation" WHERE "storeId"=$1 AND "scopeKey"=$2', [input.storeId, input.scopeKey]);
       allowed = allowed && !prior[0]?.handoff && (prior[0]?.revision ?? 0) === result.conversationRevision && !result.overrun;
       if (result.overrun) await tx.query('UPDATE "AiButlerControl" SET stopped=true WHERE id=\'global\'');
