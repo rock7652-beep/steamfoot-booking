@@ -1,0 +1,953 @@
+{
+  "dateTaipei": "2026-11-26",
+  "pr": 1596,
+  "branch": "feat/ai-digital-butler-core",
+  "runtimeSha": "b25fdaabf882bd6c069c736b59cf428eacf64e56",
+  "deploymentId": "dpl_EXj9FubfNcprAPKnsTw2Cmspb3SY",
+  "deploymentOrigin": "https://steamfoot-booking-9xboy65y6-rock7652-2111s-projects.vercel.app",
+  "fullMockEvidence": {
+    "runtimeSha": "ec6bb9a8180dbffe9106c9a14fe1a6c6b02d3ca6",
+    "deploymentId": "dpl_7VzF2gPcSNC7j6PbJAMFv7BYxHgz",
+    "files": [
+      "*-stopped.json",
+      "*-mock.json",
+      "steamfoot-publish.json"
+    ],
+    "scope": "Four synthetic modules; actual core algorithm with request-local synthetic repository. No real webhook or delivery."
+  },
+  "finalEvidence": {
+    "files": [
+      "*-final.json",
+      "steamfoot-scope.json"
+    ],
+    "rwdCount": 15,
+    "scope": "Final SHA four-store original/replay/global-stop smoke; RWD; Steamfoot owner denied Beauty editor."
+  },
+  "checks": {
+    "related": {
+      "files": 9,
+      "passed": 116
+    },
+    "isolatedPostgres": {
+      "passed": 4,
+      "network": "none",
+      "transport": "Unix socket"
+    },
+    "ci": {
+      "runId": 45737286909,
+      "allFourJobs": "success",
+      "full": {
+        "filesPassed": 1854,
+        "filesSkipped": 36,
+        "testsPassed": 17518,
+        "testsSkipped": 338,
+        "durationSeconds": 526.93
+      }
+    },
+    "typecheck": "passed",
+    "changedEslint": "passed"
+  },
+  "migration": {
+    "projectId": "ttworfzgwejdeolegkxl",
+    "name": "ai_preview_routing_receipts_and_handoff_revision",
+    "file": "scripts/sql/ai-digital-butler/preview-routing.sql",
+    "sha256": "bbe670a013f5d3eb7fa96af2592a2c39c6274d7c9f6533f8e8068e68ced70aaa"
+  },
+  "safety": [
+    {
+      "kind": "control",
+      "data": {
+        "id": "global",
+        "stopped": true
+      }
+    },
+    {
+      "kind": "settings",
+      "data": {
+        "enabled": false,
+        "storeId": "ai-preview-steamfoot"
+      }
+    },
+    {
+      "kind": "settings",
+      "data": {
+        "enabled": false,
+        "storeId": "ai-preview-beauty"
+      }
+    },
+    {
+      "kind": "settings",
+      "data": {
+        "enabled": false,
+        "storeId": "ai-preview-fitness"
+      }
+    },
+    {
+      "kind": "settings",
+      "data": {
+        "enabled": false,
+        "storeId": "ai-preview-music"
+      }
+    },
+    {
+      "kind": "requests",
+      "data": {
+        "count": 3,
+        "status": "COMPLETE",
+        "provider": "openai",
+        "costMicros": 1310
+      }
+    },
+    {
+      "kind": "requests",
+      "data": {
+        "count": 44,
+        "status": "COMPLETE",
+        "provider": "mock",
+        "costMicros": 0
+      }
+    },
+    {
+      "kind": "dispatch",
+      "data": {
+        "count": 57,
+        "status": "COMPLETE"
+      }
+    },
+    {
+      "kind": "business",
+      "data": {
+        "bookings": 0,
+        "customers": 0
+      }
+    },
+    {
+      "kind": "rls",
+      "data": {
+        "table": "AiButlerControl",
+        "enabled": true
+      }
+    },
+    {
+      "kind": "rls",
+      "data": {
+        "table": "AiButlerConversation",
+        "enabled": true
+      }
+    },
+    {
+      "kind": "rls",
+      "data": {
+        "table": "AiButlerDispatch",
+        "enabled": true
+      }
+    },
+    {
+      "kind": "rls",
+      "data": {
+        "table": "AiButlerKnowledgeDocument",
+        "enabled": true
+      }
+    },
+    {
+      "kind": "rls",
+      "data": {
+        "table": "AiButlerRequest",
+        "enabled": true
+      }
+    },
+    {
+      "kind": "rls",
+      "data": {
+        "table": "AiButlerSetting",
+        "enabled": true
+      }
+    }
+  ],
+  "cleanup": {
+    "manualShareGrantsRevoked": true,
+    "fourSyntheticLoginVersionsInvalidated": true,
+    "privatePasswordAndSessionFilesRemoved": true,
+    "ssoRetained": true
+  },
+  "cost": {
+    "newMockCalls": 7,
+    "newOpenAICalls": 0,
+    "cumulativeEstimatedMicros": 1310,
+    "providerInvoiceVerified": false,
+    "previewBuildsThisStage": 2,
+    "budgetIncreased": false
+  },
+  "limits": [
+    "Mock repository is request-local, not real original-flow database persistence.",
+    "Real LINE/Messenger/email delivery remains blocked.",
+    "No real-device, real-webhook or customer-workbench acceptance.",
+    "Unknown-result regression tested in unit and isolated PostgreSQL; no hosted fault injection.",
+    "Historical Cloudflare failure not resolved; no production deployment."
+  ],
+  "productionChanged": false,
+  "browserResults": [
+    {
+      "file": "beauty-final.json",
+      "stage": "final",
+      "store": "beauty",
+      "deploymentOrigin": "https://steamfoot-booking-9xboy65y6-rock7652-2111s-projects.vercel.app",
+      "runtimeSha": "b25fdaabf882bd6c069c736b59cf428eacf64e56",
+      "entryMs": 10542,
+      "totalMs": 18818,
+      "cases": [
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 12970,
+          "durationMs": 2413,
+          "clickReturnedMs": 76
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "known",
+          "label": "本次未執行自動回覆",
+          "providerCalls": 0,
+          "elapsedMs": 18257,
+          "durationMs": 3424,
+          "clickReturnedMs": 84
+        }
+      ],
+      "rwd": [
+        {
+          "width": 1366,
+          "scrollWidth": 1366
+        },
+        {
+          "width": 1024,
+          "scrollWidth": 1024
+        },
+        {
+          "width": 768,
+          "scrollWidth": 768
+        }
+      ],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "beauty-mock.json",
+      "stage": "mock",
+      "store": "beauty",
+      "entryMs": 4633,
+      "totalMs": 19326,
+      "cases": [
+        {
+          "scenario": "known",
+          "label": "AI 已發布知識",
+          "providerCalls": 1,
+          "elapsedMs": 8141,
+          "durationMs": 3498,
+          "clickReturnedMs": 107
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "unknown",
+          "label": "轉真人",
+          "providerCalls": 1,
+          "elapsedMs": 12802,
+          "durationMs": 2939,
+          "clickReturnedMs": 73
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "original",
+          "label": "自動回覆已抑制",
+          "providerCalls": 0,
+          "elapsedMs": 16057,
+          "durationMs": 1877,
+          "clickReturnedMs": 59
+        },
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 19326,
+          "durationMs": 1899,
+          "clickReturnedMs": 66
+        }
+      ],
+      "rwd": [],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "beauty-stopped.json",
+      "stage": "stopped",
+      "store": "beauty",
+      "entryMs": 14423,
+      "totalMs": 42755,
+      "cases": [
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 16812,
+          "durationMs": 2382,
+          "clickReturnedMs": 55
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "active",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 21005,
+          "durationMs": 2348,
+          "clickReturnedMs": 41
+        },
+        {
+          "scenario": "inactive",
+          "label": "本次未執行自動回覆",
+          "providerCalls": 0,
+          "elapsedMs": 23361,
+          "durationMs": 2356,
+          "clickReturnedMs": 45
+        },
+        {
+          "scenario": "cancel",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 25738,
+          "durationMs": 2376,
+          "clickReturnedMs": 54
+        },
+        {
+          "scenario": "known",
+          "label": "本次未執行自動回覆",
+          "providerCalls": 0,
+          "elapsedMs": 28699,
+          "durationMs": 2961,
+          "clickReturnedMs": 78
+        },
+        {
+          "scenario": "handoff",
+          "label": "轉真人",
+          "providerCalls": 0,
+          "elapsedMs": 31108,
+          "durationMs": 2408,
+          "clickReturnedMs": 54
+        },
+        {
+          "scenario": "original",
+          "label": "自動回覆已抑制",
+          "providerCalls": 0,
+          "elapsedMs": 32958,
+          "durationMs": 1850,
+          "clickReturnedMs": 44
+        },
+        {
+          "scenario": "original",
+          "label": "自動回覆已抑制",
+          "providerCalls": 0,
+          "elapsedMs": 38976,
+          "durationMs": 2364,
+          "clickReturnedMs": 53
+        },
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 42661,
+          "durationMs": 2357,
+          "clickReturnedMs": 54
+        }
+      ],
+      "rwd": [],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "fitness-final.json",
+      "stage": "final",
+      "store": "fitness",
+      "deploymentOrigin": "https://steamfoot-booking-9xboy65y6-rock7652-2111s-projects.vercel.app",
+      "runtimeSha": "b25fdaabf882bd6c069c736b59cf428eacf64e56",
+      "entryMs": 11612,
+      "totalMs": 20558,
+      "cases": [
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 14541,
+          "durationMs": 2920,
+          "clickReturnedMs": 62
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "known",
+          "label": "本次未執行自動回覆",
+          "providerCalls": 0,
+          "elapsedMs": 19802,
+          "durationMs": 3417,
+          "clickReturnedMs": 69
+        }
+      ],
+      "rwd": [
+        {
+          "width": 1366,
+          "scrollWidth": 1366
+        },
+        {
+          "width": 1024,
+          "scrollWidth": 1024
+        },
+        {
+          "width": 768,
+          "scrollWidth": 768
+        }
+      ],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "fitness-mock.json",
+      "stage": "mock",
+      "store": "fitness",
+      "entryMs": 4608,
+      "totalMs": 19339,
+      "cases": [
+        {
+          "scenario": "known",
+          "label": "AI 已發布知識",
+          "providerCalls": 1,
+          "elapsedMs": 7546,
+          "durationMs": 2925,
+          "clickReturnedMs": 81
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "unknown",
+          "label": "轉真人",
+          "providerCalls": 1,
+          "elapsedMs": 12471,
+          "durationMs": 2874,
+          "clickReturnedMs": 61
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "original",
+          "label": "自動回覆已抑制",
+          "providerCalls": 0,
+          "elapsedMs": 16159,
+          "durationMs": 1857,
+          "clickReturnedMs": 51
+        },
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 19339,
+          "durationMs": 1849,
+          "clickReturnedMs": 46
+        }
+      ],
+      "rwd": [],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "fitness-stopped.json",
+      "stage": "stopped",
+      "store": "fitness",
+      "entryMs": 12143,
+      "totalMs": 41482,
+      "cases": [
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 14500,
+          "durationMs": 2350,
+          "clickReturnedMs": 47
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "active",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 18718,
+          "durationMs": 2380,
+          "clickReturnedMs": 71
+        },
+        {
+          "scenario": "inactive",
+          "label": "本次未執行自動回覆",
+          "providerCalls": 0,
+          "elapsedMs": 21073,
+          "durationMs": 2355,
+          "clickReturnedMs": 44
+        },
+        {
+          "scenario": "cancel",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 23461,
+          "durationMs": 2388,
+          "clickReturnedMs": 58
+        },
+        {
+          "scenario": "known",
+          "label": "本次未執行自動回覆",
+          "providerCalls": 0,
+          "elapsedMs": 26325,
+          "durationMs": 2864,
+          "clickReturnedMs": 48
+        },
+        {
+          "scenario": "handoff",
+          "label": "轉真人",
+          "providerCalls": 0,
+          "elapsedMs": 28693,
+          "durationMs": 2368,
+          "clickReturnedMs": 58
+        },
+        {
+          "scenario": "original",
+          "label": "自動回覆已抑制",
+          "providerCalls": 0,
+          "elapsedMs": 31066,
+          "durationMs": 2373,
+          "clickReturnedMs": 53
+        },
+        {
+          "scenario": "original",
+          "label": "自動回覆已抑制",
+          "providerCalls": 0,
+          "elapsedMs": 37676,
+          "durationMs": 2373,
+          "clickReturnedMs": 61
+        },
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 41369,
+          "durationMs": 2359,
+          "clickReturnedMs": 52
+        }
+      ],
+      "rwd": [],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "music-final.json",
+      "stage": "final",
+      "store": "music",
+      "deploymentOrigin": "https://steamfoot-booking-9xboy65y6-rock7652-2111s-projects.vercel.app",
+      "runtimeSha": "b25fdaabf882bd6c069c736b59cf428eacf64e56",
+      "entryMs": 11482,
+      "totalMs": 19745,
+      "cases": [
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 13888,
+          "durationMs": 2397,
+          "clickReturnedMs": 70
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "known",
+          "label": "本次未執行自動回覆",
+          "providerCalls": 0,
+          "elapsedMs": 19131,
+          "durationMs": 3387,
+          "clickReturnedMs": 47
+        }
+      ],
+      "rwd": [
+        {
+          "width": 1366,
+          "scrollWidth": 1366
+        },
+        {
+          "width": 1024,
+          "scrollWidth": 1024
+        },
+        {
+          "width": 768,
+          "scrollWidth": 768
+        }
+      ],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "music-mock.json",
+      "stage": "mock",
+      "store": "music",
+      "entryMs": 4239,
+      "totalMs": 18855,
+      "cases": [
+        {
+          "scenario": "known",
+          "label": "AI 已發布知識",
+          "providerCalls": 1,
+          "elapsedMs": 7130,
+          "durationMs": 2884,
+          "clickReturnedMs": 66
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "unknown",
+          "label": "轉真人",
+          "providerCalls": 1,
+          "elapsedMs": 11948,
+          "durationMs": 3370,
+          "clickReturnedMs": 56
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "original",
+          "label": "自動回覆已抑制",
+          "providerCalls": 0,
+          "elapsedMs": 15655,
+          "durationMs": 1873,
+          "clickReturnedMs": 58
+        },
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 18855,
+          "durationMs": 1874,
+          "clickReturnedMs": 53
+        }
+      ],
+      "rwd": [],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "music-stopped.json",
+      "stage": "stopped",
+      "store": "music",
+      "entryMs": 13551,
+      "totalMs": 39962,
+      "cases": [
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 15927,
+          "durationMs": 2366,
+          "clickReturnedMs": 51
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "active",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 20149,
+          "durationMs": 2388,
+          "clickReturnedMs": 70
+        },
+        {
+          "scenario": "inactive",
+          "label": "本次未執行自動回覆",
+          "providerCalls": 0,
+          "elapsedMs": 21997,
+          "durationMs": 1848,
+          "clickReturnedMs": 44
+        },
+        {
+          "scenario": "cancel",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 23855,
+          "durationMs": 1857,
+          "clickReturnedMs": 51
+        },
+        {
+          "scenario": "known",
+          "label": "本次未執行自動回覆",
+          "providerCalls": 0,
+          "elapsedMs": 26265,
+          "durationMs": 2409,
+          "clickReturnedMs": 81
+        },
+        {
+          "scenario": "handoff",
+          "label": "轉真人",
+          "providerCalls": 0,
+          "elapsedMs": 28123,
+          "durationMs": 1858,
+          "clickReturnedMs": 52
+        },
+        {
+          "scenario": "original",
+          "label": "自動回覆已抑制",
+          "providerCalls": 0,
+          "elapsedMs": 30491,
+          "durationMs": 2368,
+          "clickReturnedMs": 59
+        },
+        {
+          "scenario": "original",
+          "label": "自動回覆已抑制",
+          "providerCalls": 0,
+          "elapsedMs": 36596,
+          "durationMs": 1919,
+          "clickReturnedMs": 77
+        },
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 39829,
+          "durationMs": 1884,
+          "clickReturnedMs": 65
+        }
+      ],
+      "rwd": [],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "steamfoot-final.json",
+      "stage": "final",
+      "store": "steamfoot",
+      "deploymentOrigin": "https://steamfoot-booking-9xboy65y6-rock7652-2111s-projects.vercel.app",
+      "runtimeSha": "b25fdaabf882bd6c069c736b59cf428eacf64e56",
+      "entryMs": 17460,
+      "totalMs": 26016,
+      "cases": [
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 20377,
+          "durationMs": 2908,
+          "clickReturnedMs": 73
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "known",
+          "label": "本次未執行自動回覆",
+          "providerCalls": 0,
+          "elapsedMs": 25094,
+          "durationMs": 2891,
+          "clickReturnedMs": 53
+        }
+      ],
+      "rwd": [
+        {
+          "width": 1920,
+          "scrollWidth": 1920
+        },
+        {
+          "width": 1366,
+          "scrollWidth": 1366
+        },
+        {
+          "width": 1024,
+          "scrollWidth": 1024
+        },
+        {
+          "width": 768,
+          "scrollWidth": 768
+        },
+        {
+          "width": 390,
+          "scrollWidth": 390
+        },
+        {
+          "width": 360,
+          "scrollWidth": 360
+        }
+      ],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "steamfoot-mock.json",
+      "stage": "mock",
+      "store": "steamfoot",
+      "entryMs": 6753,
+      "totalMs": 13155,
+      "cases": [
+        {
+          "scenario": "known",
+          "label": "AI 已發布知識",
+          "providerCalls": 1,
+          "elapsedMs": 11194,
+          "durationMs": 4429,
+          "clickReturnedMs": 84
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        }
+      ],
+      "rwd": [],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "steamfoot-publish.json",
+      "stage": "publish",
+      "store": "steamfoot",
+      "entryMs": 4223,
+      "totalMs": 5673,
+      "cases": [],
+      "rwd": [],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "steamfoot-scope.json",
+      "stage": "scope",
+      "store": "steamfoot",
+      "deploymentOrigin": "https://steamfoot-booking-9xboy65y6-rock7652-2111s-projects.vercel.app",
+      "runtimeSha": "b25fdaabf882bd6c069c736b59cf428eacf64e56",
+      "entryMs": 4238,
+      "totalMs": 7227,
+      "cases": [],
+      "rwd": [],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "file": "steamfoot-stopped.json",
+      "stage": "stopped",
+      "store": "steamfoot",
+      "entryMs": 18672,
+      "totalMs": 47460,
+      "cases": [
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 21591,
+          "durationMs": 2899,
+          "clickReturnedMs": 86
+        },
+        {
+          "scenario": "replay",
+          "providerCalls": 0
+        },
+        {
+          "scenario": "active",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 25800,
+          "durationMs": 2362,
+          "clickReturnedMs": 56
+        },
+        {
+          "scenario": "inactive",
+          "label": "本次未執行自動回覆",
+          "providerCalls": 0,
+          "elapsedMs": 27666,
+          "durationMs": 1866,
+          "clickReturnedMs": 64
+        },
+        {
+          "scenario": "cancel",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 30033,
+          "durationMs": 2367,
+          "clickReturnedMs": 59
+        },
+        {
+          "scenario": "known",
+          "label": "本次未執行自動回覆",
+          "providerCalls": 0,
+          "elapsedMs": 32895,
+          "durationMs": 2862,
+          "clickReturnedMs": 42
+        },
+        {
+          "scenario": "handoff",
+          "label": "轉真人",
+          "providerCalls": 0,
+          "elapsedMs": 35251,
+          "durationMs": 2356,
+          "clickReturnedMs": 46
+        },
+        {
+          "scenario": "original",
+          "label": "自動回覆已抑制",
+          "providerCalls": 0,
+          "elapsedMs": 37613,
+          "durationMs": 2362,
+          "clickReturnedMs": 55
+        },
+        {
+          "scenario": "original",
+          "label": "自動回覆已抑制",
+          "providerCalls": 0,
+          "elapsedMs": 43633,
+          "durationMs": 2366,
+          "clickReturnedMs": 60
+        },
+        {
+          "scenario": "original",
+          "label": "原流程處理",
+          "providerCalls": 0,
+          "elapsedMs": 47328,
+          "durationMs": 2358,
+          "clickReturnedMs": 54
+        }
+      ],
+      "rwd": [],
+      "errors": [],
+      "failures": []
+    }
+  ],
+  "timingNotes": "Single Chromium run per store/stage; entry includes navigation/login. Descriptive measurements only; no performance guarantee. elapsedMs is cumulative; durationMs is per action.",
+  "finalEntryMs": {
+    "median": 11547.0,
+    "min": 10542,
+    "max": 17460
+  }
+}

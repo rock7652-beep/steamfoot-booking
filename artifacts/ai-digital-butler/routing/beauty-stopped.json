@@ -1,0 +1,87 @@
+{
+  "stage": "stopped",
+  "store": "beauty",
+  "entryMs": 14423,
+  "totalMs": 42755,
+  "cases": [
+    {
+      "scenario": "original",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 16812,
+      "durationMs": 2382,
+      "clickReturnedMs": 55
+    },
+    {
+      "scenario": "replay",
+      "providerCalls": 0
+    },
+    {
+      "scenario": "active",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 21005,
+      "durationMs": 2348,
+      "clickReturnedMs": 41
+    },
+    {
+      "scenario": "inactive",
+      "label": "本次未執行自動回覆",
+      "providerCalls": 0,
+      "elapsedMs": 23361,
+      "durationMs": 2356,
+      "clickReturnedMs": 45
+    },
+    {
+      "scenario": "cancel",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 25738,
+      "durationMs": 2376,
+      "clickReturnedMs": 54
+    },
+    {
+      "scenario": "known",
+      "label": "本次未執行自動回覆",
+      "providerCalls": 0,
+      "elapsedMs": 28699,
+      "durationMs": 2961,
+      "clickReturnedMs": 78
+    },
+    {
+      "scenario": "handoff",
+      "label": "轉真人",
+      "providerCalls": 0,
+      "elapsedMs": 31108,
+      "durationMs": 2408,
+      "clickReturnedMs": 54
+    },
+    {
+      "scenario": "original",
+      "label": "自動回覆已抑制",
+      "providerCalls": 0,
+      "elapsedMs": 32958,
+      "durationMs": 1850,
+      "clickReturnedMs": 44
+    },
+    {
+      "scenario": "original",
+      "label": "自動回覆已抑制",
+      "providerCalls": 0,
+      "elapsedMs": 38976,
+      "durationMs": 2364,
+      "clickReturnedMs": 53
+    },
+    {
+      "scenario": "original",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 42661,
+      "durationMs": 2357,
+      "clickReturnedMs": 54
+    }
+  ],
+  "rwd": [],
+  "errors": [],
+  "failures": []
+}

@@ -1,0 +1,87 @@
+{
+  "stage": "stopped",
+  "store": "music",
+  "entryMs": 13551,
+  "totalMs": 39962,
+  "cases": [
+    {
+      "scenario": "original",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 15927,
+      "durationMs": 2366,
+      "clickReturnedMs": 51
+    },
+    {
+      "scenario": "replay",
+      "providerCalls": 0
+    },
+    {
+      "scenario": "active",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 20149,
+      "durationMs": 2388,
+      "clickReturnedMs": 70
+    },
+    {
+      "scenario": "inactive",
+      "label": "本次未執行自動回覆",
+      "providerCalls": 0,
+      "elapsedMs": 21997,
+      "durationMs": 1848,
+      "clickReturnedMs": 44
+    },
+    {
+      "scenario": "cancel",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 23855,
+      "durationMs": 1857,
+      "clickReturnedMs": 51
+    },
+    {
+      "scenario": "known",
+      "label": "本次未執行自動回覆",
+      "providerCalls": 0,
+      "elapsedMs": 26265,
+      "durationMs": 2409,
+      "clickReturnedMs": 81
+    },
+    {
+      "scenario": "handoff",
+      "label": "轉真人",
+      "providerCalls": 0,
+      "elapsedMs": 28123,
+      "durationMs": 1858,
+      "clickReturnedMs": 52
+    },
+    {
+      "scenario": "original",
+      "label": "自動回覆已抑制",
+      "providerCalls": 0,
+      "elapsedMs": 30491,
+      "durationMs": 2368,
+      "clickReturnedMs": 59
+    },
+    {
+      "scenario": "original",
+      "label": "自動回覆已抑制",
+      "providerCalls": 0,
+      "elapsedMs": 36596,
+      "durationMs": 1919,
+      "clickReturnedMs": 77
+    },
+    {
+      "scenario": "original",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 39829,
+      "durationMs": 1884,
+      "clickReturnedMs": 65
+    }
+  ],
+  "rwd": [],
+  "errors": [],
+  "failures": []
+}

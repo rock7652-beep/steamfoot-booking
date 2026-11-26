@@ -1,0 +1,87 @@
+{
+  "stage": "stopped",
+  "store": "fitness",
+  "entryMs": 12143,
+  "totalMs": 41482,
+  "cases": [
+    {
+      "scenario": "original",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 14500,
+      "durationMs": 2350,
+      "clickReturnedMs": 47
+    },
+    {
+      "scenario": "replay",
+      "providerCalls": 0
+    },
+    {
+      "scenario": "active",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 18718,
+      "durationMs": 2380,
+      "clickReturnedMs": 71
+    },
+    {
+      "scenario": "inactive",
+      "label": "本次未執行自動回覆",
+      "providerCalls": 0,
+      "elapsedMs": 21073,
+      "durationMs": 2355,
+      "clickReturnedMs": 44
+    },
+    {
+      "scenario": "cancel",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 23461,
+      "durationMs": 2388,
+      "clickReturnedMs": 58
+    },
+    {
+      "scenario": "known",
+      "label": "本次未執行自動回覆",
+      "providerCalls": 0,
+      "elapsedMs": 26325,
+      "durationMs": 2864,
+      "clickReturnedMs": 48
+    },
+    {
+      "scenario": "handoff",
+      "label": "轉真人",
+      "providerCalls": 0,
+      "elapsedMs": 28693,
+      "durationMs": 2368,
+      "clickReturnedMs": 58
+    },
+    {
+      "scenario": "original",
+      "label": "自動回覆已抑制",
+      "providerCalls": 0,
+      "elapsedMs": 31066,
+      "durationMs": 2373,
+      "clickReturnedMs": 53
+    },
+    {
+      "scenario": "original",
+      "label": "自動回覆已抑制",
+      "providerCalls": 0,
+      "elapsedMs": 37676,
+      "durationMs": 2373,
+      "clickReturnedMs": 61
+    },
+    {
+      "scenario": "original",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 41369,
+      "durationMs": 2359,
+      "clickReturnedMs": 52
+    }
+  ],
+  "rwd": [],
+  "errors": [],
+  "failures": []
+}

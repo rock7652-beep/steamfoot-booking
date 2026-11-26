@@ -1,6 +1,6 @@
 # AI 數位店長：共用核心與知識管理工程契約
 
-狀態：核心及店家知識管理已完成隔離 Preview 驗收；未發布正式站、未接管正式客服。主線基準 `378cd9475317f6c4ab804f0e48642f1d4f0f567a`（2026-11-25 核對）。
+狀態：核心、店家知識管理及合成 Mock 串接已完成隔離 Preview 驗收；未發布正式站、未接管正式客服。主線基準 `378cd9475317f6c4ab804f0e48642f1d4f0f567a`（2026-11-25 核對）。
 
 ## 共用架構及沿用範圍
 
@@ -11,6 +11,7 @@
 | Provider | `src/server/ai/provider.ts` | OpenAI Responses、Mock、模型白名單、輸入／輸出上限、逾時、嚴格輸出驗證、錯誤遮罩 |
 | Conversation | `service.ts` / `repository.ts` | store + channel + channel account + verified actor 的 HMAC scope、原子去重、有限來源摘要、人工接手、晚到結果抑制 |
 | Knowledge | `knowledge.ts` / `knowledge-*.ts` / `contracts.ts` | STORE / MODULE / SYSTEM、版本、期限、來源選擇；新增私有草稿／發布及既有公開來源投影，僅限四個合成店 TEST |
+| Routing | `routing*.ts` | TEST 固定情境、持久事件認領、原流程優先、僅 NO_MATCH 進 AI、真人接手／恢復世代與未知結果阻擋；不接真實通路 |
 | Tools | `tools.ts` | 共用註冊、參數 schema、伺服器 scope、模組與權限；知識階段全面停用工具，未註冊業務操作 |
 | Usage | `repository.ts` | PostgreSQL 原子預留、全域及店家預算、台灣日／月次數、併發、Token、時間、錯誤及轉接計數 |
 | UI | 既有 `settings/digital-butler` | 單一原入口、AI 獨立授權、測試開關、同頁知識草稿／發布／撤下、四模組合成情境、已發布知識測試、人工接手與用量摘要 |
@@ -61,6 +62,6 @@ OpenAI `store:false` 不等於帳號已具 Zero Data Retention；預設濫用監
 
 ## 目前邊界與後續驗收
 
-2026-11-26（台灣時間）完成 Phase 0/1 隔離 Preview：原憑證連線、認證 UI／server actions、Mock、Luna 兩筆最小 API、Token／預算結算與 RWD。收尾 global stop=true、四合成店 enabled=false；正式 AI 未開放。Provider 明示已驗證的 PUBLISHED 參考來源、schema 限定單筆已提供 ID，後端仍重新核對來源並呈現原核准文字。後續同一 PR 已完成隔離店的知識編輯／發布及公開來源投影，見 [Phase 2 知識設計](digital-butler-knowledge.md) 與 [驗收](digital-butler-knowledge-acceptance.md)。原通路未命中整合、真人客服工作台、正式店業務讀取／寫入仍未開放，不能視為完整 Phase 2/3 已完成。
+2026-11-26（台灣時間）完成 Phase 0/1 隔離 Preview：原憑證連線、認證 UI／server actions、Mock、Luna 兩筆最小 API、Token／預算結算與 RWD。收尾 global stop=true、四合成店 enabled=false；正式 AI 未開放。Provider 明示已驗證的 PUBLISHED 參考來源、schema 限定單筆已提供 ID，後端仍重新核對來源並呈現原核准文字。後續同一 PR 已完成隔離店的知識編輯／發布及公開來源投影，見 [Phase 2 知識設計](digital-butler-knowledge.md) 與 [驗收](digital-butler-knowledge-acceptance.md)。另已完成 [Mock 串接設計](digital-butler-routing.md) 與 [驗收](digital-butler-routing-acceptance.md)：原引擎新增可選 TEST identity codec，預設行為不變；對話 revision 防止接手再恢復後舊回覆復活。真實通路未命中整合、真人客服工作台、正式店業務讀取／寫入仍未開放，不能視為完整 Phase 2/3 已完成。
 
 見 [Runbook](digital-butler-runbook.md)、[驗收紀錄](digital-butler-acceptance.md)。

@@ -1,0 +1,51 @@
+{
+  "stage": "mock",
+  "store": "beauty",
+  "entryMs": 4633,
+  "totalMs": 19326,
+  "cases": [
+    {
+      "scenario": "known",
+      "label": "AI 已發布知識",
+      "providerCalls": 1,
+      "elapsedMs": 8141,
+      "durationMs": 3498,
+      "clickReturnedMs": 107
+    },
+    {
+      "scenario": "replay",
+      "providerCalls": 0
+    },
+    {
+      "scenario": "unknown",
+      "label": "轉真人",
+      "providerCalls": 1,
+      "elapsedMs": 12802,
+      "durationMs": 2939,
+      "clickReturnedMs": 73
+    },
+    {
+      "scenario": "replay",
+      "providerCalls": 0
+    },
+    {
+      "scenario": "original",
+      "label": "自動回覆已抑制",
+      "providerCalls": 0,
+      "elapsedMs": 16057,
+      "durationMs": 1877,
+      "clickReturnedMs": 59
+    },
+    {
+      "scenario": "original",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 19326,
+      "durationMs": 1899,
+      "clickReturnedMs": 66
+    }
+  ],
+  "rwd": [],
+  "errors": [],
+  "failures": []
+}

@@ -1,0 +1,46 @@
+{
+  "stage": "final",
+  "store": "music",
+  "deploymentOrigin": "https://steamfoot-booking-9xboy65y6-rock7652-2111s-projects.vercel.app",
+  "runtimeSha": "b25fdaabf882bd6c069c736b59cf428eacf64e56",
+  "entryMs": 11482,
+  "totalMs": 19745,
+  "cases": [
+    {
+      "scenario": "original",
+      "label": "原流程處理",
+      "providerCalls": 0,
+      "elapsedMs": 13888,
+      "durationMs": 2397,
+      "clickReturnedMs": 70
+    },
+    {
+      "scenario": "replay",
+      "providerCalls": 0
+    },
+    {
+      "scenario": "known",
+      "label": "本次未執行自動回覆",
+      "providerCalls": 0,
+      "elapsedMs": 19131,
+      "durationMs": 3387,
+      "clickReturnedMs": 47
+    }
+  ],
+  "rwd": [
+    {
+      "width": 1366,
+      "scrollWidth": 1366
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768
+    }
+  ],
+  "errors": [],
+  "failures": []
+}
