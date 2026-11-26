@@ -70,6 +70,7 @@ export async function readAiButlerKnowledge() {
   } catch { return safeError; }
 }
 export async function changeAiButlerKnowledge(input: { command: "save" | "publish" | "withdraw"; revision: number; draft?: import("@/server/ai/knowledge-document").AiKnowledgeDraft }) {
+  let stage = "validation";
   try {
     const { aiKnowledgeDraftSchema } = await import("@/server/ai/knowledge-document");
     const parsed = z.discriminatedUnion("command", [
@@ -77,24 +78,40 @@ export async function changeAiButlerKnowledge(input: { command: "save" | "publis
       z.object({ command: z.literal("publish"), revision: z.number().int().nonnegative() }).strict(),
       z.object({ command: z.literal("withdraw"), revision: z.number().int().nonnegative() }).strict(),
     ]).parse(input);
+    stage = "authorization";
     const scope = await context();
     const { AiKnowledgeRepository } = await import("@/server/ai/knowledge-repository");
     const { aiButlerDatabase } = await import("@/server/ai/database");
     const repository = new AiKnowledgeRepository(aiButlerDatabase());
     if (parsed.command === "publish") {
+      stage = "read";
       const current = await repository.read(scope.storeId);
       if (current.revision !== parsed.revision) throw new Error("AI_KNOWLEDGE_CONFLICT");
       const { readAiAuthority } = await import("@/server/ai/knowledge-sources");
       const { projectAiKnowledge } = await import("@/server/ai/knowledge-projection");
       const { assertAiInputBound } = await import("@/server/ai/provider");
       const now = new Date();
-      const projected = projectAiKnowledge(scope.storeId, { ...current, published: current.draft, publishedVersion: current.publishedVersion + 1, publishedAt: now.toISOString() }, await readAiAuthority(scope.storeId, current.draft.references, now), now);
+      stage = "references";
+      const authority = await readAiAuthority(scope.storeId, current.draft.references, now);
+      stage = "projection";
+      const projected = projectAiKnowledge(scope.storeId, { ...current, published: current.draft, publishedVersion: current.publishedVersion + 1, publishedAt: now.toISOString() }, authority, now);
+      stage = "input_bound";
       assertAiInputBound({ model: "gpt-6-luna", message: "測".repeat(400), knowledge: projected.records, summary: Array(4).fill("SOURCE:" + "x".repeat(100)) });
     }
+    stage = "write";
     const document = await repository.change(scope.storeId, parsed.revision, parsed.command, parsed.command === "save" ? parsed.draft : undefined);
     return { success: true as const, document };
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
+    // Exact Preview only. Never log error messages, input, actors, SQL or credentials.
+    try {
+      assertAiPreview();
+      const names = ["Error", "AppError", "ZodError", "TypeError", "PrismaClientKnownRequestError", "PrismaClientValidationError", "PrismaClientInitializationError"];
+      const databaseCode = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      console.warn("[ai-preview] knowledge_operation_failed", { stage,
+        kind: error instanceof Error && names.includes(error.name) ? error.name : "Unknown",
+        code: ["P2010", "P2028", "P1001", "P1017", "FORBIDDEN", "NOT_FOUND"].includes(databaseCode) ? databaseCode : "UNCLASSIFIED" });
+    } catch { /* diagnostics are forbidden outside the exact isolated Preview */ }
     const message = code === "AI_KNOWLEDGE_CONFLICT" ? "版本衝突：其他人已修改，草稿仍保留。請重新載入最新版本後再編輯。"
       : code === "AI_REFERENCE_UNAVAILABLE" ? "引用來源尚未設定、沒有公開項目或超過六項／內容上限，請先核對原設定。"
       : code === "AI_KNOWLEDGE_EMPTY" ? "請先儲存介紹、FAQ 或至少一項引用來源。"
