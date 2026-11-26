@@ -227,3 +227,9 @@ describe("published knowledge late-result protection", () => {
     expect((await db.query('SELECT status,"estimatedMicros" FROM "AiButlerRequest"')).rows).toEqual([{ status: "COMPLETE", estimatedMicros: 120 }]);
   });
 });
+
+it("published exact-match FAQ cannot enable protected refunds or member data through Mock", async () => {
+  const records = [{ ...syntheticAiKnowledge(scope.storeId, scope.module, now)[0], question: "退款？", answer: "這段不可自動回覆" }];
+  expect((await service().respond(scope, "protected-faq", "退款？", records)).outcome).toBe("HANDOFF");
+  expect((await repo.usage(scope.storeId, now)).reservedMicros).toBe("0");
+});

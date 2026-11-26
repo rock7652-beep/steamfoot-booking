@@ -39,7 +39,7 @@ export const AI_LIMITS = {
 } as const;
 export const AI_HANDOFF_TEXT = "這個問題目前無法確認，請聯繫店家，由真人客服協助您。";
 
-/** Never log original text. Phase 1 accepts synthetic test scenarios only. */
+/** Never log original text. Preview accepts synthetic scenarios and bounded knowledge test questions only. */
 export function redactAiText(value: string): string {
   return value.replace(/sk-[A-Za-z0-9_-]+/g, "[金鑰已遮罩]")
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[電子郵件已遮罩]")

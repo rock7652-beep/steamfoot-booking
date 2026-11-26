@@ -18,6 +18,7 @@ export function AiKnowledgePanel({ initial, liveTestAvailable }: { initial: AiKn
   const [provider, setProvider] = useState<"mock" | "openai">("mock");
   const [reply, setReply] = useState("");
   const event = useRef<{ id: string; question: string; provider: typeof provider } | null>(null);
+  function edit(value: typeof draft) { setDraft(value); setNotice(""); }
   const dirty = JSON.stringify(draft) !== JSON.stringify(document.draft);
   useEffect(() => {
     if (!dirty && !busy) return;
@@ -70,15 +71,15 @@ export function AiKnowledgePanel({ initial, liveTestAvailable }: { initial: AiKn
       <div className="min-w-0 space-y-4 pb-4 text-sm">
         <p className="text-earth-600">草稿需儲存再發布。只管理本合成測試店；正式客服與訊息外發尚未開放。</p>
         <fieldset disabled={busy} className="min-w-0 space-y-3">
-          <label className="block space-y-1"><span>店家介紹</span><textarea aria-label="店家介紹" className={field} rows={3} maxLength={600} value={draft.introduction} onChange={e => setDraft({ ...draft, introduction: e.target.value })}/></label>
+          <label className="block space-y-1"><span>店家介紹</span><textarea aria-label="店家介紹" className={field} rows={3} maxLength={600} value={draft.introduction} onChange={e => edit({ ...draft, introduction: e.target.value })}/></label>
           <div className="space-y-3"><p className="font-medium">常見問題（最多 6 題）</p>{draft.faqs.map((faq, index) => <div key={index} className="min-w-0 space-y-2 rounded-lg border p-3">
-            <label className="block">問題 {index + 1}<input className={field} aria-label={`FAQ 問題 ${index + 1}`} maxLength={120} value={faq.question} onChange={e => setDraft({ ...draft, faqs: draft.faqs.map((f,i) => i === index ? { ...f, question: e.target.value } : f) })}/></label>
-            <label className="block">回答 {index + 1}<textarea className={field} aria-label={`FAQ 回答 ${index + 1}`} rows={2} maxLength={600} value={faq.answer} onChange={e => setDraft({ ...draft, faqs: draft.faqs.map((f,i) => i === index ? { ...f, answer: e.target.value } : f) })}/></label>
-            <button type="button" className={button} onClick={() => setDraft({ ...draft, faqs: draft.faqs.filter((_,i) => i !== index) })}>刪除第 {index + 1} 題</button>
-          </div>)}<button type="button" className={button} disabled={draft.faqs.length >= 6} onClick={() => setDraft({ ...draft, faqs: [...draft.faqs, { question: "", answer: "" }] })}>新增 FAQ</button></div>
-          <label className="block space-y-1"><span>禁止回答事項（每行一個關鍵詞，最多 20 個）</span><textarea className={field} aria-label="禁止回答事項" rows={3} value={draft.prohibitedTerms.join("\n")} onChange={e => setDraft({ ...draft, prohibitedTerms: e.target.value.split("\n") })}/></label>
+            <label className="block">問題 {index + 1}<input className={field} aria-label={`FAQ 問題 ${index + 1}`} maxLength={120} value={faq.question} onChange={e => edit({ ...draft, faqs: draft.faqs.map((f,i) => i === index ? { ...f, question: e.target.value } : f) })}/></label>
+            <label className="block">回答 {index + 1}<textarea className={field} aria-label={`FAQ 回答 ${index + 1}`} rows={2} maxLength={600} value={faq.answer} onChange={e => edit({ ...draft, faqs: draft.faqs.map((f,i) => i === index ? { ...f, answer: e.target.value } : f) })}/></label>
+            <button type="button" className={button} onClick={() => edit({ ...draft, faqs: draft.faqs.filter((_,i) => i !== index) })}>刪除第 {index + 1} 題</button>
+          </div>)}<button type="button" className={button} disabled={draft.faqs.length >= 6} onClick={() => edit({ ...draft, faqs: [...draft.faqs, { question: "", answer: "" }] })}>新增 FAQ</button></div>
+          <label className="block space-y-1"><span>禁止回答事項（每行一個關鍵詞，最多 20 個）</span><textarea className={field} aria-label="禁止回答事項" rows={3} value={draft.prohibitedTerms.join("\n")} onChange={e => edit({ ...draft, prohibitedTerms: e.target.value.split("\n") })}/></label>
           <p className="text-earth-600">問題包含關鍵詞即轉真人；採全半形、大小寫及空白正規化比對，不推測同義詞。個資、退款及即時預約仍受既有安全規則限制。</p>
-          <div className="space-y-2"><p className="font-medium">引用既有設定</p>{([ ["hours","今天的營業時間（含特殊營業日）"], ["services","公開服務／課程名稱"], ["prices","可公開購買方案的定價"] ] as const).map(([key,label]) => <label key={key} className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={draft.references[key]} onChange={e => setDraft({ ...draft, references: { ...draft.references, [key]: e.target.checked } })}/>{label}</label>)}<p className="text-earth-600">每次測試讀取原設定，不複製價格。來源未設定、超過 6 項或內容上限時無法發布／回覆，請洽原設定管理者。方案定價不包含優惠及個人權益。</p></div>
+          <div className="space-y-2"><p className="font-medium">引用既有設定</p>{([ ["hours","今天的營業時間（含特殊營業日）"], ["services","公開服務／課程名稱"], ["prices","可公開購買方案的定價"] ] as const).map(([key,label]) => <label key={key} className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={draft.references[key]} onChange={e => edit({ ...draft, references: { ...draft.references, [key]: e.target.checked } })}/>{label}</label>)}<p className="text-earth-600">每次測試讀取原設定，不複製價格。來源未設定、超過 6 項或內容上限時無法發布／回覆，請洽原設定管理者。方案定價不包含優惠及個人權益。</p></div>
         </fieldset>
         <div className="flex flex-wrap gap-2"><button type="button" className={button} disabled={busy || !dirty} onClick={() => change("save")}>儲存知識草稿</button><button type="button" className={`${button} bg-primary-700 text-white`} disabled={busy || dirty || document.revision === 0} onClick={() => change("publish")}>發布知識</button><button type="button" className={button} disabled={busy || !document.published || dirty} onClick={() => change("withdraw")}>撤下知識</button><button type="button" className={button} disabled={busy} onClick={reload}>重新載入最新版本</button></div>
         {error && <p role="alert" className="break-words text-red-700">{error}</p>}{notice && <p role="status" className="break-words text-primary-700">{notice}</p>}

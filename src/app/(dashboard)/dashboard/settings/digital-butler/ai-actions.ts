@@ -84,7 +84,8 @@ export async function changeAiButlerKnowledge(input: { command: "save" | "publis
     if (parsed.command === "publish") {
       const current = await repository.read(scope.storeId);
       if (current.revision !== parsed.revision) throw new Error("AI_KNOWLEDGE_CONFLICT");
-      const { projectAiKnowledge, readAiAuthority } = await import("@/server/ai/knowledge-sources");
+      const { readAiAuthority } = await import("@/server/ai/knowledge-sources");
+      const { projectAiKnowledge } = await import("@/server/ai/knowledge-projection");
       const { assertAiInputBound } = await import("@/server/ai/provider");
       const now = new Date();
       const projected = projectAiKnowledge(scope.storeId, { ...current, published: current.draft, publishedVersion: current.publishedVersion + 1, publishedAt: now.toISOString() }, await readAiAuthority(scope.storeId, current.draft.references, now), now);
