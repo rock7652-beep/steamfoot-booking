@@ -5,7 +5,7 @@ import { SettingsListRow } from "@/components/settings/settings-workspace";
 import { saveAiButlerSetting, testAiButler, setAiButlerTestHandoff } from "./ai-actions";
 import type { AiSetting, AiModule } from "@/server/ai/contracts";
 
-type Props = { setting: AiSetting; revision: number; liveTestAvailable: boolean; requestCount: string; reservedMicros: string; budgetMicros: number; alerts: number[]; initialHandoff?: boolean };
+type Props = { setting: AiSetting; revision: number; liveTestAvailable: boolean; requestCount: string; reservedMicros: string; budgetMicros: number; alerts: number[]; initialHandoff?: boolean; initialHandoffRevision?: number };
 export function AiButlerPanel(props: Props) {
   const [setting, setSetting] = useState(props.setting);
   const [revision, setRevision] = useState(props.revision);
@@ -19,7 +19,9 @@ export function AiButlerPanel(props: Props) {
   const [reply, setReply] = useState("");
   const pendingEvent = useRef<string | null>(null);
   const [usage, setUsage] = useState({ requestCount: props.requestCount, reservedMicros: props.reservedMicros, budgetMicros: props.budgetMicros, alerts: props.alerts });
-  const [handoff, setHandoff] = useState(props.initialHandoff ?? false);
+  const [localHandoff, setLocalHandoff] = useState({ value: props.initialHandoff ?? false, baseRevision: props.initialHandoffRevision ?? 0 });
+  const handoff = (props.initialHandoffRevision ?? 0) > localHandoff.baseRevision ? props.initialHandoff ?? false : localHandoff.value;
+  const setHandoff = (value: boolean) => setLocalHandoff({ value, baseRevision: props.initialHandoffRevision ?? 0 });
   async function toggle() {
     setBusy(true); setError(""); setNotice("");
     try {

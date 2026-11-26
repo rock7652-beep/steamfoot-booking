@@ -9,6 +9,7 @@ import { AiRoutingRepository } from "@/server/ai/routing-repository";
 import { AiButlerRepository, type AiSql, type AiDatabase } from "@/server/ai/repository";
 import { DEFAULT_AI_SETTING } from "@/server/ai/contracts";
 import { aiIdentity } from "@/server/ai/service";
+import { AiHandoffRepository } from "@/server/ai/handoff-repository";
 
 // Explicit opt-in; zero hosted URLs, no Docker networking or published ports.
 const enabled = process.env.AI_LOCAL_POSTGRES_REHEARSAL === "1";
@@ -91,4 +92,25 @@ it.skipIf(!enabled)("unknown routing receipts block a new event until the operat
  expect((await routes.claim({...id,eventKey:"c".repeat(64)},fingerprint,false,now)).state).toBe("BUSY");
  await repositories[0].handoff(id,false,now);
  expect((await routes.claim({...id,eventKey:"d".repeat(64)},fingerprint,false,now)).state).toBe("CLAIMED");
+});
+
+it.skipIf(!enabled)("two operators cannot resume the same handoff version twice across PostgreSQL connections", async () => {
+  await clients[0].query(readFileSync("scripts/sql/ai-digital-butler/preview-handoff.sql", "utf8"));
+  const scope = { storeId: "ai-preview-fitness", scopeKey: "e".repeat(64) };
+  const revision = await repositories[0].handoff(scope, true, now);
+  const queues = clients.slice(0, 2).map(c => {
+    const adapt: AiSql = { query: async (sql, values) => (await c.query(sql, values)).rows as never };
+    return new AiHandoffRepository({ ...adapt, transaction: async work => {
+      await c.query("BEGIN"); try { const result = await work(adapt); await c.query("COMMIT"); return result; }
+      catch (error) { await c.query("ROLLBACK"); throw error; }
+    } });
+  });
+  const commands = ["a", "b"].map(key => ({ ...scope, revision, actorKey: key.repeat(64), commandKey: key.repeat(64) }));
+  expect(await queues[0].list(scope.storeId)).toMatchObject({ total: 1, rows: [{ scopeKey: scope.scopeKey, revision, needsReview: false }] });
+  const results = await Promise.allSettled(queues.map((queue, i) => queue.resume(commands[i], now, async () => undefined)));
+  expect(results.filter(row => row.status === "fulfilled")).toHaveLength(1);
+  expect(results.filter(row => row.status === "rejected")).toHaveLength(1);
+  const winner = results.findIndex(row => row.status === "fulfilled");
+  expect(await queues[winner].resume(commands[winner], now, async () => undefined)).toEqual({ duplicate: true, revision: revision + 1 });
+  expect((await clients[2].query('SELECT COUNT(*)::int AS n FROM "AiButlerHandoffAudit"')).rows[0].n).toBe(1);
 });

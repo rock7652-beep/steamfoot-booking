@@ -194,3 +194,31 @@ export async function setAiButlerRoutingHandoff(handoff:boolean) {
     return {success:true as const,state:await routingState(scope)};
   } catch { return {success:false as const,error:"無法確認路由接手狀態，請重新確認。"}; }
 }
+
+export async function resumeAiButlerConversation(input: import("@/server/ai/handoff-contract").AiHandoffResumeInput) {
+  try {
+    const { aiHandoffResumeSchema } = await import("@/server/ai/handoff-contract");
+    const data = aiHandoffResumeSchema.parse(input);
+    const scope = await context();
+    const { AiHandoffRepository, aiHandoffViewKey, aiHandoffCommandKeys } = await import("@/server/ai/handoff-repository");
+    const { aiButlerDatabase } = await import("@/server/ai/database");
+    const secret = process.env.AI_IDENTITY_SECRET ?? "";
+    const authorize = async () => {
+      const current = await context();
+      if (current.storeId !== scope.storeId || current.actorId !== scope.actorId ||
+        aiHandoffViewKey(current.storeId, current.actorId, secret) !== data.viewKey) throw new Error("AI_HANDOFF_SCOPE_CHANGED");
+    };
+    await authorize();
+    const result = await new AiHandoffRepository(aiButlerDatabase()).resume({ storeId: scope.storeId, scopeKey: data.scopeKey,
+      revision: data.revision, ...aiHandoffCommandKeys(scope.storeId, scope.actorId, data.commandId, secret) }, new Date(), authorize);
+    return { success: true as const, duplicate: result.duplicate };
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    const messages: Record<string, string> = {
+      AI_HANDOFF_CONFLICT: "對話狀態已變更，請重新整理清單後核對。",
+      AI_HANDOFF_REVIEW_REQUIRED: "仍有處理中或結果未知的事件，請先核對，暫不能恢復。",
+      AI_HANDOFF_SCOPE_CHANGED: "帳號或店家已切換，請重新整理目前工作區。",
+    };
+    return { success: false as const, uncertain: !messages[code], error: messages[code] ?? "操作結果尚未確認，請沿用原操作重試。" };
+  }
+}

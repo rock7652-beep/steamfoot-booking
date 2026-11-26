@@ -1,6 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { DEFAULT_AI_SETTING } from "@/server/ai/contracts";
-const mocks = vi.hoisted(() => ({ permission: vi.fn(), store: vi.fn(), entitlement: vi.fn(), save: vi.fn(), handoff: vi.fn(), repository: vi.fn(), knowledgeRead: vi.fn(), knowledgeChange: vi.fn(), authority: vi.fn() }));
+const mocks = vi.hoisted(() => ({ permission: vi.fn(), store: vi.fn(), entitlement: vi.fn(), save: vi.fn(), handoff: vi.fn(), repository: vi.fn(), knowledgeRead: vi.fn(), knowledgeChange: vi.fn(), authority: vi.fn(), queueResume: vi.fn() }));
 vi.mock("@/lib/permissions", () => ({ requireWritablePermission: mocks.permission }));
 vi.mock("@/lib/store", () => ({ resolveWriteStoreId: mocks.store }));
 vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature: mocks.entitlement }));
@@ -8,8 +8,13 @@ vi.mock("../../scripts/ai-digital-butler-preview-scope.mjs", () => ({ assertAiPr
 vi.mock("@/server/ai/database", () => ({ aiButlerRepository: mocks.repository, aiButlerDatabase: vi.fn() }));
 vi.mock("@/server/ai/knowledge-repository", () => ({ AiKnowledgeRepository: class { read = mocks.knowledgeRead; change = mocks.knowledgeChange; } }));
 vi.mock("@/server/ai/knowledge-sources", () => ({ readAiAuthority: mocks.authority }));
+vi.mock("@/server/ai/handoff-repository", async importOriginal => {
+  const actual = await importOriginal<typeof import("@/server/ai/handoff-repository")>();
+  return { ...actual, AiHandoffRepository: class { resume = mocks.queueResume; } };
+});
+import { aiHandoffViewKey } from "@/server/ai/handoff-repository";
 import { EMPTY_AI_KNOWLEDGE } from "@/server/ai/knowledge-document";
-import { saveAiButlerSetting, testAiButler, changeAiButlerKnowledge, readAiButlerKnowledge, testAiButlerRouting, setAiButlerRoutingHandoff } from "../app/(dashboard)/dashboard/settings/digital-butler/ai-actions";
+import { saveAiButlerSetting, testAiButler, changeAiButlerKnowledge, readAiButlerKnowledge, testAiButlerRouting, setAiButlerRoutingHandoff, resumeAiButlerConversation } from "../app/(dashboard)/dashboard/settings/digital-butler/ai-actions";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.permission.mockResolvedValue({ id: "synthetic-owner", role: "OWNER" });
@@ -17,6 +22,35 @@ beforeEach(() => {
   mocks.entitlement.mockResolvedValue(undefined);
   mocks.repository.mockReturnValue({ saveSetting: mocks.save, handoff: mocks.handoff });
   mocks.save.mockResolvedValue({ setting: DEFAULT_AI_SETTING, revision: 1 });
+  vi.stubEnv("AI_IDENTITY_SECRET", "s".repeat(40));
+  mocks.queueResume.mockImplementation(async (...args: unknown[]) => { await (args[2] as () => Promise<void>)(); return { duplicate: false, revision: 2 }; });
+});
+
+const resumeInput = () => ({ commandId: "f1ce29a0-865e-4d89-8658-e0e18173d08c", scopeKey: "a".repeat(64), revision: 1,
+  viewKey: aiHandoffViewKey("ai-preview-steamfoot", "synthetic-owner", "s".repeat(40)) });
+it("operator resume verifies current writable scope again inside the transaction", async () => {
+  expect(await resumeAiButlerConversation(resumeInput())).toEqual({ success: true, duplicate: false });
+  expect(mocks.permission).toHaveBeenCalledWith("plans.edit");
+  expect(mocks.queueResume.mock.calls[0][0]).toMatchObject({ storeId: "ai-preview-steamfoot", scopeKey: "a".repeat(64), revision: 1 });
+  expect(mocks.permission).toHaveBeenCalledTimes(3);
+});
+it("operator input cannot override the tenant, and stale view proofs never reach persistence", async () => {
+  expect((await resumeAiButlerConversation({ ...resumeInput(), storeId: "foreign" } as never)).success).toBe(false);
+  expect((await resumeAiButlerConversation({ ...resumeInput(), viewKey: "b".repeat(64) })).success).toBe(false);
+  expect(mocks.queueResume).not.toHaveBeenCalled();
+});
+it("switching actor after the initial guard rejects the in-transaction write", async () => {
+  mocks.permission.mockResolvedValueOnce({ id: "synthetic-owner" }).mockResolvedValueOnce({ id: "synthetic-owner" }).mockResolvedValueOnce({ id: "other-actor" });
+  expect(await resumeAiButlerConversation(resumeInput())).toMatchObject({ success: false, uncertain: false });
+});
+it.each(["AI_HANDOFF_CONFLICT", "AI_HANDOFF_REVIEW_REQUIRED"])("known operator failure %s is safe to reload", async code => {
+  mocks.queueResume.mockRejectedValueOnce(new Error(code));
+  expect(await resumeAiButlerConversation(resumeInput())).toMatchObject({ success: false, uncertain: false });
+});
+it("unclassified operator failure retains the command and never echoes SQL or credentials", async () => {
+  mocks.queueResume.mockRejectedValueOnce(new Error("private-sql-secret"));
+  const result = await resumeAiButlerConversation(resumeInput());
+  expect(result).toMatchObject({ success: false, uncertain: true }); expect(JSON.stringify(result)).not.toContain("private-sql-secret");
 });
 describe("AI server action trust boundary", () => {
   it("derives the store from the verified staff scope and checks independent AI entitlement", async () => {
