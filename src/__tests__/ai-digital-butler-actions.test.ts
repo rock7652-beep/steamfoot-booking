@@ -28,7 +28,7 @@ beforeEach(() => {
 
 const resumeInput = () => ({ commandId: "f1ce29a0-865e-4d89-8658-e0e18173d08c", scopeKey: "a".repeat(64), revision: 1,
   viewKey: aiHandoffViewKey("ai-preview-steamfoot", "synthetic-owner", "s".repeat(40)) });
-it("operator resume verifies current writable scope again inside the transaction", async () => {
+it("operator resume verifies current writable scope again before the serialized mutation", async () => {
   expect(await resumeAiButlerConversation(resumeInput())).toEqual({ success: true, duplicate: false });
   expect(mocks.permission).toHaveBeenCalledWith("plans.edit");
   expect(mocks.queueResume.mock.calls[0][0]).toMatchObject({ storeId: "ai-preview-steamfoot", scopeKey: "a".repeat(64), revision: 1 });
@@ -39,7 +39,7 @@ it("operator input cannot override the tenant, and stale view proofs never reach
   expect((await resumeAiButlerConversation({ ...resumeInput(), viewKey: "b".repeat(64) })).success).toBe(false);
   expect(mocks.queueResume).not.toHaveBeenCalled();
 });
-it("switching actor after the initial guard rejects the in-transaction write", async () => {
+it("switching actor after the initial guard rejects the mutation", async () => {
   mocks.permission.mockResolvedValueOnce({ id: "synthetic-owner" }).mockResolvedValueOnce({ id: "synthetic-owner" }).mockResolvedValueOnce({ id: "other-actor" });
   expect(await resumeAiButlerConversation(resumeInput())).toMatchObject({ success: false, uncertain: false });
 });

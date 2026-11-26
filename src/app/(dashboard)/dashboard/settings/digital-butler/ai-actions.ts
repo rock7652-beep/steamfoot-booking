@@ -218,6 +218,7 @@ export async function resumeAiButlerConversation(input: import("@/server/ai/hand
       AI_HANDOFF_CONFLICT: "對話狀態已變更，請重新整理清單後核對。",
       AI_HANDOFF_REVIEW_REQUIRED: "仍有處理中或結果未知的事件，請先核對，暫不能恢復。",
       AI_HANDOFF_SCOPE_CHANGED: "帳號或店家已切換，請重新整理目前工作區。",
+      AI_NOT_ENTITLED: "本店 AI 權益已變更，請先核對授權。",
     };
     return { success: false as const, uncertain: !messages[code], error: messages[code] ?? "操作結果尚未確認，請沿用原操作重試。" };
   }

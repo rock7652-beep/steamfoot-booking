@@ -79,6 +79,14 @@ it("failure to write the audit rolls back the handoff change", async () => {
   await expect(new AiHandoffRepository(broken).resume(command(), now, authorize)).rejects.toThrow("AUDIT_FAILED");
   expect(await conversations.conversationState({ storeId, scopeKey })).toEqual({ handoff: true, revision: 1 });
 });
+it.each(["revoked", "expired"])("%s HQ entitlement is checked inside the same transaction even after the authorization callback passed", async state => {
+  await db.query('UPDATE "StoreFeatureEntitlement" SET status=$2,"expiresAt"=$3 WHERE "storeId"=$1',
+    [storeId, state === "revoked" ? "HIDDEN" : "ENABLED", state === "expired" ? new Date("2001-01-01T00:00:00Z") : null]);
+  try {
+    await expect(queue.resume(command(), now, authorize)).rejects.toThrow("AI_NOT_ENTITLED");
+    expect(await conversations.conversationState({ storeId, scopeKey })).toEqual({ handoff: true, revision: 1 });
+  } finally { await db.query('UPDATE "StoreFeatureEntitlement" SET status=\'ENABLED\',"expiresAt"=NULL WHERE "storeId"=$1', [storeId]); }
+});
 it("a 51-row queue is paged without repeats and does not hide the remaining count", async () => {
   for (let i = 1; i <= 50; i++) await conversations.handoff({ storeId, scopeKey: i.toString(16).padStart(64, "0") }, true, now);
   const first = await queue.list(storeId), second = await queue.list(storeId, first.nextCursor!), third = await queue.list(storeId, second.nextCursor!);

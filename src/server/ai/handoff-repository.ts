@@ -1,7 +1,7 @@
 import "server-only";
 import { createHmac } from "node:crypto";
 import { AI_LIMITS } from "./contracts";
-import type { AiDatabase, AiSql } from "./repository";
+import { assertAiStoreEntitlement, type AiDatabase, type AiSql } from "./repository";
 import { aiHandoffKeySchema, type AiHandoffPage } from "./handoff-contract";
 
 function storeScope(storeId: string) {
@@ -48,9 +48,11 @@ export class AiHandoffRepository {
     storeScope(input.storeId);
     for (const key of [input.scopeKey, input.actorKey, input.commandKey]) aiHandoffKeySchema.parse(key);
     if (!Number.isSafeInteger(input.revision) || input.revision < 0) throw new Error("AI_HANDOFF_CONFLICT");
+    // Auth may use the shared pool. Finish it before acquiring the transaction's sole connection.
+    await authorize();
     return this.db.transaction(async tx => {
       await controlLock(tx); // Stopped AI does not prevent an authorized operator from resolving a handoff.
-      await authorize();
+      await assertAiStoreEntitlement(tx, input.storeId); // Same connection, live HQ state and DB clock.
       const [prior] = await tx.query<{ scopeKey: string; actorKey: string; expectedRevision: number; resultRevision: number }>(
         'SELECT "scopeKey","actorKey","expectedRevision","resultRevision" FROM "AiButlerHandoffAudit" WHERE "storeId"=$1 AND "commandKey"=$2', [input.storeId, input.commandKey]);
       if (prior) {

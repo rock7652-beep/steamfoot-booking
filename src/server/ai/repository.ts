@@ -15,10 +15,11 @@ const lock = async (tx: AiSql) => {
   const rows = await tx.query<{ stopped: boolean }>('SELECT stopped FROM "AiButlerControl" WHERE id=\'global\' FOR UPDATE');
   if (rows.length !== 1 || rows[0].stopped) throw new Error("AI_GLOBAL_STOPPED");
 };
-async function entitled(tx: AiSql, storeId: string, now: Date) {
-  const rows = await tx.query('SELECT 1 AS allowed FROM "StoreFeatureEntitlement" WHERE "storeId"=$1 AND "featureKey"=\'ai_digital_butler\' AND status=\'ENABLED\' AND ("startsAt" IS NULL OR "startsAt" <= $2) AND ("expiresAt" IS NULL OR "expiresAt" >= $2)', [storeId, now]);
+async function entitled(tx: AiSql, storeId: string, now?: Date) {
+  const rows = await tx.query('SELECT 1 AS allowed FROM "StoreFeatureEntitlement" WHERE "storeId"=$1 AND "featureKey"=\'ai_digital_butler\' AND status=\'ENABLED\' AND ("startsAt" IS NULL OR "startsAt" <= COALESCE($2::timestamptz,CURRENT_TIMESTAMP)) AND ("expiresAt" IS NULL OR "expiresAt" >= COALESCE($2::timestamptz,CURRENT_TIMESTAMP))', [storeId, now ?? null]);
   if (rows.length !== 1) throw new Error("AI_NOT_ENTITLED");
 }
+export { entitled as assertAiStoreEntitlement };
 export class AiButlerRepository {
   constructor(readonly db: AiDatabase) {}
   async setting(storeId: string): Promise<{ setting: AiSetting; revision: number }> {

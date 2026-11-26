@@ -13,7 +13,7 @@ AI 轉真人目前會保存旗標，但店長只能操作自己正在測試的�
 
 ## 原子操作與稽核
 
-操作前與取得全域鎖後都重新驗證 writable permission、目前 actor／store 與 AI 權益。viewKey 是由伺服器為該 actor/store 推導的 HMAC，避免舊工作區操作落到新門市；前端不得指定 storeId、actorId 或模組。
+每個操作核對 writable permission、目前 actor／store 與 AI 權益，啟動交易前再次確認工作區。取得全域鎖後，透過同一交易連線及 DB 時間重查 HQ 權益與對話版本。權限 helper 會使用共用連線池，不能放在已佔用唯一連線的交易回呼內。viewKey 是由伺服器為該 actor/store 推導的 HMAC，避免舊工作區操作落到新門市；前端不得指定 storeId、actorId 或模組。
 
 客戶端保留 UUID commandId 到結果確認；不明結果只重試同一命令。私有 AiButlerHandoffAudit 以 storeId／HMAC commandKey 去重，保存 HMAC actor／scope、預期及成功版本與時間。重送回原收據，不能覆蓋後續接手。另一人已更新則回報版本衝突。更新與 audit INSERT 同一交易，寫紀錄失敗時回滾接手狀態。
 
@@ -21,7 +21,7 @@ AI 轉真人目前會保存旗標，但店長只能操作自己正在測試的�
 
 ## 安裝與安全
 
-只在 steamfoot-preview（ttworfzgwejdeolegkxl）手動安裝 [preview-handoff.sql](../../scripts/sql/ai-digital-butler/preview-handoff.sql)，checksum `06f6b00a9ef123153483687e90ceb7a00dc5c4494871cce5a8bc523f1ddbc6af`。此表啟用 RLS，PUBLIC／anon／authenticated 無權限；既有隔離角色僅 SELECT／INSERT、限四合成店，不授 UPDATE／DELETE 或商業表寫入。沒有正式 migration、資料庫新專案或憑證改動。
+只在 steamfoot-preview（ttworfzgwejdeolegkxl）手動安裝 [preview-handoff.sql](../../scripts/sql/ai-digital-butler/preview-handoff.sql)，checksum `06f6b00a9ef123153483687e90ceb7a00dc5c4494871cce5a8bc523f1ddbc6af`。此表啟用 RLS，PUBLIC／anon／authenticated 無權限；既有隔離角色僅 SELECT／INSERT、限四合成店，不授 UPDATE／DELETE 或商業表寫入。沒有正式 migration、資料庫新專案或 DB／Vercel Sensitive 憑證改動；合成登入帳號按既有測試流程輪替暫存密碼。
 
 既有未解安全建議不在本次擴大處理。停用本功能可回到既有 Preview 程式或維持總停止；新表保留稽核資料，不以刪除紀錄回復。Production、Development、其他 Preview、真實 Webhook／LINE／Messenger／Email、商業資料與會員綁定都不在本次寫入範圍。
 

@@ -114,3 +114,23 @@ it.skipIf(!enabled)("two operators cannot resume the same handoff version twice 
   expect(await queues[winner].resume(commands[winner], now, async () => undefined)).toEqual({ duplicate: true, revision: revision + 1 });
   expect((await clients[2].query('SELECT COUNT(*)::int AS n FROM "AiButlerHandoffAudit"')).rows[0].n).toBe(1);
 });
+
+it.skipIf(!enabled)("operator authorization must not wait for the sole connection already held by its transaction", async () => {
+  const { Pool } = createRequire(import.meta.url)("pg");
+  const pool = new Pool({ host: socket, user: "postgres", database: "postgres", max: 1, connectionTimeoutMillis: 300 });
+  const identity = { storeId: "ai-preview-fitness", scopeKey: "9".repeat(64) };
+  const revision = await repositories[0].handoff(identity, true, now);
+  const query: AiSql["query"] = async (sql, values) => (await pool.query(sql, values)).rows;
+  const queue = new AiHandoffRepository({ query, transaction: async work => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      try { const result = await work({ query: async (sql, values) => (await client.query(sql, values)).rows }); await client.query("COMMIT"); return result; }
+      catch (error) { await client.query("ROLLBACK"); throw error; }
+    } finally { client.release(); }
+  } });
+  try {
+    await expect(queue.resume({ ...identity, revision, actorKey: "8".repeat(64), commandKey: "8".repeat(64) }, now,
+      async () => { await pool.query("SELECT 1"); })).resolves.toEqual({ duplicate: false, revision: revision + 1 });
+  } finally { await pool.end(); }
+});
