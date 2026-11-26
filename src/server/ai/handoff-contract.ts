@@ -6,6 +6,6 @@ export const aiHandoffResumeSchema = z.object({
 }).strict();
 export type AiHandoffResumeInput = z.infer<typeof aiHandoffResumeSchema>;
 export type AiHandoffPage = {
-  rows: { scopeKey: string; revision: number; needsReview: boolean; lastEventAt: string | null }[];
+  rows: { scopeKey: string; revision: number; needsReview: boolean; lastEventAt: string | null; lastEventLabel: string | null }[];
   total: number; nextCursor: string | null;
 };

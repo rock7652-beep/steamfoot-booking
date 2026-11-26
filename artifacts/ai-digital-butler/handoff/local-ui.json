@@ -34,6 +34,7 @@
     }
   ],
   "cases": [
+    "ssr-hydration-matches-browser",
     "pagination-25-25-1",
     "blocked-pending",
     "cancel-no-write",
@@ -44,5 +45,6 @@
     "readonly",
     "read-error-not-empty"
   ],
-  "errors": []
+  "errors": [],
+  "hydrationErrors": []
 }

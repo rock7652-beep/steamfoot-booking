@@ -4,7 +4,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SettingsListRow } from "@/components/settings/settings-workspace";
 import type { AiHandoffPage, AiHandoffResumeInput } from "@/server/ai/handoff-contract";
 import { resumeAiButlerConversation } from "./ai-actions";
-import { formatTWTime } from "@/lib/date-utils";
 
 const button = "min-h-11 rounded-lg border border-earth-200 px-3 text-sm disabled:opacity-50";
 export function AiHandoffPanel({ page, viewKey, cursor, readOnly = false }: { page: AiHandoffPage | null; viewKey: string; cursor?: string; readOnly?: boolean }) {
@@ -53,7 +52,7 @@ export function AiHandoffPanel({ page, viewKey, cursor, readOnly = false }: { pa
         {!page ? <p role="alert">待處理清單尚未讀取成功，不能視為沒有待辦。</p> : !page.rows.length ? <p role="status">{cursor ? "這一頁沒有待處理對話，可回到第一頁核對。" : "目前沒有待人工處理的測試對話。"}</p> :
           <ul aria-label="待處理測試對話" className="min-w-0 divide-y divide-earth-100">{page.rows.map(row => <li key={row.scopeKey} data-scope-code={row.scopeKey} className="admin-striped-row min-w-0 space-y-2 p-3">
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0 break-words"><p className="font-medium">測試對話 {row.scopeKey.slice(0, 8)}…{row.scopeKey.slice(-4)}</p><p className="text-earth-600">{row.needsReview ? "事件仍處理中或待核對，暫不能恢復" : "真人接手中"}</p>{row.lastEventAt && <p className="text-earth-600">最近測試：{formatTWTime(row.lastEventAt)}</p>}</div>
+              <div className="min-w-0 break-words"><p className="font-medium">測試對話 {row.scopeKey.slice(0, 8)}…{row.scopeKey.slice(-4)}</p><p className="text-earth-600">{row.needsReview ? "事件仍處理中或待核對，暫不能恢復" : "真人接手中"}</p>{row.lastEventLabel && <p className="text-earth-600">最近測試：{row.lastEventLabel}</p>}</div>
               <button type="button" className={button} disabled={readOnly || locked || row.needsReview} onClick={() => { setConfirm(row.scopeKey); setError(""); setNotice(""); }}>準備恢復</button>
             </div>
             {confirm === row.scopeKey && <div className="space-y-2 rounded-lg border border-earth-200 p-3"><p>確認此對話已處理完畢，再允許後續自動回覆？這不會開啟 AI 總開關或店家開關。</p>

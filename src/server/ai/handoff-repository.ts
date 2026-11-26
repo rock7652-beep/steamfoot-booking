@@ -3,6 +3,7 @@ import { createHmac } from "node:crypto";
 import { AI_LIMITS } from "./contracts";
 import { assertAiStoreEntitlement, type AiDatabase, type AiSql } from "./repository";
 import { aiHandoffKeySchema, type AiHandoffPage } from "./handoff-contract";
+import { formatTWTime } from "@/lib/date-utils";
 
 function storeScope(storeId: string) {
   if (!/^ai-preview-(steamfoot|beauty|fitness|music)$/.test(storeId)) throw new Error("AI_SYNTHETIC_STORE_REQUIRED");
@@ -42,7 +43,10 @@ export class AiHandoffRepository {
     const total = Number(snapshot.total), rows = snapshot.rows;
     if (!Number.isSafeInteger(total) || total < 0) throw new Error("AI_HANDOFF_READ_FAILED");
     return { total, nextCursor: rows.length > 25 ? rows[24].scopeKey : null,
-      rows: rows.slice(0, 25).map(row => ({ ...row, lastEventAt: row.lastEventAt ? new Date(row.lastEventAt).toISOString() : null })) };
+      rows: rows.slice(0, 25).map(row => {
+        const lastEventAt = row.lastEventAt ? new Date(row.lastEventAt).toISOString() : null;
+        return { ...row, lastEventAt, lastEventLabel: lastEventAt ? formatTWTime(lastEventAt) : null };
+      }) };
   }
   async resume(input: { storeId: string; scopeKey: string; revision: number; actorKey: string; commandKey: string }, now: Date, authorize: () => Promise<void>) {
     storeScope(input.storeId);
