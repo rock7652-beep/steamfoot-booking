@@ -15,6 +15,7 @@ export function brandManagementRuntime() {
 export function brandManagementError(error: unknown) {
   const code=error instanceof Error?error.message:"";
   const errors: Record<string,string> = {
+    AI_BRAND_TEST_LIMIT:"本輪 Mock 測試已達 8 筆上限，請核對帳本。",
     AI_BRAND_READ_ONLY:"目前為唯讀驗收，尚未允許此操作。",
     AI_NOT_ENTITLED:"品牌服務尚未開通，請先核對 HQ 授權。",
     AI_GLOBAL_STOPPED:"AI 總停止仍生效，不能啟用或建立測試請求。",

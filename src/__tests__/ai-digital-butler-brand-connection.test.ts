@@ -13,3 +13,8 @@ it("does nothing in other branches",async()=>{const {factory}=fixture();expect(a
 it.each([{VERCEL_ENV:"production"},{VERCEL_PROJECT_ID:"wrong"},{AI_EXTERNAL_DELIVERY_DISABLED:"0"},{NODE_TLS_REJECT_UNAUTHORIZED:"0"},{AI_BRAND_PREVIEW_WRITE_OPERATIONS:"save"},{AI_BRAND_PREVIEW_WRITE_UNTIL:"2099-01-01T00:00:00Z"}])("rejects unsafe configuration %j before connection",async changes=>{const {factory}=fixture();await expect(checkBrandPreviewConnection({...env,...changes},factory)).rejects.toThrow();expect(factory).not.toHaveBeenCalled();});
 it.each([{role:"postgres"},{stopped:false},{disabled_stores:3},{brand_grant:"ENABLED"},{brand_enabled:"true"},{unpublished:false},{readonly:"off"},{concurrent:"1"}])("fails closed on actual connection state %j",async changes=>{const {factory,client}=fixture(changes);await expect(checkBrandPreviewConnection(env,factory)).rejects.toThrow("STATE_MISMATCH");expect(client.end).toHaveBeenCalledTimes(1);});
 it("does not query or downgrade verification after a TLS verification failure",async()=>{const {client,factory}=fixture();client.connection.stream.authorized=false;await expect(checkBrandPreviewConnection(env,factory)).rejects.toThrow("TLS_NOT_VERIFIED");expect(client.query).not.toHaveBeenCalled();expect(client.end).toHaveBeenCalledTimes(1);});
+
+it("a valid explicit short write window can be built only while remote state remains stopped",async()=>{
+ const {factory}=fixture();const result=await checkBrandPreviewConnection({...env,AI_BRAND_PREVIEW_WRITE_OPERATIONS:"save,publish,withdraw,setting,handoff,resume,test",AI_BRAND_PREVIEW_WRITE_UNTIL:new Date(Date.now()+20*60_000).toISOString()},factory);
+ expect(result).toMatchObject({globalStopped:true,brandHidden:true,brandDisabled:true});
+});

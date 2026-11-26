@@ -1,4 +1,5 @@
 // Read-only, exact AI Preview only. Never prints a URL, password, token or raw error.
+import { brandPreviewWriteWindow } from './ai-brand-preview-write-window.mjs';
 import { pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { beautyProductionCaPath as supabaseCaPath, verifyBeautyProductionCa as verifySupabaseCa } from './beauty-production-ca.mjs';
@@ -7,7 +8,7 @@ import { claimsAiPreview, assertAiPreview, resolveAiPreviewDatabaseUrl, AI_PREVI
 export async function checkBrandPreviewConnection(env=process.env, factory) {
   if(!claimsAiPreview(env))return {skipped:true};
   assertAiPreview(env);
-  if(env.NODE_TLS_REJECT_UNAUTHORIZED==='0'||env.AI_BRAND_PREVIEW_WRITE_OPERATIONS||env.AI_BRAND_PREVIEW_WRITE_UNTIL)throw Error('AI_BRAND_PREFLIGHT_UNEXPECTED_WRITE_OR_TLS_CONFIG');
+  if(env.NODE_TLS_REJECT_UNAUTHORIZED==='0'||(brandPreviewWriteWindow(env).configured&&!brandPreviewWriteWindow(env).valid))throw Error('AI_BRAND_PREFLIGHT_UNEXPECTED_WRITE_OR_TLS_CONFIG');
   const url=new URL(resolveAiPreviewDatabaseUrl(env.DATABASE_URL,env));
   // pg connection-string ssl parameters can override explicit SSL settings; remove all of them.
   for(const key of ['sslmode','sslaccept','sslcert','sslkey','sslrootcert','uselibpqcompat'])url.searchParams.delete(key);

@@ -17,7 +17,7 @@ await build({bundle:true,jsx:'automatic',alias:{'@':path.join(root,'src')},defin
  b.onResolve({filter:/(?:^|\/)settings-navigation$/},()=>({path:'settings',namespace:'fixture'}));
  b.onLoad({filter:/.*/,namespace:'fixture'},({path:name})=>({loader:'js',resolveDir:root,contents:name==='actions'?actionNames.map(n=>`export const ${n}=input=>window.brandAction('${n}',input);`).join(''):
  name==='reader'?`import{useMemo}from'react';export const usePanelReader=(n,action)=>useMemo(()=>({refresh:input=>action(input),clear:()=>{}}),[action]);`:
- name==='navigation'?`import{useSyncExternalStore}from'react';export const usePathname=()=>location.pathname;export const useSearchParams=()=>new URLSearchParams(useSyncExternalStore(fn=>{addEventListener('popstate',fn);return()=>removeEventListener('popstate',fn)},()=>location.search));`:
+ name==='navigation'?`const router={refresh(){}};export const useRouter=()=>router;import{useSyncExternalStore}from'react';export const usePathname=()=>location.pathname;export const useSearchParams=()=>new URLSearchParams(useSyncExternalStore(fn=>{addEventListener('popstate',fn);return()=>removeEventListener('popstate',fn)},()=>location.search));`:
  name==='settings'?`import{createContext}from'react';export const SettingsNavigationContext=createContext(null);export const settingsWorkspaceHref=x=>x;export const useRememberSettingsLocation=()=>{};`:
  `import{createElement}from'react';export const DashboardLink=({children,...props})=>createElement('a',props,children);`}));
 }}]});
@@ -37,7 +37,8 @@ try{
  await page.addStyleTag({content:css.css});await page.addScriptTag({path:path.join(temp,'fixture.js')});
  const select=async label=>{const mobile=page.getByRole('combobox',{name:'設定分類',exact:true});if(await mobile.isVisible())await mobile.selectOption({label});else await page.getByRole('button',{name:label,exact:true}).click();};
  for(const [width,height]of [[1920,1080],[1366,900],[1024,768],[768,1024],[390,844],[360,800]]){
-  await page.setViewportSize({width,height});await select('狀態與用量');await page.getByRole('button',{name:'測試',exact:true}).click();
+  await page.setViewportSize({width,height});await select('狀態與用量');await page.getByRole('button',{name:'管理',exact:true}).click();
+  if(await page.getByLabel('測試情境',{exact:true}).count())throw Error('duplicate Brand Q&A entry');
   if(await page.getByLabel('產業',{exact:true}).count())throw Error('Brand inherited Store industry selector');
   if(!await page.getByRole('button',{name:'開啟測試',exact:true}).isDisabled())throw Error('Brand toggle not locked');
   await select('品牌知識');const manage=page.getByRole('button',{name:'管理知識',exact:true});if(await manage.count())await manage.click();
@@ -54,6 +55,14 @@ try{
  }
  if(errors.length)throw Error(errors.join('\n'));
  if(calls.some(x=>!['reviewBrandKnowledge','readBrandKnowledge','readBrandHandoffs'].includes(x.name)))throw Error('Unexpected mutation action');
- writeFileSync(path.join(out,'local-ui.json'),JSON.stringify({kind:'local Chromium, actual shared components, synthetic read-only actions; not cloud/authenticated business or physical device acceptance',sizes:results,cases:['HQ-hidden-management-inspection','brand-no-industry-or-store-references','mutation-controls-disabled','saved-version-review-read-only','section-and-resize-state-retention','handoff-empty-list','touch-targets-and-overflow'],calls,consoleErrors:errors},null,2)+'\n');
- console.log(JSON.stringify({sizes:results.length,consoleErrors:errors.length,readOnlyActionCalls:calls.length}));
+ await page.evaluate(()=>{window.brandSnapshot={...window.brandSnapshot,viewKey:'c'.repeat(64),grant:'ENABLED',effectiveGrant:'ENABLED',capabilities:{...window.brandSnapshot.capabilities,save:true,publish:true}};window.drawBrand(window.brandSnapshot);});
+ await select('品牌知識');const manage=page.getByRole('button',{name:'管理知識',exact:true});if(await manage.count())await manage.click();
+ const intro=page.getByLabel('產品介紹',{exact:true});await intro.fill('未儲存的合成產品介紹');await page.getByRole('button',{name:'儲存知識草稿',exact:true}).click();await page.getByRole('alert').filter({hasText:'唯讀'}).waitFor();
+ if(await intro.inputValue()!=='未儲存的合成產品介紹')throw Error('failed save lost draft');
+ if(!await page.getByRole('button',{name:'審核已儲存版本',exact:true}).isDisabled()||!await page.getByRole('button',{name:'發布知識',exact:true}).isDisabled())throw Error('dirty draft review/publish allowed');
+ await page.setViewportSize({width:1024,height:768});if(await intro.inputValue()!=='未儲存的合成產品介紹')throw Error('resize lost unsaved draft');
+ await page.screenshot({path:path.join(out,'failed-save.png'),fullPage:true});
+ const writes=calls.filter(x=>x.name==='changeBrandKnowledge');if(writes.length!==1||writes[0].input.command!=='save')throw Error('unexpected synthetic write');
+ writeFileSync(path.join(out,'local-ui.json'),JSON.stringify({kind:'local Chromium, actual shared components, synthetic actions with a deliberately refused local save; not cloud/authenticated business or physical device acceptance',sizes:results,cases:['HQ-hidden-management-inspection','brand-no-industry-or-store-references','mutation-controls-disabled','saved-version-review-read-only','section-and-resize-state-retention','handoff-empty-list','touch-targets-and-overflow','single-brand-QA-entry','failed-save-keeps-draft-through-resize'],calls,consoleErrors:errors},null,2)+'\n');
+ console.log(JSON.stringify({sizes:results.length,consoleErrors:errors.length,actionCalls:calls.length,refusedLocalSaves:writes.length}));
 }finally{await browser.close();rmSync(temp,{recursive:true,force:true});}

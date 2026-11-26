@@ -2,6 +2,7 @@ import { redactAuditValue } from "./audit-redact";
 import { courseDisplayName } from "./course-template-presentation";
 
 export const auditTargetLabels: Record<string, string> = {
+  AiBrandService: "品牌AI智慧客服",
   ServiceAddOnOrder: "商品單", ServiceAddOnCatalog: "加購商品設定",
   MusicSubject: "教學項目",
   Booking: "蒸足預約", SpaBooking: "服務預約", SpaBookingGroup: "同行服務預約", CourseBooking: "課程預約",
