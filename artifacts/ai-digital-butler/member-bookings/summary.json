@@ -1,0 +1,137 @@
+{
+  "dateTaipei": "2026-11-26",
+  "runtimeSha": "48a6391ec2974a6f40c98392605c2bc89fccd0d8",
+  "deploymentId": "dpl_G2DchZU8Dpc8UUUAabjd6YcnNxVF",
+  "deployment": {
+    "state": "READY",
+    "sha": "48a6391ec2974a6f40c98392605c2bc89fccd0d8",
+    "manualShareLinks": 0
+  },
+  "baseline": {
+    "stopped": true,
+    "requests": 47,
+    "estimated_micros": "1310",
+    "dispatches": 65,
+    "audits": 8,
+    "total_bookings": 127,
+    "total_customers": 1364,
+    "fixture_bookings": 0,
+    "fixture_customers": 0,
+    "custom_booking_triggers": 5
+  },
+  "postflight": {
+    "role": {
+      "login": true,
+      "super": false,
+      "bypass": false,
+      "create_db": false,
+      "create_role": false,
+      "valid_until": "2026-12-02T14:15:52+00:00",
+      "connection_limit": 8
+    },
+    "audits": 8,
+    "members": [
+      {
+        "id": "ai-preview-member-user-a",
+        "status": "SUSPENDED",
+        "password_cleared": true
+      },
+      {
+        "id": "ai-preview-member-user-b",
+        "status": "SUSPENDED",
+        "password_cleared": true
+      },
+      {
+        "id": "ai-preview-member-user-c",
+        "status": "SUSPENDED",
+        "password_cleared": true
+      }
+    ],
+    "notices": 0,
+    "stopped": true,
+    "handoffs": 1,
+    "requests": 47,
+    "settings": 4,
+    "providers": {
+      "mock": 44,
+      "openai": 3
+    },
+    "dispatches": 65,
+    "fixture_leads": 0,
+    "request_states": {
+      "COMPLETE": 47
+    },
+    "total_bookings": 129,
+    "member_policies": 3,
+    "total_customers": 1367,
+    "enabled_settings": 0,
+    "estimated_micros": "1310",
+    "fixture_bookings": 2,
+    "write_privileges": {
+      "user_update": false,
+      "booking_insert": false,
+      "customer_update": false
+    },
+    "fixture_customers": 3
+  },
+  "cleanup": {
+    "syntheticMembersSuspended": 3,
+    "syntheticMemberPasswordsCleared": 3,
+    "oldSessionReadRefusalVerified": true,
+    "syntheticOwnerSessionInvalidated": true,
+    "manualGrantRevoked": true,
+    "privateFilesRemoved": true
+  },
+  "securityAdvisors": {
+    "before": 3,
+    "after": 3,
+    "newFindings": 0
+  },
+  "diagnostics": {
+    "migration": [
+      {
+        "result": "rolled back",
+        "reason": "Invalid UserStatus INACTIVE; actual enum ACTIVE/SUSPENDED/DELETED verified; zero new users/bookings/policies after failure; local schema now uses real enum."
+      }
+    ],
+    "hosted": [
+      {
+        "kind": "harness only",
+        "reason": "Browser Fetch Response.status is a property; the first run stopped on an API probe after successful A reads/RWD. Corrected helper and reused the exact Preview; no app rebuild or model call."
+      }
+    ],
+    "firstPartialEntryMs": 18298
+  },
+  "checks": {
+    "runtimeCiRun": 45760583721,
+    "ciJobsPassed": 4,
+    "testFilesPassed": 1863,
+    "testFilesSkipped": 36,
+    "testsPassed": 17637,
+    "testsSkipped": 340,
+    "newTests": 34,
+    "relatedTestsIncludingNew": 76,
+    "relatedFiles": 8,
+    "localUiCases": 11,
+    "hostedCases": 17,
+    "viewportWidths": [
+      1920,
+      1366,
+      1024,
+      768,
+      390,
+      360
+    ]
+  },
+  "cost": {
+    "newOpenaiRequests": 0,
+    "newPreviewBuilds": 1,
+    "actualPlatformInvoice": "not available"
+  },
+  "migrationChecksum": "e00044dec0a3500764b3f24b24780c440daacd5c1fbd3ff4b090656a54f9ea81",
+  "limitations": [
+    "Manual synthetic TEST only; provider tools disabled",
+    "No production release, live channel, physical-device or other-industry member acceptance",
+    "No global CUSTOMER JWT revocation claim; this tool checks fresh status"
+  ]
+}

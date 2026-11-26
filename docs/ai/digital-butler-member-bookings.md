@@ -14,7 +14,7 @@
 
 結果只有日期、時段、人數、預約狀態、分頁與查詢時間。內部身分 metadata 不越過工具邊界；姓名、電話、Email、booking ID、notes、服務備註、錢包與金額都不回傳。沒有預約與「身分未確認／無權限／資料庫讀取失敗」分開處理，失敗不能當成空清單。
 
-既有合成會員「我的預約」頁新增收合的本人查詢測試列，不新增選單或永久營運入口。共同 panel reader、TTL 0；GET `/api/ai/member-bookings` 強制 dynamic、private/no-store、Vary Cookie，範圍參數嚴格 schema。日期更換清掉舊結果，分頁錯誤保留目標頁以便重試，晚到的舊日期／舊會員回應丟棄。SSR 使用伺服器格式化台灣時間。既有會員頁與正式環境不開啟此測試列。
+既有合成會員「我的預約」頁新增收合的本人查詢測試列，不新增選單或永久營運入口。共同 panel reader、TTL 0；GET `/api/ai/member-bookings` 強制 dynamic、private/no-store、Vary Cookie，範圍參數嚴格 schema。日期更換清掉舊結果，分頁錯誤保留目標頁以便重試，晚到的舊日期／舊會員回應丟棄。查詢時間由 GET 後端格式化為台灣時間。既有會員頁與正式環境不開啟此測試列。
 
 會員流程沿用 CUSTOMER session 與確認關係授權，沒有把員工 plans.edit 權限套到會員，也沒有 staff impersonation。會員前台不新增操作指南；後台共用 AI 指南僅補上此功能的隔離範圍與店長不能代查的說明。
 
@@ -27,3 +27,5 @@
 收尾清除暫存密碼並將測試帳號 SUSPENDED；新工具與本測試入口每次讀取都檢查目前狀態，舊 CUSTOMER JWT 不能繼續查此工具。不宣稱全站既有 CUSTOMER JWT 具備員工 session stamp 的全域撤銷機制。保留合成資料及歷史稽核，不做不可逆刪除。DB 密碼、connection limit 8、嚴格 TLS、Production、真實外發及 AI 總停止不變。
 
 尚未驗真實 LINE／LIFF 身分與真機、其他產業本人 adapter、方案權益或預約寫入；不等於完整 Phase 3。精確版本、測試結果、隔離資料前後值及清理以驗收紀錄為準。
+
+本輪精確證據見 [隔離驗收](digital-butler-member-bookings-acceptance.md)。

@@ -12,7 +12,7 @@
 | Conversation | `service.ts` / `repository.ts` | store + channel + channel account + verified actor 的 HMAC scope、原子去重、有限來源摘要、人工接手、晚到結果抑制 |
 | Knowledge | `knowledge.ts` / `knowledge-*.ts` / `contracts.ts` | STORE / MODULE / SYSTEM、版本、期限、來源選擇；新增私有草稿／發布及既有公開來源投影，僅限四個合成店 TEST |
 | Routing | `routing*.ts` | TEST 固定情境、持久事件認領、原流程優先、僅 NO_MATCH 進 AI、真人接手／恢復世代與未知結果阻擋；不接真實通路 |
-| Tools | `tools.ts` | 共用註冊、參數 schema、伺服器 scope、模組與權限；知識 Provider 工具仍停用；新增合成蒸足人工唯讀空位 adapter |
+| Tools | `tools.ts` | 共用註冊、參數 schema、伺服器 scope、模組與權限；知識 Provider 工具仍停用；新增合成蒸足人工唯讀空位與已確認會員本人預約 adapter |
 | Usage | `repository.ts` | PostgreSQL 原子預留、全域及店家預算、台灣日／月次數、併發、Token、時間、錯誤及轉接計數 |
 | UI | 既有 `settings/digital-butler` | 單一原入口、AI 獨立授權、測試開關、同頁知識草稿／發布／撤下、四模組合成情境、已發布知識測試、人工接手、蒸足空位唯讀測試與用量摘要 |
 
@@ -66,4 +66,6 @@ OpenAI `store:false` 不等於帳號已具 Zero Data Retention；預設濫用監
 
 見 [Runbook](digital-butler-runbook.md)、[驗收紀錄](digital-butler-acceptance.md)。
 
-第一個 [蒸足唯讀空位工具](digital-butler-availability.md) 與 [驗收](digital-butler-availability-acceptance.md) 沿用原時段服務及顧客預約規則；其他模組 adapter、會員本人資料與預約操作仍未開放，不等同完整 Phase 3。
+第一個 [蒸足唯讀空位工具](digital-butler-availability.md) 與 [驗收](digital-butler-availability-acceptance.md) 沿用原時段服務及顧客預約規則；其他模組 adapter、其他會員資料與預約操作仍未開放，不等同完整 Phase 3。
+
+[本人預約唯讀工具](digital-butler-member-bookings.md) 與 [隔離驗收](digital-butler-member-bookings-acceptance.md) 已完成：既有會員入口人工讀取，嚴格確認關係、帳號版本及權益重查，不以電話／Email 接管帳號。知識 Provider 的模型工具仍停用，不代表完整 Phase 3、正式會員開放或預約寫入。

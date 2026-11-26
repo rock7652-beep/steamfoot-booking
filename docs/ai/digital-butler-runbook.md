@@ -1,12 +1,12 @@
 # AI 數位店長隔離 Preview Runbook
 
-目前核心、Phase 2 店家知識管理、原流程 → AI → 真人的 Mock 串接、待人工處理管理及蒸足空位唯讀工具已完成合成 TEST 驗收；正式客服未開放。架構與安全契約以 [工程契約](digital-butler-core.md) 為準，最新實測見 [蒸足唯讀驗收](digital-butler-availability-acceptance.md)，[待人工處理驗收](digital-butler-handoff-acceptance.md) 保留當時結果，[Mock 串接驗收](digital-butler-routing-acceptance.md) 保留當時結果，[知識管理驗收](digital-butler-knowledge-acceptance.md) 保留當時結果；[Phase 0/1 歷史](digital-butler-acceptance.md) 保留。
+目前核心、Phase 2 店家知識管理、原流程 → AI → 真人的 Mock 串接、待人工處理管理、蒸足空位及本人預約唯讀工具已完成合成 TEST 驗收；正式客服未開放。架構與安全契約以 [工程契約](digital-butler-core.md) 為準，最新實測見 [本人預約唯讀驗收](digital-butler-member-bookings-acceptance.md)，[蒸足空位驗收](digital-butler-availability-acceptance.md) 保留當時結果，[待人工處理驗收](digital-butler-handoff-acceptance.md) 保留當時結果，[Mock 串接驗收](digital-butler-routing-acceptance.md) 保留當時結果，[知識管理驗收](digital-butler-knowledge-acceptance.md) 保留當時結果；[Phase 0/1 歷史](digital-butler-acceptance.md) 保留。
 
 ## 已驗證版本與目前狀態
 
 - PR [#1596](https://github.com/rock7652-beep/steamfoot-booking/pull/1596)，支線 `feat/ai-digital-butler-core`。
-- 程式／Preview SHA：`d5e840d75e250c3c7f8159209a758f73f88ab60d`；後續純文件／證據提交以 PR head 為準，不另建相同程式 Preview。
-- [受保護 Preview](https://steamfoot-booking-fi7lz234p-rock7652-2111s-projects.vercel.app)，deployment `dpl_81LKVW8GdVxtFg8Cr9dNgnHstnhr`，READY。
+- 程式／Preview SHA：`48a6391ec2974a6f40c98392605c2bc89fccd0d8`；後續純文件／證據提交以 PR head 為準，不另建相同程式 Preview。
+- [受保護 Preview](https://steamfoot-booking-h860efoco-rock7652-2111s-projects.vercel.app)，deployment `dpl_G2DchZU8Dpc8UUUAabjd6YcnNxVF`，READY。
 - 2026-11-26（台灣時間）完成核心與知識管理的隔離登入、發布／撤下、來源引用、Mock、最小真實 API、帳本與 RWD 驗收。
 - 收尾狀態：**global stopped=true、四店 enabled=false**，47 筆請求全部 COMPLETE，RESERVED／UNKNOWN 0；44 筆 Mock、3 筆 OpenAI，累計保守估算 US$0.001310。累計估算不是供應商帳單；早期串接新增 7 Mock；最新人工接手管理新增 0 模型請求，累計 65 筆串接事件全部 COMPLETE、8 筆恢復 audit。原先 1 筆合成接手旗標保留。
 - 本輪手動建立的測試通行憑證均已撤銷，四個合成帳號登入版本已更新，暫存密碼／session 檔已刪除；SSO 保留。
@@ -54,7 +54,7 @@ Git 自動部署對本支線為 false。建置沿用既有 Turbo，未更改全�
 
 ## 合成資料與操作
 
-只使用 ai-preview-steamfoot／beauty／fitness／music 四間新 isDemo 店、四個新 OWNER／Staff、合成 ShopConfig 與獨立 AI 權益。沒有複製顧客／訂單、修改真實帳號或定價。
+只使用 ai-preview-steamfoot／beauty／fitness／music 四間 isDemo 店、四個新 OWNER／Staff、合成 ShopConfig 與獨立 AI 權益。沒有複製顧客／訂單、修改真實帳號或定價。
 
 七張 AiButler 私有表（新增操作 audit） RLS 啟用，anon／authenticated 無表權限。既有 Store／User／Staff／ShopConfig／權益讀取限合成範圍；登入稽核寫入限配對合成 OWNER 的 SUCCESS 紀錄，不能寫 Booking。知識表另有四店 RLS，營業時間及各模組公開 catalogue 只新增四店 SELECT policy，不給商業寫入。角色權限不取代應用層 store／actor／channel 驗證。
 
@@ -89,3 +89,11 @@ Phase 0/1 六次部署的版本、失敗及修正保留在 [runtime 歷史](../.
 測試工具直接 HTTP 重送曾在錯誤日誌帶出短期 Cookie；已恢復停止、撤銷該 grant、使合成舊登入失效並清理本機日誌。後續改用瀏覽器同源 fetch、錯誤僅輸出摘要，重送去重通過；未讀取／輸出 OpenAI Key。
 
 前一知識階段四次建置與發布時間轉型修正、短期 share URL 事件見 [知識管理驗收](digital-butler-knowledge-acceptance.md)，沒有為文件重建。本輪另兩次必要 Preview 建置完成 [合成 Mock 串接](digital-butler-routing-acceptance.md)，包含 Dispatch 認領、UNKNOWN 阻擋及真人操作世代，未改環境或 API 限額。知識編輯／發布、公開來源投影與合成原流程未命中串接已驗收；真實通路未命中整合、客服工作台、實體對話清理，以及 Phase 3 業務工具／正式 API Project／正式 migration／試營運仍未完成。其他兩模型、真實 LINE／Messenger、實體裝置與供應商帳單核對未驗。後台指南 AI-BUTLER-PREVIEW-01 保持來源審查與待完整教學驗收，不把本次結果改寫成全站指南已驗收。
+
+## 本人預約唯讀增量（2026-11-26 台灣時間）
+
+合成蒸足會員沿用「我的預約」入口，人工單日查詢本人預約，每頁 25 筆；只接受日期／頁碼，店家與已確認會員由後端 session 取得。Owner 不能代查。與知識 Provider、自動模型及正式通路保持隔離，詳見 [契約](digital-butler-member-bookings.md) 與 [最新驗收](digital-butler-member-bookings-acceptance.md)。
+
+隔離庫保留三個合成 CUSTOMER／Customer、兩筆合成蒸足 Booking；外店只有身分對照，沒有跨模組 Booking。新增三條精確 fixture ID 的 SELECT policy，不給商業寫入權限；共用角色的 RLS 不能取代每次讀取的本人授權。三個帳號收尾 SUSPENDED、passwordHash NULL，原合成 Owner 更新登入版本，手動 grant 撤銷、私密暫存檔刪除。新工具拒絕停用後的舊 CUSTOMER session，不宣稱所有既有會員 JWT 全域失效。
+
+全量 CI 17,637 passed／340 skipped；雲端 17 項與六尺寸通過。模型帳本仍 47／Dispatch 65／audit 8，global stopped=true、四店 enabled=false。此輪一次必要 Preview，文件提交沿用同一程式 Preview；實際平台帳單未取得。

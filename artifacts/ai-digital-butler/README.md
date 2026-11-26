@@ -1,6 +1,8 @@
 # AI 數位店長驗收證據
 
-最新蒸足空位唯讀工具：[summary](availability/summary.json)、[驗收與限制](../../docs/ai/digital-butler-availability-acceptance.md)。僅人工 TEST 查詢，不接真實通路、模型工具或預約寫入。
+最新本人預約唯讀工具：[summary](member-bookings/summary.json)、[驗收與限制](../../docs/ai/digital-butler-member-bookings-acceptance.md)。既有合成會員入口、本人確認關係、最少資料與停用拒讀；模型工具及正式通路仍關閉。
+
+歷史蒸足空位唯讀工具：[summary](availability/summary.json)、[驗收與限制](../../docs/ai/digital-butler-availability-acceptance.md)。僅人工 TEST 查詢，不接真實通路、模型工具或預約寫入。
 
 歷史待人工處理管理：[summary](handoff/summary.json)、[驗收與限制](../../docs/ai/digital-butler-handoff-acceptance.md)。同一 PR 的隔離對話清單、明確恢復、版本／重送與私有稽核；正式客服工作台尚未開放。
 
@@ -10,7 +12,7 @@ LINE 格式離線合成事件補驗：[summary](line-synthetic/summary.json)、[
 
 歷史知識管理證據：[Phase 2 summary](phase2/summary.json)、[驗收與限制](../../docs/ai/digital-butler-knowledge-acceptance.md)。以下保留 Phase 0/1 歷史。
 
-## 最新隔離 Preview（2026-11-26 台灣時間）
+## Phase 0/1 隔離 Preview（歷史）
 
 - `hosted-results.json`：版本、受保護 URL、認證入口、四合成店／四產業 Mock、去重／人工接手／跨店、兩筆真實 API、CI、RWD 與收尾狀態；不含密碼、Cookie 或金鑰。
 - `hosted-live-luna.png`：3568ee775 真實 Luna 成功選擇來源後的核准回覆。
