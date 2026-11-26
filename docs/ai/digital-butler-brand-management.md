@@ -38,14 +38,14 @@ HQ HIDDEN 不出現服務入口，LOCKED 顯示不可用，ENABLED 仍須角色�
 
 舊部署 005ce6e61 沒有本輪介面，不能驗新版。原支線 auto Vercel disabled 維持原樣；集中修改與本機測試後，目標為一次成功的既有專案 Preview，成本無法由現有工具精確預估。首次嘗試 dpl_B5UNj6BEXWsTBka48w65WNZgHJSp 在新增 pg 前檢因未載入既有 Supabase CA 而 SELF_SIGNED_CERT_IN_CHAIN，於 Next 編譯前安全拒絕；修正為重用指紋核對的既有 CA，不放寬 TLS。連線及資料庫 URL 回歸 29 項通過後才補建修正版。未改 Production / Webhook / 發送 / Cloudflare 設定。
 
-## 雲端六尺寸登入的精確待批准範圍
+## 本輪雲端驗收原授權提案（已執行並清理）
 
 目前無合成 ADMIN 可登入。既有四個合成 owner 的角色為 OWNER、密碼為空，不修改／升級它們。正常登入會寫 StaffLoginRecord，現有 runtime RLS 僅允許四店 OWNER；不能繞過登入稽核。
 
-如要接續只讀雲端驗收，最小提案如下，**尚未執行且不包含在目前授權**：
+以下為本輪已批准並執行、其後已清理的限定範圍；重驗不沿用此次授權。實際受阻與清理結果見本頁末段：
 
 1. 僅新部署：一條 30 分鐘測試通行連結，持有者在有效期可存取隔離部署；不公開連結或密碼。
-2. 僅隔離庫：建立單一合成 `User.id=ai-preview-brand-hq`，role ADMIN、無 Staff／Store 關係，臨時隨機密碼；不修改其他帳號或 DB role。窗口結束 status=INACTIVE、passwordHash=NULL、updatedAt 更新，使既有 JWT session stamp 失效，保留帳號供稽核識別。
+2. 僅隔離庫：建立單一合成 `User.id=ai-preview-brand-hq`，role ADMIN、無 Staff／Store 關係，臨時隨機密碼；不修改其他帳號或 DB role。窗口結束 status=SUSPENDED、passwordHash=NULL、updatedAt 更新，使既有 JWT session stamp 失效，保留帳號供稽核識別。
 3. 僅既有 runtime role 的四條臨時 RLS policy，不改 table grants：User SELECT 僅上述 id；StaffLoginRecord SELECT／INSERT／UPDATE 三條，只准同一 actorUserId、ADMIN、storeId IS NULL、outcome SUCCESS。每條固定至窗口 deadline（不超過 30 分鐘）。最多兩次成功登入及該兩筆的 lastUsedAt 更新；不允許其他登入紀錄或原有門市資料。結束移除四條 policy，保留登入稽核。
 4. 只讀新管理頁與審核回條，六尺寸、角色直接連結及保護驗證；不儲存／發布知識，不改 HQ／AI 開關，不增模型事件，不設寫入 env，不外發。
 5. 無論成功失敗中斷，撤銷連結並核對剩餘為零、停用帳號／清空密碼、移除四條 policy，重驗全域停止／四店／Brand 狀態及模型／發送事件數未變。
@@ -61,3 +61,22 @@ Workers Builds 既有失敗持續獨立列管，未拿到失敗細節，不宣�
 e2d56ce67 的完整 CI 首輪為 17,859 passed / 340 skipped / 1 failed；唯一失敗是既有 `image-announcements-production-migration.test.ts` 第一案例超過預設 5 秒。本機重現同樣 timeout，診斷時限下全部三項斷言通過；同模組 `image-announcements-migration.test.ts` 原已有 30 秒 PGlite 冷啟動時限。本輪只為此真 PostgreSQL 引擎案例加 30 秒，保留全部 schema / ACL / ledger drift 斷言，不改 migration 或任何營運程式。再驗 CI，最終數字記原 PR。
 
 此後提交僅有上述測試時限與說明，READY Preview 仍使用 e2d56ce67 的相同執行程式；以 git diff 核對，沒有為測試／文件變動再觸發 Vercel 建置。
+
+## 本輪已批准雲端驗收：受阻及清理
+
+2026-11-26，僅原部署 dpl_DVzaJJAGfoT5XyAC29RAmZb3xFHw／steamfoot-preview。本輪沒有建立新部署或補發連結。
+
+- 事前核對project、角色、RLS、停止與原帳本。Chromium環境代理CA預查失敗；永久改共用NSS遭自動審查拒絕，未執行。改用一次性mount namespace的獨立NSS庫後，嚴格TLS通過，未使用憑證略過設定。
+- migration ai_brand_hq_qa_temporary_access 建立單一ai-preview-brand-hq ADMIN、無Staff／Store，及提案四條時限policy。僅User SELECT、StaffLoginRecord SELECT／INSERT／UPDATE，限定該帳號、ADMIN、storeId NULL、SUCCESS及固定期限；不改table ACL、DB角色或既有policy。
+- 唯一share link createdAt=1795696007100、expires=1795697807（約30分鐘）；secret未放入證據。正常登入成功 **1次**，未用第二次額度，保留登入稽核。
+- 未登入品牌API實際403；登入後session確為合成ADMIN，但品牌頁回404。因此 **雲端六尺寸0/6，尚未完成**；不將既有本機fixture冒充雲端通過。
+- 根因：HQ proxy清單漏新路徑，驗證ADMIN後rewrite到不存在的 /dashboard/ai-services。本機實際proxy測試修正前重現；修正僅加入品牌根路徑／子路徑pass-through，保留ADMIN與OWNER隔離、相似前綴不放行、Preview守衛及其他路由。舊部署不可原地修改，修正版未部署。
+- 原提案誤寫UserStatus=INACTIVE，實際enum為ACTIVE／SUSPENDED／DELETED。首次清理交易拒絕並回滾，已修正使用 **SUSPENDED**；成功停用帳號、passwordHash=NULL、updatedAt更新、四policy全移除，稽核保留。帳號停用核對時間2026-11-26T12:38:12.845Z。
+- share revoke回傳剩餘 **0**；全新cookies與嚴格TLS帶原撤銷連結，實際302回部署保護，撤銷驗證成功。
+- 舊瀏覽器session HTTP重驗因清理協調等待逾時，未取得證據。DB停用、清空密碼、更新stamp及移除User SELECT已核對；auth callbacks每次回查DB安全stamp，既有本機auth回歸覆蓋停用、無密碼及查無使用者拒絕。不能宣稱做過舊session live probe。下輪應登入後先私下保存storageState，以便中斷後重驗，完成後刪除且不得提交。
+
+清理後：全域停止true、四店關閉、品牌HIDDEN／false／未發布／revision0；品牌Request／Dispatch／Conversation／Audit全0，Store Request53／Dispatch113未變，DB角色有效期未變。真實OpenAI、Mock、LINE／Messenger／Email外發均0。security advisors前後已查，未擴大修正既有非本次通知。
+
+證據：[清理](../../artifacts/ai-digital-butler/brand-management/cloud-cleanup.json)、[受阻紀錄](../../artifacts/ai-digital-butler/brand-management/cloud-attempt.json)、[撤銷核對](../../artifacts/ai-digital-butler/brand-management/revoked-share.json)、同目錄cloud-404.png。本次並非完整雲端驗收通過。
+
+本輪授權已隨清理結束，不復用舊連結或重新啟用帳號。重驗需另批一次修正版Preview及僅該新部署的30分鐘窗口，沿用同一帳號／隔離庫、相同四條時限policy與最多兩次登入，保持停止／HIDDEN／未發布／零模型與外發，任何結果均清理。Production、Cloudflare設定不變，PR仍Draft。

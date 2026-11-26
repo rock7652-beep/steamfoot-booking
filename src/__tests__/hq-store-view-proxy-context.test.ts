@@ -39,6 +39,8 @@ describe("verified request context on every HQ/API pass-through", () => {
     "/api/reports/store-revenue",
     "/api/reports/coach-revenue",
     "/api/trial-applications/example/attachments/0",
+    "/hq/dashboard/ai-services",
+    "/hq/dashboard/ai-services/nested",
     "/hq/dashboard/stores",
     "/hq/dashboard/stores/store-a/features",
     "/hq/dashboard/trial-applications",

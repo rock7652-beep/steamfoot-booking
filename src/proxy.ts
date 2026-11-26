@@ -404,6 +404,8 @@ const authenticatedProxy = auth((req: NextRequest & { auth: { user?: SessionUser
       }
       // B7-5: HQ-only 頁面（如 /hq/dashboard/stores）不 rewrite，直接 pass-through
       if (
+        pathname === "/hq/dashboard/ai-services" ||
+        pathname.startsWith("/hq/dashboard/ai-services/") ||
         pathname.startsWith("/hq/dashboard/stores") ||
         pathname === "/hq/dashboard/trial-applications" ||
         pathname.startsWith("/hq/dashboard/trial-applications/")

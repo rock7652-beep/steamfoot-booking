@@ -1,0 +1,6 @@
+{
+  "strictTls": true,
+  "freshContext": true,
+  "revokedShareStatus": 302,
+  "revoked": true
+}
