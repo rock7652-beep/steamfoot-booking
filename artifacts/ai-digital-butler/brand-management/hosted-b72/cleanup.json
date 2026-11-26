@@ -1,0 +1,65 @@
+{
+  "database": "ttworfzgwejdeolegkxl",
+  "deployment": "dpl_4MBBMDKK3X1MrTF8NJn5r3gEaqXi",
+  "sourceSha": "b72d3c925b004ac65af35dc1e90d2f6a32d3013d",
+  "brand": {
+    "grant": "HIDDEN",
+    "enabled": false,
+    "unpublished": true,
+    "settingRevision": 1,
+    "knowledgeRevision": 0
+  },
+  "counts": {
+    "brandAudit": 0,
+    "storeOpenAI": 5,
+    "brandRequest": 0,
+    "brandDispatch": 0,
+    "storeDispatch": 113,
+    "storeRequests": 53,
+    "brandConversation": 0
+  },
+  "stores": [
+    {
+      "id": "ai-preview-beauty",
+      "enabled": false,
+      "revision": 11
+    },
+    {
+      "id": "ai-preview-steamfoot",
+      "enabled": false,
+      "revision": 8
+    },
+    {
+      "id": "ai-preview-fitness",
+      "enabled": false,
+      "revision": 7
+    },
+    {
+      "id": "ai-preview-music",
+      "enabled": false,
+      "revision": 7
+    }
+  ],
+  "totals": {
+    "total": "2690",
+    "concurrent": "0"
+  },
+  "fixture": {
+    "status": "SUSPENDED",
+    "updatedAt": "2026-11-26T13:06:12.57",
+    "passwordCleared": true
+  },
+  "stopped": true,
+  "roleExpiry": "2026-12-02T14:15:52+00:00",
+  "temporaryPolicies": 0,
+  "successfulLoginsTotal": 2,
+  "successfulLoginsThisRound": 1,
+  "remainingShareLinks": 0,
+  "temporaryCredentialsRemoved": true,
+  "privateSessionStateRemoved": true,
+  "isolatedTrustStoreRemoved": true,
+  "shareValidity": {
+    "createdAt": 1795698238706,
+    "expires": 1795700038
+  }
+}

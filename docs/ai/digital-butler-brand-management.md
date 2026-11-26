@@ -1,5 +1,7 @@
 # 品牌 AI 管理接線與隔離驗收
 
+> 後續b72修正版已完成雲端六尺寸及舊session HTTP拒絕驗收，並完成清理；見[實際驗收紀錄](digital-butler-brand-hosted-b72-acceptance.md)。下方前輪404與待重驗文字為歷史階段紀錄。
+
 2026-11-26，接續 Draft PR #1596。管理入口 `/hq/dashboard/ai-services`，唯讀 API `/api/ai/brand`，僅指定 AI Vercel Preview 可用。正式環境返回未開放。HQ 門市清單的品牌管理連結只在隔離 Preview 與 audit.read 權限下顯示。
 
 ## 操作與共用邊界

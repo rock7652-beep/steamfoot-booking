@@ -1,0 +1,138 @@
+{
+  "deployment": "dpl_4MBBMDKK3X1MrTF8NJn5r3gEaqXi",
+  "sourceSha": "b72d3c925b004ac65af35dc1e90d2f6a32d3013d",
+  "kind": "authenticated isolated Preview; Chromium viewport emulation, not physical devices",
+  "strictTls": true,
+  "cases": [
+    "unauthenticated-brand-api-denied",
+    "real-hidden-configuration-and-all-write-capabilities-off",
+    "owner-store-and-handoff-view-overrides-denied",
+    "six-widths-shared-settings-and-readonly-knowledge-review",
+    "six-widths-empty-handoff-and-safety",
+    "reload-retains-authorized-hidden-stopped-scope"
+  ],
+  "sizes": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "overflow": false,
+      "contentWidth": 1680,
+      "touch": true
+    },
+    {
+      "width": 1366,
+      "height": 900,
+      "overflow": false,
+      "contentWidth": 1126,
+      "touch": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false,
+      "contentWidth": 784,
+      "touch": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "contentWidth": 704,
+      "touch": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "contentWidth": 390,
+      "touch": true
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "overflow": false,
+      "contentWidth": 360,
+      "touch": true
+    }
+  ],
+  "requests": [
+    {
+      "path": "/hq/login",
+      "status": 200
+    },
+    {
+      "path": "/api/ai/brand",
+      "status": 403
+    },
+    {
+      "path": "/api/ai/brand",
+      "status": 403
+    },
+    {
+      "path": "/hq/dashboard/ai-services",
+      "status": 200
+    },
+    {
+      "path": "/hq/dashboard/ai-services",
+      "status": 200
+    },
+    {
+      "path": "/hq/dashboard/ai-services",
+      "status": 200
+    },
+    {
+      "path": "/hq/dashboard/ai-services",
+      "status": 200
+    },
+    {
+      "path": "/hq/dashboard/ai-services",
+      "status": 200
+    },
+    {
+      "path": "/hq/dashboard/ai-services",
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "failures": [],
+  "timings": [
+    {
+      "kind": "login-to-brand-complete",
+      "ms": 10490
+    },
+    {
+      "kind": "brand-reload-complete",
+      "ms": 3320
+    },
+    {
+      "kind": "brand-reload-complete",
+      "ms": 3380
+    }
+  ],
+  "snapshot": {
+    "serviceId": "ai-preview-brand-steamfoot",
+    "grant": "HIDDEN",
+    "effectiveGrant": "HIDDEN",
+    "globalStopped": true,
+    "enabled": false,
+    "knowledgeRevision": 0,
+    "published": null,
+    "usage": {
+      "requests": "0",
+      "reservedMicros": "0",
+      "budgetMicros": 1000000,
+      "alerts": []
+    },
+    "handoffs": 0,
+    "capabilities": {
+      "save": false,
+      "publish": false,
+      "withdraw": false,
+      "setting": false,
+      "handoff": false,
+      "resume": false,
+      "test": false
+    }
+  },
+  "authenticated": true
+}

@@ -1,0 +1,21 @@
+{
+  "deployment": "dpl_4MBBMDKK3X1MrTF8NJn5r3gEaqXi",
+  "sourceSha": "b72d3c925b004ac65af35dc1e90d2f6a32d3013d",
+  "target": "preview",
+  "ready": true,
+  "buildAttemptsThisRound": 1,
+  "preflight": {
+    "scopeVerified": true,
+    "roleVerified": true,
+    "tlsVerified": true,
+    "readonly": true,
+    "globalStopped": true,
+    "disabledStores": 4,
+    "brandHidden": true,
+    "brandDisabled": true,
+    "unpublished": true,
+    "totalMicros": "2690",
+    "concurrent": "0"
+  },
+  "migrationsSkipped": true
+}
