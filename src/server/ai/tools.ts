@@ -21,6 +21,7 @@ export class AiToolRegistry {
     if (phase !== "READ_ONLY") throw new Error("AI_TOOLS_DISABLED");
     // Capture before authorization awaits. An adapter must never observe a
     // later mutation of the caller's trusted scope.
+    if ("principal" in scope || "serviceId" in scope || "serviceMode" in scope) throw new Error("AI_TOOL_NOT_AUTHORIZED");
     const trusted = Object.freeze({ ...scope });
     const tool = this.tools.get(request.name);
     if (!trusted.storeId || trusted.storeId === "__all__" || !trusted.actorId || !trusted.channelAccountId || !tool || tool.module !== trusted.module || tool.mode !== "READ") throw new Error("AI_TOOL_NOT_AUTHORIZED");

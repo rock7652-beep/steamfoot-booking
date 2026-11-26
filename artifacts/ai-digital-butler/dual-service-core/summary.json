@@ -1,0 +1,55 @@
+{
+  "dateTaipei": "2026-11-26",
+  "phase": "dual-service-shared-core-local-engineering",
+  "pullRequest": "https://github.com/rock7652-beep/steamfoot-booking/pull/1596",
+  "branch": "feat/ai-digital-butler-core",
+  "previousHead": "c3da0287320f5918bebe648c438321d733dd2016",
+  "scope": "Server principal/owner abstraction, independent Brand adapter, shared Service/Routing/Provider and transactional repositories; no new UI or remote installation",
+  "localChecks": {
+    "aiLineRegression": {
+      "command": "npx vitest run src/__tests__/ai*.test.ts",
+      "passed": 351,
+      "skipped": 6,
+      "filesPassed": 22,
+      "filesSkipped": 1,
+      "durationSeconds": 45.27
+    },
+    "dualServiceCases": 34,
+    "typecheck": {
+      "command": "NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit",
+      "exitCode": 0
+    },
+    "changedFileEslint": {
+      "exitCode": 0
+    },
+    "gitDiffCheck": {
+      "exitCode": 0
+    }
+  },
+  "engine": "Ephemeral local PGlite using actual draft SQL and existing Store SQL; no remote DB connections",
+  "network": "global fetch forbidden in dual-service tests; OpenAI Responses parser uses injected fake transport only",
+  "safety": {
+    "realOpenAiCalls": 0,
+    "realOutboundMessages": 0,
+    "newRealApiCostUsd": 0,
+    "remoteSchemaInstallations": 0,
+    "deploymentsCreated": 0,
+    "shareLinksCreated": 0,
+    "credentialsChanged": false,
+    "globalAiStopChanged": false,
+    "fourTestStoreSwitchesChanged": false,
+    "testQuotasRaisedOrReset": false,
+    "productionChanges": false,
+    "mergePerformed": false
+  },
+  "ci": "Run/head/count are recorded in PR #1596 latest acceptance metadata; this file records local checks only",
+  "notVerified": [
+    "Remote Brand schema/ACL/RLS installation",
+    "Brand workspace UI and RWD",
+    "New Preview runtime",
+    "Real LINE OA receive/send and whitelist routing",
+    "Real OpenAI against the Brand adapter"
+  ],
+  "futureAuthorization": "Separate, isolated-database-only schema/ACL/service provisioning approval before remote installation; LINE/credentials/outbound/Production remain unauthorized",
+  "draftSchemaSha256": "903060f2a415e0b8963a7d9094bd34e3454e968077fac6a4e1c6c2daf69c17e3"
+}

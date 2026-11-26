@@ -55,11 +55,11 @@ it("a body-supplied mode/store never selects the service owner", () => {
 });
 it("another OA's valid signature cannot admit a tester", () => { const a = signed(0), b = signed(1); expect(() => shadow(a.body, b.signature, [true, true], false)).toThrow(); });
 it("whitelisting alone does not create a sender or switch actual reply ownership", () => { const r = signed(0); expect(shadow(r.body, r.signature, [true, true], false)[0]).toMatchObject({ canSend: false, modelCalls: 0, originalMustRemainOwner: true }); });
-it("the current app identity cannot represent store-independent brand support", () => {
+it("the legacy Store identity deliberately cannot represent store-independent brand support", () => {
   expect(() => aiIdentity({ ...scope, storeId: "" }, "event", key)).toThrow("SCOPE");
   expect(() => aiModuleSchema.parse("BRAND_SUPPORT")).toThrow();
 });
-it("current storeless brand attempts stop before repository or provider access", async () => {
+it("legacy storeless brand attempts stop before repository or provider access", async () => {
   const setting = vi.fn(), respond = vi.fn();
   const service = new AiButlerService({ setting } as unknown as ConstructorParameters<typeof AiButlerService>[0], { kind: "mock", respond }, async () => undefined, key, () => null, () => true, () => now);
   expect(await service.respond({ ...scope, storeId: "" }, "event", "產品介紹？", [publicBrand])).toMatchObject({ outcome: "STOPPED" });
@@ -71,7 +71,7 @@ it("the existing provider request builder and approved-answer renderer can reuse
   expect(renderAiAnswer({ action: "answer", sourceIds: [publicBrand.id] }, [publicBrand])).toEqual({ text: publicBrand.answer, handoff: false });
   expect(renderAiAnswer({ action: "answer", sourceIds: ["private-store-source"] }, [publicBrand]).handoff).toBe(true);
 });
-it("SYSTEM is deliberately global today, so brand business content needs its own owner projection", () => {
+it("SYSTEM remains global; this historical example must not be used as a Brand projection", () => {
   for (const store of ["warm-fixture", "other-fixture"]) expect(selectAiKnowledge(store, "STEAMFOOT", [publicBrand], now)).toHaveLength(1);
 });
 it("a different OA already separates conversations, but switching modules does not create separate owner grants", () => {

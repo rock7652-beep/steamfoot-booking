@@ -15,7 +15,7 @@ export function selectAiKnowledge(storeId: string, module: AiModule, records: un
 }
 
 /** Exact published text prevents injection or hallucinated amounts becoming a reply. */
-export function renderAiAnswer(answer: AiAnswer, knowledge: AiKnowledge[]): { text: string; handoff: boolean } {
+export function renderAiAnswer(answer: AiAnswer, knowledge: Pick<AiKnowledge, "id" | "answer">[]): { text: string; handoff: boolean } {
   if (answer.action !== "answer" || answer.sourceIds.length !== 1) return { text: AI_HANDOFF_TEXT, handoff: true };
   const source = knowledge.find(row => row.id === answer.sourceIds[0]);
   return source ? { text: source.answer, handoff: false } : { text: AI_HANDOFF_TEXT, handoff: true };

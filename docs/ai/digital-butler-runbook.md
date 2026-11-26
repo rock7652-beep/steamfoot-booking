@@ -119,3 +119,8 @@ Phase 0/1 六次部署的版本、失敗及修正保留在 [runtime 歷史](../.
 ## 雙服務模式：目前主方向
 
 [品牌 AI 智慧客服／暖暖 AI 店長盤查](digital-butler-dual-service-readiness.md)是最新產品方向；獨立測試 OA 只保留為備案。核心可共用但品牌 owner 尚未脫離 storeId，現有 OA 白名單沒有正式分流就不能直接到 Preview。僅新增本機 shadow／既有核心邊界測試，沒有正式 dispatcher、OA callback、憑證、外發或資料政策變更。後續真實收發需選定方案並另取得具體授權。
+
+
+## 雙模式核心實作（尚未部署）
+
+[工程驗收與授權界線](digital-butler-dual-service-implementation.md)記錄本輪共用 Service／Routing／owner 儲存狀態機及獨立品牌 adapter。本機演練不需建立 Store；品牌知識不進 SYSTEM，品牌不能取得營運工具。遠端 schema、品牌操作入口與真實 OA 仍未啟用；舊 Preview 不含本輪程式，不沿用先前短效連結授權。AI 總停止、四店關閉、外發封鎖與 Production 均未變更。

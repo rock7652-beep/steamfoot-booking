@@ -6,6 +6,8 @@
 
 [本機證據](../../artifacts/ai-digital-butler/dual-service-readiness/summary.json)／[OA 對照的唯讀中繼資料](../../artifacts/ai-digital-butler/dual-service-readiness/oa-store-metadata.json)／[LINE 官方 API 定義](../../artifacts/ai-digital-butler/dual-service-readiness/line-platform-reference.json)。原已完成的 [零外發 HTTP 驗收](digital-butler-line-webhook-acceptance.md)仍有效；[獨立測試 OA 預檢](digital-butler-line-platform-preparation.md)保留為先前 Store-only 的備選，不代表 A 已支援。
 
+> 後續工程進度：已完成[雙模式共用核心與品牌 adapter 的本機實作](digital-butler-dual-service-implementation.md)。本文件以下保留盤查當時的 Store-only 基線；新版尚未遠端安裝／部署，不代表 OA 已分流。
+
 ## 兩種模式的邊界
 
 | 項目 | A：獨立 AI 智慧客服 | B：AI 數位店長 |
