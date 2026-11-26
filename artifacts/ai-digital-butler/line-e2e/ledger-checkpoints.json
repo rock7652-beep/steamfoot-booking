@@ -1,0 +1,138 @@
+{
+  "before-enable": {
+    "live": [],
+    "audits": 8,
+    "requests": 47,
+    "providers": {
+      "mock": 44,
+      "openai": 3
+    },
+    "summaries": null,
+    "dispatches": 66,
+    "unresolved": 0,
+    "estimated_micros": "1310",
+    "new_dispatch_scope_count": 1
+  },
+  "mock-ledger": {
+    "live": [],
+    "audits": 9,
+    "requests": 48,
+    "providers": {
+      "mock": 45,
+      "openai": 3
+    },
+    "summaries": null,
+    "dispatches": 72,
+    "unresolved": 0,
+    "estimated_micros": "1310",
+    "new_dispatch_scope_count": 1
+  },
+  "live-known-ledger": {
+    "live": [
+      {
+        "model": "gpt-6-luna",
+        "status": "COMPLETE",
+        "outcome": "ANSWER",
+        "createdAt": "2026-11-26T07:19:35.974+00:00",
+        "heldMicros": 687,
+        "inputTokens": 651,
+        "outputTokens": 36,
+        "estimatedMicros": 687
+      }
+    ],
+    "audits": 9,
+    "requests": 49,
+    "providers": {
+      "mock": 45,
+      "openai": 4
+    },
+    "summaries": [
+      [
+        "SOURCE:kb-1-hours-df8a0f1408c8d914"
+      ]
+    ],
+    "dispatches": 73,
+    "unresolved": 0,
+    "estimated_micros": "1997",
+    "new_dispatch_scope_count": 1
+  },
+  "live-unknown-ledger": {
+    "live": [
+      {
+        "model": "gpt-6-luna",
+        "status": "COMPLETE",
+        "outcome": "ANSWER",
+        "createdAt": "2026-11-26T07:19:35.974+00:00",
+        "heldMicros": 687,
+        "inputTokens": 651,
+        "outputTokens": 36,
+        "estimatedMicros": 687
+      },
+      {
+        "model": "gpt-6-luna",
+        "status": "COMPLETE",
+        "outcome": "HANDOFF",
+        "createdAt": "2026-11-26T07:19:52.713+00:00",
+        "heldMicros": 693,
+        "inputTokens": 673,
+        "outputTokens": 20,
+        "estimatedMicros": 693
+      }
+    ],
+    "audits": 9,
+    "requests": 50,
+    "providers": {
+      "mock": 45,
+      "openai": 5
+    },
+    "summaries": [
+      [
+        "SOURCE:kb-1-hours-df8a0f1408c8d914",
+        "HANDOFF"
+      ]
+    ],
+    "dispatches": 74,
+    "unresolved": 0,
+    "estimated_micros": "2690",
+    "new_dispatch_scope_count": 1
+  },
+  "before-stop": {
+    "live": [
+      {
+        "model": "gpt-6-luna",
+        "status": "COMPLETE",
+        "outcome": "ANSWER",
+        "createdAt": "2026-11-26T07:19:35.974+00:00",
+        "heldMicros": 687,
+        "inputTokens": 651,
+        "outputTokens": 36,
+        "estimatedMicros": 687
+      },
+      {
+        "model": "gpt-6-luna",
+        "status": "COMPLETE",
+        "outcome": "HANDOFF",
+        "createdAt": "2026-11-26T07:19:52.713+00:00",
+        "heldMicros": 693,
+        "inputTokens": 673,
+        "outputTokens": 20,
+        "estimatedMicros": 693
+      }
+    ],
+    "audits": 10,
+    "requests": 51,
+    "providers": {
+      "mock": 46,
+      "openai": 5
+    },
+    "summaries": [
+      [
+        "SOURCE:kb-1-hours-df8a0f1408c8d914"
+      ]
+    ],
+    "dispatches": 77,
+    "unresolved": 0,
+    "estimated_micros": "2690",
+    "new_dispatch_scope_count": 1
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "deploymentId": "dpl_2c4S9qYspkuzNSTgrCtJMSYZR7xX",
+  "source": "Filtered Vercel source_selection logs, identifiers omitted",
+  "records": [
+    {
+      "model": "gpt-6-luna",
+      "action": "handoff",
+      "suppliedSources": 5,
+      "selectedSources": 0,
+      "selectedSourceAllowed": false,
+      "handoff": true
+    },
+    {
+      "model": "gpt-6-luna",
+      "action": "answer",
+      "suppliedSources": 5,
+      "selectedSources": 1,
+      "selectedSourceAllowed": true,
+      "handoff": false
+    }
+  ]
+}

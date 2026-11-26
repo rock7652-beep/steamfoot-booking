@@ -2,7 +2,7 @@
 
 ## 2026-11-25 AI 數位店長候選補充
 
-新增 AI-BUTLER-PREVIEW-01，一篇共用後台合成測試指南，受獨立 AI 權益與 plans.edit 控制。候選後台共 205 題，累計 96 題待登入操作；不推進前輪完整 main 盤點或抵扣既有待驗。知識管理、原流程 → AI → 真人的 Mock 演練，以及待人工清單／確認恢復僅在四合成店隔離 Preview 開放；蒸足另提供人工唯讀空位與合成會員本人預約測試，後者只補後台範圍說明，不新增前台教學；正式客服及預約寫入工具尚未開放，瀏覽器 fixture 不代表登入驗收。功能結果見 [本人預約唯讀驗收](ai/digital-butler-member-bookings-acceptance.md)、[空位唯讀驗收](ai/digital-butler-availability-acceptance.md)、[待人工處理驗收](ai/digital-butler-handoff-acceptance.md) 與 [Mock 串接驗收](ai/digital-butler-routing-acceptance.md)，不抵扣完整指南驗收；早期瀏覽器 fixture 與本輪認證後演練分別記錄。
+新增 AI-BUTLER-PREVIEW-01，一篇共用後台合成測試指南，受獨立 AI 權益與 plans.edit 控制。候選後台共 205 題，累計 96 題待登入操作；不推進前輪完整 main 盤點或抵扣既有待驗。知識管理、原流程 → AI → 真人的 Mock 演練，以及待人工清單／確認恢復僅在四合成店隔離 Preview 開放；蒸足另提供人工唯讀空位與合成會員本人預約測試，後者只補後台範圍說明，不新增前台教學；正式客服及預約寫入工具尚未開放，瀏覽器 fixture 不代表登入驗收。後台共用 AI 文章另補合成 LINE／Mock 或真實 OpenAI 演練、待人工清單確認恢復；本輪僅函式與主流程驗收，205／96 不抵扣，額外 QA probe 診斷另列。功能結果見 [合成 LINE 主流程驗收](ai/digital-butler-line-e2e-acceptance.md)、[本人預約唯讀驗收](ai/digital-butler-member-bookings-acceptance.md)、[空位唯讀驗收](ai/digital-butler-availability-acceptance.md)、[待人工處理驗收](ai/digital-butler-handoff-acceptance.md) 與 [Mock 串接驗收](ai/digital-butler-routing-acceptance.md)，不抵扣完整指南驗收；早期瀏覽器 fixture 與本輪認證後演練分別記錄。
 
 - 基準 main `7cb8c26127f60337c159b05391bc90f3263246ad` → `4efcd72bf513953521665f2556f719d1f73b5e8c`，核對 3 筆第一層整合 #1395、#1396、#1399（完整範圍 237 筆提交）。
 - 新增 **1 題 C177**：開放選課與指定學員排課模式。更新 **9 題 B11、C123、C130、C144、C148、C149、C150、C152、C154**：指定日期直接取代、設定搜尋、備註防重、音樂排課、調課、累計期數、名單、續購及單期／整筆收款。

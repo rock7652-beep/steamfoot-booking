@@ -34,3 +34,5 @@
 僅在隔離庫短暫開啟單一合成美業店 TEST 與總控制，其他三店保持關閉，真實 LINE／Messenger／Email 外發始終封鎖；收尾恢復 global stop 與四店停用，清除合成帳號臨時憑證、撤銷短效保護通行連結。不得讀取 OpenAI Key、增加預算、改 Production、購買服務或將 Preview promote。
 
 必要 Preview 建置只驗本次程式，先完成本機檢查；同版演練與文件不重建。後台 AI-BUTLER-PREVIEW-01 僅補本入口與接手範圍，仍是 source-reviewed，不抵扣 205 題／96 待驗，不新增前台指南。真實通路、預約寫入、其他模型、真機與正式試營運均不由此開放。實際結果另存驗收紀錄，不以本契約當成功證據。
+
+本輪實測見 [主流程驗收、成本與 QA 診斷](digital-butler-line-e2e-acceptance.md)，實際兩筆 API 與收尾結果以該紀錄為準。

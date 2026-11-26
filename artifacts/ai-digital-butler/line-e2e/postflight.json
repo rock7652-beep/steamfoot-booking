@@ -1,0 +1,127 @@
+{
+  "sourceSha": "20d51680f4d63bbfa6e4729a0da6d3f72e590357",
+  "database": {
+    "role": {
+      "super": false,
+      "bypass": false,
+      "connection_limit": 8
+    },
+    "leads": 0,
+    "audits": 10,
+    "notices": 0,
+    "stopped": true,
+    "bookings": 129,
+    "handoffs": 1,
+    "requests": 51,
+    "settings": [
+      {
+        "store": "ai-preview-beauty",
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 9
+      },
+      {
+        "store": "ai-preview-steamfoot",
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 8
+      },
+      {
+        "store": "ai-preview-fitness",
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 7
+      },
+      {
+        "store": "ai-preview-music",
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 7
+      }
+    ],
+    "customers": 1367,
+    "providers": {
+      "mock": 46,
+      "openai": 5
+    },
+    "dispatches": 78,
+    "unresolved": 0,
+    "beauty_today": 13,
+    "estimated_micros": "2690",
+    "dispatch_unresolved": 0,
+    "owner_password_cleared": true,
+    "suspended_member_passwords_cleared": 3
+  },
+  "settingsComparison": [
+    {
+      "store": "ai-preview-beauty",
+      "capsAndSettingsUnchanged": true,
+      "revisionDelta": 2
+    },
+    {
+      "store": "ai-preview-steamfoot",
+      "capsAndSettingsUnchanged": true,
+      "revisionDelta": 0
+    },
+    {
+      "store": "ai-preview-fitness",
+      "capsAndSettingsUnchanged": true,
+      "revisionDelta": 0
+    },
+    {
+      "store": "ai-preview-music",
+      "capsAndSettingsUnchanged": true,
+      "revisionDelta": 0
+    }
+  ],
+  "cleanup": {
+    "globalStopRestored": true,
+    "allFourStoresDisabled": true,
+    "syntheticOwnerPasswordCleared": true,
+    "sessionEndpointReturnedNull": true,
+    "temporaryGrantRevoked": true,
+    "remainingShareLinks": 0,
+    "revocationEvidence": "Vercel revoke response protectionBypass map contained no shareable-link entries",
+    "unauthenticatedRequest": {
+      "status": 302,
+      "redirectHost": "vercel.com",
+      "protectionGated": true
+    },
+    "privateConfigAndFlagsRemoved": true,
+    "browsersClosed": true
+  },
+  "newBuildsDuringAcceptance": 0,
+  "newEnvironmentsOrMigrations": 0
+}
