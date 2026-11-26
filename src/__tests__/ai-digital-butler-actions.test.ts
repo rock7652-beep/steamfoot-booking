@@ -15,7 +15,7 @@ vi.mock("@/server/ai/handoff-repository", async importOriginal => {
 vi.mock("@/server/ai/routing-repository", () => ({ AiRoutingRepository: class { globalStopped = async () => true; } }));
 import { aiHandoffViewKey } from "@/server/ai/handoff-repository";
 import { EMPTY_AI_KNOWLEDGE } from "@/server/ai/knowledge-document";
-import { saveAiButlerSetting, testAiButler, changeAiButlerKnowledge, readAiButlerKnowledge, testAiButlerRouting, setAiButlerRoutingHandoff, resumeAiButlerConversation, readAiButlerHandoffs } from "../app/(dashboard)/dashboard/settings/digital-butler/ai-actions";
+import { saveAiButlerSetting, testAiButler, changeAiButlerKnowledge, readAiButlerKnowledge, testAiButlerRouting, testAiButlerLineSynthetic, setAiButlerRoutingHandoff, resumeAiButlerConversation, readAiButlerHandoffs } from "../app/(dashboard)/dashboard/settings/digital-butler/ai-actions";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.permission.mockResolvedValue({ id: "synthetic-owner", role: "OWNER" });
@@ -132,4 +132,19 @@ it("routing only accepts fixed Mock scenarios and derives permission-bound scope
   mocks.permission.mockRejectedValueOnce(new Error("private-error"));
   const result=await setAiButlerRoutingHandoff(true);expect(result.success).toBe(false);expect(JSON.stringify(result)).not.toContain("private-error");
   expect(mocks.repository).not.toHaveBeenCalled();
+});
+
+const lineInput = {eventId:"f1ce29a0-865e-4d89-8658-e0e18173d08c",scenario:"known" as const,provider:"mock" as const};
+it.each([{storeId:"foreign"},{module:"MUSIC"},{rawBody:"{}"},{question:"private"},{provider:"other"}])("LINE fixture action rejects extra scope/body and invalid provider",async extra=>{
+ expect((await testAiButlerLineSynthetic({...lineInput,...extra} as never)).success).toBe(false);
+ expect(mocks.repository).not.toHaveBeenCalled();
+});
+it("LINE action preserves permission and live-provider gates",async()=>{
+ mocks.permission.mockRejectedValueOnce(new Error("private-credential"));
+ expect((await testAiButlerLineSynthetic(lineInput)).success).toBe(false);
+ expect(mocks.repository).not.toHaveBeenCalled();
+ mocks.authority.mockResolvedValue({module:"STEAMFOOT"});
+ vi.stubEnv("AI_OPENAI_TEST_ENABLED","0");
+ const result=await testAiButlerLineSynthetic({...lineInput,provider:"openai"});
+ expect(result.success).toBe(false);expect(JSON.stringify(result)).not.toContain("private-credential");
 });

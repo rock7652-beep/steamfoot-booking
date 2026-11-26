@@ -1,3 +1,7 @@
+import {AiHandoffRepository} from "@/server/ai/handoff-repository";
+import {randomUUID} from "node:crypto";
+import {createAiLineFixture,readAiLineFixture} from "@/server/ai/line-synthetic";
+import {AI_LINE_SYNTHETIC_ACCOUNT} from "@/server/ai/line-synthetic-contract";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { beforeAll,beforeEach,afterAll,it,expect,vi } from "vitest";
@@ -6,10 +10,11 @@ import { AiRoutingRepository } from "@/server/ai/routing-repository";
 import { AiButlerRouting } from "@/server/ai/routing";
 import { AiButlerService,aiIdentity,type TrustedAiScope } from "@/server/ai/service";
 import { createOriginalRoutingMock,aiRoutingMessages } from "@/server/ai/routing-mock";
-import { MockAiProvider,type AiProvider } from "@/server/ai/provider";
+import { MockAiProvider,OpenAiResponsesProvider,type AiProvider } from "@/server/ai/provider";
 import { syntheticAiKnowledge } from "@/server/ai/knowledge";
 import { DEFAULT_AI_SETTING } from "@/server/ai/contracts";
 import type { AiRoutingScenario } from "@/server/ai/routing-contract";
+vi.mock("@/lib/line-config",()=>({getLineSecretForStore:()=>{throw new Error("OA_SECRET_FORBIDDEN");}}));
 vi.mock("@/lib/digital-butler-entitlement",()=>({requireDigitalButlerConversationActivation:vi.fn()}));
 const now=new Date("2026-11-26T04:00:00Z"),secret="s".repeat(40);
 const scope:TrustedAiScope={storeId:"ai-preview-beauty",actorId:"actor",channel:"TEST",channelAccountId:"dashboard-mock-routing",module:"BEAUTY"};
@@ -20,13 +25,14 @@ beforeAll(async()=>{
  await db.exec('CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE steamfoot_ai_preview_20261125;CREATE TABLE "Store" (id text PRIMARY KEY);CREATE TABLE "StoreFeatureEntitlement" ("storeId" text,"featureKey" text,status text,"startsAt" timestamptz,"expiresAt" timestamptz);');
  await db.exec(readFileSync("scripts/sql/ai-digital-butler/preview-install.sql","utf8"));
  await db.exec(readFileSync("scripts/sql/ai-digital-butler/preview-routing.sql","utf8"));
+ await db.exec(readFileSync("scripts/sql/ai-digital-butler/preview-handoff.sql","utf8"));
  await db.exec(`INSERT INTO "Store" VALUES ('ai-preview-beauty'),('ai-preview-fitness'),('foreign');INSERT INTO "StoreFeatureEntitlement" VALUES ('ai-preview-beauty','ai_digital_butler','ENABLED',NULL,NULL),('ai-preview-fitness','ai_digital_butler','ENABLED',NULL,NULL)`);
  const database:AiDatabase={...adapt(db),transaction:work=>db.transaction(tx=>work(adapt(tx)))};
  repository=new AiButlerRepository(database);receipts=new AiRoutingRepository(database);router=new AiButlerRouting(receipts,repository,secret,()=>now);
 },30000);
 afterAll(async()=>db.close());
 beforeEach(async()=>{
- await db.exec('RESET ROLE;TRUNCATE "AiButlerDispatch","AiButlerRequest","AiButlerConversation","AiButlerSetting";UPDATE "AiButlerControl" SET stopped=false');
+ await db.exec('RESET ROLE;TRUNCATE "AiButlerHandoffAudit","AiButlerDispatch","AiButlerRequest","AiButlerConversation","AiButlerSetting";UPDATE "AiButlerControl" SET stopped=false');
  for(const s of [scope.storeId,"ai-preview-fitness"])await repository.saveSetting(s,{...DEFAULT_AI_SETTING,enabled:true},0,now);
 });
 const identity=(id="event",s=scope)=>aiIdentity(s,id,secret);
@@ -34,9 +40,9 @@ function setup(scenario:AiRoutingScenario,eventId="event",s=scope,override?:AiPr
  const original=createOriginalRoutingMock(s,eventId,scenario,secret);
  let calls=0;
  const mock=override??new MockAiProvider();
- const provider:AiProvider={kind:"mock",respond:async input=>{calls++;return mock.respond(input);}};
+ const provider:AiProvider={kind:mock.kind,respond:async input=>{calls++;return mock.respond(input);}};
  const authorize=vi.fn(async()=>undefined);
- const ai=new AiButlerService(repository,provider,authorize,secret,()=>null,()=>true,()=>now);
+ const ai=new AiButlerService(repository,provider,authorize,secret,()=>mock.kind==="mock"?null:{inputMicrosPerToken:0.001,outputMicrosPerToken:0.001,verifiedAt:now.toISOString(),validUntil:new Date(now.getTime()+86400000).toISOString(),source:"https://developers.openai.com/api/docs/models/gpt-6-luna",responses:true,jsonSchema:true},()=>true,()=>now);
  const records=syntheticAiKnowledge(s.storeId,s.module,now);
  const snapshot={module:s.module,records,prohibitedTerms:[],fingerprint:"v1"};
  const ports={authorize,original:vi.fn(original.handle),originalReplyAllowed:original.allowReply,providerCalls:()=>calls,
@@ -137,4 +143,32 @@ it("an unknown receipt blocks a new event in the same generation even if the han
  expect(next.ports.original).not.toHaveBeenCalled();
  await repository.handoff(identity(),false,now);
  expect((await setup("original","after-explicit-resume").run()).route).toBe("ORIGINAL");
+});
+
+it("signed LINE fixture reaches Responses parsing, published selection, durable handoff and dedupe without a sender",async()=>{
+ const lineScope={...scope,channelAccountId:AI_LINE_SYNTHETIC_ACCOUNT};
+ const transport=vi.fn(async(_url:unknown,init:RequestInit|undefined)=>{
+  const input=JSON.parse(String(init?.body)),payload=JSON.parse(input.input[0].content);
+  const answer=payload.question.includes("下雨")?{action:"handoff",sourceIds:[]}:{action:"answer",sourceIds:[payload.knowledge[0].id]};
+  expect(input.store).toBe(false);expect(input.tools).toBeUndefined();
+  return new Response(JSON.stringify({status:"completed",output:[{type:"message",content:[{type:"output_text",text:JSON.stringify(answer)}]}],usage:{input_tokens:100,output_tokens:20}}));
+ });
+ const live=new OpenAiResponsesProvider("public-unit-test-key",transport as typeof fetch);
+ async function run(scenario:AiRoutingScenario,id=randomUUID()){
+  const fixture=createAiLineFixture(lineScope,id,scenario),event=readAiLineFixture(lineScope,fixture.rawBody,fixture.signature);
+  const test=setup(scenario,event.eventId,lineScope,live);
+  return router.respond(lineScope,event.eventId,`line:openai:${scenario}`,event.message,test.ports);
+ }
+ const id=randomUUID();expect(await run("known",id)).toMatchObject({route:"AI",originalOutcome:"NO_MATCH"});
+ expect(transport).toHaveBeenCalledTimes(1);
+ expect(await run("known",id)).toMatchObject({route:"DUPLICATE",providerCalls:0});expect(transport).toHaveBeenCalledTimes(1);
+ expect(await run("unknown")).toMatchObject({route:"HUMAN",outcome:"AI_HANDOFF"});expect(transport).toHaveBeenCalledTimes(2);
+ expect(await run("known")).toMatchObject({route:"SILENT",outcome:"HUMAN_ACTIVE",providerCalls:0});expect(transport).toHaveBeenCalledTimes(2);
+ const state=await repository.conversationState(identity("read",lineScope));expect(state.handoff).toBe(true);
+ const dbPort:AiDatabase={...adapt(db),transaction:work=>db.transaction(tx=>work(adapt(tx)))};
+ await new AiHandoffRepository(dbPort).resume({storeId:lineScope.storeId,scopeKey:identity("read",lineScope).scopeKey,revision:state.revision,actorKey:"a".repeat(64),commandKey:"b".repeat(64)},now,async()=>undefined);
+ expect((await db.query('SELECT * FROM "AiButlerHandoffAudit"')).rows).toHaveLength(1);
+ expect(await run("known")).toMatchObject({route:"AI"});expect(transport).toHaveBeenCalledTimes(3);
+ const ledger=await db.query<{provider:string;status:string}>('SELECT provider,status FROM "AiButlerRequest"');expect(ledger.rows).toHaveLength(3);
+ expect(ledger.rows.every(r=>r.provider==="openai"&&r.status==="COMPLETE")).toBe(true);
 });

@@ -107,7 +107,7 @@ export function verifySteamButlerLineSignature(body: string, signature: string):
   return verifyLineSignatureWithSecret(body, signature, secret);
 }
 
-function verifyLineSignatureWithSecret(body: string, signature: string, secret: string): boolean {
+export function verifyLineSignatureWithSecret(body: string, signature: string, secret: string): boolean {
   const hash = crypto
     .createHmac("SHA256", secret)
     .update(body)

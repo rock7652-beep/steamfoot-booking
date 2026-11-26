@@ -14,5 +14,6 @@ export type AiHandoffPage = {
 export type AiHandoffSnapshot = {
   viewKey: string; page: AiHandoffPage; cursor?: string;
   synthetic: { handoff: boolean; revision: number };
+  lineRouting?: { handoff: boolean; revision: number; globalStopped: boolean };
   routing: { handoff: boolean; revision: number; globalStopped: boolean };
 };

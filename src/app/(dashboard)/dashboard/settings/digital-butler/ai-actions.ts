@@ -7,6 +7,7 @@ import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { assertAiPreview } from "../../../../../../scripts/ai-digital-butler-preview-scope.mjs";
 import { aiButlerRepository } from "@/server/ai/database";
+import { AI_LINE_SYNTHETIC_ACCOUNT } from "@/server/ai/line-synthetic-contract";
 import { AI_ROUTING_ACCOUNT } from "@/server/ai/routing-contract";
 import { aiSettingSchema, type AiSetting, type AiModule } from "@/server/ai/contracts";
 import { MockAiProvider, OpenAiResponsesProvider, verifiedAiRate } from "@/server/ai/provider";
@@ -153,28 +154,26 @@ async function routingState(scope: TrustedAiScope) {
   const identity = aiIdentity(scope, "operator", process.env.AI_IDENTITY_SECRET ?? "");
   return { ...await aiButlerRepository().conversationState(identity), globalStopped: await new AiRoutingRepository(aiButlerDatabase()).globalStopped() };
 }
-export async function testAiButlerRouting(input: { eventId: string; scenario: import("@/server/ai/routing-contract").AiRoutingScenario }) {
-  try {
-    const { aiRoutingInputSchema } = await import("@/server/ai/routing-contract");
-    const parsed = aiRoutingInputSchema.parse(input);
-    const scope = await routingContext();
+async function runAiRouting(scope: TrustedAiScope, parsed: {eventId:string;scenario:import("@/server/ai/routing-contract").AiRoutingScenario}, providerKind:"mock"|"openai", message:string) {
     const { AiButlerRouting } = await import("@/server/ai/routing");
     const { AiRoutingRepository } = await import("@/server/ai/routing-repository");
-    const { createOriginalRoutingMock, aiRoutingMessages } = await import("@/server/ai/routing-mock");
+    const { createOriginalRoutingMock } = await import("@/server/ai/routing-mock");
     const { aiButlerDatabase } = await import("@/server/ai/database");
     const { loadAiPublishedKnowledge } = await import("@/server/ai/knowledge-sources");
     const original = createOriginalRoutingMock(scope,parsed.eventId,parsed.scenario,process.env.AI_IDENTITY_SECRET ?? "");
     const repository = aiButlerRepository();
     const authorize = async (expected:TrustedAiScope) => {
       const current = await routingContext();
+      current.channelAccountId = scope.channelAccountId;
       if(current.storeId!==expected.storeId || current.actorId!==expected.actorId || current.module!==expected.module)throw new Error("AI_SCOPE_CHANGED");
     };
     let providerCalls = 0;
-    const mock = new MockAiProvider();
-    const provider = { kind: "mock" as const, respond: async (data:Parameters<typeof mock.respond>[0]) => { providerCalls++;return mock.respond(data); } };
-    const service = new AiButlerService(repository,provider,authorize,process.env.AI_IDENTITY_SECRET ?? "",()=>null,()=>process.env.AI_DIGITAL_BUTLER_ENABLED==="1");
+    const selected = providerKind === "mock" ? new MockAiProvider() : new OpenAiResponsesProvider(process.env.OPENAI_API_KEY ?? "");
+    if (providerKind === "openai" && process.env.AI_OPENAI_TEST_ENABLED !== "1") throw new Error("AI_LIVE_TEST_DISABLED");
+    const provider = { kind: selected.kind, respond: async (data:Parameters<typeof selected.respond>[0]) => { providerCalls++;return selected.respond(data); } };
+    const service = new AiButlerService(repository,provider,authorize,process.env.AI_IDENTITY_SECRET ?? "",model=>provider.kind==="mock"?null:verifiedAiRate(model,process.env,new Date()),()=>process.env.AI_DIGITAL_BUTLER_ENABLED==="1");
     const router = new AiButlerRouting(new AiRoutingRepository(aiButlerDatabase()),repository,process.env.AI_IDENTITY_SECRET ?? "");
-    const result = await router.respond(scope,parsed.eventId,parsed.scenario,aiRoutingMessages[parsed.scenario],{
+    const result = await router.respond(scope,parsed.eventId,providerKind==="mock" && scope.channelAccountId===AI_ROUTING_ACCOUNT?parsed.scenario:`line:${providerKind}:${parsed.scenario}`,message,{
       authorize, original: original.handle, originalReplyAllowed: original.allowReply, providerCalls:()=>providerCalls,
       ai: async (message,conversationRevision) => {
         const reload = () => loadAiPublishedKnowledge(aiButlerDatabase(),scope.storeId);
@@ -183,8 +182,28 @@ export async function testAiButlerRouting(input: { eventId: string; scenario: im
         return service.respond(scope,parsed.eventId,message,snapshot.records,{snapshot,reload,conversationRevision});
       },
     });
+    await authorize(scope);
     return {success:true as const,result,state:await routingState(scope)};
+}
+export async function testAiButlerRouting(input: { eventId: string; scenario: import("@/server/ai/routing-contract").AiRoutingScenario }) {
+  try {
+    const { aiRoutingInputSchema } = await import("@/server/ai/routing-contract");
+    const { aiRoutingMessages } = await import("@/server/ai/routing-mock");
+    const parsed = aiRoutingInputSchema.parse(input);
+    return await runAiRouting(await routingContext(), parsed, "mock", aiRoutingMessages[parsed.scenario]);
   } catch { return {success:false as const,error:"路由測試結果尚未確認，請沿用同一事件重試；不會自動建立另一筆測試。"}; }
+}
+export async function testAiButlerLineSynthetic(input: import("@/server/ai/line-synthetic-contract").AiLineSyntheticInput) {
+  try {
+    const { aiLineSyntheticInputSchema } = await import("@/server/ai/line-synthetic-contract");
+    const parsed = aiLineSyntheticInputSchema.parse(input);
+    const scope = await routingContext();
+    scope.channelAccountId = AI_LINE_SYNTHETIC_ACCOUNT;
+    const { createAiLineFixture, readAiLineFixture } = await import("@/server/ai/line-synthetic");
+    const fixture = createAiLineFixture(scope, parsed.eventId, parsed.scenario);
+    const admitted = readAiLineFixture(scope, fixture.rawBody, fixture.signature);
+    return await runAiRouting(scope, {...parsed,eventId:admitted.eventId}, parsed.provider, admitted.message);
+  } catch { return {success:false as const,error:"合成 LINE 演練尚未確認，請保留同一事件重試；不會外發訊息或改用正式通路。"}; }
 }
 export async function setAiButlerRoutingHandoff(handoff:boolean) {
   try {
@@ -199,12 +218,13 @@ async function handoffSnapshot(scope: TrustedAiScope, viewKey: string, cursor?: 
   const { AiHandoffRepository } = await import("@/server/ai/handoff-repository");
   const { aiButlerDatabase } = await import("@/server/ai/database");
   const repository = aiButlerRepository();
-  const [page, synthetic, routing] = await Promise.all([
+  const [page, synthetic, routing, lineState] = await Promise.all([
     new AiHandoffRepository(aiButlerDatabase()).list(scope.storeId, cursor),
     repository.conversationState(aiIdentity(scope, "operator-read", process.env.AI_IDENTITY_SECRET ?? "")),
     routingState({ ...scope, channelAccountId: AI_ROUTING_ACCOUNT }),
+    repository.conversationState(aiIdentity({ ...scope, channelAccountId: AI_LINE_SYNTHETIC_ACCOUNT }, "operator-read", process.env.AI_IDENTITY_SECRET ?? "")),
   ]);
-  return { viewKey, page, cursor, synthetic, routing };
+  return { viewKey, page, cursor, synthetic, routing, lineRouting: {...lineState,globalStopped:routing.globalStopped} };
 }
 export async function readAiButlerHandoffs(input: { viewKey: string; cursor?: string }) {
   try {

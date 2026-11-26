@@ -10,6 +10,7 @@ export function AiHandoffWorkspace({ viewKey, children }: { viewKey: string; chi
     if (incoming.viewKey !== viewKey) return;
     setSnapshot(current => ({ ...incoming,
       synthetic: current && current.synthetic.revision > incoming.synthetic.revision ? current.synthetic : incoming.synthetic,
+      lineRouting: current?.lineRouting && (!incoming.lineRouting || current.lineRouting.revision > incoming.lineRouting.revision) ? current.lineRouting : incoming.lineRouting,
       routing: current && current.routing.revision > incoming.routing.revision ? current.routing : incoming.routing,
     }));
   }
