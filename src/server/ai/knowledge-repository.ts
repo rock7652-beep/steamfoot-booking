@@ -29,7 +29,7 @@ export class AiKnowledgeRepository {
         published: command === "publish" ? current.draft : command === "withdraw" ? null : current.published,
         publishedVersion: current.publishedVersion + (command === "publish" || command === "withdraw" ? 1 : 0),
         publishedAt: command === "publish" ? now.toISOString() : command === "withdraw" ? null : current.publishedAt };
-      await tx.query(`INSERT INTO "AiButlerKnowledgeDocument" ("storeId",draft,published,revision,"publishedVersion","publishedAt") VALUES ($1,$2::jsonb,$3::jsonb,$4,$5,$6)
+      await tx.query(`INSERT INTO "AiButlerKnowledgeDocument" ("storeId",draft,published,revision,"publishedVersion","publishedAt") VALUES ($1,$2::jsonb,$3::jsonb,$4,$5,$6::timestamptz)
         ON CONFLICT ("storeId") DO UPDATE SET draft=EXCLUDED.draft,published=EXCLUDED.published,revision=EXCLUDED.revision,"publishedVersion"=EXCLUDED."publishedVersion","publishedAt"=EXCLUDED."publishedAt"`,
       [storeId, JSON.stringify(next.draft), next.published ? JSON.stringify(next.published) : null, next.revision, next.publishedVersion, next.publishedAt]);
       return next;

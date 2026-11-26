@@ -60,3 +60,22 @@ it("bounds public content, rejects injected scope, and uses literal normalized p
   expect(aiTopicBlocked("ＭＥＤ I CAL 建議", ["medical"])).toBe(true);
   expect(aiTopicBlocked("價格", [".*"])).toBe(false);
 });
+
+it("publishes and withdraws with Prisma-style TEXT parameters instead of PostgreSQL's inferred unknown type", async () => {
+  let sequence = 0;
+  const typed = (client: Pick<PGlite, "query">): AiSql => ({ query: async <T extends Record<string, unknown>>(sql: string, values: unknown[] = []) => {
+    // Prisma assigns text OIDs to string values; node-pg/PGlite normally infer
+    // unspecified parameter types, which hid the hosted timestamp mismatch.
+    if (values.length) {
+      const name = `knowledge_typed_${++sequence}`;
+      const types = values.map(value => typeof value === "number" ? "integer" : "text").join(",");
+      await client.query(`PREPARE ${name} (${types}) AS ${sql}`);
+      await client.query(`DEALLOCATE ${name}`);
+    }
+    return (await client.query<T>(sql, values)).rows;
+  } });
+  const typedRepository = new AiKnowledgeRepository({ ...typed(db), transaction: work => db.transaction(tx => work(typed(tx))) });
+  await typedRepository.change(store, 0, "save", draft);
+  expect(await typedRepository.change(store, 1, "publish", undefined, now)).toMatchObject({ publishedAt: now.toISOString(), published: draft });
+  expect(await typedRepository.change(store, 2, "withdraw")).toMatchObject({ publishedAt: null, published: null });
+});
