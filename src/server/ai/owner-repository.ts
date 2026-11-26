@@ -121,10 +121,15 @@ export class AiOwnerRepository {
         ON CONFLICT ("ownerId","scopeKey") DO UPDATE SET handoff=true,summary='[]',revision="AiButlerConversation".revision+1`, [input.ownerId, input.scopeKey, new Date(now.getTime() + AI_LIMITS.retentionDays * 86400_000)]);
     });
   }
-  async handoff(input: Pick<AiOwnerIdentity, "ownerId" | "scopeKey">, value: boolean, now: Date) {
+  async handoff(input: Pick<AiOwnerIdentity, "ownerId" | "scopeKey">, value: boolean, now: Date, onlyIfChanged = false) {
     return this.db.transaction(async tx => {
       await tx.query('SELECT id FROM "AiButlerControl" WHERE id=\'global\' FOR UPDATE');
       await entitled(tx, input.ownerId, now);
+      // Brand operator retries are idempotent; retain legacy Store revision semantics.
+      if (onlyIfChanged) {
+        const [prior] = await tx.query<{ handoff: boolean; revision: number }>('SELECT handoff,revision FROM "AiButlerConversation" WHERE "ownerId"=$1 AND "scopeKey"=$2', [input.ownerId, input.scopeKey]);
+        if (prior?.handoff === value) return prior.revision;
+      }
       const changed = await tx.query<{ revision: number }>(`INSERT INTO "AiButlerConversation" ("ownerId","scopeKey",handoff,"expiresAt",revision) VALUES ($1,$2,$3,$4,1)
         ON CONFLICT ("ownerId","scopeKey") DO UPDATE SET handoff=$3,summary='[]',"expiresAt"=$4,revision="AiButlerConversation".revision+1 RETURNING revision`, [input.ownerId, input.scopeKey, value, new Date(now.getTime() + AI_LIMITS.retentionDays * 86400_000)]);
       return changed[0].revision;

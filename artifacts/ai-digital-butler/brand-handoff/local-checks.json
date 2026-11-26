@@ -1,0 +1,28 @@
+{
+  "status": "local passed; cloud pending",
+  "baseCommit": "59f9a208000f4477847285e668ad6dd7b5ef6d94",
+  "checks": {
+    "redBeforeFix": "2 failed: repeated takeover advanced revision and missing conversation audit state; 15 passed",
+    "handoffWorkflow": "27 real local PG/RLS/trigger scenarios passed",
+    "sharedWorkspaceBrowser": "six sizes; cancel/resize/confirm/reload/following answer, lost resume response retry, safety switch preservation passed",
+    "brandAndSharedCoreRegression": "236 passed across 12 files; four added handoff cases separately passed in final 27-case run",
+    "typeScript": "passed",
+    "changedFileESLint": "passed without warnings"
+  },
+  "scope": {
+    "remoteDatabaseConnections": 0,
+    "remoteWrites": 0,
+    "remotePermissions": 0,
+    "previewBuilds": 0,
+    "temporaryAccessLinks": 0,
+    "realOpenAiCalls": 0,
+    "realOutbound": 0
+  },
+  "limitations": [
+    "matching local PGlite fixture with original role/RLS/triggers, not cloud NextAuth/HTTP/Prisma/pooler",
+    "same resume command returns duplicate without another execution; new command with stale revision rejected",
+    "resolving handoff under stopped/disabled AI does not enable answering",
+    "prior course teardown independently preserved; no fix claimed",
+    "Cloudflare remains separately tracked"
+  ]
+}

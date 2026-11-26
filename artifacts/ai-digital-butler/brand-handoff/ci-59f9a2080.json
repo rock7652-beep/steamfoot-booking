@@ -1,0 +1,42 @@
+{
+  "conclusion": "success",
+  "headSha": "59f9a208000f4477847285e668ad6dd7b5ef6d94",
+  "jobs": [
+    {
+      "name": "Full Vitest baseline",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/45893026284/job/140160073213"
+    },
+    {
+      "name": "Typecheck",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/45893026284/job/140160073604"
+    },
+    {
+      "name": "Targeted tests",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/45893026284/job/140160073636"
+    },
+    {
+      "name": "Changed-file ESLint",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/45893026284/job/140160073701"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/rock7652-beep/steamfoot-booking/actions/runs/45893026284",
+  "previousCourseTeardownError": {
+    "status": "independently retained; no fix claimed",
+    "evidence": "../brand-mock/ci-b2c890423.json",
+    "modifiedCourseModule": false
+  },
+  "cloudflare": {
+    "status": "failure; independently tracked",
+    "url": "https://dash.cloudflare.com/a4a5f68f88b171641fb363810b4b48df/workers/services/view/steamfoot-booking/production/builds/ff0e0673-0afb-4c3d-8dcc-fe2ea0ad7c4e",
+    "settingsChanged": false
+  }
+}

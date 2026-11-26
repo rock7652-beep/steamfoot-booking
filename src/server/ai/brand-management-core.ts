@@ -54,7 +54,7 @@ export function brandManagement(ports: Ports) {
     const [row]=await sql.query<{used:number;duplicate:boolean}>('SELECT COUNT(*) FILTER(WHERE "createdAt">=$2)::int AS used,COALESCE(bool_or("eventKey"=$3),false) AS duplicate FROM "AiBrandRequest" WHERE "serviceId"=$1',[BRAND_PREVIEW_SERVICE,start,eventKey]);
     if(!row||typeof row.duplicate!=="boolean"||!Number.isSafeInteger(row.used)||row.used<0||(!row.duplicate&&row.used>=8))throw Error("AI_BRAND_TEST_LIMIT");
   }
-  const mutationDatabase = (actor:Actor,operation:BrandOperation,commandKey?:string,enableRequested=false): AiDatabase => ({
+  const mutationDatabase = (actor:Actor,operation:BrandOperation,commandKey?:string,enableRequested=false,targetScope?:string): AiDatabase => ({
     query: ports.database.query.bind(ports.database),
     transaction: work => ports.database.transaction(async tx => {
       // Same lock order as shared budget/settings: control first, then entitlement.
@@ -67,9 +67,17 @@ export function brandManagement(ports: Ports) {
       if(grant.length!==1)throw Error("AI_NOT_ENTITLED");
       const snapshotSql='SELECT jsonb_build_object(\'settingRevision\',s.revision,\'knowledgeRevision\',k.revision,\'publishedVersion\',k."publishedVersion",\'enabled\',s.setting->\'enabled\') AS snapshot FROM "AiBrandSetting" s JOIN "AiBrandKnowledgeDocument" k USING("serviceId") WHERE s."serviceId"=$1';
       if(operation==="test"&&commandKey)await mockCapacity(tx,actor,commandKey);
-      const before=(await tx.query(snapshotSql,[BRAND_PREVIEW_SERVICE]))[0]?.snapshot;
+      const conversationKey=operation==="handoff"?brandIdentity(scope(actor),"operator",ports.secret).scopeKey:operation==="resume"?targetScope:undefined;
+      const capture=async()=>{
+        const state=(await tx.query<{snapshot:Record<string,unknown>}>(snapshotSql,[BRAND_PREVIEW_SERVICE]))[0]?.snapshot;
+        if(!conversationKey)return state;
+        const [conversation]=await tx.query<{handoff:boolean;revision:number}>('SELECT handoff,revision FROM "AiBrandConversation" WHERE "serviceId"=$1 AND "scopeKey"=$2',[BRAND_PREVIEW_SERVICE,conversationKey]);
+        return {...state,conversation:{scopeKey:conversationKey,handoff:conversation?.handoff??false,revision:conversation?.revision??0}};
+      };
+      const before=await capture();
       const result=await work(tx);
-      const after=(await tx.query(snapshotSql,[BRAND_PREVIEW_SERVICE]))[0]?.snapshot;
+      const after=await capture();
+      if(operation==="handoff"&&JSON.stringify(before)===JSON.stringify(after))return result;
       const summaries:Record<BrandOperation,string>={save:"儲存品牌知識草稿",publish:"發布已審核品牌知識",withdraw:"撤回品牌知識",setting:"更新品牌AI開關",handoff:"接手品牌測試對話",resume:"恢復品牌測試對話",test:"接受品牌Mock測試事件"};
       await tx.query(`INSERT INTO "AuditLog"(id,"actorUserId","actorRoleSnapshot",source,"storeId",module,"targetType","targetId",action,summary,"beforeJson","afterJson","createdAt")
         VALUES($1,$2,'ADMIN','AI_BRAND_PREVIEW',NULL,'AI_BRAND','AiBrandService',$3,'UPDATE',$4,$5::jsonb,$6::jsonb,$7) ON CONFLICT(id) DO NOTHING`,
@@ -77,7 +85,7 @@ export function brandManagement(ports: Ports) {
       return result;
     }),
   });
-  const app = (actor: Actor, operation?: BrandOperation,commandKey?:string,enableRequested=false) => createBrandAi({ serviceId: BRAND_PREVIEW_SERVICE, database: operation ? mutationDatabase(actor,operation,commandKey,enableRequested) : ports.database, identitySecret: ports.secret,
+  const app = (actor: Actor, operation?: BrandOperation,commandKey?:string,enableRequested=false,targetScope?:string) => createBrandAi({ serviceId: BRAND_PREVIEW_SERVICE, database: operation ? mutationDatabase(actor,operation,commandKey,enableRequested,targetScope) : ports.database, identitySecret: ports.secret,
     provider: new MockAiProvider(), rateForModel: () => null, clock: now, enabled: () => ports.env.AI_DIGITAL_BUTLER_ENABLED === "1",
     authorize: async () => { await authorize(actor); },
     authorizeOperator: async operatorOperation => { if (!(operation==="resume"&&operatorOperation==="HANDOFF_RESUME")) await authorize(actor); if (["KNOWLEDGE_WRITE","SETTINGS_WRITE","HANDOFF_RESUME"].includes(operatorOperation) && !brandOperationSchema.options.filter(op=>op!=="test").some(writeWindow)) throw Error("AI_BRAND_READ_ONLY"); },
@@ -143,13 +151,13 @@ export function brandManagement(ports: Ports) {
   async function resume(input: unknown) {
     const data=aiHandoffResumeSchema.parse(input), actor=await authorize(); await writable(actor,"resume");
     if(data.viewKey!==viewKey(actor))throw Error("AI_HANDOFF_SCOPE_CHANGED");
-    const result=await app(actor,"resume",data.commandId).handoff.resume({scopeKey:data.scopeKey,revision:data.revision,actorKey:hash(["brand-operator",BRAND_PREVIEW_SERVICE,actor.id]),commandKey:hash([data.viewKey,data.commandId])},now(),async()=>{if(!writeWindow("resume"))throw Error("AI_BRAND_READ_ONLY");});
+    const result=await app(actor,"resume",data.commandId,false,data.scopeKey).handoff.resume({scopeKey:data.scopeKey,revision:data.revision,actorKey:hash(["brand-operator",BRAND_PREVIEW_SERVICE,actor.id]),commandKey:hash([data.viewKey,data.commandId])},now(),async()=>{if(!writeWindow("resume"))throw Error("AI_BRAND_READ_ONLY");});
     return { duplicate:result.duplicate,...await readHandoffs({viewKey:data.viewKey,cursor:data.cursor}) };
   }
   async function setHandoff(value: unknown) {
     const handoff=z.boolean().parse(value),actor=await authorize(); await writable(actor,"handoff");
     if (!handoff) throw Error("AI_BRAND_AUDITED_RESUME_REQUIRED");
-    const revision=await new AiOwnerRepository(mutationDatabase(actor,"handoff"),"BRAND").handoff(brandIdentity(scope(actor),"operator",ports.secret),handoff,now()); await authorize(actor);
+    const revision=await new AiOwnerRepository(mutationDatabase(actor,"handoff"),"BRAND").handoff(brandIdentity(scope(actor),"operator",ports.secret),handoff,now(),true); await authorize(actor);
     return {success:true as const,revision};
   }
   async function test(input: unknown) {

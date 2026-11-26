@@ -8,7 +8,7 @@ const tableGrants=JSON.parse(read('artifacts/ai-digital-butler/brand-toggle/read
 const role='steamfoot_ai_preview_20261125',sid='ai-preview-brand-steamfoot',uid='ai-preview-brand-hq';
 const identifier=x=>'"'+x.replaceAll('"','""')+'"',literal=x=>"'"+x.replaceAll("'","''")+"'";
 export async function createBrandToggleFixture({operations=["setting"]}={}){
- if(JSON.stringify(operations)!=='["setting"]'&&JSON.stringify(operations)!=='["save","publish","withdraw"]'&&JSON.stringify(operations)!=='["test"]')throw Error("Unsupported local fixture operations");
+ if(JSON.stringify(operations)!=='["setting"]'&&JSON.stringify(operations)!=='["save","publish","withdraw"]'&&JSON.stringify(operations)!=='["test"]'&&JSON.stringify(operations)!=='["handoff","resume","test"]')throw Error("Unsupported local fixture operations");
  const db=new PGlite(),start=new Date().toISOString(),end=new Date(Date.now()+25*60_000).toISOString();
  await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role BYPASSRLS;CREATE ROLE ${role} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS CONNECTION LIMIT 8 VALID UNTIL ${literal(meta.role.validUntil)};`);
  for(const e of extra.enums)await db.exec(`CREATE TYPE ${identifier(e.name)} AS ENUM(${e.labels.map(literal).join(',')});`);
@@ -61,7 +61,7 @@ export async function createBrandToggleFixture({operations=["setting"]}={}){
   await db.query('UPDATE "AiBrandGrant" SET status=\'ENABLED\' WHERE "serviceId"=$1',[sid]);
  }
  async function runtime(work){await db.exec(`SET ROLE ${role}`);try{return await work();}finally{await db.exec('RESET ROLE');}}
- function adapt(client){return {query:async(statement,values=[])=>{if(!/^(SELECT|WITH|INSERT INTO "AuditLog")/.test(statement.trim())&&!(operations.includes("setting")&&/^UPDATE "AiBrandSetting"/.test(statement.trim()))&&!(operations.includes("save")&&/^INSERT INTO "AiBrandKnowledgeDocument"/.test(statement.trim()))&&!(operations.includes("test")&&/^(INSERT INTO|UPDATE) "AiBrand(?:Request|Conversation)"/.test(statement.trim())))throw Error('Brand local fixture rejected an out-of-scope mutation');return(await client.query(statement,values)).rows;}};}
+ function adapt(client){return {query:async(statement,values=[])=>{if(!/^(SELECT|WITH|INSERT INTO "AuditLog")/.test(statement.trim())&&!(operations.includes("setting")&&/^UPDATE "AiBrandSetting"/.test(statement.trim()))&&!(operations.includes("save")&&/^INSERT INTO "AiBrandKnowledgeDocument"/.test(statement.trim()))&&!((operations.includes("test")||operations.includes("handoff"))&&/^(INSERT INTO|UPDATE) "AiBrand(?:Request|Conversation)"/.test(statement.trim()))&&!(operations.includes("resume")&&/^INSERT INTO "AiBrandHandoffAudit"/.test(statement.trim())))throw Error('Brand local fixture rejected an out-of-scope mutation');return(await client.query(statement,values)).rows;}};}
  const database={...adapt(db),transaction:work=>db.transaction(async tx=>{await tx.query("SELECT set_config('steamfoot.audit_actor',$1,true)",[JSON.stringify({id:uid,name:'合成品牌管理者',role:'ADMIN',loginRecordId:'local-brand-login',storeId:null})]);return work(adapt(tx));})};
  async function actor(){const r=await db.query('SELECT id,role,status,"passwordHash" FROM "User" WHERE id=$1',[uid]);const u=r.rows[0];return{id:u?.id,role:u?.role,auditAllowed:u?.status==='ACTIVE'&&Boolean(u.passwordHash),storeView:false};}
  async function verifySchema(){
