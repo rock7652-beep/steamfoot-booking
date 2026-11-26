@@ -1,6 +1,8 @@
 # AI 數位店長驗收證據
 
-最新待人工處理管理：[summary](handoff/summary.json)、[驗收與限制](../../docs/ai/digital-butler-handoff-acceptance.md)。同一 PR 的隔離對話清單、明確恢復、版本／重送與私有稽核；正式客服工作台尚未開放。
+最新蒸足空位唯讀工具：[summary](availability/summary.json)、[驗收與限制](../../docs/ai/digital-butler-availability-acceptance.md)。僅人工 TEST 查詢，不接真實通路、模型工具或預約寫入。
+
+歷史待人工處理管理：[summary](handoff/summary.json)、[驗收與限制](../../docs/ai/digital-butler-handoff-acceptance.md)。同一 PR 的隔離對話清單、明確恢復、版本／重送與私有稽核；正式客服工作台尚未開放。
 
 LINE 格式離線合成事件補驗：[summary](line-synthetic/summary.json)、[信任邊界與限制](../../docs/ai/digital-butler-line-synthetic-acceptance.md)。只新增測試 driver，沒有新 Preview 或正式 Webhook 介接。
 

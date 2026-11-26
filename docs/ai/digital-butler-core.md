@@ -1,6 +1,6 @@
 # AI 數位店長：共用核心與知識管理工程契約
 
-狀態：核心、店家知識管理及合成 Mock 串接已完成隔離 Preview 驗收；未發布正式站、未接管正式客服。主線基準 `378cd9475317f6c4ab804f0e48642f1d4f0f567a`（2026-11-25 核對）。
+狀態：核心、店家知識、合成串接、接手管理與第一個蒸足空位唯讀工具已完成隔離 Preview 驗收；未發布正式站、未接管正式客服。主線基準 `378cd9475317f6c4ab804f0e48642f1d4f0f567a`（2026-11-25 核對）。
 
 ## 共用架構及沿用範圍
 
@@ -12,15 +12,15 @@
 | Conversation | `service.ts` / `repository.ts` | store + channel + channel account + verified actor 的 HMAC scope、原子去重、有限來源摘要、人工接手、晚到結果抑制 |
 | Knowledge | `knowledge.ts` / `knowledge-*.ts` / `contracts.ts` | STORE / MODULE / SYSTEM、版本、期限、來源選擇；新增私有草稿／發布及既有公開來源投影，僅限四個合成店 TEST |
 | Routing | `routing*.ts` | TEST 固定情境、持久事件認領、原流程優先、僅 NO_MATCH 進 AI、真人接手／恢復世代與未知結果阻擋；不接真實通路 |
-| Tools | `tools.ts` | 共用註冊、參數 schema、伺服器 scope、模組與權限；知識階段全面停用工具，未註冊業務操作 |
+| Tools | `tools.ts` | 共用註冊、參數 schema、伺服器 scope、模組與權限；知識 Provider 工具仍停用；新增合成蒸足人工唯讀空位 adapter |
 | Usage | `repository.ts` | PostgreSQL 原子預留、全域及店家預算、台灣日／月次數、併發、Token、時間、錯誤及轉接計數 |
-| UI | 既有 `settings/digital-butler` | 單一原入口、AI 獨立授權、測試開關、同頁知識草稿／發布／撤下、四模組合成情境、已發布知識測試、人工接手與用量摘要 |
+| UI | 既有 `settings/digital-butler` | 單一原入口、AI 獨立授權、測試開關、同頁知識草稿／發布／撤下、四模組合成情境、已發布知識測試、人工接手、蒸足空位唯讀測試與用量摘要 |
 
 確定性流程繼續使用 `digital-butler-runtime.ts`。**TypeScript 路徑別名會把 runtime 導到 `digital-butler-runtime-with-handoff.ts`，再委派 core 並適配課程連結**，不是不存在或未使用的檔案。`digital-butler-provider.ts` 是通路顯示名稱，與新的模型 Provider 職責不同。原服務／repository／流程定義／全域指令／LINE reply 共用原行為。
 
 LINE 現行簽章與 destination 解析在 Webhook；保留指令、方案回應、通知／會員綁定與進行中流程優先。Messenger 也沿用既有 runtime 與交接。**本階段未改 Webhook、LIFF、Rich Menu，AI service 僅接受 TEST 通路**。日後只可在原 runtime 未處理的分支擴充 AI；必須同時核對原真人接手狀態及原子事件權，才可交付通路 intent。不能把本次合成客服接手狀態冒充已串接真人名單或通知。
 
-四模組共用 `AiModule` 與工具契約。蒸足預約服務、Beauty 原生服務，以及音樂／運動 course 業務服務仍各自掌握名額、方案與交易規則。知識管理已讀取既有公開營業時間、服務及方案定價；其他業務工具仍未開放，不能由 AI 寫表。本次沒有複製營業時間、方案或價格作長期知識副本。
+四模組共用 `AiModule` 與工具契約。蒸足預約服務、Beauty 原生服務，以及音樂／運動 course 業務服務仍各自掌握名額、方案與交易規則。知識管理已讀取既有公開營業時間、服務及方案定價；另有合成蒸足的人工唯讀空位測試；會員資料及預約寫入工具仍未開放，不能由 AI 寫表。本次沒有複製營業時間、方案或價格作長期知識副本。
 
 ## HQ、權限與安全
 
@@ -65,3 +65,5 @@ OpenAI `store:false` 不等於帳號已具 Zero Data Retention；預設濫用監
 2026-11-26（台灣時間）完成 Phase 0/1 隔離 Preview：原憑證連線、認證 UI／server actions、Mock、Luna 兩筆最小 API、Token／預算結算與 RWD。收尾 global stop=true、四合成店 enabled=false；正式 AI 未開放。Provider 明示已驗證的 PUBLISHED 參考來源、schema 限定單筆已提供 ID，後端仍重新核對來源並呈現原核准文字。後續同一 PR 已完成隔離店的知識編輯／發布及公開來源投影，見 [Phase 2 知識設計](digital-butler-knowledge.md) 與 [驗收](digital-butler-knowledge-acceptance.md)。另已完成 [Mock 串接設計](digital-butler-routing.md) 與 [驗收](digital-butler-routing-acceptance.md)：原引擎新增可選 TEST identity codec，預設行為不變；對話 revision 防止接手再恢復後舊回覆復活。後續同一 PR 補上 [隔離待人工處理管理](digital-butler-handoff.md) 與 [驗收](digital-butler-handoff-acceptance.md)，直接使用同一接手旗標、版本及私有操作稽核，沒有虛構原客服名單。真實通路未命中整合、正式日常真人客服工作台、正式店業務讀取／寫入仍未開放，不能視為完整 Phase 2/3 已完成。
 
 見 [Runbook](digital-butler-runbook.md)、[驗收紀錄](digital-butler-acceptance.md)。
+
+第一個 [蒸足唯讀空位工具](digital-butler-availability.md) 與 [驗收](digital-butler-availability-acceptance.md) 沿用原時段服務及顧客預約規則；其他模組 adapter、會員本人資料與預約操作仍未開放，不等同完整 Phase 3。

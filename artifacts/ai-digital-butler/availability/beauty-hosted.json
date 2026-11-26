@@ -1,0 +1,13 @@
+{
+  "store": "beauty",
+  "runtimeSha": "d5e840d75e250c3c7f8159209a758f73f88ab60d",
+  "origin": "https://steamfoot-booking-fi7lz234p-rock7652-2111s-projects.vercel.app",
+  "entryMs": 15872,
+  "totalMs": 15993,
+  "cases": [
+    "authenticated-native-entry",
+    "steamfoot-adapter-not-mounted"
+  ],
+  "errors": [],
+  "failures": []
+}

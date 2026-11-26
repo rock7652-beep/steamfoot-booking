@@ -1,12 +1,12 @@
 # AI 數位店長隔離 Preview Runbook
 
-目前核心、Phase 2 店家知識管理、原流程 → AI → 真人的 Mock 串接與待人工處理管理已完成合成 TEST 驗收；正式客服未開放。架構與安全契約以 [工程契約](digital-butler-core.md) 為準，最新實測見 [待人工處理驗收](digital-butler-handoff-acceptance.md)，[Mock 串接驗收](digital-butler-routing-acceptance.md) 保留當時結果，[知識管理驗收](digital-butler-knowledge-acceptance.md) 保留當時結果；[Phase 0/1 歷史](digital-butler-acceptance.md) 保留。
+目前核心、Phase 2 店家知識管理、原流程 → AI → 真人的 Mock 串接、待人工處理管理及蒸足空位唯讀工具已完成合成 TEST 驗收；正式客服未開放。架構與安全契約以 [工程契約](digital-butler-core.md) 為準，最新實測見 [蒸足唯讀驗收](digital-butler-availability-acceptance.md)，[待人工處理驗收](digital-butler-handoff-acceptance.md) 保留當時結果，[Mock 串接驗收](digital-butler-routing-acceptance.md) 保留當時結果，[知識管理驗收](digital-butler-knowledge-acceptance.md) 保留當時結果；[Phase 0/1 歷史](digital-butler-acceptance.md) 保留。
 
 ## 已驗證版本與目前狀態
 
 - PR [#1596](https://github.com/rock7652-beep/steamfoot-booking/pull/1596)，支線 `feat/ai-digital-butler-core`。
-- 程式／Preview SHA：`e3dc109aa837437743d42ef17a7c3c50a52bbf47`；後續純文件／證據提交以 PR head 為準，不另建相同程式 Preview。
-- [受保護 Preview](https://steamfoot-booking-a9o36q4nn-rock7652-2111s-projects.vercel.app)，deployment `dpl_2UqMFpxAmvB2EbNzfoKxAc6M8SKt`，READY。
+- 程式／Preview SHA：`d5e840d75e250c3c7f8159209a758f73f88ab60d`；後續純文件／證據提交以 PR head 為準，不另建相同程式 Preview。
+- [受保護 Preview](https://steamfoot-booking-fi7lz234p-rock7652-2111s-projects.vercel.app)，deployment `dpl_81LKVW8GdVxtFg8Cr9dNgnHstnhr`，READY。
 - 2026-11-26（台灣時間）完成核心與知識管理的隔離登入、發布／撤下、來源引用、Mock、最小真實 API、帳本與 RWD 驗收。
 - 收尾狀態：**global stopped=true、四店 enabled=false**，47 筆請求全部 COMPLETE，RESERVED／UNKNOWN 0；44 筆 Mock、3 筆 OpenAI，累計保守估算 US$0.001310。累計估算不是供應商帳單；早期串接新增 7 Mock；最新人工接手管理新增 0 模型請求，累計 65 筆串接事件全部 COMPLETE、8 筆恢復 audit。原先 1 筆合成接手旗標保留。
 - 本輪手動建立的測試通行憑證均已撤銷，四個合成帳號登入版本已更新，暫存密碼／session 檔已刪除；SSO 保留。
@@ -58,11 +58,15 @@ Git 自動部署對本支線為 false。建置沿用既有 Turbo，未更改全�
 
 七張 AiButler 私有表（新增操作 audit） RLS 啟用，anon／authenticated 無表權限。既有 Store／User／Staff／ShopConfig／權益讀取限合成範圍；登入稽核寫入限配對合成 OWNER 的 SUCCESS 紀錄，不能寫 Booking。知識表另有四店 RLS，營業時間及各模組公開 catalogue 只新增四店 SELECT policy，不給商業寫入。角色權限不取代應用層 store／actor／channel 驗證。
 
+隔離蒸足另有 Booking／DutyAssignment 的 ai_preview_availability_read，僅 SELECT 且只限該合成店；不授 INSERT／UPDATE／DELETE，避免 RLS 缺讀政策把占用人數視為零。SQL 與回復方式見 [唯讀契約](digital-butler-availability.md)。
+
 店長原入口「設定 → 通知與顧客經營 → 數位管家」只有一個。AI-only 授權可進入 AI 區塊，原確定性流程未開通時不掛載。測試只接受已驗證 session 的 TEST scope；原產業選擇器仍是合成情境；新增已發布知識測試由後端綁定真實 Store 模組及課程細分，不接受前端模組覆蓋。
 
 知識操作沿用同頁「店家知識」：介紹／FAQ／禁止關鍵詞先存草稿再發布；引用只存開關，每次讀原營運設定。撤下保留草稿，版本衝突先核對本機文字再重新載入；限制與來源見 [知識設計](digital-butler-knowledge.md)。
 
 後續若獲准重測：先確認角色／費率有效、版本與 DB，保持總停止到連線及權限通過；僅在隔離庫短暫開啟 TEST，先 Mock、核對額度，再最小真實請求，完成即還原總停止與四店開關。人工接手後必須明確恢復，不用重送或新 eventId 繞過；不擅自重設憑證、擴權或提高連線／預算上限。
+
+合成蒸足同頁「即時空位查詢」人工查單日空位，沿用顧客預約窗、截止、值班及占用規則；總停止時可做唯讀驗收，不啟動模型或預約。其他三產業 adapter 尚未開放。
 
 同頁「AI 待人工處理」直接列出本店合成對話的持久接手狀態，經準備／確認後恢復，私有 audit 與版本更新同一交易。不明結果重試同一 commandId；版本衝突需重新核對；仍有 RESERVED／UNKNOWN／CLAIMED 事件時不允許恢復。局部刷新使用共用 reader 並重查帳號／門市；不重跑整個課表頁、不建立虛構原客服名單。見 [功能契約](digital-butler-handoff.md)。
 

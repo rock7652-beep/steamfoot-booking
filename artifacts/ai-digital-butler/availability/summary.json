@@ -1,0 +1,291 @@
+{
+  "runtimeSha": "d5e840d75e250c3c7f8159209a758f73f88ab60d",
+  "deploymentId": "dpl_81LKVW8GdVxtFg8Cr9dNgnHstnhr",
+  "origin": "https://steamfoot-booking-fi7lz234p-rock7652-2111s-projects.vercel.app",
+  "baseline": {
+    "stopped": true,
+    "requests": 47,
+    "dispatches": 65,
+    "audits": 8,
+    "handoffs": 1,
+    "estimated_micros": "1310",
+    "bookings": 127,
+    "customers": 1364,
+    "legacy_leads": 1,
+    "settings": [
+      {
+        "enabled": false,
+        "storeId": "ai-preview-steamfoot"
+      },
+      {
+        "enabled": false,
+        "storeId": "ai-preview-beauty"
+      },
+      {
+        "enabled": false,
+        "storeId": "ai-preview-fitness"
+      },
+      {
+        "enabled": false,
+        "storeId": "ai-preview-music"
+      }
+    ],
+    "booking_policies": 0
+  },
+  "postflight": {
+    "checked_at": "2026-11-26 04:40:01.998238+00",
+    "stopped": true,
+    "settings": [
+      {
+        "enabled": false,
+        "storeId": "ai-preview-beauty"
+      },
+      {
+        "enabled": false,
+        "storeId": "ai-preview-fitness"
+      },
+      {
+        "enabled": false,
+        "storeId": "ai-preview-music"
+      },
+      {
+        "enabled": false,
+        "storeId": "ai-preview-steamfoot"
+      }
+    ],
+    "requests": {
+      "mock": 44,
+      "total": 47,
+      "openai": 3,
+      "complete": 47,
+      "unresolved": 0,
+      "estimatedMicros": 1310
+    },
+    "dispatch": {
+      "total": 65,
+      "complete": 65,
+      "unresolved": 0
+    },
+    "audits": 8,
+    "handoffs": 1,
+    "fixture_bookings": 0,
+    "fixture_customers": 0,
+    "fixture_legacy_leads": 0,
+    "total_bookings": 127,
+    "total_customers": 1364,
+    "total_legacy_leads": 1,
+    "role": {
+      "createDb": false,
+      "bypassRls": false,
+      "superuser": false,
+      "createRole": false,
+      "loginExpires": "2026-12-02T14:15:52+00:00",
+      "connectionLimit": 8
+    },
+    "booking_insert": false,
+    "booking_update": false,
+    "booking_delete": false,
+    "enabled_store_count": 0,
+    "roleVerifiedAt": "2026-11-26 04:31:36.106533+00"
+  },
+  "advisorDiff": {
+    "before": 3,
+    "after": 3,
+    "newFindings": 0
+  },
+  "cleanup": {
+    "temporaryGrantsRevoked": 2,
+    "uniqueSyntheticLoginsInvalidated": 4,
+    "followupSteamLoginInvalidated": true,
+    "privateFilesRemoved": true
+  },
+  "dateTaipei": "2026-11-26",
+  "pr": "https://github.com/rock7652-beep/steamfoot-booking/pull/1596",
+  "branch": "feat/ai-digital-butler-core",
+  "mainSha": "378cd9475317f6c4ab804f0e48642f1d4f0f567a",
+  "scope": "First Steamfoot readonly adapter, manual authenticated TEST only. Not live AI or complete Phase 3.",
+  "hosted": [
+    {
+      "store": "steamfoot",
+      "runtimeSha": "d5e840d75e250c3c7f8159209a758f73f88ab60d",
+      "origin": "https://steamfoot-booking-fi7lz234p-rock7652-2111s-projects.vercel.app",
+      "entryMs": 16648,
+      "warmEntryMs": 4051,
+      "totalMs": 33390,
+      "queryMs": [
+        1435,
+        1579,
+        1366,
+        1348,
+        1154,
+        1399
+      ],
+      "cases": [
+        "authenticated-native-entry",
+        "authoritative-eight-slots-six-places",
+        "same-date-requeries-authority",
+        "collapse-keeps-result",
+        "new-date-authoritative-result",
+        "outside-customer-window-empty",
+        "past-date-server-rejected",
+        "network-failure-is-not-empty",
+        "read-retry-recovers",
+        "reload-native-entry",
+        "foreign-direct-url-denied"
+      ],
+      "rwd": [
+        {
+          "width": 1920,
+          "scrollWidth": 1920
+        },
+        {
+          "width": 1366,
+          "scrollWidth": 1366
+        },
+        {
+          "width": 1024,
+          "scrollWidth": 1024
+        },
+        {
+          "width": 768,
+          "scrollWidth": 768
+        },
+        {
+          "width": 390,
+          "scrollWidth": 390
+        },
+        {
+          "width": 360,
+          "scrollWidth": 360
+        }
+      ],
+      "expectedNetworkInterruptions": 1,
+      "expectedSlots": 8,
+      "expectedRemaining": 6,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "store": "beauty",
+      "runtimeSha": "d5e840d75e250c3c7f8159209a758f73f88ab60d",
+      "origin": "https://steamfoot-booking-fi7lz234p-rock7652-2111s-projects.vercel.app",
+      "entryMs": 15872,
+      "totalMs": 15993,
+      "cases": [
+        "authenticated-native-entry",
+        "steamfoot-adapter-not-mounted"
+      ],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "store": "fitness",
+      "runtimeSha": "d5e840d75e250c3c7f8159209a758f73f88ab60d",
+      "origin": "https://steamfoot-booking-fi7lz234p-rock7652-2111s-projects.vercel.app",
+      "entryMs": 12534,
+      "totalMs": 12634,
+      "cases": [
+        "authenticated-native-entry",
+        "steamfoot-adapter-not-mounted"
+      ],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "store": "music",
+      "runtimeSha": "d5e840d75e250c3c7f8159209a758f73f88ab60d",
+      "origin": "https://steamfoot-booking-fi7lz234p-rock7652-2111s-projects.vercel.app",
+      "entryMs": 12090,
+      "totalMs": 12277,
+      "cases": [
+        "authenticated-native-entry",
+        "steamfoot-adapter-not-mounted"
+      ],
+      "errors": [],
+      "failures": []
+    }
+  ],
+  "foreignScopeProof": {
+    "runtimeSha": "d5e840d75e250c3c7f8159209a758f73f88ab60d",
+    "origin": "https://steamfoot-booking-fi7lz234p-rock7652-2111s-projects.vercel.app",
+    "ownStatus": 200,
+    "ownSharedAiConfirmed": true,
+    "foreignStatus": 200,
+    "accessDeniedHeading": true,
+    "notFoundHeading": false,
+    "notFoundText": 0,
+    "sharedAiRegions": 0,
+    "steamReadRegions": 0,
+    "errors": [],
+    "note": "Stricter follow-up replaces the original adapter-absence-only cross-store assertion; same deployment, readonly navigation only."
+  },
+  "hostedCaseCount": 17,
+  "steamfootViewportCount": 6,
+  "local": {
+    "regressionFilesPassed": 15,
+    "regressionTestsPassed": 206,
+    "optInPostgresSkipped": 6,
+    "additionalRlsTestsPassed": 1,
+    "totalLocalPassed": 207,
+    "uiCasesPassed": 9,
+    "uiViewportCount": 6,
+    "hydrationErrors": 0,
+    "typecheck": "passed, repo CI heap=6144",
+    "eslint": "passed"
+  },
+  "ci": {
+    "runId": 45754811900,
+    "conclusion": "success",
+    "fullBaseline": {
+      "filesPassed": 1859,
+      "filesSkipped": 36,
+      "testsPassed": 17603,
+      "testsSkipped": 340,
+      "seconds": 408.08
+    },
+    "otherWorkflows": {
+      "sportsSharedCard": "success",
+      "musicMakeup": "success",
+      "mixedEnrollment": "success",
+      "booking": "skipped by workflow conditions",
+      "editorial": "skipped by workflow conditions"
+    }
+  },
+  "sameDateQueries": {
+    "n": 2,
+    "minMs": 1435,
+    "medianMs": 1507.0,
+    "maxMs": 1579
+  },
+  "necessaryVercelBuilds": 1,
+  "newOpenAiRequests": 0,
+  "actualBuildInvoiceAvailable": false,
+  "migration": {
+    "project": "ttworfzgwejdeolegkxl",
+    "name": "ai_preview_availability_read",
+    "sha256": "7e43aa74fbb1b67f12d8057986b658908d651b28cd63ccb72ad70b297f28181a",
+    "newPolicies": 2,
+    "tables": [
+      "Booking",
+      "DutyAssignment"
+    ],
+    "command": "SELECT",
+    "role": "steamfoot_ai_preview_20261125",
+    "onlyStore": "ai-preview-steamfoot",
+    "businessWriteGranted": false
+  },
+  "diagnostics": [
+    "Two default-heap TypeScript attempts ran out of Node memory. Existing CI heap setting 6144 passed without project configuration changes.",
+    "PGlite bootstrap exceeded the default 5-second test timeout; the single database test now allows 30 seconds. Security assertions were preserved.",
+    "Management SQL SET ROLE was denied. No workaround or privileged role transition was used; catalog checks, exact local RLS rehearsal and the actual Preview app connection provided evidence.",
+    "The first cross-store UI check only asserted adapter absence. Follow-up strengthened it to require a confirmed own page plus the existing shared layout access-denial screen and no AI regions.",
+    "Follow-up HTTP 403/404-only and generic Next 404 expectations were too narrow: the existing layout returns HTTP 200 with the explicit Chinese access-denial heading. Source was inspected, assertion corrected, and the readonly follow-up passed on the same deployment. No app rebuild."
+  ],
+  "limits": [
+    "Only the Steamfoot adapter is implemented. Other three industry fixtures were checked for adapter absence, not full availability features.",
+    "Cloud occupancy is zero; nonzero occupancy and duty data were verified locally. No cloud booking/customer/duty fixture was inserted.",
+    "Query times are client action-to-result observations. Entry/reload n=1 each, same-date successful queries n=2; no forced Lambda cold start, SLA, or physical device claim.",
+    "The manual adapter is not installed into the knowledge model provider and does not call OpenAI.",
+    "Verified-member personal data, booking writes and production channels remain unopened."
+  ]
+}

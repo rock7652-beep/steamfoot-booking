@@ -1,0 +1,14 @@
+{
+  "runtimeSha": "d5e840d75e250c3c7f8159209a758f73f88ab60d",
+  "origin": "https://steamfoot-booking-fi7lz234p-rock7652-2111s-projects.vercel.app",
+  "ownStatus": 200,
+  "ownSharedAiConfirmed": true,
+  "foreignStatus": 200,
+  "accessDeniedHeading": true,
+  "notFoundHeading": false,
+  "notFoundText": 0,
+  "sharedAiRegions": 0,
+  "steamReadRegions": 0,
+  "errors": [],
+  "note": "Stricter follow-up replaces the original adapter-absence-only cross-store assertion; same deployment, readonly navigation only."
+}
