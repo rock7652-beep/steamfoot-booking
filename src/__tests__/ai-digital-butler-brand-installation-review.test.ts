@@ -31,7 +31,7 @@ beforeAll(async () => {
 }, 30_000);
 afterAll(async () => { await db.close(); });
 beforeEach(async () => {
-  await db.exec('RESET ROLE; UPDATE "AiButlerControl" SET stopped=true; UPDATE "AiButlerSetting" SET setting=\'{"enabled":false}\';');
+  await db.exec('RESET ROLE; ALTER ROLE steamfoot_ai_preview_20261125 VALID UNTIL \'infinity\'; UPDATE "AiButlerControl" SET stopped=true; UPDATE "AiButlerSetting" SET setting=\'{"enabled":false}\';');
   if (await exists()) {
     // Local fixture cleanup only, never sent to any remote database.
     await db.exec('TRUNCATE ' + tables.map(t => `"${t}"`).join(",") + ";");
@@ -116,4 +116,20 @@ it("foreign brand configuration blocks empty removal rather than dropping anothe
   await db.exec(install); await db.exec('INSERT INTO "AiBrandService" VALUES (\'foreign\',\'fixture\')');
   await expect(db.exec(remove)).rejects.toThrow("FOREIGN_BRAND_DATA_REQUIRES_RETENTION"); await db.exec("ROLLBACK");
   expect(await exists()).toBe(true);
+});
+
+it("edited or published knowledge requires retention even if no model/event has run", async () => {
+  await db.exec(install);
+  await db.exec("UPDATE \"AiBrandKnowledgeDocument\" SET draft=jsonb_set(draft,'{introduction}','\"edited fixture\"'::jsonb)");
+  await expect(db.exec(remove)).rejects.toThrow("BRAND_CONFIG_CHANGED_REQUIRES_RETENTION"); await db.exec("ROLLBACK");
+  await db.exec(soft);
+  expect((await db.query('SELECT draft->>\'introduction\' AS introduction FROM "AiBrandKnowledgeDocument"')).rows[0]).toEqual({ introduction: "edited fixture" });
+});
+it("runtime login expiry does not prevent administrator recovery", async () => {
+  await db.exec(install);
+  await db.exec("ALTER ROLE steamfoot_ai_preview_20261125 VALID UNTIL '2000-01-01T00:00:00Z'");
+  await db.exec(soft);
+  expect((await db.query('SELECT status FROM "AiBrandGrant"')).rows[0]).toEqual({ status: "HIDDEN" });
+  // Soft stop changes the settings revision: removing it must still retain that configuration.
+  await expect(db.exec(remove)).rejects.toThrow("BRAND_CONFIG_CHANGED_REQUIRES_RETENTION"); await db.exec("ROLLBACK");
 });

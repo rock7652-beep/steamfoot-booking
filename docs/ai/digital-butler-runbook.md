@@ -128,4 +128,4 @@ Phase 0/1 六次部署的版本、失敗及修正保留在 [runtime 歷史](../.
 
 ## 品牌 Preview 前置審查（未安裝）
 
-[唯讀核對、最小 ACL／RLS、安裝與回復提案](digital-butler-brand-preview-review.md)記錄隔離庫品牌物件缺漏、實際 default ACL 與 9 項本機安裝／回復演練。僅 prepared SQL，未獲准或執行遠端安裝／seed；總停止／四店關閉／外發封鎖不變。原 PR 保存具體批准範圍；Cloudflare Workers Builds 另列獨立待查。
+[唯讀核對、最小 ACL／RLS、安裝與回復提案](digital-butler-brand-preview-review.md)記錄隔離庫品牌物件缺漏、實際 default ACL 與 11 項本機安裝／回復演練。僅 prepared SQL，未獲准或執行遠端安裝／seed；總停止／四店關閉／外發封鎖不變。原 PR 保存具體批准範圍；Cloudflare Workers Builds 另列獨立待查。

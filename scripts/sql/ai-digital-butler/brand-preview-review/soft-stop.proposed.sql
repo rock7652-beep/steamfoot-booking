@@ -9,7 +9,6 @@ DO $guard$
 BEGIN
  IF NOT EXISTS (SELECT 1 FROM public."AiButlerControl" WHERE id='global' AND stopped=true) THEN RAISE EXCEPTION 'AI_MUST_REMAIN_STOPPED'; END IF;
  IF (SELECT count(*) FROM public."AiButlerSetting" WHERE "storeId" IN ('ai-preview-steamfoot','ai-preview-beauty','ai-preview-fitness','ai-preview-music') AND setting->>'enabled'='false') <> 4 THEN RAISE EXCEPTION 'FOUR_DISABLED_STORES_REQUIRED'; END IF;
- IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='steamfoot_ai_preview_20261125' AND rolcanlogin AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole AND (rolvaliduntil IS NULL OR rolvaliduntil>CURRENT_TIMESTAMP)) THEN RAISE EXCEPTION 'EXISTING_ISOLATED_ROLE_REQUIRED'; END IF;
 END;
 $guard$;
 -- Soft rollback retains ALL cost, dispatch and handoff evidence.

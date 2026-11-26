@@ -47,8 +47,10 @@
 ## 回復方式
 
 - 安裝途中失敗：整個交易 ROLLBACK，不保留新物件或 seed，不動舊控制與帳本。
-- 尚無品牌活動：經批准可執行[空資料移除提案](../../scripts/sql/ai-digital-butler/brand-preview-review/remove-empty.proposed.sql)。只有 Request／Dispatch／Conversation／Audit 全空、沒有其他品牌資料時，才刪新函式與八張表；不使用 CASCADE，意外依賴會整批拒絕。舊程式偵測不到 BrandRequest 後沿用原 Store 帳本，不動歷史用量。
+- 尚無品牌活動：經批准可執行[空資料移除提案](../../scripts/sql/ai-digital-butler/brand-preview-review/remove-empty.proposed.sql)。只有 Request／Dispatch／Conversation／Audit 全空、沒有其他品牌資料、知識與設定仍為原始 seed 時，才刪新函式與八張表；不使用 CASCADE，意外依賴會整批拒絕。草稿／發布／預算／主體設定變動亦禁止空資料移除，只能保留資料停用。舊程式偵測不到 BrandRequest 後沿用原 Store 帳本，不動歷史用量。
 - 已有品牌活動：禁止破壞性移除，改用[停用提案](../../scripts/sql/ai-digital-butler/brand-preview-review/soft-stop.proposed.sql)，將該品牌設回關閉／HIDDEN、撤銷新增品牌表的 runtime 權限，保留全部帳本、對話及稽核。**保留窄聚合 EXECUTE**，使 Store 模式仍計入既有品牌成本；不能因回復而退回或重置已花用／未決預留費用。全域停止與四店關閉仍為執行前置條件。
+
+回復不要求 runtime 登入仍未到期，避免角色自然到期反而阻止管理者回復；本機已模擬過期驗證，沒有延長遠端角色。
 
 回復 SQL 也未執行於遠端；新授權應同時明確涵蓋失敗交易回復及符合條件的上述回復方式，不含刪除既有營運資料。
 
@@ -56,8 +58,8 @@
 
 | 驗收層級 | 本輪結果／下一個必要條件 |
 | --- | --- |
-| 本機 schema／ACL／RLS／回復 | 新增 9 項真正 PostgreSQL 引擎演練，含模擬實際 default ACL、service_role BYPASSRLS 仍無物件權限、跨品牌 UPDATE WITH CHECK、稽核 append-only、RLS 隱藏成本完整合計、安裝失敗原子回復、空移除／有活動保留 |
-| 共用核心回歸 | 與既有雙模式 36 項、六通路 5 項合跑，**3 檔／50 項通過**；型別及新測試 lint 通過。無網路 API／訊息外發 |
+| 本機 schema／ACL／RLS／回復 | 新增 11 項真正 PostgreSQL 引擎演練，含模擬實際 default ACL、service_role BYPASSRLS 仍無物件權限、跨品牌 UPDATE WITH CHECK、稽核 append-only、RLS 隱藏成本完整合計、安裝失敗原子回復、空移除／有活動保留 |
+| 共用核心回歸 | 與既有雙模式 36 項、六通路 5 項合跑，**3 檔／52 項通過**；型別及新測試 lint 通過。無網路 API／訊息外發 |
 | 遠端品牌基礎配置 | 被明確的「不授權安裝」範圍阻擋：需批准上述 schema／ACL／19 policies／聚合與四列關閉的 seed |
 | 新版 Preview 實際操作 | 舊部署仍 `005ce6e61562a1e5694b7537fbcbdb5d04eab5da`／`dpl_8XMZsnsSwHjMs9cFRRSqSYbm2Nn1`，不含雙模式核心。最新 core 的 createBrandAi 尚無 app route／工作台呼叫；安裝本身不等於品牌頁面可操作。先完成 schema 批准與既有工作台 owner 接線，才做一次必要新版 Preview，不能為只有 SQL 草稿的更新先付費重建 |
 | HQ 三態／發布／預算／人工與多店實際驗收 | 清單已備：品牌 Hidden／Locked 拒絕、Enabled 仍受總停止／品牌開關、發布版本與引用、獨立日月額度／共用總額、人工靜默與稽核恢復、品牌與四店互不串資料。涉及狀態寫入或 Mock 時另外取得明確窗口；目前不執行 |

@@ -84,13 +84,18 @@
     "sha256": {
       "catalog-readonly.sql": "a659a118561843dbb2bd9b486844f73607218501de983b7c1ec6ef27a6b92e8d",
       "install.proposed.sql": "4fc8a2a5ad04e7a88bba40226d48a3e180a0beedffb71690c09269974d39d2ff",
-      "remove-empty.proposed.sql": "72893ffd2bef7495ea400174b71fa80cc7da5c870db28cceba3d9b5528396aad",
-      "soft-stop.proposed.sql": "38b49fa0a9b976983d36c343111cec689efa3508024d79a5227a52a39a75c7f3"
-    }
+      "remove-empty.proposed.sql": "e473f3aa78e18b2d052399cc4bdd406e79e02de86087f36343fa091acf5771f3",
+      "soft-stop.proposed.sql": "d12be6976f6f3665adf968686f370942ac70b0a24d503add045085ba0be914a0"
+    },
+    "rollbackGuards": [
+      "No historical activity or foreign brand data may be dropped",
+      "Changed knowledge/settings/HQ state require retention soft stop",
+      "Administrator recovery does not require a non-expired runtime login"
+    ]
   },
   "localChecks": {
-    "installationReviewCases": 9,
-    "combinedCases": 50,
+    "installationReviewCases": 11,
+    "combinedCases": 52,
     "files": 3,
     "typecheck": "passed",
     "eslint": "passed"
