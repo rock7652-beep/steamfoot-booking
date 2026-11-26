@@ -19,6 +19,11 @@ export function useFeaturePresentation(feature: FeatureKey) {
 /** Do not mount hidden/locked editors or trigger their data requests. */
 export function FeatureEntry({ feature, label, children }: { feature: FeatureKey; label: string; children: ReactNode }) {
   const state = useFeaturePresentation(feature);
+  return <FeatureStateEntry state={state} label={label}>{children}</FeatureStateEntry>;
+}
+
+/** Shared three-state presentation; owner adapters provide their own entitlement. */
+export function FeatureStateEntry({state,label,children}:{state:FeaturePresentationState|undefined;label:string;children:ReactNode}) {
   if (state === "HIDDEN") return null;
   if (state === "LOCKED") return <div className="flex min-h-11 items-center justify-between gap-3 border-b border-earth-100 py-3 text-sm"><span className="font-medium text-primary-900">{label}</span><span className="text-earth-500">未開通</span></div>;
   return children;

@@ -1,0 +1,89 @@
+{
+  "kind": "local Chromium, actual shared components, synthetic read-only actions; not cloud/authenticated business or physical device acceptance",
+  "sizes": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 1366,
+      "height": 900,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "overflow": false,
+      "touch": true
+    }
+  ],
+  "cases": [
+    "HQ-hidden-management-inspection",
+    "brand-no-industry-or-store-references",
+    "mutation-controls-disabled",
+    "saved-version-review-read-only",
+    "section-and-resize-state-retention",
+    "handoff-empty-list",
+    "touch-targets-and-overflow"
+  ],
+  "calls": [
+    {
+      "name": "reviewBrandKnowledge",
+      "input": {
+        "revision": 0
+      }
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "input": {
+        "revision": 0
+      }
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "input": {
+        "revision": 0
+      }
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "input": {
+        "revision": 0
+      }
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "input": {
+        "revision": 0
+      }
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "input": {
+        "revision": 0
+      }
+    }
+  ],
+  "consoleErrors": []
+}

@@ -1,5 +1,7 @@
 # 品牌隔離 Preview：唯讀前置核對與待批准變更
 
+> 歷史審查快照：後續已獲批准並完成安裝；本頁保留當時提案文字，不代表目前尚未安裝。管理接線與本輪驗收見 [品牌管理紀錄](digital-butler-brand-management.md)，實際安裝證據見原 PR #1596。
+
 2026-11-26（台灣時間），接續 Draft [PR #1596](https://github.com/rock7652-beep/steamfoot-booking/pull/1596)。本輪執行範圍是目標隔離庫的唯讀核對、安裝／ACL／RLS 草稿審查與本機演練。**下列 proposed SQL 均未送到遠端執行，尚未取得安裝或資料寫入授權。**未修改 Production、其他資料庫、Vercel 環境設定或 LINE callback。
 
 ## 唯讀結果與證據限制

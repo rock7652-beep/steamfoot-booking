@@ -7,10 +7,11 @@ import { readAiButlerHandoffs, resumeAiButlerConversation } from "./ai-actions";
 import { useAiHandoffWorkspace } from "./ai-handoff-workspace";
 
 const button = "min-h-11 rounded-lg border border-earth-200 px-3 text-sm disabled:opacity-50";
-export function AiHandoffPanel({ page: initialPage, viewKey, cursor: initialCursor, readOnly = false }: { page: AiHandoffPage | null; viewKey: string; cursor?: string; readOnly?: boolean }) {
+export function AiHandoffPanel({ page: initialPage, viewKey, cursor: initialCursor, readOnly = false, actions: suppliedActions, serviceMode="STORE" }: { serviceMode?:"STORE"|"BRAND"; actions?:{readAiButlerHandoffs:typeof readAiButlerHandoffs;resumeAiButlerConversation:typeof resumeAiButlerConversation}; page: AiHandoffPage | null; viewKey: string; cursor?: string; readOnly?: boolean }) {
+  const actions=suppliedActions??{readAiButlerHandoffs,resumeAiButlerConversation};
   const [data, setData] = useState({ page: initialPage, cursor: initialCursor });
   const { page, cursor } = data, shared = useAiHandoffWorkspace();
-  const reader = usePanelReader("ai-handoff-queue", readAiButlerHandoffs, viewKey, 0);
+  const reader = usePanelReader("ai-handoff-queue", actions.readAiButlerHandoffs, viewKey, 0);
   const generation = useRef(0);
   useEffect(() => () => { generation.current++; reader.clear(); }, [reader]);
   const [expanded, setExpanded] = useState(!!initialCursor), [confirm, setConfirm] = useState<string | null>(null);
@@ -44,7 +45,7 @@ export function AiHandoffPanel({ page: initialPage, viewKey, cursor: initialCurs
     const ticket = ++generation.current, path = window.location.pathname;
     pending.current = command; setUncertain(true); setBusy(true); setError(""); setNotice("");
     try {
-      const response = await resumeAiButlerConversation(command);
+      const response = await actions.resumeAiButlerConversation(command);
       if (ticket !== generation.current || window.location.pathname !== path) return;
       if (response.success) {
         if (response.snapshot.viewKey !== viewKey) throw new Error("SCOPE_CHANGED");
@@ -62,7 +63,7 @@ export function AiHandoffPanel({ page: initialPage, viewKey, cursor: initialCurs
     <SettingsListRow title="AI 待人工處理" summary={page ? `${page.total} 筆待處理・隔離測試` : "讀取失敗，請重新整理"} expanded={expanded} keepMounted
       controls={<button type="button" className={button} disabled={locked} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? "收合待處理" : "查看待處理"}</button>}>
       <div className="min-w-0 space-y-3 pb-4 text-sm">
-        <p className="text-earth-600">集中查看本店隔離測試的真人接手狀態；不含真實顧客或訊息。恢復後仍受 AI 總停止與店家開關限制。</p>
+        <p className="text-earth-600">{serviceMode === "BRAND" ? "集中查看本品牌真人接手狀態，不含門市對話；恢復後仍受總停止與品牌開關限制。" : "集中查看本店隔離測試的真人接手狀態；不含真實顧客或訊息。恢復後仍受 AI 總停止與店家開關限制。"}</p>
         <div className="flex flex-wrap items-center gap-2"><button type="button" className={button} disabled={locked} onClick={() => refresh(cursor)}>重新整理待處理</button>
           {cursor && <button type="button" className={button} disabled={locked} onClick={() => refresh()}>回到第一頁</button>}
           {page?.nextCursor && <button type="button" className={button} disabled={locked} onClick={() => refresh(page.nextCursor!)}>下一頁待處理</button>}
