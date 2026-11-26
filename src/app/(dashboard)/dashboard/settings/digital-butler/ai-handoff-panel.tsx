@@ -1,44 +1,62 @@
 "use client";
-import { useRef, useState, useTransition } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { usePanelReader } from "@/components/operations/panel-read-cache";
 import { SettingsListRow } from "@/components/settings/settings-workspace";
-import type { AiHandoffPage, AiHandoffResumeInput } from "@/server/ai/handoff-contract";
-import { resumeAiButlerConversation } from "./ai-actions";
+import type { AiHandoffPage, AiHandoffResumeInput, AiHandoffSnapshot } from "@/server/ai/handoff-contract";
+import { readAiButlerHandoffs, resumeAiButlerConversation } from "./ai-actions";
+import { useAiHandoffWorkspace } from "./ai-handoff-workspace";
 
 const button = "min-h-11 rounded-lg border border-earth-200 px-3 text-sm disabled:opacity-50";
-export function AiHandoffPanel({ page, viewKey, cursor, readOnly = false }: { page: AiHandoffPage | null; viewKey: string; cursor?: string; readOnly?: boolean }) {
-  const router = useRouter(), pathname = usePathname(), searchParams = useSearchParams();
-  const [expanded, setExpanded] = useState(!!cursor), [confirm, setConfirm] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false), [refreshing, startRefresh] = useTransition();
+export function AiHandoffPanel({ page: initialPage, viewKey, cursor: initialCursor, readOnly = false }: { page: AiHandoffPage | null; viewKey: string; cursor?: string; readOnly?: boolean }) {
+  const [data, setData] = useState({ page: initialPage, cursor: initialCursor });
+  const { page, cursor } = data, shared = useAiHandoffWorkspace();
+  const reader = usePanelReader("ai-handoff-queue", readAiButlerHandoffs, viewKey, 0);
+  const generation = useRef(0);
+  useEffect(() => () => { generation.current++; reader.clear(); }, [reader]);
+  const [expanded, setExpanded] = useState(!!initialCursor), [confirm, setConfirm] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false), [refreshing, setRefreshing] = useState(false), [stale, setStale] = useState(false);
   const [error, setError] = useState(""), [notice, setNotice] = useState(""), [uncertain, setUncertain] = useState(false);
   const pending = useRef<AiHandoffResumeInput | null>(null);
   const locked = busy || refreshing || uncertain;
-  function refresh(after?: string) {
+  function apply(snapshot: AiHandoffSnapshot, path: string) {
+    if (snapshot.viewKey !== viewKey || window.location.pathname !== path) return;
+    setData({ page: snapshot.page, cursor: snapshot.cursor }); setStale(false); shared?.accept(snapshot);
+    const params = new URLSearchParams(window.location.search);
+    if (snapshot.cursor) params.set("aiQueueAfter", snapshot.cursor); else params.delete("aiQueueAfter");
+    window.history.replaceState(window.history.state, "", `${path}${params.size ? `?${params}` : ""}`);
+  }
+  async function refresh(after?: string) {
     if (uncertain || busy) return;
-    setConfirm(null); setError("");
-    const params = new URLSearchParams(searchParams.toString());
-    if (after) params.set("aiQueueAfter", after); else params.delete("aiQueueAfter");
-    const next = `${pathname}${params.size ? `?${params}` : ""}`;
-    const current = `${pathname}${searchParams.size ? `?${searchParams}` : ""}`;
-    startRefresh(() => { if (next === current) router.refresh(); else router.replace(next, { scroll: false }); });
+    const ticket = ++generation.current, path = window.location.pathname;
+    setConfirm(null); setError(""); setRefreshing(true);
+    try {
+      const response = await reader.refresh({ viewKey, cursor: after });
+      if (ticket !== generation.current || window.location.pathname !== path) return;
+      if (response.success) { if (response.snapshot.viewKey !== viewKey) throw new Error("SCOPE_CHANGED"); apply(response.snapshot, path); }
+      else { setError(response.error); setStale(true); }
+    } catch { if (ticket === generation.current) { setError("清單更新失敗，保留目前資料；請重新整理後再操作。"); setStale(true); } }
+    finally { if (ticket === generation.current) setRefreshing(false); }
   }
   async function resume(row?: AiHandoffPage["rows"][number]) {
     if (readOnly) return;
-    const command = pending.current ?? (row ? { commandId: crypto.randomUUID(), viewKey, scopeKey: row.scopeKey, revision: row.revision } : null);
+    const command = pending.current ?? (row ? { commandId: crypto.randomUUID(), viewKey, scopeKey: row.scopeKey, revision: row.revision, cursor } : null);
     if (!command) return;
+    const ticket = ++generation.current, path = window.location.pathname;
     pending.current = command; setUncertain(true); setBusy(true); setError(""); setNotice("");
     try {
       const response = await resumeAiButlerConversation(command);
+      if (ticket !== generation.current || window.location.pathname !== path) return;
       if (response.success) {
+        if (response.snapshot.viewKey !== viewKey) throw new Error("SCOPE_CHANGED");
+        reader.clear(); apply(response.snapshot, path);
         pending.current = null; setUncertain(false); setConfirm(null);
         setNotice(response.duplicate ? "此操作已處理，請核對最新清單。" : "已記錄恢復；AI 總停止與店家開關仍有效。");
-        startRefresh(() => router.refresh());
       } else {
         setError(response.error);
-        if (!response.uncertain) { pending.current = null; setUncertain(false); }
+        if (!response.uncertain) { pending.current = null; setUncertain(false); setStale(true); }
       }
-    } catch { setError("連線中斷，操作結果尚未確認；重試會沿用原操作。"); }
-    finally { setBusy(false); }
+    } catch { if (ticket === generation.current) setError("連線中斷，操作結果尚未確認；重試會沿用原操作。"); }
+    finally { if (ticket === generation.current) setBusy(false); }
   }
   return <section aria-label="AI 待人工處理" className="min-w-0 rounded-xl border border-earth-200 bg-white px-4">
     <SettingsListRow title="AI 待人工處理" summary={page ? `${page.total} 筆待處理・隔離測試` : "讀取失敗，請重新整理"} expanded={expanded} keepMounted
@@ -53,10 +71,10 @@ export function AiHandoffPanel({ page, viewKey, cursor, readOnly = false }: { pa
           <ul aria-label="待處理測試對話" className="min-w-0 divide-y divide-earth-100">{page.rows.map(row => <li key={row.scopeKey} data-scope-code={row.scopeKey} className="admin-striped-row min-w-0 space-y-2 p-3">
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
               <div className="min-w-0 break-words"><p className="font-medium">測試對話 {row.scopeKey.slice(0, 8)}…{row.scopeKey.slice(-4)}</p><p className="text-earth-600">{row.needsReview ? "事件仍處理中或待核對，暫不能恢復" : "真人接手中"}</p>{row.lastEventLabel && <p className="text-earth-600">最近測試：{row.lastEventLabel}</p>}</div>
-              <button type="button" className={button} disabled={readOnly || locked || row.needsReview} onClick={() => { setConfirm(row.scopeKey); setError(""); setNotice(""); }}>準備恢復</button>
+              <button type="button" className={button} disabled={readOnly || stale || locked || row.needsReview} onClick={() => { setConfirm(row.scopeKey); setError(""); setNotice(""); }}>準備恢復</button>
             </div>
             {confirm === row.scopeKey && <div className="space-y-2 rounded-lg border border-earth-200 p-3"><p>確認此對話已處理完畢，再允許後續自動回覆？這不會開啟 AI 總開關或店家開關。</p>
-              <div className="flex flex-wrap gap-2"><button type="button" className={`${button} bg-primary-700 text-white`} disabled={readOnly || locked} onClick={() => resume(row)}>確認恢復此對話</button><button type="button" className={button} disabled={locked} onClick={() => setConfirm(null)}>取消恢復</button></div>{error && <p role="alert" className="break-words text-red-700">{error}</p>}</div>}
+              <div className="flex flex-wrap gap-2"><button type="button" className={`${button} bg-primary-700 text-white`} disabled={readOnly || stale || locked} onClick={() => resume(row)}>確認恢復此對話</button><button type="button" className={button} disabled={locked} onClick={() => setConfirm(null)}>取消恢復</button></div>{error && <p role="alert" className="break-words text-red-700">{error}</p>}</div>}
           </li>)}</ul>}
         {readOnly && <p className="text-earth-600">目前是唯讀檢視，不能恢復對話。</p>}
         {error && (!confirm || !page?.rows.some(row => row.scopeKey === confirm)) && <p role="alert" className="break-words text-red-700">{error}</p>}

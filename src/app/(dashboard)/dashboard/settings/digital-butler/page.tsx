@@ -9,6 +9,7 @@ import { AI_ROUTING_ACCOUNT } from "@/server/ai/routing-contract";
 import { AiHandoffRepository, aiHandoffViewKey } from "@/server/ai/handoff-repository";
 import { aiHandoffKeySchema, type AiHandoffPage } from "@/server/ai/handoff-contract";
 import { AiHandoffPanel } from "./ai-handoff-panel";
+import { AiHandoffWorkspace } from "./ai-handoff-workspace";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { AiKnowledgePanel } from "./ai-knowledge-panel";
 import { AiKnowledgeRepository } from "@/server/ai/knowledge-repository";
@@ -80,10 +81,12 @@ export default async function DigitalButlerSettingsPage({ searchParams }: { sear
         }
       />
       {!ai && aiState === "ENABLED" && <p className="text-sm text-earth-600">AI 數位店長尚未在此環境開放，正式客服尚未啟用。</p>}
-      {ai && <AiButlerPanel key={storeId} setting={ai.setting.setting} revision={ai.setting.revision} liveTestAvailable={process.env.AI_OPENAI_TEST_ENABLED === "1"} requestCount={ai.usage.requests} reservedMicros={ai.usage.reservedMicros} budgetMicros={ai.usage.budgetMicros} alerts={ai.usage.alerts} initialHandoff={ai.handoff} initialHandoffRevision={ai.handoffRevision} />}
-      {ai && <AiKnowledgePanel key={`knowledge-${storeId}`} initial={ai.knowledge} liveTestAvailable={process.env.AI_OPENAI_TEST_ENABLED === "1"} />}
-      {ai && <AiRoutingPanel key={`routing-${storeId}`} initial={ai.routing} />}
-      {ai && <AiHandoffPanel key={handoffViewKey} page={handoffs} viewKey={handoffViewKey} cursor={handoffCursor} readOnly={!!(await resolveStoreViewContextFromCookie(user))?.isViewMode} />}
+      {ai && <AiHandoffWorkspace key={handoffViewKey} viewKey={handoffViewKey}>
+      <AiButlerPanel key={storeId} setting={ai.setting.setting} revision={ai.setting.revision} liveTestAvailable={process.env.AI_OPENAI_TEST_ENABLED === "1"} requestCount={ai.usage.requests} reservedMicros={ai.usage.reservedMicros} budgetMicros={ai.usage.budgetMicros} alerts={ai.usage.alerts} initialHandoff={ai.handoff} initialHandoffRevision={ai.handoffRevision} />
+      <AiKnowledgePanel key={`knowledge-${storeId}`} initial={ai.knowledge} liveTestAvailable={process.env.AI_OPENAI_TEST_ENABLED === "1"} />
+      <AiRoutingPanel key={`routing-${storeId}`} initial={ai.routing} />
+      <AiHandoffPanel key={handoffViewKey} page={handoffs} viewKey={handoffViewKey} cursor={handoffCursor} readOnly={!!(await resolveStoreViewContextFromCookie(user))?.isViewMode} />
+      </AiHandoffWorkspace>}
       {butlerAllowed && <DigitalButlerFlowEditor
         flows={flows}
         courseMode={store.industryModule === "COURSE"}

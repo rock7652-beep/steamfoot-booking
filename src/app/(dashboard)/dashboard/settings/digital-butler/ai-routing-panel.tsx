@@ -3,12 +3,15 @@ import {useRef,useState} from "react";
 import {SettingsListRow} from "@/components/settings/settings-workspace";
 import {AI_ROUTING_SCENARIOS,type AiRoutingScenario,type AiRoutingResult} from "@/server/ai/routing-contract";
 import {testAiButlerRouting,setAiButlerRoutingHandoff} from "./ai-actions";
+import {useAiHandoffWorkspace} from "./ai-handoff-workspace";
 type Event={eventId:string;scenario:AiRoutingScenario};
 const button="min-h-11 rounded-lg border border-earth-200 px-3 text-sm disabled:opacity-50";
 export function AiRoutingPanel({initial}:{initial:{handoff:boolean;revision:number;globalStopped:boolean}}){
  const [local,setLocal]=useState({value:initial,baseRevision:initial.revision}),[expanded,setExpanded]=useState(false),[busy,setBusy]=useState(false),[scenario,setScenario]=useState<AiRoutingScenario>("original"),[result,setResult]=useState<AiRoutingResult|null>(null),[error,setError]=useState(""),[notice,setNotice]=useState(""),[uncertain,setUncertain]=useState(false),[hasLast,setHasLast]=useState(false);
- const state=initial.revision>local.baseRevision?initial:local.value;
- const setState=(value:typeof initial)=>setLocal({value,baseRevision:initial.revision});
+ const shared=useAiHandoffWorkspace()?.snapshot?.routing;
+ const external=shared&&shared.revision>initial.revision?shared:initial;
+ const state=external.revision>local.value.revision?external:local.value;
+ const setState=(value:typeof initial)=>setLocal({value,baseRevision:external.revision});
  const pending=useRef<Event|null>(null),last=useRef<Event|null>(null);
  async function test(replay=false){
   const event=pending.current??(replay?last.current:{eventId:crypto.randomUUID(),scenario});

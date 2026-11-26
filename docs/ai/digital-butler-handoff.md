@@ -6,9 +6,9 @@ AI 轉真人目前會保存旗標，但店長只能操作自己正在測試的�
 
 ## 操作與資料
 
-- 原入口、plans.edit、獨立 AI 權益及四個 fixture store guard 不變。SSR 提供完整當頁資料；同頁刷新／翻頁沿用 RSC，不另建 client 資料快取。每頁 25 筆、穩定 scope 排序與 keyset cursor，總數與當頁出自同一 SQL 快照；讀取失敗不顯示 0 筆。
+- 原入口、plans.edit、獨立 AI 權益及四個 fixture store guard 不變。SSR 提供完整當頁資料；同頁刷新／翻頁沿用共用 usePanelReader（TTL 0），以重新授權的 server action 僅讀取清單及目前 actor 接手狀態，不重跑課表或整個後台。恢復成功也回傳權威快照，共用工作區依 revision 同步本頁原有測試控制；不以本機推測宣告成功。每頁 25 筆、穩定 scope 排序與 keyset cursor，總數與當頁出自同一 SQL 快照；讀取失敗不顯示 0 筆。
 - 顯示不可反推身分的測試對話代碼、接手狀態與最近測試時間；時間由伺服器使用 Asia/Taipei 共用函式產生展示字串，客戶端直接呈現，避免 Node／Chrome ICU 空白字元不同造成 hydration mismatch。不顯示顧客訊息、LINE ID 或帳號憑證。scopeKey 只作本店資料定位，不是權限證明。
-- 準備恢復 → 核對確認 → 伺服器成功 → 刷新目前頁。取消不寫入；唯讀檢視不可恢復。RWD、收合與資料刷新保留介面狀態；切換帳號／店家用 viewKey 隔離，舊回應不帶入新工作區。
+- 準備恢復 → 核對確認 → 伺服器成功 → 更新目前頁的權威快照。取消不寫入；唯讀檢視不可恢復。RWD、收合與資料刷新保留介面狀態；切換帳號／店家用 viewKey 隔離，舊回應不帶入新工作區。
 - 恢復只將指定對話 handoff=false、清除摘要並增加 revision。所有其他 AI 開關、全域停止、預算、用量與原客服名單都不變；舊結果仍受原有 revision guard 抑制。
 
 ## 原子操作與稽核

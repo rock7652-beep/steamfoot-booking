@@ -1,8 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { requireWritablePermission } from "@/lib/permissions";
-import { resolveWriteStoreId } from "@/lib/store";
+import { requirePermission, requireWritablePermission } from "@/lib/permissions";
+import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { assertAiPreview } from "../../../../../../scripts/ai-digital-butler-preview-scope.mjs";
@@ -57,8 +57,8 @@ export async function setAiButlerTestHandoff(handoff: boolean) {
     z.boolean().parse(handoff);
     const scope = await context();
     const identity = aiIdentity(scope, "operator", process.env.AI_IDENTITY_SECRET ?? "");
-    await aiButlerRepository().handoff(identity, handoff, new Date());
-    return { success: true as const };
+    const revision = await aiButlerRepository().handoff(identity, handoff, new Date());
+    return { success: true as const, revision };
   } catch { return safeError; }
 }
 
@@ -195,6 +195,38 @@ export async function setAiButlerRoutingHandoff(handoff:boolean) {
   } catch { return {success:false as const,error:"無法確認路由接手狀態，請重新確認。"}; }
 }
 
+async function handoffSnapshot(scope: TrustedAiScope, viewKey: string, cursor?: string): Promise<import("@/server/ai/handoff-contract").AiHandoffSnapshot> {
+  const { AiHandoffRepository } = await import("@/server/ai/handoff-repository");
+  const { aiButlerDatabase } = await import("@/server/ai/database");
+  const repository = aiButlerRepository();
+  const [page, synthetic, routing] = await Promise.all([
+    new AiHandoffRepository(aiButlerDatabase()).list(scope.storeId, cursor),
+    repository.conversationState(aiIdentity(scope, "operator-read", process.env.AI_IDENTITY_SECRET ?? "")),
+    routingState({ ...scope, channelAccountId: AI_ROUTING_ACCOUNT }),
+  ]);
+  return { viewKey, page, cursor, synthetic, routing };
+}
+export async function readAiButlerHandoffs(input: { viewKey: string; cursor?: string }) {
+  try {
+    const { aiHandoffReadSchema } = await import("@/server/ai/handoff-contract");
+    const data = aiHandoffReadSchema.parse(input);
+    const readContext = async (): Promise<TrustedAiScope> => {
+      assertAiPreview();
+      const user = await requirePermission("plans.edit");
+      const storeId = await getActiveStoreForRead(user);
+      if (!storeId || !/^ai-preview-(steamfoot|beauty|fitness|music)$/.test(storeId)) throw new Error("AI_SYNTHETIC_STORE_REQUIRED");
+      await requireStoreFeature(storeId, FEATURES.AI_DIGITAL_BUTLER);
+      return { storeId, actorId: user.id, channel: "TEST", channelAccountId: "dashboard-synthetic-test", module: "STEAMFOOT" };
+    };
+    const { aiHandoffViewKey } = await import("@/server/ai/handoff-repository");
+    const scope = await readContext();
+    const matches = (s: TrustedAiScope) => aiHandoffViewKey(s.storeId, s.actorId, process.env.AI_IDENTITY_SECRET ?? "") === data.viewKey;
+    if (!matches(scope)) throw new Error("AI_HANDOFF_SCOPE_CHANGED");
+    const snapshot = await handoffSnapshot(scope, data.viewKey, data.cursor);
+    if (!matches(await readContext())) throw new Error("AI_HANDOFF_SCOPE_CHANGED");
+    return { success: true as const, snapshot };
+  } catch { return { success: false as const, error: "清單尚未更新，請核對目前帳號與店家後重試；目前資料不代表最新狀態。" }; }
+}
 export async function resumeAiButlerConversation(input: import("@/server/ai/handoff-contract").AiHandoffResumeInput) {
   try {
     const { aiHandoffResumeSchema } = await import("@/server/ai/handoff-contract");
@@ -211,7 +243,9 @@ export async function resumeAiButlerConversation(input: import("@/server/ai/hand
     await authorize();
     const result = await new AiHandoffRepository(aiButlerDatabase()).resume({ storeId: scope.storeId, scopeKey: data.scopeKey,
       revision: data.revision, ...aiHandoffCommandKeys(scope.storeId, scope.actorId, data.commandId, secret) }, new Date(), authorize);
-    return { success: true as const, duplicate: result.duplicate };
+    const snapshot = await handoffSnapshot(scope, data.viewKey, data.cursor);
+    await authorize();
+    return { success: true as const, duplicate: result.duplicate, snapshot };
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     const messages: Record<string, string> = {

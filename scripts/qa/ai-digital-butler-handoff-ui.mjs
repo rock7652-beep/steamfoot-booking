@@ -14,11 +14,13 @@ const root = process.cwd(), temp = mkdtempSync(path.join(tmpdir(), 'ai-handoff-u
 const out = path.join(root, 'artifacts/ai-digital-butler/handoff'); mkdirSync(out, { recursive: true });
 const plugins = [{ name: 'offline-handoff', setup(b) {
     b.onResolve({ filter: /(?:^|\/)ai-actions$/ }, () => ({ path: 'actions', namespace: 'fixture' }));
+    b.onResolve({ filter: /^@\/components\/operations\/panel-read-cache$/ }, () => ({ path: 'reader', namespace: 'fixture' }));
     b.onResolve({ filter: /^next\/navigation$/ }, () => ({ path: 'navigation', namespace: 'fixture' }));
     b.onResolve({ filter: /^@\/components\/dashboard-link$/ }, () => ({ path: 'link', namespace: 'fixture' }));
     b.onResolve({ filter: /(?:^|\/)settings-navigation$/ }, () => ({ path: 'settings', namespace: 'fixture' }));
     b.onLoad({ filter: /.*/, namespace: 'fixture' }, ({ path: name }) => ({ loader: 'js', resolveDir: root, contents:
-      name === 'actions' ? `export const resumeAiButlerConversation=input=>window.queueAction(input);`
+      name === 'actions' ? `export const resumeAiButlerConversation=input=>window.queueAction(input);export const readAiButlerHandoffs=input=>window.queueRead(input);`
+        : name === 'reader' ? `import{useMemo}from'react';export const usePanelReader=()=>useMemo(()=>({refresh:input=>window.queueRead(input),clear:()=>{}}),[]);`
         : name === 'navigation' ? `export const usePathname=()=>'/dashboard/settings/digital-butler';export const useSearchParams=()=>new URLSearchParams(window.queueCursor?'aiQueueAfter='+window.queueCursor:'');export const useRouter=()=>({refresh:()=>window.queueLoad(),replace:url=>{window.queueCursor=new URL(url,location.origin).searchParams.get('aiQueueAfter');window.queueLoad();}});`
           : name === 'settings' ? `import{createContext}from'react';export const SettingsNavigationContext=createContext(null);export const settingsWorkspaceHref=href=>href;export const useRememberSettingsLocation=()=>{};`
             : `import{createElement}from'react';export const DashboardLink=({children,...props})=>createElement('a',props,children);` }));
@@ -42,6 +44,10 @@ try {
   await page.evaluate(rows => {
     window.queueRows = rows; window.queueHydrationErrors = [];
     window.queueCalls = []; window.queueCursor = null; window.queueView = 'a'.repeat(64); window.queueReadOnly = false;
+    window.queueSnapshot = cursor => { const rows = window.queueRows.filter(row => !cursor || row.scopeKey > cursor); return { viewKey: window.queueView, cursor: cursor || undefined,
+      page: { rows: rows.slice(0, 25), total: window.queueRows.length, nextCursor: rows.length > 25 ? rows[24].scopeKey : null },
+      synthetic: { handoff: false, revision: 2 }, routing: { handoff: false, revision: 2, globalStopped: true } }; };
+    window.queueRead = async input => { window.queueCursor = input.cursor || null; return window.queueError ? { success: false, error: '清單尚未更新' } : { success: true, snapshot: window.queueSnapshot(input.cursor) }; };
     window.queueLoad = () => {
       const rows = window.queueRows.filter(row => !window.queueCursor || row.scopeKey > window.queueCursor);
       window.drawQueue({ viewKey: window.queueView, cursor: window.queueCursor || undefined, readOnly: window.queueReadOnly,
@@ -51,7 +57,7 @@ try {
       window.queueCalls.push(input);
       if (window.queueFail) { window.queueFail = false; throw Error('Synthetic interruption'); }
       if (window.queueConflict) return { success: false, uncertain: false, error: '對話狀態已變更，請重新整理清單後核對。' };
-      window.queueRows = window.queueRows.filter(row => row.scopeKey !== input.scopeKey); return { success: true, duplicate: false };
+      window.queueRows = window.queueRows.filter(row => row.scopeKey !== input.scopeKey); return { success: true, duplicate: false, snapshot: window.queueSnapshot(input.cursor) };
     };
   }, fixtureRows);
   await page.addStyleTag({ path: path.join(temp, 'fixture.css') }); await page.addScriptTag({ path: path.join(temp, 'fixture.js') });
@@ -85,7 +91,8 @@ try {
   await panel.getByRole('button', { name: '查看待處理', exact: true }).click();
   if (await panel.getByRole('button', { name: '確認恢復此對話' }).count()) throw Error('old scope confirmation leaked');
   if (!await rows().first().getByRole('button', { name: '準備恢復' }).isDisabled()) throw Error('readonly mutation');
-  await page.evaluate(() => { window.queueError = true; window.queueLoad(); }); await panel.getByRole('alert').filter({ hasText: '尚未讀取成功' }).waitFor();
+  await page.evaluate(() => { window.queueError = true; window.queueView = 'c'.repeat(64); window.queueLoad(); });
+  await panel.getByRole('button', { name: '查看待處理', exact: true }).click(); await panel.getByRole('alert').filter({ hasText: '尚未讀取成功' }).waitFor();
   if (errors.length) throw Error(errors.join('\n'));
   const hydrationErrors = await page.evaluate(() => window.queueHydrationErrors);
   if (hydrationErrors.length) throw Error('SSR hydration mismatch: ' + hydrationErrors[0]);

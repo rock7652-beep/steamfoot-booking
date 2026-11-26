@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { SettingsListRow } from "@/components/settings/settings-workspace";
 import { saveAiButlerSetting, testAiButler, setAiButlerTestHandoff } from "./ai-actions";
 import type { AiSetting, AiModule } from "@/server/ai/contracts";
+import { useAiHandoffWorkspace } from "./ai-handoff-workspace";
 
 type Props = { setting: AiSetting; revision: number; liveTestAvailable: boolean; requestCount: string; reservedMicros: string; budgetMicros: number; alerts: number[]; initialHandoff?: boolean; initialHandoffRevision?: number };
 export function AiButlerPanel(props: Props) {
@@ -20,8 +21,11 @@ export function AiButlerPanel(props: Props) {
   const pendingEvent = useRef<string | null>(null);
   const [usage, setUsage] = useState({ requestCount: props.requestCount, reservedMicros: props.reservedMicros, budgetMicros: props.budgetMicros, alerts: props.alerts });
   const [localHandoff, setLocalHandoff] = useState({ value: props.initialHandoff ?? false, baseRevision: props.initialHandoffRevision ?? 0 });
-  const handoff = (props.initialHandoffRevision ?? 0) > localHandoff.baseRevision ? props.initialHandoff ?? false : localHandoff.value;
-  const setHandoff = (value: boolean) => setLocalHandoff({ value, baseRevision: props.initialHandoffRevision ?? 0 });
+  const sharedHandoff = useAiHandoffWorkspace()?.snapshot?.synthetic;
+  const externalRevision = Math.max(props.initialHandoffRevision ?? 0, sharedHandoff?.revision ?? 0);
+  const externalHandoff = sharedHandoff && sharedHandoff.revision >= (props.initialHandoffRevision ?? 0) ? sharedHandoff.handoff : props.initialHandoff ?? false;
+  const handoff = externalRevision > localHandoff.baseRevision ? externalHandoff : localHandoff.value;
+  const setHandoff = (value: boolean, actualRevision = externalRevision) => setLocalHandoff({ value, baseRevision: actualRevision });
   async function toggle() {
     setBusy(true); setError(""); setNotice("");
     try {
@@ -49,7 +53,7 @@ export function AiButlerPanel(props: Props) {
     try {
       const result = await setAiButlerTestHandoff(!handoff);
       if (!result.success) setError(result.error);
-      else { setHandoff(!handoff); setNotice(handoff ? "已恢復測試回覆" : "真人已接手，AI 暫停回覆"); }
+      else { setHandoff(!handoff, result.revision); setNotice(handoff ? "已恢復測試回覆" : "真人已接手，AI 暫停回覆"); }
     } catch { setError("無法確認接手狀態，請重新確認。"); } finally { setBusy(false); }
   }
   const button = "min-h-11 rounded-lg border border-earth-200 px-3 text-sm disabled:opacity-50";
