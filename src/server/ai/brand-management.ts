@@ -15,6 +15,7 @@ export function brandManagementRuntime() {
 export function brandManagementError(error: unknown) {
   const code=error instanceof Error?error.message:"";
   const errors: Record<string,string> = {
+    AI_BRAND_AUDIT_NOT_READY:"安全稽核尚未就緒，本次未儲存。請洽管理者核對。",
     AI_BRAND_TEST_LIMIT:"本輪 Mock 測試已達 8 筆上限，請核對帳本。",
     AI_BRAND_READ_ONLY:"目前為唯讀驗收，尚未允許此操作。",
     AI_NOT_ENTITLED:"品牌服務尚未開通，請先核對 HQ 授權。",

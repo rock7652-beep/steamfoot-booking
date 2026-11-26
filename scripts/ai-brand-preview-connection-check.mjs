@@ -27,9 +27,11 @@ export async function checkBrandPreviewConnection(env=process.env, factory) {
       (SELECT setting->>'enabled' FROM public."AiBrandSetting" WHERE "serviceId"='ai-preview-brand-steamfoot') AS brand_enabled,
       (SELECT published IS NULL FROM public."AiBrandKnowledgeDocument" WHERE "serviceId"='ai-preview-brand-steamfoot') AS unpublished,
       (SELECT total FROM public.ai_owner_global_totals()) AS total,
-      (SELECT concurrent FROM public.ai_owner_global_totals()) AS concurrent`);
+      (SELECT concurrent FROM public.ai_owner_global_totals()) AS concurrent,
+      COALESCE(has_function_privilege(current_user,to_regprocedure('public.redact_audit_json(jsonb,integer)'),'EXECUTE'),false) AS audit_redaction_ready`);
     const row=rows[0];
     if(rows.length!==1||row.role!==AI_PREVIEW_DATABASE_ROLE||row.readonly!=='on'||row.stopped!==true||row.disabled_stores!==4||row.brand_grant!=='HIDDEN'||row.brand_enabled!=='false'||row.unpublished!==true||!/^\d+$/.test(row.total)||row.concurrent!=='0')throw Error('AI_BRAND_PREFLIGHT_STATE_MISMATCH');
+    if(brandPreviewWriteWindow(env).configured&&row.audit_redaction_ready!==true)throw Error('AI_BRAND_PREFLIGHT_AUDIT_NOT_READY');
     await client.query('COMMIT');
     return {scopeVerified:true,roleVerified:true,tlsVerified:true,readonly:true,globalStopped:true,disabledStores:4,brandHidden:true,brandDisabled:true,unpublished:true,totalMicros:row.total,concurrent:row.concurrent};
   } finally { await client.end(); }

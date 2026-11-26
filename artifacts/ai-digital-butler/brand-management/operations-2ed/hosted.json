@@ -1,0 +1,34 @@
+{
+  "deployment": "dpl_mvHSpqtSFAH3Gvaw38GXimHbPBXV",
+  "sourceSha": "2ed0b8e5ae72fc016054b4b8b12a0daa491d115d",
+  "strictTls": true,
+  "kind": "real isolated Preview authenticated API and UI, Chromium viewport emulation",
+  "cases": [
+    {
+      "name": "single-login-and-original-HIDDEN"
+    },
+    {
+      "name": "HQ-HIDDEN-scope-and-mutation-boundary"
+    },
+    {
+      "name": "HQ-LOCKED-scope-and-mutation-boundary"
+    },
+    {
+      "name": "HQ-ENABLED-scope-and-mutation-boundary"
+    },
+    {
+      "name": "old-cookie-HTTP-rejection",
+      "brandHttp": 403,
+      "sessionHttp": 200,
+      "sessionUserAbsent": true,
+      "oldCookieWasCaptured": true
+    }
+  ],
+  "sizes": [],
+  "errors": [],
+  "failures": [
+    "locator.waitFor: Timeout 30000ms exceeded."
+  ],
+  "knowledgeWrites": 0,
+  "resumes": 0
+}

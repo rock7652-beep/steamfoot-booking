@@ -1,6 +1,11 @@
 import { claimsAiPreview, assertAiPreview } from "./ai-digital-butler-preview-scope.mjs";
 if (claimsAiPreview()) {
   assertAiPreview();
+  // Explicit write acceptance must run even when the hosting runner skips npm prebuild.
+  if(process.env.AI_BRAND_PREVIEW_WRITE_OPERATIONS!==undefined||process.env.AI_BRAND_PREVIEW_WRITE_UNTIL!==undefined){
+    const {checkBrandPreviewConnection}=await import('./ai-brand-preview-connection-check.mjs');
+    console.info('[ai-brand-preflight]',JSON.stringify(await checkBrandPreviewConnection()));
+  }
   console.info("[ai-preview] isolation_checked=true migrations_skipped=true deliveries_blocked=true");
   process.exit(0);
 }

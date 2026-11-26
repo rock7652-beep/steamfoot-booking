@@ -28,9 +28,12 @@ beforeAll(async()=>{
  await db.exec(readFileSync("scripts/sql/ai-digital-butler/brand-preview-review/install.proposed.sql","utf8"));
  await db.exec('GRANT USAGE ON SCHEMA public TO steamfoot_ai_preview_20261125;GRANT SELECT,UPDATE ON "AiButlerControl" TO steamfoot_ai_preview_20261125;CREATE POLICY old_control ON "AiButlerControl" TO steamfoot_ai_preview_20261125 USING(true) WITH CHECK(true);');
  await db.exec(`CREATE TABLE "User"(id text PRIMARY KEY,role text DEFAULT 'ADMIN',status text DEFAULT 'ACTIVE',"passwordHash" text DEFAULT 'offline-only'); INSERT INTO "User"(id) VALUES('ai-preview-brand-hq'); GRANT SELECT ON "User" TO steamfoot_ai_preview_20261125;
- CREATE TABLE "AuditLog"(id text PRIMARY KEY,"actorUserId" text NOT NULL REFERENCES "User", "actorRoleSnapshot" text,source text,"storeId" text,module text,"targetType" text,"targetId" text,action text,summary text,"beforeJson" jsonb,"afterJson" jsonb,"createdAt" timestamptz DEFAULT now());
+ CREATE TABLE "AuditLog"(id text PRIMARY KEY,"actorUserId" text NOT NULL REFERENCES "User", "actorRoleSnapshot" text,"actorNameSnapshot" text,"loginRecordId" text,source text,"storeId" text,module text,"targetType" text,"targetId" text,action text,summary text,"beforeJson" jsonb,"afterJson" jsonb,"createdAt" timestamptz DEFAULT now());
  ALTER TABLE "AuditLog" ENABLE ROW LEVEL SECURITY;GRANT SELECT ON "AuditLog" TO steamfoot_ai_preview_20261125;`);
  await db.exec(readFileSync("scripts/sql/ai-digital-butler/brand-operations-review/audit-acl.proposed.sql","utf8").replaceAll("__QA_WINDOW_UNTIL__",new Date(Date.now()+30*60_000).toISOString()));
+ // Match the installed production audit trigger, including its invoker helper ACL.
+ await db.exec(readFileSync("prisma/migrations/20261007002000_verified_audit_actor/migration.sql","utf8").split('CREATE TABLE public."OperationAuditOutbox"')[0]);
+ await db.exec('CREATE TABLE "StaffLoginRecord"(id text PRIMARY KEY,"actorUserId" text,outcome text);GRANT SELECT ON "StaffLoginRecord","Store" TO steamfoot_ai_preview_20261125;GRANT EXECUTE ON FUNCTION public.redact_audit_json(jsonb,integer) TO steamfoot_ai_preview_20261125');
  database={...adapt(db),transaction:work=>db.transaction(tx=>work(adapt(tx)))};
 },30_000);
 afterAll(async()=>{await db.close();});
@@ -194,4 +197,30 @@ it("the Preview hard cap allows eight distinct Mock events and an idempotent rep
  const c=controller(),firstId=randomUUID();for(let i=0;i<8;i++)expect((await runtime(()=>c.test({eventId:i===0?firstId:randomUUID(),question:"產品價格？",provider:"mock"}))).result.outcome).toBe("ANSWER");
  await expect(runtime(()=>c.test({eventId:randomUUID(),question:"產品價格？",provider:"mock"}))).rejects.toThrow("TEST_LIMIT");
  expect((await runtime(()=>c.test({eventId:firstId,question:"產品價格？",provider:"mock"}))).result.outcome).toBe("DUPLICATE");expect((await counts()).requests).toBe(8);
+});
+
+it("the installed audit trigger rejects its missing invoker helper and rolls back the business write",async()=>{
+ await enabled();windowFor("save");await db.exec('REVOKE EXECUTE ON FUNCTION public.redact_audit_json(jsonb,integer) FROM steamfoot_ai_preview_20261125');
+ try {
+  await expect(runtime(()=>database.transaction(async tx=>{
+   await tx.query('UPDATE "AiBrandKnowledgeDocument" SET revision=revision+1 WHERE "serviceId"=$1',[sid]);
+   await tx.query(`INSERT INTO "AuditLog"(id,"actorUserId","actorRoleSnapshot",source,module,"targetType","targetId",action,"afterJson") VALUES('trigger-acl-probe','ai-preview-brand-hq','ADMIN','AI_BRAND_PREVIEW','AI_BRAND','AiBrandService',$1,'UPDATE','{"operation":"save"}')`,[sid]);
+  }))).rejects.toThrow(/permission denied for function redact_audit_json/i);
+  await expect(runtime(()=>controller().changeKnowledge({command:"save",revision:0,draft}))).rejects.toThrow("AI_BRAND_AUDIT_NOT_READY");
+  expect((await controller().readKnowledge()).document.revision).toBe(0);
+  await db.exec(readFileSync("scripts/sql/ai-digital-butler/brand-operations-review/audit-helper-acl.proposed.sql","utf8").replaceAll("__QA_WINDOW_UNTIL__",new Date(Date.now()+20*60_000).toISOString()));
+  await runtime(()=>controller().changeKnowledge({command:"save",revision:0,draft}));
+  expect((await controller().readKnowledge()).document.revision).toBe(1);
+  await db.exec(readFileSync("scripts/sql/ai-digital-butler/brand-operations-review/audit-helper-revoke.proposed.sql","utf8"));
+  await expect(runtime(()=>controller().changeKnowledge({command:"save",revision:1,draft}))).rejects.toThrow("AI_BRAND_AUDIT_NOT_READY");
+  expect((await controller().readKnowledge()).document.revision).toBe(1);
+  expect((await db.query('SELECT * FROM "AuditLog"')).rows).toHaveLength(1);
+ } finally {await db.exec('GRANT EXECUTE ON FUNCTION public.redact_audit_json(jsonb,integer) TO steamfoot_ai_preview_20261125');}
+});
+it("the existing verified audit trigger stamps the actor using only the reviewed thirteen insert columns",async()=>{
+ await enabled();windowFor("save");await db.query("SELECT set_config('steamfoot.audit_actor',$1,false)",[JSON.stringify({id:actor.id,role:"ADMIN",name:"合成品牌管理者",loginRecordId:null})]);
+ try {
+  await runtime(()=>controller().changeKnowledge({command:"save",revision:0,draft}));
+  expect((await runtime(()=>database.query('SELECT "actorNameSnapshot","actorRoleSnapshot","storeId" FROM "AuditLog"')))[0]).toEqual({actorNameSnapshot:"合成品牌管理者",actorRoleSnapshot:"ADMIN",storeId:null});
+ } finally {await db.query("SELECT set_config('steamfoot.audit_actor','null',false)");}
 });

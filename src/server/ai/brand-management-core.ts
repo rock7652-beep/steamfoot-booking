@@ -60,6 +60,8 @@ export function brandManagement(ports: Ports) {
       // Same lock order as shared budget/settings: control first, then entitlement.
       await tx.query('SELECT id FROM "AiButlerControl" WHERE id=\'global\' FOR UPDATE');
       if(!writeWindow(operation))throw Error("AI_BRAND_READ_ONLY");
+      const [audit]=await tx.query<{allowed:boolean}>("SELECT COALESCE(has_function_privilege(current_user,to_regprocedure('public.redact_audit_json(jsonb,integer)'),'EXECUTE'),false) AS allowed");
+      if(audit?.allowed!==true)throw Error("AI_BRAND_AUDIT_NOT_READY");
       const grant=await tx.query('SELECT 1 AS allowed FROM "AiBrandGrant" WHERE "serviceId"=$1 AND status=\'ENABLED\' AND ("startsAt" IS NULL OR "startsAt"<=$2) AND ("expiresAt" IS NULL OR "expiresAt">=$2)',[BRAND_PREVIEW_SERVICE,now()]);
       if(grant.length!==1)throw Error("AI_NOT_ENTITLED");
       const snapshotSql='SELECT jsonb_build_object(\'settingRevision\',s.revision,\'knowledgeRevision\',k.revision,\'publishedVersion\',k."publishedVersion",\'enabled\',s.setting->\'enabled\') AS snapshot FROM "AiBrandSetting" s JOIN "AiBrandKnowledgeDocument" k USING("serviceId") WHERE s."serviceId"=$1';

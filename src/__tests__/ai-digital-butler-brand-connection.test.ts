@@ -1,7 +1,8 @@
+import { spawnSync } from "node:child_process";
 import { expect, it, vi } from "vitest";
 import { checkBrandPreviewConnection } from "../../scripts/ai-brand-preview-connection-check.mjs";
 const env={VERCEL:"1",VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feat/ai-digital-butler-core",VERCEL_GIT_REPO_OWNER:"rock7652-beep",VERCEL_GIT_REPO_SLUG:"steamfoot-booking",VERCEL_PROJECT_ID:"prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR",AI_DIGITAL_BUTLER_PREVIEW:"1",AI_EXTERNAL_DELIVERY_DISABLED:"1",BEAUTY_NOTIFICATIONS_ENABLED:"0",BEAUTY_DATABASE_MODE:"legacy",AI_PREVIEW_POOLER_MODE:"shared-transaction-aws1",DATABASE_URL:"postgresql://steamfoot_ai_preview_20261125.ttworfzgwejdeolegkxl:offline-only@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require&sslaccept=strict",DIRECT_URL:"postgresql://steamfoot_ai_preview_20261125.ttworfzgwejdeolegkxl:offline-only@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres?sslmode=require&sslaccept=strict"};
-const data={role:"steamfoot_ai_preview_20261125",readonly:"on",stopped:true,disabled_stores:4,brand_grant:"HIDDEN",brand_enabled:"false",unpublished:true,total:"2690",concurrent:"0"};
+const data={role:"steamfoot_ai_preview_20261125",readonly:"on",stopped:true,disabled_stores:4,brand_grant:"HIDDEN",brand_enabled:"false",unpublished:true,total:"2690",concurrent:"0",audit_redaction_ready:true};
 function fixture(changes={}){const client={connect:vi.fn(async()=>{}),end:vi.fn(async()=>{}),connection:{stream:{authorized:true,encrypted:true}},query:vi.fn(async(sql:string)=>({rows:sql.startsWith("SELECT")?[{...data,...changes}]:[]}))};return{client,factory:vi.fn(async()=>client)};}
 it("uses existing scoped credentials with strict TLS and only read-only SQL",async()=>{
  const {client,factory}=fixture();expect(await checkBrandPreviewConnection(env,factory)).toMatchObject({roleVerified:true,tlsVerified:true,readonly:true,globalStopped:true,totalMicros:"2690"});
@@ -17,4 +18,14 @@ it("does not query or downgrade verification after a TLS verification failure",a
 it("a valid explicit short write window can be built only while remote state remains stopped",async()=>{
  const {factory}=fixture();const result=await checkBrandPreviewConnection({...env,AI_BRAND_PREVIEW_WRITE_OPERATIONS:"save,publish,withdraw,setting,handoff,resume,test",AI_BRAND_PREVIEW_WRITE_UNTIL:new Date(Date.now()+20*60_000).toISOString()},factory);
  expect(result).toMatchObject({globalStopped:true,brandHidden:true,brandDisabled:true});
+});
+
+it.each([false,null])("a write build rejects missing audit helper EXECUTE (%s) without mutating anything",async audit_redaction_ready=>{
+ const {factory,client}=fixture({audit_redaction_ready});await expect(checkBrandPreviewConnection({...env,AI_BRAND_PREVIEW_WRITE_OPERATIONS:"save",AI_BRAND_PREVIEW_WRITE_UNTIL:new Date(Date.now()+20*60_000).toISOString()},factory)).rejects.toThrow("AUDIT_NOT_READY");
+ expect(client.query.mock.calls.every(([sql])=>/^(BEGIN READ ONLY|SELECT)/.test(sql))).toBe(true);expect(client.end).toHaveBeenCalled();
+});
+
+it("the actual build dispatcher cannot skip the write preflight when npm prebuild is absent",()=>{
+ const result=spawnSync(process.execPath,["scripts/ci-migrate.mjs"],{env:{...env,PATH:process.env.PATH,NODE_ENV:"test",AI_BRAND_PREVIEW_WRITE_OPERATIONS:"save",AI_BRAND_PREVIEW_WRITE_UNTIL:"2000-01-01T00:00:00.000Z"},encoding:"utf8",timeout:10000});
+ expect(result.status).not.toBe(0);expect(result.stderr).toContain("AI_BRAND_PREFLIGHT_UNEXPECTED_WRITE_OR_TLS_CONFIG");expect(result.stdout).not.toContain("migrations_skipped");
 });
