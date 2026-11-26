@@ -55,3 +55,9 @@ HQ HIDDEN 不出現服務入口，LOCKED 顯示不可用，ENABLED 仍須角色�
 ## Cloudflare 獨立待查
 
 Workers Builds 既有失敗持續獨立列管，未拿到失敗細節，不宣稱修復。新 head 的檢查狀態記 PR，不變更正式設定，也不以 GitHub CI 通過稱所有平台檢查全綠。
+
+## CI 冷啟動時限修正
+
+e2d56ce67 的完整 CI 首輪為 17,859 passed / 340 skipped / 1 failed；唯一失敗是既有 `image-announcements-production-migration.test.ts` 第一案例超過預設 5 秒。本機重現同樣 timeout，診斷時限下全部三項斷言通過；同模組 `image-announcements-migration.test.ts` 原已有 30 秒 PGlite 冷啟動時限。本輪只為此真 PostgreSQL 引擎案例加 30 秒，保留全部 schema / ACL / ledger drift 斷言，不改 migration 或任何營運程式。再驗 CI，最終數字記原 PR。
+
+此後提交僅有上述測試時限與說明，READY Preview 仍使用 e2d56ce67 的相同執行程式；以 git diff 核對，沒有為測試／文件變動再觸發 Vercel 建置。
