@@ -1,0 +1,20 @@
+{
+  "dateTaipei": "2026-11-26",
+  "source": "steamfoot public Store identification metadata only, BEGIN READ ONLY",
+  "warm": [
+    {
+      "id": "e182e256-98ca-4c78-970b-d4b118066c51",
+      "slug": "zhubei",
+      "name": "暖暖蒸足",
+      "isDemo": false,
+      "industry": "STEAMFOOT",
+      "has_line_destination": true,
+      "destination_hash": "30e75f708a842ce72c11d350cf7ae55732ebc910987627444d61cbefe9a78b0e"
+    }
+  ],
+  "platformWebhookUrlVerified": false,
+  "credentialsDecrypted": false,
+  "customerOrTransactionRowsRead": false,
+  "productionWrites": false,
+  "previewHasCanonicalWarm": false
+}

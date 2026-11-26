@@ -1,5 +1,7 @@
 # 獨立測試 LINE OA：唯讀盤查與本機準備
 
+目前主方向已改為 [品牌客服／暖暖店長雙模式及既有 OA 白名單盤查](digital-butler-dual-service-readiness.md)。本文保留獨立測試 OA 的備選盤查；獨立 OA 並非目前先決條件，Store-only 預檢也不能代表無門市的品牌模式已就緒。
+
 2026-11-26（台灣時間），接續 Draft [PR #1596](https://github.com/rock7652-beep/steamfoot-booking/pull/1596)。前階段 [不外發 HTTP 驗收](digital-butler-line-webhook-acceptance.md)有效；本輪只做設定中繼資料／隔離庫權限盤查、本機程式及測試，不建立 OA、憑證、通行連結，不改 Webhook、DB 政策、AI 控制或外發。
 
 [機器可讀盤查](../../artifacts/ai-digital-butler/line-platform-preparation/inventory.json)／[離線報告](../../artifacts/ai-digital-butler/line-platform-preparation/report.json)／[隔離庫唯讀證據](../../artifacts/ai-digital-butler/line-platform-preparation/database-readonly.json)。沒有解密環境變數，報告只有變數名稱、範圍與公開設定的指紋；敏感值不可回讀不表示未設定。

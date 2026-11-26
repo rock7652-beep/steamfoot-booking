@@ -115,3 +115,7 @@ Phase 0/1 六次部署的版本、失敗及修正保留在 [runtime 歷史](../.
 ## 獨立測試 OA 準備（仍停止）
 
 [唯讀盤查與離線預檢](digital-butler-line-platform-preparation.md)記錄下一輪真實 LINE 平台收發的阻擋與授權順序。新增工具不連線、不啟用 sender，沒有 runtime 或環境設定修改；尚未選定專用測試 OA、開通平台入口或核對其憑證。原停止、四店關閉、外發封鎖與已驗 Preview 均保留。
+
+## 雙服務模式：目前主方向
+
+[品牌 AI 智慧客服／暖暖 AI 店長盤查](digital-butler-dual-service-readiness.md)是最新產品方向；獨立測試 OA 只保留為備案。核心可共用但品牌 owner 尚未脫離 storeId，現有 OA 白名單沒有正式分流就不能直接到 Preview。僅新增本機 shadow／既有核心邊界測試，沒有正式 dispatcher、OA callback、憑證、外發或資料政策變更。後續真實收發需選定方案並另取得具體授權。
