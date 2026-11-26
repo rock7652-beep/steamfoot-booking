@@ -1,0 +1,117 @@
+{
+  "dateTaipei": "2026-11-26",
+  "productHeadReviewed": "342cc3afadffeaa1a31e5dc6808fd5a090db5e16",
+  "project": {
+    "id": "ttworfzgwejdeolegkxl",
+    "name": "steamfoot-preview",
+    "status": "ACTIVE_HEALTHY",
+    "region": "ap-northeast-1"
+  },
+  "remoteExecution": "Only BEGIN READ ONLY catalog/configuration/statistics queries; no DDL, grants or data writes",
+  "globalStopped": true,
+  "disabledStores": 4,
+  "brandTablesInstalled": 0,
+  "aggregateInstalled": false,
+  "requests": 53,
+  "openAiRequests": 5,
+  "dispatch": 113,
+  "unresolvedRequests": 0,
+  "unresolvedDispatch": 0,
+  "heldMicros": 2690,
+  "storeLimits": {
+    "monthlyBudgetMicros": 1000000,
+    "dailyRequests": 20,
+    "monthlyRequests": 100,
+    "model": "gpt-6-luna",
+    "channels": [
+      "TEST"
+    ],
+    "revisions": {
+      "ai-preview-beauty": 11,
+      "ai-preview-fitness": 7,
+      "ai-preview-music": 7,
+      "ai-preview-steamfoot": 8
+    }
+  },
+  "role": {
+    "name": "steamfoot_ai_preview_20261125",
+    "login": true,
+    "connectionLimit": 8,
+    "superuser": false,
+    "bypassRls": false,
+    "createDatabase": false,
+    "createRole": false,
+    "schemaUsage": true,
+    "schemaCreate": false,
+    "validUntil": "2026-12-02T14:15:52Z",
+    "membersOf": [],
+    "members": [
+      "postgres"
+    ]
+  },
+  "roleLoginReverified": false,
+  "roleSwitchAttempt": {
+    "success": false,
+    "error": "permission denied to set role",
+    "fallback": "catalog effective ACL queries only; no role changes/escalation"
+  },
+  "credentialsDecryptedOrPrinted": false,
+  "existingDeployment": {
+    "id": "dpl_8XMZsnsSwHjMs9cFRRSqSYbm2Nn1",
+    "sourceSha": "005ce6e61562a1e5694b7537fbcbdb5d04eab5da",
+    "state": "READY"
+  },
+  "branchGuardMetadata": {
+    "preview": "1",
+    "externalDeliveryDisabled": "1",
+    "beautyNotificationsEnabled": "0",
+    "beautyDatabaseMode": "legacy",
+    "poolerMode": "shared-transaction-aws1",
+    "databaseAndIdentitySecretsSensitive": true
+  },
+  "discoveredDefaultAclRisk": "public new tables grant service_role ALL; new functions grant anon/authenticated/service_role EXECUTE. Proposed per-object revokes only, no ALTER DEFAULT PRIVILEGES.",
+  "proposal": {
+    "newTables": 8,
+    "indexes": 2,
+    "policies": 19,
+    "aggregateFunctions": 1,
+    "newSyntheticConfigurationRows": 4,
+    "serviceId": "ai-preview-brand-steamfoot",
+    "hqStatus": "HIDDEN",
+    "enabled": false,
+    "knowledgePublished": false,
+    "installedRemotely": false,
+    "sha256": {
+      "catalog-readonly.sql": "a659a118561843dbb2bd9b486844f73607218501de983b7c1ec6ef27a6b92e8d",
+      "install.proposed.sql": "4fc8a2a5ad04e7a88bba40226d48a3e180a0beedffb71690c09269974d39d2ff",
+      "remove-empty.proposed.sql": "72893ffd2bef7495ea400174b71fa80cc7da5c870db28cceba3d9b5528396aad",
+      "soft-stop.proposed.sql": "38b49fa0a9b976983d36c343111cec689efa3508024d79a5227a52a39a75c7f3"
+    }
+  },
+  "localChecks": {
+    "installationReviewCases": 9,
+    "combinedCases": 50,
+    "files": 3,
+    "typecheck": "passed",
+    "eslint": "passed"
+  },
+  "newRealOpenAiCalls": 0,
+  "outboundMessages": 0,
+  "newPreviewBuilds": 0,
+  "newShareLinks": 0,
+  "productionChanged": false,
+  "existingRoleOrSecretsChanged": false,
+  "needsExplicitApproval": [
+    "new schema/ACL/RLS/function and four stopped synthetic configuration rows",
+    "future state writes / publication / HQ transitions / handoff tests",
+    "temporary access links / login / switches / model calls / outbound if later required"
+  ],
+  "cloudflare": {
+    "independentOpenItem": true,
+    "previousBuildId": "c851b6d6-f22e-4ea6-bbb4-996d91356078",
+    "checkId": 139838942367,
+    "conclusion": "failure",
+    "rootCause": "not established from GitHub metadata",
+    "productionSettingsChanged": false
+  }
+}

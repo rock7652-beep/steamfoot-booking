@@ -124,3 +124,8 @@ Phase 0/1 六次部署的版本、失敗及修正保留在 [runtime 歷史](../.
 ## 雙模式核心實作（尚未部署）
 
 [工程驗收與授權界線](digital-butler-dual-service-implementation.md)記錄本輪共用 Service／Routing／owner 儲存狀態機及獨立品牌 adapter。本機演練不需建立 Store；品牌知識不進 SYSTEM，品牌不能取得營運工具。遠端 schema、品牌操作入口與真實 OA 仍未啟用；舊 Preview 不含本輪程式，不沿用先前短效連結授權。AI 總停止、四店關閉、外發封鎖與 Production 均未變更。
+
+
+## 品牌 Preview 前置審查（未安裝）
+
+[唯讀核對、最小 ACL／RLS、安裝與回復提案](digital-butler-brand-preview-review.md)記錄隔離庫品牌物件缺漏、實際 default ACL 與 9 項本機安裝／回復演練。僅 prepared SQL，未獲准或執行遠端安裝／seed；總停止／四店關閉／外發封鎖不變。原 PR 保存具體批准範圍；Cloudflare Workers Builds 另列獨立待查。
