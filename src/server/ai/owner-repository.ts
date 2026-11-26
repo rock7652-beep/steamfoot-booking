@@ -70,10 +70,10 @@ export class AiOwnerRepository {
           COUNT(*) FILTER (WHERE status='RESERVED')::text AS concurrent,
           COUNT(*) FILTER (WHERE status='RESERVED' AND "ownerId"=$1)::text AS "storeConcurrent"
         FROM "AiButlerRequest"`, [input.ownerId, day.start, month.start, month.end, day.end]))[0];
-      const [peer] = await tx.query<{ total: string; concurrent: string }>("/* AI_PEER_TOTALS */", []);
+      const [peer] = await tx.query<{ total: string; concurrent: string }>("/* AI_GLOBAL_TOTALS */", [totals.total, totals.concurrent]);
       if (!peer) throw new Error("AI_BUDGET_UNKNOWN");
-      totals.total = String(Number(totals.total) + Number(peer.total));
-      totals.concurrent = String(Number(totals.concurrent) + Number(peer.concurrent));
+      totals.total = peer.total;
+      totals.concurrent = peer.concurrent;
       const values = Object.values(totals).map(Number);
       if (values.some(n => !Number.isSafeInteger(n) || n < 0)) throw new Error("AI_BUDGET_UNKNOWN");
       if (Number(totals.total) + input.heldMicros > AI_LIMITS.globalBudgetMicros

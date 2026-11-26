@@ -83,25 +83,21 @@ REVOKE ALL ON "AiBrandKnowledgeDocument" FROM PUBLIC, anon, authenticated;
 
 -- No grants/policies/service seed/activation are included in this draft.
 
--- Private aggregate capability: per-owner RLS must never hide peer cost from global caps.
+-- Private aggregate capability: RLS must not hide either mode's other owners.
 -- Installer must own/bypass both ledgers. row_security=off fails rather than undercounting.
-CREATE FUNCTION public.ai_owner_peer_totals(owner_kind text)
+CREATE FUNCTION public.ai_owner_global_totals()
 RETURNS TABLE (total text, concurrent text)
-LANGUAGE plpgsql SECURITY DEFINER
+LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog
 SET row_security = off
 AS $$
-BEGIN
- IF owner_kind='STORE' THEN
-  RETURN QUERY SELECT COALESCE(SUM("heldMicros"),0)::text,
-   COUNT(*) FILTER (WHERE status='RESERVED')::text FROM public."AiBrandRequest";
- ELSIF owner_kind='BRAND' THEN
-  RETURN QUERY SELECT COALESCE(SUM("heldMicros"),0)::text,
-   COUNT(*) FILTER (WHERE status='RESERVED')::text FROM public."AiButlerRequest";
- ELSE
-  RAISE EXCEPTION 'AI_OWNER_INVALID';
- END IF;
-END;
+ SELECT COALESCE(SUM("heldMicros"),0)::text,
+  COUNT(*) FILTER (WHERE status='RESERVED')::text
+ FROM (
+  SELECT "heldMicros",status FROM public."AiButlerRequest"
+  UNION ALL
+  SELECT "heldMicros",status FROM public."AiBrandRequest"
+ ) AS ledgers;
 $$;
-REVOKE ALL ON FUNCTION public.ai_owner_peer_totals(text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.ai_owner_global_totals() FROM PUBLIC, anon, authenticated;
 -- No EXECUTE grant is installed by this draft; separately authorize the isolated server role.

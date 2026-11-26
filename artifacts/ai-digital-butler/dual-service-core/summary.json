@@ -4,17 +4,17 @@
   "pullRequest": "https://github.com/rock7652-beep/steamfoot-booking/pull/1596",
   "branch": "feat/ai-digital-butler-core",
   "previousHead": "c3da0287320f5918bebe648c438321d733dd2016",
-  "scope": "Server principal/owner abstraction, independent Brand adapter, shared Service/Routing/Provider and transactional repositories; no new UI or remote installation; private global-cost aggregate capability prevents peer RLS undercounting",
+  "scope": "Server principal/owner abstraction, independent Brand adapter, shared Service/Routing/Provider and transactional repositories; no new UI or remote installation; private global-cost aggregate capability prevents same-mode and cross-mode RLS undercounting",
   "localChecks": {
     "aiLineRegression": {
       "command": "npx vitest run src/__tests__/ai*.test.ts",
-      "passed": 352,
+      "passed": 353,
       "skipped": 6,
       "filesPassed": 22,
       "filesSkipped": 1,
-      "durationSeconds": 38.3
+      "durationSeconds": 46.5
     },
-    "dualServiceCases": 35,
+    "dualServiceCases": 36,
     "typecheck": {
       "command": "NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit",
       "exitCode": 0
@@ -51,5 +51,5 @@
     "Real OpenAI against the Brand adapter"
   ],
   "futureAuthorization": "Separate, isolated-database-only schema/ACL/service provisioning approval before remote installation; LINE/credentials/outbound/Production remain unauthorized",
-  "draftSchemaSha256": "e15c67377002972bdebb4fa4469f626dce713b0f3243a77d16e4506d963adbb9"
+  "draftSchemaSha256": "1736d839222a33f1e5586f8197c8eeecb7a6bb1730f6f12fe39992ea86ec592a"
 }

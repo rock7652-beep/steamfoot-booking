@@ -242,7 +242,7 @@ it("an installed but unreadable peer ledger cannot silently bypass the global ca
   await db.exec('INSERT INTO "Store" VALUES (\'steamfoot\'); INSERT INTO "StoreFeatureEntitlement" VALUES (\'steamfoot\',\'ai_digital_butler\',\'ENABLED\',NULL,NULL);');
   await stores.saveSetting("steamfoot", { ...DEFAULT_AI_SETTING, enabled: true }, 0, now);
   const denying = (tx: AiSql): AiSql => ({ query: (text, values) => {
-    if (text.includes("ai_owner_peer_totals")) throw Error("PEER_ACCESS_DENIED");
+    if (text.includes("ai_owner_global_totals")) throw Error("PEER_ACCESS_DENIED");
     return tx.query(text, values);
   } });
   const restricted: AiDatabase = { ...denying(database), transaction: work => database.transaction(tx => work(denying(tx))) };
@@ -253,11 +253,30 @@ it("an installed but unreadable peer ledger cannot silently bypass the global ca
 
 it("the global-cost capability sees RLS-hidden peers without granting operational row access", async () => {
   await request("hidden-cost", "other", 123);
-  await db.exec('CREATE ROLE brand_cost_reader; GRANT USAGE ON SCHEMA public TO brand_cost_reader; GRANT EXECUTE ON FUNCTION public.ai_owner_peer_totals(text) TO brand_cost_reader; SET ROLE brand_cost_reader');
+  await db.exec('CREATE ROLE brand_cost_reader; GRANT USAGE ON SCHEMA public TO brand_cost_reader; GRANT EXECUTE ON FUNCTION public.ai_owner_global_totals() TO brand_cost_reader; SET ROLE brand_cost_reader');
   try {
     await expect(db.query('SELECT * FROM "AiBrandRequest"')).rejects.toThrow("permission denied");
-    const aggregate = await db.query<{ total: string; concurrent: string }>("SELECT * FROM public.ai_owner_peer_totals('STORE')");
+    const aggregate = await db.query<{ total: string; concurrent: string }>("SELECT * FROM public.ai_owner_global_totals()");
     expect(aggregate.rows).toEqual([{ total: "123", concurrent: "1" }]);
-    await expect(db.query("SELECT * FROM public.ai_owner_peer_totals('INVALID')")).rejects.toThrow("AI_OWNER_INVALID");
+  } finally { await db.exec('RESET ROLE'); }
+});
+it("a Brand role cannot undercount another Brand hidden by its own ledger RLS", async () => {
+  await request("hidden-owner", "other");
+  await db.exec(`UPDATE "AiBrandRequest" SET status='UNKNOWN',"heldMicros"=20000000;
+    CREATE ROLE limited_brand_budget;
+    GRANT USAGE ON SCHEMA public TO limited_brand_budget;
+    GRANT SELECT ON "AiBrandGrant","AiBrandSetting","AiBrandConversation","AiBrandRequest","AiButlerControl" TO limited_brand_budget;
+    GRANT UPDATE ON "AiButlerControl" TO limited_brand_budget;
+    GRANT EXECUTE ON FUNCTION public.ai_owner_global_totals() TO limited_brand_budget;
+    CREATE POLICY limited_brand_grant ON "AiBrandGrant" FOR SELECT TO limited_brand_budget USING ("serviceId"='steamfoot');
+    CREATE POLICY limited_brand_setting ON "AiBrandSetting" FOR SELECT TO limited_brand_budget USING ("serviceId"='steamfoot');
+    CREATE POLICY limited_brand_conversation ON "AiBrandConversation" FOR SELECT TO limited_brand_budget USING ("serviceId"='steamfoot');
+    CREATE POLICY limited_brand_request ON "AiBrandRequest" FOR SELECT TO limited_brand_budget USING ("serviceId"='steamfoot');
+    CREATE POLICY limited_brand_control ON "AiButlerControl" TO limited_brand_budget USING (id='global') WITH CHECK (id='global');
+    SET ROLE limited_brand_budget`);
+  try {
+    expect((await db.query('SELECT * FROM "AiBrandRequest"')).rows).toEqual([]);
+    const restricted = new AiOwnerRepository(database, "BRAND");
+    await expect(restricted.reserve({ ...brandIdentity(scope, "must-not-spend", secret), model: "gpt-6-luna", heldMicros: 1, provider: "openai", now }, "TEST")).rejects.toThrow("AI_BUDGET_EXCEEDED");
   } finally { await db.exec('RESET ROLE'); }
 });
