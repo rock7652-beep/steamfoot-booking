@@ -24,6 +24,12 @@
     },
     "gitDiffCheck": {
       "exitCode": 0
+    },
+    "multiChannelReadiness": {
+      "command": "npx vitest run src/__tests__/ai-multichannel-readiness.test.ts",
+      "passed": 5,
+      "durationSeconds": 0.481,
+      "scope": "Current transport/account/service namespace isolation and denial of four unimplemented runtime channels; not platform acceptance"
     }
   },
   "engine": "Ephemeral local PGlite using actual draft SQL and existing Store SQL; no remote DB connections",
@@ -51,5 +57,24 @@
     "Real OpenAI against the Brand adapter"
   ],
   "futureAuthorization": "Separate, isolated-database-only schema/ACL/service provisioning approval before remote installation; LINE/credentials/outbound/Production remain unauthorized",
-  "draftSchemaSha256": "1736d839222a33f1e5586f8197c8eeecb7a6bb1730f6f12fe39992ea86ec592a"
+  "draftSchemaSha256": "1736d839222a33f1e5586f8197c8eeecb7a6bb1730f6f12fe39992ea86ec592a",
+  "productChannels": [
+    "LINE",
+    "MESSENGER",
+    "INSTAGRAM",
+    "WHATSAPP",
+    "WEB_CHAT",
+    "EMAIL"
+  ],
+  "multiChannelAssessment": {
+    "coreTransportIndependent": true,
+    "runtimeEnum": [
+      "TEST",
+      "LINE",
+      "MESSENGER"
+    ],
+    "runtimeEnumExpanded": false,
+    "perChannelHqAccountBindingEnableSafetyPersistenceImplemented": false,
+    "otherChannelImplementationStarted": false
+  }
 }

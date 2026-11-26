@@ -48,3 +48,28 @@ AI／LINE 回歸、型別與變更檔 lint 的結果記錄於[本輪摘要](../.
 若進入隔離環境的品牌操作驗收，只需先審核上述八張私有品牌表、私有總費用聚合函式、指定隔離服務 ID、獨立操作員授權及 server-role 最小 ACL／RLS；同時確認該角色可以透過私有聚合能力取得兩份成本帳本的完整全域合計，不授予門市會員／營運工具權限。安裝限定隔離庫 `ttworfzgwejdeolegkxl`，總停止維持 true、四店與品牌均關閉，保留原上限；不修改 Production。**此段不是安裝指令，也沒有視為已取得授權。**
 
 之後才可將品牌 owner 掛到既有 Settings／知識／人工操作入口並驗證 RWD；真實 LINE OA 接入、測試白名單、改址、憑證或外發須各自提出精確範圍。不能把本輪 backend adapter 當成上述操作已完成。
+
+## 六通路長期規格與擴充核對（本階段不開發其他通路）
+
+產品目標為 LINE、Facebook Messenger、Instagram、WhatsApp、官網即時客服及 Email；A 品牌客服與 B 門市店長均適用。兩種模式共用上述核心，每個 owner／通路必須分別核對帳號串接、HQ 三態、主體啟用、通路啟用與通路安全；開通一個通路不授權其他通路。TEST 只是隔離測試能力，不是第七個產品通路。
+
+| 通路 | 現有邊界／實作狀態 | 後續 adapter 要負責的項目 |
+| --- | --- | --- |
+| LINE | enum／身分 namespace 已有；Store 隔離零外發 HTTP 已驗；Brand adapter 仍 TEST-only | 原生簽章、destination／Provider、已核對使用者、事件去重及 reply／push 權限；品牌真實接入仍未開放 |
+| Facebook Messenger | 共用 enum 已保留 MESSENGER；不等於已接上 AI／有發送授權 | Page／App 與 webhook 簽章、sender 身分、時間窗／政策、去重及外發控制 |
+| Instagram | 尚未加入 runtime enum，預設拒絕 | 專屬商業帳號／App、webhook、sender、訊息窗口及交付狀態 |
+| WhatsApp | 尚未加入 runtime enum，預設拒絕 | Business／phone-number binding、簽章、對話／template 政策及交付去重 |
+| 官網即時客服 | 尚未加入 runtime enum，預設拒絕 | 網站 origin／session／登入者、CSRF／防濫用、串流中止及連線重送 |
+| Email | 尚未加入 runtime enum，預設拒絕 | mailbox／provider、來信可信度、thread／Message-ID 去重、防回信迴圈與收件者外發授權 |
+
+核對結果：**Service／Routing／Provider／交易狀態機可共用，沒有綁死 LINE；目前設定與授權契約尚不是六通路成品。**Service／Routing 只接收已核對的 scope、channelAccountId、actorId、eventId 和文字，回傳結果／意圖，沒有 LINE SDK、replyToken、簽章或 sender；LINE 驗證／回覆阻擋留在 LINE adapter。Provider 只拿最小知識欄位及受限文字，不取得 OA／會員權限。`authorize` 與 channel capability 是 server 注入的 ports，可供未來 adapter 套用複合授權，不以換通路取得更多工具權限。
+
+仍須在各通路工程時擴充、不得宣稱已完成的契約：
+
+1. `AiChannel` 目前只有 TEST／LINE／MESSENGER，setting.channels 上限為 3；將來須先擴充共用 schema／資料就緒檢查及通路 capability，不能只放寬 enum 就當成已支援。
+2. 品牌與門市已有主體層授權及開關；**每通路的 HQ Hidden／Locked／Enabled、獨立 account binding、通路開關與安全設定尚未建立持久模型／UI**。未來以 owner＋channel＋account 綁定，後端同時要求主體及通路資格／權限，不建立六套知識庫、Provider 或工作台。
+3. 日／月用量與成本目前以 owner 計算、總預算跨兩模式合計。多通路必須共用原 owner 上限，不因新增通路而重置額度／增加六倍預算；需另加 channel／account 的不可變計費維度與交付收據後，才可宣稱逐通路報表可用。
+4. 目前對話依 owner／channel／account／actor 隔離。Email thread／網站 session 等新維度由已驗證 adapter 提供並版本化；保留舊 LINE／Store 事件鍵與人工狀態，不以遷移或換通路重跑原事件。不同通路的同名帳號、電話或 Email 不自動視為同一會員；跨通路身分連結需另有可信證據。
+5. 各 adapter 負責正規化、訊息長度／附件策略、平台限速、ACK 時限、發送資格及交付 UNKNOWN。核心仍只接受受限輸入，人工接手／緊急停止／授權變更後的發送前複查不可略過；不能套用 LINE replyToken 到其他平台，也不將已驗 LINE 零外發視為其他通路已驗。
+
+`ai-multichannel-readiness.test.ts` 只驗現有三種 enum 在兩模式／不同 account 的 namespace 隔離，以及四個未實作通路在兩模式皆拒絕；它不模擬外部平台，也不證明六通路正式收發。本次沒有新增 OAuth、憑證、account、callback、外發或通路啟用，仍優先完成 LINE 與雙服務模式。
