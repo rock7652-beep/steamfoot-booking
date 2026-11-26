@@ -11,6 +11,7 @@ CREATE TABLE "AiButlerSetting" (
 CREATE TABLE "AiButlerConversation" (
   "storeId" text NOT NULL REFERENCES "Store"(id) ON DELETE RESTRICT,
   "scopeKey" text NOT NULL, handoff boolean NOT NULL DEFAULT false,
+  revision integer NOT NULL DEFAULT 0 CHECK (revision >= 0),
   summary jsonb NOT NULL DEFAULT '[]', "expiresAt" timestamptz NOT NULL,
   PRIMARY KEY ("storeId", "scopeKey")
 );

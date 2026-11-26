@@ -7,6 +7,7 @@ import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { assertAiPreview } from "../../../../../../scripts/ai-digital-butler-preview-scope.mjs";
 import { aiButlerRepository } from "@/server/ai/database";
+import { AI_ROUTING_ACCOUNT } from "@/server/ai/routing-contract";
 import { aiSettingSchema, type AiSetting, type AiModule } from "@/server/ai/contracts";
 import { MockAiProvider, OpenAiResponsesProvider, verifiedAiRate } from "@/server/ai/provider";
 import { syntheticAiKnowledge } from "@/server/ai/knowledge";
@@ -137,4 +138,59 @@ export async function testAiButlerPublished(input: { eventId: string; question: 
     }, process.env.AI_IDENTITY_SECRET ?? "", model => provider.kind === "mock" ? null : verifiedAiRate(model, process.env, new Date()), () => process.env.AI_DIGITAL_BUTLER_ENABLED === "1");
     return { success: true as const, result: await service.respond(scope, parsed.eventId, parsed.question, snapshot.records, { snapshot, reload }) };
   } catch { return safeError; }
+}
+
+async function routingContext() {
+  const scope = await context();
+  const { readAiAuthority } = await import("@/server/ai/knowledge-sources");
+  scope.module = (await readAiAuthority(scope.storeId, { hours: false, services: false, prices: false }, new Date())).module;
+  scope.channelAccountId = AI_ROUTING_ACCOUNT;
+  return scope;
+}
+async function routingState(scope: TrustedAiScope) {
+  const { AiRoutingRepository } = await import("@/server/ai/routing-repository");
+  const { aiButlerDatabase } = await import("@/server/ai/database");
+  const identity = aiIdentity(scope, "operator", process.env.AI_IDENTITY_SECRET ?? "");
+  return { ...await aiButlerRepository().conversationState(identity), globalStopped: await new AiRoutingRepository(aiButlerDatabase()).globalStopped() };
+}
+export async function testAiButlerRouting(input: { eventId: string; scenario: import("@/server/ai/routing-contract").AiRoutingScenario }) {
+  try {
+    const { aiRoutingInputSchema } = await import("@/server/ai/routing-contract");
+    const parsed = aiRoutingInputSchema.parse(input);
+    const scope = await routingContext();
+    const { AiButlerRouting } = await import("@/server/ai/routing");
+    const { AiRoutingRepository } = await import("@/server/ai/routing-repository");
+    const { createOriginalRoutingMock, aiRoutingMessages } = await import("@/server/ai/routing-mock");
+    const { aiButlerDatabase } = await import("@/server/ai/database");
+    const { loadAiPublishedKnowledge } = await import("@/server/ai/knowledge-sources");
+    const original = createOriginalRoutingMock(scope,parsed.eventId,parsed.scenario,process.env.AI_IDENTITY_SECRET ?? "");
+    const repository = aiButlerRepository();
+    const authorize = async (expected:TrustedAiScope) => {
+      const current = await routingContext();
+      if(current.storeId!==expected.storeId || current.actorId!==expected.actorId || current.module!==expected.module)throw new Error("AI_SCOPE_CHANGED");
+    };
+    let providerCalls = 0;
+    const mock = new MockAiProvider();
+    const provider = { kind: "mock" as const, respond: async (data:Parameters<typeof mock.respond>[0]) => { providerCalls++;return mock.respond(data); } };
+    const service = new AiButlerService(repository,provider,authorize,process.env.AI_IDENTITY_SECRET ?? "",()=>null,()=>process.env.AI_DIGITAL_BUTLER_ENABLED==="1");
+    const router = new AiButlerRouting(new AiRoutingRepository(aiButlerDatabase()),repository,process.env.AI_IDENTITY_SECRET ?? "");
+    const result = await router.respond(scope,parsed.eventId,parsed.scenario,aiRoutingMessages[parsed.scenario],{
+      authorize, original: original.handle, originalReplyAllowed: original.allowReply, providerCalls:()=>providerCalls,
+      ai: async (message,conversationRevision) => {
+        const reload = () => loadAiPublishedKnowledge(aiButlerDatabase(),scope.storeId);
+        const snapshot = await reload();
+        if(snapshot.module!==scope.module)throw new Error("AI_SCOPE_CHANGED");
+        return service.respond(scope,parsed.eventId,message,snapshot.records,{snapshot,reload,conversationRevision});
+      },
+    });
+    return {success:true as const,result,state:await routingState(scope)};
+  } catch { return {success:false as const,error:"路由測試結果尚未確認，請沿用同一事件重試；不會自動建立另一筆測試。"}; }
+}
+export async function setAiButlerRoutingHandoff(handoff:boolean) {
+  try {
+    z.boolean().parse(handoff);
+    const scope=await routingContext();
+    await aiButlerRepository().handoff(aiIdentity(scope,"operator",process.env.AI_IDENTITY_SECRET ?? ""),handoff,new Date());
+    return {success:true as const,state:await routingState(scope)};
+  } catch { return {success:false as const,error:"無法確認路由接手狀態，請重新確認。"}; }
 }

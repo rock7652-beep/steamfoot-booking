@@ -21,7 +21,7 @@ export class AiButlerService {
   constructor(private readonly repository: AiButlerRepository, private readonly provider: AiProvider,
     private readonly authorize: (scope: TrustedAiScope) => Promise<void>, private readonly identitySecret: string,
     private readonly rateForModel: (model: import("./contracts").AiModel) => AiRate | null, private readonly enabled: () => boolean, private readonly clock = () => new Date()) {}
-  async respond(scope: TrustedAiScope, eventId: string, message: string, records: unknown[], published?: { snapshot: AiKnowledgeSnapshot; reload: () => Promise<AiKnowledgeSnapshot> }): Promise<AiServiceResult> {
+  async respond(scope: TrustedAiScope, eventId: string, message: string, records: unknown[], published?: { snapshot: AiKnowledgeSnapshot; reload: () => Promise<AiKnowledgeSnapshot>; conversationRevision?: number }): Promise<AiServiceResult> {
     const stopped: AiServiceResult = { outcome: "STOPPED", text: "AI 目前暫停服務，既有預約及數位管家不受影響。", sourceIds: [] };
     let identity: ReturnType<typeof aiIdentity> | undefined;
     let reserved = false;
@@ -40,7 +40,7 @@ export class AiButlerService {
       if (this.provider.kind === "openai" && !rate) return stopped;
       const ceiling = rate ? aiCostMicros(rate, AI_LIMITS.maxInputTokens, AI_LIMITS.maxOutputTokens) : 0;
       assertAiInputBound({ model, message: safeMessage, knowledge, summary: Array(4).fill("SOURCE:" + "x".repeat(100)) });
-      const claim = await this.repository.reserve({ ...identity, model, heldMicros: ceiling, provider: this.provider.kind, now: started }, scope.channel);
+      const claim = await this.repository.reserve({ ...identity, model, heldMicros: ceiling, provider: this.provider.kind, now: started, expectedConversationRevision: published?.conversationRevision }, scope.channel);
       if (claim.duplicate) return { outcome: "DUPLICATE", text: "", sourceIds: [] };
       reserved = true;
       const providerInput = { model, message: safeMessage, knowledge, summary: claim.summary };
@@ -70,6 +70,7 @@ export class AiButlerService {
       const allowed = await this.repository.settle(identity, { cost, inputTokens: result.inputTokens, outputTokens: result.outputTokens,
         latencyMs: Math.max(0, this.clock().getTime() - started.getTime()), handoff: rendered.handoff,
         summary: rendered.handoff ? "HANDOFF" : `SOURCE:${answer.sourceIds[0]}`,
+        conversationRevision: claim.conversationRevision,
         overrun: result.inputTokens > AI_LIMITS.maxInputTokens || result.outputTokens > AI_LIMITS.maxOutputTokens || cost > ceiling }, this.clock());
       reserved = false;
       if (!allowed || !this.enabled()) return stopped;

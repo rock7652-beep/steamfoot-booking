@@ -9,7 +9,7 @@ vi.mock("@/server/ai/database", () => ({ aiButlerRepository: mocks.repository, a
 vi.mock("@/server/ai/knowledge-repository", () => ({ AiKnowledgeRepository: class { read = mocks.knowledgeRead; change = mocks.knowledgeChange; } }));
 vi.mock("@/server/ai/knowledge-sources", () => ({ readAiAuthority: mocks.authority }));
 import { EMPTY_AI_KNOWLEDGE } from "@/server/ai/knowledge-document";
-import { saveAiButlerSetting, testAiButler, changeAiButlerKnowledge, readAiButlerKnowledge } from "../app/(dashboard)/dashboard/settings/digital-butler/ai-actions";
+import { saveAiButlerSetting, testAiButler, changeAiButlerKnowledge, readAiButlerKnowledge, testAiButlerRouting, setAiButlerRoutingHandoff } from "../app/(dashboard)/dashboard/settings/digital-butler/ai-actions";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.permission.mockResolvedValue({ id: "synthetic-owner", role: "OWNER" });
@@ -65,4 +65,13 @@ it("knowledge read and publish reject denied permissions, foreign scope and unav
   const result = await changeAiButlerKnowledge({ command: "publish", revision: 1 });
   expect(result).toMatchObject({ success: false, error: expect.stringContaining("引用來源") });
   expect(mocks.knowledgeChange).not.toHaveBeenCalled();
+});
+
+it("routing only accepts fixed Mock scenarios and derives permission-bound scope", async()=>{
+  for(const extra of [{provider:"openai"},{storeId:"foreign"},{module:"MUSIC"},{question:"private"}])
+    expect((await testAiButlerRouting({eventId:"f1ce29a0-865e-4d89-8658-e0e18173d08c",scenario:"known",...extra} as never)).success).toBe(false);
+  expect(mocks.repository).not.toHaveBeenCalled();
+  mocks.permission.mockRejectedValueOnce(new Error("private-error"));
+  const result=await setAiButlerRoutingHandoff(true);expect(result.success).toBe(false);expect(JSON.stringify(result)).not.toContain("private-error");
+  expect(mocks.repository).not.toHaveBeenCalled();
 });

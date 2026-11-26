@@ -730,10 +730,16 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
   }
 }
 
+export type DigitalButlerRuntimeIdentityCodec = {
+  hash: typeof hashDigitalButlerSensitiveValue;
+  encrypt: typeof encryptDigitalButlerValue;
+};
+
 export class DigitalButlerRuntime {
   constructor(
     private readonly repository: RuntimeRepository = new PrismaDigitalButlerRuntimeRepository(),
     private readonly requireActivation: (storeId: string) => Promise<void> = requireDigitalButlerConversationActivation,
+    private readonly identityCodec: DigitalButlerRuntimeIdentityCodec = { hash: hashDigitalButlerSensitiveValue, encrypt: encryptDigitalButlerValue },
   ) {}
 
   async handleText(input: DigitalButlerInboundTextMessage): Promise<DigitalButlerRuntimeResult> {
@@ -771,7 +777,7 @@ export class DigitalButlerRuntime {
       return finish({ handled: false, messages: [], outcome: "INACTIVE" });
     }
 
-    const senderIdHash = hashDigitalButlerSensitiveValue(input.senderId);
+    const senderIdHash = this.identityCodec.hash(input.senderId);
     let conversation = await this.repository.findActiveConversation(
       input.storeId, input.provider, input.channelAccountId, senderIdHash,
     );
@@ -807,7 +813,7 @@ export class DigitalButlerRuntime {
       if (startStepIndex < 0) {
         return finish({ handled: true, messages: [], outcome: "INVALID_STATE" });
       }
-      const encryptedSenderId = encryptDigitalButlerValue(input.senderId);
+      const encryptedSenderId = this.identityCodec.encrypt(input.senderId);
       conversation = await this.repository.createConversation({
         storeId: input.storeId,
         flowId: flow.id,

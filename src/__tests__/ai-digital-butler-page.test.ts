@@ -16,6 +16,8 @@ vi.mock("@/components/settings/settings-navigation", () => ({ SettingsReturnLink
 vi.mock("@/components/desktop", () => ({ PageShell: ({ children }: { children: ReactNode }) => h("main", null, children), PageHeader: () => null }));
 vi.mock("../app/(dashboard)/dashboard/settings/digital-butler/flow-editor", () => ({ DigitalButlerFlowEditor: m.editor }));
 vi.mock("../app/(dashboard)/dashboard/settings/digital-butler/ai-panel", () => ({ AiButlerPanel: m.panel }));
+vi.mock("@/server/ai/routing-repository", () => ({ AiRoutingRepository: class { globalStopped = async () => true; } }));
+vi.mock("../app/(dashboard)/dashboard/settings/digital-butler/ai-routing-panel", () => ({ AiRoutingPanel: () => h("div", null, "ROUTING_PANEL") }));
 vi.mock("@/server/ai/knowledge-repository", () => ({ AiKnowledgeRepository: class { read = async () => ({ draft: { introduction: "", faqs: [], prohibitedTerms: [], references: { hours: false, services: false, prices: false } }, published: null, revision: 0, publishedVersion: 0, publishedAt: null }); } }));
 vi.mock("../app/(dashboard)/dashboard/settings/digital-butler/ai-knowledge-panel", () => ({ AiKnowledgePanel: () => h("div", null, "KNOWLEDGE_PANEL") }));
 import Page from "../app/(dashboard)/dashboard/settings/digital-butler/page";
@@ -29,7 +31,7 @@ beforeEach(() => {
 });
 it("AI-only grant mounts the existing settings page without querying or mounting deterministic flows", async () => {
   const html = renderToStaticMarkup(await Page());
-  expect(html).toContain("AI_PANEL"); expect(html).toContain("KNOWLEDGE_PANEL"); expect(html).not.toContain("DETERMINISTIC_EDITOR"); expect(m.flows).not.toHaveBeenCalled();
+  expect(html).toContain("AI_PANEL"); expect(html).toContain("KNOWLEDGE_PANEL"); expect(html).toContain("ROUTING_PANEL"); expect(html).not.toContain("DETERMINISTIC_EDITOR"); expect(m.flows).not.toHaveBeenCalled();
   expect(m.panel.mock.calls[0][0].initialHandoff).toBe(true);
 });
 it("the existing Butler still works with AI off, without touching AI persistence", async () => {

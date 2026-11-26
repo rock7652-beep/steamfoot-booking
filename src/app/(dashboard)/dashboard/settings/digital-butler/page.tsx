@@ -3,6 +3,9 @@ import { getStoreFeaturePresentation, hasStoreFeature } from "@/lib/feature-gate
 import { FEATURES } from "@/lib/feature-flags";
 import { claimsAiPreview, assertAiPreview } from "../../../../../../scripts/ai-digital-butler-preview-scope.mjs";
 import { aiButlerRepository } from "@/server/ai/database";
+import { AiRoutingPanel } from "./ai-routing-panel";
+import { AiRoutingRepository } from "@/server/ai/routing-repository";
+import { AI_ROUTING_ACCOUNT } from "@/server/ai/routing-contract";
 import { AiKnowledgePanel } from "./ai-knowledge-panel";
 import { AiKnowledgeRepository } from "@/server/ai/knowledge-repository";
 import { aiButlerDatabase } from "@/server/ai/database";
@@ -30,13 +33,15 @@ export default async function DigitalButlerSettingsPage() {
   const [butlerAllowed, aiState] = await Promise.all([hasStoreFeature(storeId, FEATURES.DIGITAL_BUTLER), getStoreFeaturePresentation(storeId, FEATURES.AI_DIGITAL_BUTLER)]);
   if (!butlerAllowed && aiState !== "ENABLED") notFound();
   const flows = butlerAllowed ? await new DigitalButlerService().listFlows(storeId) : [];
-  let ai: { setting: Awaited<ReturnType<ReturnType<typeof aiButlerRepository>["setting"]>>; usage: Awaited<ReturnType<ReturnType<typeof aiButlerRepository>["usage"]>>; handoff: boolean; knowledge: AiKnowledgeDocument } | null = null;
+  let ai: { setting: Awaited<ReturnType<ReturnType<typeof aiButlerRepository>["setting"]>>; usage: Awaited<ReturnType<ReturnType<typeof aiButlerRepository>["usage"]>>; handoff: boolean; knowledge: AiKnowledgeDocument; routing: {handoff:boolean;revision:number;globalStopped:boolean} } | null = null;
   if (aiState === "ENABLED" && claimsAiPreview() && /^ai-preview-(steamfoot|beauty|fitness|music)$/.test(storeId)) {
     assertAiPreview();
     const repository = aiButlerRepository();
     const identity = aiIdentity({ storeId, actorId: user.id, channel: "TEST", channelAccountId: "dashboard-synthetic-test", module: "STEAMFOOT" }, "read-state", process.env.AI_IDENTITY_SECRET ?? "");
     const [setting, usage, state] = await Promise.all([repository.setting(storeId), repository.usage(storeId, new Date()), repository.conversationState(identity)]);
-    ai = { setting, usage, handoff: state.handoff, knowledge: await new AiKnowledgeRepository(aiButlerDatabase()).read(storeId) };
+    const routingIdentity = aiIdentity({ storeId, actorId: user.id, channel: "TEST", channelAccountId: AI_ROUTING_ACCOUNT, module: "STEAMFOOT" }, "read-state", process.env.AI_IDENTITY_SECRET ?? "");
+    const routing = {...await repository.conversationState(routingIdentity), globalStopped: await new AiRoutingRepository(aiButlerDatabase()).globalStopped()};
+    ai = { setting, usage, handoff: state.handoff, routing, knowledge: await new AiKnowledgeRepository(aiButlerDatabase()).read(storeId) };
   }
   const store = await prisma.store.findUnique({ where: { id: storeId }, select: { name: true, slug: true, industryModule: true } });
   if (!store) notFound();
@@ -62,6 +67,7 @@ export default async function DigitalButlerSettingsPage() {
       {!ai && aiState === "ENABLED" && <p className="text-sm text-earth-600">AI 數位店長尚未在此環境開放，正式客服尚未啟用。</p>}
       {ai && <AiButlerPanel key={storeId} setting={ai.setting.setting} revision={ai.setting.revision} liveTestAvailable={process.env.AI_OPENAI_TEST_ENABLED === "1"} requestCount={ai.usage.requests} reservedMicros={ai.usage.reservedMicros} budgetMicros={ai.usage.budgetMicros} alerts={ai.usage.alerts} initialHandoff={ai.handoff} />}
       {ai && <AiKnowledgePanel key={`knowledge-${storeId}`} initial={ai.knowledge} liveTestAvailable={process.env.AI_OPENAI_TEST_ENABLED === "1"} />}
+      {ai && <AiRoutingPanel key={`routing-${storeId}`} initial={ai.routing} />}
       {butlerAllowed && <DigitalButlerFlowEditor
         flows={flows}
         courseMode={store.industryModule === "COURSE"}
