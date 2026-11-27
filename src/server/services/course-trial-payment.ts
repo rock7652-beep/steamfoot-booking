@@ -53,12 +53,15 @@ export async function voidCourseTrialInTransaction(tx:Prisma.TransactionClient,a
   if(!reason.trim())throw new AppError("VALIDATION","請填寫作廢原因");
   const payment=await tx.courseTrialPayment.findFirst({where:{id:paymentId,storeId:actor.storeId}});
   if(!payment)throw new AppError("NOT_FOUND","找不到本店體驗收款");
-  const booking=await tx.courseBooking.findFirst({where:{id:payment.bookingId,storeId:actor.storeId},select:{bookingKind:true,musicOpeningMakeupEntitlementId:true}});
+  const booking=await tx.courseBooking.findFirst({where:{id:payment.bookingId,storeId:actor.storeId},select:{id:true,bookingKind:true,musicOpeningMakeupEntitlementId:true,cardId:true,status:true,checkedInAt:true}});
   if(!booking || isMusicOpeningMakeupBooking(booking))throw new AppError("VALIDATION",MUSIC_OPENING_MAKEUP_OPERATION_ISSUE);
   if(payment.status==="VOIDED")return payment;
+  if(booking.bookingKind!=="TRIAL"||booking.cardId)throw new AppError("CONFLICT","原體驗預約狀態不一致，尚未作廢");
   const result=await tx.courseTrialPayment.update({where:{id:payment.id},data:{status:"VOIDED",voidedAt:new Date(),voidReason:reason}});
+  const restoreAttendance=["RESERVED","ATTENDED","NO_SHOW"].includes(booking.status);
+  if(restoreAttendance)await tx.courseBooking.update({where:{id:booking.id},data:{status:"RESERVED",checkedInAt:null,absenceKind:null}});
   const splits=Array.isArray(payment.paymentSplits)?payment.paymentSplits as PaymentSplitInput[]:[{paymentMethod:payment.paymentMethod,amount:payment.amount}];
   for(const [i,part] of splits.entries())if(part.amount>0)await writeCash(tx,actor,`course-trial-void:${payment.id}:${i}`,part.amount,part.paymentMethod,"EXPENSE",`體驗收款作廢 / ${payment.bookingId} / ${reason}`);
-  await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${actor.userId},'CourseTrialPayment',${payment.id},'VOID_TRIAL_PAYMENT',${JSON.stringify({status:payment.status,amount:payment.amount})}::jsonb,${JSON.stringify({status:"VOIDED",reason,attendanceUnchanged:true,automaticBankRefund:false})}::jsonb,NOW())`;
+  await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${actor.userId},'CourseTrialPayment',${payment.id},'VOID_TRIAL_PAYMENT',${JSON.stringify({status:payment.status,amount:payment.amount,bookingId:booking.id,bookingStatus:booking.status,checkedInAt:booking.checkedInAt})}::jsonb,${JSON.stringify({status:"VOIDED",reason,bookingId:booking.id,bookingStatus:restoreAttendance?"RESERVED":booking.status,attendanceRestored:restoreAttendance,automaticBankRefund:false})}::jsonb,NOW())`;
   return result;
 }

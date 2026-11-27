@@ -1,5 +1,7 @@
 "use client";
 
+import { STEAM_SLOT_CLOSED_LABEL, STEAM_SLOT_CLOSED_MESSAGE } from "@/lib/steam-customer-booking-cutoff";
+import { useSteamBookingCutoff } from "@/hooks/use-steam-booking-cutoff";
 import { useState, useCallback, useEffect, useActionState, useMemo } from "react";
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
 import { createClientReadCache } from "@/lib/client-read-cache";
@@ -249,17 +251,17 @@ export function BookingCalendarView({
             dateObj.setHours(0, 0, 0, 0);
             const isPast = dateObj < today;
             const isBeyond = dateObj > maxDate;
+            const isToday = dateObj.getTime() === today.getTime();
             const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
             const dayInfo = monthData[dateStr];
             const isTraining = dayInfo?.status === "training";
-            const isClosed = !!dayInfo && (dayInfo.status === "closed" || dayInfo.totalCapacity === 0);
+            const isClosed = !!dayInfo && (dayInfo.status === "closed" || (isToday ? dayInfo.slots.length === 0 : dayInfo.totalCapacity === 0));
             const isFull = !!dayInfo && dayInfo.totalCapacity > 0 && !dayInfo.slots.some((slot) => {
               const display = getSlotCapacityDisplay(slot.capacity, slot.booked, people);
               return display.canFitRequestedPeople;
             });
-            const disabled = !bookingHasOpened || isPast || isBeyond || loadingMonth || !dayInfo || isClosed || isTraining || isFull;
+            const disabled = !bookingHasOpened || isPast || isBeyond || loadingMonth || !dayInfo || isClosed || isTraining || (isFull && !isToday);
             const isSelected = dateStr === selectedDate;
-            const isToday = dateObj.getTime() === today.getTime();
             const hasBooking = upcomingBookings.some((booking) => booking.bookingDate === dateStr);
 
             return (
@@ -482,6 +484,11 @@ function SlotBookingForm({
   // 確保補課自動判斷（people===1）與送出人數一致。
   const people = initialPeople;
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [cutoffNotice, setCutoffNotice] = useState("");
+  const isBookingClosed = useSteamBookingCutoff(slots, selectedSlot, () => {
+    setSelectedSlot(null);
+    setCutoffNotice(STEAM_SLOT_CLOSED_MESSAGE);
+  });
   const [selectedWalletId, setSelectedWalletId] = useState(activeWallets[0]?.id ?? "");
   const [isRecurring, setIsRecurring] = useState(false);
   const recurrenceOptions = useMemo(
@@ -600,7 +607,7 @@ function SlotBookingForm({
     { error: null, success: false, bookedTime: "", bookedPeople: 0, wasMakeup: false, recurringDates: [] }
   );
 
-  const availableSlots = slots.filter((s) => s.isEnabled && !s.isPast && s.available >= people);
+  const availableSlots = slots.filter((s) => s.isEnabled && !s.isPast && !isBookingClosed(s) && s.available >= people);
   const selectedSlotInfo = selectedSlot
     ? slots.find((s) => s.startTime === selectedSlot)
     : undefined;
@@ -610,6 +617,7 @@ function SlotBookingForm({
   const selectedSlotBookable =
     !!selectedSlotInfo &&
     !selectedSlotInfo.isPast &&
+    !isBookingClosed(selectedSlotInfo) &&
     selectedSlotRemaining > 0 &&
     people <= selectedSlotRemaining;
 
@@ -755,14 +763,16 @@ function SlotBookingForm({
       {/* 時段卡片 */}
       <div>
         <p className="mb-2 text-base font-semibold text-earth-800">選擇時段</p>
+        {cutoffNotice && <p role="status" className="mb-2 text-sm text-earth-700">{cutoffNotice}</p>}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {slots.filter((s) => s.isEnabled).map((slot) => {
-            const isPast = !!slot.isPast;
+            const closed = isBookingClosed(slot);
+            const unavailable = closed || !!slot.isPast;
             const display = getSlotCapacityDisplay(slot.capacity, slot.bookedCount, people);
-            const disabled = isPast || !display.canFitRequestedPeople;
+            const disabled = unavailable || !display.canFitRequestedPeople;
             const alreadyBooked = bookedSlotTimes.includes(slot.startTime);
-            const statusText = isPast
-              ? "已過時段"
+            const statusText = unavailable
+              ? closed ? STEAM_SLOT_CLOSED_LABEL : "已過時段"
               : alreadyBooked
                 ? "您已預約"
               : display.selectionStatus === "available"
@@ -772,7 +782,7 @@ function SlotBookingForm({
               <label
                 key={slot.startTime}
                 className={`relative flex min-h-[72px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-colors ${
-                  isPast || display.selectionStatus === "insufficient"
+                  unavailable || display.selectionStatus === "insufficient"
                     ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-60"
                     : alreadyBooked
                       ? "border-blue-300 bg-blue-50 text-blue-900 hover:border-blue-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
@@ -793,12 +803,13 @@ function SlotBookingForm({
                   required
                   onChange={() => {
                     setSelectedSlot(slot.startTime);
+                    setCutoffNotice("");
                     setLoadedRecurringPreviewKey(null);
                   }}
                 />
                 <span className="text-lg font-bold">{slot.startTime}</span>
                 {statusText && (
-                  <span className={`mt-1 text-sm font-medium ${selectedSlot === slot.startTime ? "text-white/90" : alreadyBooked ? "text-blue-700" : isPast || display.selectionStatus === "insufficient" ? "text-earth-700" : display.remainingCapacity <= 2 ? "text-yellow-800" : display.selectionStatus === "full" ? "text-red-600" : "text-green-700"}`}>
+                  <span className={`mt-1 text-sm font-medium ${selectedSlot === slot.startTime ? "text-white/90" : alreadyBooked ? "text-blue-700" : unavailable || display.selectionStatus === "insufficient" ? "text-earth-700" : display.remainingCapacity <= 2 ? "text-yellow-800" : display.selectionStatus === "full" ? "text-red-600" : "text-green-700"}`}>
                     {statusText}
                   </span>
                 )}

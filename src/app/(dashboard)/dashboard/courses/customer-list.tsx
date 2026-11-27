@@ -1,4 +1,5 @@
 "use client";
+import {useCustomerMessageSelection} from "@/components/customer-message-entry";
 import {useIdleReadPreload} from "@/components/admin/use-calendar-month-preload";
 import { normalizeCourseCustomerFilters } from "@/lib/course-customer-filters";
 import {useMusicCustomerPage} from "@/components/admin/use-music-customer-page";
@@ -42,6 +43,7 @@ export function CourseCustomerList({ planPreload, preloadBlocked=false, beautyMo
   scopeParams.delete("page");scopeParams.delete("customerId");
   const scope = scopeParams.toString();
   const selectedIds = selection.scope === scope ? selection.ids : new Set<string>();
+  const canSendMessages=useCustomerMessageSelection(selectedIds);
   const setSelected = (ids: Set<string>) => setSelection({ scope, ids });
   const pointOwners = new Set<string>();
   const sessionOwners = new Set<string>();
@@ -73,12 +75,12 @@ export function CourseCustomerList({ planPreload, preloadBlocked=false, beautyMo
     <CustomersToolbar beautyMode={beautyMode} labelsInMore={sportsNative} musicMode={music} staffOptions={assignmentStaff.length ? assignmentStaff : staff} basePath={listBasePath} courseMode trailing={canMerge || canExport || (sportsNative&&onPurchase) ? <ExclusiveMenu label={sportsNative?"顧客管理更多操作":"更多"} triggerText={sportsNative?"⋯":undefined}>{sportsNative&&onPurchase&&<button type="button" className="min-h-11 w-full px-3 text-left text-sm text-primary-700" onClick={onPurchase}>購買方案</button>}{canExport && <a href="/api/export/customers" download className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">匯出顧客 CSV</a>}{canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}</ExclusiveMenu> : undefined}/>
     {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
     <CustomersTable onPrefetch={row=>planPreload?.prefetch(row.id)} compactActions={music} onEdit={onEdit ? row=>onEdit(row.id) : undefined} renderNote={music ? row => musicNoteDisplay(row.serviceNote) ? <button type="button" className="min-h-11 max-w-64 text-left text-sm text-earth-600" onClick={()=>onView(row.id)} aria-label={`${row.name} 備註與資料來源`}><span className="line-clamp-1">{musicNoteDisplay(row.serviceNote) || "—"}</span></button> : null : undefined} assignedStaffLabel="所屬店長" hideAssignedStaff={music} stickyActions rows={pageRows}
-      selectionEnabled={canAssignManager && !music} selectedIds={selectedIds}
+      selectionEnabled={(canAssignManager && !music)||canSendMessages} selectedIds={selectedIds}
       onToggleRow={id => { const next = new Set(selectedIds); if (next.has(id)) next.delete(id); else next.add(id); setSelected(next); }}
       onToggleAll={() => { const ids = pageRows.filter(row => !isInactiveRow(row)).map(row => row.id); const next=new Set(selectedIds); if(ids.every(id=>next.has(id)))ids.forEach(id=>next.delete(id));else ids.forEach(id=>next.add(id));setSelected(next); }}
       basePath={listBasePath} searchQuery={params.get("search") ?? ""}
       hasActiveFilters={["label", "search", "status", "visit", "referral", "staff"].some(key => !!params.get(key))}
-      onView={row => onView(row.id)} onCreate={onCreate} readOnly={!onCreate && !canAssignManager && !onAssign}
+      onView={row => onView(row.id)} onCreate={onCreate} readOnly={!onCreate && !canAssignManager && !onAssign && !canSendMessages}
       quickAssignLabel={music?"購課／續購":"購買方案"} quickAssignInMenu={sportsNative}
       onQuickAssign={onAssign ? row => onAssign(row.id) : undefined}
       buildViewHref={row => { const next = new URLSearchParams(params.toString()); next.set("customerId", row.id); return `${pathname}?${next}`; }}

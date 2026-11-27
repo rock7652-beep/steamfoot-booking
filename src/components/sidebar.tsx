@@ -851,6 +851,7 @@ export default function DashboardShell({
 
     const course = industryModuleId === "course";
 
+
     const growth = { ...entry("/dashboard/growth"), alternativeFeatures: [FEATURES.CUSTOMER_CARE, FEATURES.DIGITAL_BUTLER] };
     // When only the digital butler is enabled, its list remains directly reachable.
     const growthEntry = effectiveFeatures[FEATURES.CUSTOMER_CARE] === false && effectiveFeatures[FEATURES.DIGITAL_BUTLER] === true
@@ -859,6 +860,7 @@ export default function DashboardShell({
       { ...entry("/dashboard"), permission: course ? "booking.read" : undefined },
       { ...entry("/dashboard/bookings"), href: course ? "/dashboard/courses" : "/dashboard/bookings", label: course ? (musicEnabled ? "課表" : "課表排程") : "預約管理" },
       { ...entry("/dashboard/customers"), label: musicEnabled ? "學員管理" : "顧客管理", href: course ? "/dashboard/courses?view=customers" : "/dashboard/customers" },
+
       growthEntry,
       ...(!course ? [entry("/dashboard/work-orders"), entry("/dashboard/inventory")] : []),
       operationsItem,

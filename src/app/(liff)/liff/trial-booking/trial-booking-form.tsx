@@ -1,4 +1,6 @@
 "use client";
+import { STEAM_SLOT_CLOSED_MESSAGE } from "@/lib/steam-customer-booking-cutoff";
+import { useSteamBookingCutoff } from "@/hooks/use-steam-booking-cutoff";
 import {CustomerBookingGoodsField,CustomerBookingGoodsSummary} from "@/components/add-ons/customer-booking-goods";
 import {bookingGoodsInput,type CustomerBookingGoodsDraft} from "@/lib/customer-booking-goods";
 
@@ -111,6 +113,11 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [cutoffNotice, setCutoffNotice] = useState("");
+  const isBookingClosed = useSteamBookingCutoff(slots, selectedSlot, () => {
+    setSelectedSlot(null);
+    setCutoffNotice(STEAM_SLOT_CLOSED_MESSAGE);
+  });
 
   // ── 1. mount: init LIFF ────────────────────────────
   useEffect(() => {
@@ -311,12 +318,13 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
           showDismiss: true,
         });
         return;
+      case "slot_closed":
       case "slot_unavailable":
         if (selectedDate) void loadSlots(selectedDate);
         setSelectedSlot(null);
         setState({
           kind: "blocked",
-          message: liffMessages.error.slotUnavailable,
+          message: result.status === "slot_closed" ? STEAM_SLOT_CLOSED_MESSAGE : liffMessages.error.slotUnavailable,
           showRetry: false,
           showContactStore: false,
           showDismiss: true,
@@ -486,7 +494,8 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
               slots={slots}
               loading={loadingSlots}
               selectedSlot={selectedSlot}
-              onSelectSlot={setSelectedSlot}
+              isBookingClosed={isBookingClosed}
+              onSelectSlot={(slot) => { setSelectedSlot(slot); setCutoffNotice(""); }}
               disabled={state.kind === "submitting"}
               requestedPeople={1}
               labels={{
@@ -498,6 +507,7 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
             />
           )}
 
+          {selectedDate && cutoffNotice && <p role="status" className="text-sm text-earth-700">{cutoffNotice}</p>}
           <CustomerBookingGoodsField slug={storeSlug} draft={goods} disabled={state.kind==="submitting"} onChange={next=>{requestKey.complete();setGoods(next);}}/>
           <button
             type="button"

@@ -7,7 +7,7 @@ vi.mock("@/components/steam-butler-logo", () => ({ SteamButlerLogo: "logo" }));
 vi.mock("@/components/ref-capture", () => ({ RefCapture: "ref" }));
 vi.mock("@/app/oauth-buttons", () => ({ OAuthButtons: "oauth" }));
 vi.mock("@/app/customer-login-form", () => ({ CustomerLoginForm: "login" }));
-vi.mock("@/lib/store-resolver", () => ({ resolveStoreBySlug: async () => ({ id: "store-own", slug: "own-store", name: "Store" }) }));
+vi.mock("@/lib/store-resolver", () => ({ resolveStoreBySlug: async () => ({ id: "store-own", slug: "own-store", name: "Store" }), resolveCentralMemberLiffId: async () => "own-member-app" }));
 vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: m.module }));
 import HomePage from "@/app/page";
 function findOAuth(node: React.ReactNode): Record<string, unknown> | undefined {
@@ -36,4 +36,16 @@ it("does not redirect an unselected course web trial", async () => {
   m.module.mockResolvedValue("course");
   vi.stubEnv("COURSE_LIFF_REQUIRED_STORE_SLUGS", "other-store");
   expect(findOAuth(await HomePage({ searchParams: Promise.resolve({}) }))?.lineEntryHref).toBeUndefined();
+});
+
+it("returns an opted-in LINE member to the exact web portal page", async () => {
+  m.module.mockResolvedValue("course");
+  vi.stubEnv("COURSE_LIFF_REQUIRED_STORE_SLUGS", "own-store");
+  const returnTo = "/s/own-store/book?memberEntry=liff&view=schedule";
+  const page = await HomePage({ searchParams: Promise.resolve({ returnTo }) });
+  const props = findOAuth(page);
+  expect(props?.returnTo).toBe(returnTo);
+  const entry = new URL(String(props?.lineEntryHref));
+  expect(entry.pathname).toBe("/own-member-app/resume");
+  expect(entry.searchParams.get("next")).toBe(returnTo);
 });

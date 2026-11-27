@@ -15,3 +15,9 @@ it('selects stable times, preserves off-grid values and allows typed custom minu
  act(()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'10:17');input.dispatchEvent(new Event('input',{bubbles:true}));});expect(changed).toHaveBeenLastCalledWith('10:17');
  act(()=>host.querySelector('button')!.click());expect(host.querySelector('select')!.value).toBe('10:17');
 });
+
+it.each([false,true])('uses one native time control for keyboard and picker input (selectTimes=%s)',selectTimes=>{
+ const changed=vi.fn();function Form(){const [value,setValue]=useState('09:15');return h(TimeOfDayField,{keyboardInput:true,selectTimes,value,step:60,required:true,'aria-label':'開始',onChange:e=>{setValue(e.target.value);changed(e.target.value);}});}
+ act(()=>root.render(h(Form)));const input=host.querySelector('input')!;expect(host.querySelectorAll('input')).toHaveLength(1);expect(input.type).toBe('time');expect(input.step).toBe('60');expect(input.value).toBe('09:15');expect(host.querySelector('select')).toBeNull();expect(host.querySelector('button')).toBeNull();
+ act(()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'10:30');input.dispatchEvent(new Event('input',{bubbles:true}));});expect(changed).toHaveBeenLastCalledWith('10:30');expect(input.value).toBe('10:30');expect(input.style.minHeight).toBe('44px');
+});

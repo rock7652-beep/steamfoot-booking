@@ -78,6 +78,8 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/store-view-context-server", () => ({
   resolveStoreViewContextFromCookie: vi.fn(async () => null),
+  storeIdForViewContext: (storeId: string) => storeId,
+  userForViewContext: (user: unknown) => user,
 }));
 
 // ── Mock session：CUSTOMER 角色（自助預約） ──
@@ -128,7 +130,8 @@ vi.mock("@/lib/usage-gate", () => ({
   checkMonthlyBookingLimitOrThrow: vi.fn(async () => undefined),
 }));
 
-vi.mock("@/lib/date-utils", () => ({
+vi.mock("@/lib/date-utils", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/date-utils")>(),
   toLocalDateStr: () => "2026-04-26",
   getNowTaipeiHHmm: () => "00:00",
   dayRange: (dateStr: string) => ({
@@ -245,6 +248,24 @@ describe("CUSTOMER 自助預約：不可觸發 staff guard", () => {
     const { fetchDaySlots } = await import("@/server/actions/slots");
     const result = await fetchDaySlots("2026-05-05");
     expect(result.slots.length).toBeGreaterThan(0);
+  });
+
+  it("keeps the slot visible at the customer deadline and leaves the manager's capacity available", async () => {
+    const { fetchDaySlots } = await import("@/server/actions/slots");
+    const deadline = Date.parse("2026-05-05T02:30:00.000Z");
+    const now = vi.spyOn(Date, "now").mockReturnValue(deadline);
+    try {
+      const loadSlot = async () => (await fetchDaySlots("2026-05-05")).slots.find((slot) => slot.startTime === "11:00");
+      expect(await loadSlot()).toMatchObject({ bookingTimeLeftMs: 0, available: 6 });
+      now.mockReturnValue(deadline + 1);
+      expect(await loadSlot()).toMatchObject({ bookingTimeLeftMs: -1, available: 0 });
+      mockRequireSession.mockResolvedValue({ role: "OWNER", storeId: STORE_A, id: USER_ID });
+      const managerSlot = await loadSlot();
+      expect(managerSlot).toMatchObject({ available: 6 });
+      expect(managerSlot).not.toHaveProperty("bookingTimeLeftMs");
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it("createBooking(CUSTOMER 自己預約) 不報 staff-only 訊息", async () => {

@@ -3712,3 +3712,41 @@ model StaffAdjustmentMonth {
   store Store @relation(fields:[storeId], references:[id], onDelete:Restrict)
   @@id([storeId,month])
 }
+
+// Manual messages use a durable outbox; scoped SQL constraints live in the additive migration.
+model CustomerMessageBatch {
+  id String @id
+  storeId String
+  createdById String
+  body String
+  payload Json
+  channelKey String
+  status String @default("DRAFT")
+  immediate Boolean
+  scheduledAt DateTime @db.Timestamp(3)
+  expiresAt DateTime @db.Timestamp(3)
+  createdAt DateTime @default(now()) @db.Timestamp(3)
+  confirmedAt DateTime? @db.Timestamp(3)
+  cancelledAt DateTime? @db.Timestamp(3)
+  @@unique([id, storeId])
+  @@index([storeId, createdAt(sort: Desc)], map: "CustomerMessageBatch_store_created_idx")
+  @@index([status, scheduledAt], map: "CustomerMessageBatch_due_idx")
+}
+model CustomerMessageRecipient {
+  id String @id
+  batchId String
+  storeId String
+  customerId String
+  nameSnapshot String
+  lineUserId String?
+  status String
+  reason String?
+  retryKey String @unique
+  attempts Int @default(0)
+  firstAttemptAt DateTime? @db.Timestamp(3)
+  nextAttemptAt DateTime @default(now()) @db.Timestamp(3)
+  acceptedAt DateTime? @db.Timestamp(3)
+  @@unique([batchId, customerId])
+  @@index([status, nextAttemptAt], map: "CustomerMessageRecipient_due_idx")
+  @@index([batchId, status], map: "CustomerMessageRecipient_batch_idx")
+}

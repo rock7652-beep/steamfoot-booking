@@ -7,8 +7,8 @@ describe("LIFF module member destinations", () => {
     expect(liffMemberPortalPath("course", slug, "", true)).toBe(`/s/${slug}/book?memberEntry=liff&view=schedule`);
   });
   it("routes Beauty to its own member booking without accepting caller destinations", () => {
-    expect(liffMemberPortalPath("beauty", "beauty-a", "?next=https://foreign.test&store=foreign")).toBe("/s/beauty-a/beauty");
-    expect(liffMemberPortalPath("beauty", "beauty-a", "", true)).toBe("/s/beauty-a/beauty?view=book");
+    expect(liffMemberPortalPath("beauty", "beauty-a", "?next=https://foreign.test&store=foreign")).toBe("/s/beauty-a/beauty?memberEntry=liff");
+    expect(liffMemberPortalPath("beauty", "beauty-a", "", true)).toBe("/s/beauty-a/beauty?memberEntry=liff&view=book");
   });
   it("keeps Steam on its existing LIFF flow", () => {
     expect(liffMemberPortalPath("steamfoot", "zhubei", "", true)).toBeNull();

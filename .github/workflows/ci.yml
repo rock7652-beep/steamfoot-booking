@@ -149,6 +149,22 @@ jobs:
           printf 'Testing %s\n' "${tests[@]}"
           npx vitest run "${tests[@]}"
 
+      - name: Trial checkout void regression (isolated PostgreSQL engine)
+        run: >-
+          npx vitest run --config vitest.pg.config.ts
+          src/__tests__/booking-participant-payment-postgres.test.ts
+          src/__tests__/transaction-store-consistency-actions.test.ts
+          src/__tests__/trial-correct-collection.test.ts
+          src/__tests__/trial-collect-payment.test.ts
+          src/__tests__/course-trial-void-restore.test.ts
+          src/__tests__/course-trial-actions.test.ts
+          src/__tests__/music-opening-makeup-payment-guards.test.ts
+          src/__tests__/beauty-transaction-correction.test.ts
+          src/__tests__/beauty-native-transactions.test.ts
+          src/__tests__/beauty-trial-void-entry.test.ts
+          src/__tests__/beauty-roster-attendance.test.ts
+          src/__tests__/beauty-transactions.test.ts
+
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest

@@ -1,3 +1,4 @@
+import { customerResumePath, liffMemberResumeHref } from "@/lib/customer-resume-path";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { cookies, headers } from "next/headers";
 import Link from "next/link";
@@ -5,13 +6,13 @@ import { OAuthButtons } from "./oauth-buttons";
 import { CustomerLoginForm } from "./customer-login-form";
 import { RefCapture } from "@/components/ref-capture";
 import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
-import { resolveStoreBySlug } from "@/lib/store-resolver";
+import { resolveCentralMemberLiffId, resolveStoreBySlug } from "@/lib/store-resolver";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { requiresCourseLiffEntry } from "@/lib/store-line-config";
 import { resolveBookingLineEntry } from "@/server/services/booking-line-entry";
 
 interface PageProps {
-  searchParams: Promise<{ error?: string;next?:string }>;
+  searchParams: Promise<{ error?: string;next?:string;returnTo?:string }>;
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -39,13 +40,18 @@ export default async function HomePage({ searchParams }: PageProps) {
   const headerList = await headers();
   const cookieStore = await cookies();
   const storeSlug = headerList.get("x-store-slug") ?? cookieStore.get("store-slug")?.value ?? "zhubei";
+  const returnTo = customerResumePath(params.returnTo, storeSlug, "web") ?? undefined;
   const prefix = `/s/${storeSlug}`;
   const store = await resolveStoreBySlug(storeSlug);
   const storeName = getCustomerFacingStoreName(store ?? { slug: storeSlug });
   // Only explicitly selected LIFF stores require the store-validated flow.
   // Legacy web trials keep their existing central OAuth entry.
-  const lineEntryHref = store && await getStoreIndustryModule(store.id) === "course" && requiresCourseLiffEntry(storeSlug)
+  let lineEntryHref = store && await getStoreIndustryModule(store.id) === "course" && requiresCourseLiffEntry(storeSlug)
     ? resolveBookingLineEntry(storeSlug)?.url ?? `${prefix}/liff` : undefined;
+  if (lineEntryHref && returnTo) {
+    const memberLiffId = await resolveCentralMemberLiffId(storeSlug);
+    if (memberLiffId) lineEntryHref = liffMemberResumeHref(memberLiffId, storeSlug, returnTo, "web") ?? lineEntryHref;
+  }
 
   const errorMessage = params.error
     ? ERROR_MESSAGES[params.error] ?? ERROR_MESSAGES.default
@@ -70,7 +76,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
           )}
 
-          <OAuthButtons storeSlug={storeSlug} lineEntryHref={lineEntryHref} />
+          <OAuthButtons storeSlug={storeSlug} lineEntryHref={lineEntryHref} returnTo={returnTo} />
 
           {/* Divider */}
           <div className="relative my-5">
@@ -84,7 +90,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          <CustomerLoginForm storeSlug={storeSlug} storeId={store?.id} beautyBooking={params.next==='beauty-book'&&!!store&&await getStoreIndustryModule(store.id)==='beauty'} />
+          <CustomerLoginForm storeSlug={storeSlug} storeId={store?.id} returnTo={returnTo} beautyBooking={params.next==='beauty-book'&&!!store&&await getStoreIndustryModule(store.id)==='beauty'} />
 
           <div className="mt-4 text-center">
             <Link

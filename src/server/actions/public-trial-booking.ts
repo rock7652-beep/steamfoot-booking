@@ -1,4 +1,5 @@
 "use server";
+import { steamBookingTimeLeft, STEAM_SLOT_CLOSED_MESSAGE } from "@/lib/steam-customer-booking-cutoff";
 import {addonsPrisma} from '@/lib/addons-db';
 import {AppError} from "@/lib/errors";
 import {persistCustomerBookingGoods} from "@/server/services/customer-booking-goods";
@@ -77,6 +78,7 @@ export type PublicTrialCalendarDay = {
   date: string;
   status: PublicTrialDayStatus;
   availableSlots: number;
+  hasClosedSlots?: boolean;
 };
 
 export type PublicTrialBookingResult =
@@ -85,6 +87,7 @@ export type PublicTrialBookingResult =
   | { status: "already_has_trial"; bookingDate: string; slotTime: string }
   | { status: "slot_full" }
   | { status: "slot_unavailable" }
+  | { status: "slot_closed" }
   | { status: "store_unavailable" }
   | { status: "limit_reached" }
   | { status: "service_unavailable" };
@@ -163,7 +166,7 @@ export async function fetchPublicTrialMonth(
   }
 
   const today = toLocalDateStr();
-  const now = getNowTaipeiHHmm();
+  const now = Date.now();
   const days: PublicTrialCalendarDay[] = [];
 
   for (const { dateStr } of dates) {
@@ -193,7 +196,7 @@ export async function fetchPublicTrialMonth(
     }
 
     const availableSlots = bookableSlots.filter((slot) => {
-      if (dateStr === today && slot.startTime <= now) return false;
+      if (steamBookingTimeLeft(dateStr, slot.startTime, now) < 0) return false;
       const booked = bookingMap.get(`${dateStr}|${slot.startTime}`) ?? 0;
       return booked < slot.capacity;
     }).length;
@@ -202,6 +205,7 @@ export async function fetchPublicTrialMonth(
       date: dateStr,
       status: availableSlots > 0 ? "open" : "full",
       availableSlots,
+      ...(bookableSlots.some((slot) => steamBookingTimeLeft(dateStr, slot.startTime, now) < 0) && { hasClosedSlots: true }),
     });
   }
 
@@ -255,21 +259,24 @@ export async function fetchPublicTrialSlots(
   const booked = new Map(bookings.map((row) => [row.slotTime, row._sum.people ?? 0]));
   const duty = new Set(dutyRows.map((row) => row.slotTime));
   const isToday = date === today;
-  const now = isToday ? getNowTaipeiHHmm() : null;
+  const nowHHmm = isToday ? getNowTaipeiHHmm() : null;
+  const now = Date.now();
 
   const slots = resolved
     .filter((slot) => isCustomerSlotWithinBookingWindow(date, slot.startTime, bookingWindowConfig))
     .filter((slot) => !dutyEnabled || duty.has(slot.startTime))
     .map((slot) => {
       const bookedCount = booked.get(slot.startTime) ?? 0;
-      const isPast = isToday && now !== null && slot.startTime <= now;
+      const isPast = nowHHmm !== null && slot.startTime <= nowHHmm;
+      const bookingTimeLeftMs = steamBookingTimeLeft(date, slot.startTime, now);
       return {
         startTime: slot.startTime,
         capacity: slot.capacity,
         bookedCount,
-        available: isPast ? 0 : Math.max(0, slot.capacity - bookedCount),
+        available: bookingTimeLeftMs < 0 ? 0 : Math.max(0, slot.capacity - bookedCount),
         isEnabled: true,
         isPast,
+        bookingTimeLeftMs,
       };
     })
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -331,7 +338,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     if (!isCustomerSlotWithinBookingWindow(data.bookingDate, data.slotTime, bookingWindowConfig)) {
       return { status: "slot_unavailable" };
     }
-    if (data.bookingDate === today && data.slotTime <= getNowTaipeiHHmm()) return { status: "slot_unavailable" };
+    if (steamBookingTimeLeft(data.bookingDate, data.slotTime) < 0) return { status: "slot_closed" };
 
     if (await isDutySchedulingEnabled(store.id)) {
       const duty = await prisma.dutyAssignment.findFirst({
@@ -483,6 +490,9 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
           });
         }
 
+        if (steamBookingTimeLeft(data.bookingDate, data.slotTime) < 0) {
+          throw new AppError("BUSINESS_RULE", STEAM_SLOT_CLOSED_MESSAGE);
+        }
         const created = await tx.booking.create({
           data: {
             storeId: store.id,
@@ -600,6 +610,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       notificationSetup,
     };
   } catch (error) {
+    if (error instanceof AppError && error.message === STEAM_SLOT_CLOSED_MESSAGE) return { status: "slot_closed" };
     if(error instanceof AppError)return {status:"invalid_input",message:error.message};
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return { status: "slot_full" };
     console.error("[public-trial-booking] submit failed", error);

@@ -12,9 +12,10 @@
  *   - 無 FIRST_TRIAL / PACKAGE_SESSION 分支
  *   - 時段 capacity / 預約數來自 `SlotAvailability`（從 `fetchDaySlots` 衍生），
  *     不分 bookingType
- *   - 文案透過 `labels` prop 傳入；不直接 import flow-specific messages namespace
+ *   - 流程專屬文案透過 `labels` prop 傳入
  */
 
+import { STEAM_SLOT_CLOSED_LABEL } from "@/lib/steam-customer-booking-cutoff";
 import { parseLocalDate, formatWeekdayZh } from "@/lib/date-utils";
 import { getSlotCapacityDisplay } from "@/lib/slot-capacity-display";
 import type { SlotAvailability } from "@/types";
@@ -46,6 +47,7 @@ export interface SlotPickerProps {
   onSelectSlot: (slot: string) => void;
   /** 全 picker disabled（送出中時 caller 傳 true） */
   disabled: boolean;
+  isBookingClosed?: (slot: SlotAvailability) => boolean;
   /** 此次預約的人數；體驗預約固定為 1。 */
   requestedPeople?: number;
   /** 會員在這一天已預約的時段；僅會員預約傳入。 */
@@ -61,6 +63,7 @@ export function SlotPicker({
   selectedSlot,
   onSelectSlot,
   disabled,
+  isBookingClosed,
   requestedPeople = 1,
   bookedSlotTimes = [],
   labels,
@@ -93,10 +96,11 @@ export function SlotPicker({
         <div className="grid grid-cols-3 gap-2">
           {slots.map((s) => {
             const display = getSlotCapacityDisplay(s.capacity, s.bookedCount, requestedPeople);
-            const isPast = s.isPast === true;
+            const closed = isBookingClosed?.(s) === true;
+            const unavailableLabel = closed ? STEAM_SLOT_CLOSED_LABEL : s.isPast ? labels.pastLabel : null;
             const isSelected = s.startTime === selectedSlot;
             const alreadyBooked = bookedSlotTimes.includes(s.startTime);
-            const slotDisabled = disabled || !display.canFitRequestedPeople || isPast;
+            const slotDisabled = disabled || !display.canFitRequestedPeople || !!unavailableLabel;
             return (
               <button
                 key={s.startTime}
@@ -104,32 +108,32 @@ export function SlotPicker({
                 disabled={slotDisabled}
                 onClick={() => onSelectSlot(s.startTime)}
                 className={`flex min-h-[52px] flex-col items-center justify-center rounded-lg border px-2 py-2 text-sm font-medium transition ${
-                  isSelected
-                    ? "border-earth-800 bg-earth-800 text-white"
-                    : alreadyBooked
+                  unavailableLabel
+                    ? "border-earth-200 bg-earth-50 text-earth-600"
+                    : isSelected
+                      ? "border-earth-800 bg-earth-800 text-white"
+                      : alreadyBooked
                       ? "border-blue-300 bg-blue-50 text-blue-900 hover:border-blue-400"
-                    : isPast
-                      ? "border-earth-200 bg-earth-50 text-earth-400"
                       : !display.canFitRequestedPeople
                         ? "border-earth-200 bg-earth-50 text-earth-500"
                         : display.remainingCapacity <= 2
                           ? "border-yellow-300 bg-yellow-50 text-yellow-900 hover:border-yellow-400"
                         : "border-earth-300 bg-white text-earth-800 hover:bg-earth-50 hover:border-earth-500"
                 }`}
-                aria-label={`${s.startTime}，${isPast ? labels.pastLabel : display.label ?? "可預約"}`}
+                aria-label={`${s.startTime}，${unavailableLabel ?? display.label ?? "可預約"}`}
               >
                 <span className="text-base leading-tight">{s.startTime}</span>
-                {isPast && (
+                {unavailableLabel && (
                   <span className="text-[10px] leading-tight">
-                    {labels.pastLabel}
+                    {unavailableLabel}
                   </span>
                 )}
-                {!isPast && display.label && (
+                {!unavailableLabel && display.label && (
                   <span className={`text-[10px] leading-tight ${display.remainingCapacity <= 2 ? "text-yellow-800" : ""}`}>
                     {display.selectionStatus === "full" ? "已額滿" : display.label}
                   </span>
                 )}
-                {!isPast && alreadyBooked && (
+                {!unavailableLabel && alreadyBooked && (
                   <span className={`text-[10px] leading-tight ${isSelected ? "text-white/90" : "text-blue-700"}`}>
                     您已預約
                   </span>

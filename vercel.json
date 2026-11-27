@@ -54,10 +54,24 @@
     {
       "path": "/api/cron/beauty-notifications",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/customer-messages",
+      "schedule": "* * * * *"
     }
   ],
   "git": {
     "deploymentEnabled": {
+      "fix/hours-picker-save-20261124": false,
+      "fix/hours-keyboard-input-20261124": false,
+      "fix/member-store-switching-consistency-20261120": false,
+      "fix/liff-home-booking-people-20261120": false,
+      "fix/beauty-booking-people-20261119": false,
+      "fix/liff-booking-people-20261119": false,
+      "fix/shared-single-service-void-restore-20261118": false,
+      "fix/shared-trial-void-restore-20261118": false,
+      "feat/customer-message-entry-20261117": false,
+      "fix/course-date-picker-sync-20261117": false,
       "fix/customer-parallel-read-20261114": false,
       "fix/instant-filter-clear-state-20261114": false,
       "fix/site-instant-filters-20261114": false,

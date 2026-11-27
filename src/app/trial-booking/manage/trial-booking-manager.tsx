@@ -1,5 +1,7 @@
 "use client";
 
+import { STEAM_SLOT_CLOSED_LABEL, STEAM_SLOT_CLOSED_MESSAGE } from "@/lib/steam-customer-booking-cutoff";
+import { useSteamBookingCutoff } from "@/hooks/use-steam-booking-cutoff";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
@@ -22,8 +24,12 @@ export function TrialBookingManager() {
   // reschedule date. Starting from "today" can select a full or closed day
   // even when the booking's own date has available alternatives.
   const [date, setDate] = useState("");
-  const [slots, setSlots] = useState<string[]>([]);
+  const [slots, setSlots] = useState<Awaited<ReturnType<typeof getTrialRescheduleSlotsFromChat>>>([]);
   const [selected, setSelected] = useState("");
+  const isBookingClosed = useSteamBookingCutoff(slots, selected, () => {
+    setSelected("");
+    setMessage(STEAM_SLOT_CLOSED_MESSAGE);
+  });
   const [booking, setBooking] = useState<{
     bookingDate: string;
     slotTime: string;
@@ -109,8 +115,28 @@ export function TrialBookingManager() {
       setSelected("");
       void loadRescheduleSlots(e.target.value);
     }} />
-    {slots.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{slots.map(slot => <button key={slot} className={`rounded border px-3 py-2 ${selected === slot ? "bg-primary-100" : ""}`} onClick={() => setSelected(slot)}>{slot}</button>)}</div>}
-    {selected && <button className="mt-3 w-full rounded-xl border border-primary-600 p-3 text-primary-700" disabled={disabled} onClick={() => { setPending(true); setMessage("正在更改預約…"); void rescheduleTrialBookingFromChat({ token, date, slotTime: selected }).then(result => {
+    {slots.length > 0 && (
+      <div className="mt-3 flex flex-wrap gap-2">
+        {slots.map(slot => {
+          const closed = isBookingClosed(slot);
+          return (
+            <button key={slot.startTime} type="button" disabled={disabled || closed}
+              className={`min-h-11 rounded border px-3 py-2 ${closed ? "border-earth-200 bg-earth-50 text-earth-600" : selected === slot.startTime ? "bg-primary-100" : ""}`}
+              onClick={() => { setSelected(slot.startTime); setMessage(""); }}>
+              {slot.startTime}
+              {closed && <span className="block text-sm">{STEAM_SLOT_CLOSED_LABEL}</span>}
+            </button>
+          );
+        })}
+      </div>
+    )}
+    {selected && <button className="mt-3 w-full rounded-xl border border-primary-600 p-3 text-primary-700" disabled={disabled} onClick={() => { setPending(true); setMessage("正在更改預約…"); void rescheduleTrialBookingFromChat({ token, date, slotTime: selected }).then(async result => {
+      if (result === "slot_closed") {
+        setSelected("");
+        await loadRescheduleSlots(date);
+        setMessage(STEAM_SLOT_CLOSED_MESSAGE);
+        return;
+      }
       if (result === "rescheduled") {
         setBooking(current => current ? { ...current, bookingDate: date, slotTime: selected, customerRescheduleCount: current.customerRescheduleCount + 1 } : current);
         setSlots([]);
@@ -128,7 +154,7 @@ export function TrialBookingManager() {
 
   return <main className="mx-auto min-h-dvh max-w-lg bg-[#f7f2ea] p-6 text-earth-900">
     <h1 className="text-2xl font-bold">預約自助處理</h1>
-    <p className="mt-2 text-sm text-earth-600">您可確認會到、同店改期一次，或取消預約。距離預約 12 小時內請直接聯絡門市。</p>
+    <p className="mt-2 text-sm text-earth-600">您可確認會到、同店改期一次，或取消預約。距離預約 12 小時內請直接聯絡門市。改期選擇的新時段須在開始前至少 30 分鐘預約。</p>
     {!token && <p role="alert" className="mt-4">預約連結不完整，請從 LINE 提醒卡片重新開啟。</p>}
     {message && <p role="status" aria-live="polite" className="mt-4 rounded-xl bg-white p-3 text-sm">{message}</p>}
     {action === "cancel" ? cancelButton : action === "reschedule" ? rescheduleSection : action === "confirm" ? <button disabled={disabled} className="mt-6 w-full rounded-xl bg-primary-600 p-3 font-semibold text-white disabled:opacity-40" onClick={() => void confirmAttendance()}>{pending ? "確認中…" : "確認會到"}</button> : <>

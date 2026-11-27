@@ -32,6 +32,7 @@
  *   ❌ NO Transaction / NO Cashbook / NO LINE push / NO MessageLog
  */
 
+import { STEAM_SLOT_CLOSED_MESSAGE } from "@/lib/steam-customer-booking-cutoff";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
@@ -79,6 +80,7 @@ export type SubmitLiffMemberBookingResult =
   | { status: "insufficient_sessions" }
   | { status: "slot_full" }
   | { status: "slot_unavailable" }
+  | { status: "slot_closed" }
   | { status: "booking_limit_reached" }
   // PR-NoShow-2：補課券在併發/過期 race 下暫時無法使用 → 請重新整理重試。
   | { status: "makeup_unavailable" }
@@ -227,6 +229,7 @@ function mapCreateBookingErrorToStatus(
   ctx: { customerId: string; storeId: string },
 ): SubmitLiffMemberBookingResult {
   const msg = errorMsg ?? "";
+  if (msg === STEAM_SLOT_CLOSED_MESSAGE) return { status: "slot_closed" };
 
   if (/IDEMPOTENCY_KEY_REUSED/.test(msg)) {
     return { status: "idempotency_key_reused" };

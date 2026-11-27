@@ -25,6 +25,12 @@ Owner 不會因舊 StaffPermission 缺少勾選而失去店內權限；不會因
 - 門市資料僅含白名單業務類型／動作、事件時角色、時間、操作人及有限狀態／數值；不含登入、安全資訊、IP、session、任意私人備註、HQ 事件或未知角色歷史。直連路由與單筆紀錄 server action 均檢查同一身分及店家範圍。
 - 關閉、隱藏、到期或撤回身分只收回讀取權；每次請求重新驗證，不停止記錄、不刪除歷史，也不改變既有 writers／outbox／actor attribution。
 
+## 顧客自由訊息（2026-11-17 本地版本）
+
+發送顧客訊息使用獨立 customer.message.send，另需 customer.read、可寫本店及 line_reminder 開通。
+Owner 依既有店內全權；新建 Manager 預設包含，Staff／舊 PARTNER 不預設開放。既有個別權限不因本次更新自動改寫，須由有權限的管理者明確授權。
+排程執行時再次核對原發送人的帳號、門市與權限；已停用、換店或撤權不繼續發送。
+
 ## 進銷存預設
 
 | 權限 | Owner | Manager | Staff |

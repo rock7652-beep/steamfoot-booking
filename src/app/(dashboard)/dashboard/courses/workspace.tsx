@@ -364,6 +364,15 @@ export function CourseWorkspace({
   const musicCalendar=businessProfile==="MUSIC"&&!calendarSource&&view==="schedule";
   const seedCustomerLabels=useSeedCustomerLabels();
   const explicitDate=params.get("date"),explicitMode=params.get("scheduleView");
+  const [musicDate, setMusicDate] = useState(explicitDate && parseTaipeiDateTime(explicitDate, "00:00") ? explicitDate : loadedDate);
+  useLayoutEffect(() => {
+    if (!musicCalendar) return;
+    const requested = explicitDate && parseTaipeiDateTime(explicitDate, "00:00") ? explicitDate : loadedDate;
+    const browserDate = new URLSearchParams(window.location.search).get("date");
+    // Ignore an older router snapshot while a newer native-history selection is pending.
+    if (browserDate && parseTaipeiDateTime(browserDate, "00:00") && browserDate !== requested) return;
+    setMusicDate(requested);
+  }, [musicCalendar, explicitDate, loadedDate, storeId]);
   const [nativeDate,setNativeDate]=useSportsCalendarDate(sportsNative,loadedDate,explicitDate,pathname,!calendarSource);
   const [nativeCalendarWarning,setNativeCalendarWarning]=useState(initialSportsCalendarWarning);
   const [nativeCalendar,setNativeCalendar]=useState<{rosterSnapshots?:CalendarRosterSnapshots;schedulingModes?:CourseSchedulingModes;month:string;sessions:Session[];calendarDays:Props["calendarDays"];cancelledBookings:typeof sourceCancelledBookings;staffAvailabilityExceptions:typeof sourceStaffAvailabilityExceptions}|null>(null);
@@ -424,9 +433,14 @@ export function CourseWorkspace({
     finally{calendarReadsInFlight.current--;if(request===calendarRequest.current){setCalendarReading(false);setCalendarPreloadRevision(value=>value+1);}}
   },[sportsNative,canCreate,sportsCalendarReader,calendarSource,seedCustomerLabels,storeId]);
   const [calendarNavigating,startCalendarNavigation]=useTransition();
-  const requestedDate = sportsNative?nativeDate:params.get("date");
+  const requestedDate = musicCalendar?musicDate:sportsNative?nativeDate:params.get("date");
   const committedDate=requestedDate&&parseTaipeiDateTime(requestedDate,"00:00")?requestedDate:loadedDate;
   const [selectedDate,selectCalendarDate]=useOptimistic(committedDate,(_previous:string,next:string)=>next);
+  // Router search params can lag behind native history during a transition.
+  // Keep the control's draft until the corresponding selection is committed.
+  const [dateInputDraft, setDateInputDraft] = useState(selectedDate);
+  const dateInputSelection = useRef(selectedDate);
+  useLayoutEffect(() => { setDateInputDraft(selectedDate); dateInputSelection.current = selectedDate; }, [selectedDate]);
   const calendarDataReady=calendarMonthReady(sportsNative||businessProfile==="MUSIC",selectedDate,nativeCalendar?.month??loadedDate.slice(0,7));
   useEffect(()=>{if((sportsNative||musicCalendar)&&!calendarDataReady&&calendarTargetMonth.current!==committedDate.slice(0,7)){
     if(sportsNative&&!calendarSource)setNativeDate(nativeDate);
@@ -745,6 +759,7 @@ export function CourseWorkspace({
     if(date!==selectedDate)cancelPendingTeacherNote();
     calendarSource?.onDateChange?.(date);
     if(musicCalendar){
+      setMusicDate(date);
       const next=new URLSearchParams(window.location.search);next.set("date",date);
       window.history.replaceState(null,"",`${pathname}?${next}`);
       const month=date.slice(0,7);
@@ -765,6 +780,19 @@ export function CourseWorkspace({
       // Even returning to the loaded month must supersede an older in-flight navigation.
       return router.replace(`${pathname}?${next}`, { scroll: false });
     });
+  }
+  function commitDateInput(input: HTMLInputElement, restoreInvalid = false) {
+    const date = input.value;
+    if (!parseTaipeiDateTime(date, "00:00")) {
+      if (restoreInvalid) input.value = dateInputDraft;
+      return;
+    }
+    if (date === dateInputSelection.current) return;
+    // Native pickers can update the value before React observes a change event.
+    // Input, change and blur must commit the same selection at most once.
+    dateInputSelection.current = date;
+    setDateInputDraft(date);
+    go(date);
   }
   function open(next: typeof panel) {
     if (pending) return;
@@ -1179,15 +1207,13 @@ export function CourseWorkspace({
               <label className="sr-only" htmlFor="course-schedule-date">課表日期</label>
               <input
                 id="course-schedule-date"
-                key={selectedDate}
                 aria-label="課表日期"
                 type="date"
-                defaultValue={selectedDate}
+                value={dateInputDraft}
                 disabled={pending||inlineBusy}
-                onChange={(event) => {
-                  const date = event.target.value;
-                  if (parseTaipeiDateTime(date, "00:00")) go(date);
-                }}
+                onInput={(event) => commitDateInput(event.currentTarget)}
+                onChange={(event) => commitDateInput(event.currentTarget)}
+                onBlur={(event) => commitDateInput(event.currentTarget, true)}
                 className="min-h-9 rounded-lg border border-earth-200 bg-white px-2.5 text-sm text-earth-700"
               />
               {businessProfile === "MUSIC" && scheduleMode !== "month" && <div role="group" aria-label="當日資訊" className="flex shrink-0 items-center gap-1">

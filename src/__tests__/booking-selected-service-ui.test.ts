@@ -32,7 +32,7 @@ beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   h.status.mockResolvedValue({ bookingDate: "2026-11-03", slotTime: "14:00", bookingStatus: "PENDING", customerRescheduleCount: 0, serviceName: "方案預約" });
-  h.slots.mockResolvedValue(["16:00"]);
+  h.slots.mockResolvedValue([{ startTime: "15:00", bookingTimeLeftMs: -1 }, { startTime: "16:00", bookingTimeLeftMs: 60_000 }]);
   h.move.mockResolvedValue("rescheduled");
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
@@ -62,6 +62,7 @@ it("舊體驗提醒連結顯示實際方案，改期後仍顯示同一方案", a
   expect(host.textContent).toContain("預約自助處理");
   expect(host.textContent).toContain("方案預約");
   expect(host.textContent).not.toContain("體驗預約自助處理");
+  expect(button("15:00已截止預約").disabled).toBe(true);
   saveIsolatedPreview("signed-reschedule");
   await act(async () => button("16:00").click());
   await act(async () => button("確認改為 2026-11-03 16:00").click());

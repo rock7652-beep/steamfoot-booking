@@ -1,4 +1,6 @@
 "use client";
+import { STEAM_SLOT_CLOSED_LABEL, STEAM_SLOT_CLOSED_MESSAGE } from "@/lib/steam-customer-booking-cutoff";
+import { useSteamBookingCutoff } from "@/hooks/use-steam-booking-cutoff";
 import {CustomerBookingGoodsField,CustomerBookingGoodsSummary} from "@/components/add-ons/customer-booking-goods";
 import {bookingGoodsInput,bookingGoodsTotal,type CustomerBookingGoodsDraft} from "@/lib/customer-booking-goods";
 
@@ -44,6 +46,7 @@ function resultMessage(result: PublicTrialBookingResult): string {
     case "invalid_input": return result.message;
     case "already_has_trial": return `這支手機已有首次體驗預約：${result.bookingDate} ${result.slotTime}`;
     case "slot_full": return "這個時段剩餘名額不足，請調整人數或重新選擇時段。";
+    case "slot_closed": return STEAM_SLOT_CLOSED_MESSAGE;
     case "slot_unavailable": return "這個時段目前無法預約，請重新選擇。";
     case "store_unavailable": return "門市目前暫時無法接受線上預約，請用 LINE 聯繫我們。";
     case "limit_reached": return "目前線上預約已達上限，請用 LINE 聯繫門市協助。";
@@ -123,6 +126,11 @@ export function ZhubeiTrialBookingForm({
   const [message, setMessage] = useState("");
   const [goods,setGoods]=useState<CustomerBookingGoodsDraft>();
   const [success, setSuccess] = useState<{ date: string; time: string; people: number; expectedAmount: number; notificationSetup?: TrialNotificationSetup } | null>(null);
+
+  const isBookingClosed = useSteamBookingCutoff(slots, slotTime, () => {
+    setSlotTime("");
+    setMessage(STEAM_SLOT_CLOSED_MESSAGE);
+  });
 
   useEffect(() => {
     if (!success || (success.notificationSetup && success.notificationSetup.status !== "linked")) return;
@@ -217,8 +225,8 @@ export function ZhubeiTrialBookingForm({
         });
         return;
       }
+      if (result.status === "slot_full" || result.status === "slot_unavailable" || result.status === "slot_closed") await loadSlots(bookingDate);
       setMessage(resultMessage(result));
-      if (result.status === "slot_full" || result.status === "slot_unavailable") await loadSlots(bookingDate);
     } catch {
       setMessage("預約暫時沒有完成，請稍後再試或用 LINE 聯繫門市。");
     } finally {
@@ -284,7 +292,7 @@ export function ZhubeiTrialBookingForm({
           <div className="grid grid-cols-7 gap-1">
             {Array.from({ length: firstDow }).map((_, index) => <div key={`blank-${index}`} />)}
             {calendarDays.map((day) => {
-              const selectable = day.status === "open";
+              const selectable = day.status === "open" || day.hasClosedSlots === true;
               const selected = bookingDate === day.date;
               return (
                 <button
@@ -302,7 +310,7 @@ export function ZhubeiTrialBookingForm({
           </div>
         )}
         <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-earth-500">
-          <span>可約：可選日期</span><span>公休／進修：不可選</span><span>額滿／未開放：不可選</span>
+          <span>可約：可選日期</span><span>公休／進修：不可選</span><span>額滿或截止的時段不可預約</span>
         </div>
       </div>
 
@@ -315,10 +323,11 @@ export function ZhubeiTrialBookingForm({
         ) : (
           <div className="mt-3 grid grid-cols-2 gap-3">
             {slots.map((slot) => {
-              const available = slot.isEnabled && !slot.isPast && slot.available > 0;
+              const closed = isBookingClosed(slot);
+              const available = slot.isEnabled && !slot.isPast && !closed && slot.available > 0;
               return (
                 <button key={slot.startTime} type="button" disabled={!available} onClick={() => { setSlotTime(slot.startTime); setPeople(1); setMessage(""); }} className={`min-h-11 rounded-xl border px-3 text-sm font-medium transition ${slotTime === slot.startTime ? "border-primary-600 bg-primary-50 text-primary-700" : available ? "border-earth-200 bg-white text-earth-700" : "cursor-not-allowed border-earth-100 bg-earth-50 text-earth-300"}`}>
-                  {slot.startTime}{!available ? "（已額滿）" : slot.available <= 2 ? `（剩 ${slot.available} 位）` : ""}
+                  {slot.startTime}{closed ? `（${STEAM_SLOT_CLOSED_LABEL}）` : !available ? "（已額滿）" : slot.available <= 2 ? `（剩 ${slot.available} 位）` : ""}
                 </button>
               );
             })}

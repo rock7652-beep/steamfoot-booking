@@ -36,6 +36,8 @@
  *   _components/success-card.tsx                   ← SuccessCard
  */
 
+import { STEAM_SLOT_CLOSED_MESSAGE } from "@/lib/steam-customer-booking-cutoff";
+import { useSteamBookingCutoff } from "@/hooks/use-steam-booking-cutoff";
 import { useRouter } from "next/navigation";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
@@ -151,6 +153,11 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [cutoffNotice, setCutoffNotice] = useState("");
+  const isBookingClosed = useSteamBookingCutoff(slots, selectedSlot, () => {
+    setSelectedSlot(null);
+    setCutoffNotice(STEAM_SLOT_CLOSED_MESSAGE);
+  });
 
   // ── 1. mount: init LIFF + fetch wallet summary ─────
   useEffect(() => {
@@ -463,13 +470,14 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           showDismiss: true,
         });
         return;
+      case "slot_closed":
       case "slot_unavailable":
         if (selectedDate) void loadSlots(selectedDate);
         setSelectedSlot(null);
         setState({
           kind: "blocked",
           wallet: walletCarry,
-          message: liffMessages.error.slotUnavailable,
+          message: result.status === "slot_closed" ? STEAM_SLOT_CLOSED_MESSAGE : liffMessages.error.slotUnavailable,
           showRetry: false,
           showContactStore: false,
           showDismiss: true,
@@ -780,7 +788,8 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
                 slots={slots}
                 loading={loadingSlots}
                 selectedSlot={selectedSlot}
-                onSelectSlot={setSelectedSlot}
+                isBookingClosed={isBookingClosed}
+                onSelectSlot={(slot) => { setSelectedSlot(slot); setCutoffNotice(""); }}
                 disabled={state.kind === "submitting"}
                 requestedPeople={people}
                 bookedSlotTimes={bookedSlotTimes}
@@ -794,6 +803,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
             </section>
           )}
 
+          {selectedDate && cutoffNotice && <p role="status" className="text-sm text-earth-700">{cutoffNotice}</p>}
           {selectedDate && selectedSlot && (
             <div className="rounded-xl border border-earth-200 bg-white px-4 py-3 text-sm text-earth-800">
               <span className="font-semibold">預約確認：</span>

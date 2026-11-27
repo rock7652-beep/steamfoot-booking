@@ -1,4 +1,5 @@
 import { CustomerLabelsSeed } from "@/components/customer-labels";
+import {customerMessageEntryAllowed} from "@/server/services/customer-message-entry";
 import { PageShell } from "@/components/desktop";
 import { CoursePlanPageHeader } from "./plan-page-header";
 import { loadCourseMemberWorkspace } from "@/server/queries/course-member-workspace";
@@ -12,7 +13,7 @@ export async function CourseMemberPage({view,query={}}:{view:"customers"|"plans"
   <PageShell className={`course-workspace mx-auto flex max-w-[1440px] flex-col px-6 ${view==="plans"?"gap-1 py-1":"gap-2 py-2"}`}>
    {view==="plans"&&<><CoursePlanPageHeader nativeFees={!!props.sportsNative||!!props.music}/><CoursePurchaseReview {...data.review}/></>}
    <CoursePurchaseIntentProvider enabled={data.recoveryEnabled} storeId={data.storeId}>
-    <CourseMemberWorkspaceEntry key={data.storeId} {...props}/>
+    <CourseMemberWorkspaceEntry key={data.storeId} {...props} canSendMessages={view==="customers"&&await customerMessageEntryAllowed(data.storeId)}/>
    </CoursePurchaseIntentProvider>
   </PageShell>
  </CustomerLabelsSeed>;

@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { getMonthSpecialDays, getMonthScheduleSummary, getDaySlotDetails, syncFromHeadquarters } from "@/server/actions/business-hours";
 import { getCourseMonthSpecialDays, getCourseMonthScheduleSummary, getCourseDayHours } from "@/server/actions/course-business-hours";
 import { toLocalDateStr } from "@/lib/date-utils";
-import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS, generateSlots, validateBusinessPeriods } from "@/lib/slot-generator";
+import { CAPACITY_OPTIONS, generateSlots, validateBusinessPeriods } from "@/lib/slot-generator";
 
 // ============================================================
 // Types
@@ -37,13 +37,18 @@ interface BusinessPeriod {
   defaultCapacity: number;
 }
 
+const isTimeOfDay=(value:string)=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+
 function validateServicePeriods(periods: BusinessPeriod[], course = false) {
-  const incomplete = periods.findIndex((period) => !period.openTime || !period.closeTime);
-  if (incomplete >= 0) return { valid: false, error: `第 ${incomplete + 1} 段：請選擇開始與結束時間` };
+  for (const [index, period] of periods.entries()) {
+    if (!isTimeOfDay(period.openTime)) return { valid: false, error: `第 ${index + 1} 段：請填寫完整開始時間，例如 09:30。` };
+    if (!isTimeOfDay(period.closeTime)) return { valid: false, error: `第 ${index + 1} 段：請填寫完整結束時間，例如 18:00。` };
+  }
   if(course) {
     const sorted=[...periods].sort((a,b)=>a.openTime.localeCompare(b.openTime));
     return {valid:sorted.length>0 && sorted.every((p,i)=>p.openTime<p.closeTime && (i===0||sorted[i-1].closeTime<=p.openTime)),error:"請設定不重疊的完整營業時間"};
   }
+  if (periods.some(period => ![30, 60, 90, 120].includes(period.slotInterval))) return { valid: false, error: "預約時段間隔限用 30／60／90／120 分鐘" };
   return validateBusinessPeriods(periods);
 }
 
@@ -151,7 +156,6 @@ export function ScheduleManager({
 }: Props) {
   // 各模組保留自己的預約單位；新版美業固定 30 分鐘。
   const courseLayout=isCourseStore||isBeautyStore;
-  const intervalOptions = isBeautyStore ? SLOT_INTERVAL_OPTIONS.filter(o=>o.value===30) : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
   const [year, setYear] = useState(initialYear);
   const [month, setMonth] = useState(initialMonth);
   const [specialDays, setSpecialDays] = useState<SpecialDay[]>(initialSpecialDays);
@@ -168,6 +172,7 @@ export function ScheduleManager({
   const daySaveLock=useRef(false);
   const [loadingDay, setLoadingDay] = useState(false);
   const [saveError,setSaveError]=useState<string|null>(null);
+  const [saveNotice,setSaveNotice]=useState("");
   const [reviewedDraft, setReviewedDraft] = useState<string | null>(null);
 
   // 每週固定設定展開/收合
@@ -461,7 +466,7 @@ export function ScheduleManager({
     async (dateStr: string, opts: { bypassCache?: boolean } = {}) => {
       if((locked||daySaveLock.current)&&!opts.bypassCache)return;
       if(selectedDate!==dateStr) setShowAdvancedSlots(false);
-      setSaveError(null);
+      setSaveError(null);setSaveNotice("");
       setDateSelectionAttempted(false);
       setIncludeSlotOverrides(false);
       setSelectedDate(dateStr);
@@ -539,6 +544,7 @@ export function ScheduleManager({
     dayDetailCacheRef.current.clear();monthCacheRef.current.clear();
     dayDetailCacheRef.current.set(saved.date,saved.day);
     setServiceRevision(saved.day.hoursRevision);setWeeklyHours(saved.weekly);
+    setSaveNotice(`${saved.date} 已儲存${saved.day.periods.length ? `：${saved.day.periods.map(period=>`${period.openTime}–${period.closeTime}`).join("、")}` : saved.day.slots.some(slot=>slot.isEnabled) ? "：已更新開放時段" : saved.day.status==="training" ? "：教育訓練" : "：全天休息"}`);
     const savedMonth=saved.date.slice(0,7);
     monthCacheRef.current.set(savedMonth,{summary:saved.summary,specialDays:saved.specials});
     if(savedMonth===monthKey(year,month)){setMonthSummary(saved.summary);setSpecialDays(saved.specials);}
@@ -780,13 +786,15 @@ export function ScheduleManager({
                 </div>
               </div>
 
+              {!dayDraftDirty && saveNotice && <p role="status" className="mb-3 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800">{saveNotice}</p>}
               {saveError && <p role="alert" className="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
               {/* 時段設定：custom 模式、permanent+open、template+open 都顯示 */}
               {(editStatus === "custom" || (editStatus === "open" && (applyMode === "dates" || applyMode === "permanent" || applyMode === "template"))) && (
                 <div className="mb-3 space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
                   <div>
                     <p className="text-xs font-semibold text-blue-900">服務時間</p>
-                    <p className="mt-0.5 text-[11px] text-blue-700">可分多段，空檔為休息。</p>
+                    <p className="mt-0.5 text-[11px] text-blue-700">可分多段，空檔為休息。點小時或分鐘即可鍵盤輸入，也可使用原生時間選擇器。</p>
+                    {dayDraftDirty && !periodValidation.valid && <p role="alert" className="mt-2 text-sm text-red-700">{periodValidation.error}尚未儲存。</p>}
                   </div>
                   {editPeriods.map((period, index) => (
                     <div key={index} className="rounded-lg border border-blue-100 bg-white p-2.5">
@@ -806,23 +814,21 @@ export function ScheduleManager({
                       <div className="grid min-w-0 grid-cols-2 gap-2">
                         <label className="col-span-2 min-w-0 overflow-hidden text-xs text-earth-500 sm:col-span-1">
                           開始
-                          <TimeOfDayField selectTimes={isBeautyStore} step={60} style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} value={period.openTime} disabled={!canManage}
+                          <TimeOfDayField keyboardInput selectTimes={isBeautyStore} step={60} aria-label={`第${index + 1}段開始時間`} aria-invalid={dayDraftDirty && !isTimeOfDay(period.openTime)} style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} value={period.openTime} disabled={!canManage}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, openTime: e.target.value } : item))}
-                            className="mt-1 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border border-earth-300 bg-white px-2 py-1.5 text-base" />
+                            className="mt-1 box-border block min-h-10 w-full min-w-0 max-w-full rounded border border-earth-300 bg-white px-2 py-1.5 text-base" />
                         </label>
                         <label className="col-span-2 min-w-0 overflow-hidden text-xs text-earth-500 sm:col-span-1">
                           結束
-                          <TimeOfDayField selectTimes={isBeautyStore} step={60} style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} value={period.closeTime} disabled={!canManage}
+                          <TimeOfDayField keyboardInput selectTimes={isBeautyStore} step={60} aria-label={`第${index + 1}段結束時間`} aria-invalid={dayDraftDirty && !isTimeOfDay(period.closeTime)} style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} value={period.closeTime} disabled={!canManage}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, closeTime: e.target.value } : item))}
-                            className="mt-1 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border border-earth-300 bg-white px-2 py-1.5 text-base" />
+                            className="mt-1 box-border block min-h-10 w-full min-w-0 max-w-full rounded border border-earth-300 bg-white px-2 py-1.5 text-base" />
                         </label>
                         <label hidden={courseLayout} className="text-[11px] text-earth-500">
-                          預約時段間隔
-                          <select value={isBeautyStore?30:period.slotInterval} disabled={!canManage||isBeautyStore}
+                          預約時段間隔（分鐘）
+                          <input type="number" inputMode="numeric" min={30} max={120} step={30} required aria-label="預約時段間隔（分鐘）" value={(isBeautyStore?30:period.slotInterval)||""} disabled={!canManage||isBeautyStore}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, slotInterval: Number(e.target.value) } : item))}
-                            className="mt-1 box-border block min-h-10 w-full min-w-0 max-w-full rounded border border-earth-300 bg-white px-2 py-1.5 text-base">
-                            {intervalOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.value} 分鐘</option>)}
-                          </select>
+                            className="mt-1 box-border block min-h-10 w-full min-w-0 max-w-full rounded border border-earth-300 bg-white px-2 py-1.5 text-base" />
                         </label>
                         <label hidden={courseLayout} className="text-[11px] text-earth-500">
                           每時段名額
@@ -848,7 +854,7 @@ export function ScheduleManager({
               )}
 
               <section hidden={courseLayout} aria-label="開放時段預覽" className="mb-3 rounded-lg border border-primary-100 bg-primary-50 p-3">
-                <h4 className="text-sm font-semibold text-primary-800">{dayDraftDirty ? "儲存後時段" : "目前開放時段"}</h4>
+                <h4 className="text-sm font-semibold text-primary-800">{dayDraftDirty ? "尚未儲存的時段預覽" : "目前開放時段"}</h4>
                 {canManage && editStatus !== "closed" && editStatus !== "training" && <button type="button" disabled={dayDraftDirty || loadingDay || isPending}
                   aria-expanded={showAdvancedSlots && !dayDraftDirty}
                   onClick={() => { setShowAdvancedSlots(!showAdvancedSlots); setSelectedSlot(null); }}
@@ -857,7 +863,7 @@ export function ScheduleManager({
                 </button>}
 
                 {(!showAdvancedSlots || dayDraftDirty) && (loadingDay ? <p role="status" className="mt-2 text-xs">讀取中…</p>
-                  : !periodValidation.valid ? <p className="mt-2 text-xs text-earth-600">請先修正服務時間</p>
+                  : !periodValidation.valid ? <p className="mt-2 text-sm text-earth-600">服務時間尚未完整，尚未儲存。</p>
                   : editStatus === "closed" || editStatus === "training" ? <p className="mt-2 text-sm">全天休息</p>
                   : dayDraftDirty && editStatus === "open" ? <p className="mt-2 text-xs">{applyMode === "day" ? "沿用每週固定時段，保留當日時段微調。" : "依上方時間更新每週安排。"}</p>
                   : <div className="mt-2 flex flex-wrap gap-2">
@@ -1323,7 +1329,6 @@ function WeeklyDayRow({
   isBeautyStore?: boolean;
   onSave: (dow: number, isOpen: boolean, periods: BusinessPeriod[]) => Promise<boolean>;
 }) {
-  const intervalOptions = isBeautyStore ? SLOT_INTERVAL_OPTIONS.filter(o=>o.value===30) : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
   const [isOpen, setIsOpen] = useState(day.isOpen);
   const [periods, setPeriods] = useState<BusinessPeriod[]>(day.periods?.length ? day.periods.map(p=>({...p,slotInterval:isBeautyStore?30:p.slotInterval})) : [{
     openTime: day.openTime ?? "10:00",
@@ -1397,14 +1402,12 @@ function WeeklyDayRow({
           <p className="text-[10px] text-earth-500">中間未設定的時間會自動視為休息。</p>
           {periods.map((period, index) => (
             <div key={index} className="grid min-w-0 grid-cols-2 gap-2 overflow-hidden rounded border border-earth-200 bg-white p-2">
-              <TimeOfDayField selectTimes={isBeautyStore} step={60} style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="開始時間" value={period.openTime} disabled={!canManage||uncertain} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border px-2 py-1 text-base sm:col-span-1"
+              <TimeOfDayField keyboardInput selectTimes={isBeautyStore} step={60} style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="開始時間" value={period.openTime} disabled={!canManage||uncertain} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full rounded border px-2 py-1 text-base sm:col-span-1"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, openTime: e.target.value } : item)); setDirty(true); }} />
-              <TimeOfDayField selectTimes={isBeautyStore} step={60} style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="結束時間" value={period.closeTime} disabled={!canManage||uncertain} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border px-2 py-1 text-base sm:col-span-1"
+              <TimeOfDayField keyboardInput selectTimes={isBeautyStore} step={60} style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="結束時間" value={period.closeTime} disabled={!canManage||uncertain} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full rounded border px-2 py-1 text-base sm:col-span-1"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, closeTime: e.target.value } : item)); setDirty(true); }} />
-              <select hidden={isCourseStore||isBeautyStore} value={isBeautyStore?30:period.slotInterval} disabled={!canManage||uncertain||isBeautyStore} className="rounded border px-1 py-1 text-[11px]"
-                onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, slotInterval: Number(e.target.value) } : item)); setDirty(true); }}>
-                {intervalOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.value}分鐘</option>)}
-              </select>
+              <label hidden={isCourseStore||isBeautyStore} className="min-w-0 text-xs text-earth-500">預約時段間隔（分鐘）<input type="number" inputMode="numeric" min={30} max={120} step={30} required aria-label="預約時段間隔（分鐘）" value={(isBeautyStore?30:period.slotInterval)||""} disabled={!canManage||uncertain||isBeautyStore} className="min-h-11 w-full min-w-0 rounded border px-2 py-1 text-base"
+                onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, slotInterval: Number(e.target.value) } : item)); setDirty(true); }} /></label>
               <div className="flex gap-1">
                 <select hidden={isCourseStore||isBeautyStore} value={period.defaultCapacity} disabled={!canManage||uncertain} className="min-w-0 flex-1 rounded border px-1 py-1 text-[11px]"
                   onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, defaultCapacity: Number(e.target.value) } : item)); setDirty(true); }}>

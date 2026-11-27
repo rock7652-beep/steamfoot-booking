@@ -87,6 +87,7 @@ import {CourseCustomerAttribution} from "./customer-attribution";
 import { saveCourseCustomerAttribution, searchCourseReferrerCandidates } from "@/server/actions/course-customer-attribution";
 import { CourseCustomerPurchases } from "./customer-purchases";
 import { CourseCustomerList } from "./customer-list";
+import {CustomerMessageSelectionProvider,CustomerMessageActions,CustomerMessageSingleLink} from "@/components/customer-message-entry";
 import type { CourseCustomerPage } from "@/server/queries/course-customer-page";
 import type { CustomerRow } from "../customers/_components/customers-table";
 import {InlineCustomerPlanManagement} from "./inline-customer-plan-management";
@@ -142,6 +143,7 @@ export function CourseMemberWorkspace({
   canAssignManager,
   canMerge = false,
   canExport = false,
+  canSendMessages = false,
   canDiscount = false,
   sportsData,
   schedulingModes,
@@ -182,6 +184,7 @@ export function CourseMemberWorkspace({
   canAssignManager: boolean;
   canMerge?: boolean;
   canExport?: boolean;
+  canSendMessages?: boolean;
   canDiscount?: boolean;
   music?: boolean;
   sharedCardState?: FeaturePresentationState;
@@ -533,7 +536,7 @@ export function CourseMemberWorkspace({
           {(search.trim() || status !== "all" || templateFilter!=="all" || planUnit !== "all" || purchaseFilter !== "all" || sharedFilter !== "all") && <button type="button" className={button} onClick={()=>{setSelected([]);setSearch("");setStatus("all");setTemplateFilter("all");setPlanUnit("all");setPurchaseFilter("all");setSharedFilter("all");setPage(0);}}>清除篩選</button>}
         </>);
   return (
-    <>
+    <CustomerMessageSelectionProvider key={previewStoreId} storeId={previewStoreId??""} enabled={canSendMessages}>
       {!panelOnly&&<>
       {!panel&&confirmedPurchase}
       {!panel&&notice==="結帳完成，方案已加入"&&purchased&&<div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800"><span>{notice}</span>{canSchedule&&canReadBookings&&<DashboardLink className={button} href={studentScheduleHref(purchased.customerId,params.toString(),purchased.templateId)}>{music||sportsNative?"安排課程":"前往課表"}</DashboardLink>}</div>}
@@ -555,7 +558,8 @@ export function CourseMemberWorkspace({
       )}
       </div>}
       <div className="flex flex-wrap items-center gap-2">
-        {view === "customers" && !music && <h1 className="admin-page-title mr-auto">顧客管理</h1>}
+        {view === "customers" && <h1 className="admin-page-title">{music?"學員管理":"顧客管理"}</h1>}
+        {view === "customers"&&<div className="ml-auto"><CustomerMessageActions/></div>}
 
         {view === "plans" && planArea === "catalog" && <input
           className={`${field} ${sportsData?"!w-44":"max-w-xs"}`}
@@ -583,7 +587,7 @@ export function CourseMemberWorkspace({
         {view==="plans"&&planArea==="catalog"&&canEdit&&catalogSource?.form.servicePricing&&<button type="button" className={button} disabled={!confirmedPrices.rows.length} onClick={()=>{if(open('service-price'))setPricingId(confirmedPrices.rows.find(row=>row.id===templateFilter)?.id??confirmedPrices.rows[0]?.id??'');}}>一般／體驗設定</button>}
         {canCreate && (view!=="plans"||!sportsNative||activeModes?.selfBookingEnabled!==false||activeModes?.assignedSchedulingEnabled!==false) && (view === "customers" || planArea === "catalog") && (
           <button
-            className="ml-auto min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800"
+            className={`${view === "customers"?"":"ml-auto "}min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-3 py-2 text-sm text-white hover:bg-primary-800`}
             onClick={() => {
               if (view === "customers") {
                 setPerson(null);
@@ -713,7 +717,7 @@ export function CourseMemberWorkspace({
           </header>
           </>}
           <div data-course-person-scroll={scrollKey} ref={studentScroll} onScroll={e=>{if(restoringScroll.current)return;studentScrollPositions.current[scrollKey]=e.currentTarget.scrollTop;try{sessionStorage.setItem(scrollKey,String(e.currentTarget.scrollTop));}catch{}}} className={`@container/member min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain ${music ? "p-3" : "p-4"}`}><div className="min-w-0">
-            {panel === "person" && person && ["info","data"].includes(personTab) && !editingPerson && <CustomerProfileIdentity details={detailFields} attribution={attribution} phone={person.phone} labels={<CustomerLabels customerId={person.id} readOnly={!canEdit} maxVisible={5}/>} connection={<CustomerProfileConnection key={person.id} onManage={()=>switchPersonTab("connection")} label={customerProfileLineLabel(personLine?.lineLinkStatus,personLine?.lineName,personLine?.lineUserId)}/>} actions={<>{source?.onSchedule?<button type="button" disabled={!canLeave()} className="min-h-11 rounded-lg bg-primary-700 px-3 text-sm text-white disabled:opacity-50" onClick={()=>{if(canLeave())source.onSchedule?.(person.id,()=>setCardRevision(n=>n+1));}}>新增預約</button>:!source&&canSchedule&&canReadBookings?<DashboardLink className="inline-flex min-h-11 items-center rounded-lg bg-primary-700 px-3 text-sm text-white" href={studentScheduleHref(person.id,params.toString())} onClick={event=>{if(!canLeave())event.preventDefault();}}>安排課程</DashboardLink>:null}{canAssign&&<button type="button" disabled={!canLeave()} className={button} onClick={()=>open("assign")}>{music?"購課／續購":"新增方案"}</button>}</>}/>}
+            {panel === "person" && person && ["info","data"].includes(personTab) && !editingPerson && <CustomerProfileIdentity details={detailFields} attribution={attribution} phone={person.phone} labels={<CustomerLabels customerId={person.id} readOnly={!canEdit} maxVisible={5}/>} connection={<CustomerProfileConnection key={person.id} onManage={()=>switchPersonTab("connection")} label={customerProfileLineLabel(personLine?.lineLinkStatus,personLine?.lineName,personLine?.lineUserId)}/>} actions={<><CustomerMessageSingleLink customerId={person.id} onNavigate={canLeave}/>{source?.onSchedule?<button type="button" disabled={!canLeave()} className="min-h-11 rounded-lg bg-primary-700 px-3 text-sm text-white disabled:opacity-50" onClick={()=>{if(canLeave())source.onSchedule?.(person.id,()=>setCardRevision(n=>n+1));}}>新增預約</button>:!source&&canSchedule&&canReadBookings?<DashboardLink className="inline-flex min-h-11 items-center rounded-lg bg-primary-700 px-3 text-sm text-white" href={studentScheduleHref(person.id,params.toString())} onClick={event=>{if(!canLeave())event.preventDefault();}}>安排課程</DashboardLink>:null}{canAssign&&<button type="button" disabled={!canLeave()} className={button} onClick={()=>open("assign")}>{music?"購課／續購":"新增方案"}</button>}</>}/>}
           {(customerPanel || panel === "person") && person && <CustomerProfileNavigation value={panel==="health"?"health":personTab==="data"?"data":"overview"} disabled={!canLeave()} healthEnabled={healthEnabled&&!music} onChange={value=>{if(value==="health"){if(panel!=="health")open("health");}else switchPersonTab(value==="data"?"data":"info");}}/>}
 
           {panel==="person"&&person&&personTab==="connection"&&<section className="space-y-2"><CustomerProfileSectionHeading title="會員與 LINE 管理" onBack={()=>switchPersonTab("info")} disabled={!canLeave()}/>{source?.support?<DeferredCustomerSupport storeId={previewStoreId} preload={source?.preloadCardDetails} customerId={person.id} load={source.support} expanded/>:<><StoreMemberConnectionPanel compact customerId={person.id}/><CustomerPanelAdvanced managerSimple lineExpanded active customerId={person.id} readOnly={!canEdit} canEdit={canEdit} onMutated={()=>router.refresh()}/><CoursePhoneViewPanel key={`phone-${person.id}`} customerId={person.id}/></>}</section>}
@@ -948,7 +952,7 @@ export function CourseMemberWorkspace({
           )}
         </RightSheet></SettingsPanelContext.Provider>
       )}
-    </>
+    </CustomerMessageSelectionProvider>
   );
 }
 export function CourseCardSummary({ card,sessionUnitLabel="堂" }: {sessionUnitLabel?:string; card: CourseCardView }) {

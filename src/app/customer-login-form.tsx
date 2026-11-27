@@ -18,6 +18,7 @@ export function CustomerLoginForm({
   beautyBooking=false,
   storeSlug = "zhubei",
   storeId,
+  returnTo,
 }: {
   storeSlug?: string;
   beautyBooking?:boolean;
@@ -27,6 +28,7 @@ export function CustomerLoginForm({
    * 把查詢打到不存在的 storeId、被誤判成「尚未註冊」。
    */
   storeId?: string;
+  returnTo?: string;
 }) {
   const prefix = `/s/${storeSlug}`;
   const [step, setStep] = useState<Step>("phone");
@@ -178,6 +180,7 @@ export function CustomerLoginForm({
       <input type="hidden" name="phone" value={phone.trim()} />
       <input type="hidden" name="storeId" value={storeId} />
       <input type="hidden" name="storeSlug" value={storeSlug} />
+      {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
       {beautyBooking&&<input type="hidden" name="next" value="beauty-book"/>}
 
       <div>

@@ -1,4 +1,5 @@
 "use server";
+import { STEAM_SLOT_CLOSED_MESSAGE } from "@/lib/steam-customer-booking-cutoff";
 import {customerBookingGoodsInput} from "@/lib/customer-booking-goods";
 
 /**
@@ -71,6 +72,7 @@ export type SubmitLiffTrialBookingResult =
   | { status: "profile_incomplete" }
   | { status: "slot_full" }
   | { status: "slot_unavailable" }
+  | { status: "slot_closed" }
   | { status: "booking_limit_reached" }
   // #305：本店訂閱到期 → 暫時無法建立新預約。
   | { status: "store_subscription_expired" }
@@ -277,6 +279,7 @@ function mapCreateBookingErrorToStatus(
   ctx: { customerId: string; storeId: string }
 ): SubmitLiffTrialBookingResult {
   const msg = errorMsg ?? "";
+  if (msg === STEAM_SLOT_CLOSED_MESSAGE) return { status: "slot_closed" };
 
   if (/IDEMPOTENCY_KEY_REUSED/.test(msg)) {
     return { status: "idempotency_key_reused" };

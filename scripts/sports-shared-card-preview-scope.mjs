@@ -1,6 +1,11 @@
 import { isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 
+export const SINGLE_SERVICE_VOID_PREVIEW_BRANCH = "fix/shared-single-service-void-restore-20261118";
+export const TRIAL_VOID_PREVIEW_BRANCH = "fix/shared-trial-void-restore-20261118";
 export const SPORTS_SHARED_CARD_PREVIEW_BRANCH = "feat/sports-shared-card-controls-20261007";
+export const COURSE_DATE_PICKER_PREVIEW_BRANCH = "fix/course-date-picker-sync-20261117";
+export const CUSTOMER_MESSAGES_PREVIEW_BRANCH = "feat/customer-messages-20261117";
+export const CUSTOMER_MESSAGE_ENTRY_PREVIEW_BRANCH = "feat/customer-message-entry-20261117";
 export const CALENDAR_PHASE_PREVIEW_BRANCH = "chore/calendar-phase-timing-20261103";
 export const SCHEDULE_CONFLICT_PREVIEW_BRANCH = "fix/schedule-conflicts-20261103";
 export const TRIAL_BOOKING_PHOTO_PREVIEW_BRANCH = "content/zhubei-trial-booking-photo-20261016";
@@ -11,8 +16,15 @@ export const CUSTOMER_PROFILE_PREVIEW_BRANCH = "feat/customer-profile-simplifica
 export const CUSTOMER_PARALLEL_PREVIEW_BRANCH = "fix/customer-parallel-read-20261114";
 export const CUSTOMER_PRIMARY_PREVIEW_BRANCH = "fix/customer-primary-read-priority";
 export const STEAM_TRANSACTION_REPLACEMENT_PREVIEW_BRANCH = "fix/steam-transaction-replacement";
+export const STEAM_CUSTOMER_BOOKING_CUTOFF_PREVIEW_BRANCH = "fix/steam-customer-booking-cutoff-20261125";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
   "fix/cash-withdrawal-correction",
+  STEAM_CUSTOMER_BOOKING_CUTOFF_PREVIEW_BRANCH,
+  TRIAL_VOID_PREVIEW_BRANCH,
+  SINGLE_SERVICE_VOID_PREVIEW_BRANCH,
+  COURSE_DATE_PICKER_PREVIEW_BRANCH,
+  CUSTOMER_MESSAGES_PREVIEW_BRANCH,
+  CUSTOMER_MESSAGE_ENTRY_PREVIEW_BRANCH,
   STEAM_TRANSACTION_REPLACEMENT_PREVIEW_BRANCH,
   ANALYSIS_CUSTOMER_PREVIEW_BRANCH,
   CUSTOMER_PRIMARY_PREVIEW_BRANCH,

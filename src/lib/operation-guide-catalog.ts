@@ -1,4 +1,5 @@
 import { planActivationGuideDetail } from "./operation-guide-plan-activation";
+import { customerMessagesGuide } from "./operation-guide-customer-messages";
 import {sessionAdjustmentGuide} from './operation-guide-session-adjustment';
 import {retiredSpaCatalogGuides} from "./operation-guide-retired-spa";
 import type { OperationGuide, GuideCategory } from "./operation-guide-types";
@@ -139,6 +140,7 @@ const catalogGuideCategories: GuideCategory[] = [
 export const guideCategories = catalogGuideCategories.filter(category => category.id !== "spa");
 
 export const additionalGuides: OperationGuide[] = [
+  customerMessagesGuide,
   sessionAdjustmentGuide,
   {
     "id": "S01",
@@ -428,12 +430,12 @@ export const additionalGuides: OperationGuide[] = [
     "path": "設定 → 預約開放設定 → 每週固定時段",
     "steps": [
       "展開每週固定時段，選要調整的星期。",
-      "設定營業與服務時間，檢查開放時段預覽。",
+      "使用同一個原生時間欄位，點小時或分鐘鍵入數字，或開啟原生時間選擇器調整；預約時段間隔維持 30、60、90、120 分鐘。先檢查變更，再確認儲存。",
       "確認套用範圍後儲存，再選未來日期查看。"
     ],
     "important": "每週規則與單日特殊設定不同，修改前先確認套用範圍。",
     "success": "未來日期呈現預期的開放時段。",
-    "keywords": "每週 平日 營業時間",
+    "keywords": "每週 平日 營業時間 鍵盤 輸入 分鐘 預約間隔",
     "details": [],
     "modules": [
       "steamfoot"
@@ -1005,7 +1007,7 @@ export const additionalGuides: OperationGuide[] = [
     "important": "金額登錯、重複登記或實際退款，不能只用更正付款方式處理。",
     "success": "原交易資料或對應修正紀錄能查到。",
     "keywords": "更正 付款方式 作廢",
-    "details": [],
+    "details": ["蒸足體驗與單次服務若為誤收款，從原交易選「作廢收款並恢復待服務」；原因選填，成功後重新核對預約與收款，可再進行正確結帳。原作廢交易保留，不會自動轉帳或退刷。", "已取消的預約不會因此重開；仍有其他有效收款、同行者個別服務或方案權益時，依原關聯核對，不會一律重設整筆預約。"],
     "modules": [
       "steamfoot"
     ],

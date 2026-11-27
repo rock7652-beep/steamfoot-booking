@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/session";
+import { getSelectableMemberMemberships } from "@/server/services/member-store-selection";
 import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 import { CENTRAL_MEMBER_STORE_COOKIE } from "@/lib/central-member-store";
 
@@ -12,7 +13,8 @@ export async function selectCentralMemberStoreAction(formData: FormData): Promis
 
   const requestedSlug = String(formData.get("storeSlug") ?? "").trim();
   const resolved = await resolveCentralMembershipsForUser(user.id);
-  const membership = resolved.memberships.find(
+  const selectable = await getSelectableMemberMemberships(resolved.memberships);
+  const membership = selectable.find(
     (candidate) => candidate.storeSlug === requestedSlug,
   );
 

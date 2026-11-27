@@ -99,7 +99,7 @@ describe("LIFF central-member store context", () => {
       ],
     });
     expect(h.findStores).toHaveBeenCalledWith({
-      where: { id: { in: ["store-zhubei", "store-hsinchu", "store-archived", "store-archived-trial"] }, archivedAt: null },
+      where: { id: { in: ["store-zhubei", "store-hsinchu", "store-archived", "store-archived-trial"] }, archivedAt: null, operatingStatus: { in: ["ACTIVE", "TRIAL"] } },
       select: { id: true },
     });
     expect(JSON.stringify(result)).not.toContain("customer-");

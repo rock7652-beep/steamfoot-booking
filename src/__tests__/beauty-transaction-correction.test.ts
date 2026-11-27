@@ -1,7 +1,8 @@
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
-const m=vi.hoisted(()=>({command:vi.fn(),audit:vi.fn(),cash:vi.fn()}));
+const m=vi.hoisted(()=>({command:vi.fn(),audit:vi.fn(),cash:vi.fn(),transition:vi.fn()}));
 vi.mock('@/server/beauty/access',()=>({command:m.command,audit:m.audit}));
+vi.mock('@/server/beauty/booking',()=>({transition:m.transition}));
 vi.mock('@/server/services/cash-day',()=>({lockCashDay:m.cash}));
 import type {Tx} from '@/server/beauty/booking';
 import {correctBeautyTransaction} from '@/server/beauty/transaction-correction';
@@ -9,7 +10,7 @@ afterEach(()=>vi.unstubAllEnvs());
 const a={storeId:'s',userId:'owner',manager:true};
 const base={purchaseId:'sale',expectedRevision:0,reason:'誤建',requestKey:'stable',operation:'void' as const};
 const sale={id:'sale',storeId:'s',revision:0,kind:'SALE',cardId:'card',appointmentId:null,amount:1000,method:'OTHER',note:'原單',revenueStaffId:null,voidedAt:null};
-function makeTx(){return {beautyEvent:{findMany:vi.fn().mockResolvedValue([])},beautyTransactionRevision:{findFirst:vi.fn().mockResolvedValue(null),create:vi.fn()},beautyPayment:{findFirst:vi.fn().mockResolvedValue({...sale}),count:vi.fn().mockResolvedValue(0),update:vi.fn()},beautyPurchase:{findFirst:vi.fn().mockResolvedValue(null),update:vi.fn(),updateMany:vi.fn()},beautyCard:{findFirst:vi.fn().mockResolvedValue({id:'card',customerId:'customer',remaining:8,sessions:8,paid:1000,closedAt:null}),update:vi.fn()},beautyLedger:{findMany:vi.fn().mockResolvedValue([{kind:'GRANT',delta:8}]),create:vi.fn()},beautyAppointment:{count:vi.fn().mockResolvedValue(0)},$queryRaw:vi.fn().mockResolvedValue([{amount:1000,type:'INCOME',paymentMethod:'OTHER',entryDate:new Date('2026-10-23')}]),$executeRaw:vi.fn()};}
+function makeTx(){return {beautyEvent:{findMany:vi.fn().mockResolvedValue([])},beautyTransactionRevision:{findFirst:vi.fn().mockResolvedValue(null),create:vi.fn()},beautyPayment:{findFirst:vi.fn().mockResolvedValue({...sale}),count:vi.fn().mockResolvedValue(0),update:vi.fn()},beautyPurchase:{findFirst:vi.fn().mockResolvedValue(null),update:vi.fn(),updateMany:vi.fn()},beautyCard:{findFirst:vi.fn().mockResolvedValue({id:'card',customerId:'customer',remaining:8,sessions:8,paid:1000,closedAt:null}),update:vi.fn()},beautyLedger:{findMany:vi.fn().mockResolvedValue([{kind:'GRANT',delta:8}]),create:vi.fn()},beautyAppointment:{findFirst:vi.fn().mockResolvedValue(null),count:vi.fn().mockResolvedValue(0)},$queryRaw:vi.fn().mockResolvedValue([{amount:1000,type:'INCOME',paymentMethod:'OTHER',entryDate:new Date('2026-10-23')}]),$executeRaw:vi.fn()};}
 let tx:ReturnType<typeof makeTx>;
 beforeEach(()=>{vi.resetAllMocks();m.command.mockImplementation(async(_tx,_a,_key,_intent,work)=>work());tx=makeTx();tx.beautyPayment.count.mockImplementation(async({where}: {where:{kind?:string}})=>where.kind==='SALE'?1:0);});
 it('reverses only an unused unique card, preserves receipt and records original-date cash reversal',async()=>{await correctBeautyTransaction(tx as unknown as Tx,a,base);expect(tx.beautyCard.update).toHaveBeenCalledWith({where:{id:'card'},data:{remaining:0,closedAt:expect.any(Date)}});expect(tx.beautyLedger.create).toHaveBeenCalledWith({data:{storeId:'s',cardId:'card',kind:'VOID',delta:-8,actorUserId:'owner'}});expect(tx.beautyPayment.update).not.toHaveBeenCalled();expect(tx.beautyTransactionRevision.create).toHaveBeenCalledWith({data:expect.objectContaining({transactionId:"sale",revision:1,voidedAt:expect.any(Date),voidReason:"誤建"})});expect(tx.$executeRaw.mock.calls[0][0].join('?')).toContain('SELECT');expect(tx.$executeRaw.mock.calls[0].slice(1)).toContain('beauty-void:sale');expect(m.audit).toHaveBeenCalled();});
@@ -53,4 +54,40 @@ it('allows a cash purchase cancellation after closing without requiring a reason
  expect(tx.beautyTransactionRevision.create).toHaveBeenCalledWith({data:expect.objectContaining({voidReason:null,voidedAt:expect.any(Date)})});
  expect(tx.beautyCard.update).toHaveBeenCalledWith({where:{id:'card'},data:{remaining:0,closedAt:expect.any(Date)}});
  expect(tx.$executeRaw.mock.calls.some(call=>call[0].join('?').includes('SELECT'))).toBe(true);
+});
+
+it.each([true,false])('voids a completed direct service (trial=%s) and preserves its receipt',async isTrial=>{
+ tx.beautyPayment.findFirst.mockResolvedValue({...sale,cardId:null,appointmentId:'trial'});
+ tx.beautyAppointment.findFirst.mockResolvedValue({id:'trial',isTrial,cardId:null,status:'COMPLETED',revision:4});
+ await correctBeautyTransaction(tx as unknown as Tx,a,base);
+ expect(m.transition).toHaveBeenCalledWith(tx,a,{id:'trial',revision:4,target:'RESERVED',reason:'誤建'});
+ expect(tx.beautyTransactionRevision.create).toHaveBeenCalledWith({data:expect.objectContaining({transactionId:'sale',voidedAt:expect.any(Date)})});
+ expect(tx.beautyPayment.update).not.toHaveBeenCalled();expect(tx.beautyCard.update).not.toHaveBeenCalled();
+});
+it('keeps a cancelled trial cancelled when voiding its mistaken receipt',async()=>{
+ tx.beautyPayment.findFirst.mockResolvedValue({...sale,cardId:null,appointmentId:'trial'});
+ tx.beautyAppointment.findFirst.mockResolvedValue({id:'trial',isTrial:true,cardId:null,status:'CANCELLED',revision:4});
+ await correctBeautyTransaction(tx as unknown as Tx,a,base);expect(m.transition).not.toHaveBeenCalled();
+});
+it('fails the void if restoring the original trial would conflict',async()=>{
+ tx.beautyPayment.findFirst.mockResolvedValue({...sale,cardId:null,appointmentId:'trial'});
+ tx.beautyAppointment.findFirst.mockResolvedValue({id:'trial',isTrial:true,cardId:null,status:'COMPLETED',revision:4});
+ m.transition.mockRejectedValue(new Error('原時段已有其他服務'));
+ await expect(correctBeautyTransaction(tx as unknown as Tx,a,base)).rejects.toThrow('原時段');
+ expect(tx.beautyTransactionRevision.create).not.toHaveBeenCalled();expect(tx.$executeRaw).not.toHaveBeenCalled();
+});
+
+it('rejects a card-service add-on receipt without resetting attendance',async()=>{
+ tx.beautyPayment.findFirst.mockResolvedValue({...sale,cardId:null,appointmentId:'card-service'});
+ tx.beautyAppointment.findFirst.mockResolvedValue({id:'card-service',isTrial:false,cardId:'card',status:'COMPLETED',revision:4});
+ await expect(correctBeautyTransaction(tx as unknown as Tx,a,base)).rejects.toThrow('加做收款');
+ expect(m.transition).not.toHaveBeenCalled();expect(tx.beautyTransactionRevision.create).not.toHaveBeenCalled();
+});
+
+it('does not mark a single receipt void when its original cash disagrees',async()=>{
+ tx.beautyPayment.findFirst.mockResolvedValue({...sale,cardId:null,appointmentId:'single'});
+ tx.beautyAppointment.findFirst.mockResolvedValue({id:'single',isTrial:false,cardId:null,status:'RESERVED',revision:2});
+ tx.$queryRaw.mockResolvedValue([{amount:999,type:'INCOME',paymentMethod:'OTHER'}]);
+ await expect(correctBeautyTransaction(tx as unknown as Tx,a,base)).rejects.toThrow('原收款');
+ expect(tx.beautyTransactionRevision.create).not.toHaveBeenCalled();expect(tx.$executeRaw).not.toHaveBeenCalled();
 });

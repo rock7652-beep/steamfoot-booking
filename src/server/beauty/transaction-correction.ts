@@ -1,4 +1,5 @@
 import 'server-only';
+import {transition} from './booking';
 import {beautyCardSaleAttribution} from './transaction-revisions';
 import {assertOnlineConfirmationSettled,settleCompletedPlanForVoid} from './online-confirm-guard';
 import {AppError} from '@/lib/errors';
@@ -30,8 +31,13 @@ export async function correctBeautyTransaction(tx:Tx,a:BeautyActor,input:Input&{
    await tx.beautyPurchase.update({where:{id:request.id},data:{status:'VOIDED'}});
    await resolveDigitalManagerNotice(tx,{storeId:a.storeId,eventKey:`beauty-purchase-pending:${request.id}`,actorUserId:a.userId!,actorName:a.name??'門市人員'});
   }else if(payment){
-   // Service receipts can affect frozen technician fees. Preserve those; cancel and refund instead.
-   if(!payment.cardId||payment.appointmentId)throw new AppError('BUSINESS_RULE','服務收款請先取消服務並使用退款；此處只作廢未使用的方案誤建交易');
+   if(payment.appointmentId){
+    const appointment=await tx.beautyAppointment.findFirst({where:{id:payment.appointmentId,storeId:a.storeId}});
+    if(!appointment||appointment.cardId||payment.cardId)throw new AppError('BUSINESS_RULE','方案服務與加做收款請先核對退款');
+    if(appointment.status==='COMPLETED'||appointment.status==='NO_SHOW')await transition(tx,a,{id:appointment.id,revision:appointment.revision,target:'RESERVED',reason:input.reason||'服務收款作廢'});
+    await reverseMistakenReceiptCash(tx,a,payment,input.reason);
+   }else{
+   if(!payment.cardId)throw new AppError('BUSINESS_RULE','服務收款請先取消服務並使用退款；此處只作廢未使用的方案誤建交易');
    const card=await tx.beautyCard.findFirst({where:{id:payment.cardId,storeId:a.storeId}});
    const [entries,bookings,sources]=await Promise.all([
     tx.beautyLedger.findMany({where:{storeId:a.storeId,cardId:payment.cardId}}),
@@ -40,16 +46,11 @@ export async function correctBeautyTransaction(tx:Tx,a:BeautyActor,input:Input&{
    ]);
    if(!card||card.closedAt||card.remaining!==card.sessions||bookings||sources!==1||entries.length!==1||entries[0].kind!=='GRANT'||entries[0].delta!==card.sessions||card.paid!==payment.amount)throw new AppError('BUSINESS_RULE','方案已有預約、使用或帳本異動，不能直接作廢');
    await settleCompletedPlanForVoid(tx,a,{cardId:card.id,customerId:card.customerId});
-   if(payment.amount){
-    const receipts=await tx.$queryRaw<{amount:unknown;type:string;paymentMethod:string;entryDate:Date}[]>`SELECT amount,type::text,"paymentMethod"::text,"entryDate" FROM "CashbookEntry" WHERE id=${'beauty:'+payment.id} AND "storeId"=${a.storeId} FOR UPDATE`;
-    const receipt=receipts[0];
-    if(!receipt||Number(receipt.amount)!==payment.amount||receipt.type!=='INCOME'||receipt.paymentMethod!==(payment.method==='CASH'?'CASH':'OTHER'))throw new AppError('CONFLICT','原收款與收支帳不一致，尚未作廢');
-    if(payment.method==='CASH')await lockCashDay(tx,a.storeId,receipt.entryDate,{requireOpen:true,allowClosedSupplement:true});
-    await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") SELECT ${'beauty-void:'+payment.id},"storeId","entryDate",'EXPENSE',"paymentMethod",'美業誤建沖銷',amount,${input.reason?'作廢：'+input.reason:'交易作廢'},${a.userId},NOW() FROM "CashbookEntry" WHERE id=${'beauty:'+payment.id} AND "storeId"=${a.storeId}`;
-   }
+   await reverseMistakenReceiptCash(tx,a,payment,input.reason);
    await tx.beautyCard.update({where:{id:card.id},data:{remaining:0,closedAt:new Date()}});
    await tx.beautyLedger.create({data:{storeId:a.storeId,cardId:card.id,kind:'VOID',delta:-card.remaining,actorUserId:a.userId}});
    await tx.beautyPurchase.updateMany({where:{storeId:a.storeId,cardId:card.id},data:{status:'VOIDED'}});
+   }
   }
   const originalStaff=input.operation==='void'&&!prior&&payment?.cardId?(await beautyCardSaleAttribution(tx,a.storeId)).get(payment.cardId)??null:null;
   const correction={storeId:a.storeId,transactionId:row.id,revision:(prior?.revision??0)+1,note:input.operation==='edit'?input.note!:prior?.note??payment?.note??'',revenueStaffId:input.operation==='edit'?input.revenueStaffId??null:prior?prior.revenueStaffId:originalStaff,voidedAt:input.operation==='void'?new Date():null,voidReason:input.operation==='void'?(input.reason||null):null,actorUserId:a.userId!};
@@ -57,4 +58,14 @@ export async function correctBeautyTransaction(tx:Tx,a:BeautyActor,input:Input&{
   await audit(tx,a,input.operation==='edit'?'EDIT_TRANSACTION':'VOID_TRANSACTION',JSON.stringify({id:row.id,before:{note:prior?.note??payment?.note??'',revenueStaffId:prior?.revenueStaffId??null,revision:prior?.revision??0},...input}));
   return {id:row.id};
  });
+}
+
+async function reverseMistakenReceiptCash(tx:Tx,a:BeautyActor,payment:{id:string;amount:number;method:string},reason:string){
+   if(payment.amount){
+    const receipts=await tx.$queryRaw<{amount:unknown;type:string;paymentMethod:string;entryDate:Date}[]>`SELECT amount,type::text,"paymentMethod"::text,"entryDate" FROM "CashbookEntry" WHERE id=${'beauty:'+payment.id} AND "storeId"=${a.storeId} FOR UPDATE`;
+    const receipt=receipts[0];
+    if(!receipt||Number(receipt.amount)!==payment.amount||receipt.type!=='INCOME'||receipt.paymentMethod!==(payment.method==='CASH'?'CASH':'OTHER'))throw new AppError('CONFLICT','原收款與收支帳不一致，尚未作廢');
+    if(payment.method==='CASH')await lockCashDay(tx,a.storeId,receipt.entryDate,{requireOpen:true,allowClosedSupplement:true});
+    await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") SELECT ${'beauty-void:'+payment.id},"storeId","entryDate",'EXPENSE',"paymentMethod",'美業誤建沖銷',amount,${reason?'作廢：'+reason:'交易作廢'},${a.userId},NOW() FROM "CashbookEntry" WHERE id=${'beauty:'+payment.id} AND "storeId"=${a.storeId}`;
+   }
 }

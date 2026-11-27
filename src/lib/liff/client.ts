@@ -11,6 +11,7 @@
  */
 
 import type { Liff } from "@line/liff";
+import { reportLiffMemberSessionExpired } from "./session-events";
 
 export type LiffShareMessages = Parameters<Liff["shareTargetPicker"]>[0];
 export type LiffShareResult = "success" | "cancelled" | "unavailable";
@@ -64,11 +65,14 @@ export function isInLineClient(): boolean {
 /** 取得 LIFF idToken（必須 init 完成且使用者已登入）；未就緒回 null */
 export function getIDToken(): string | null {
   if (!isBrowser() || !cachedLiff) return null;
+  let token: string | null = null;
   try {
-    return cachedLiff.getIDToken();
+    token = cachedLiff.getIDToken();
   } catch {
-    return null;
+    // The SDK can throw instead of returning null when it has no token.
   }
+  if (!token && isInLineClient()) reportLiffMemberSessionExpired();
+  return token;
 }
 
 /** 取得使用者 profile（必須 init 完成且使用者已登入）；未就緒 throw */
