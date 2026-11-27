@@ -11,6 +11,7 @@ const mockInitializeCashDrawer = vi.fn();
 const mockOpenCashDrawer = vi.fn();
 const mockGetCurrentCashDrawer = vi.fn();
 const mockAddCashDrawerEntry = vi.fn();
+const mockUpdateCashWithdrawalAmount = vi.fn();
 const mockCloseCashDrawer = vi.fn();
 
 vi.mock("@/lib/db", () => ({
@@ -28,6 +29,7 @@ vi.mock("@/lib/permissions", () => ({
 
 vi.mock("@/lib/store", () => ({
   currentStoreId: (user: { storeId: string }) => user.storeId,
+  resolveWriteStoreId: async (user: { storeId: string }) => user.storeId,
 }));
 
 vi.mock("@/lib/date-utils", () => ({
@@ -48,6 +50,7 @@ vi.mock("@/server/services/cash-drawer", () => ({
   openCashDrawer: (...args: unknown[]) => mockOpenCashDrawer(...args),
   getCurrentCashDrawer: (...args: unknown[]) => mockGetCurrentCashDrawer(...args),
   addCashDrawerEntry: (...args: unknown[]) => mockAddCashDrawerEntry(...args),
+  updateCashWithdrawalAmount: (...args: unknown[]) => mockUpdateCashWithdrawalAmount(...args),
   closeCashDrawer: (...args: unknown[]) => mockCloseCashDrawer(...args),
 }));
 
@@ -167,5 +170,32 @@ describe("withdrawal optional reason", () => {
     const {addCashDrawerEntryAction}=await import("@/server/actions/cash-drawer");
     const result=await addCashDrawerEntryAction({sessionId:SESSION_ID,type,direction:"IN",amount:100});
     expect(result.success).toBe(false);expect(mockAddCashDrawerEntry).not.toHaveBeenCalled();
+  });
+});
+
+describe("withdrawal amount correction", () => {
+  const input = { sessionId: SESSION_ID, entryId: "entry-1", originalAmount: 5000, amount: 500 };
+
+  it("requires cash drawer write permission and uses the authorized store", async () => {
+    const { updateCashWithdrawalAmountAction } = await import("@/server/actions/cash-drawer");
+    expect(await updateCashWithdrawalAmountAction(input)).toMatchObject({ success: true });
+    expect(mockRequireWritablePermission).toHaveBeenCalledWith("cashDrawer.entry");
+    expect(mockRequireStoreFeature).toHaveBeenCalledWith(STORE_ID, "cash_drawer");
+    expect(mockUpdateCashWithdrawalAmount).toHaveBeenCalledWith({
+      ...input, storeId: STORE_ID, actorUserId: "user-1",
+    });
+  });
+
+  it("rejects direct submissions without write permission", async () => {
+    mockRequireWritablePermission.mockRejectedValueOnce(new AppError("FORBIDDEN", "無權限"));
+    const { updateCashWithdrawalAmountAction } = await import("@/server/actions/cash-drawer");
+    expect(await updateCashWithdrawalAmountAction(input)).toMatchObject({ success: false });
+    expect(mockUpdateCashWithdrawalAmount).not.toHaveBeenCalled();
+  });
+
+  it.each([0, -1, 1.5, 10_000_000_000])("rejects invalid amount %s", async (amount) => {
+    const { updateCashWithdrawalAmountAction } = await import("@/server/actions/cash-drawer");
+    expect(await updateCashWithdrawalAmountAction({ ...input, amount })).toMatchObject({ success: false });
+    expect(mockUpdateCashWithdrawalAmount).not.toHaveBeenCalled();
   });
 });

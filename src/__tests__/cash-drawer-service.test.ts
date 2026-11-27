@@ -22,6 +22,8 @@ const {
   mockSessionUpdate,
   mockEntryFindMany,
   mockEntryCreate,
+  mockEntryFindFirst,
+  mockEntryUpdate,
   mockTxAggregate,
   mockPaymentSplitAggregate,
   mockTransactionCreate,
@@ -39,6 +41,8 @@ const {
     mockSessionUpdate: vi.fn(),
     mockEntryFindMany: vi.fn(),
     mockEntryCreate: vi.fn(),
+    mockEntryFindFirst: vi.fn(),
+    mockEntryUpdate: vi.fn(),
     mockTxAggregate: vi.fn(),
     mockPaymentSplitAggregate: vi.fn(),
     mockTransactionCreate: vi.fn(),
@@ -58,6 +62,8 @@ const {
     cashDrawerEntry: {
       findMany: (...a: unknown[]) => fns.mockEntryFindMany(...a),
       create: (...a: unknown[]) => fns.mockEntryCreate(...a),
+      findFirst: (...a: unknown[]) => fns.mockEntryFindFirst(...a),
+      update: (...a: unknown[]) => fns.mockEntryUpdate(...a),
     },
     transaction: {
       aggregate: (...a: unknown[]) => fns.mockTxAggregate(...a),
@@ -88,6 +94,7 @@ import {
   initializeCashDrawer,
   openCashDrawer,
   addCashDrawerEntry,
+  updateCashWithdrawalAmount,
   closeCashDrawer,
   reopenCashDrawer,
   computeCashIncomeForSession,
@@ -342,6 +349,64 @@ describe("addCashDrawerEntry", () => {
 // ============================================================
 // closeCashDrawer
 // ============================================================
+
+describe("updateCashWithdrawalAmount", () => {
+  const input = {
+    storeId: STORE_A,
+    sessionId: "sess-1",
+    entryId: "entry-1",
+    originalAmount: 5000,
+    amount: 500,
+    actorUserId: USER_OWNER,
+  };
+
+  beforeEach(() => {
+    mockSessionFindFirst.mockResolvedValue(makeSession());
+    mockSessionFindUnique.mockResolvedValue(makeSession());
+    mockEntryFindFirst.mockResolvedValue({ id: input.entryId, amount: D(input.originalAmount) });
+  });
+
+  it("scopes the lookup and records the previous amount while updating the existing entry", async () => {
+    await updateCashWithdrawalAmount(input);
+    expect(mockSessionFindFirst).toHaveBeenCalledWith({
+      where: { id: input.sessionId, storeId: STORE_A },
+    });
+    expect(mockEntryFindFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: input.entryId, storeId: STORE_A, sessionId: input.sessionId, type: "CASH_WITHDRAWAL" },
+    }));
+    expect(mockEntryUpdate).toHaveBeenCalledWith({
+      where: { id: input.entryId },
+      data: { amount: 500 },
+    });
+    expect(mockAuditLogCreate).toHaveBeenCalledWith({ data: {
+      actorUserId: USER_OWNER,
+      storeId: STORE_A,
+      targetType: "CashDrawerEntry",
+      targetId: input.entryId,
+      action: "UPDATE",
+      beforeJson: { amount: "5000" },
+      afterJson: { amount: "500" },
+    } });
+  });
+
+  it("rejects an edit if the day closes before the write acquires the lock", async () => {
+    mockSessionFindUnique.mockResolvedValue(makeSession({ status: "CLOSED" }));
+    await expect(updateCashWithdrawalAmount(input)).rejects.toThrow("已經結帳");
+    expect(mockEntryUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([[700, true], [500, false]])(
+    "leaves amount %i untouched on a stale or repeated submission",
+    async (currentAmount, isConflict) => {
+      mockEntryFindFirst.mockResolvedValue({ id: input.entryId, amount: D(currentAmount) });
+      const result = updateCashWithdrawalAmount(input);
+      if (isConflict) await expect(result).rejects.toThrow("已被更新");
+      else await expect(result).resolves.toBeUndefined();
+      expect(mockEntryUpdate).not.toHaveBeenCalled();
+      expect(mockAuditLogCreate).not.toHaveBeenCalled();
+    },
+  );
+});
 
 describe("closeCashDrawer", () => {
   it("matches the snapshot version so a concurrent course cash refund cannot be omitted", async () => {

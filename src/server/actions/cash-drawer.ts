@@ -20,6 +20,7 @@ import {
   openCashDrawer,
   getCurrentCashDrawer,
   addCashDrawerEntry,
+  updateCashWithdrawalAmount,
   closeCashDrawer,
   reopenCashDrawer,
 } from "@/server/services/cash-drawer";
@@ -57,6 +58,13 @@ const addEntrySchema = z.object({
   if (data.type !== "CASH_WITHDRAWAL" && !data.reason) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["reason"], message: "原因必填" });
   }
+});
+
+const updateWithdrawalSchema = z.object({
+  sessionId: z.string().min(1),
+  entryId: z.string().min(1),
+  originalAmount: z.number().int().min(0).max(9_999_999_999),
+  amount: z.number().int("請輸入整數金額").min(1, "金額必須大於 0").max(9_999_999_999, "金額最多 10 位數"),
 });
 
 const closeSchema = z.object({
@@ -223,6 +231,23 @@ export async function addCashDrawerEntryAction(
     return { success: true, data: { entryId: entry.id } };
   } catch (e) {
     return handleActionError(e);
+  }
+}
+
+export async function updateCashWithdrawalAmountAction(
+  input: z.input<typeof updateWithdrawalSchema>,
+): Promise<ActionResult<{ entryId: string }>> {
+  try {
+    const user = await requireWritablePermission("cashDrawer.entry");
+    const data = updateWithdrawalSchema.parse(input);
+    const storeId = await resolveWriteStoreId(user);
+    await requireCashDrawerFeature(storeId);
+    await updateCashWithdrawalAmount({ ...data, storeId, actorUserId: user.id });
+    revalidatePath("/dashboard/cash-drawer");
+    revalidatePath("/dashboard/cashbook");
+    return { success: true, data: { entryId: data.entryId } };
+  } catch (error) {
+    return handleActionError(error);
   }
 }
 
