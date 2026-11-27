@@ -1,0 +1,17 @@
+{
+  "cases": [],
+  "knowledgeMutations": 0,
+  "mockEvents": [],
+  "resumes": 0,
+  "logins": 0,
+  "failure": {
+    "phase": "login",
+    "error": "page.goto: net::ERR_CERT_AUTHORITY_INVALID at [URL]\nCall log:\n\u001b[2m  - navigating to \"[URL] waiting until \"load\"\u001b[22m\n"
+  },
+  "outcome": "FAILED_BEFORE_LOGIN_BROWSER_TLS",
+  "realOpenAiCalls": 0,
+  "realOutbound": 0,
+  "oldCookiesProbe": {
+    "status": "not applicable: no successful login or application cookies were created"
+  }
+}

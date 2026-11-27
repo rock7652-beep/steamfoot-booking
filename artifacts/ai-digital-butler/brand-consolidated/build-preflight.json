@@ -1,0 +1,22 @@
+[
+  {
+    "date": 1795739632267,
+    "text": "[ai-preview] exact_branch=true isolated_connections=true delivery_blocked=true"
+  },
+  {
+    "date": 1795739633939,
+    "text": "[ai-brand-preflight] {\"scopeVerified\":true,\"roleVerified\":true,\"tlsVerified\":true,\"readonly\":true,\"globalStopped\":true,\"disabledStores\":4,\"brandHidden\":true,\"brandDisabled\":true,\"unpublished\":true,\"totalMicros\":\"2690\",\"concurrent\":\"0\"}"
+  },
+  {
+    "date": 1795739636348,
+    "text": "[ai-brand-preflight] {\"scopeVerified\":true,\"roleVerified\":true,\"tlsVerified\":true,\"readonly\":true,\"globalStopped\":true,\"disabledStores\":4,\"brandHidden\":true,\"brandDisabled\":true,\"unpublished\":true,\"totalMicros\":\"2690\",\"concurrent\":\"0\"}"
+  },
+  {
+    "date": 1795739636349,
+    "text": "[ai-preview] isolation_checked=true migrations_skipped=true deliveries_blocked=true"
+  },
+  {
+    "date": 1795739643566,
+    "text": "[ai-preview] next_config_scope_verified=true"
+  }
+]
