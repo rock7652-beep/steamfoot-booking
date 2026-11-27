@@ -35,6 +35,8 @@ it("rehearses the actual migration: unique event claims, minimal columns and def
       "inputTokens",
       "outputTokens",
       "latencyMs",
+      "modelStartedAt",
+      "modelLeaseUntil",
       "createdAt",
     ]);
     await expect(
@@ -51,6 +53,30 @@ it("rehearses the actual migration: unique event claims, minimal columns and def
         randomUUID(),
       ]),
     ).rejects.toThrow(/row-level security/);
+  } finally {
+    await db.close();
+  }
+}, 20_000);
+
+it("rolls back the complete migration on an installation error", async () => {
+  const db = new PGlite();
+  try {
+    const sql = readFileSync(
+      "prisma/migrations/20261127140000_brand_ai_reply_log/migration.sql",
+      "utf8",
+    ).replace(
+      'ON "BrandAiReplyLog"("modelStartedAt")',
+      'ON "BrandAiReplyLog"("missing_column")',
+    );
+    await expect(db.exec(sql)).rejects.toThrow();
+    await db.exec("ROLLBACK");
+    expect(
+      (
+        await db.query(
+          `SELECT to_regclass('public."BrandAiReplyLog"') AS log,to_regtype('public."BrandAiReplyOutcome"') AS outcome`,
+        )
+      ).rows[0],
+    ).toEqual({ log: null, outcome: null });
   } finally {
     await db.close();
   }

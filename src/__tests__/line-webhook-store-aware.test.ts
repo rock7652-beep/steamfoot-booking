@@ -1,6 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { BRAND_AI_FAQ } from "@/lib/brand-ai-faq";
+vi.mock("@/server/services/brand-ai-quota", () => ({
+  reserveBrandAiCall: vi.fn(async () => "allowed"), releaseBrandAiCall: vi.fn(async () => undefined),
+}));
+vi.mock("@/lib/line-delivery-pause", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/line-delivery-pause")>(), isSystemLineDeliveryPaused: () => false,
+}));
+vi.mock("@/lib/runtime-env", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/runtime-env")>(), isPreviewExternalIntegrationBlocked: () => false,
+}));
+vi.mock("@/lib/line-config", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/line-config")>(), getSteamButlerLineAccessToken: () => "synthetic",
+}));
 
 const verifyLineSignatureMock = vi.fn(
   (_storeId: string, _body: string, _signature: string) => true,
@@ -201,7 +213,7 @@ describe("LINE webhook store-aware signature and reply", () => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
-  it.each(["faq", "plan", "human", "image", "outsider", "disabled"])(
+  it.each(["faq", "plan", "human", "image", "outsider", "disabled", "group", "room"])(
     "routes brand whitelist %s without changing existing fixed or store flows",
     async (kind) => {
       const userId = `synthetic-${randomUUID()}`;
@@ -219,7 +231,7 @@ describe("LINE webhook store-aware signature and reply", () => {
       verifySteamButlerLineSignatureMock.mockReturnValue(true);
       const event = {
         webhookEventId: randomUUID(), type: "message", replyToken: randomUUID(),
-        source: { type: "user", userId: kind === "outsider" ? `synthetic-${randomUUID()}` : userId },
+        source: { type: kind === "group" || kind === "room" ? kind : "user", userId: kind === "outsider" ? `synthetic-${randomUUID()}` : userId },
         message: {
           type: kind === "image" ? "image" : "text",
           text: kind === "plan" ? "找到適合方案" : kind === "human" ? "我想了解適合我的方案" : "蒸管家是什麼？",

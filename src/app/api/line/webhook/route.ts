@@ -175,6 +175,7 @@ async function handleSteamButlerEvent(event: LineWebhookEvent) {
       await handleBrandAiText({
         webhookEventId: event.webhookEventId,
         userId: event.source?.userId,
+        sourceType: event.source?.type,
         replyToken: event.replyToken,
         text,
       }, logBrandLineEvent);

@@ -1,3 +1,4 @@
+BEGIN;
 CREATE TYPE "BrandAiReplyOutcome" AS ENUM ('ANSWER', 'HANDOFF', 'ERROR');
 
 CREATE TABLE "BrandAiReplyLog" (
@@ -7,6 +8,8 @@ CREATE TABLE "BrandAiReplyLog" (
     "inputTokens" INTEGER,
     "outputTokens" INTEGER,
     "latencyMs" INTEGER,
+    "modelStartedAt" TIMESTAMPTZ(3),
+    "modelLeaseUntil" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "BrandAiReplyLog_pkey" PRIMARY KEY ("webhookEventId"),
     CONSTRAINT "BrandAiReplyLog_nonnegative" CHECK (
@@ -16,5 +19,9 @@ CREATE TABLE "BrandAiReplyLog" (
     )
 );
 
+CREATE INDEX "BrandAiReplyLog_modelStartedAt_idx" ON "BrandAiReplyLog"("modelStartedAt");
+CREATE INDEX "BrandAiReplyLog_modelLeaseUntil_idx" ON "BrandAiReplyLog"("modelLeaseUntil");
+
 -- Server only. No browser/Data API policies are introduced.
 ALTER TABLE "BrandAiReplyLog" ENABLE ROW LEVEL SECURITY;
+COMMIT;

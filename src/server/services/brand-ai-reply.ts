@@ -2,10 +2,15 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { replySteamButlerMessage } from "@/lib/line";
 import { selectBrandAiAnswer, type BrandAiEnv } from "./brand-ai-provider";
+import { reserveBrandAiCall, releaseBrandAiCall } from "./brand-ai-quota";
+import { isSystemLineDeliveryPaused } from "@/lib/line-delivery-pause";
+import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
+import { getSteamButlerLineAccessToken } from "@/lib/line-config";
 
 type Input = {
   webhookEventId?: string;
   userId?: string;
+  sourceType?: string;
   replyToken?: string;
   text: string;
 };
@@ -20,16 +25,26 @@ export async function handleBrandAiText(
   {
     env = process.env,
     transport = fetch,
-  }: { env?: BrandAiEnv; transport?: typeof fetch } = {},
+    database = prisma,
+  }: {
+    env?: BrandAiEnv;
+    transport?: typeof fetch;
+    database?: typeof prisma;
+  } = {},
 ) {
   // Default off. No DB read/write, provider call or reply for anyone else.
-  if (env.BRAND_AI_ENABLED !== "1" || !input.userId || !input.replyToken)
-    return;
-  const allowed = (env.BRAND_AI_ALLOWED_LINE_USER_IDS ?? "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
-  if (!allowed.includes(input.userId)) return;
+  const safe = () =>
+    env.BRAND_AI_ENABLED === "1" &&
+    input.sourceType === "user" &&
+    Boolean(input.userId && input.replyToken) &&
+    (env.BRAND_AI_ALLOWED_LINE_USER_IDS ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .includes(input.userId!) &&
+    !isSystemLineDeliveryPaused() &&
+    !isPreviewExternalIntegrationBlocked() &&
+    Boolean(getSteamButlerLineAccessToken());
+  if (!safe()) return;
   if (input.text === "找到適合方案" || input.text === "我想了解適合我的方案")
     return;
   const webhookEventId = input.webhookEventId;
@@ -40,7 +55,7 @@ export async function handleBrandAiText(
   const started = Date.now();
   try {
     // Unique key is the claim. A crash/error never releases it or retries a reply.
-    await prisma.brandAiReplyLog.create({
+    await database.brandAiReplyLog.create({
       data: { webhookEventId, outcome: "ERROR" },
     });
   } catch (error) {
@@ -54,11 +69,27 @@ export async function handleBrandAiText(
     });
     return;
   }
+  let reserved = false;
   try {
-    const answer = await selectBrandAiAnswer(input.text, env, transport);
+    const answer = await selectBrandAiAnswer(
+      input.text,
+      env,
+      transport,
+      async () => {
+        if (!safe()) return false;
+        const status = await reserveBrandAiCall(webhookEventId, database);
+        reserved = status === "allowed";
+        if (!reserved) log("brand_ai_capacity_rejected", { reason: status });
+        return reserved && safe();
+      },
+    );
+    if (reserved) {
+      await releaseBrandAiCall(webhookEventId, database);
+      reserved = false;
+    }
     const latencyMs = Math.min(2147483647, Math.max(0, Date.now() - started));
     // Keep ERROR until LINE confirms success. If persistence fails, do not send.
-    await prisma.brandAiReplyLog.update({
+    await database.brandAiReplyLog.update({
       where: { webhookEventId },
       data: {
         faqId: answer.faqId,
@@ -67,11 +98,15 @@ export async function handleBrandAiText(
         latencyMs,
       },
     });
-    const reply = await replySteamButlerMessage(input.replyToken, [
+    if (!safe()) {
+      log("brand_ai_suppressed", { outcome: "ERROR" });
+      return;
+    }
+    const reply = await replySteamButlerMessage(input.replyToken!, [
       { type: "text", text: answer.text },
     ]);
     const outcome = reply.success ? answer.outcome : "ERROR";
-    await prisma.brandAiReplyLog.update({
+    await database.brandAiReplyLog.update({
       where: { webhookEventId },
       data: { outcome },
     });
@@ -79,5 +114,13 @@ export async function handleBrandAiText(
   } catch {
     // No exception payloads: SDK/DB/transport errors can contain private inputs.
     log("brand_ai_processing_failed", { outcome: "ERROR" });
+  } finally {
+    if (reserved) {
+      try {
+        await releaseBrandAiCall(webhookEventId, database);
+      } catch {
+        log("brand_ai_lease_cleanup_failed", { outcome: "ERROR" });
+      }
+    }
   }
 }

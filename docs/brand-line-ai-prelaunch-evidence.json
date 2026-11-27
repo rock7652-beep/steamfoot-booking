@@ -1,0 +1,39 @@
+{
+  "checkedAt": "2026-11-27T15:50:40.518Z",
+  "kind": "management READ ONLY catalog; not runtime/TLS/write acceptance",
+  "remoteWrites": 0,
+  "projects": [
+    {
+      "ref": "ttworfzgwejdeolegkxl",
+      "readOnly": "on",
+      "newMigrationRecorded": false,
+      "activeFailures": 0,
+      "warning": "Unrecorded does not prove schema absent. Do not run all migrations.",
+      "unrecordedMigrationCount": 87,
+      "otherUnrecordedMigrationCount": 86
+    },
+    {
+      "ref": "qijlnhtpbintanzpxkvf",
+      "readOnly": "on",
+      "newMigrationRecorded": false,
+      "activeFailures": 0,
+      "warning": "Unrecorded does not prove schema absent. Do not run all migrations.",
+      "unrecordedMigrationCount": 25,
+      "otherUnrecordedMigrationCount": 24
+    }
+  ],
+  "local": {
+    "database": "PostgreSQL 17.6 upstream alpine; not Supabase patch",
+    "tests": {
+      "files": 7,
+      "passed": 143,
+      "postgresMultiConnectionPassed": 8,
+      "realOpenAiCalls": 0,
+      "realLineMessages": 0
+    },
+    "typescript": "passed",
+    "eslint": "passed; existing webhook test warnings retained",
+    "prisma": "generate/validate passed",
+    "limitation": "Runtime TLS and post-install schema, keys/budget/model access and real LINE roundtrip not yet accepted"
+  }
+}

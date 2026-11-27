@@ -11,6 +11,24 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   update: vi.fn(),
   reply: vi.fn(),
+  reserve: vi.fn(),
+  release: vi.fn(),
+  paused: vi.fn(),
+  blocked: vi.fn(),
+  token: vi.fn(),
+}));
+vi.mock("@/server/services/brand-ai-quota", () => ({
+  reserveBrandAiCall: mocks.reserve,
+  releaseBrandAiCall: mocks.release,
+}));
+vi.mock("@/lib/line-delivery-pause", () => ({
+  isSystemLineDeliveryPaused: mocks.paused,
+}));
+vi.mock("@/lib/runtime-env", () => ({
+  isPreviewExternalIntegrationBlocked: mocks.blocked,
+}));
+vi.mock("@/lib/line-config", () => ({
+  getSteamButlerLineAccessToken: mocks.token,
 }));
 vi.mock("@/lib/db", () => ({
   prisma: { brandAiReplyLog: { create: mocks.create, update: mocks.update } },
@@ -40,6 +58,7 @@ function setup() {
   return {
     input: {
       userId,
+      sourceType: "user",
       text: "產品介紹？",
       webhookEventId: randomUUID() as string,
       replyToken: randomUUID() as string,
@@ -56,6 +75,11 @@ beforeEach(() => {
   mocks.create.mockResolvedValue({});
   mocks.update.mockResolvedValue({});
   mocks.reply.mockResolvedValue({ success: true });
+  mocks.reserve.mockResolvedValue("allowed");
+  mocks.release.mockResolvedValue(undefined);
+  mocks.paused.mockReturnValue(false);
+  mocks.blocked.mockReturnValue(false);
+  mocks.token.mockReturnValue("synthetic");
   // Every test must supply fake OpenAI transport; accidentally using real fetch fails.
   vi.stubGlobal(
     "fetch",
@@ -294,9 +318,106 @@ it.each(["gpt-5.4-mini", "gpt-6.2-sol"])(
       "品牌介紹",
       { OPENAI_API_KEY: randomUUID() as string, BRAND_AI_MODEL: model },
       transport,
+      async () => true,
     );
     expect(JSON.parse(String(transport.mock.calls[0][1]?.body)).model).toBe(
       model,
     );
   },
 );
+
+it.each(["group", "room", undefined])(
+  "rejects non-direct source %s before claim/provider",
+  async (sourceType) => {
+    const { input, env } = setup(),
+      transport = success();
+    await handleBrandAiText({ ...input, sourceType }, vi.fn(), {
+      env,
+      transport,
+    });
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.reserve).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+    expect(mocks.reply).not.toHaveBeenCalled();
+  },
+);
+it.each(["paused", "preview", "no-token"])(
+  "blocks %s before OpenAI and DB work",
+  async (kind) => {
+    const { input, env } = setup(),
+      transport = success();
+    if (kind === "paused") mocks.paused.mockReturnValue(true);
+    if (kind === "preview") mocks.blocked.mockReturnValue(true);
+    if (kind === "no-token") mocks.token.mockReturnValue(null);
+    await handleBrandAiText(input, vi.fn(), { env, transport });
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.reserve).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+    expect(mocks.reply).not.toHaveBeenCalled();
+  },
+);
+it("rechecks pause after claim and after provider completion", async () => {
+  const { input, env } = setup(),
+    transport = success();
+  mocks.create.mockImplementationOnce(async () => {
+    mocks.paused.mockReturnValue(true);
+    return {};
+  });
+  await handleBrandAiText(input, vi.fn(), { env, transport });
+  expect(transport).not.toHaveBeenCalled();
+  expect(mocks.reply).not.toHaveBeenCalled();
+  mocks.paused.mockReturnValue(false);
+  transport.mockImplementation(async () => {
+    mocks.paused.mockReturnValue(true);
+    return response({ action: "answer", faqIds: ["Q1"] });
+  });
+  await handleBrandAiText({ ...input, webhookEventId: randomUUID() }, vi.fn(), {
+    env,
+    transport,
+  });
+  expect(transport).toHaveBeenCalledTimes(1);
+  expect(mocks.release).toHaveBeenCalledTimes(1);
+  expect(mocks.reply).not.toHaveBeenCalled();
+});
+it.each(["daily_limit", "concurrent_limit"])(
+  "does not invoke OpenAI on %s",
+  async (status) => {
+    const { input, env } = setup(),
+      transport = success();
+    mocks.reserve.mockResolvedValue(status);
+    await handleBrandAiText(input, vi.fn(), { env, transport });
+    expect(transport).not.toHaveBeenCalled();
+    expect(mocks.release).not.toHaveBeenCalled();
+    expect(mocks.reply).toHaveBeenCalledExactlyOnceWith(input.replyToken, [
+      { type: "text", text: BRAND_AI_HANDOFF },
+    ]);
+  },
+);
+it("does not start a late OpenAI call after quota approval outlives the 12-second deadline", async () => {
+  vi.useFakeTimers();
+  const { input, env } = setup(),
+    transport = success();
+  let approve!: (value: string) => void;
+  mocks.reserve.mockImplementation(
+    () =>
+      new Promise<string>((resolve) => {
+        approve = resolve;
+      }),
+  );
+  const task = handleBrandAiText(input, vi.fn(), { env, transport });
+  await vi.advanceTimersByTimeAsync(12_000);
+  await task;
+  approve("allowed");
+  await vi.advanceTimersByTimeAsync(1);
+  expect(transport).not.toHaveBeenCalled();
+  expect(mocks.reply).toHaveBeenCalledTimes(1);
+});
+it("provider defaults closed without a quota/safety callback", async () => {
+  const transport = success();
+  await selectBrandAiAnswer(
+    "品牌介紹",
+    { OPENAI_API_KEY: randomUUID() },
+    transport,
+  );
+  expect(transport).not.toHaveBeenCalled();
+});

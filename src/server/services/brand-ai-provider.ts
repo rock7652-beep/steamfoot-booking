@@ -11,7 +11,7 @@ export type BrandAiAnswer = {
   inputTokens: number | null;
   outputTokens: number | null;
 };
-const models = ["gpt-6-luna", "gpt-5.4-mini", "gpt-6.2-sol"];
+export const BRAND_AI_MODELS = ["gpt-6-luna", "gpt-5.4-mini", "gpt-6.2-sol"];
 const selection = z
   .object({
     action: z.enum(["answer", "handoff"]),
@@ -40,6 +40,7 @@ export async function selectBrandAiAnswer(
   question: string,
   env: BrandAiEnv,
   transport: typeof fetch = fetch,
+  beforeRequest: () => Promise<boolean> = async () => false,
 ): Promise<BrandAiAnswer> {
   const result: BrandAiAnswer = {
     outcome: "ERROR",
@@ -51,14 +52,19 @@ export async function selectBrandAiAnswer(
   const model = env.BRAND_AI_MODEL || "gpt-6-luna";
   if (
     !env.OPENAI_API_KEY?.trim() ||
-    !models.includes(model) ||
+    !BRAND_AI_MODELS.includes(model) ||
     question.length > 5000
   )
     return result;
   const controller = new AbortController();
+  const deadline = performance.now() + 12_000;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const request = async () => {
+      // Required policy callback defaults closed, even if a new caller forgets it.
+      if (!(await beforeRequest())) throw new Error();
+      if (controller.signal.aborted || performance.now() >= deadline)
+        throw new Error();
       const response = await transport("https://api.openai.com/v1/responses", {
         method: "POST",
         redirect: "error",
