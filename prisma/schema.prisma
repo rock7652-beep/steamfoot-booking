@@ -9,6 +9,22 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum BrandAiReplyOutcome {
+  ANSWER
+  HANDOFF
+  ERROR
+}
+
+model BrandAiReplyLog {
+  webhookEventId String              @id
+  outcome        BrandAiReplyOutcome @default(ERROR)
+  faqId          String?
+  inputTokens    Int?
+  outputTokens   Int?
+  latencyMs      Int?
+  createdAt      DateTime            @default(now())
+}
+
 // ============================================================
 // Enums
 // ============================================================
