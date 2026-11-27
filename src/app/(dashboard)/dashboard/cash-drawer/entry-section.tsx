@@ -1,25 +1,11 @@
-/**
- * Cash Drawer 現金異動紀錄區塊 — PR-4 / PR-G5.1a
- *
- * 顯示當日所有現金異動（提領 / 補入 / 調整）列表 + 「盤點調整」次要新增表單。
- *
- * PR-G5.1a：提領 / 補入 已升級為日常操作區的大按鈕（見 cash-drawer-workspace.tsx
- * 的 DailyActionsArea），故本卡不再放這兩個新增表單，只保留：
- *   - 全部異動的唯讀列表（OPEN / CLOSED 都用）
- *   - 「盤點調整」這個較少用的校正動作（次要 `<details>` disclosure）
- *
- * 規則：
- *   - CLOSED session：只顯示列表，無新增表單（讀取凍結 snapshot 用）
- *   - PARTNER（無 cashDrawer.entry）：只顯示列表，無新增表單
- *   - 表單 JSX 共用 ./cash-entry-forms，零 JS、零新依賴
- *   - 新增後 server action redirect 回原頁，revalidatePath 已在 action 內 ship
- */
+/** 當日手動現金異動，以及尚未閉店時的提領更正與盤點調整。 */
 
 import type { CashDrawerEntry } from "@prisma/client";
 import { formatTWTime } from "@/lib/date-utils";
-import { addCashDrawerEntryAction } from "@/server/actions/cash-drawer";
+import { addCashDrawerEntryAction, updateCashWithdrawalAmountAction } from "@/server/actions/cash-drawer";
 import type { ActionResult } from "@/types";
 import { AdjustmentForm } from "./cash-entry-forms";
+import { WithdrawalAmountForm } from "./withdrawal-amount-form";
 
 interface EntrySectionProps {
   sessionId: string;
@@ -69,7 +55,7 @@ export function EntrySection({
       </p>
 
       {/* 當日異動列表 */}
-      <EntriesList entries={entries} />
+      <EntriesList entries={entries} canEditWithdrawal={canAddEntry} returnPath={returnPath} />
 
       {/* OPEN session 才顯示「盤點調整」次要新增表單。
           提領 / 補入 已移到上方日常操作區的大按鈕，這裡只留較少用的盤點校正。 */}
@@ -90,10 +76,14 @@ export function EntrySection({
 }
 
 // ============================================================
-// 列表（read-only，OPEN / CLOSED 都用）
+// 列表（OPEN / CLOSED 共用）
 // ============================================================
 
-function EntriesList({ entries }: { entries: CashDrawerEntry[] }) {
+function EntriesList({ entries, canEditWithdrawal, returnPath }: {
+  entries: CashDrawerEntry[];
+  canEditWithdrawal: boolean;
+  returnPath: string;
+}) {
   if (entries.length === 0) {
     return (
       <p className="mt-2 text-xs text-earth-400">今日尚無手動異動</p>
@@ -103,7 +93,12 @@ function EntriesList({ entries }: { entries: CashDrawerEntry[] }) {
   return (
     <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1 lg:max-h-[28rem]">
       {entries.map((entry) => (
-        <EntryRow key={entry.id} entry={entry} />
+        <EntryRow
+          key={entry.id}
+          entry={entry}
+          canEdit={canEditWithdrawal && entry.type === "CASH_WITHDRAWAL"}
+          returnPath={returnPath}
+        />
       ))}
     </ul>
   );
@@ -123,8 +118,24 @@ function describeEntry(entry: CashDrawerEntry): { label: string; sign: "+" | "�
   return { label: "調整（盤點短少）", sign: "−", tone: "text-orange-700" };
 }
 
-function EntryRow({ entry }: { entry: CashDrawerEntry }) {
+function EntryRow({ entry, canEdit, returnPath }: {
+  entry: CashDrawerEntry;
+  canEdit: boolean;
+  returnPath: string;
+}) {
   const { label, sign, tone } = describeEntry(entry);
+  const { id: entryId, sessionId } = entry;
+  const originalAmount = entry.amount.toString();
+
+  async function handleUpdateAmount(_previous: ActionResult<unknown> | null, formData: FormData) {
+    "use server";
+    return updateCashWithdrawalAmountAction({
+      entryId,
+      sessionId,
+      originalAmount: Number(originalAmount),
+      amount: Number(formData.get("amount")),
+    });
+  }
   return (
     <li className="rounded-lg border border-earth-100 bg-white px-4 py-3 text-sm">
       <div className="flex items-baseline justify-between gap-3">
@@ -141,6 +152,14 @@ function EntryRow({ entry }: { entry: CashDrawerEntry }) {
       <p className="mt-1 text-xs text-earth-600">{entry.reason}</p>
       {entry.note && (
         <p className="mt-1 whitespace-pre-wrap text-[11px] text-earth-500">{entry.note}</p>
+      )}
+      {canEdit && (
+        <WithdrawalAmountForm
+          key={originalAmount}
+          action={handleUpdateAmount}
+          originalAmount={originalAmount}
+          returnPath={returnPath}
+        />
       )}
     </li>
   );

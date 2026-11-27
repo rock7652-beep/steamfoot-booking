@@ -578,6 +578,60 @@ export async function addCashDrawerEntry(input: AddEntryInput): Promise<CashDraw
   });
 }
 
+export async function updateCashWithdrawalAmount(input: {
+  storeId: string;
+  sessionId: string;
+  entryId: string;
+  originalAmount: number;
+  amount: number;
+  actorUserId: string;
+}): Promise<void> {
+  const session = await prisma.cashDrawerSession.findFirst({
+    where: { id: input.sessionId, storeId: input.storeId },
+  });
+  if (!session) {
+    throw new AppError("NOT_FOUND", "找不到指定門市的現金抽屜");
+  }
+  assertSessionMutable(session);
+
+  await prisma.$transaction(async (tx) => {
+    // 與新增異動共用營業日鎖，讓進行中的閉店結算重新計算。
+    await lockCashDay(tx, session.storeId, session.businessDate, { requireOpen: true });
+    const entry = await tx.cashDrawerEntry.findFirst({
+      where: {
+        id: input.entryId,
+        storeId: session.storeId,
+        sessionId: session.id,
+        type: "CASH_WITHDRAWAL",
+      },
+      select: { id: true, amount: true },
+    });
+    if (!entry) {
+      throw new AppError("NOT_FOUND", "找不到指定的提領紀錄");
+    }
+    if (entry.amount.eq(input.amount)) return;
+    if (!entry.amount.eq(input.originalAmount)) {
+      throw new AppError("CONFLICT", "這筆提領金額已被更新，請重新整理後再修改");
+    }
+
+    await tx.cashDrawerEntry.update({
+      where: { id: entry.id },
+      data: { amount: input.amount },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorUserId: input.actorUserId,
+        storeId: session.storeId,
+        targetType: "CashDrawerEntry",
+        targetId: entry.id,
+        action: "UPDATE",
+        beforeJson: { amount: entry.amount.toString() },
+        afterJson: { amount: String(input.amount) },
+      },
+    });
+  });
+}
+
 export type CloseInput = {
   sessionId: string;
   closingActualCash: number | Prisma.Decimal;

@@ -18,6 +18,7 @@ export const CUSTOMER_PRIMARY_PREVIEW_BRANCH = "fix/customer-primary-read-priori
 export const STEAM_TRANSACTION_REPLACEMENT_PREVIEW_BRANCH = "fix/steam-transaction-replacement";
 export const STEAM_CUSTOMER_BOOKING_CUTOFF_PREVIEW_BRANCH = "fix/steam-customer-booking-cutoff-20261125";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
+  "fix/cash-withdrawal-correction",
   STEAM_CUSTOMER_BOOKING_CUTOFF_PREVIEW_BRANCH,
   TRIAL_VOID_PREVIEW_BRANCH,
   SINGLE_SERVICE_VOID_PREVIEW_BRANCH,
