@@ -22,7 +22,7 @@ it('pins the exact transactional migration and rejects schema, access and ledger
   expect(imageAnnouncementsLedgerApplied({...valid,ledger:[{...valid.ledger[0],checksum:'wrong'}]})).toBe(false);
   expect(imageAnnouncementsLedgerApplied({...valid,ledger:[{...valid.ledger[0],steps:0}]})).toBe(false);
  }finally{await db.close();}
-});
+},30_000); // Real PGlite cold start; retain every schema, ACL and ledger assertion.
 it('the new production target still requires production environment, approved project, and non-review branch',()=>{
  const env:NodeJS.ProcessEnv={PATH:process.env.PATH,NODE_ENV:'test',VITEST:'true',VITEST_WORKER_ID:process.env.VITEST_WORKER_ID,DATABASE_URL:'',DIRECT_URL:'',PRODUCTION_MIGRATION_TARGET:IMAGE_ANNOUNCEMENTS_MIGRATION};
  for(const VERCEL_ENV of ['preview','development']){const r=spawnSync(process.execPath,['scripts/ci-migrate.mjs'],{env:{...env,VERCEL_ENV},encoding:'utf8'});expect(r.status).toBe(0);expect(r.stdout).toContain('recovery_skipped_outside_production');}

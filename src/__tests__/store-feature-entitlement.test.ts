@@ -339,7 +339,7 @@ describe("full single-store trial across industries", () => {
   it("includes preview, LIFF and all single-store features for legacy undated trial stores", async () => {
     mockStore("EXPERIENCE");
     const { hasStoreFeature, getStoreFeaturePresentation, requireStoreFeature } = await import("@/lib/feature-gate");
-    const excluded = new Set<FeatureKey>([FEATURES.SHARED_CARD, FEATURES.STORE_OPERATION_AUDIT, FEATURES.ADD_ONS, FEATURES.BEAUTY_SERVICE_ADD_ONS]);
+    const excluded = new Set<FeatureKey>([FEATURES.AI_DIGITAL_BUTLER, FEATURES.SHARED_CARD, FEATURES.STORE_OPERATION_AUDIT, FEATURES.ADD_ONS, FEATURES.BEAUTY_SERVICE_ADD_ONS]);
     for (const feature of Object.values(FEATURES)) {
       expect(await hasStoreFeature("store-1", feature), feature).toBe(!excluded.has(feature));
     }
@@ -412,4 +412,16 @@ it.each([
   }
   // The audit gate runs before the plan/demo/module shortcuts.
   expect(mockGetStoreForPlanByStoreId).not.toHaveBeenCalled();
+});
+
+it("AI entitlement never falls back to all stores through shared feature helpers", async () => {
+  const { getCurrentStoreForPlan } = await import("@/lib/store-plan");
+  vi.mocked(getCurrentStoreForPlan).mockResolvedValue({ id: "__all__" } as never);
+  mockEntitlement("ENABLED");
+  const { hasCurrentStoreFeature, checkCurrentStoreFeature, hasStoreFeature, getStoreFeaturePresentation } = await import("@/lib/feature-gate");
+  expect(await hasCurrentStoreFeature(FEATURES.AI_DIGITAL_BUTLER)).toBe(false);
+  await expect(checkCurrentStoreFeature(FEATURES.AI_DIGITAL_BUTLER)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await hasStoreFeature("__all__", FEATURES.AI_DIGITAL_BUTLER)).toBe(false);
+  expect(await getStoreFeaturePresentation("", FEATURES.AI_DIGITAL_BUTLER)).toBe("HIDDEN");
+  vi.mocked(getCurrentStoreForPlan).mockReset();
 });

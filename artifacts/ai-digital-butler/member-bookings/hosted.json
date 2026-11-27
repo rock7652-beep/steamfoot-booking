@@ -1,0 +1,77 @@
+{
+  "runtimeSha": "48a6391ec2974a6f40c98392605c2bc89fccd0d8",
+  "origin": "https://steamfoot-booking-h860efoco-rock7652-2111s-projects.vercel.app",
+  "cases": [
+    "member-a-only-own-booking",
+    "minimal-projection-private-no-store",
+    "same-date-authority-refresh",
+    "responsive-query-keeps-date",
+    "collapse-keeps-own-result",
+    "different-day-confirmed-empty",
+    "network-error-not-empty",
+    "read-retry-recovers",
+    "identity-and-page-arguments-rejected",
+    "page-beyond-last-is-not-global-empty",
+    "member-b-only-own-booking",
+    "a-proof-rejected-in-b-session",
+    "foreign-member-with-shared-contact-rejected",
+    "owner-cannot-impersonate-member",
+    "existing-availability-counts-real-occupancy",
+    "unauthenticated-rejected",
+    "suspended-account-old-session-rejected"
+  ],
+  "rwd": [
+    {
+      "width": 1920,
+      "scrollWidth": 1920
+    },
+    {
+      "width": 1366,
+      "scrollWidth": 1366
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "width": 360,
+      "scrollWidth": 360
+    }
+  ],
+  "metrics": {
+    "member-a": {
+      "entryMs": 15479,
+      "queryMs": [
+        1563,
+        1438
+      ],
+      "retryMs": 1432
+    },
+    "member-b": {
+      "entryMs": 12337,
+      "queryMs": [
+        1490
+      ]
+    },
+    "owner": {
+      "entryMs": 11486
+    }
+  },
+  "expectedNetworkInterruptions": 1,
+  "accountRevocationVerified": true,
+  "errors": [],
+  "failures": [],
+  "metricDefinitions": {
+    "entryMs": "From opening the login page through automated credential entry, login/redirect, QA tab replacement, native target navigation and networkidle wait. Not isolated page load or first query task completion.",
+    "queryMs": "Manual member-query click to the result, measured after authenticated entry.",
+    "sampling": "One completed journey per actor, plus one partial A journey at 18298ms; no controlled cold/warm or segment comparison."
+  }
+}

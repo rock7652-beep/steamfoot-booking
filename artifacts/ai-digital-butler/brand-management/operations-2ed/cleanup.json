@@ -1,0 +1,31 @@
+{
+  "brand": {
+    "grant": "HIDDEN",
+    "enabled": false,
+    "unpublished": true,
+    "settingRevision": 1,
+    "knowledgeRevision": 0
+  },
+  "fixture": {
+    "status": "SUSPENDED",
+    "passwordCleared": true
+  },
+  "auditInsert": false,
+  "globalCosts": {
+    "total": "2690",
+    "concurrent": "0"
+  },
+  "brandRequests": 0,
+  "globalStopped": true,
+  "storeDispatch": 113,
+  "storeRequests": 53,
+  "roleValidUntil": "2026-12-02T14:15:52+00:00",
+  "storesDisabled": 4,
+  "managementAudits": 5,
+  "temporaryPolicies": 0,
+  "totalSuccessfulLogins": 3,
+  "shareRemaining": 0,
+  "temporaryBranchEnvKeys": 0,
+  "privateFilesRemoved": true,
+  "cliLoggedOut": true
+}

@@ -1,0 +1,48 @@
+{
+  "kind": "Local Chromium SSR/hydration with mocked actions and panel reader, not hosted or physical-device evidence",
+  "cases": [
+    "ssr-hydration",
+    "authoritative-public-result",
+    "collapse-keeps-state",
+    "date-change-clears-old-result",
+    "confirmed-empty",
+    "read-error-not-empty",
+    "network-error-retryable",
+    "late-date-response-discarded",
+    "late-scope-response-discarded"
+  ],
+  "sizes": [
+    {
+      "width": 1920,
+      "scrollWidth": 1920,
+      "controls": true
+    },
+    {
+      "width": 1366,
+      "scrollWidth": 1366,
+      "controls": true
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024,
+      "controls": true
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768,
+      "controls": true
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390,
+      "controls": true
+    },
+    {
+      "width": 360,
+      "scrollWidth": 360,
+      "controls": true
+    }
+  ],
+  "errors": [],
+  "hydrationErrors": []
+}

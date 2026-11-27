@@ -1,0 +1,39 @@
+{
+  "kind": "Local SSR/hydrated component with fake action; no hosted or real API proof",
+  "cases": [
+    "ssr-disabled",
+    "hydrated-openai-selection",
+    "replay-same-id",
+    "provider-switch-preserves-human",
+    "network-retry-same-id",
+    "collapse-retains-result"
+  ],
+  "sizes": [
+    {
+      "width": 1920,
+      "scrollWidth": 1920
+    },
+    {
+      "width": 1366,
+      "scrollWidth": 1366
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "width": 360,
+      "scrollWidth": 360
+    }
+  ],
+  "errors": [],
+  "hydrationErrors": []
+}

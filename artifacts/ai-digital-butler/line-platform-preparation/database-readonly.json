@@ -1,0 +1,171 @@
+{
+  "dateTaipei": "2026-11-26",
+  "snapshot": {
+    "openai": 5,
+    "stores": [
+      {
+        "id": "ai-preview-beauty",
+        "isDemo": true,
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 11,
+        "hasLineDestination": false
+      },
+      {
+        "id": "ai-preview-fitness",
+        "isDemo": true,
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 7,
+        "hasLineDestination": false
+      },
+      {
+        "id": "ai-preview-music",
+        "isDemo": true,
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 7,
+        "hasLineDestination": false
+      },
+      {
+        "id": "ai-preview-steamfoot",
+        "isDemo": true,
+        "setting": {
+          "model": "gpt-6-luna",
+          "enabled": false,
+          "channels": [
+            "TEST"
+          ],
+          "dailyRequests": 20,
+          "monthlyRequests": 100,
+          "monthlyBudgetMicros": 1000000
+        },
+        "revision": 8,
+        "hasLineDestination": false
+      }
+    ],
+    "stopped": true,
+    "requests": 53,
+    "dispatches": 113,
+    "unresolved": 0,
+    "identityRls": [
+      {
+        "rls": true,
+        "table": "Account"
+      },
+      {
+        "rls": true,
+        "table": "CustomerIdentityLink"
+      }
+    ],
+    "identityPolicies": [
+      {
+        "roles": [
+          "steamfoot_ai_preview_20261125"
+        ],
+        "table": "CentralMemberLinkReviewRequest",
+        "command": "SELECT"
+      },
+      {
+        "roles": [
+          "steamfoot_ai_preview_20261125"
+        ],
+        "table": "Customer",
+        "command": "SELECT"
+      },
+      {
+        "roles": [
+          "steamfoot_ai_preview_20261125"
+        ],
+        "table": "User",
+        "command": "SELECT"
+      },
+      {
+        "roles": [
+          "steamfoot_ai_preview_20261125"
+        ],
+        "table": "User",
+        "command": "SELECT"
+      }
+    ]
+  },
+  "permissions": [
+    {
+      "rls": true,
+      "table": "Account",
+      "insert": false,
+      "select": true,
+      "update": false
+    },
+    {
+      "rls": true,
+      "table": "CustomerIdentityLink",
+      "insert": false,
+      "select": true,
+      "update": false
+    },
+    {
+      "rls": true,
+      "table": "DigitalButlerConversation",
+      "insert": false,
+      "select": true,
+      "update": false
+    }
+  ],
+  "originalRuntimePermission": [
+    {
+      "table_name": "DigitalButlerExecutionLog",
+      "rls": true,
+      "can_select": true,
+      "can_insert": false,
+      "can_update": false
+    }
+  ],
+  "environmentChecks": [
+    {
+      "key": "AI_EXTERNAL_DELIVERY_DISABLED",
+      "exactBranch": true,
+      "matchesExpected": true
+    },
+    {
+      "key": "AI_DIGITAL_BUTLER_PREVIEW",
+      "exactBranch": true,
+      "matchesExpected": true
+    },
+    {
+      "key": "BEAUTY_NOTIFICATIONS_ENABLED",
+      "exactBranch": true,
+      "matchesExpected": true
+    },
+    {
+      "key": "AI_PREVIEW_POOLER_MODE",
+      "exactBranch": true,
+      "matchesExpected": true
+    }
+  ],
+  "configurationSourceMetadata": []
+}

@@ -1,3 +1,4 @@
+import { assertAiPreview } from "../../../../../scripts/ai-digital-butler-preview-scope.mjs";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -29,6 +30,8 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
   const user = await getCurrentUser();
   if (!user || user.role !== "ADMIN" || !(await checkPermission(user.role, user.staffId, "staff.manage"))) redirect("/hq/login");
 
+  let brandPreview=false;
+  try { assertAiPreview(); brandPreview=await checkPermission(user.role,user.staffId,"audit.read"); } catch { /* no brand management entry outside the exact Preview */ }
   const result = await listStoresAction();
   const allStores = result.success ? result.data : [];
   const showArchived = (await searchParams).archived === "1";
@@ -43,6 +46,7 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
           <p className="mt-1 text-sm text-earth-500">顯示 {stores.length} 間・已封存 {archivedCount} 間</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {brandPreview && <Link href="/hq/dashboard/ai-services" className="min-h-11 rounded-lg border border-earth-200 px-4 py-2 text-sm font-medium text-earth-700">品牌 AI 服務管理</Link>}
           <Link href="/hq/dashboard/trial-applications" className="rounded-lg border border-earth-200 px-4 py-2 text-sm font-medium text-earth-700">諮詢與體驗申請</Link>
           <Link
             href="/hq/dashboard/stores/organization"

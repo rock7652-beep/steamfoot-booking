@@ -1,0 +1,19 @@
+{
+  "dateTaipei": "2026-11-26",
+  "kind": "actual POST and shared core with offline dependencies / PGlite; not a real OA",
+  "regressionFiles": 10,
+  "regressionTestsPassed": 223,
+  "lastNewFilesRechecked": 2,
+  "lastNewTestsPassed": 56,
+  "countsOverlap": true,
+  "typecheck": "passed",
+  "eslint": "passed",
+  "networkFetchCalls": 0,
+  "realOpenaiCalls": 0,
+  "delivery": "blocked sink only",
+  "databaseSchemaChanged": false,
+  "settingsChanged": false,
+  "uiChanged": false,
+  "physicalDevicesTested": false,
+  "previousLogoutProbeCloudRerun": false
+}

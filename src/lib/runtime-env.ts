@@ -1,3 +1,4 @@
+import { claimsAiPreview } from "../../scripts/ai-digital-butler-preview-scope.mjs";
 /**
  * 環境判斷 — 集中化所有 Vercel / 本機 env 判斷。
  *
@@ -45,6 +46,7 @@ export function isDevelopment(): boolean {
  * environment unless this is the production deployment itself.
  */
 export function isPreviewExternalIntegrationBlocked(): boolean {
+  if (claimsAiPreview()) return true;
   // Preview and unknown deployments stay blocked before DB imports. Only
   // positively identified production main can resume normal outbound behavior.
   return isPreview() || (!isSportsSharedCardMockedUnitTest(process.env) &&

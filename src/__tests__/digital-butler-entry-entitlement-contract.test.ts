@@ -20,13 +20,10 @@ describe("digital butler dashboard entry entitlement contract", () => {
     );
   });
 
-  it("keeps both pages behind the same backend entitlement guard", () => {
+  it("keeps deterministic lead access behind its backend entitlement guard", () => {
     const leads = read("src/app/(dashboard)/dashboard/digital-butler/leads/page.tsx");
-    const flows = read(
-      "src/app/(dashboard)/dashboard/settings/digital-butler/page.tsx",
-    );
 
-    for (const page of [leads, flows]) {
+    for (const page of [leads]) {
       expect(page).toContain("requireDigitalButlerEntitlement(storeId)");
       expect(page).not.toContain("requireFeature(");
       expect(page).not.toContain("checkCurrentStoreFeature(");

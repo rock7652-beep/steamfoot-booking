@@ -1,0 +1,247 @@
+{
+  "project": "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR",
+  "branch": "feat/ai-digital-butler-core",
+  "database": "ttworfzgwejdeolegkxl",
+  "stopped": true,
+  "stores": [
+    {
+      "id": "ai-preview-beauty",
+      "isDemo": true,
+      "enabled": false,
+      "channels": [
+        "TEST"
+      ],
+      "hasLineDestination": false
+    },
+    {
+      "id": "ai-preview-fitness",
+      "isDemo": true,
+      "enabled": false,
+      "channels": [
+        "TEST"
+      ],
+      "hasLineDestination": false
+    },
+    {
+      "id": "ai-preview-music",
+      "isDemo": true,
+      "enabled": false,
+      "channels": [
+        "TEST"
+      ],
+      "hasLineDestination": false
+    },
+    {
+      "id": "ai-preview-steamfoot",
+      "isDemo": true,
+      "enabled": false,
+      "channels": [
+        "TEST"
+      ],
+      "hasLineDestination": false
+    }
+  ],
+  "envs": [
+    {
+      "key": "LINE_ZHUBEI_CHANNEL_ACCESS_TOKEN",
+      "type": "sensitive",
+      "target": [
+        "preview",
+        "production"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_ZHUBEI_CHANNEL_SECRET",
+      "type": "sensitive",
+      "target": [
+        "preview",
+        "production"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN",
+      "type": "sensitive",
+      "target": [
+        "production"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "STEAM_BUTLER_LINE_CHANNEL_SECRET",
+      "type": "sensitive",
+      "target": [
+        "production"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "STEAM_BUTLER_LINE_DESTINATION",
+      "type": "sensitive",
+      "target": [
+        "production"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN",
+      "type": "sensitive",
+      "target": [
+        "preview"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "STEAM_BUTLER_LINE_CHANNEL_SECRET",
+      "type": "sensitive",
+      "target": [
+        "preview"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "STEAM_BUTLER_LINE_DESTINATION",
+      "type": "sensitive",
+      "target": [
+        "preview"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_REBIND_ENCRYPTION_KEY",
+      "type": "sensitive",
+      "target": [
+        "preview"
+      ],
+      "gitBranch": "codex/line-rebind-pr2-dry-run"
+    },
+    {
+      "key": "LINE_OAUTH_STORE_CONTEXT_SECRET",
+      "type": "sensitive",
+      "target": [
+        "preview",
+        "production"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_TAICHUNG_LOGIN_CHANNEL_SECRET",
+      "type": "sensitive",
+      "target": [
+        "production",
+        "preview"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_TAICHUNG_LOGIN_CHANNEL_ID",
+      "type": "sensitive",
+      "target": [
+        "preview",
+        "production"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_REBIND_ENCRYPTION_KEY",
+      "type": "sensitive",
+      "target": [
+        "production"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_HSINCHU_CHANNEL_SECRET",
+      "type": "sensitive",
+      "target": [
+        "production",
+        "preview"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_HSINCHU_CHANNEL_ACCESS_TOKEN",
+      "type": "sensitive",
+      "target": [
+        "production",
+        "preview"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_TAICHUNG_CHANNEL_SECRET",
+      "type": "sensitive",
+      "target": [
+        "production",
+        "preview"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_TAICHUNG_CHANNEL_ACCESS_TOKEN",
+      "type": "sensitive",
+      "target": [
+        "production",
+        "preview"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "NEXT_PUBLIC_LINE_OA_ADD_FRIEND_URL",
+      "type": "sensitive",
+      "target": [
+        "production",
+        "preview"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_LOGIN_CHANNEL_SECRET",
+      "type": "encrypted",
+      "target": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_LOGIN_CHANNEL_ID",
+      "type": "encrypted",
+      "target": [
+        "production",
+        "preview",
+        "development"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_CHANNEL_ACCESS_TOKEN",
+      "type": "encrypted",
+      "target": [
+        "production",
+        "preview",
+        "development"
+      ],
+      "gitBranch": null
+    },
+    {
+      "key": "LINE_CHANNEL_SECRET",
+      "type": "encrypted",
+      "target": [
+        "production",
+        "preview",
+        "development"
+      ],
+      "gitBranch": null
+    }
+  ],
+  "reservedDestinationHashes": [
+    "c1a2b45a6028520098f0953b2ec21bfc408a80d71ff9698efb1c4ae0699014e7"
+  ],
+  "platformIngressVerified": false,
+  "liveSenderImplemented": false,
+  "messagingIdentityReadReady": false,
+  "originalRuntimePersistenceReady": false
+}

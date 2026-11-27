@@ -1,0 +1,67 @@
+{
+  "dateTaipei": "2026-11-26",
+  "pr": 1596,
+  "productModes": {
+    "A": "BRAND_SUPPORT / steamfoot brand OA / no operational Store dependency",
+    "B": "STORE_MANAGER / WarmWarm OA / store-scoped services"
+  },
+  "currentArchitecture": {
+    "sharedAlgorithmsReusable": true,
+    "storeIndependentBrandSupported": false,
+    "currentIdentityAndLedgersStoreBound": true,
+    "existingOaProductionTesterDispatcherFound": false,
+    "liveLineCallbacksVerified": false
+  },
+  "productionMetadataRead": {
+    "project": "qijlnhtpbintanzpxkvf",
+    "transaction": "BEGIN READ ONLY",
+    "tables": [
+      "Store"
+    ],
+    "fields": [
+      "id",
+      "slug",
+      "name",
+      "isDemo",
+      "industryModule",
+      "lineDestination presence/hash"
+    ],
+    "customerMemberOrTransactionData": false,
+    "writes": 0
+  },
+  "localVerification": {
+    "filesPassed": 5,
+    "testsPassed": 116,
+    "typecheck": "passed",
+    "eslint": "passed",
+    "overlapsPrior121": true,
+    "shadowHarnessOnly": true,
+    "allShadowCanSend": false,
+    "allShadowOriginalMustRemainOwner": true,
+    "networkFetchCalls": 0
+  },
+  "constraints": {
+    "newRuntimeChanges": 0,
+    "newOas": 0,
+    "newCredentials": 0,
+    "newCallbackChanges": 0,
+    "newDeployments": 0,
+    "newLineMessages": 0,
+    "newOpenaiRequests": 0,
+    "productionWrites": 0,
+    "aiStopPreserved": true,
+    "allFourTestStoresDisabled": true
+  },
+  "recommendedApproach": "Reuse one owner-aware framework with brand-service and store adapters; approve any production narrow dispatcher separately before real existing-OA tester E2E.",
+  "alternatives": [
+    "Official LINE testWebhookEndpoint with explicit endpoint: connectivity-only candidate, separately authorized, not full E2E",
+    "Independent test OA with the same framework and isolated owner fixtures if production dispatch changes remain prohibited"
+  ],
+  "notAuthorizedOrImplemented": [
+    "New principal persistence/schema/entitlements",
+    "Production dispatcher or relay proof",
+    "Real LINE sender or live test window",
+    "Booking create/cancel/reschedule"
+  ],
+  "priorDedicatedOaPlan": "Fallback only; superseded as the primary prerequisite"
+}

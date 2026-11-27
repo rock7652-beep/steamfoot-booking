@@ -190,7 +190,7 @@ export async function fetchMonthAvailability(
 // fetchDaySlots — 單日時段查詢（前台預約用，含 duty 過濾）
 // ============================================================
 
-export async function fetchDaySlots(date: string, requestedStoreId?: string, options?: { allowPast?: boolean }): Promise<{ slots: SlotAvailability[] }> {
+export async function fetchDaySlots(date: string, requestedStoreId?: string, options?: { allowPast?: boolean; customerView?: boolean }): Promise<{ slots: SlotAvailability[] }> {
   // Fixed action label only; no arguments, customer data, or identifiers.
   console.info("[BOOKING_ACTION]", "fetchDaySlots");
   // A roster can be opened via an authorized /s/:slug route without an
@@ -207,8 +207,11 @@ export async function fetchDaySlots(date: string, requestedStoreId?: string, opt
   if (!storeId) throw new AppError("VALIDATION", "請指定門市");
 
   const allowPast = options?.allowPast === true;
+  // Staff can opt into the stricter customer window/cutoff; this never grants
+  // access or bypasses the explicit store/booking.read checks above.
+  const customerView = user.role === "CUSTOMER" || options?.customerView === true;
   if (allowPast) {
-    if (user.role === "CUSTOMER") throw new AppError("FORBIDDEN", "補登僅供有權限的後台人員操作");
+    if (customerView) throw new AppError("FORBIDDEN", "補登僅供有權限的後台人員操作");
     await requirePermission("booking.create", undefined, { storeId });
   }
 
@@ -241,7 +244,7 @@ export async function fetchDaySlots(date: string, requestedStoreId?: string, opt
           distinct: ["slotTime"],
         })
       : Promise.resolve([]),
-    user.role === "CUSTOMER"
+    customerView
       ? prisma.shopConfig.findUnique({
           where: { storeId },
           select: { bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true },
@@ -260,13 +263,13 @@ export async function fetchDaySlots(date: string, requestedStoreId?: string, opt
   const result: SlotAvailability[] = [];
   for (const s of resolvedSlots) {
     if (!s.isEnabled) continue;
-    if (user.role === "CUSTOMER") {
+    if (customerView) {
       const { isCustomerSlotWithinBookingWindow } = await import("@/lib/shop-config");
       if (!isCustomerSlotWithinBookingWindow(date, s.startTime, bookingWindowConfig)) continue;
     }
     const booked = bookedMap.get(s.startTime) ?? 0;
     const isPast = isToday && nowHHmm !== null && s.startTime <= nowHHmm;
-    const bookingTimeLeftMs = user.role === "CUSTOMER" ? steamBookingTimeLeft(date, s.startTime, now) : undefined;
+    const bookingTimeLeftMs = customerView ? steamBookingTimeLeft(date, s.startTime, now) : undefined;
     result.push({
       startTime: s.startTime,
       capacity: s.capacity,

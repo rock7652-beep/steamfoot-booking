@@ -1,0 +1,22 @@
+{
+  "deployment": "dpl_DVzaJJAGfoT5XyAC29RAmZb3xFHw",
+  "sourceSha": "e2d56ce67d163aa5efe84ad91e832c291cd5015b",
+  "kind": "authenticated isolated Preview; Chromium viewport emulation, not physical devices",
+  "strictTls": true,
+  "cases": [
+    "unauthenticated-brand-api-denied"
+  ],
+  "sizes": [],
+  "requests": [
+    {
+      "path": "/hq/login",
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "failures": [
+    "locator.waitFor: Timeout 30000ms exceeded.",
+    "cleanup coordination timeout auth-cleanup"
+  ],
+  "timings": []
+}

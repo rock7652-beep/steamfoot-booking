@@ -1,0 +1,99 @@
+{
+  "priorAcceptedPerStoreOn9b": {
+    "steamfoot": {
+      "store": "steamfoot",
+      "runtimeSha": "9b0dde6f40c86926ce27c2d17afb7b9be2250b34",
+      "origin": "https://steamfoot-booking-8modwbttf-rock7652-2111s-projects.vercel.app",
+      "entryMs": 15940,
+      "warmEntryMs": 4108,
+      "clickReturnedMs": 45,
+      "resumeRoundTripMs": 6241,
+      "totalMs": 42051,
+      "initialPendingRows": 2,
+      "cases": [
+        "existing-staged-handoff-listed",
+        "cancel-no-resume",
+        "network-failure-retried-same-command",
+        "resume-authoritative-row-removed",
+        "second-session-stale-version-rejected",
+        "original-panel-state-synchronized",
+        "original-flow-after-resume-no-model",
+        "reload-confirmed",
+        "foreign-store-direct-url-denied"
+      ],
+      "rwd": [
+        {
+          "width": 1920,
+          "scrollWidth": 1920
+        },
+        {
+          "width": 1366,
+          "scrollWidth": 1366
+        },
+        {
+          "width": 1024,
+          "scrollWidth": 1024
+        },
+        {
+          "width": 768,
+          "scrollWidth": 768
+        },
+        {
+          "width": 390,
+          "scrollWidth": 390
+        },
+        {
+          "width": 360,
+          "scrollWidth": 360
+        }
+      ],
+      "retrySameCommand": true,
+      "expectedNetworkInterruptions": 1,
+      "errors": [],
+      "failures": []
+    },
+    "beauty": {
+      "store": "beauty",
+      "runtimeSha": "9b0dde6f40c86926ce27c2d17afb7b9be2250b34",
+      "origin": "https://steamfoot-booking-8modwbttf-rock7652-2111s-projects.vercel.app",
+      "entryMs": 12106,
+      "warmEntryMs": 3825,
+      "clickReturnedMs": 47,
+      "resumeRoundTripMs": 3691,
+      "totalMs": 25775,
+      "initialPendingRows": 0,
+      "cases": [
+        "persistent-pending-scope-listed",
+        "cancel-no-resume",
+        "resume-authoritative-row-removed",
+        "original-panel-state-synchronized",
+        "original-flow-after-resume-no-model",
+        "reload-confirmed"
+      ],
+      "rwd": [
+        {
+          "width": 1366,
+          "scrollWidth": 1366
+        },
+        {
+          "width": 1024,
+          "scrollWidth": 1024
+        },
+        {
+          "width": 768,
+          "scrollWidth": 768
+        }
+      ],
+      "retrySameCommand": null,
+      "expectedNetworkInterruptions": 0,
+      "errors": [],
+      "failures": []
+    }
+  },
+  "notes": [
+    "676caff: hosted resume blocked by max=1 connection reentrant authorization; no audit committed. Fixed and locally reproduced.",
+    "b1b2363: two successful Steamfoot diagnostic runs, two audits and dispatches; React #418 prevented final acceptance.",
+    "9b0dde6: server-formatted labels removed hydration error; Steamfoot and Beauty passed. Full RSC refresh timed out on Steamfoot (subsequently recovered by UI) and Fitness (staged flag retained for final UI recovery). Course login landing spinner and initial Chromium navigation interruptions were also recorded; no model call.",
+    "Final runtime replaces full RSC refresh with scoped authorized reader and authoritative action snapshots. All historical runs used synthetic data only."
+  ]
+}

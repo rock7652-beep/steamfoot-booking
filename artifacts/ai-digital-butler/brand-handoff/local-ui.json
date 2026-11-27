@@ -1,0 +1,264 @@
+{
+  "kind": "local actual shared workspace/core/PG; not cloud HTTP/session acceptance",
+  "sizes": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "queue": true,
+      "cancel": true,
+      "resize": true,
+      "resume": true,
+      "reload": true,
+      "subsequentAnswer": true,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 1366,
+      "height": 900,
+      "queue": true,
+      "cancel": true,
+      "resize": true,
+      "resume": true,
+      "reload": true,
+      "subsequentAnswer": true,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "queue": true,
+      "cancel": true,
+      "resize": true,
+      "resume": true,
+      "reload": true,
+      "subsequentAnswer": true,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "queue": true,
+      "cancel": true,
+      "resize": true,
+      "resume": true,
+      "reload": true,
+      "subsequentAnswer": true,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "queue": true,
+      "cancel": true,
+      "resize": true,
+      "resume": true,
+      "reload": true,
+      "subsequentAnswer": true,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "queue": true,
+      "cancel": true,
+      "resize": true,
+      "resume": true,
+      "reload": true,
+      "subsequentAnswer": true,
+      "overflow": false,
+      "touch": true
+    }
+  ],
+  "cases": [
+    "lost-resume-response-retries-same-command-without-duplicate",
+    "resume-resolves-handoff-without-changing-global-stop-or-brand-off"
+  ],
+  "actions": [
+    {
+      "name": "readBrandHandoffs",
+      "input": {
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4"
+      }
+    },
+    {
+      "name": "resumeBrandConversation",
+      "input": {
+        "commandId": "d3efd37c-81f3-489e-893f-1e02252a47f1",
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4",
+        "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+        "revision": 1
+      },
+      "duplicate": false
+    },
+    {
+      "name": "setBrandHandoff",
+      "input": true
+    },
+    {
+      "name": "readBrandHandoffs",
+      "input": {
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4"
+      }
+    },
+    {
+      "name": "resumeBrandConversation",
+      "input": {
+        "commandId": "aa840e1a-86ac-4d82-ad9d-1e2072defb7e",
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4",
+        "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+        "revision": 3
+      },
+      "duplicate": false
+    },
+    {
+      "name": "setBrandHandoff",
+      "input": true
+    },
+    {
+      "name": "readBrandHandoffs",
+      "input": {
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4"
+      }
+    },
+    {
+      "name": "resumeBrandConversation",
+      "input": {
+        "commandId": "da48cce8-d327-4935-aff8-d91508867878",
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4",
+        "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+        "revision": 5
+      },
+      "duplicate": false
+    },
+    {
+      "name": "setBrandHandoff",
+      "input": true
+    },
+    {
+      "name": "readBrandHandoffs",
+      "input": {
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4"
+      }
+    },
+    {
+      "name": "resumeBrandConversation",
+      "input": {
+        "commandId": "ef2e6b68-ba5a-4368-bbfa-ed7ce42af4f2",
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4",
+        "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+        "revision": 7
+      },
+      "duplicate": false
+    },
+    {
+      "name": "setBrandHandoff",
+      "input": true
+    },
+    {
+      "name": "readBrandHandoffs",
+      "input": {
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4"
+      }
+    },
+    {
+      "name": "resumeBrandConversation",
+      "input": {
+        "commandId": "e49ccdf2-447a-4d6f-adc3-7d316cff1d94",
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4",
+        "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+        "revision": 9
+      },
+      "duplicate": false
+    },
+    {
+      "name": "setBrandHandoff",
+      "input": true
+    },
+    {
+      "name": "readBrandHandoffs",
+      "input": {
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4"
+      }
+    },
+    {
+      "name": "resumeBrandConversation",
+      "input": {
+        "commandId": "7cd12d8d-5fdb-455c-8ff6-22f24272d15b",
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4",
+        "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+        "revision": 11
+      },
+      "duplicate": false
+    },
+    {
+      "name": "setBrandHandoff",
+      "input": true
+    },
+    {
+      "name": "readBrandHandoffs",
+      "input": {
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4"
+      }
+    },
+    {
+      "name": "resumeBrandConversation",
+      "input": {
+        "commandId": "d6ca7e29-e615-487b-baa4-b003b834383c",
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4",
+        "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+        "revision": 13
+      },
+      "duplicate": false
+    },
+    {
+      "name": "resumeBrandConversation",
+      "input": {
+        "commandId": "d6ca7e29-e615-487b-baa4-b003b834383c",
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4",
+        "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+        "revision": 13
+      },
+      "duplicate": true
+    },
+    {
+      "name": "setBrandHandoff",
+      "input": true
+    },
+    {
+      "name": "readBrandHandoffs",
+      "input": {
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4"
+      }
+    },
+    {
+      "name": "resumeBrandConversation",
+      "input": {
+        "commandId": "ef8829f9-f77c-4e87-bbeb-81c2532469d5",
+        "viewKey": "1ebeb88ebd20fd95f7d009a02fb5de22355799baad679807096fa117b965b2f4",
+        "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+        "revision": 15
+      },
+      "duplicate": false
+    }
+  ],
+  "failures": [],
+  "final": {
+    "requests": "7",
+    "costMicros": "0",
+    "resumeAudits": 8,
+    "realOpenAiCalls": 0,
+    "realOutbound": 0,
+    "networkCalls": 0
+  },
+  "cleanup": {
+    "stopped": true,
+    "status": "HIDDEN",
+    "enabled": "false",
+    "published": null
+  }
+}

@@ -1,7 +1,7 @@
 /** HQ platform pages are global even while a store is selected. */
 export function isHqPlatformPath(pathname: string): boolean {
   if (/^\/hq\/dashboard\/settings\/line-official-accounts\/?$/.test(pathname)) return true;
-  return /^\/hq\/dashboard\/(?:stores|trial-applications|brand-overview)(?:\/|$)/.test(pathname);
+  return /^\/hq\/dashboard\/(?:stores|trial-applications|brand-overview|ai-services)(?:\/|$)/.test(pathname);
 }
 
 /** Start the new store at its home; retain the device studio's embedded mode. */

@@ -1,0 +1,139 @@
+{
+  "dateTaipei": "2026-11-26",
+  "beforeSha": "48a6391ec2974a6f40c98392605c2bc89fccd0d8",
+  "runtimeSha": "8fe39aaa61f9365ba16742b61e509bab405c6ce8",
+  "deploymentId": "dpl_EfLwdm8shw7HEWF4tmUhPsFetkXw",
+  "previewOrigin": "https://steamfoot-booking-3yxjqy6iz-rock7652-2111s-projects.vercel.app",
+  "runtimeCi": {
+    "run": 45765440552,
+    "jobsPassed": 4,
+    "testsPassed": 17637,
+    "testsSkipped": 340,
+    "filesPassed": 1863,
+    "filesSkipped": 36
+  },
+  "before": {
+    "firstMemberPage": {
+      "n": 2,
+      "medianMs": 3021.0,
+      "minMs": 2793,
+      "maxMs": 3249
+    },
+    "repeatedMemberPage": {
+      "n": 4,
+      "medianMs": 2574.5,
+      "minMs": 2471,
+      "maxMs": 2938
+    },
+    "journeyThroughMemberUsable": {
+      "n": 2,
+      "medianMs": 8686.5,
+      "minMs": 7011,
+      "maxMs": 10362
+    },
+    "journeyThroughFirstResult": {
+      "n": 2,
+      "medianMs": 10373.0,
+      "minMs": 8561,
+      "maxMs": 12185
+    },
+    "queries": {
+      "n": 12,
+      "medianMs": 1551.5,
+      "minMs": 1502,
+      "maxMs": 1813
+    },
+    "firstClickSuccesses": 0,
+    "navigations": 6,
+    "failedTrials": 1
+  },
+  "after": {
+    "firstMemberPage": {
+      "n": 3,
+      "medianMs": 1722,
+      "minMs": 1699,
+      "maxMs": 2286
+    },
+    "repeatedMemberPage": {
+      "n": 6,
+      "medianMs": 1760.0,
+      "minMs": 1591,
+      "maxMs": 1900
+    },
+    "journeyThroughMemberUsable": {
+      "n": 3,
+      "medianMs": 6669,
+      "minMs": 6028,
+      "maxMs": 10625
+    },
+    "journeyThroughFirstResult": {
+      "n": 3,
+      "medianMs": 8119,
+      "minMs": 7059,
+      "maxMs": 11808
+    },
+    "queries": {
+      "n": 18,
+      "medianMs": 1316.0,
+      "minMs": 941,
+      "maxMs": 1818
+    },
+    "firstClickSuccesses": 9,
+    "navigations": 9,
+    "failedTrials": 0
+  },
+  "localUiCases": 12,
+  "localWidths": [
+    1920,
+    1366,
+    1024,
+    768,
+    390,
+    360
+  ],
+  "hostedAcceptanceCases": 8,
+  "hostedWidths": [
+    1920,
+    1366,
+    1024,
+    768,
+    390,
+    360
+  ],
+  "limits": [
+    "Before retry waits 1500ms after a missed click; no server speedup percentage inferred.",
+    "New browser contexts do not establish server cold starts.",
+    "Small samples under Cloud Chromium and proxy network; no production latency guarantee.",
+    "No backend/identity/permission/cache/database configuration changes."
+  ],
+  "postflight": {
+    "database": {
+      "role": {
+        "super": false,
+        "bypass": false,
+        "connection_limit": 8
+      },
+      "audits": 8,
+      "notices": 0,
+      "stopped": true,
+      "requests": 47,
+      "dispatches": 65,
+      "unresolved": 0,
+      "total_bookings": 129,
+      "total_customers": 1367,
+      "enabled_settings": 0,
+      "estimated_micros": "1310",
+      "suspended_members": 3
+    },
+    "cleanup": {
+      "oldGrantRevoked": true,
+      "newGrantRevoked": true,
+      "privateFileRemoved": true,
+      "browsersClosed": true,
+      "ownerAccountUnchanged": true
+    },
+    "newPreviewBuilds": 1,
+    "newOpenaiRequests": 0,
+    "productionChanged": false
+  }
+}

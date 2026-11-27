@@ -1,0 +1,11 @@
+{
+  "mode": "session",
+  "deployment": "dpl_4MBBMDKK3X1MrTF8NJn5r3gEaqXi",
+  "strictTls": true,
+  "oldSessionTokenPresent": true,
+  "oldSessionBrandHttp": 403,
+  "sessionHttp": 200,
+  "sessionUserAbsent": true,
+  "noNewSignIn": true,
+  "passed": true
+}

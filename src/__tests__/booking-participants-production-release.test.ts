@@ -32,5 +32,5 @@ describe("production participant readiness",()=>{
    expect(rls.rows[0].ok).toBe(true);
    await expect(db.exec(sql)).rejects.toThrow();
   } finally {await db.close();}
- });
+ }, 30_000); // PGlite cold startup can exceed Vitest's 5s default on CI.
 });

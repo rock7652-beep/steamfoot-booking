@@ -1,0 +1,12 @@
+{
+  "stage": "scope",
+  "store": "steamfoot",
+  "deploymentOrigin": "https://steamfoot-booking-9xboy65y6-rock7652-2111s-projects.vercel.app",
+  "runtimeSha": "b25fdaabf882bd6c069c736b59cf428eacf64e56",
+  "entryMs": 4238,
+  "totalMs": 7227,
+  "cases": [],
+  "rwd": [],
+  "errors": [],
+  "failures": []
+}

@@ -62,6 +62,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     module: "顧客",
     description: "LINE 與 Messenger 數位管家對話、名單與真人客服交接。",
   },
+  { key: FEATURES.AI_DIGITAL_BUTLER, label: "AI 數位店長", module: "顧客", description: "獨立加購，預設未開通；須另開店家與通路開關。目前僅隔離測試，尚未提供正式客服。價格及額度另行確認，關閉不影響原數位管家、預約或通知。" },
   {
     key: FEATURES.CUSTOMER_CARE,
     label: "顧客經營",

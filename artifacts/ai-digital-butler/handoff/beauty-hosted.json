@@ -1,0 +1,39 @@
+{
+  "store": "beauty",
+  "runtimeSha": "e3dc109aa837437743d42ef17a7c3c50a52bbf47",
+  "origin": "https://steamfoot-booking-a9o36q4nn-rock7652-2111s-projects.vercel.app",
+  "entryMs": 11419,
+  "warmEntryMs": 4326,
+  "queueRefreshMs": 1373,
+  "clickReturnedMs": 46,
+  "resumeRoundTripMs": 1859,
+  "totalMs": 23089,
+  "initialPendingRows": 0,
+  "cases": [
+    "focused-reader-authorized-refresh",
+    "persistent-pending-scope-listed",
+    "cancel-no-resume",
+    "resume-authoritative-row-removed",
+    "original-panel-state-synchronized",
+    "original-flow-after-resume-no-model",
+    "reload-confirmed"
+  ],
+  "rwd": [
+    {
+      "width": 1366,
+      "scrollWidth": 1366
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768
+    }
+  ],
+  "retrySameCommand": null,
+  "expectedNetworkInterruptions": 0,
+  "errors": [],
+  "failures": []
+}

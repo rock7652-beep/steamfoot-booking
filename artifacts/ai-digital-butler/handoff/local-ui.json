@@ -1,0 +1,50 @@
+{
+  "kind": "Local Chromium SSR/hydration, mocked server actions and focused panel reader; not hosted/real-device evidence",
+  "syntheticRows": 51,
+  "sizes": [
+    {
+      "width": 1920,
+      "scrollWidth": 1920,
+      "touch": true
+    },
+    {
+      "width": 1366,
+      "scrollWidth": 1366,
+      "touch": true
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024,
+      "touch": true
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768,
+      "touch": true
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390,
+      "touch": true
+    },
+    {
+      "width": 360,
+      "scrollWidth": 360,
+      "touch": true
+    }
+  ],
+  "cases": [
+    "ssr-hydration-matches-browser",
+    "pagination-25-25-1",
+    "blocked-pending",
+    "cancel-no-write",
+    "resize-keeps-confirmation",
+    "uncertain-retry-same-command",
+    "version-conflict",
+    "actor-scope-reset",
+    "readonly",
+    "read-error-not-empty"
+  ],
+  "errors": [],
+  "hydrationErrors": []
+}

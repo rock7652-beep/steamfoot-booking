@@ -1,0 +1,337 @@
+{
+  "runtimeSha": "e3dc109aa837437743d42ef17a7c3c50a52bbf47",
+  "deploymentId": "dpl_2UqMFpxAmvB2EbNzfoKxAc6M8SKt",
+  "origin": "https://steamfoot-booking-a9o36q4nn-rock7652-2111s-projects.vercel.app",
+  "postflight": {
+    "checked_at": "2026-11-26 03:47:20.869333+00",
+    "stopped": true,
+    "settings": [
+      {
+        "enabled": false,
+        "storeId": "ai-preview-beauty"
+      },
+      {
+        "enabled": false,
+        "storeId": "ai-preview-fitness"
+      },
+      {
+        "enabled": false,
+        "storeId": "ai-preview-music"
+      },
+      {
+        "enabled": false,
+        "storeId": "ai-preview-steamfoot"
+      }
+    ],
+    "requests": {
+      "mock": 44,
+      "total": 47,
+      "openai": 3,
+      "complete": 47,
+      "unresolved": 0,
+      "estimatedMicros": 1310
+    },
+    "dispatch": {
+      "total": 65,
+      "complete": 65,
+      "unresolved": 0
+    },
+    "audits": 8,
+    "pending_handoffs": 1,
+    "audits_by_store": {
+      "ai-preview-music": 1,
+      "ai-preview-beauty": 2,
+      "ai-preview-fitness": 1,
+      "ai-preview-steamfoot": 4
+    },
+    "bookings": 0,
+    "customers": 0,
+    "legacy_leads": 0
+  },
+  "security": {
+    "settings": [
+      {
+        "enabled": false,
+        "storeId": "ai-preview-beauty"
+      },
+      {
+        "enabled": false,
+        "storeId": "ai-preview-fitness"
+      },
+      {
+        "enabled": false,
+        "storeId": "ai-preview-music"
+      },
+      {
+        "enabled": false,
+        "storeId": "ai-preview-steamfoot"
+      }
+    ],
+    "audit": {
+      "rls": true
+    },
+    "role": {
+      "createDb": false,
+      "bypassRls": false,
+      "superuser": false,
+      "createRole": false,
+      "loginExpires": "2026-12-02T14:15:52+00:00",
+      "connectionLimit": 8
+    },
+    "bookings": 0,
+    "customers": 0,
+    "legacy_leads": 0
+  },
+  "cleanup": {
+    "manualGrantsRevoked": 4,
+    "syntheticLoginVersionsInvalidated": 4,
+    "privateFilesRemoved": true
+  },
+  "dateTaipei": "2026-11-26",
+  "pr": "https://github.com/rock7652-beep/steamfoot-booking/pull/1596",
+  "scope": "Synthetic TEST operator conversation management only; no live channels or production release",
+  "hosted": [
+    {
+      "store": "steamfoot",
+      "runtimeSha": "e3dc109aa837437743d42ef17a7c3c50a52bbf47",
+      "origin": "https://steamfoot-booking-a9o36q4nn-rock7652-2111s-projects.vercel.app",
+      "entryMs": 17179,
+      "warmEntryMs": 3980,
+      "queueRefreshMs": 1852,
+      "clickReturnedMs": 67,
+      "resumeRoundTripMs": 2458,
+      "totalMs": 42493,
+      "initialPendingRows": 1,
+      "cases": [
+        "focused-reader-authorized-refresh",
+        "persistent-pending-scope-listed",
+        "cancel-no-resume",
+        "network-failure-retried-same-command",
+        "resume-authoritative-row-removed",
+        "second-session-stale-version-rejected",
+        "original-panel-state-synchronized",
+        "original-flow-after-resume-no-model",
+        "reload-confirmed",
+        "foreign-store-direct-url-denied"
+      ],
+      "rwd": [
+        {
+          "width": 1920,
+          "scrollWidth": 1920
+        },
+        {
+          "width": 1366,
+          "scrollWidth": 1366
+        },
+        {
+          "width": 1024,
+          "scrollWidth": 1024
+        },
+        {
+          "width": 768,
+          "scrollWidth": 768
+        },
+        {
+          "width": 390,
+          "scrollWidth": 390
+        },
+        {
+          "width": 360,
+          "scrollWidth": 360
+        }
+      ],
+      "retrySameCommand": true,
+      "expectedNetworkInterruptions": 1,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "store": "beauty",
+      "runtimeSha": "e3dc109aa837437743d42ef17a7c3c50a52bbf47",
+      "origin": "https://steamfoot-booking-a9o36q4nn-rock7652-2111s-projects.vercel.app",
+      "entryMs": 11419,
+      "warmEntryMs": 4326,
+      "queueRefreshMs": 1373,
+      "clickReturnedMs": 46,
+      "resumeRoundTripMs": 1859,
+      "totalMs": 23089,
+      "initialPendingRows": 0,
+      "cases": [
+        "focused-reader-authorized-refresh",
+        "persistent-pending-scope-listed",
+        "cancel-no-resume",
+        "resume-authoritative-row-removed",
+        "original-panel-state-synchronized",
+        "original-flow-after-resume-no-model",
+        "reload-confirmed"
+      ],
+      "rwd": [
+        {
+          "width": 1366,
+          "scrollWidth": 1366
+        },
+        {
+          "width": 1024,
+          "scrollWidth": 1024
+        },
+        {
+          "width": 768,
+          "scrollWidth": 768
+        }
+      ],
+      "retrySameCommand": null,
+      "expectedNetworkInterruptions": 0,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "store": "fitness",
+      "runtimeSha": "e3dc109aa837437743d42ef17a7c3c50a52bbf47",
+      "origin": "https://steamfoot-booking-a9o36q4nn-rock7652-2111s-projects.vercel.app",
+      "entryMs": 12829,
+      "warmEntryMs": 4038,
+      "queueRefreshMs": 1351,
+      "clickReturnedMs": 52,
+      "resumeRoundTripMs": 1853,
+      "totalMs": 22779,
+      "initialPendingRows": 1,
+      "cases": [
+        "focused-reader-authorized-refresh",
+        "existing-staged-handoff-listed",
+        "cancel-no-resume",
+        "resume-authoritative-row-removed",
+        "original-panel-state-synchronized",
+        "original-flow-after-resume-no-model",
+        "reload-confirmed"
+      ],
+      "rwd": [
+        {
+          "width": 1366,
+          "scrollWidth": 1366
+        },
+        {
+          "width": 1024,
+          "scrollWidth": 1024
+        },
+        {
+          "width": 768,
+          "scrollWidth": 768
+        }
+      ],
+      "retrySameCommand": null,
+      "expectedNetworkInterruptions": 0,
+      "errors": [],
+      "failures": []
+    },
+    {
+      "store": "music",
+      "runtimeSha": "e3dc109aa837437743d42ef17a7c3c50a52bbf47",
+      "origin": "https://steamfoot-booking-a9o36q4nn-rock7652-2111s-projects.vercel.app",
+      "entryMs": 11277,
+      "warmEntryMs": 3811,
+      "queueRefreshMs": 1356,
+      "clickReturnedMs": 56,
+      "resumeRoundTripMs": 1866,
+      "totalMs": 23452,
+      "initialPendingRows": 0,
+      "cases": [
+        "focused-reader-authorized-refresh",
+        "persistent-pending-scope-listed",
+        "cancel-no-resume",
+        "resume-authoritative-row-removed",
+        "original-panel-state-synchronized",
+        "original-flow-after-resume-no-model",
+        "reload-confirmed"
+      ],
+      "rwd": [
+        {
+          "width": 1366,
+          "scrollWidth": 1366
+        },
+        {
+          "width": 1024,
+          "scrollWidth": 1024
+        },
+        {
+          "width": 768,
+          "scrollWidth": 768
+        }
+      ],
+      "retrySameCommand": null,
+      "expectedNetworkInterruptions": 0,
+      "errors": [],
+      "failures": []
+    }
+  ],
+  "local": {
+    "relatedFiles": 7,
+    "relatedTestsPassed": 133,
+    "independentPostgresTestsPassed": 6,
+    "uiCasesPassed": 10,
+    "viewportSizes": 6,
+    "hydrationErrors": 0,
+    "typecheck": "passed",
+    "changedAiFilesEslint": "passed"
+  },
+  "ci": {
+    "runId": 45750372544,
+    "conclusion": "success",
+    "jobs": [
+      "Changed-file ESLint",
+      "Typecheck",
+      "Targeted tests",
+      "Full Vitest baseline"
+    ],
+    "fullBaseline": {
+      "filesPassed": 1856,
+      "filesSkipped": 36,
+      "testsPassed": 17578,
+      "testsSkipped": 340,
+      "seconds": 310.27
+    },
+    "otherIsolatedWorkflows": [
+      "Sports shared-card: success",
+      "Music makeup: success",
+      "Mixed enrollment: success",
+      "Booking: skipped by workflow conditions",
+      "Editorial: skipped by workflow conditions"
+    ]
+  },
+  "necessaryBuildsThisFeature": 4,
+  "migration": {
+    "project": "ttworfzgwejdeolegkxl",
+    "name": "ai_preview_handoff_operator_audit",
+    "sha256": "06f6b00a9ef123153483687e90ceb7a00dc5c4494871cce5a8bc523f1ddbc6af",
+    "auditPrivileges": {
+      "select": true,
+      "insert": true,
+      "update": false,
+      "delete": false
+    }
+  },
+  "modelRequestsAddedThisFeature": 0,
+  "baselineBeforeFeature": {
+    "requests": 47,
+    "mock": 44,
+    "openai": 3,
+    "estimatedMicros": 1310,
+    "dispatches": 57,
+    "audits": 0,
+    "pendingHandoffs": 1
+  },
+  "observations": [
+    "All four stores used normal native login and authorized server actions. Fitness and music opened the native AI URL in a new tab within the authenticated context to avoid the course landing navigation race.",
+    "Each timing is one observation per path/store; min=median=max within that path (n=1). Not an SLA or a physical-device benchmark.",
+    "Steamfoot resume round trip includes one intentional aborted request and same-command retry.",
+    "The remaining one pending handoff is the pre-existing synthetic conversation; it was retained. Fitness staged state was recovered through the final UI.",
+    "Eight audits and eight dispatches were added across diagnostic and final hosted runs, including the four final successful operations. Historical failures remain in attempts.json.",
+    "No production, new API request, outbound LINE/Messenger/email, business write, connection-limit increase or TLS weakening. Four manual deployment grants revoked; synthetic app login versions invalidated; private credential file removed."
+  ],
+  "unverified": [
+    "Real OA/webhook and production channel integration",
+    "Daily human-support workbench assignment and real messages",
+    "Business write tools",
+    "Physical devices",
+    "Supplier invoice and actual build charges"
+  ]
+}

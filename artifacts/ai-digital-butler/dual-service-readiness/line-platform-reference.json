@@ -1,0 +1,30 @@
+{
+  "dateTaipei": "2026-11-26",
+  "source": "https://github.com/line/line-openapi/blob/main/messaging-api.yml",
+  "modifiedDate": "2026-10-27T07:01:50Z",
+  "verified": [
+    {
+      "operation": "GET /v2/bot/channel/webhook/endpoint",
+      "responseFields": [
+        "endpoint",
+        "active"
+      ]
+    },
+    {
+      "operation": "PUT /v2/bot/channel/webhook/endpoint",
+      "requestFields": [
+        "endpoint"
+      ]
+    },
+    {
+      "operation": "POST /v2/bot/channel/webhook/test",
+      "operationId": "testWebhookEndpoint",
+      "optionalRequestFields": [
+        "endpoint"
+      ],
+      "description": "A webhook URL to be validated."
+    }
+  ],
+  "notExecuted": true,
+  "limits": "Static official API definition only. No LINE tokens accessed; no API test, callback update, real message, or active endpoint observation performed."
+}

@@ -1,0 +1,228 @@
+{
+  "rls": [
+    {
+      "table": "AiBrandKnowledgeDocument",
+      "forced": false,
+      "enabled": true
+    },
+    {
+      "table": "AiButlerKnowledgeDocument",
+      "forced": false,
+      "enabled": true
+    }
+  ],
+  "state": {
+    "stopped": true,
+    "brandOff": true,
+    "brandGrant": "HIDDEN",
+    "fourStoresOff": true,
+    "brandKnowledgeUnpublished": true
+  },
+  "grants": [
+    {
+      "table_name": "AiBrandKnowledgeDocument",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "AiBrandKnowledgeDocument",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "AiBrandKnowledgeDocument",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "AiButlerKnowledgeDocument",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "AiButlerKnowledgeDocument",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "AiButlerKnowledgeDocument",
+      "privilege_type": "UPDATE"
+    }
+  ],
+  "columns": [
+    {
+      "name": "serviceId",
+      "type": "text",
+      "table": "AiBrandKnowledgeDocument",
+      "default": null,
+      "notNull": true
+    },
+    {
+      "name": "draft",
+      "type": "jsonb",
+      "table": "AiBrandKnowledgeDocument",
+      "default": null,
+      "notNull": true
+    },
+    {
+      "name": "published",
+      "type": "jsonb",
+      "table": "AiBrandKnowledgeDocument",
+      "default": null,
+      "notNull": false
+    },
+    {
+      "name": "revision",
+      "type": "integer",
+      "table": "AiBrandKnowledgeDocument",
+      "default": "0",
+      "notNull": true
+    },
+    {
+      "name": "publishedVersion",
+      "type": "integer",
+      "table": "AiBrandKnowledgeDocument",
+      "default": "0",
+      "notNull": true
+    },
+    {
+      "name": "publishedAt",
+      "type": "timestamp with time zone",
+      "table": "AiBrandKnowledgeDocument",
+      "default": null,
+      "notNull": false
+    },
+    {
+      "name": "storeId",
+      "type": "text",
+      "table": "AiButlerKnowledgeDocument",
+      "default": null,
+      "notNull": true
+    },
+    {
+      "name": "draft",
+      "type": "jsonb",
+      "table": "AiButlerKnowledgeDocument",
+      "default": null,
+      "notNull": true
+    },
+    {
+      "name": "published",
+      "type": "jsonb",
+      "table": "AiButlerKnowledgeDocument",
+      "default": null,
+      "notNull": false
+    },
+    {
+      "name": "revision",
+      "type": "integer",
+      "table": "AiButlerKnowledgeDocument",
+      "default": "0",
+      "notNull": true
+    },
+    {
+      "name": "publishedVersion",
+      "type": "integer",
+      "table": "AiButlerKnowledgeDocument",
+      "default": "0",
+      "notNull": true
+    },
+    {
+      "name": "publishedAt",
+      "type": "timestamp with time zone",
+      "table": "AiButlerKnowledgeDocument",
+      "default": null,
+      "notNull": false
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiBrandKnowledgeDocument",
+      "policyname": "ai_brand_preview_insert",
+      "with_check": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiBrandKnowledgeDocument",
+      "policyname": "ai_brand_preview_select",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiBrandKnowledgeDocument",
+      "policyname": "ai_brand_preview_update",
+      "with_check": "(\"serviceId\" = 'ai-preview-brand-steamfoot'::text)"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "(\"storeId\" = ANY (ARRAY['ai-preview-steamfoot'::text, 'ai-preview-beauty'::text, 'ai-preview-fitness'::text, 'ai-preview-music'::text]))",
+      "roles": [
+        "steamfoot_ai_preview_20261125"
+      ],
+      "tablename": "AiButlerKnowledgeDocument",
+      "policyname": "ai_preview_knowledge",
+      "with_check": "(\"storeId\" = ANY (ARRAY['ai-preview-steamfoot'::text, 'ai-preview-beauty'::text, 'ai-preview-fitness'::text, 'ai-preview-music'::text]))"
+    }
+  ],
+  "triggers": [],
+  "constraints": [
+    {
+      "name": "AiBrandKnowledgeDocument_check",
+      "table": "AiBrandKnowledgeDocument",
+      "definition": "CHECK (((published IS NULL) = (\"publishedAt\" IS NULL)))"
+    },
+    {
+      "name": "AiBrandKnowledgeDocument_pkey",
+      "table": "AiBrandKnowledgeDocument",
+      "definition": "PRIMARY KEY (\"serviceId\")"
+    },
+    {
+      "name": "AiBrandKnowledgeDocument_publishedVersion_check",
+      "table": "AiBrandKnowledgeDocument",
+      "definition": "CHECK ((\"publishedVersion\" >= 0))"
+    },
+    {
+      "name": "AiBrandKnowledgeDocument_revision_check",
+      "table": "AiBrandKnowledgeDocument",
+      "definition": "CHECK ((revision >= 0))"
+    },
+    {
+      "name": "AiBrandKnowledgeDocument_serviceId_fkey",
+      "table": "AiBrandKnowledgeDocument",
+      "definition": "FOREIGN KEY (\"serviceId\") REFERENCES \"AiBrandService\"(id) ON DELETE RESTRICT"
+    },
+    {
+      "name": "AiButlerKnowledgeDocument_check",
+      "table": "AiButlerKnowledgeDocument",
+      "definition": "CHECK (((published IS NULL) = (\"publishedAt\" IS NULL)))"
+    },
+    {
+      "name": "AiButlerKnowledgeDocument_pkey",
+      "table": "AiButlerKnowledgeDocument",
+      "definition": "PRIMARY KEY (\"storeId\")"
+    },
+    {
+      "name": "AiButlerKnowledgeDocument_publishedVersion_check",
+      "table": "AiButlerKnowledgeDocument",
+      "definition": "CHECK ((\"publishedVersion\" >= 0))"
+    },
+    {
+      "name": "AiButlerKnowledgeDocument_revision_check",
+      "table": "AiButlerKnowledgeDocument",
+      "definition": "CHECK ((revision >= 0))"
+    },
+    {
+      "name": "AiButlerKnowledgeDocument_storeId_fkey",
+      "table": "AiButlerKnowledgeDocument",
+      "definition": "FOREIGN KEY (\"storeId\") REFERENCES \"Store\"(id) ON DELETE RESTRICT"
+    }
+  ]
+}

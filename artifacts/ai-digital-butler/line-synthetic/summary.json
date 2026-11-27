@@ -1,0 +1,77 @@
+{
+  "dateTaipei": "2026-11-26",
+  "pr": 1596,
+  "branch": "feat/ai-digital-butler-core",
+  "baseHead": "c88067043d190665f43e6d9cd62c0ff9a79883ba",
+  "unchangedRuntimeSha": "b25fdaabf882bd6c069c736b59cf428eacf64e56",
+  "kind": "offline-LINE-format-synthetic-acceptance",
+  "changedRuntimeFiles": 0,
+  "testFiles": [
+    "src/__tests__/ai-digital-butler-line-synthetic.test.ts",
+    "src/__tests__/ai-digital-butler-routing.test.ts",
+    "src/lib/__tests__/line-store-token.test.ts"
+  ],
+  "driver": "src/__tests__/helpers/ai-line-synthetic-harness.ts",
+  "results": {
+    "filesPassed": 3,
+    "testsPassed": 61,
+    "newSyntheticTests": 31,
+    "durationSeconds": 29.35,
+    "eslint": "passed; --max-warnings 0",
+    "typecheck": "passed; NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit --incremental false"
+  },
+  "environment": {
+    "database": "local ephemeral PGlite; no hosted connection",
+    "provider": "MockAiProvider only",
+    "signature": "existing verifyLineSignature implementation; fixture-only secret lookup",
+    "channel": "TEST; offline-line account namespace",
+    "modules": [
+      "STEAMFOOT",
+      "BEAUTY",
+      "FITNESS",
+      "MUSIC"
+    ],
+    "externalFetchCalls": 0,
+    "hostedDatabaseOperations": 0,
+    "openAICalls": 0,
+    "vercelBuilds": 0,
+    "newServices": 0,
+    "productionChanges": 0,
+    "globalStopOrStoreSettingsChanged": false
+  },
+  "assertions": [
+    "Signed raw body and destination bind exact synthetic store/module; no default tenant.",
+    "Actor whitelist, user-only active text; no scope override.",
+    "Whole-batch structure validated before any writes; bounded body/events/text.",
+    "Redelivery retains webhookEventId; replyToken changes do not charge again.",
+    "Same event with changed text is rejected.",
+    "Unknown question transfers to human; subsequent events are silent until explicit resume.",
+    "Original engine works during AI stop; no model request.",
+    "Cross-tenant and actor isolation; rejected authority writes no receipt.",
+    "Prompt injection/protected data request cannot invoke model or business tools.",
+    "No raw actor, replyToken or message body in private ledger rows."
+  ],
+  "limits": [
+    "Offline test driver; not a deployed HTTP adapter or production webhook acceptance.",
+    "Uses request-local synthetic original-flow repository, not persistent operational flows.",
+    "No real OA, member binding, workbench, live model attack evaluation or real message delivery.",
+    "No UI changes or new RWD run; previous Preview evidence retains original version.",
+    "Previous real PostgreSQL and hosted totals were not rerun or altered."
+  ],
+  "existingPreview": {
+    "id": "dpl_EXj9FubfNcprAPKnsTw2Cmspb3SY",
+    "url": "https://steamfoot-booking-9xboy65y6-rock7652-2111s-projects.vercel.app",
+    "runtimeSha": "b25fdaabf882bd6c069c736b59cf428eacf64e56",
+    "rebuilt": false
+  },
+  "ci": "New head automatic checks to be read from GitHub; earlier runtime full CI retained separately.",
+  "sourceSha256": {
+    "src/__tests__/ai-digital-butler-line-synthetic.test.ts": "95b7d3fdee34b3a642f091b0372466c07c0d8f810856a375d444bd93d9576bd9",
+    "src/__tests__/helpers/ai-line-synthetic-harness.ts": "fc2cbc5b76ef7ca729223f0bdfa737cd07fcdf8c8c2878e69e033629b197118c"
+  },
+  "localTypecheckFirstAttempt": {
+    "exitCode": 134,
+    "reason": "Node default heap exhausted; not a type error",
+    "retry": "local NODE_OPTIONS=--max-old-space-size=8192; no project or Vercel settings changed"
+  }
+}

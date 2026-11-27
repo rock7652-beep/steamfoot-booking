@@ -1,0 +1,134 @@
+{
+  "sourceSha": "005ce6e61562a1e5694b7537fbcbdb5d04eab5da",
+  "deployment": "dpl_8XMZsnsSwHjMs9cFRRSqSYbm2Nn1",
+  "cases": [
+    "unauthenticated-public-fixture-rejected",
+    "global-stop-blocks-provider-on-actual-http",
+    "invalid-signature-rejected",
+    "public-fixture-cannot-impersonate-OA",
+    "fixture-sender-bound-to-operator",
+    "original-and-waiting-flow-have-priority",
+    "published-knowledge-mock-through-actual-http",
+    "event-and-message-alias-dedup",
+    "human-handoff-persists-after-new-events-and-reload",
+    "existing-workspace-audited-resume",
+    "unknown-question-handoff-through-mock",
+    "existing-handoff-workspace-six-widths",
+    "stop-restored-blocks-provider",
+    "corrected-null-safe-logout-probe-passes-in-cloud"
+  ],
+  "events": [
+    {
+      "route": "BLOCKED",
+      "outcome": "STOPPED",
+      "providerCalls": 0,
+      "identity": "GUEST",
+      "delivery": "NO_REPLY"
+    },
+    {
+      "route": "ORIGINAL",
+      "outcome": "COMPLETED",
+      "providerCalls": 0,
+      "identity": "GUEST",
+      "delivery": "OUTBOUND_BLOCKED"
+    },
+    {
+      "route": "ORIGINAL",
+      "outcome": "VALIDATION_FAILED",
+      "providerCalls": 0,
+      "identity": "GUEST",
+      "delivery": "OUTBOUND_BLOCKED"
+    },
+    {
+      "route": "AI",
+      "outcome": "AI_ANSWER",
+      "providerCalls": 1,
+      "identity": "GUEST",
+      "delivery": "OUTBOUND_BLOCKED"
+    },
+    {
+      "route": "DUPLICATE",
+      "outcome": "DUPLICATE",
+      "providerCalls": 0,
+      "identity": "GUEST",
+      "delivery": "NO_REPLY"
+    },
+    {
+      "route": "DUPLICATE",
+      "outcome": "DUPLICATE",
+      "providerCalls": 0,
+      "identity": "GUEST",
+      "delivery": "NO_REPLY"
+    },
+    {
+      "route": "HUMAN",
+      "outcome": "HANDOFF_REQUESTED",
+      "providerCalls": 0,
+      "identity": "GUEST",
+      "delivery": "OUTBOUND_BLOCKED"
+    },
+    {
+      "route": "SILENT",
+      "outcome": "HUMAN_ACTIVE",
+      "providerCalls": 0,
+      "identity": "GUEST",
+      "delivery": "NO_REPLY"
+    },
+    {
+      "route": "SILENT",
+      "outcome": "HUMAN_ACTIVE",
+      "providerCalls": 0,
+      "identity": "GUEST",
+      "delivery": "NO_REPLY"
+    },
+    {
+      "route": "HUMAN",
+      "outcome": "AI_HANDOFF",
+      "providerCalls": 1,
+      "identity": "GUEST",
+      "delivery": "OUTBOUND_BLOCKED"
+    },
+    {
+      "route": "SILENT",
+      "outcome": "HUMAN_ACTIVE",
+      "providerCalls": 0,
+      "identity": "GUEST",
+      "delivery": "NO_REPLY"
+    },
+    {
+      "route": "BLOCKED",
+      "outcome": "STOPPED",
+      "providerCalls": 0,
+      "identity": "GUEST",
+      "delivery": "NO_REPLY"
+    }
+  ],
+  "sizes": [
+    {
+      "width": 1920,
+      "scrollWidth": 1920
+    },
+    {
+      "width": 1366,
+      "scrollWidth": 1366
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "width": 360,
+      "scrollWidth": 360
+    }
+  ],
+  "errors": [],
+  "failures": []
+}

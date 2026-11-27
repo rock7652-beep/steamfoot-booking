@@ -1,0 +1,7 @@
+{
+  "readOnly": true,
+  "policiesMatch": true,
+  "tableGrantsMatch": true,
+  "rlsMatch": true,
+  "auditInsert": false
+}

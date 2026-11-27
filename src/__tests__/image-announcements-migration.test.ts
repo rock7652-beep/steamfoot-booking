@@ -19,7 +19,7 @@ it("migration preserves stores, isolates binary assets and cascades only the del
     expect((await db.query('SELECT * FROM "ImageAnnouncementSet"')).rows).toHaveLength(0);
     expect((await db.query('SELECT id FROM "ImageAnnouncementAsset"')).rows).toEqual([{ id: 'image-b' }]);
   } finally { await db.close(); }
-});
+}, 30_000); // Allow the real PGlite engine to cold-start; assertions remain unchanged.
 it("hosted review branch stops before database work", () => {
   for (const key of ['VERCEL_GIT_COMMIT_REF', 'WORKERS_CI_BRANCH', 'CF_PAGES_BRANCH']) {
     const result = spawnSync(process.execPath, ['scripts/ci-migrate.mjs'], { env: { ...process.env, [key]: 'feat/image-announcements' }, encoding: 'utf8' });

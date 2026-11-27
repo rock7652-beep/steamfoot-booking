@@ -1,0 +1,39 @@
+{
+  "store": "music",
+  "runtimeSha": "e3dc109aa837437743d42ef17a7c3c50a52bbf47",
+  "origin": "https://steamfoot-booking-a9o36q4nn-rock7652-2111s-projects.vercel.app",
+  "entryMs": 11277,
+  "warmEntryMs": 3811,
+  "queueRefreshMs": 1356,
+  "clickReturnedMs": 56,
+  "resumeRoundTripMs": 1866,
+  "totalMs": 23452,
+  "initialPendingRows": 0,
+  "cases": [
+    "focused-reader-authorized-refresh",
+    "persistent-pending-scope-listed",
+    "cancel-no-resume",
+    "resume-authoritative-row-removed",
+    "original-panel-state-synchronized",
+    "original-flow-after-resume-no-model",
+    "reload-confirmed"
+  ],
+  "rwd": [
+    {
+      "width": 1366,
+      "scrollWidth": 1366
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768
+    }
+  ],
+  "retrySameCommand": null,
+  "expectedNetworkInterruptions": 0,
+  "errors": [],
+  "failures": []
+}

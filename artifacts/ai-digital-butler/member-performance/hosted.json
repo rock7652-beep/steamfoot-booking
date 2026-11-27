@@ -1,0 +1,41 @@
+{
+  "sourceSha": "8fe39aaa61f9365ba16742b61e509bab405c6ce8",
+  "cases": [
+    "first-enabled-click-expands",
+    "own-data-minimal-projection-and-no-store",
+    "six-widths-data-retained",
+    "collapse-reopen-retains-result",
+    "injected-identity-store-page-rejected",
+    "invalid-proof-rejected",
+    "no-session-rejected",
+    "suspended-old-session-api-and-ui-rejected"
+  ],
+  "rwd": [
+    {
+      "width": 1920,
+      "scrollWidth": 1920
+    },
+    {
+      "width": 1366,
+      "scrollWidth": 1366
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "width": 360,
+      "scrollWidth": 360
+    }
+  ],
+  "errors": [],
+  "failures": []
+}

@@ -1,0 +1,60 @@
+{
+  "store": "steamfoot",
+  "runtimeSha": "d5e840d75e250c3c7f8159209a758f73f88ab60d",
+  "origin": "https://steamfoot-booking-fi7lz234p-rock7652-2111s-projects.vercel.app",
+  "entryMs": 16648,
+  "warmEntryMs": 4051,
+  "totalMs": 33390,
+  "queryMs": [
+    1435,
+    1579,
+    1366,
+    1348,
+    1154,
+    1399
+  ],
+  "cases": [
+    "authenticated-native-entry",
+    "authoritative-eight-slots-six-places",
+    "same-date-requeries-authority",
+    "collapse-keeps-result",
+    "new-date-authoritative-result",
+    "outside-customer-window-empty",
+    "past-date-server-rejected",
+    "network-failure-is-not-empty",
+    "read-retry-recovers",
+    "reload-native-entry",
+    "foreign-direct-url-denied"
+  ],
+  "rwd": [
+    {
+      "width": 1920,
+      "scrollWidth": 1920
+    },
+    {
+      "width": 1366,
+      "scrollWidth": 1366
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "width": 360,
+      "scrollWidth": 360
+    }
+  ],
+  "expectedNetworkInterruptions": 1,
+  "expectedSlots": 8,
+  "expectedRemaining": 6,
+  "errors": [],
+  "failures": []
+}

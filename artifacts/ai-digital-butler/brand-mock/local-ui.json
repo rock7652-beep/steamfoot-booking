@@ -1,0 +1,177 @@
+{
+  "kind": "Local shared UI/real Brand core/local PostgreSQL; not cloud HTTP acceptance",
+  "sizes": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "outcome": "ANSWER",
+      "ledgerCount": "1",
+      "costMicros": "0",
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 1366,
+      "height": 900,
+      "outcome": "ANSWER",
+      "ledgerCount": "2",
+      "costMicros": "0",
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "outcome": "ANSWER",
+      "ledgerCount": "3",
+      "costMicros": "0",
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "outcome": "ANSWER",
+      "ledgerCount": "4",
+      "costMicros": "0",
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "outcome": "ANSWER",
+      "ledgerCount": "5",
+      "costMicros": "0",
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "outcome": "ANSWER",
+      "ledgerCount": "6",
+      "costMicros": "0",
+      "overflow": false,
+      "touch": true
+    }
+  ],
+  "cases": [
+    "lost-response-retry-keeps-event-and-ledger",
+    "unknown-persists-human-handoff",
+    "global-stop-disables-test"
+  ],
+  "actions": [
+    {
+      "eventId": "8cb635df-b01b-41f4-9187-5622b0d1a6c4",
+      "provider": "mock",
+      "result": {
+        "outcome": "ANSWER",
+        "text": "合成測試方案每月 NT$999，僅供隔離驗收，不代表正式售價。",
+        "sourceIds": [
+          "brand-3fcebc1ae9b2995b67e32662-1"
+        ]
+      }
+    },
+    {
+      "eventId": "03b14658-6da6-44ab-b648-2dee2119be10",
+      "provider": "mock",
+      "result": {
+        "outcome": "ANSWER",
+        "text": "合成測試方案每月 NT$999，僅供隔離驗收，不代表正式售價。",
+        "sourceIds": [
+          "brand-3fcebc1ae9b2995b67e32662-1"
+        ]
+      }
+    },
+    {
+      "eventId": "851941fc-f58d-4341-945f-dda989c43ecd",
+      "provider": "mock",
+      "result": {
+        "outcome": "ANSWER",
+        "text": "合成測試方案每月 NT$999，僅供隔離驗收，不代表正式售價。",
+        "sourceIds": [
+          "brand-3fcebc1ae9b2995b67e32662-1"
+        ]
+      }
+    },
+    {
+      "eventId": "7d34464b-433c-4542-b71f-007b9b7e7422",
+      "provider": "mock",
+      "result": {
+        "outcome": "ANSWER",
+        "text": "合成測試方案每月 NT$999，僅供隔離驗收，不代表正式售價。",
+        "sourceIds": [
+          "brand-3fcebc1ae9b2995b67e32662-1"
+        ]
+      }
+    },
+    {
+      "eventId": "ccefb337-2ad8-40f7-87d1-55df3605247e",
+      "provider": "mock",
+      "result": {
+        "outcome": "ANSWER",
+        "text": "合成測試方案每月 NT$999，僅供隔離驗收，不代表正式售價。",
+        "sourceIds": [
+          "brand-3fcebc1ae9b2995b67e32662-1"
+        ]
+      }
+    },
+    {
+      "eventId": "dff95fd4-64fc-4774-801f-b968d0f35c1c",
+      "provider": "mock",
+      "result": {
+        "outcome": "ANSWER",
+        "text": "合成測試方案每月 NT$999，僅供隔離驗收，不代表正式售價。",
+        "sourceIds": [
+          "brand-3fcebc1ae9b2995b67e32662-1"
+        ]
+      }
+    },
+    {
+      "eventId": "4acf100a-b157-4d74-a8a6-264fe795834a",
+      "provider": "mock",
+      "result": {
+        "outcome": "ANSWER",
+        "text": "合成測試方案每月 NT$999，僅供隔離驗收，不代表正式售價。",
+        "sourceIds": [
+          "brand-3fcebc1ae9b2995b67e32662-1"
+        ]
+      }
+    },
+    {
+      "eventId": "4acf100a-b157-4d74-a8a6-264fe795834a",
+      "provider": "mock",
+      "result": {
+        "outcome": "DUPLICATE",
+        "text": "",
+        "sourceIds": []
+      }
+    },
+    {
+      "eventId": "e853b6e7-6f74-445f-b0f0-89802dea4ae0",
+      "provider": "mock",
+      "result": {
+        "outcome": "HANDOFF",
+        "text": "這個問題目前無法確認，請由真人客服協助您。",
+        "sourceIds": []
+      }
+    }
+  ],
+  "failures": [],
+  "final": {
+    "requests": "8",
+    "mockCostMicros": "0",
+    "realOpenAiCalls": 0,
+    "realOutbound": 0,
+    "networkCalls": 0,
+    "storeUnchanged": true
+  },
+  "cleanup": {
+    "localGlobalStopped": true,
+    "localBrandHidden": true,
+    "localBrandDisabled": true,
+    "localUnpublished": true,
+    "remoteWrites": 0
+  }
+}

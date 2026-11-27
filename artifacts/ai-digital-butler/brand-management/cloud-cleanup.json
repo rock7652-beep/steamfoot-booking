@@ -1,0 +1,31 @@
+{
+  "database": "ttworfzgwejdeolegkxl",
+  "deployment": "dpl_DVzaJJAGfoT5XyAC29RAmZb3xFHw",
+  "brand": {
+    "grant": "HIDDEN",
+    "enabled": false,
+    "revision": 0,
+    "unpublished": true
+  },
+  "counts": {
+    "login": 1,
+    "brandAudit": 0,
+    "brandRequest": 0,
+    "storeRequest": 53,
+    "brandDispatch": 0,
+    "storeDispatch": 113,
+    "brandConversation": 0
+  },
+  "fixture": {
+    "status": "SUSPENDED",
+    "stampUpdatedAt": "2026-11-26T12:38:12.845",
+    "passwordCleared": true
+  },
+  "stopped": true,
+  "policies": 0,
+  "roleExpiry": "2026-12-02T14:15:52+00:00",
+  "disabledStores": 4,
+  "shareCountAfterRevoke": 0,
+  "liveOldSessionProbe": "not completed: browser cleanup coordination timed out; no live JWT stored",
+  "invalidationEvidence": "User SUSPENDED, passwordHash NULL, updatedAt changed, temporary User SELECT removed; auth callbacks revalidate DB stamp"
+}

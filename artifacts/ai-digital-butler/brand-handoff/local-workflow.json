@@ -1,0 +1,2228 @@
+{
+  "kind": "local actual core/PGlite/RLS/minimum role/real audit triggers, not cloud acceptance",
+  "cases": [
+    {
+      "case": "repeated or concurrent manual handoff keeps one conversation revision and one operation audit",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:51.023Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "f4cf64ae-eca3-4829-b96a-8d522528a8ac",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:51.049Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "unknown enters the queue, remains silent until audited resume, then answers only subsequent messages",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": false,
+          "revision": 2,
+          "summary": [
+            "SOURCE:brand-0852cf3ee72f2c26b3a426e9-1"
+          ],
+          "expiresAt": "2026-12-03T20:51:51.651Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "ai-brand-69cb94142c477f678cb4f45044f745750056559ac0294b7859aaaab7fca5f409",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "eventKey": "d1c91335fcf6ca85e2709bb96672735f4789c9bb1e65dade97340d7b6f142566",
+            "operation": "test",
+            "commandDigest": "3cd492c4fc995366ce9215301f1521c8fdb70d993421bb18dc414650af9f9fc5"
+          },
+          "createdAt": "2026-11-26T20:51:51.640Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接受品牌Mock測試事件",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        },
+        {
+          "id": "ai-brand-b1977968725ac8a43193263fedc0a432de5aaa8433843399da2efb78e097820e",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "eventKey": "500c2e38f7730fea98d25009a8f9bff49b4429c5ba5ad502d4380e8929398dae",
+            "operation": "test",
+            "commandDigest": "8b49d6ab6bc3966970d9631627526e4ad53a3341ad050e1d048845e686126fb3"
+          },
+          "createdAt": "2026-11-26T20:51:51.265Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接受品牌Mock測試事件",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        },
+        {
+          "id": "ai-brand-e1aa1826bea56d369c15bace130d3fd47044c1973175e933d8bf7af0bd78179e",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": true,
+              "revision": 1,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": false,
+                "revision": 2,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "operation": "resume",
+            "commandDigest": "b0567e4ba2e64e789c014d6620c931939d4c463d51724a8683d7821002eebb8c",
+            "handoffCommandKey": "f4ee9a13c54bbff8d9f92faee33dd19414aea2a869a60c04fa6c5ea71c4b903d"
+          },
+          "createdAt": "2026-11-26T20:51:51.545Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "恢復品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "commandKey": "f4ee9a13c54bbff8d9f92faee33dd19414aea2a869a60c04fa6c5ea71c4b903d",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "actorKey": "2ee21b0bab11df87f2b80baadc02d2644e6a850d708f05095aeb933179059ef0",
+          "expectedRevision": 1,
+          "resultRevision": 2,
+          "createdAt": "2026-11-26T20:51:51.530Z"
+        }
+      ],
+      "requests": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "500c2e38f7730fea98d25009a8f9bff49b4429c5ba5ad502d4380e8929398dae",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 70,
+          "outcome": "HANDOFF",
+          "createdAt": "2026-11-26T20:51:51.239Z",
+          "finishedAt": "2026-11-26T20:51:51.309Z"
+        },
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "d1c91335fcf6ca85e2709bb96672735f4789c9bb1e65dade97340d7b6f142566",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 42,
+          "outcome": "ANSWER",
+          "createdAt": "2026-11-26T20:51:51.609Z",
+          "finishedAt": "2026-11-26T20:51:51.651Z"
+        }
+      ],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "manual handoff and resume audit includes trusted actor, scope, and before/after conversation state",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": false,
+          "revision": 2,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:51.820Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "4d03312d-9eb1-494c-a2b0-1bd2fc61f551",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:51.752Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        },
+        {
+          "id": "ai-brand-93fe0e723167528af1b678dc1341c03c3f0bfc4f0caa624f9a1ea373d6eaffc0",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": true,
+              "revision": 1,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": false,
+                "revision": 2,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "operation": "resume",
+            "commandDigest": "af6ffe643d6269b002e2c37afe86ed114d4236d402f78d242ffb37fa4bbd18ea",
+            "handoffCommandKey": "6336f1334cdd33eab9ae0813d027f47ef791f866855ef2d779e5ba98856c75f6"
+          },
+          "createdAt": "2026-11-26T20:51:51.851Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "恢復品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "commandKey": "6336f1334cdd33eab9ae0813d027f47ef791f866855ef2d779e5ba98856c75f6",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "actorKey": "2ee21b0bab11df87f2b80baadc02d2644e6a850d708f05095aeb933179059ef0",
+          "expectedRevision": 1,
+          "resultRevision": 2,
+          "createdAt": "2026-11-26T20:51:51.820Z"
+        }
+      ],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "same-command retry is a no-op and stale/new-command recovery is rejected",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": false,
+          "revision": 2,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:52.056Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "4dad284f-8532-4514-9261-3339d0da86b8",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:52.011Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        },
+        {
+          "id": "ai-brand-380b4590c9ddb8ce521b176d1c09e46b64f4e01b5475b8fc8a9013d0b38df0ee",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": true,
+              "revision": 1,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": false,
+                "revision": 2,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "operation": "resume",
+            "commandDigest": "8e730a622e893f40976e87ead802ea72659c336c58c6dfd2893805c37b654ba1",
+            "handoffCommandKey": "998d67a210f8055e86a6fb0c553a7fb2b26484923462990b303e8701c24aa5d8"
+          },
+          "createdAt": "2026-11-26T20:51:52.094Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "恢復品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "commandKey": "998d67a210f8055e86a6fb0c553a7fb2b26484923462990b303e8701c24aa5d8",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "actorKey": "2ee21b0bab11df87f2b80baadc02d2644e6a850d708f05095aeb933179059ef0",
+          "expectedRevision": 1,
+          "resultRevision": 2,
+          "createdAt": "2026-11-26T20:51:52.056Z"
+        }
+      ],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "window denies resume with no partial mutation",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:52.350Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "d59a007c-1726-4cd2-8bf5-9c996d06a466",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:52.362Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "hidden denies resume with no partial mutation",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:52.512Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "13dd99c7-360e-4b89-becc-e1a38ce523e1",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:52.526Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "locked denies resume with no partial mutation",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:52.667Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "388e66bc-8905-4a32-b8b9-30b2699cd822",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:52.706Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "expired-grant denies resume with no partial mutation",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:52.837Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "5b8549e8-b8e8-4101-84d6-c500f08c286e",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:52.850Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "suspended denies resume with no partial mutation",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:53.022Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "22d19158-c2ae-4159-b896-ba49b49f1a8f",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:53.036Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "wrong-view denies resume with no partial mutation",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:53.151Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "f407bdc6-1420-4a4b-be47-50f741565e20",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:53.163Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "wrong-brand-scope denies resume with no partial mutation",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:53.253Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "d36daa5c-eb4a-4786-ad89-a4c4d74d10c8",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:53.264Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "resume under global-stop never enables AI or permits answering",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": false,
+          "revision": 2,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:53.387Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "ai-brand-c529905a1722e22e83b83315d6a559ab6ed9210df05d9fb35b44e85bd0a7658a",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": true,
+              "revision": 1,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": false,
+                "revision": 2,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "operation": "resume",
+            "commandDigest": "8b1086cd6ec4069778fea92b218d51aa97c85c4e20069fd64c8e1e9877ec882f",
+            "handoffCommandKey": "2778354c5abab0ace2151aa5281a6e2a47593a5b8e5a415552f5f38de1ac25ff"
+          },
+          "createdAt": "2026-11-26T20:51:53.401Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "恢復品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        },
+        {
+          "id": "c87dcd32-821b-4116-88a4-f5383a931c32",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:53.356Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "commandKey": "2778354c5abab0ace2151aa5281a6e2a47593a5b8e5a415552f5f38de1ac25ff",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "actorKey": "2ee21b0bab11df87f2b80baadc02d2644e6a850d708f05095aeb933179059ef0",
+          "expectedRevision": 1,
+          "resultRevision": 2,
+          "createdAt": "2026-11-26T20:51:53.387Z"
+        }
+      ],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "resume under setting-off never enables AI or permits answering",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": false,
+          "revision": 2,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:53.552Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "0fd3811e-4ff7-4a02-a149-752631b5b175",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:53.517Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        },
+        {
+          "id": "ai-brand-2eb8c12769c3c0f370f54de1e18f385f08b9ed8a3c7e8c430112029d7b366bac",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": false,
+            "conversation": {
+              "handoff": true,
+              "revision": 1,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": false,
+              "conversation": {
+                "handoff": false,
+                "revision": 2,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "operation": "resume",
+            "commandDigest": "ff26a6fa33906ecbb8774edba7731a85c29360ac2618f6df1e9aef534fdd626d",
+            "handoffCommandKey": "f6bc94ce8c4d0bb0204cf25d8a3315961c25a8a76efb6d6c1da1b50c36ba34bd"
+          },
+          "createdAt": "2026-11-26T20:51:53.566Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "恢復品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "commandKey": "f6bc94ce8c4d0bb0204cf25d8a3315961c25a8a76efb6d6c1da1b50c36ba34bd",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "actorKey": "2ee21b0bab11df87f2b80baadc02d2644e6a850d708f05095aeb933179059ef0",
+          "expectedRevision": 1,
+          "resultRevision": 2,
+          "createdAt": "2026-11-26T20:51:53.552Z"
+        }
+      ],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "real audit failure rolls back handoff and every related revision/audit",
+      "conversations": [
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "real audit failure rolls back resume and every related revision/audit",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:53.793Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "65d3ecd1-f4f0-4b19-9107-1bfc79eea7ea",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:53.806Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "unresolved RESERVED request blocks recovery",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:53.922Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "2426aaa3-d617-4edb-8af2-606830368fda",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:53.934Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "RESERVED",
+          "heldMicros": 0,
+          "estimatedMicros": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "latencyMs": null,
+          "outcome": null,
+          "createdAt": "2026-11-26T20:51:54.005Z",
+          "finishedAt": null
+        }
+      ],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "unresolved UNKNOWN request blocks recovery",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:54.070Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "ffe89011-9273-4091-bd3e-c1d150441b6b",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:54.081Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "UNKNOWN",
+          "heldMicros": 0,
+          "estimatedMicros": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "latencyMs": null,
+          "outcome": null,
+          "createdAt": "2026-11-26T20:51:54.114Z",
+          "finishedAt": null
+        }
+      ],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "taking over an already automatic handoff is idempotent",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [
+            "HANDOFF"
+          ],
+          "expiresAt": "2026-12-03T20:51:54.231Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "ai-brand-4346bf6c96facd367f6ff9f2f19d616e2d2954940455e4efee2ec251e273cf0d",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "eventKey": "ea72f0cfd608dae0aaba719af600995057052b3102e0aded30774ba19e79f355",
+            "operation": "test",
+            "commandDigest": "3fed7fd34fb5b12b8d7c4f065924698f5708da1dba435490a13972b06edbd518"
+          },
+          "createdAt": "2026-11-26T20:51:54.220Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接受品牌Mock測試事件",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "eventKey": "ea72f0cfd608dae0aaba719af600995057052b3102e0aded30774ba19e79f355",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "provider": "mock",
+          "model": "gpt-6-luna",
+          "status": "COMPLETE",
+          "heldMicros": 0,
+          "estimatedMicros": 0,
+          "inputTokens": 100,
+          "outputTokens": 20,
+          "latencyMs": 28,
+          "outcome": "HANDOFF",
+          "createdAt": "2026-11-26T20:51:54.203Z",
+          "finishedAt": "2026-11-26T20:51:54.231Z"
+        }
+      ],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "STAFF has no authority to resume the Brand conversation",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:54.350Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "764f00ea-5210-4bb2-80da-aacbb4e8f4cc",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:54.414Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "OWNER has no authority to resume the Brand conversation",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:54.709Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "c1ac4a1d-2b35-4615-821e-680001ae4ec6",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:54.719Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "store-view has no authority to resume the Brand conversation",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:54.781Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "e86237ef-dddf-46df-8487-350879f57bd9",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:54.802Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "unresolved CLAIMED dispatch blocks recovery",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:54.905Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "c36c99af-010c-4d53-a61a-375b542cd32b",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:54.924Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "unresolved UNKNOWN dispatch blocks recovery",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:55.047Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "4de8ea5a-66b8-42da-8ffa-94e5ce045303",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:55.057Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "an old successful command never resumes a newer handoff",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 3,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:55.273Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "4b7e1de9-904a-4210-8612-3909a1cd91a0",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 2,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 3,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:55.296Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        },
+        {
+          "id": "56e58354-3c96-44fc-88e4-9a110e379fc4",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:55.192Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        },
+        {
+          "id": "ai-brand-4d199db9fd24d24f744150bed3b67a63662a41d20cd70242eab6bf28250f7b54",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": true,
+              "revision": 1,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": false,
+                "revision": 2,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "operation": "resume",
+            "commandDigest": "4afb9b85b5b59cb97be21b177eef714ffbb7c8a43cb099691461c841ede63c5c",
+            "handoffCommandKey": "1bc934a60fa6571bec4d836c84ba42f0c0ea6a2f6845c757f59e2385d6ff751b"
+          },
+          "createdAt": "2026-11-26T20:51:55.239Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "恢復品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "commandKey": "1bc934a60fa6571bec4d836c84ba42f0c0ea6a2f6845c757f59e2385d6ff751b",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "actorKey": "2ee21b0bab11df87f2b80baadc02d2644e6a850d708f05095aeb933179059ef0",
+          "expectedRevision": 1,
+          "resultRevision": 2,
+          "createdAt": "2026-11-26T20:51:55.224Z"
+        }
+      ],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "manual takeover silences AI without creating a request",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:55.414Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "ce56beb0-8edc-4f5f-96c8-34800846a8b2",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:55.424Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "the immutable recovery ledger failing rolls back conversation and operation audit",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:55.545Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "cd698cc2-416a-429d-abab-9bc1bb65c338",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:55.555Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    },
+    {
+      "case": "a window expiring after the initial authorization rolls back recovery",
+      "conversations": [
+        {
+          "serviceId": "ai-preview-brand-steamfoot",
+          "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+          "handoff": true,
+          "revision": 1,
+          "summary": [],
+          "expiresAt": "2026-12-03T20:51:55.641Z"
+        },
+        {
+          "serviceId": "local-other-brand",
+          "scopeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "handoff": true,
+          "revision": 9,
+          "summary": [],
+          "expiresAt": "2026-11-27T20:51:50.941Z"
+        }
+      ],
+      "audit": [
+        {
+          "id": "4f6ea813-28f3-4f44-b8d7-1c7311aa17c5",
+          "actorUserId": "ai-preview-brand-hq",
+          "targetType": "AiBrandService",
+          "targetId": "ai-preview-brand-steamfoot",
+          "action": "UPDATE",
+          "beforeJson": {
+            "enabled": true,
+            "conversation": {
+              "handoff": false,
+              "revision": 0,
+              "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+            },
+            "settingRevision": 1,
+            "publishedVersion": 1,
+            "knowledgeRevision": 0
+          },
+          "afterJson": {
+            "state": {
+              "enabled": true,
+              "conversation": {
+                "handoff": true,
+                "revision": 1,
+                "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6"
+              },
+              "settingRevision": 1,
+              "publishedVersion": 1,
+              "knowledgeRevision": 0
+            },
+            "scopeKey": "de56e1d74df330f583ed2382b069a6781c458681b1282814f4765a744e7aabc6",
+            "operation": "handoff"
+          },
+          "createdAt": "2026-11-26T20:51:55.649Z",
+          "storeId": null,
+          "module": "AI_BRAND",
+          "summary": "接手品牌測試對話",
+          "actorNameSnapshot": "合成品牌管理者",
+          "source": "AI_BRAND_PREVIEW",
+          "actorRoleSnapshot": "ADMIN",
+          "loginRecordId": "local-brand-login"
+        }
+      ],
+      "resumeAudit": [],
+      "requests": [],
+      "otherStoresAndBrandUnchanged": true
+    }
+  ],
+  "final": {
+    "stopped": true,
+    "status": "HIDDEN",
+    "enabled": "false",
+    "published": null
+  },
+  "remoteWrites": 0,
+  "realOpenAiCalls": 0,
+  "realOutbound": 0
+}

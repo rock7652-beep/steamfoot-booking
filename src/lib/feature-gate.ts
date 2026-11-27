@@ -96,7 +96,8 @@ export async function hasStoreFeature(
   feature: FeatureKey,
 ): Promise<boolean> {
   if (!isFeatureKey(feature)) return false;
-  if (feature === FEATURES.ADD_ONS || feature === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
+  if (feature === FEATURES.AI_DIGITAL_BUTLER && (!storeId || storeId === "__all__")) return false;
+  if (feature === FEATURES.AI_DIGITAL_BUTLER || feature === FEATURES.ADD_ONS || feature === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
     if(feature===FEATURES.BEAUTY_SERVICE_ADD_ONS && (await prisma.store.findUnique({where:{id:storeId},select:{industryModule:true}}))?.industryModule!=="BEAUTY")return false;
     const grant = await prisma.storeFeatureEntitlement.findUnique({where:{uq_store_feature_entitlement:{storeId,featureKey:feature}},select:{status:true,startsAt:true,expiresAt:true}});
     return resolveEffectiveEntitlement(false, grant).enabled;
@@ -150,6 +151,7 @@ export async function requireStoreFeature(
 /** 檢查當前 store 是否有某功能，不通過則 throw */
 export async function checkCurrentStoreFeature(feature: FeatureKey): Promise<StorePlanFields> {
   const store = await getCurrentStoreForPlan();
+  if (store.id === "__all__" && feature === FEATURES.AI_DIGITAL_BUTLER) throw new AppError("FORBIDDEN", "請先選擇特定門市");
   if (store.id === "__all__" && feature === FEATURES.SHARED_CARD) throw new AppError("FORBIDDEN", "請先選擇運動門市");
   if (store.id !== "__all__") await requireStoreFeature(store.id, feature);
   return store;
@@ -175,13 +177,14 @@ export async function getStoreLimitsByStoreId(storeId: string): Promise<PlanLimi
 
 export async function hasCurrentStoreFeature(feature: FeatureKey): Promise<boolean> {
   const store = await getCurrentStoreForPlan();
-  return store.id === "__all__" ? feature !== FEATURES.SHARED_CARD : hasStoreFeature(store.id, feature);
+  return store.id === "__all__" ? feature !== FEATURES.SHARED_CARD && feature !== FEATURES.AI_DIGITAL_BUTLER : hasStoreFeature(store.id, feature);
 }
 
 /** Shares the same entitlement dates and effective authorization as server actions. */
 export async function getStoreFeaturePresentation(storeId: string, feature: FeatureKey): Promise<FeaturePresentationState> {
   if (!isFeatureKey(feature)) return "HIDDEN";
-  if (feature === FEATURES.ADD_ONS || feature === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
+  if (feature === FEATURES.AI_DIGITAL_BUTLER && (!storeId || storeId === "__all__")) return "HIDDEN";
+  if (feature === FEATURES.AI_DIGITAL_BUTLER || feature === FEATURES.ADD_ONS || feature === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
     if(feature===FEATURES.BEAUTY_SERVICE_ADD_ONS && (await prisma.store.findUnique({where:{id:storeId},select:{industryModule:true}}))?.industryModule!=="BEAUTY")return "HIDDEN";
     const grant = await prisma.storeFeatureEntitlement.findUnique({where:{uq_store_feature_entitlement:{storeId,featureKey:feature}},select:{status:true,startsAt:true,expiresAt:true}});
     const resolution = resolveEffectiveEntitlement(false, grant);
@@ -223,7 +226,7 @@ export const getStoreFeaturePresentations = cache(async (storeId: string): Promi
   return Object.fromEntries(Object.values(FEATURES).map(feature => {
     const raw = grants.get(feature), grant = active(raw);
     let state: FeaturePresentationState;
-    if (feature === FEATURES.ADD_ONS || feature === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
+    if (feature === FEATURES.AI_DIGITAL_BUTLER || feature === FEATURES.ADD_ONS || feature === FEATURES.BEAUTY_SERVICE_ADD_ONS) {
       if(feature===FEATURES.BEAUTY_SERVICE_ADD_ONS && store?.industryModule!=="BEAUTY")return [feature,"HIDDEN"];
       const resolution = resolveEffectiveEntitlement(false, raw ?? null, now);
       state = resolution.source === "HIDDEN" || !raw ? "HIDDEN" : resolution.enabled ? "ENABLED" : "LOCKED";

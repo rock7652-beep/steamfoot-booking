@@ -1,0 +1,22 @@
+{
+  "kind": "QA helper error after all 13 required flow cases and safety restoration",
+  "rawFailure": "page.evaluate: TypeError: Cannot read properties of null (reading 'user')",
+  "observedSessionPayload": null,
+  "interpretation": "The logged-out session endpoint returned null; the helper dereferenced .user without a null guard.",
+  "correctedProbe": "Boolean((await (await fetch('/api/auth/session', {cache:'no-store'})).json())?.user?.id)",
+  "offlineActualProbeChecks": {
+    "cases": 4,
+    "passed": 4,
+    "networkCalls": 0,
+    "inputs": [
+      "null",
+      "{}",
+      "{user:null}",
+      "{user:{id:'synthetic'}}"
+    ]
+  },
+  "correctedCloudProbeRerun": false,
+  "additionalOpenaiRequests": 0,
+  "additionalShareGrants": 0,
+  "rawHostedReportRetained": true
+}

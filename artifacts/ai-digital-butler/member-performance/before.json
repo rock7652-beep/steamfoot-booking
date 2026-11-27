@@ -1,0 +1,162 @@
+{
+  "sourceSha": "48a6391ec2974a6f40c98392605c2bc89fccd0d8",
+  "origin": "https://steamfoot-booking-h860efoco-rock7652-2111s-projects.vercel.app",
+  "conditions": {
+    "browser": "Chromium simulated viewport",
+    "freshBrowserContexts": 3,
+    "explicitPrefetch": false,
+    "networkIdleWait": false,
+    "expansionRetryWaitMs": 1500,
+    "maxExpansionAttempts": 3,
+    "serverColdStart": "not forced or established",
+    "fixture": "member A, one synthetic booking, 2026-11-27 at 10:00",
+    "journey": "login page, automated fill, login and redirect, automated tab change, native member page and first result"
+  },
+  "samples": [
+    {
+      "trial": 2,
+      "loginPageMs": 2846,
+      "automatedFillMs": 54,
+      "loginAndRedirectMs": 4117,
+      "automatedTabChangeMs": 96,
+      "journeyThroughMemberUsableMs": 10362,
+      "journeyThroughFirstResultMs": 12185,
+      "first": {
+        "kind": "first-navigation-in-new-browser-context",
+        "width": 1366,
+        "expansionAttempts": 2,
+        "pageUsableMs": 3249,
+        "throughFirstResultMs": 5072,
+        "firstReadMs": 1813,
+        "repeatReadMs": 1507,
+        "navigation": {
+          "ttfbMs": 503,
+          "requestToFirstByteMs": 494,
+          "documentTransferMs": 780,
+          "domContentLoadedMs": 1514
+        }
+      },
+      "warm": [
+        {
+          "kind": "repeat-navigation-same-context",
+          "width": 1366,
+          "expansionAttempts": 2,
+          "pageUsableMs": 2938,
+          "throughFirstResultMs": 4662,
+          "firstReadMs": 1714,
+          "repeatReadMs": 1548,
+          "navigation": {
+            "ttfbMs": 518,
+            "requestToFirstByteMs": 508,
+            "documentTransferMs": 437,
+            "domContentLoadedMs": 1025
+          }
+        },
+        {
+          "kind": "repeat-navigation-same-context",
+          "width": 390,
+          "expansionAttempts": 2,
+          "pageUsableMs": 2502,
+          "throughFirstResultMs": 4010,
+          "firstReadMs": 1502,
+          "repeatReadMs": 1548,
+          "navigation": {
+            "ttfbMs": 484,
+            "requestToFirstByteMs": 478,
+            "documentTransferMs": 314,
+            "domContentLoadedMs": 861
+          }
+        }
+      ]
+    },
+    {
+      "trial": 3,
+      "loginPageMs": 2113,
+      "automatedFillMs": 30,
+      "loginAndRedirectMs": 2016,
+      "automatedTabChangeMs": 59,
+      "journeyThroughMemberUsableMs": 7011,
+      "journeyThroughFirstResultMs": 8561,
+      "first": {
+        "kind": "first-navigation-in-new-browser-context",
+        "width": 1366,
+        "expansionAttempts": 2,
+        "pageUsableMs": 2793,
+        "throughFirstResultMs": 4343,
+        "firstReadMs": 1541,
+        "repeatReadMs": 1673,
+        "navigation": {
+          "ttfbMs": 459,
+          "requestToFirstByteMs": 450,
+          "documentTransferMs": 290,
+          "domContentLoadedMs": 860
+        }
+      },
+      "warm": [
+        {
+          "kind": "repeat-navigation-same-context",
+          "width": 1366,
+          "expansionAttempts": 2,
+          "pageUsableMs": 2471,
+          "throughFirstResultMs": 4061,
+          "firstReadMs": 1578,
+          "repeatReadMs": 1533,
+          "navigation": {
+            "ttfbMs": 470,
+            "requestToFirstByteMs": 464,
+            "documentTransferMs": 310,
+            "domContentLoadedMs": 840
+          }
+        },
+        {
+          "kind": "repeat-navigation-same-context",
+          "width": 390,
+          "expansionAttempts": 2,
+          "pageUsableMs": 2647,
+          "throughFirstResultMs": 4381,
+          "firstReadMs": 1724,
+          "repeatReadMs": 1555,
+          "navigation": {
+            "ttfbMs": 473,
+            "requestToFirstByteMs": 466,
+            "documentTransferMs": 353,
+            "domContentLoadedMs": 853
+          }
+        }
+      ]
+    }
+  ],
+  "failures": [
+    {
+      "trial": 1,
+      "stage": "login-page",
+      "reason": "locator.waitFor: Timeout 30000ms exceeded."
+    }
+  ],
+  "summary": {
+    "loginPage": {
+      "n": 2,
+      "minMs": 2113,
+      "medianMs": 2479.5,
+      "maxMs": 2846
+    },
+    "loginAndRedirect": {
+      "n": 2,
+      "minMs": 2016,
+      "medianMs": 3066.5,
+      "maxMs": 4117
+    },
+    "firstMemberPageUsable": {
+      "n": 2,
+      "minMs": 2793,
+      "medianMs": 3021,
+      "maxMs": 3249
+    },
+    "repeatedMemberPageUsable": {
+      "n": 4,
+      "minMs": 2471,
+      "medianMs": 2574.5,
+      "maxMs": 2938
+    }
+  }
+}

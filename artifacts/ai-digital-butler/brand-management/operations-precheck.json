@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-26",
+  "kind": "read-only isolation database precheck; no cloud acceptance mutations",
+  "projectId": "ttworfzgwejdeolegkxl",
+  "unchanged": {
+    "brand": {
+      "grant": "HIDDEN",
+      "enabled": false,
+      "unpublished": true,
+      "settingRevision": 1,
+      "knowledgeRevision": 0
+    },
+    "fixture": {
+      "status": "SUSPENDED",
+      "passwordCleared": true
+    },
+    "stopped": true,
+    "brandAudit": 0,
+    "auditInsert": false,
+    "brandRequests": 0,
+    "loginPolicies": 0,
+    "storeDispatch": 113,
+    "storeRequests": 53,
+    "storesDisabled": 4,
+    "operationPolicies": 0
+  }
+}

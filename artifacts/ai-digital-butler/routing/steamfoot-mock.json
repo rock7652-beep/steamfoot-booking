@@ -1,0 +1,23 @@
+{
+  "stage": "mock",
+  "store": "steamfoot",
+  "entryMs": 6753,
+  "totalMs": 13155,
+  "cases": [
+    {
+      "scenario": "known",
+      "label": "AI 已發布知識",
+      "providerCalls": 1,
+      "elapsedMs": 11194,
+      "durationMs": 4429,
+      "clickReturnedMs": 84
+    },
+    {
+      "scenario": "replay",
+      "providerCalls": 0
+    }
+  ],
+  "rwd": [],
+  "errors": [],
+  "failures": []
+}

@@ -1,0 +1,583 @@
+{
+  "kind": "matching local PG/RLS/minimum-role fixture; positive amounts are synthetic ledger mechanism tests, not real API charges",
+  "schema": {
+    "base": {
+      "columnsMatched": 83,
+      "triggersMatched": 2,
+      "functionBodiesMatched": 3,
+      "constraintsMatched": 16,
+      "rlsTablesMatched": 9,
+      "baselinePoliciesMatched": 13
+    },
+    "knowledge": {
+      "columnsMatched": 12,
+      "constraintsMatched": 10,
+      "policiesMatched": 4,
+      "knowledgeTriggers": 0,
+      "auditTriggers": 2
+    }
+  },
+  "cases": [
+    {
+      "case": "empty Brand usage is zero and has no cost warning",
+      "usage": {
+        "requests": "0",
+        "reservedMicros": "0",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "0",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 0,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "counts completed, unknown and suppressed events conservatively with independent tokens and handoffs",
+      "usage": {
+        "requests": "4",
+        "reservedMicros": "623000",
+        "errors": "1",
+        "handoffs": "1",
+        "inputTokens": "115",
+        "outputTokens": "23",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": [
+          50
+        ]
+      },
+      "globalTotals": [
+        {
+          "total": "623000",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 4,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "499999 synthetic micros produces exactly the approved warning thresholds",
+      "usage": {
+        "requests": "1",
+        "reservedMicros": "499999",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "499999",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 1,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "500000 synthetic micros produces exactly the approved warning thresholds",
+      "usage": {
+        "requests": "1",
+        "reservedMicros": "500000",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": [
+          50
+        ]
+      },
+      "globalTotals": [
+        {
+          "total": "500000",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 1,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "799999 synthetic micros produces exactly the approved warning thresholds",
+      "usage": {
+        "requests": "1",
+        "reservedMicros": "799999",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": [
+          50
+        ]
+      },
+      "globalTotals": [
+        {
+          "total": "799999",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 1,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "800000 synthetic micros produces exactly the approved warning thresholds",
+      "usage": {
+        "requests": "1",
+        "reservedMicros": "800000",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": [
+          50,
+          80
+        ]
+      },
+      "globalTotals": [
+        {
+          "total": "800000",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 1,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "999999 synthetic micros produces exactly the approved warning thresholds",
+      "usage": {
+        "requests": "1",
+        "reservedMicros": "999999",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": [
+          50,
+          80
+        ]
+      },
+      "globalTotals": [
+        {
+          "total": "999999",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 1,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "1000000 synthetic micros produces exactly the approved warning thresholds",
+      "usage": {
+        "requests": "1",
+        "reservedMicros": "1000000",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": [
+          50,
+          80,
+          100
+        ]
+      },
+      "globalTotals": [
+        {
+          "total": "1000000",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 1,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "Taipei month boundaries exclude October and December without deleting history",
+      "usage": {
+        "requests": "2",
+        "reservedMicros": "200",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "400",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 4,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "Store and invisible other-Brand costs count only toward global safety, not Brand usage",
+      "usage": {
+        "requests": "1",
+        "reservedMicros": "0",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "900000",
+          "concurrent": "1"
+        }
+      ],
+      "brandRows": 1,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "Brand monthly cost permits the exact ceiling and rejects exceeding it atomically",
+      "usage": {
+        "requests": "2",
+        "reservedMicros": "1000000",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": [
+          50,
+          80,
+          100
+        ]
+      },
+      "globalTotals": [
+        {
+          "total": "1000000",
+          "concurrent": "1"
+        }
+      ],
+      "brandRows": 2,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "other-owner global exhaustion rejects Brand reservation without leaking or changing those rows",
+      "usage": {
+        "requests": "0",
+        "reservedMicros": "0",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "19999950",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 0,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "default daily request ceiling rejects the next event without resetting counters",
+      "usage": {
+        "requests": "20",
+        "reservedMicros": "0",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "0",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 20,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "default monthly request ceiling rejects the next event without resetting counters",
+      "usage": {
+        "requests": "100",
+        "reservedMicros": "0",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "0",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 100,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "Taipei midnight starts a new daily bucket while retaining monthly usage",
+      "usage": {
+        "requests": "21",
+        "reservedMicros": "0",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "0",
+          "concurrent": "1"
+        }
+      ],
+      "brandRows": 21,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "prior-month charges remain in the global ledger but do not exhaust the new monthly Brand quota",
+      "usage": {
+        "requests": "1",
+        "reservedMicros": "0",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "1000000",
+          "concurrent": "1"
+        }
+      ],
+      "brandRows": 101,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "parallel last-budget reservations allow only one claim and replay adds nothing",
+      "usage": {
+        "requests": "2",
+        "reservedMicros": "1000000",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": [
+          50,
+          80,
+          100
+        ]
+      },
+      "globalTotals": [
+        {
+          "total": "1000000",
+          "concurrent": "1"
+        }
+      ],
+      "brandRows": 2,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "UNKNOWN conservatively retains its original reservation and cannot be billed twice",
+      "usage": {
+        "requests": "1",
+        "reservedMicros": "100",
+        "errors": "1",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "100",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 1,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "settlement releases only the unused synthetic hold and cannot settle twice",
+      "usage": {
+        "requests": "1",
+        "reservedMicros": "60",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "100",
+        "outputTokens": "20",
+        "meanLatencyMs": "10.0000000000000000",
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "60",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 1,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "missing aggregate capability fails closed before inserting a reservation",
+      "usage": {
+        "requests": "0",
+        "reservedMicros": "0",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "0",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 0,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "actual PG append failure rolls back the reservation",
+      "usage": {
+        "requests": "0",
+        "reservedMicros": "0",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "0",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 0,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "global-stop rejects reservations without consuming quota",
+      "usage": {
+        "requests": "0",
+        "reservedMicros": "0",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "0",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 0,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "brand-off rejects reservations without consuming quota",
+      "usage": {
+        "requests": "0",
+        "reservedMicros": "0",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "0",
+        "outputTokens": "0",
+        "meanLatencyMs": null,
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "0",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 0,
+      "otherConfigurationsUnchanged": true
+    },
+    {
+      "case": "real management Mock usage stays zero-cost and has one trusted acceptance audit",
+      "usage": {
+        "requests": "1",
+        "reservedMicros": "0",
+        "errors": "0",
+        "handoffs": "0",
+        "inputTokens": "100",
+        "outputTokens": "20",
+        "meanLatencyMs": "36.0000000000000000",
+        "budgetMicros": 1000000,
+        "alerts": []
+      },
+      "globalTotals": [
+        {
+          "total": "0",
+          "concurrent": "0"
+        }
+      ],
+      "brandRows": 1,
+      "otherConfigurationsUnchanged": true
+    }
+  ],
+  "final": {
+    "stopped": true,
+    "status": "HIDDEN",
+    "enabled": "false",
+    "published": null
+  },
+  "realOpenAiCalls": 0,
+  "realOutbound": 0,
+  "remoteWrites": 0
+}

@@ -12,6 +12,17 @@ function route(path: string, user: Record<string, unknown> | null) {
 }
 
 describe("HQ entry and store chooser routing", () => {
+  it("passes the isolated Brand HQ route through instead of rewriting it into a nonexistent Store page", () => {
+    const response=route("/hq/dashboard/ai-services",{role:"ADMIN"});
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+  it("retains authentication and owner exclusion for the Brand HQ route",()=>{
+    expect(route("/hq/dashboard/ai-services",null).headers.get("location")).toBe("https://www.steamfoot.com/hq/login");
+    expect(route("/hq/dashboard/ai-services",{role:"OWNER",storeId:"store-1",storeSlug:"taichung"}).headers.get("location")).toBe("https://www.steamfoot.com/s/taichung/admin/dashboard");
+    expect(route("/hq/dashboard/ai-services-other",{role:"ADMIN"}).headers.get("x-middleware-rewrite")).toBe("https://www.steamfoot.com/dashboard/ai-services-other");
+  });
+
   it("serves the HQ trial inbox without rewriting it to a nonexistent shared page", () => {
     const response = route("/hq/dashboard/trial-applications?application=test-id", { role: "ADMIN" });
     expect(response.headers.get("x-middleware-rewrite")).toBeNull();

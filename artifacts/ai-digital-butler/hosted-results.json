@@ -1,0 +1,401 @@
+{
+  "verifiedAtTaipei": "2026-11-26T00:32:50+08:00",
+  "status": "ISOLATED_PHASE_0_1_ACCEPTANCE_PASSED",
+  "pr": 1596,
+  "branch": "feat/ai-digital-butler-core",
+  "codeSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+  "mainSha": "378cd9475317f6c4ab804f0e48642f1d4f0f567a",
+  "preview": {
+    "id": "dpl_9avchKdGUK3y4ZahU5gXMzABdTzk",
+    "url": "https://steamfoot-booking-1qt2ihx64-rock7652-2111s-projects.vercel.app",
+    "state": "READY",
+    "ssoProtectionRetained": true
+  },
+  "connection": {
+    "host": "aws-1-ap-northeast-1.pooler.supabase.com",
+    "port": 6543,
+    "type": "Shared Supavisor transaction",
+    "confirmedSessionPort": 5432,
+    "role": "steamfoot_ai_preview_20261125.ttworfzgwejdeolegkxl",
+    "sensitiveCredentialsReused": true,
+    "mode": "shared-transaction-aws1",
+    "strictTls": true,
+    "pinnedCaVerified": true,
+    "ipv4AddonPurchased": false,
+    "roleLimitIncreased": false
+  },
+  "ci": {
+    "sourceSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+    "testFilesPassed": 1851,
+    "testFilesSkipped": 36,
+    "testsPassed": 17479,
+    "testsSkipped": 337,
+    "typecheck": "PASS",
+    "changedEslint": "PASS",
+    "targeted": "PASS",
+    "relatedPostgresJobs": "PASS",
+    "cloudflareExtraBuild": "FAIL_REASON_UNAVAILABLE",
+    "cloudflareAnnotations": 0
+  },
+  "authenticatedEntry": [
+    {
+      "stage": "single-settings-entry",
+      "entries": 1,
+      "path": "/s/ai-preview-steamfoot/admin/dashboard/settings"
+    },
+    {
+      "stage": "entry-to-ai-panel",
+      "path": "/s/ai-preview-steamfoot/admin/dashboard/settings/digital-butler",
+      "aiPresent": true
+    }
+  ],
+  "fourSyntheticStoreLogins": "AI page HTTP 200, no failed responses in all four fixture accounts",
+  "mockCases": [
+    {
+      "stage": "mock-hours-STEAMFOOT",
+      "path": "/s/ai-preview-steamfoot/admin/dashboard/settings/digital-butler",
+      "resultLines": [
+        "這是蒸足合成測試店，測試營業時間為週一至週五 10:00–18:00。",
+        "本月 2 次・已計入及預留 US$0.0000／US$1.00"
+      ]
+    },
+    {
+      "stage": "durable-event-replay",
+      "status": 200,
+      "duplicate": true
+    },
+    {
+      "stage": "mock-hours-BEAUTY",
+      "path": "/s/ai-preview-steamfoot/admin/dashboard/settings/digital-butler",
+      "resultLines": [
+        "這是美業合成測試店，測試營業時間為週一至週五 10:00–18:00。",
+        "本月 3 次・已計入及預留 US$0.0000／US$1.00"
+      ]
+    },
+    {
+      "stage": "mock-hours-FITNESS",
+      "path": "/s/ai-preview-steamfoot/admin/dashboard/settings/digital-butler",
+      "resultLines": [
+        "這是運動合成測試店，測試營業時間為週一至週五 10:00–18:00。",
+        "本月 4 次・已計入及預留 US$0.0000／US$1.00"
+      ]
+    },
+    {
+      "stage": "mock-hours-MUSIC",
+      "path": "/s/ai-preview-steamfoot/admin/dashboard/settings/digital-butler",
+      "resultLines": [
+        "這是音樂合成測試店，測試營業時間為週一至週五 10:00–18:00。",
+        "本月 5 次・已計入及預留 US$0.0000／US$1.00"
+      ]
+    },
+    {
+      "stage": "manual-handoff-block",
+      "path": "/s/ai-preview-steamfoot/admin/dashboard/settings/digital-butler",
+      "resultLines": [
+        "AI 目前暫停服務，既有預約及數位管家不受影響。",
+        "本月 5 次・已計入及預留 US$0.0000／US$1.00"
+      ]
+    },
+    {
+      "stage": "mock-unknown",
+      "path": "/s/ai-preview-steamfoot/admin/dashboard/settings/digital-butler",
+      "resultLines": [
+        "這個問題目前無法確認，請聯繫店家，由真人客服協助您。",
+        "本月 6 次・已計入及預留 US$0.0000／US$1.00"
+      ]
+    },
+    {
+      "stage": "mock-injection",
+      "path": "/s/ai-preview-steamfoot/admin/dashboard/settings/digital-butler",
+      "resultLines": [
+        "這個問題目前無法確認，請聯繫店家，由真人客服協助您。",
+        "本月 7 次・已計入及預留 US$0.0000／US$1.00"
+      ]
+    },
+    {
+      "stage": "cross-store-access",
+      "denied": true,
+      "path": "/s/ai-preview-beauty/admin/dashboard/settings/digital-butler",
+      "resultLines": [
+        "無法存取此店舖",
+        "此店舖無法存取，或您沒有查看權限。請返回自己的店舖，或聯繫管理員。"
+      ]
+    },
+    {
+      "stage": "tenant-mock-beauty",
+      "resultLines": [
+        "這是美業合成測試店，測試營業時間為週一至週五 10:00–18:00。",
+        "本月 1 次・已計入及預留 US$0.0000／US$1.00"
+      ]
+    },
+    {
+      "stage": "tenant-mock-fitness",
+      "resultLines": [
+        "這是運動合成測試店，測試營業時間為週一至週五 10:00–18:00。",
+        "本月 1 次・已計入及預留 US$0.0000／US$1.00"
+      ]
+    },
+    {
+      "stage": "tenant-mock-music",
+      "resultLines": [
+        "這是音樂合成測試店，測試營業時間為週一至週五 10:00–18:00。",
+        "本月 1 次・已計入及預留 US$0.0000／US$1.00"
+      ]
+    }
+  ],
+  "mockSourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+  "liveRequests": [
+    {
+      "sourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+      "model": "gpt-6-luna",
+      "status": "COMPLETE",
+      "outcome": "HANDOFF",
+      "inputTokens": 227,
+      "outputTokens": 20,
+      "estimatedMicros": 247,
+      "latencyMs": 4136
+    },
+    {
+      "sourceSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+      "model": "gpt-6-luna",
+      "status": "COMPLETE",
+      "outcome": "ANSWER",
+      "inputTokens": 335,
+      "outputTokens": 25,
+      "estimatedMicros": 360,
+      "latencyMs": 4716,
+      "sourceSelection": {
+        "suppliedSources": 1,
+        "selectedSources": 1,
+        "selectedSourceAllowed": true,
+        "handoff": false
+      },
+      "reply": "這是蒸足合成測試店，測試營業時間為週一至週五 10:00–18:00。",
+      "screenshot": "hosted-live-luna.png"
+    }
+  ],
+  "liveTotals": {
+    "requests": 2,
+    "inputTokens": 562,
+    "outputTokens": 45,
+    "estimatedMicros": 607,
+    "estimatedUsd": "0.000607",
+    "actualProviderInvoice": "NOT_AVAILABLE",
+    "automaticRetries": 0
+  },
+  "rwd": [
+    {
+      "stage": "rwd",
+      "store": "steamfoot",
+      "width": 1920,
+      "viewport": 1920,
+      "scroll": 1920,
+      "body": 1920,
+      "sourceSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+      "passed": true,
+      "screenshot": "hosted-steamfoot-1920.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "steamfoot",
+      "width": 1366,
+      "viewport": 1366,
+      "scroll": 1366,
+      "body": 1366,
+      "sourceSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+      "passed": true,
+      "screenshot": "hosted-steamfoot-1366.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "steamfoot",
+      "width": 1024,
+      "viewport": 1024,
+      "scroll": 1024,
+      "body": 1024,
+      "sourceSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+      "passed": true,
+      "screenshot": "hosted-steamfoot-1024.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "steamfoot",
+      "width": 768,
+      "viewport": 768,
+      "scroll": 768,
+      "body": 768,
+      "sourceSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+      "passed": true,
+      "screenshot": "hosted-steamfoot-768.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "steamfoot",
+      "width": 390,
+      "viewport": 390,
+      "scroll": 390,
+      "body": 390,
+      "sourceSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+      "passed": true,
+      "screenshot": "hosted-steamfoot-390.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "steamfoot",
+      "width": 360,
+      "viewport": 360,
+      "scroll": 360,
+      "body": 360,
+      "sourceSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+      "passed": true,
+      "screenshot": "hosted-steamfoot-360.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "beauty",
+      "width": 1366,
+      "viewport": 1366,
+      "scroll": 1366,
+      "body": 1366,
+      "sourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+      "passed": true,
+      "screenshot": "hosted-beauty-1366.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "beauty",
+      "width": 1024,
+      "viewport": 1024,
+      "scroll": 1024,
+      "body": 1024,
+      "sourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+      "passed": true,
+      "screenshot": "hosted-beauty-1024.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "beauty",
+      "width": 768,
+      "viewport": 768,
+      "scroll": 768,
+      "body": 768,
+      "sourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+      "passed": true,
+      "screenshot": "hosted-beauty-768.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "fitness",
+      "width": 1366,
+      "viewport": 1366,
+      "scroll": 1366,
+      "body": 1366,
+      "sourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+      "passed": true,
+      "screenshot": "hosted-fitness-1366.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "fitness",
+      "width": 1024,
+      "viewport": 1024,
+      "scroll": 1024,
+      "body": 1024,
+      "sourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+      "passed": true,
+      "screenshot": "hosted-fitness-1024.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "fitness",
+      "width": 768,
+      "viewport": 768,
+      "scroll": 768,
+      "body": 768,
+      "sourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+      "passed": true,
+      "screenshot": "hosted-fitness-768.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "music",
+      "width": 1366,
+      "viewport": 1366,
+      "scroll": 1366,
+      "body": 1366,
+      "sourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+      "passed": true,
+      "screenshot": "hosted-music-1366.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "music",
+      "width": 1024,
+      "viewport": 1024,
+      "scroll": 1024,
+      "body": 1024,
+      "sourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+      "passed": true,
+      "screenshot": "hosted-music-1024.png"
+    },
+    {
+      "stage": "rwd",
+      "store": "music",
+      "width": 768,
+      "viewport": 768,
+      "scroll": 768,
+      "body": 768,
+      "sourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+      "passed": true,
+      "screenshot": "hosted-music-768.png"
+    }
+  ],
+  "rwdLimit": "Chromium viewport emulation, not physical devices; other-store screenshots reuse c33 (UI/auth unchanged by subsequent provider-only changes).",
+  "postflight": {
+    "role": {
+      "name": "steamfoot_ai_preview_20261125",
+      "login": true,
+      "expires": "2026-12-02T14:15:52+00:00",
+      "bypassRls": false,
+      "superuser": false,
+      "connectionLimit": 8
+    },
+    "requests": 12,
+    "bookingWrite": false,
+    "enabledStores": 0,
+    "globalStopped": true,
+    "openaiRequests": 2,
+    "aiTablesWithRls": 4,
+    "syntheticBookings": 0,
+    "unsettledRequests": 0,
+    "syntheticCustomers": 0,
+    "estimatedOpenaiMicros": 607
+  },
+  "cleanup": {
+    "allFourSyntheticUserSessionVersionsUpdated": true,
+    "temporaryPasswordAndSessionFilesDeleted": true,
+    "apiKeyReadOrLogged": false,
+    "temporaryManualTestGrantsRevoked": true,
+    "nativeFetchAccessNote": "Earlier failed deployments were accessed through the Vercel web_fetch tool, which uses internal temporary share links with expiry; no share URL was published. All manually created test grants, including the final successful deployment grant, were revoked."
+  },
+  "testToolIncident": {
+    "temporaryCookieInErrorLog": true,
+    "localRawLogCleaned": true,
+    "exposedGrantRevoked": true,
+    "oldSyntheticLoginInvalidated": true,
+    "replayMovedToBrowserFetch": true,
+    "errorOutputLimitedToSummary": true
+  },
+  "productionChanged": false,
+  "realLineOrMessengerSent": false,
+  "newPaidServicesCreated": false,
+  "buildFees": "Existing Vercel/GitHub fees not obtained; necessary deployment history retained in preview-runtime-20261125.json.",
+  "notCompleted": [
+    "Phase 2 knowledge editing and authoritative business adapters",
+    "LINE/Messenger AI integration and actual support workbench handoff",
+    "Phase 3 business tools, production migration and production rollout",
+    "Physical-device and actual customer-channel acceptance",
+    "Real tests of gpt-5.4-mini and gpt-6.2-sol",
+    "Provider invoice reconciliation and automatic conversation cleanup"
+  ]
+}

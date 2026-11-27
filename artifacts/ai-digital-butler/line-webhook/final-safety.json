@@ -1,0 +1,12 @@
+{
+  "dispatch_unresolved": 0,
+  "requests_not_complete": 0,
+  "handoffs": 1,
+  "beauty_today": 15,
+  "role": {
+    "super": false,
+    "bypass": false,
+    "connectionLimit": 8
+  },
+  "suspended_members": 3
+}

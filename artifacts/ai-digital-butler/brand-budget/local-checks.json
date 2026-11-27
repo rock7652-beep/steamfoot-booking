@@ -1,0 +1,26 @@
+{
+  "status": "local passed; cloud pending",
+  "baseCommit": "41407376a73cb81b40c0cba66bdff863a29c84e2",
+  "productSourceChanges": false,
+  "checks": {
+    "brandBudgetWorkflow": "24 real local PG/RLS scenarios passed",
+    "existingBrandManagementCoreAndDualServiceRegression": "133 passed across 4 files",
+    "typeScript": "passed",
+    "changedFileESLint": "passed without warnings",
+    "ui": "unchanged; historical six-size Mock usage evidence referenced, not rerun"
+  },
+  "scope": {
+    "remoteDatabaseConnections": 0,
+    "remoteWrites": 0,
+    "remotePermissions": 0,
+    "previewBuilds": 0,
+    "links": 0,
+    "realOpenAiCalls": 0,
+    "realOutbound": 0
+  },
+  "limitations": [
+    "positive costs are synthetic ledger inputs, not real API charges",
+    "PGlite matching role/RLS/triggers, not cloud HTTP/NextAuth/Prisma/pooler or independent multi-connection PostgreSQL",
+    "consolidated Preview proposal remains unapproved and unexecuted"
+  ]
+}

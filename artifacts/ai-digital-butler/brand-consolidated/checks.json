@@ -1,0 +1,41 @@
+{
+  "status": "cloud functional acceptance incomplete; cleanup verified",
+  "runtimeSha": "e3c65c77ac3481cb8f00d68772ad1e427a0e8472",
+  "builds": 1,
+  "shareLinksCreated": 1,
+  "successfulLogins": 0,
+  "knowledgeMutations": 0,
+  "mockRequests": 0,
+  "resumes": 0,
+  "realOpenAiCalls": 0,
+  "realOutbound": 0,
+  "checks": {
+    "nodeSyntax": "passed for two QA scripts",
+    "eslint": "passed",
+    "strictBrowserAnonymousProbe": "passed after normal access to existing NSS DB; no CA added; trust list unchanged",
+    "cloudFunctional": "not executed after TLS failure; not passed",
+    "newTlsProbeScript": {
+      "first": "ERR_CONNECTION_CLOSED; retained",
+      "second": "strict TLS passed; certificate list unchanged",
+      "authenticated": false
+    }
+  },
+  "cleanup": {
+    "database": "verified; see cleanup-database.json",
+    "vercel": "verified; see cleanup-vercel.json",
+    "privateDirectoryRemoved": true,
+    "cliLoggedOut": true,
+    "cliAuthDirectoryRemoved": true
+  },
+  "reviewRejection": {
+    "action": "persistent CA import",
+    "executed": false,
+    "resolution": "unnecessary: CA already existed; safer normal access to existing NSS DB verified with no trust change"
+  },
+  "limitations": [
+    "no six-size cloud acceptance",
+    "no old application-cookie HTTP probe because login never occurred",
+    "build charge unknown; API cost zero",
+    "no replacement share, time extension or second build authorized/executed"
+  ]
+}

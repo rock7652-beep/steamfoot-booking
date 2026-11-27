@@ -1,0 +1,11 @@
+{
+  "sourceSha": "005ce6e61562a1e5694b7537fbcbdb5d04eab5da",
+  "deployment": "dpl_8XMZsnsSwHjMs9cFRRSqSYbm2Nn1",
+  "cases": [],
+  "events": [],
+  "sizes": [],
+  "errors": [],
+  "failures": [
+    "page.goto: net::ERR_CERT_AUTHORITY_INVALID at [url]"
+  ]
+}

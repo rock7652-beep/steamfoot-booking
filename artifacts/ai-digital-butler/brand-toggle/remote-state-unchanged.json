@@ -1,0 +1,19 @@
+{
+  "kind": "read-only state check; no remote mutations in this stage",
+  "brand": {
+    "grant": "HIDDEN",
+    "enabled": false,
+    "settingRevision": 1
+  },
+  "fixture": {
+    "status": "SUSPENDED",
+    "passwordCleared": true
+  },
+  "auditInsert": false,
+  "brandRequests": 0,
+  "globalStopped": true,
+  "helperExecute": false,
+  "storeDispatch": 113,
+  "storeRequests": 53,
+  "storesDisabled": 4
+}

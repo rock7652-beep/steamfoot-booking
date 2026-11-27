@@ -1,0 +1,29 @@
+{
+  "stopped": true,
+  "stores_off": 4,
+  "status": "HIDDEN",
+  "setting": {
+    "model": "gpt-6-luna",
+    "enabled": false,
+    "channels": [
+      "TEST"
+    ],
+    "dailyRequests": 20,
+    "monthlyRequests": 100,
+    "monthlyBudgetMicros": 1000000
+  },
+  "revision": 1,
+  "knowledge_revision": 0,
+  "unpublished": true,
+  "user_status": "SUSPENDED",
+  "password_empty": true,
+  "window_logins": 0,
+  "brand_requests": 0,
+  "store_requests": 53,
+  "store_dispatches": 113,
+  "operation_audits": 0,
+  "temp_policies": 0,
+  "helper": false,
+  "audit_insert": false,
+  "role_valid_until": "2026-12-02 14:15:52+00"
+}

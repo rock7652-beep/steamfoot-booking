@@ -1,0 +1,29 @@
+{
+  "base": "7d530501fa3dffa21e76c3ad5ee36cc07453405c",
+  "scope": "Brand toggle only; local implementation/validation, no cloud mutation/deployment",
+  "sourceSha256": {
+    "src/server/ai/brand-management-core.ts": "a5d356a9e801322aa8310c1023baa8fd037f1d99f7253f72565b9ba7ee0a8f26",
+    "src/server/ai/brand-management.ts": "48dc51f4622d0323b22b49a1b4aedffa21fdc39a65c1e70cf531c9c5f59565b9",
+    "src/app/(dashboard)/dashboard/settings/digital-butler/ai-panel.tsx": "4e7894ea5abc8f930bd736cb24ba414f329167da4a6367bcd8420f71ba1fa0ed",
+    "scripts/qa/ai-brand-toggle-ui.mjs": "a0c33f03ce3be44c3093742a378377280057443f1850ed7e5b166ddb16c13b43",
+    "scripts/qa/ai-brand-toggle-fixture.mjs": "1317e8d541ce41ade40cb032b2810c6921f4e1719f9b1b6ba8786cd0cbec6a08",
+    "src/__tests__/ai-digital-butler-brand-toggle.test.ts": "a15eb20dfc149d134da08b025f2a596756e3e24565d284cbf81e30b11cfcf3c3"
+  },
+  "localFunctionCriteriaPassed": [
+    "enable",
+    "disable",
+    "database-and-UI-state",
+    "reload",
+    "verified-actor-audit",
+    "atomic-rollback",
+    "other-four-stores-unchanged",
+    "emergency-stop",
+    "latest-revision-and-late-response"
+  ],
+  "cloudAcceptanceThisStage": false,
+  "previewBuildsThisStage": 0,
+  "remotePermissionChangesThisStage": 0,
+  "realOpenAiThisStage": 0,
+  "mockProviderCallsThisStage": 0,
+  "externalMessagesThisStage": 0
+}

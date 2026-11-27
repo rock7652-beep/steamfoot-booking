@@ -1,0 +1,34 @@
+{
+  "dateTaipei": "2026-11-26",
+  "pr": 1596,
+  "baseHead": "3703645027cb238e6e5d42ae5b6f76318bddf8ff",
+  "scope": "Read-only inventory and offline preparation only",
+  "local": {
+    "filesPassed": 5,
+    "testsPassed": 121,
+    "typecheck": "passed",
+    "eslint": "passed"
+  },
+  "newRuntimeChanges": 0,
+  "newDeployments": 0,
+  "newExternalCredentials": 0,
+  "newShareLinks": 0,
+  "newOasCreated": 0,
+  "webhookUrlsChanged": 0,
+  "newLineMessages": 0,
+  "newOpenaiRequests": 0,
+  "globalStopped": true,
+  "allFourStoresDisabled": true,
+  "databaseRequests": 53,
+  "databaseOpenaiRequests": 5,
+  "databaseDispatches": 113,
+  "unresolved": 0,
+  "readyForLiveRun": false,
+  "pending": [
+    "Owner confirmation of an independent test OA and test users",
+    "Explicit approval for any OA creation, credentials, callback reachability and outbound window",
+    "Messaging-only runtime registration, scoped original-runtime persistence and identity-read policy design",
+    "Dedicated bounded transport with real LINE delivery/UNKNOWN receipts"
+  ],
+  "realLinePlatformInventoryVerified": false
+}

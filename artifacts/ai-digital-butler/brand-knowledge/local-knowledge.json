@@ -1,0 +1,1174 @@
+{
+  "kind": "local actual shared workspace -> existing Brand core -> matching local PG engine/RLS/minimum role/real audit triggers; not cloud HTTP/session/Prisma acceptance",
+  "schema": {
+    "columnsMatched": 12,
+    "constraintsMatched": 10,
+    "policiesMatched": 4,
+    "knowledgeTriggers": 0,
+    "auditTriggers": 2
+  },
+  "cases": [
+    "six-width-add-edit-save-review-publish-withdraw-reload",
+    "clean-editor-follows-newer-revision-and-invalidates-review",
+    "conflict-preserves-draft-resize-and-cancelled-reload",
+    "late-review-cannot-authorize-newer-revision",
+    "cancel-publication-does-not-mutate",
+    "audit-failure-save-full-rollback",
+    "audit-failure-publish-full-rollback",
+    "audit-failure-withdraw-full-rollback",
+    "lost-save-response-reloads-committed-document"
+  ],
+  "sizes": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "save": true,
+      "review": true,
+      "publish": true,
+      "withdraw": true,
+      "reload": true,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 1366,
+      "height": 900,
+      "save": true,
+      "review": true,
+      "publish": true,
+      "withdraw": true,
+      "reload": true,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "save": true,
+      "review": true,
+      "publish": true,
+      "withdraw": true,
+      "reload": true,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "save": true,
+      "review": true,
+      "publish": true,
+      "withdraw": true,
+      "reload": true,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "save": true,
+      "review": true,
+      "publish": true,
+      "withdraw": true,
+      "reload": true,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "save": true,
+      "review": true,
+      "publish": true,
+      "withdraw": true,
+      "reload": true,
+      "overflow": false,
+      "touch": true
+    }
+  ],
+  "actions": [
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 0,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 1,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 1,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 2,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 3,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 3,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "withdraw",
+      "revision": 4,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 5,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 6,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 6,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 7,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 8,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 8,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "withdraw",
+      "revision": 9,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 10,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 11,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 11,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 12,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 13,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 13,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "withdraw",
+      "revision": 14,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 15,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 16,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 16,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 17,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 18,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 18,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "withdraw",
+      "revision": 19,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 20,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 21,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 21,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 22,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 23,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 23,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "withdraw",
+      "revision": 24,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 25,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 26,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 26,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 27,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 28,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 28,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "withdraw",
+      "revision": 29,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 30,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 31,
+      "success": false
+    },
+    {
+      "name": "readBrandKnowledge",
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 32,
+      "success": true
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 33,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 33,
+      "success": false
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 33,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 33,
+      "success": false
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "revision": 33,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "publish",
+      "revision": 33,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "withdraw",
+      "revision": 34,
+      "success": false
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "withdraw",
+      "revision": 34,
+      "success": true
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "command": "save",
+      "revision": 35,
+      "success": true
+    },
+    {
+      "name": "readBrandKnowledge",
+      "success": true
+    }
+  ],
+  "errors": [],
+  "failures": [],
+  "audits": [
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 0,
+        "knowledgeRevision": 0
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 0,
+          "knowledgeRevision": 1
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 0,
+        "knowledgeRevision": 1
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 1,
+          "knowledgeRevision": 2
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 1,
+        "knowledgeRevision": 2
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 1,
+          "knowledgeRevision": 3
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 1,
+        "knowledgeRevision": 3
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 2,
+          "knowledgeRevision": 4
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 2,
+        "knowledgeRevision": 4
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 3,
+          "knowledgeRevision": 5
+        },
+        "operation": "withdraw"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 3,
+        "knowledgeRevision": 5
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 3,
+          "knowledgeRevision": 6
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 3,
+        "knowledgeRevision": 6
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 4,
+          "knowledgeRevision": 7
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 4,
+        "knowledgeRevision": 7
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 4,
+          "knowledgeRevision": 8
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 4,
+        "knowledgeRevision": 8
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 5,
+          "knowledgeRevision": 9
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 5,
+        "knowledgeRevision": 9
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 6,
+          "knowledgeRevision": 10
+        },
+        "operation": "withdraw"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 6,
+        "knowledgeRevision": 10
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 6,
+          "knowledgeRevision": 11
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 6,
+        "knowledgeRevision": 11
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 7,
+          "knowledgeRevision": 12
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 7,
+        "knowledgeRevision": 12
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 7,
+          "knowledgeRevision": 13
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 7,
+        "knowledgeRevision": 13
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 8,
+          "knowledgeRevision": 14
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 8,
+        "knowledgeRevision": 14
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 9,
+          "knowledgeRevision": 15
+        },
+        "operation": "withdraw"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 9,
+        "knowledgeRevision": 15
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 9,
+          "knowledgeRevision": 16
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 9,
+        "knowledgeRevision": 16
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 10,
+          "knowledgeRevision": 17
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 10,
+        "knowledgeRevision": 17
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 10,
+          "knowledgeRevision": 18
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 10,
+        "knowledgeRevision": 18
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 11,
+          "knowledgeRevision": 19
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 11,
+        "knowledgeRevision": 19
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 12,
+          "knowledgeRevision": 20
+        },
+        "operation": "withdraw"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 12,
+        "knowledgeRevision": 20
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 12,
+          "knowledgeRevision": 21
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 12,
+        "knowledgeRevision": 21
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 13,
+          "knowledgeRevision": 22
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 13,
+        "knowledgeRevision": 22
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 13,
+          "knowledgeRevision": 23
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 13,
+        "knowledgeRevision": 23
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 14,
+          "knowledgeRevision": 24
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 14,
+        "knowledgeRevision": 24
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 15,
+          "knowledgeRevision": 25
+        },
+        "operation": "withdraw"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 15,
+        "knowledgeRevision": 25
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 15,
+          "knowledgeRevision": 26
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 15,
+        "knowledgeRevision": 26
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 16,
+          "knowledgeRevision": 27
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 16,
+        "knowledgeRevision": 27
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 16,
+          "knowledgeRevision": 28
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 16,
+        "knowledgeRevision": 28
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 17,
+          "knowledgeRevision": 29
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 17,
+        "knowledgeRevision": 29
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 18,
+          "knowledgeRevision": 30
+        },
+        "operation": "withdraw"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 18,
+        "knowledgeRevision": 30
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 18,
+          "knowledgeRevision": 31
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 18,
+        "knowledgeRevision": 31
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 18,
+          "knowledgeRevision": 32
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 18,
+        "knowledgeRevision": 32
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 18,
+          "knowledgeRevision": 33
+        },
+        "operation": "save"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 18,
+        "knowledgeRevision": 33
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 19,
+          "knowledgeRevision": 34
+        },
+        "operation": "publish"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 19,
+        "knowledgeRevision": 34
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 20,
+          "knowledgeRevision": 35
+        },
+        "operation": "withdraw"
+      }
+    },
+    {
+      "actorUserId": "ai-preview-brand-hq",
+      "actorRoleSnapshot": "ADMIN",
+      "loginRecordId": "local-brand-login",
+      "storeId": null,
+      "beforeJson": {
+        "enabled": false,
+        "settingRevision": 1,
+        "publishedVersion": 20,
+        "knowledgeRevision": 35
+      },
+      "afterJson": {
+        "state": {
+          "enabled": false,
+          "settingRevision": 1,
+          "publishedVersion": 20,
+          "knowledgeRevision": 36
+        },
+        "operation": "save"
+      }
+    }
+  ],
+  "final": {
+    "globalStopped": true,
+    "brandEnabled": false,
+    "published": false,
+    "requests": 0,
+    "otherStoresUnchanged": true,
+    "otherBrandUnchanged": true
+  }
+}

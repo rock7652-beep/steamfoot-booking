@@ -1,0 +1,113 @@
+{
+  "kind": "local Chromium, actual shared components, synthetic actions with a deliberately refused local save; not cloud/authenticated business or physical device acceptance",
+  "sizes": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 1366,
+      "height": 900,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "overflow": false,
+      "touch": true
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "overflow": false,
+      "touch": true
+    }
+  ],
+  "cases": [
+    "HQ-hidden-management-inspection",
+    "brand-no-industry-or-store-references",
+    "mutation-controls-disabled",
+    "saved-version-review-read-only",
+    "section-and-resize-state-retention",
+    "handoff-empty-list",
+    "touch-targets-and-overflow",
+    "single-brand-QA-entry",
+    "failed-save-keeps-draft-through-resize"
+  ],
+  "calls": [
+    {
+      "name": "reviewBrandKnowledge",
+      "input": {
+        "revision": 0
+      }
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "input": {
+        "revision": 0
+      }
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "input": {
+        "revision": 0
+      }
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "input": {
+        "revision": 0
+      }
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "input": {
+        "revision": 0
+      }
+    },
+    {
+      "name": "reviewBrandKnowledge",
+      "input": {
+        "revision": 0
+      }
+    },
+    {
+      "name": "changeBrandKnowledge",
+      "input": {
+        "command": "save",
+        "revision": 0,
+        "draft": {
+          "introduction": "未儲存的合成產品介紹",
+          "faqs": [
+            {
+              "question": "測試產品價格？",
+              "answer": "合成產品方案每月 NT$999，不代表正式售價。"
+            }
+          ],
+          "prohibitedTerms": [],
+          "references": {
+            "hours": false,
+            "services": false,
+            "prices": false
+          }
+        }
+      }
+    }
+  ],
+  "consoleErrors": []
+}

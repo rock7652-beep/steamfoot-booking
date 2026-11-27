@@ -1,0 +1,223 @@
+{
+  "dateTaipei": "2026-11-25",
+  "branch": "feat/ai-digital-butler-core",
+  "sourceSha": "912c64c60aaf655057655f6f44b117eba605272e",
+  "mainSha": "378cd9475317f6c4ab804f0e48642f1d4f0f567a",
+  "pr": 1596,
+  "projectId": "prj_EAXZKpdoYgLciwH9FTvLJZxuR8iR",
+  "databaseProject": "ttworfzgwejdeolegkxl",
+  "ci": {
+    "testFilesPassed": 1851,
+    "testsPassed": 17478,
+    "testsSkipped": 337,
+    "typecheck": "PASS",
+    "changedEslint": "PASS",
+    "targeted": "PASS",
+    "postgresIntegrationJobs": "PASS",
+    "cloudflareExtraBuild": "FAIL_REASON_UNAVAILABLE"
+  },
+  "deployments": [
+    {
+      "id": "dpl_F4BD6TcefvN8R5irmjWke67kP8yA",
+      "sha": "a0c0aee32e12c4bde84af1c2b50b86503ec7873d",
+      "state": "ERROR",
+      "reason": "middleware 255.77 MB exceeds 250 MB"
+    },
+    {
+      "id": "dpl_87xcqDrJ2y8XBYCnbxPmqftoknVj",
+      "sha": "a0c0aee32e12c4bde84af1c2b50b86503ec7873d",
+      "state": "READY",
+      "applicationLogin": "HTTP_500_TLS_CA_UNTRUSTED"
+    },
+    {
+      "id": "dpl_A58y7dAd23QEmaALRSuvgMJrrD6H",
+      "sha": "912c64c60aaf655057655f6f44b117eba605272e",
+      "state": "READY",
+      "url": "https://steamfoot-booking-9yzaau9z0-rock7652-2111s-projects.vercel.app",
+      "applicationLogin": "HTTP_500_POOLER_TENANT_USER_NOT_FOUND",
+      "tlsVerification": "strict; pinned public Supabase CA; TLS handshake passed"
+    }
+  ],
+  "configuration": {
+    "openaiKeyMetadataOnlyVerified": true,
+    "largeFunctionsFlag": "AI Preview branch only",
+    "buildMachine": "existing Turbo retained",
+    "nextConfigGuardVerified": true,
+    "migrationSkippedVerified": true,
+    "externalDeliveryBlockedVerified": true
+  },
+  "databasePostflight": {
+    "role": "steamfoot_ai_preview_20261125",
+    "roleLogin": true,
+    "roleValidUntil": "2026-12-02T14:15:52Z",
+    "connectPrivilege": true,
+    "schemaUsagePrivilege": true,
+    "bypassRls": false,
+    "bookingWrite": false,
+    "syntheticOwners": 4,
+    "globalStopped": true,
+    "enabledStores": 0,
+    "requests": 0
+  },
+  "poolerInvestigation": {
+    "attemptedHost": "aws-0-ap-northeast-1.pooler.supabase.com",
+    "roleFormat": "role.project-ref",
+    "correctHost": "NOT_OBTAINED",
+    "successfulPreviewMetadataChecked": "dpl_HZWZzyvVhPWo1a85bbtJFWqTHbay",
+    "successfulPreviewBuildAndRuntimeLogsContainHost": false,
+    "legacyBeautyDeployment": "NOT_FOUND",
+    "legacyCompactProject": "NOT_FOUND",
+    "activeSteamfootProjects": 1,
+    "currentSharedPreviewDbSecret": "Sensitive; value not returned",
+    "branchSpecificMetadataChecked": [
+      "fix/steam-customer-booking-cutoff-20261125",
+      "fix/shared-single-service-void-restore-20261118",
+      "feat/beauty-service-journey-20261103",
+      "feat/plan-session-adjustment-20261030",
+      "codex/beauty-public-booking-ux"
+    ],
+    "branchSpecificDbValuesAvailable": false,
+    "otherReadableExistingConnection": "does not match isolated project; discarded without emitting credentials",
+    "supabaseProjectApi": "healthy; direct host only; no pooler host",
+    "supabasePoolerConfigToolAvailable": false,
+    "authenticatedLocalBrowserToolAvailable": false,
+    "officialReference": "https://supabase.com/kb/troubleshooting/tenant-or-user-not-found"
+  },
+  "notVerified": [
+    "authenticated dashboard",
+    "hosted Mock",
+    "real OpenAI Responses",
+    "hosted full-page RWD"
+  ],
+  "cleanup": {
+    "temporaryManualTestAccessRevoked": true,
+    "temporaryPasswordAndSessionFilesDeleted": true
+  },
+  "productionChanged": false,
+  "newPaidServicesCreated": false,
+  "openaiCalls": 0,
+  "cost": "3 necessary existing-project Preview builds; provider total unavailable; no OpenAI requests",
+  "dedicatedPoolerFollowup": {
+    "confirmedBy": "user from Supabase Connect Transaction pooler",
+    "host": "db.ttworfzgwejdeolegkxl.supabase.co",
+    "port": 6543,
+    "database": "postgres",
+    "type": "Dedicated PgBouncer",
+    "username": "steamfoot_ai_preview_20261125",
+    "usernameFormat": "bare role; no project suffix",
+    "dns": {
+      "ipv4Records": 0,
+      "ipv6Records": 1
+    },
+    "localTcpProbe": {
+      "connected": false,
+      "errno": 101,
+      "error": "Network is unreachable"
+    },
+    "vercelIpv6": "Supabase official compatibility page lists Vercel as IPv4-only; not runtime-probed via a new deployment",
+    "tls": "Strict verification and pinned public CA retained; Dedicated endpoint handshake/authentication NOT verified because TCP is unreachable",
+    "guard": "Current branch guard rejects Dedicated port 6543; unchanged because this endpoint is not usable on the selected platform",
+    "sharedPooler": "Official docs state shared IPv4 pooler is available on every project; actual project Host remains unavailable through connected tools",
+    "managementApi": "GET /v1/projects/{ref}/config/database/pooler exists but no authenticated tool exposes it",
+    "requiredInput": "Host displayed by Connect Session pooler / Shared Supavisor; no credentials requested",
+    "references": [
+      "https://supabase.com/kb/troubleshooting/supabase--your-network-ipv4-and-ipv6-compatibility-cHe3BP",
+      "https://supabase.com/docs/guides/database/connecting-to-postgres",
+      "https://supabase.com/docs/reference/api/v1-get-pooler-config"
+    ],
+    "newBuilds": 0,
+    "ipv4AddonPurchased": false,
+    "environmentVariablesChanged": false,
+    "databaseRolePrivilegesChanged": false,
+    "globalStopped": true,
+    "enabledStores": 0,
+    "requests": 0
+  },
+  "sharedSessionFollowup": {
+    "hostConfirmedByUser": "aws-1-ap-northeast-1.pooler.supabase.com",
+    "port": 5432,
+    "database": "postgres",
+    "username": "steamfoot_ai_preview_20261125.ttworfzgwejdeolegkxl",
+    "credentialReuse": "existing Sensitive values remain unchanged; backend normalizes verified endpoint only",
+    "branchOnlyMode": "shared-session-aws1",
+    "tls": "strict and pinned public CA",
+    "globalStopped": true,
+    "requests": 0,
+    "actualRuntimeVerification": "Authentication and strict TLS passed; session mode exhausted role limit 8 during page prefetch; all 8 were idle and released after browser close",
+    "deploymentId": "dpl_8YqUEmkALgZTMKqCmED9AzMbfmWL",
+    "sourceSha": "f91812d65f1952fbaf7d9af8fc2e1625d3e28780",
+    "login": "SUCCESS",
+    "rolePasswordReused": true
+  },
+  "sharedTransactionFollowup": {
+    "host": "aws-1-ap-northeast-1.pooler.supabase.com",
+    "port": 6543,
+    "mode": "shared-transaction-aws1",
+    "roleLimitUnchanged": 8,
+    "credentialsUnchanged": true,
+    "tls": "strict and pinned CA",
+    "runtimeVerification": "Authentication, settings, global stop, Mock, deduplication, handoff and cross-store denial PASS",
+    "sourceSha": "c33eba33cdc4122165a7819e3497df78b12e5a1f",
+    "deploymentId": "dpl_4zZPueFLpZFTVMMn8RywKdoeBfAY",
+    "roleConnectionsObserved": 3
+  },
+  "firstLiveApi": {
+    "model": "gpt-6-luna",
+    "status": "COMPLETE",
+    "outcome": "HANDOFF",
+    "inputTokens": 227,
+    "outputTokens": 20,
+    "estimatedMicros": 247,
+    "latencyMs": 4136,
+    "connectionAndAccounting": "PASS",
+    "knownHoursAnswer": "NOT_PASSED",
+    "automaticRetries": 0
+  },
+  "testToolRecovery": {
+    "temporaryCookieErrorLog": "redacted",
+    "shareGrantRevoked": true,
+    "syntheticUserSessionVersionUpdated": true,
+    "realAccountsChanged": false,
+    "replayTransport": "same-origin browser fetch",
+    "replayResult": "DUPLICATE",
+    "apiKeyReadOrLogged": false
+  },
+  "finalResult": {
+    "verifiedAtTaipei": "2026-11-26T00:32:50+08:00",
+    "codeSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+    "preview": "https://steamfoot-booking-1qt2ihx64-rock7652-2111s-projects.vercel.app",
+    "acceptance": "PASSED",
+    "report": "hosted-results.json",
+    "postflight": {
+      "role": {
+        "name": "steamfoot_ai_preview_20261125",
+        "login": true,
+        "expires": "2026-12-02T14:15:52+00:00",
+        "bypassRls": false,
+        "superuser": false,
+        "connectionLimit": 8
+      },
+      "requests": 12,
+      "bookingWrite": false,
+      "enabledStores": 0,
+      "globalStopped": true,
+      "openaiRequests": 2,
+      "aiTablesWithRls": 4,
+      "syntheticBookings": 0,
+      "unsettledRequests": 0,
+      "syntheticCustomers": 0,
+      "estimatedOpenaiMicros": 607
+    },
+    "liveRequestCount": 2,
+    "estimatedOpenaiMicros": 607,
+    "productionChanged": false
+  },
+  "sourceSelectionFix": {
+    "sourceSha": "3568ee7757cf20a32dfbea579eed17092674f297",
+    "deploymentId": "dpl_9avchKdGUK3y4ZahU5gXMzABdTzk",
+    "publishedStatusInPayload": true,
+    "sourceEnumAndSingleSourceLimit": true,
+    "finalLiveOutcome": "ANSWER",
+    "estimatedMicros": 360
+  }
+}
