@@ -48,6 +48,8 @@ Error initializing NSS with a persistent database (sql:/home/agent/.pki/nssdb): 
 
 [根因比對](../../artifacts/ai-digital-butler/brand-consolidated/browser-tls-diagnosis.json) · [嚴格瀏覽器探測](../../artifacts/ai-digital-butler/brand-consolidated/browser-strict-probe.json)
 
+新增腳本的首次匿名重驗遇到 `ERR_CONNECTION_CLOSED`，不是憑證驗證錯誤；保留[首次結果](../../artifacts/ai-digital-butler/brand-consolidated/browser-script-probe.json)。針對這項失敗只再確認一次，[第二次嚴格重驗通過](../../artifacts/ai-digital-butler/brand-consolidated/browser-script-probe-retry.json)，憑證清單亦未變。沒有把失敗結果刪除或改為略過 TLS 驗證，不宣稱外部網路毫無偶發中斷。
+
 新增開窗前工具 [ai-brand-browser-tls-probe.mjs](../../scripts/qa/ai-brand-browser-tls-probe.mjs)。呼叫端需授予瀏覽器對既有 `/home/agent/.pki/nssdb` 的正常檔案讀寫（僅測試機），腳本檢查憑證清單前後一致，從不匯入 CA。實際 hosted runner 的每個瀏覽器程序也需相同正常存取；先以匿名 Preview URL 探測成功，再申請連結／開窗。
 
 原先「舊 Preview fetch」工具會建立約23小時連結的路徑亦已遭審查拒絕，沒有執行。本輪僅使用已批准的新部署短效連結一次，不改走長效繞路。

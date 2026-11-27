@@ -13,7 +13,12 @@
     "nodeSyntax": "passed for two QA scripts",
     "eslint": "passed",
     "strictBrowserAnonymousProbe": "passed after normal access to existing NSS DB; no CA added; trust list unchanged",
-    "cloudFunctional": "not executed after TLS failure; not passed"
+    "cloudFunctional": "not executed after TLS failure; not passed",
+    "newTlsProbeScript": {
+      "first": "ERR_CONNECTION_CLOSED; retained",
+      "second": "strict TLS passed; certificate list unchanged",
+      "authenticated": false
+    }
   },
   "cleanup": {
     "database": "verified; see cleanup-database.json",
