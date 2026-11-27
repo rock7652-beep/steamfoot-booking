@@ -12,6 +12,7 @@ export const CUSTOMER_PARALLEL_PREVIEW_BRANCH = "fix/customer-parallel-read-2026
 export const CUSTOMER_PRIMARY_PREVIEW_BRANCH = "fix/customer-primary-read-priority";
 export const STEAM_TRANSACTION_REPLACEMENT_PREVIEW_BRANCH = "fix/steam-transaction-replacement";
 const AUTHORIZED_SPORTS_SHARED_CARD_PREVIEW_BRANCHES = [
+  "fix/cash-withdrawal-correction",
   STEAM_TRANSACTION_REPLACEMENT_PREVIEW_BRANCH,
   ANALYSIS_CUSTOMER_PREVIEW_BRANCH,
   CUSTOMER_PRIMARY_PREVIEW_BRANCH,
