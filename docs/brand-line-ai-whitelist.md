@@ -29,6 +29,7 @@ PR #1596 已停止開發、維持 Draft；其未提交成果保留在原工作�
 - `src/app/api/line/webhook/route.ts`：既有品牌分支接線，門市分支不變。
 - `prisma/schema.prisma`、下列 migration：一張事件結果表與 outcome enum。
 - `src/__tests__/brand-ai-reply.test.ts`、`brand-ai-log.test.ts`、既有 `line-webhook-store-aware.test.ts`：fake transport／fake reply 及真實 SQL 本機演練。
+- `vercel.json`：僅排除此新支線的 Vercel 自動 Preview，不改 main 或其他支線。
 
 產品新增行數約 360 行（含 FAQ、服務、route 增量、Prisma 與 SQL，不含測試／本文件）；沒有新增管理介面，既有卡片及操作入口維持原樣，無新 RWD 介面。
 
@@ -78,4 +79,4 @@ ALTER TABLE "BrandAiReplyLog" ENABLE ROW LEVEL SECURITY;
 
 ESLint 無錯誤；既有 Webhook 測試檔仍有 11 項原有 unused-argument warnings，沒有擴大修復。完整 TypeScript `tsc --noEmit` 通過；生成主系統、course、beauty 三套 client 後執行，沒有連線資料庫。
 
-尚未合併、部署、執行正式 migration、設定環境變數或真實呼叫。新增 Draft PR 前須避免現有 Vercel／Cloudflare Git 整合自動部署：既有 Vercel config 未排除此新支線，Cloudflare 已對非 main 的 #1596 產生 Workers Builds。沒有為了推送擅自變更任何遠端部署設定。
+本輪只推送新支線並建立 Draft PR，不合併、不手動部署、不執行正式 migration、不設定環境變數或真實呼叫。使用者已批准在 vercel.json 僅排除此新支線的 Vercel 自動 Preview，並接受 Cloudflare 在略過設定核對後仍可能隨推送觸發自動建置／部署。Cloudflare 未驗證，不能將其歷史建置失敗當成停用保證；沒有修改 Cloudflare 或任何遠端部署設定。GitHub CI 仍會執行，包括使用一次性 PostgreSQL 的 schema／工單測試，與正式 migration 不同。
