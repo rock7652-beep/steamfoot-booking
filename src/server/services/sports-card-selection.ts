@@ -1,10 +1,9 @@
-import {cardChargeSettings,courseChargeAllowsProvider} from "@/lib/course-charge-settings";
+import {sportsCardCoachCheck} from "./sports-card-coach";
 import {purchaseOrder} from "@/lib/item-entitlement";
 import "server-only";
 import {readSportsTeachingTemplates} from "./sports-teaching-templates";
 import type { Prisma } from "../../../generated/course-client";
 import { resolveSportsEntitlement } from "@/lib/sports-entitlement";
-import {courseChargeSettings} from '@/lib/course-charge-settings';
 
 /** Caller holds the existing store transaction lock before making a booking. */
 export async function findSportsCard(tx: Prisma.TransactionClient, storeId: string, customerId: string,
@@ -29,9 +28,9 @@ export async function findSportsCard(tx: Prisma.TransactionClient, storeId: stri
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
   const purchases=await tx.coursePurchase.findMany({where:{storeId,cardId:{in:cards.map(card=>card.id)},status:"CONFIRMED",voidedAt:null},select:{cardId:true,createdAt:true}});
+  const allowsCoach=sportsCardCoachCheck(tx,storeId);
   for (const card of purchaseOrder(cards,purchases)) {
-    const charge=courseChargeSettings.safeParse(cardChargeSettings(card));
-    if(cardChargeSettings(card)!=null&&(!charge.success||sessions.some(s=>!s.coachId||!courseChargeAllowsProvider(charge.data,s.coachId))))continue;
+    if ((await Promise.all(sessions.map(session=>allowsCoach(card,session)))).some(allowed=>!allowed)) continue;
     if(ordinaryOnly&&(card.musicOpeningStateRequired||card.requestKey.startsWith('no-show-makeup:')||card.requestKey.startsWith('music-leave-makeup:')))continue;
     if(card.termSessionIds?.length&&sessions.some(s=>!card.termSessionIds.includes(s.id??"")))continue;
     // Only a persisted booking may retain an old unscoped card and its debit
