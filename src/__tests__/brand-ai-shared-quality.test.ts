@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { generateKeyPairSync } from "node:crypto";
 import { sealReview, openReview } from "../../scripts/qa/brand-ai-quality/review-envelope";
 import { blankState, reserveBatch, finishBatch, seal, unseal, digest,
@@ -297,6 +297,36 @@ it("keeps the shared workflow separate from deployments, unreviewed PRs and Prod
   const admission = ci.split("ai-quality-admission:")[1].split("  ai-quality:")[0];
   expect(admission).not.toContain("secrets.");
   expect(admission).not.toContain("environment:");
+  expect(admission.indexOf("checkout-auth.mjs")).toBeLessThan(admission.indexOf("npm ci"));
+  expect(workflow.indexOf("checkout-auth.mjs candidate")).toBeLessThan(
+    workflow.indexOf("name: Install reviewed dependencies"));
+});
+
+it("clears checkout credentials despite malformed gitlinks, without changing repository content", () => {
+  const dir = mkdtempSync(resolve(tmpdir(), "steamfoot-checkout-auth-"));
+  try {
+    const git = (...args: string[]) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", stdio: "pipe" });
+    git("init");
+    git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+      "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "fixture");
+    const commit = git("rev-parse", "HEAD").trim();
+    git("update-index", "--add", "--cacheinfo", `160000,${commit},.claude/worktrees/synthetic`);
+    git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+      "-c", "commit.gpgsign=false", "commit", "-m", "synthetic malformed gitlink");
+    const before = git("ls-files", "--stage");
+    const beforeStatus = git("status", "--porcelain", "--untracked-files=no");
+    expect(spawnSync("git", ["-C", dir, "submodule", "foreach", "true"]).status).not.toBe(0);
+    git("config", "--local", "http.https://github.com/.extraheader", "SYNTHETIC_AUTH_FIXTURE");
+    for (let i = 0; i < 2; i++) {
+      const cleaned = spawnSync(process.execPath, ["scripts/qa/brand-ai-quality/checkout-auth.mjs", dir], { encoding: "utf8" });
+      expect(cleaned.status, cleaned.stderr).toBe(0);
+      expect(cleaned.stdout).toBe("CHECKOUT_AUTH_REMOVED\n");
+      expect(cleaned.stdout).not.toContain("SYNTHETIC_AUTH_FIXTURE");
+    }
+    expect(git("ls-files", "--stage")).toBe(before);
+    expect(git("status", "--porcelain", "--untracked-files=no")).toBe(beforeStatus);
+    expect(spawnSync("git", ["-C", dir, "config", "--local", "--name-only", "--get-regexp", "extraheader"]).status).toBe(1);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 it("decrypts a private report off-repo, with restrictive permissions and no plaintext stdout", () => {

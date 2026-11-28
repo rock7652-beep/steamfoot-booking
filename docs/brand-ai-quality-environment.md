@@ -82,7 +82,7 @@ Ruleset不是Secret的SHA核准機制，Environment另外設定：
 - Prevent self-review不勾，才能核准本人發起的批次。
 - Allow administrators to bypass configured protection rules取消勾選。
 - workflow唯讀admission會先列出workflow SHA、candidate SHA、案例／預算；核對兩個SHA後，由本人在run頁Review deployments核准。
-- 這是同一管理者核准一次含Secret的job，不需要第二帳號。35題共用該job核准；初始化及另開修正版重測仍須各核准其job。GitHub原生Environment不提供「某SHA永久免審」功能，不能暗中自動approve來假裝沒有此限制。
+- Ruleset bypass允許本人更新測試來源；Environment禁止bypass則保留本人對Secret job的核准，兩者不是同一設定。這是同一管理者核准一次含Secret的job，不需要第二帳號。35題共用該job核准；初始化及另開修正版重測仍須各核准其job。GitHub原生Environment不提供「某SHA永久免審」功能，不能暗中自動approve來假裝沒有此限制。
 - 助理不得代本人approve或bypass pending deployment。未核准的job不會取得Environment Secret。
 - 規則是否允許實際可信自動化寫入，仍需管理員核對。若推送被拒絕，不能以強推或其他帳號繞過。
 
@@ -121,3 +121,5 @@ STOP=1阻擋新批次；正在執行的工作需在Actions Cancel。未知預留
 依組織政策定期（例如90天）輪替測試API Key，在同一Environment更新即可，不需Vercel重建。
 不要連帶覆寫狀態加密Secret；舊帳本仍需它解密。狀態金鑰遷移需核對完整性，不能以新密鑰建立空帳本。
 目前缺少的設定或權限會據實回報；真實35題未執行前，本階段不能標記模型品質已完成。
+
+取檔相容性：repo既有未註冊的`.claude/worktrees` gitlink會令checkout的內建persist=false認證清理失敗。評估入口保留gitlink，取檔後立即以checkout-auth.mjs移除並驗證暫時read token，未成功清除就停止，且在npm／candidate程式及API Secret使用前完成。實際repo副本與合成gitlink測試均確認內容不變、認證已清除，不藉修復放寬權限。

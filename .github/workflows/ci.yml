@@ -49,7 +49,11 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          persist-credentials: false
+          # checkout's persist=false cleanup fails on pre-existing malformed gitlinks.
+          # Clear its temporary read token immediately, before any other script.
+          persist-credentials: true
+      - name: Remove temporary checkout authentication
+        run: node scripts/qa/brand-ai-quality/checkout-auth.mjs
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24

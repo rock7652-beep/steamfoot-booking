@@ -55,7 +55,11 @@ jobs:
         if: steps.ready.outputs.enabled == '1'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          persist-credentials: false
+          persist-credentials: true
+
+      - name: Remove temporary harness checkout authentication
+        if: steps.ready.outputs.enabled == '1'
+        run: node scripts/qa/brand-ai-quality/checkout-auth.mjs
 
       - name: Node
         if: steps.ready.outputs.enabled == '1'
@@ -80,7 +84,11 @@ jobs:
         with:
           ref: ${{ steps.inspect.outputs.sha }}
           path: candidate
-          persist-credentials: false
+          persist-credentials: true
+
+      - name: Remove temporary candidate checkout authentication
+        if: steps.ready.outputs.enabled == '1'
+        run: node scripts/qa/brand-ai-quality/checkout-auth.mjs candidate
 
       - name: Install reviewed dependencies without lifecycle scripts or secrets
         if: steps.ready.outputs.enabled == '1'

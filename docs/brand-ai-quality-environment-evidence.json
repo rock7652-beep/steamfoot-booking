@@ -26,10 +26,15 @@
     "quotaAndCost": "35 cases may reserve70 in one run; shared batch100 / US$1 across SHA and initial70 / retest30; daily100 across test batches; Production quota unchanged",
     "security": "immutable reviewed SHA/corpus; test-specific Secret name; candidate child excludes GitHub and state keys",
     "historySafety": "fixed successful zero-call genesis; reject reruns before inspecting latest jobs; require continuous run numbers; deleted history cannot restore older budget",
-    "focusedTests": 24,
+    "focusedTests": 25,
     "productionQuotaByteIdentical": true,
     "privateReview": "Hybrid encrypted report available without exporting API/checkpoint Secrets; ephemeral recipient private material stays off-repo",
-    "singleOwner": "Only owner Environment reviewer; self-review allowed; no second PR reviewer; no approval/bypass performed by assistant"
+    "singleOwner": "Only owner Environment reviewer; self-review allowed; no second PR reviewer; no approval/bypass performed by assistant",
+    "checkoutCompatibility": {
+      "reproduced": "read-only admission checkout failed during persist=false auth cleanup on existing malformed gitlink",
+      "localFixture": "tracked real-repo status remained clean; auth cleanup succeeded; synthetic gitlink content unchanged",
+      "credentials": "temporary read token removed and verified before any repository script/dependency lifecycle/model execution"
+    }
   },
   "remote": {
     "environmentCreate": "Owner created fixed environment; agent did not bypass original403",
@@ -45,7 +50,9 @@
     "existingProductionSensitiveKey": "not read, exported, moved or changed",
     "workflowEntry": "Existing default-branch ci.yml dispatches reviewed PR ref to reusable workflow; no early main merge required",
     "sourceBranchProtected": "pending owner configuration",
-    "environmentPolicy": "Verified exactly one Branch fix/brand-ai-p0-quality; no Tag or main"
+    "environmentPolicy": "Verified exactly one Branch fix/brand-ai-p0-quality; no Tag or main",
+    "readOnlyAdmissionRun": 46135410422,
+    "readOnlyAdmissionResult": "failed during checkout before any Environment/Secret/model access; local fix validated"
   },
   "remaining": [
     "Owner adds long-lived test Secrets and single-owner source/Environment protections",
