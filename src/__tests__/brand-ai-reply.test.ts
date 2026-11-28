@@ -12,12 +12,14 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   reply: vi.fn(),
   reserve: vi.fn(),
+  claim: vi.fn(),
   release: vi.fn(),
   paused: vi.fn(),
   blocked: vi.fn(),
   token: vi.fn(),
 }));
 vi.mock("@/server/services/brand-ai-quota", () => ({
+  claimLimitedBrandAiReply: mocks.claim,
   reserveBrandAiCall: mocks.reserve,
   releaseBrandAiCall: mocks.release,
 }));
@@ -144,9 +146,11 @@ it.each(BRAND_AI_FAQ)(
     expect(mocks.create).toHaveBeenCalledWith({
       data: { webhookEventId: input.webhookEventId, outcome: "ERROR" },
     });
-    expect(mocks.reply).toHaveBeenCalledExactlyOnceWith(input.replyToken, [
-      { type: "text", text: faq.answer },
-    ]);
+    expect(mocks.reply).toHaveBeenCalledExactlyOnceWith(
+      input.replyToken,
+      [{ type: "text", text: faq.answer }],
+      { format: "native-text" },
+    );
     expect(mocks.update).toHaveBeenLastCalledWith({
       where: { webhookEventId: input.webhookEventId },
       data: { outcome: "ANSWER" },
@@ -191,9 +195,11 @@ it.each([
     .fn<typeof fetch>()
     .mockImplementation(async () => response(choice));
   await handleBrandAiText(input, vi.fn(), { env, transport });
-  expect(mocks.reply).toHaveBeenCalledExactlyOnceWith(input.replyToken, [
-    { type: "text", text: BRAND_AI_HANDOFF },
-  ]);
+  expect(mocks.reply).toHaveBeenCalledExactlyOnceWith(
+    input.replyToken,
+    [{ type: "text", text: BRAND_AI_HANDOFF }],
+    { format: "native-text" },
+  );
   expect(transport).toHaveBeenCalledTimes(1);
 });
 it.each([
@@ -237,9 +243,11 @@ it.each([
     },
     transport,
   });
-  expect(mocks.reply).toHaveBeenCalledExactlyOnceWith(input.replyToken, [
-    { type: "text", text: BRAND_AI_HANDOFF },
-  ]);
+  expect(mocks.reply).toHaveBeenCalledExactlyOnceWith(
+    input.replyToken,
+    [{ type: "text", text: BRAND_AI_HANDOFF }],
+    { format: "native-text" },
+  );
   expect(transport.mock.calls.length).toBe(
     kind === "missing-key" || kind === "bad-model" ? 0 : 1,
   );
@@ -257,9 +265,11 @@ it("enforces 12 seconds even for a fake transport that ignores AbortSignal", asy
   expect(mocks.reply).not.toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(1);
   await task;
-  expect(mocks.reply).toHaveBeenCalledExactlyOnceWith(input.replyToken, [
-    { type: "text", text: BRAND_AI_HANDOFF },
-  ]);
+  expect(mocks.reply).toHaveBeenCalledExactlyOnceWith(
+    input.replyToken,
+    [{ type: "text", text: BRAND_AI_HANDOFF }],
+    { format: "native-text" },
+  );
   expect(transport).toHaveBeenCalledTimes(1);
 });
 it("deduplicates concurrent deliveries before any provider call or reply", async () => {
@@ -388,9 +398,11 @@ it.each(["daily_limit", "concurrent_limit"])(
     await handleBrandAiText(input, vi.fn(), { env, transport });
     expect(transport).not.toHaveBeenCalled();
     expect(mocks.release).not.toHaveBeenCalled();
-    expect(mocks.reply).toHaveBeenCalledExactlyOnceWith(input.replyToken, [
-      { type: "text", text: BRAND_AI_HANDOFF },
-    ]);
+    expect(mocks.reply).toHaveBeenCalledExactlyOnceWith(
+      input.replyToken,
+      [{ type: "text", text: BRAND_AI_HANDOFF }],
+      { format: "native-text" },
+    );
   },
 );
 it("does not start a late OpenAI call after quota approval outlives the 12-second deadline", async () => {
@@ -420,4 +432,32 @@ it("provider defaults closed without a quota/safety callback", async () => {
     transport,
   );
   expect(transport).not.toHaveBeenCalled();
+});
+
+it.each(["-1", "3.5", "", " 7", "9007199254740992"])(
+  "fails closed for invalid reply ceiling %s",
+  async (limit) => {
+    const { input, env } = setup(),
+      transport = success();
+    await handleBrandAiText(input, vi.fn(), {
+      env: { ...env, BRAND_AI_REPLY_LOG_LIMIT: limit },
+      transport,
+    });
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+    expect(mocks.reply).not.toHaveBeenCalled();
+  },
+);
+it("does not send a handoff or call the provider once the absolute claim ceiling is reached", async () => {
+  const { input, env } = setup(),
+    transport = success();
+  mocks.claim.mockResolvedValue(false);
+  await handleBrandAiText(input, vi.fn(), {
+    env: { ...env, BRAND_AI_REPLY_LOG_LIMIT: "7" },
+    transport,
+  });
+  expect(mocks.claim).toHaveBeenCalled();
+  expect(mocks.create).not.toHaveBeenCalled();
+  expect(transport).not.toHaveBeenCalled();
+  expect(mocks.reply).not.toHaveBeenCalled();
 });

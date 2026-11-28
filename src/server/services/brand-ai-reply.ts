@@ -2,7 +2,11 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { replySteamButlerMessage } from "@/lib/line";
 import { selectBrandAiAnswer, type BrandAiEnv } from "./brand-ai-provider";
-import { reserveBrandAiCall, releaseBrandAiCall } from "./brand-ai-quota";
+import {
+  reserveBrandAiCall,
+  releaseBrandAiCall,
+  claimLimitedBrandAiReply,
+} from "./brand-ai-quota";
 import { isSystemLineDeliveryPaused } from "@/lib/line-delivery-pause";
 import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 import { getSteamButlerLineAccessToken } from "@/lib/line-config";
@@ -55,9 +59,30 @@ export async function handleBrandAiText(
   const started = Date.now();
   try {
     // Unique key is the claim. A crash/error never releases it or retries a reply.
-    await database.brandAiReplyLog.create({
-      data: { webhookEventId, outcome: "ERROR" },
-    });
+    const ceiling = env.BRAND_AI_REPLY_LOG_LIMIT;
+    if (ceiling !== undefined) {
+      if (
+        !/^(0|[1-9]\d*)$/.test(ceiling) ||
+        !Number.isSafeInteger(Number(ceiling))
+      ) {
+        log("brand_ai_limit_invalid", { outcome: "ERROR" });
+        return;
+      }
+      if (
+        !(await claimLimitedBrandAiReply(
+          webhookEventId,
+          Number(ceiling),
+          database,
+        ))
+      ) {
+        log("brand_ai_limit_reached", { outcome: "ERROR" });
+        return;
+      }
+    } else {
+      await database.brandAiReplyLog.create({
+        data: { webhookEventId, outcome: "ERROR" },
+      });
+    }
   } catch (error) {
     const duplicate =
       typeof error === "object" &&
@@ -102,9 +127,11 @@ export async function handleBrandAiText(
       log("brand_ai_suppressed", { outcome: "ERROR" });
       return;
     }
-    const reply = await replySteamButlerMessage(input.replyToken!, [
-      { type: "text", text: answer.text },
-    ]);
+    const reply = await replySteamButlerMessage(
+      input.replyToken!,
+      [{ type: "text", text: answer.text }],
+      { format: "native-text" },
+    );
     const outcome = reply.success ? answer.outcome : "ERROR";
     await database.brandAiReplyLog.update({
       where: { webhookEventId },

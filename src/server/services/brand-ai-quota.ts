@@ -2,6 +2,26 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 
+// Optional absolute log ceiling for a bounded whitelist acceptance run.
+// Claims (including failures) are never refunded or reset, even across days.
+export async function claimLimitedBrandAiReply(
+  webhookEventId: string,
+  limit: number,
+  database = prisma,
+) {
+  return database.$transaction(
+    async (tx) => {
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(1598, 20)`;
+      if ((await tx.brandAiReplyLog.count()) >= limit) return false;
+      await tx.brandAiReplyLog.create({
+        data: { webhookEventId, outcome: "ERROR" },
+      });
+      return true;
+    },
+    { isolationLevel: "ReadCommitted", maxWait: 2000, timeout: 5000 },
+  );
+}
+
 // One brand OA, one existing log table. No network I/O inside this transaction.
 export async function reserveBrandAiCall(
   webhookEventId: string,
