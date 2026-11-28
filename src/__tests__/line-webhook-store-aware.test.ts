@@ -1,4 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
+import { BRAND_AI_FAQ } from "@/lib/brand-ai-faq";
+vi.mock("@/server/services/brand-ai-quota", () => ({
+  reserveBrandAiCall: vi.fn(async () => "allowed"), releaseBrandAiCall: vi.fn(async () => undefined),
+}));
+vi.mock("@/lib/line-delivery-pause", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/line-delivery-pause")>(), isSystemLineDeliveryPaused: () => false,
+}));
+vi.mock("@/lib/runtime-env", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/runtime-env")>(), isPreviewExternalIntegrationBlocked: () => false,
+}));
+vi.mock("@/lib/line-config", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/line-config")>(), getSteamButlerLineAccessToken: () => "synthetic",
+}));
 
 const verifyLineSignatureMock = vi.fn(
   (_storeId: string, _body: string, _signature: string) => true,
@@ -62,6 +76,10 @@ let consoleLogSpy: ReturnType<typeof vi.spyOn>;
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 const mockPrisma = {
+  brandAiReplyLog: {
+    create: vi.fn(async () => ({})),
+    update: vi.fn(async () => ({})),
+  },
   store: {
     findMany: vi.fn(),
     findFirst: vi.fn(),
@@ -154,12 +172,14 @@ function brandLogEvents() {
 describe("LINE webhook store-aware signature and reply", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
     consoleLogSpy.mockRestore();
     consoleErrorSpy.mockRestore();
   });
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("BRAND_AI_ENABLED", "");
     mockPrisma.customer.findMany.mockReset();
     mockPrisma.customer.findMany.mockResolvedValue([]);
     mockPrisma.customer.updateMany.mockReset();
@@ -192,6 +212,49 @@ describe("LINE webhook store-aware signature and reply", () => {
     consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
+
+  it.each(["faq", "plan", "human", "image", "outsider", "disabled", "group", "room"])(
+    "routes brand whitelist %s without changing existing fixed or store flows",
+    async (kind) => {
+      const userId = `synthetic-${randomUUID()}`;
+      vi.stubEnv("BRAND_AI_ENABLED", kind === "disabled" ? "" : "1");
+      vi.stubEnv("BRAND_AI_ALLOWED_LINE_USER_IDS", userId);
+      vi.stubEnv("OPENAI_API_KEY", randomUUID());
+      const transport = vi.fn(async () => Response.json({
+        status: "completed",
+        usage: { input_tokens: 100, output_tokens: 10 },
+        output: [{ type: "message", content: [{
+          type: "output_text", text: JSON.stringify({ action: "answer", faqIds: ["Q1"] }),
+        }] }],
+      }));
+      vi.stubGlobal("fetch", transport);
+      verifySteamButlerLineSignatureMock.mockReturnValue(true);
+      const event = {
+        webhookEventId: randomUUID(), type: "message", replyToken: randomUUID(),
+        source: { type: kind === "group" || kind === "room" ? kind : "user", userId: kind === "outsider" ? `synthetic-${randomUUID()}` : userId },
+        message: {
+          type: kind === "image" ? "image" : "text",
+          text: kind === "plan" ? "找到適合方案" : kind === "human" ? "我想了解適合我的方案" : "蒸管家是什麼？",
+        },
+      };
+      const { POST } = await import("@/app/api/line/webhook/route");
+      expect((await POST(postReq({ events: [event] }))).status).toBe(200);
+      expect(replyMessageMock).not.toHaveBeenCalled();
+      if (kind === "faq") {
+        expect(transport).toHaveBeenCalledTimes(1);
+        expect(replySteamButlerMessageMock).toHaveBeenCalledExactlyOnceWith(
+          event.replyToken, [{ type: "text", text: BRAND_AI_FAQ[0].answer }],
+        );
+        expect(mockPrisma.brandAiReplyLog.create).toHaveBeenCalledTimes(1);
+      } else {
+        expect(transport).not.toHaveBeenCalled();
+        expect(mockPrisma.brandAiReplyLog.create).not.toHaveBeenCalled();
+        expect(replySteamButlerMessageMock).toHaveBeenCalledTimes(kind === "plan" ? 1 : 0);
+        if (kind === "plan") expect(replySteamButlerMessageMock.mock.calls[0][1][0]).toMatchObject({ type: "flex" });
+      }
+      expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain(userId);
+    },
+  );
 
   it.each([["linked", "LINE 綁定已完成。"], ["conflict", "目前無法完成綁定，請聯繫門市確認資料。"]] as const)("uses the authorized phone rebind result %s before the old phone workflow", async (status, expected) => {
     completePhoneLineRebindMock.mockResolvedValueOnce(status);

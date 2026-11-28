@@ -44,6 +44,7 @@ import { digitalButlerIntentsToLineMessages } from "@/server/services/digital-bu
 import { handleSessionBalanceLineResponse } from "@/server/services/session-balance-notifications";
 import { createTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
 import { ZHUBEI_EXPERIENCE_BOOKING_URL } from "@/lib/booking-links";
+import { handleBrandAiText } from "@/server/services/brand-ai-reply";
 
 export const dynamic = "force-dynamic";
 
@@ -170,6 +171,15 @@ async function handleSteamButlerEvent(event: LineWebhookEvent) {
 
   if (text !== "找到適合方案") {
     logBrandLineEvent("brand_line_command_ignored");
+    if (text !== "我想了解適合我的方案") {
+      await handleBrandAiText({
+        webhookEventId: event.webhookEventId,
+        userId: event.source?.userId,
+        sourceType: event.source?.type,
+        replyToken: event.replyToken,
+        text,
+      }, logBrandLineEvent);
+    }
     return;
   }
 
