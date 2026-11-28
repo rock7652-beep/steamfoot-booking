@@ -29,7 +29,11 @@ export function inspectBrandAiConfig() {
     .filter(Boolean);
   return {
     enabled: process.env.BRAND_AI_ENABLED === "1",
-    productionMigrationTargetPresent: Boolean(process.env.PRODUCTION_MIGRATION_TARGET),
+    version: process.env.BRAND_AI_VERSION ?? "1",
+    contextStorageRequired: process.env.BRAND_AI_VERSION === "2",
+    productionMigrationTargetPresent: Boolean(
+      process.env.PRODUCTION_MIGRATION_TARGET,
+    ),
     whitelistCount: new Set(ids).size,
     modelAllowed: BRAND_AI_MODELS.includes(
       process.env.BRAND_AI_MODEL || "gpt-6-luna",
@@ -173,7 +177,17 @@ export async function inspectBrandAiDatabase(db: Reader) {
     ).rows;
     const schemaReady =
       required.every((x) => names.includes(x)) &&
-      names.length === required.length &&
+      names.every((name) =>
+        [...required, "knowledgeVersion", "knowledgeIds"].includes(
+          name as string,
+        ),
+      ) &&
+      (["knowledgeVersion", "knowledgeIds"].every((name) =>
+        names.includes(name),
+      ) ||
+        ["knowledgeVersion", "knowledgeIds"].every(
+          (name) => !names.includes(name),
+        )) &&
       columns
         .filter((x) =>
           ["modelStartedAt", "modelLeaseUntil"].includes(
@@ -199,6 +213,48 @@ export async function inspectBrandAiDatabase(db: Reader) {
           [range.start, range.end],
         )
       ).rows[0];
+    }
+    const memoryPresent = (
+      await db.query(
+        `SELECT to_regclass('public."BrandAiConversation"') IS NOT NULL AS present`,
+      )
+    ).rows[0].present;
+    let v2Memory: Row | null = null;
+    if (memoryPresent) {
+      const memoryColumns = (
+        await db.query(
+          `SELECT column_name,udt_name,character_maximum_length,datetime_precision FROM information_schema.columns WHERE table_schema='public' AND table_name='BrandAiConversation'`,
+        )
+      ).rows;
+      v2Memory = (
+        await db.query(`SELECT c.relrowsecurity AS rls,
+        has_table_privilege(current_user,c.oid,'SELECT') AS can_select,
+        has_table_privilege(current_user,c.oid,'INSERT') AS can_insert,
+        has_table_privilege(current_user,c.oid,'UPDATE') AS can_update,
+        has_table_privilege(current_user,c.oid,'DELETE') AS can_delete,
+        NOT EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname IN ('anon','authenticated','service_role') AND has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')) AS private
+        FROM pg_class c WHERE c.oid='public."BrandAiConversation"'::regclass`)
+      ).rows[0];
+      const expectedMemoryTypes: Record<string, string> = {
+        scopeKey: "varchar",
+        sessionId: "uuid",
+        revision: "int4",
+        profile: "jsonb",
+        expiresAt: "timestamptz",
+      };
+      v2Memory!.columns = memoryColumns;
+      v2Memory!.schemaReady =
+        memoryColumns.length === 5 &&
+        memoryColumns.every(
+          (c) => expectedMemoryTypes[c.column_name as string] === c.udt_name,
+        ) &&
+        memoryColumns.some(
+          (c) =>
+            c.column_name === "scopeKey" && c.character_maximum_length === 64,
+        ) &&
+        memoryColumns.some(
+          (c) => c.column_name === "expiresAt" && c.datetime_precision === 3,
+        );
     }
     const ledger = (
       await db.query(
@@ -226,6 +282,23 @@ export async function inspectBrandAiDatabase(db: Reader) {
     return {
       context,
       schemaReady,
+      v2Memory,
+      v2Ready:
+        schemaReady &&
+        names.includes("knowledgeVersion") &&
+        names.includes("knowledgeIds") &&
+        Boolean(
+          v2Memory &&
+            [
+              "rls",
+              "can_select",
+              "can_insert",
+              "can_update",
+              "can_delete",
+              "private",
+              "schemaReady",
+            ].every((key) => v2Memory![key] === true),
+        ),
       columns,
       rights,
       policies,

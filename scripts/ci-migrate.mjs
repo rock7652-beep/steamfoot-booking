@@ -1,3 +1,5 @@
+// V2 is local/CI review only; no hosted writes or deployments authorized.
+if ([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("feat/brand-line-ai-v2")) throw Error("Brand AI V2 review branch cannot deploy or access databases");
 // Fee-list release review uses an isolated local UI preview only.
 // Stop connected build providers before any database work on this branch.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].some(ref=>["feat/course-fee-groups-20261111","feat/course-multi-subject-fees-20261111","fix/course-review-image-build-inputs-20261111"].includes(ref))) {

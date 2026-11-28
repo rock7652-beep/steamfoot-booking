@@ -1,4 +1,10 @@
 import "server-only";
+import {
+  loadBrandMemory,
+  saveBrandMemory,
+  brandMemoryCurrent,
+  type BrandMemory,
+} from "./brand-ai-memory";
 import { prisma } from "@/lib/db";
 import { replySteamButlerMessage } from "@/lib/line";
 import { selectBrandAiAnswer, type BrandAiEnv } from "./brand-ai-provider";
@@ -95,20 +101,28 @@ export async function handleBrandAiText(
     return;
   }
   let reserved = false;
+  let memory: BrandMemory | undefined;
   try {
+    if (env.BRAND_AI_VERSION === "2") {
+      if (!safe()) return;
+      memory = await loadBrandMemory(input.userId!, database);
+    }
     const answer = await selectBrandAiAnswer(
       input.text,
       env,
       transport,
       async () => {
         if (!safe()) return false;
-        const status = await reserveBrandAiCall(webhookEventId, database);
+        const status = memory
+          ? await reserveBrandAiCall(webhookEventId, database, 60_000)
+          : await reserveBrandAiCall(webhookEventId, database);
         reserved = status === "allowed";
         if (!reserved) log("brand_ai_capacity_rejected", { reason: status });
         return reserved && safe();
       },
+      memory?.profile,
     );
-    if (reserved) {
+    if (reserved && !memory) {
       await releaseBrandAiCall(webhookEventId, database);
       reserved = false;
     }
@@ -118,25 +132,35 @@ export async function handleBrandAiText(
       where: { webhookEventId },
       data: {
         faqId: answer.faqId,
+        ...(answer.knowledgeVersion
+          ? {
+              knowledgeVersion: answer.knowledgeVersion,
+              knowledgeIds: answer.knowledgeIds,
+            }
+          : {}),
         inputTokens: answer.inputTokens,
         outputTokens: answer.outputTokens,
         latencyMs,
       },
     });
-    if (!safe()) {
+    if (!safe() || (memory && !(await brandMemoryCurrent(memory, database)))) {
       log("brand_ai_suppressed", { outcome: "ERROR" });
       return;
     }
     const reply = await replySteamButlerMessage(
       input.replyToken!,
       [{ type: "text", text: answer.text }],
-      { format: "native-text" },
+      { format: "native-text", ...(memory ? { timeoutMs: 8000 } : {}) },
     );
     const outcome = reply.success ? answer.outcome : "ERROR";
     await database.brandAiReplyLog.update({
       where: { webhookEventId },
       data: { outcome },
     });
+    if (memory && reply.success && answer.profile && safe()) {
+      const saved = await saveBrandMemory(memory, answer.profile, database);
+      if (!saved) log("brand_ai_memory_stale", { outcome: "ERROR" });
+    }
     log("brand_ai_result", { outcome, faqId: answer.faqId, latencyMs });
   } catch {
     // No exception payloads: SDK/DB/transport errors can contain private inputs.

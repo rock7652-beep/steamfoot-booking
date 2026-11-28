@@ -235,7 +235,7 @@ export async function replyMessage(
 export async function replySteamButlerMessage(
   replyToken: string,
   messages: LineMessage[],
-  options?: { format: "native-text" }
+  options?: { format: "native-text"; timeoutMs?: number }
 ): Promise<LineReplyResult> {
   if (isSystemLineDeliveryPaused()) return { success: false, error: "系統 LINE 發送已全面暫停，須店主確認後才能恢復", httpStatus: null, errorType: "delivery_paused" };
   return replyMessageWithAccessToken(getSteamButlerLineAccessToken(), replyToken, messages, options);
@@ -245,7 +245,7 @@ async function replyMessageWithAccessToken(
   token: string | null,
   replyToken: string,
   messages: LineMessage[],
-  options?: { format: "native-text" }
+  options?: { format: "native-text"; timeoutMs?: number }
 ): Promise<LineReplyResult> {
   try {
     if (isPreviewExternalIntegrationBlocked()) {
@@ -266,6 +266,7 @@ async function replyMessageWithAccessToken(
     }
     const res = await fetch(`${LINE_API_BASE}/message/reply`, {
       method: "POST",
+      ...(options?.timeoutMs ? { signal: AbortSignal.timeout(options.timeoutMs) } : {}),
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,

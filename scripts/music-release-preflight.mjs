@@ -1,3 +1,5 @@
+// V2 is local/CI review only; no hosted writes or deployments authorized.
+if ([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("feat/brand-line-ai-v2")) throw Error("Brand AI V2 review branch cannot deploy or access databases");
 // Read-only release gate. Never applies DDL, imports rows or sends notifications.
 import {fileURLToPath} from 'node:url';
 import {resolve} from 'node:path';
