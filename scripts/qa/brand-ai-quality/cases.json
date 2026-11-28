@@ -114,51 +114,83 @@
   },
   {
     "id": "CS-06",
-    "group": "trial-paraphrases",
-    "question": "可以先試試再決定嗎？",
+    "group": "core-regression",
+    "question": "怎麼試用",
     "sourcesAny": [
       "trial-application",
-      "trial",
-      "subscription"
+      "trial"
     ],
     "focus": [
       "direct",
       "grounded",
       "concise"
     ],
-    "channel": "api"
+    "channel": "api",
+    "prior": {
+      "industry": "beauty",
+      "staffCount": 2,
+      "storeCount": 1,
+      "mode": "appointment",
+      "needs": [
+        "booking"
+      ],
+      "plan": "BASIC",
+      "lastSources": []
+    },
+    "requiredForRelease": true
   },
   {
     "id": "CS-07",
-    "group": "trial-paraphrases",
-    "question": "哪裡填申請表？",
+    "group": "core-regression",
+    "question": "有範例嗎",
     "sourcesAny": [
-      "trial-application",
-      "trial",
-      "subscription"
+      "public-cases",
+      "module-beauty"
     ],
     "focus": [
       "direct",
       "grounded",
       "concise"
     ],
-    "channel": "api"
+    "channel": "api",
+    "prior": {
+      "industry": "beauty",
+      "staffCount": 2,
+      "storeCount": 1,
+      "mode": "appointment",
+      "needs": [
+        "booking"
+      ],
+      "plan": "BASIC",
+      "lastSources": []
+    },
+    "requiredForRelease": true
   },
   {
     "id": "CS-08",
-    "group": "trial-paraphrases",
-    "question": "我要申請帳號，下一步是什麼？",
+    "group": "core-regression",
+    "question": "我想看實體店面的範例",
     "sourcesAny": [
-      "trial-application",
-      "trial",
-      "subscription"
+      "public-cases"
     ],
     "focus": [
       "direct",
       "grounded",
       "concise"
     ],
-    "channel": "api"
+    "channel": "api",
+    "prior": {
+      "industry": "beauty",
+      "staffCount": 2,
+      "storeCount": 1,
+      "mode": "appointment",
+      "needs": [
+        "booking"
+      ],
+      "plan": "BASIC",
+      "lastSources": []
+    },
+    "requiredForRelease": true
   },
   {
     "id": "CS-09",

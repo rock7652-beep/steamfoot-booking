@@ -6,6 +6,7 @@ import {
   closeSync,
   unlinkSync,
   chmodSync,
+  renameSync,
 } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
@@ -16,7 +17,13 @@ import {
   emptyBrandProfile,
   type BrandProfile,
 } from "../../../src/server/services/brand-ai-dialogue";
-import { toLocalDateStr } from "../../../src/lib/date-utils";
+import {
+  canStartEvaluationCase,
+  resultIsIncomplete,
+  HIGH_RISK_CODES,
+  evaluateQualityGate,
+} from "./checkpoint";
+import { dayRange, toLocalDateStr } from "../../../src/lib/date-utils";
 async function main() {
   const file = resolve(dirname(process.argv[1]), "cases.json");
   const cases = JSON.parse(readFileSync(file, "utf8")) as {
@@ -26,11 +33,25 @@ async function main() {
     sourcesAny: string[];
     prior?: BrandProfile;
     focus: string[];
+    requiredForRelease?: boolean;
   }[];
   const fingerprint = createHash("sha256")
     .update(readFileSync(file))
     .digest("hex");
   const arg = (name: string) => process.argv[process.argv.indexOf(name) + 1];
+  if (process.argv.includes("--gate")) {
+    const ledger = JSON.parse(readFileSync(arg("--ledger"), "utf8"));
+    if (ledger.fingerprint !== fingerprint)
+      throw Error("LEDGER_MISMATCH_NO_RESET");
+    const gate = evaluateQualityGate(
+      cases.filter((c) => c.channel === "api"),
+      ledger.results,
+      ledger.calls,
+    );
+    console.log(JSON.stringify(gate));
+    if (!gate.ready) process.exitCode = 2;
+    return;
+  }
   if (!process.argv.includes("--real")) {
     for (const row of cases) {
       const sourceIds = brandKnowledge(
@@ -66,6 +87,7 @@ async function main() {
       external > 20 ||
       !process.argv.includes("--ledger") ||
       !process.env.OPENAI_API_KEY ||
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0" ||
       process.env.BRAND_AI_ENABLED === "1"
     )
       throw Error("EXPLICIT_EVALUATION_BUDGET_AND_AI_OFF_REQUIRED");
@@ -84,6 +106,7 @@ async function main() {
       max: number;
       baselines: Record<string, number>;
       calls: { id: string; attempt: number; day: string }[];
+      haltReason?: string;
       results: {
         id: string;
         route: string;
@@ -94,7 +117,11 @@ async function main() {
         inputTokens: number | null;
         outputTokens: number | null;
         sourceIds: string[];
-        humanReview: "PENDING";
+        state: "FINISHED" | "INCOMPLETE";
+        review: {
+          status: "PENDING" | "PASS" | "FAIL";
+          highRisk: boolean | null;
+        };
         styleFlags: string[];
       }[];
     };
@@ -115,15 +142,46 @@ async function main() {
         external,
       );
       const save = () => {
-        writeFileSync(path, JSON.stringify(ledger, null, 2), { mode: 0o600 });
-        chmodSync(path, 0o600);
+        writeFileSync(path + ".next", JSON.stringify(ledger, null, 2), {
+          mode: 0o600,
+        });
+        chmodSync(path + ".next", 0o600);
+        renameSync(path + ".next", path);
       };
+      // Never repeat a charged case after an interruption or incomplete correction.
+      if (
+        ledger.haltReason ||
+        ledger.results.some(
+          (r) =>
+            r.review?.highRisk === true ||
+            r.codes.some((c) => HIGH_RISK_CODES.has(c)),
+        ) ||
+        ledger.calls.some(
+          (call) => !ledger.results.some((r) => r.id === call.id),
+        ) ||
+        ledger.results.some((r) => r.state !== "FINISHED")
+      ) {
+        ledger.haltReason ??= "INTERRUPTED_OR_INCOMPLETE_REVIEW_REQUIRED";
+        save();
+        throw Error("CHECKPOINT_REQUIRES_REVIEW");
+      }
       save();
       for (const row of cases.filter(
         (item) =>
           item.channel === "api" &&
           !ledger.results.some((r) => r.id === item.id),
       )) {
+        if (
+          !canStartEvaluationCase(
+            ledger.calls,
+            row.id,
+            today,
+            ledger.baselines[today],
+            max,
+            dayRange(today).end.getTime() + 1 - Date.now(),
+          )
+        )
+          break;
         const result = await selectBrandAiAnswer(
           row.question,
           {
@@ -159,7 +217,13 @@ async function main() {
           outputTokens: result.outputTokens,
           sourceIds: result.knowledgeIds ?? [],
           answer: result.text,
-          humanReview: "PENDING",
+          state: resultIsIncomplete(
+            result.diagnostics.attempts,
+            result.diagnostics.failures.map((d) => d.code),
+          )
+            ? "INCOMPLETE"
+            : "FINISHED",
+          review: { status: "PENDING", highRisk: null },
           styleFlags: [
             ...(result.text.length > 150 ? ["LONG_REVIEW_REQUIRED"] : []),
             ...((result.text.match(/[？?]/g) ?? []).length > 1
@@ -167,13 +231,23 @@ async function main() {
               : []),
           ],
         });
+        const last = ledger.results.at(-1)!;
+        if (last.state === "INCOMPLETE")
+          ledger.haltReason = "CORRECTION_INCOMPLETE_REVIEW_REQUIRED";
+        if (last.codes.some((code) => HIGH_RISK_CODES.has(code)))
+          ledger.haltReason = "HIGH_RISK_VALIDATION_STOP";
         save();
+        if (ledger.haltReason) break;
       }
       console.log(
         JSON.stringify({
           mode: "real-private-report",
           callsReserved: ledger.calls.length,
-          completed: ledger.results.length,
+          completed: ledger.results.filter((r) => r.state === "FINISHED")
+            .length,
+          incomplete: ledger.results.filter((r) => r.state === "INCOMPLETE")
+            .length,
+          haltReason: ledger.haltReason ?? null,
           humanQuality: "PENDING",
           lineSends: 0,
         }),
