@@ -1,4 +1,4 @@
-import {cardChargeSettings,courseChargeAllowsProvider} from "@/lib/course-charge-settings";
+import {sportsCardCoachCheck} from "./sports-card-coach";
 import {courseCalendarRead} from './course-calendar-read-scope';
 import {sumItemBalances,type ItemBalance} from "@/lib/item-entitlement";
 import 'server-only';
@@ -8,7 +8,6 @@ import {readCourseSessionDetail} from '@/server/queries/course-session-detail';
 import {resolveSportsEntitlement,sportsBookingEnrollment} from '@/lib/sports-entitlement';
 import {readSportsSessionRule} from './sports-staging-schedule';
 import type {Prisma} from '../../../generated/course-client';
-import {courseChargeSettings} from '@/lib/course-charge-settings';
 
 /** Read-only preview; check-in still selects and debits under the store lock.
  * One batch for every unlinked learner, including shared-card reservations. */
@@ -35,9 +34,9 @@ export async function readSportsRosterBalances(storeId:string,sessionId:string,c
   return [customerId,booking?sportsBookingEnrollment(rule,booking):defaultEnrollment] as const;
  }));
  const cards=calendar?readRows.filter(card=>!!card.expiresAt&&card.expiresAt>=threshold&&card.members.some(member=>!!member.customerId&&ids.includes(member.customerId))):readRows;
+ const allowsCoach=sportsCardCoachCheck(reader,storeId);
  for(const card of cards){
-  const charge=courseChargeSettings.safeParse(cardChargeSettings(card));
-  if(cardChargeSettings(card)!=null&&(!charge.success||!courseChargeAllowsProvider(charge.data,session.coachId)))continue;
+  if(!await allowsCoach(card,session))continue;
   if(card.termSessionIds.length&&!card.termSessionIds.includes(session.id))continue;
   const available=Math.max(0,card.remaining-card.bookings.reduce((n,b)=>n+b.pointCost,0));
   for(const member of card.members){
