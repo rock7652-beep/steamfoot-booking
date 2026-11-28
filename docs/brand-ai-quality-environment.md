@@ -69,6 +69,7 @@ Actions runner 的本機檔案不耐久，既有 `.lock` 和 `rename` 不能單�
   即使 runner 被強制終止、`always()` 未執行，已持久化的預留仍占額；不是依賴結尾上傳才計費。
 - 每次呼叫本機仍先記錄，最終保存實際結果。未知預留不自動退款；中斷或缺檔就停止對帳，不能退回較舊版本或從零開始。
 - 下一次工作必須辨識最新 reservation／result 序列、驗證完整性及 SHA；artifact 被刪除、過期或解密失敗即拒絕續跑。
+- 初始 run ID 由管理員一次固定；每次確認該 run 與其後連續執行編號。整筆 run 被誤刪、重跑，或最新 attempt 隱藏原消耗紀錄，也一律停止，不能掉回較舊帳本。不得清除這條流程的 run 歷史來「修復」額度。
 - 明確保存期限（建議 90 天）與刪除前的核對程序；本方案不是無期限帳本系統。保存期限屆滿不能被解讀為額度重置。
 - 分批只續跑未啟動題目。跨日依共用台灣日期函式計算；修正呼叫也占每日與整批上限。
 - 預算不足、驗證高風險、Key 異常、狀態不明均停止。既有 `generated`、`repaired`、`knowledge_fallback`、`uncertain` 分開統計。
@@ -121,8 +122,8 @@ OpenAI Project budget alert 不是硬性停止。未來新增模型或額外 jud
 1. [GitHub Environments](https://github.com/rock7652-beep/steamfoot-booking/settings/environments)：建立 `steamfoot-ai-quality`。`Deployment branches and tags` 選 Selected，只允許 branch `main`，不允許 tag／其他分支。不要沿用六個含正式部署用途的現有 Environment。
 2. [分支規則](https://github.com/rock7652-beep/steamfoot-booking/settings/rules)：保護 main，要求經 PR 審查後才修改 workflow／核准清單，禁止未授權直接推送、強推與刪除；管理員核對實際 bypass 權限與審查規則。程式的 protected 檢查只是最低擋板，不能替代此設定核對。
 3. OpenAI：在前述測試專案核對 Key 確實不屬於正式專案。能從原安全管理處綁定就沿用；不能取回的 Vercel Sensitive 不抽取。必要時一次建立長期測試 Restricted Key，僅 Responses Write、核准模型，保存於同一固定 Environment 的 `AI_QUALITY_OPENAI_API_KEY`。
-4. 同一 Environment 加 `AI_QUALITY_STATE_KEY`：64 個十六進位字元，保存於管理員的安全管理處；不是另一把 API Key。只能在私有裝置／安全設定介面產生、輸入，不放公開 workflow log。不要逕自覆蓋此 Key，既有 checkpoint 仍需它解密；API Key 輪替不需要改它。
-5. Environment variables：`AI_QUALITY_READY=0`、`AI_QUALITY_STOP=1` 為預設。入口安裝、設定與核准版本確認後，才改成 READY=1、STOP=0。每輪不再建立 Environment／Key。下一日只跑同一批未啟動題目，不要求每日批准。
+4. 同一 Environment 加 `AI_QUALITY_STATE_KEY`：在本人的私有終端執行 `openssl rand -hex 32` 產生 64 個十六進位字元，保存於安全管理處並填入 Secret Value；不是另一把 API Key。不要在 GitHub Actions 執行這條產生指令或把結果貼入對話。不要逕自覆蓋此 Key，既有 checkpoint 仍需它解密；API Key 輪替不需要改它。
+5. Environment variables：`AI_QUALITY_READY=0`、`AI_QUALITY_STOP=1` 為預設。入口安裝後，在 [Shared AI quality](https://github.com/rock7652-beep/steamfoot-booking/actions/workflows/ai-quality.yml) 選 main、mode=initialize，執行一次零模型呼叫初始化。成功後把該 run 網址最後的數字存為 Environment variable `AI_QUALITY_GENESIS_RUN_ID`，才改成 READY=1、STOP=0。這是固定初始紀錄，不是每輪建立場次；之後不用每日批准或再次初始化。
 6. 停止新批次：把 `AI_QUALITY_STOP=1`；已在執行的工作需在 Actions 按 Cancel；緊急憑證疑慮可撤銷測試 Key。不能只改 STOP 就宣稱已中止正在進行的請求，未知預留仍保留。
 
 Secrets 與變數只存在於此測試 Environment，不能使用 repo-wide 正式 Key，也不能設定為可讓任意 PR 取得。

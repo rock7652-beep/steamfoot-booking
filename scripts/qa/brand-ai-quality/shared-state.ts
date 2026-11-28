@@ -20,6 +20,7 @@ export type Ledger = {
 };
 export type SharedState = {
   version: 1;
+  genesisRun?: string;
   lastRun: string | null;
   days: Record<string, number>;
   campaigns: Record<string, {
@@ -43,6 +44,21 @@ export const blankState = (): SharedState => ({
 });
 export const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const grantHash = (grant: Campaign) => digest(JSON.stringify(grant));
+export function requireOriginalRun(run: { status: string; run_attempt: number }) {
+  if (run.status !== "completed") throw Error("OTHER_RUN_NOT_COMPLETE");
+  // Check BEFORE inspecting latest-attempt jobs: a rejected rerun must not hide
+  // a previous attempt that already consumed a durable reservation.
+  if (run.run_attempt !== 1) throw Error("PREVIOUS_RUN_REPLAY_REQUIRES_REVIEW");
+}
+export function requireContinuousHistory(genesis: number, current: number, numbers: number[]) {
+  if (!Number.isInteger(genesis) || !Number.isInteger(current) || current < genesis ||
+      current - genesis > 10000 || numbers.some((n) => n > current))
+    throw Error("RUN_HISTORY_NOT_STABLE");
+  const present = new Set(numbers);
+  for (let n = genesis; n <= current; n++) {
+    if (!present.has(n)) throw Error("RUN_HISTORY_GAP_NO_ROLLBACK");
+  }
+}
 function keyBytes(key: string) {
   if (!/^[0-9a-f]{64}$/i.test(key)) throw Error("STATE_KEY_FORMAT");
   return Buffer.from(key, "hex");

@@ -3,6 +3,12 @@ name: Shared AI quality
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: initialize once with READY=0 and STOP=1; evaluate reuses the fixed state
+        required: true
+        type: choice
+        options: [evaluate, initialize]
+        default: evaluate
       campaign:
         description: Reviewed campaign ID; blank uses the approved active campaign
         required: false
@@ -28,6 +34,8 @@ jobs:
     env:
       BRAND_AI_ENABLED: '0'
       AI_QUALITY_CAMPAIGN: ${{ inputs.campaign }}
+      AI_QUALITY_MODE: ${{ inputs.mode || 'evaluate' }}
+      AI_QUALITY_GENESIS_RUN_ID: ${{ vars.AI_QUALITY_GENESIS_RUN_ID }}
     steps:
       - name: Ready and stop controls
         id: ready
@@ -35,7 +43,8 @@ jobs:
           READY: ${{ vars.AI_QUALITY_READY }}
           STOP: ${{ vars.AI_QUALITY_STOP }}
         run: |
-          if [ "$READY" = '1' ] && [ "$STOP" = '0' ]; then
+          if { [ "$READY" = '1' ] && [ "$STOP" = '0' ] && [ "$AI_QUALITY_MODE" = 'evaluate' ]; } ||
+             { [ "$READY" = '0' ] && [ "$STOP" = '1' ] && [ "$AI_QUALITY_MODE" = 'initialize' ]; }; then
             echo 'enabled=1' >> "$GITHUB_OUTPUT"
           else
             echo 'AI quality disabled; no model calls.'

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { blankState, reserveBatch, finishBatch, seal, unseal, digest,
+  requireOriginalRun, requireContinuousHistory,
   type Campaign, type Ledger } from "../../scripts/qa/brand-ai-quality/shared-state";
 import { toLocalDateStr } from "../lib/date-utils";
 
@@ -19,6 +20,19 @@ const ledger = (count: number, day = "2026-11-28", offset = 0): Ledger => ({
   results: Array.from({ length: count }, (_, n) => ({ id: `case-${n + offset}`, state: "FINISHED", codes: [] })),
 });
 describe("durable quality reservations", () => {
+  it("rejects a rerun before latest-attempt skipped jobs can hide the original consumption", () => {
+    expect(() => requireOriginalRun({ status: "completed", run_attempt: 2 })).toThrow("REPLAY");
+    expect(() => requireOriginalRun({ status: "queued", run_attempt: 1 })).toThrow("NOT_COMPLETE");
+    expect(() => requireOriginalRun({ status: "completed", run_attempt: 1 })).not.toThrow();
+    expect(() => requireContinuousHistory(1, 4, [1, 2, 4])).toThrow("HISTORY_GAP");
+    expect(() => requireContinuousHistory(1, 4, [1, 2, 3, 4, 5])).toThrow("NOT_STABLE");
+    expect(() => requireContinuousHistory(1, 4, [4, 3, 2, 1])).not.toThrow();
+    const workflowSource = readFileSync("scripts/qa/brand-ai-quality/shared-runner.ts", "utf8");
+    expect(workflowSource).toContain("CHECKPOINT_HISTORY_MISSING_NO_RESET");
+    expect(workflowSource).not.toContain("runs.length < 100) return blankState()");
+    expect(workflowSource.indexOf("requireOriginalRun(prior)")).toBeLessThan(
+      workflowSource.indexOf("const eligible ="));
+  });
   it("persists a worst-case allowance before calls and refuses a second runner after a crash", () => {
     const batch = reserveBatch(blankState(), grant, "1", "2026-11-28", 60000);
     expect(batch.lease?.calls).toBe(20);

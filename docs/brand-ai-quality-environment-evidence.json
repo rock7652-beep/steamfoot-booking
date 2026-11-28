@@ -11,19 +11,20 @@
     "regression": {
       "filesPassed": 13,
       "filesSkipped": 2,
-      "passed": 217,
+      "passed": 218,
       "skipped": 30,
       "skipReason": "Existing opt-in PostgreSQL suites not run in this infrastructure-only verification"
     },
     "independentMainBootstrap": {
-      "newTestsPassed": 12,
+      "newTestsPassed": 13,
       "productP0Merged": false,
       "approvedCandidateOfflineRetrievalCases": 40,
       "modelQuality": "NOT_EVALUATED"
     },
     "twoProcesses": "AES checkpoint transferred; unknown reservation rejected by second process",
     "quotaAndCost": "daily20 across PRs, concurrency1, two-call case reservation, unknown retained",
-    "security": "immutable reviewed SHA/corpus; test-specific Secret name; candidate child excludes GitHub and state keys"
+    "security": "immutable reviewed SHA/corpus; test-specific Secret name; candidate child excludes GitHub and state keys",
+    "historySafety": "fixed successful zero-call genesis; reject reruns before inspecting latest jobs; require continuous run numbers; deleted history cannot restore older budget"
   },
   "remote": {
     "environmentCreate": "HTTP403 integration lacks administration permission; no alternate route attempted",
@@ -39,7 +40,7 @@
     "existingProductionSensitiveKey": "not read, exported, moved or changed"
   },
   "remaining": [
-    "Owner creates fixed Environment and protects reviewed main",
+    "Owner creates fixed Environment and protects reviewed main; after zero-call initialization records AI_QUALITY_GENESIS_RUN_ID once",
     "Owner binds long-lived Preview-only API Secret and state encryption Secret",
     "Review/install infrastructure-only bootstrap without prematurely merging P0 product; resolve main auto-build side effects before publication",
     "After readiness: real GitHub artifact/resume and API quality verification; local fake results are not model quality"

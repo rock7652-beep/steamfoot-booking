@@ -4,7 +4,8 @@ import { dirname, resolve } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { dayRange, toLocalDateStr } from "../../../src/lib/date-utils";
 import { blankState, digest, seal, unseal, reserveBatch, finishBatch,
-  validateGrant, type Campaign, type SharedState, type Ledger } from "./shared-state";
+  validateGrant, requireOriginalRun, requireContinuousHistory,
+  type Campaign, type SharedState, type Ledger } from "./shared-state";
 
 const workflowPath = ".github/workflows/ai-quality.yml";
 const root = resolve(dirname(process.argv[1]), "..", "..", "..");
@@ -47,21 +48,33 @@ function runtime() {
 }
 async function previousState(key: string): Promise<SharedState> {
   const run = await api(`actions/runs/${env("GITHUB_RUN_ID")}`);
-  // Find the preceding real execution, ignoring jobs skipped before reservation.
-  // An overlapping/newer execution is never treated as a fresh daily allowance.
+  const genesisId = env("AI_QUALITY_GENESIS_RUN_ID");
+  if (!/^\d+$/.test(genesisId)) throw Error("GENESIS_RUN_REQUIRED");
+  const genesis = await api(`actions/runs/${genesisId}`);
+  requireOriginalRun(genesis as { status: string; run_attempt: number });
+  if (genesis.workflow_id !== run.workflow_id || genesis.head_branch !== "main" ||
+      genesis.conclusion !== "success") throw Error("GENESIS_NOT_VERIFIED");
+  type Run = { id: number; status: string; run_attempt: number; run_number: number };
+  const history: Run[] = [];
+  // A deleted entire run must not make an older checkpoint look current.
   for (let page = 1; page <= 100; page++) {
     const data = await api(`actions/workflows/${run.workflow_id}/runs?per_page=100&page=${page}`);
-    const runs = data.workflow_runs as { id: number; status: string; run_attempt: number }[];
-    for (const prior of runs) {
+    const runs = data.workflow_runs as Run[];
+    history.push(...runs.filter((row) => row.run_number >= Number(genesis.run_number)));
+    if (runs.length < 100 || runs.some((row) => row.run_number <= Number(genesis.run_number))) break;
+    if (page === 100) throw Error("RUN_HISTORY_INCOMPLETE_NO_BOOTSTRAP");
+  }
+  requireContinuousHistory(Number(genesis.run_number), Number(run.run_number),
+    history.map((row) => row.run_number));
+  for (const prior of history.sort((a, b) => b.run_number - a.run_number)) {
       if (String(prior.id) === env("GITHUB_RUN_ID")) continue;
-      if (prior.status !== "completed") throw Error("OTHER_RUN_NOT_COMPLETE");
+      requireOriginalRun(prior);
       const jobs = await api(`actions/runs/${prior.id}/jobs?per_page=100`);
       const eligible = (jobs.jobs as { steps?: { name: string; conclusion: string; started_at?: string }[] }[])
         .some((job) => job.steps?.some((step) =>
           (step.name === "Persist reservation" && step.conclusion === "success") ||
           (step.name === "Model evaluation" && step.conclusion !== "skipped" && step.started_at)));
       if (!eligible) continue;
-      if (prior.run_attempt !== 1) throw Error("PREVIOUS_RUN_REPLAY_REQUIRES_REVIEW");
       const listing = await api(`actions/runs/${prior.id}/artifacts?per_page=100`);
       if (Number(listing.total_count) > 100) throw Error("ARTIFACT_LIST_INCOMPLETE");
       const artifacts = listing.artifacts as { id: number; name: string; expired: boolean }[];
@@ -84,17 +97,19 @@ async function previousState(key: string): Promise<SharedState> {
       if (names !== "state.enc") throw Error("ARTIFACT_CONTENT_REJECTED");
       const text = execFileSync("unzip", ["-p", zip, "state.enc"], { encoding: "utf8", maxBuffer: 20_000_000 });
       const state = unseal(text, key, context);
-      if (state.lastRun !== String(prior.id)) throw Error("CHECKPOINT_RUN_MISMATCH");
+      if (state.lastRun !== String(prior.id) || state.genesisRun !== genesisId)
+        throw Error("CHECKPOINT_RUN_MISMATCH");
       return state;
-    }
-    if (runs.length < 100) return blankState();
   }
-  throw Error("RUN_HISTORY_INCOMPLETE_NO_BOOTSTRAP");
+  throw Error("CHECKPOINT_HISTORY_MISSING_NO_RESET");
 }
 async function main() {
   runtime();
   const grant = campaign();
   const command = process.argv[2];
+  const initialize = process.env.AI_QUALITY_MODE === "initialize";
+  if (initialize && (process.env.GITHUB_EVENT_NAME !== "workflow_dispatch" ||
+      process.env.AI_QUALITY_GENESIS_RUN_ID)) throw Error("GENESIS_ALREADY_CONFIGURED");
   mkdirSync(temporary, { recursive: true, mode: 0o700 });
   if (command === "inspect") {
     const branch = await api("branches/main");
@@ -103,7 +118,7 @@ async function main() {
     return;
   }
   if (command === "precheck") {
-    env("OPENAI_API_KEY");
+    if (!initialize) env("OPENAI_API_KEY");
     seal(blankState(), env("AI_QUALITY_STATE_KEY"), context);
     const target = resolve(root, "candidate");
     if (execFileSync("git", ["-C", target, "rev-parse", "HEAD"], { encoding: "utf8" }).trim() !== grant.sha ||
@@ -113,6 +128,14 @@ async function main() {
   }
   if (command === "prepare") {
     const key = env("AI_QUALITY_STATE_KEY");
+    if (initialize) {
+      const state = blankState();
+      state.genesisRun = state.lastRun = env("GITHUB_RUN_ID");
+      privateWrite(privateState, state);
+      writeFileSync(encrypted, seal(state, key, context), { mode: 0o600 });
+      appendFileSync(env("GITHUB_OUTPUT"), "calls=0\n");
+      return;
+    }
     const state = await previousState(key);
     const day = toLocalDateStr();
     const batch = reserveBatch(state, grant, env("GITHUB_RUN_ID"), day,
@@ -156,7 +179,7 @@ async function main() {
       finished = finishBatch(state, grant, env("GITHUB_RUN_ID"), ledger);
     }
     writeFileSync(encrypted, seal(finished, env("AI_QUALITY_STATE_KEY"), context), { mode: 0o600 });
-    const c = finished.campaigns[grant.id];
+    const c = finished.campaigns[grant.id] ?? { calls: 0, micros: 0, ledger: null, halt: undefined };
     console.log(JSON.stringify({ campaign: grant.id, reservedOrChargedCalls: c.calls,
       ledgerRecordedAttempts: c.ledger?.calls.length ?? 0,
       conservativeMicros: c.micros, unresolvedReservation: Boolean(finished.lease),
