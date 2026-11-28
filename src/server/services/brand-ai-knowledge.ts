@@ -109,12 +109,7 @@ export function brandKnowledge(query: string, now = Date.now()) {
     ),
     ...PUBLIC_MARKETING_FAQ.flatMap((group, g) =>
       group.questions.map((faq, i) =>
-        source(
-          `faq-${g}-${i}`,
-          faq.question,
-          "/pricing#faq",
-          faq.answers.join("\n"),
-        ),
+        source(`faq-${g}-${i}`, faq.question, "/#faq", faq.answers.join("\n")),
       ),
     ),
     ...PUBLIC_ADDON_GROUPS.flatMap((group, i) =>

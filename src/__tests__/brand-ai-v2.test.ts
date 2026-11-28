@@ -216,3 +216,12 @@ it("does not mistake numbered multi-question formatting for an unsupported factu
   );
   expect(result).toMatchObject({ outcome: "ANSWER", text: choice.answer });
 });
+
+it("links public FAQ facts to the actual homepage FAQ section", () => {
+  const data = brandKnowledge("已經有官方LINE，可以接著使用嗎？");
+  const faqs = data.sources.filter((source) => source.id.startsWith("faq-"));
+  expect(faqs.length).toBeGreaterThan(0);
+  expect(
+    faqs.every((source) => source.url === "https://www.steamfoot.com/#faq"),
+  ).toBe(true);
+});
