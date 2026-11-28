@@ -436,3 +436,155 @@ it.skipIf(!enabled)(
     expect(await claimLimitedBrandAiReply(randomUUID(), 3, a)).toBe(false);
   },
 );
+
+it.skipIf(!enabled)(
+  "counts the correction as a second call but keeps one reply claim",
+  async () => {
+    const id = randomUUID();
+    expect(await claimLimitedBrandAiReply(id, 1, a)).toBe(true);
+    expect(await reserveBrandAiCall(id, a, 60000, 1, 2)).toBe("allowed");
+    expect(await reserveBrandAiCall(id, b, 60000, 2, 2)).toBe("allowed");
+    expect(await reserveBrandAiCall(id, a, 60000, 2, 2)).toBe(
+      "absolute_call_limit",
+    );
+    await releaseBrandAiCall(id, a);
+    expect(await a.brandAiReplyLog.count()).toBe(1);
+    const row = await a.brandAiReplyLog.findUniqueOrThrow({
+      where: { webhookEventId: id },
+    });
+    expect(row.modelStartedAt).not.toBeNull();
+    expect(row.repairStartedAt).not.toBeNull();
+    expect(await claimLimitedBrandAiReply(randomUUID(), 1, b)).toBe(false);
+  },
+);
+it.skipIf(!enabled)(
+  "serializes competing corrections on the last absolute call slot",
+  async () => {
+    const id = randomUUID();
+    await claimLimitedBrandAiReply(id, 1, a);
+    await reserveBrandAiCall(id, a, 60000, 1, 2);
+    const results = await Promise.all([
+      reserveBrandAiCall(id, a, 60000, 2, 2),
+      reserveBrandAiCall(id, b, 60000, 2, 2),
+    ]);
+    expect(results.sort()).toEqual(["absolute_call_limit", "allowed"]);
+  },
+);
+it.skipIf(!enabled)(
+  "does not allow a correction after its owned concurrency lease expires",
+  async () => {
+    const id = randomUUID();
+    await claimLimitedBrandAiReply(id, 1, a);
+    await reserveBrandAiCall(id, a, 60000, 1, 2);
+    await fixture.admin.query(
+      'UPDATE "BrandAiReplyLog" SET "modelLeaseUntil"=clock_timestamp()-interval \'1 second\'',
+    );
+    expect(await reserveBrandAiCall(id, b, 60000, 2, 2)).toBe(
+      "already_reserved",
+    );
+    expect(
+      (
+        await a.brandAiReplyLog.findUniqueOrThrow({
+          where: { webhookEventId: id },
+        })
+      ).repairStartedAt,
+    ).toBeNull();
+  },
+);
+it.skipIf(!enabled)(
+  "counts yesterday's first call and today's correction on their own business days",
+  async () => {
+    const id = randomUUID();
+    await claimLimitedBrandAiReply(id, 30, a);
+    await fixture.admin.query(
+      'UPDATE "BrandAiReplyLog" SET "modelStartedAt"=clock_timestamp()-interval \'2 days\',"repairStartedAt"=clock_timestamp()',
+    );
+    const range = dayRange(toLocalDateStr());
+    for (let i = 0; i < 19; i++)
+      await fixture.admin.query(
+        'INSERT INTO "BrandAiReplyLog"("webhookEventId","modelStartedAt") VALUES($1,$2)',
+        [randomUUID(), range.start],
+      );
+    const next = randomUUID();
+    await claimLimitedBrandAiReply(next, 30, b);
+    expect(await reserveBrandAiCall(next, b, 60000, 1, 30)).toBe("daily_limit");
+  },
+);
+it.skipIf(!enabled)(
+  "rolls back a failed correction reservation without releasing its first call",
+  async () => {
+    const id = randomUUID();
+    await claimLimitedBrandAiReply(id, 1, a);
+    await reserveBrandAiCall(id, a, 60000, 1, 2);
+    await fixture.admin
+      .query(`CREATE FUNCTION fail_p0_correction() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW."repairStartedAt" IS NOT NULL THEN RAISE EXCEPTION 'synthetic'; END IF; RETURN NEW; END $$;
+    CREATE TRIGGER fail_p0_correction BEFORE UPDATE ON "BrandAiReplyLog" FOR EACH ROW EXECUTE FUNCTION fail_p0_correction()`);
+    try {
+      await expect(reserveBrandAiCall(id, b, 60000, 2, 2)).rejects.toThrow();
+    } finally {
+      await fixture.admin.query(
+        'DROP TRIGGER fail_p0_correction ON "BrandAiReplyLog"; DROP FUNCTION fail_p0_correction()',
+      );
+    }
+    const row = await a.brandAiReplyLog.findUniqueOrThrow({
+      where: { webhookEventId: id },
+    });
+    expect(row.modelStartedAt).not.toBeNull();
+    expect(row.repairStartedAt).toBeNull();
+  },
+);
+
+it.skipIf(!enabled)(
+  "P0 rollback is pristine-only and retains registered or active diagnostics",
+  async () => {
+    const probe = await brandLineLocalPostgres();
+    const rollback = readFileSync(
+      "scripts/sql/brand-line-ai/p0-rollback.proposed.sql",
+      "utf8",
+    );
+    const install = readFileSync(
+      "prisma/migrations/20261128073000_brand_ai_p0_diagnostics/migration.sql",
+      "utf8",
+    );
+    try {
+      await probe.admin.query(rollback);
+      expect(
+        (
+          await probe.admin.query(
+            `SELECT count(*)::int AS n FROM information_schema.columns WHERE table_name='BrandAiReplyLog' AND column_name IN('repairStartedAt','diagnostics')`,
+          )
+        ).rows[0].n,
+      ).toBe(0);
+      await probe.admin.query(install);
+      await probe.admin.query(
+        'CREATE TABLE "_prisma_migrations"(migration_name text)',
+      );
+      await probe.admin.query('INSERT INTO "_prisma_migrations" VALUES($1)', [
+        "20261128073000_brand_ai_p0_diagnostics",
+      ]);
+      await expect(probe.admin.query(rollback)).rejects.toThrow(
+        "P0_REGISTERED_RETAIN_SCHEMA",
+      );
+      await probe.admin.query("ROLLBACK");
+      await probe.admin.query('DROP TABLE "_prisma_migrations"');
+      await probe.admin.query(
+        'INSERT INTO "BrandAiReplyLog"("webhookEventId",diagnostics) VALUES($1,$2)',
+        [randomUUID(), { attempts: 0, route: "uncertain", failures: [] }],
+      );
+      await expect(probe.admin.query(rollback)).rejects.toThrow(
+        "P0_ACTIVITY_RETAIN_AUDIT",
+      );
+      await probe.admin.query("ROLLBACK");
+      expect(
+        (
+          await probe.admin.query(
+            'SELECT count(*)::int AS n FROM "BrandAiReplyLog"',
+          )
+        ).rows[0].n,
+      ).toBe(1);
+    } finally {
+      await probe.close();
+    }
+  },
+  30000,
+);

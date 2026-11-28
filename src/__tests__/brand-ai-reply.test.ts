@@ -153,7 +153,14 @@ it.each(BRAND_AI_FAQ)(
     );
     expect(mocks.update).toHaveBeenLastCalledWith({
       where: { webhookEventId: input.webhookEventId },
-      data: { outcome: "ANSWER" },
+      data: expect.objectContaining({
+        outcome: "ANSWER",
+        diagnostics: expect.objectContaining({
+          attempts: 1,
+          model: "gpt-6-luna",
+          route: "generated",
+        }),
+      }),
     });
     const saved = JSON.stringify([
       mocks.create.mock.calls,
@@ -253,7 +260,9 @@ it.each([
   );
   expect(JSON.stringify(log.mock.calls)).not.toContain(input.text);
   expect(mocks.update).toHaveBeenLastCalledWith(
-    expect.objectContaining({ data: { outcome: "ERROR" } }),
+    expect.objectContaining({
+      data: expect.objectContaining({ outcome: "ERROR" }),
+    }),
   );
 });
 it("enforces 12 seconds even for a fake transport that ignores AbortSignal", async () => {
@@ -316,7 +325,9 @@ it.each(["failure", "throw"])(
     expect(mocks.create).toHaveBeenCalledTimes(1);
     if (kind === "failure")
       expect(mocks.update).toHaveBeenLastCalledWith(
-        expect.objectContaining({ data: { outcome: "ERROR" } }),
+        expect.objectContaining({
+          data: expect.objectContaining({ outcome: "ERROR" }),
+        }),
       );
   },
 );

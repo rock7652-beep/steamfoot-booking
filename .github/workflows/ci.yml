@@ -13,16 +13,73 @@ on:
       - reopened
       - ready_for_review
   workflow_dispatch:
+    inputs:
+      ai_quality:
+        description: Run the reviewed AI quality workflow instead of normal CI
+        type: boolean
+        default: false
+      quality_mode:
+        description: preflight has no Environment, secrets, model calls or deployments
+        type: choice
+        options: [preflight, initialize, evaluate]
+        default: preflight
+      campaign:
+        description: Reviewed campaign ID; blank uses the active campaign
+        type: string
+        required: false
+      review_public_key:
+        description: Optional public recipient for encrypted private quality review
+        type: string
+        required: false
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ inputs.ai_quality && 'ai-quality-dispatch' || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ inputs.ai_quality != true }}
 
 jobs:
+  ai-quality-admission:
+    if: github.event_name == 'workflow_dispatch' && inputs.ai_quality == true && github.repository == 'rock7652-beep/steamfoot-booking'
+    name: AI quality read-only admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # checkout's persist=false cleanup fails on pre-existing malformed gitlinks.
+          # Clear its temporary read token immediately, before any other script.
+          persist-credentials: true
+      - name: Remove temporary checkout authentication
+        run: node scripts/qa/brand-ai-quality/checkout-auth.mjs
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts --no-audit
+      - name: Existing environment metadata only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api repos/rock7652-beep/steamfoot-booking/environments/steamfoot-ai-quality --jq '{name,deployment_branch_policy}'
+      - name: Verify reviewed source protection and campaign
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRAND_AI_ENABLED: '0'
+          AI_QUALITY_CAMPAIGN: ${{ inputs.campaign }}
+        run: node --conditions=react-server --import tsx scripts/qa/brand-ai-quality/shared-runner.ts inspect
+
+  ai-quality:
+    if: github.event_name == 'workflow_dispatch' && inputs.ai_quality == true && inputs.quality_mode != 'preflight'
+    needs: ai-quality-admission
+    uses: ./.github/workflows/ai-quality.yml
+    with:
+      mode: ${{ inputs.quality_mode }}
+      campaign: ${{ inputs.campaign }}
+      review_public_key: ${{ inputs.review_public_key }}
+
   changed-lint:
+    if: inputs.ai_quality != true
     name: Changed-file ESLint
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -69,6 +126,7 @@ jobs:
           npx eslint "${files[@]}"
 
   targeted-tests:
+    if: inputs.ai_quality != true
     name: Targeted tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -169,6 +227,7 @@ jobs:
           src/__tests__/beauty-transactions.test.ts
 
   typecheck:
+    if: inputs.ai_quality != true
     name: Typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -194,6 +253,7 @@ jobs:
         run: npx tsc --noEmit
 
   full-vitest-baseline:
+    if: inputs.ai_quality != true
     name: Full Vitest baseline
     runs-on: ubuntu-latest
     timeout-minutes: 30

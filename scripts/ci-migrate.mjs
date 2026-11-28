@@ -1,3 +1,7 @@
+// P0 review remains local/CI until its exact migration and release are approved.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("fix/brand-ai-p0-quality")) {
+  throw Error("Brand AI P0 review cannot deploy or access databases");
+}
 // Communication-framework review is local/CI only until a release is approved.
 if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/ai-customer-service-framework")) {
   throw Error("AI customer service review branch cannot deploy or access databases");

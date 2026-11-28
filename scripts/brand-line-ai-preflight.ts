@@ -35,6 +35,9 @@ export function inspectBrandAiConfig() {
       process.env.PRODUCTION_MIGRATION_TARGET,
     ),
     whitelistCount: new Set(ids).size,
+    model: BRAND_AI_MODELS.includes(process.env.BRAND_AI_MODEL || "gpt-6-luna")
+      ? process.env.BRAND_AI_MODEL || "gpt-6-luna"
+      : "invalid",
     modelAllowed: BRAND_AI_MODELS.includes(
       process.env.BRAND_AI_MODEL || "gpt-6-luna",
     ),
@@ -175,12 +178,32 @@ export async function inspectBrandAiDatabase(db: Reader) {
         `SELECT indexname FROM pg_indexes WHERE schemaname='public' AND tablename='BrandAiReplyLog'`,
       )
     ).rows;
+    const p0Columns =
+      names.includes("repairStartedAt") && names.includes("diagnostics");
+    const p0Ready =
+      p0Columns &&
+      columns.some(
+        (x) => x.column_name === "diagnostics" && x.udt_name === "jsonb",
+      ) &&
+      indexes.some(
+        (x) => x.indexname === "BrandAiReplyLog_repairStartedAt_idx",
+      );
     const schemaReady =
       required.every((x) => names.includes(x)) &&
+      (["repairStartedAt", "diagnostics"].every((name) =>
+        names.includes(name),
+      ) ||
+        ["repairStartedAt", "diagnostics"].every(
+          (name) => !names.includes(name),
+        )) &&
       names.every((name) =>
-        [...required, "knowledgeVersion", "knowledgeIds"].includes(
-          name as string,
-        ),
+        [
+          ...required,
+          "knowledgeVersion",
+          "knowledgeIds",
+          "repairStartedAt",
+          "diagnostics",
+        ].includes(name as string),
       ) &&
       (["knowledgeVersion", "knowledgeIds"].every((name) =>
         names.includes(name),
@@ -190,7 +213,7 @@ export async function inspectBrandAiDatabase(db: Reader) {
         )) &&
       columns
         .filter((x) =>
-          ["modelStartedAt", "modelLeaseUntil"].includes(
+          ["modelStartedAt", "modelLeaseUntil", "repairStartedAt"].includes(
             x.column_name as string,
           ),
         )
@@ -208,7 +231,7 @@ export async function inspectBrandAiDatabase(db: Reader) {
       const range = dayRange(toLocalDateStr(context.now as Date));
       usage = (
         await db.query(
-          `SELECT count(*) FILTER(WHERE "modelStartedAt">=$1 AND "modelStartedAt"<=$2)::int AS daily,
+          `SELECT count(*)::int AS reply_claims, (count("modelStartedAt") ${p0Columns ? '+ count("repairStartedAt")' : ""})::int AS model_calls_total, (count(*) FILTER(WHERE "modelStartedAt">=$1 AND "modelStartedAt"<=$2) ${p0Columns ? '+ count(*) FILTER(WHERE "repairStartedAt">=$1 AND "repairStartedAt"<=$2)' : ""})::int AS daily,
         count(*) FILTER(WHERE "modelLeaseUntil">clock_timestamp())::int AS active FROM "BrandAiReplyLog"`,
           [range.start, range.end],
         )
@@ -282,6 +305,7 @@ export async function inspectBrandAiDatabase(db: Reader) {
     return {
       context,
       schemaReady,
+      p0Ready: schemaReady && p0Ready,
       v2Memory,
       v2Ready:
         schemaReady &&

@@ -236,7 +236,8 @@
       "feat/brand-line-ai-whitelist": false,
       "fix/brand-line-ai-native-text": false,
       "feat/brand-line-ai-v2": false,
-      "feat/ai-customer-service-framework": false
+      "feat/ai-customer-service-framework": false,
+      "fix/brand-ai-p0-quality": false
     }
   }
 }

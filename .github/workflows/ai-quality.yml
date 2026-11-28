@@ -1,0 +1,153 @@
+name: Shared AI quality
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: initialize once or evaluate using the fixed checkpoint
+        required: false
+        type: string
+        default: evaluate
+      campaign:
+        description: Reviewed campaign ID; blank uses the approved active campaign
+        required: false
+        type: string
+      review_public_key:
+        description: Optional public recipient; reports remain encrypted in public artifacts
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: steamfoot-ai-quality-global-v1
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    if: github.repository == 'rock7652-beep/steamfoot-booking' && github.ref == 'refs/heads/fix/brand-ai-p0-quality'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: steamfoot-ai-quality
+    env:
+      BRAND_AI_ENABLED: '0'
+      AI_QUALITY_CAMPAIGN: ${{ inputs.campaign }}
+      AI_QUALITY_MODE: ${{ inputs.mode || 'evaluate' }}
+      AI_QUALITY_GENESIS_RUN_ID: ${{ vars.AI_QUALITY_GENESIS_RUN_ID }}
+      AI_QUALITY_REVIEW_PUBLIC_KEY: ${{ inputs.review_public_key }}
+    steps:
+      - name: Ready and stop controls
+        id: ready
+        env:
+          READY: ${{ vars.AI_QUALITY_READY }}
+          STOP: ${{ vars.AI_QUALITY_STOP }}
+        run: |
+          if { [ "$READY" = '1' ] && [ "$STOP" = '0' ] && [ "$AI_QUALITY_MODE" = 'evaluate' ]; } ||
+             { [ "$READY" = '0' ] && [ "$STOP" = '1' ] && [ "$AI_QUALITY_MODE" = 'initialize' ]; }; then
+            echo 'enabled=1' >> "$GITHUB_OUTPUT"
+          else
+            echo 'AI quality disabled; no model calls.'
+          fi
+
+      - name: Trusted harness checkout
+        if: steps.ready.outputs.enabled == '1'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: true
+
+      - name: Remove temporary harness checkout authentication
+        if: steps.ready.outputs.enabled == '1'
+        run: node scripts/qa/brand-ai-quality/checkout-auth.mjs
+
+      - name: Node
+        if: steps.ready.outputs.enabled == '1'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+
+      - name: Install harness without lifecycle scripts or secrets
+        if: steps.ready.outputs.enabled == '1'
+        run: npm ci --ignore-scripts --no-audit
+
+      - name: Inspect reviewed campaign
+        if: steps.ready.outputs.enabled == '1'
+        id: inspect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node --conditions=react-server --import tsx scripts/qa/brand-ai-quality/shared-runner.ts inspect
+
+      - name: Reviewed candidate checkout
+        if: steps.ready.outputs.enabled == '1'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.inspect.outputs.sha }}
+          path: candidate
+          persist-credentials: true
+
+      - name: Remove temporary candidate checkout authentication
+        if: steps.ready.outputs.enabled == '1'
+        run: node scripts/qa/brand-ai-quality/checkout-auth.mjs candidate
+
+      - name: Install reviewed dependencies without lifecycle scripts or secrets
+        if: steps.ready.outputs.enabled == '1'
+        working-directory: candidate
+        run: npm ci --ignore-scripts --no-audit
+
+      - name: Verify settings and immutable candidate
+        if: steps.ready.outputs.enabled == '1'
+        env:
+          OPENAI_API_KEY: ${{ secrets.AI_QUALITY_OPENAI_API_KEY }}
+          AI_QUALITY_STATE_KEY: ${{ secrets.AI_QUALITY_STATE_KEY }}
+        run: node --conditions=react-server --import tsx scripts/qa/brand-ai-quality/shared-runner.ts precheck
+
+      - name: Offline retrieval without secrets
+        if: steps.ready.outputs.enabled == '1'
+        working-directory: candidate
+        run: node --conditions=react-server --import tsx ../scripts/qa/brand-ai-quality/evaluate.ts --implementation-root .
+
+      - name: Prepare durable reservation
+        if: steps.ready.outputs.enabled == '1'
+        id: reservation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AI_QUALITY_STATE_KEY: ${{ secrets.AI_QUALITY_STATE_KEY }}
+        run: node --conditions=react-server --import tsx scripts/qa/brand-ai-quality/shared-runner.ts prepare
+
+      - name: Persist reservation
+        if: steps.reservation.outcome == 'success'
+        id: persisted
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ai-quality-reserved-${{ github.run_id }}
+          path: ${{ runner.temp }}/steamfoot-ai-quality/state.enc
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Model evaluation
+        if: steps.persisted.outcome == 'success' && steps.reservation.outputs.calls != '0'
+        env:
+          OPENAI_API_KEY: ${{ secrets.AI_QUALITY_OPENAI_API_KEY }}
+        run: node --conditions=react-server --import tsx scripts/qa/brand-ai-quality/shared-runner.ts run
+
+      - name: Encrypt final checkpoint
+        if: always() && steps.persisted.outcome == 'success'
+        env:
+          AI_QUALITY_STATE_KEY: ${{ secrets.AI_QUALITY_STATE_KEY }}
+        run: node --conditions=react-server --import tsx scripts/qa/brand-ai-quality/shared-runner.ts finalize
+
+      - name: Persist final checkpoint
+        if: always() && steps.persisted.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ai-quality-result-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/steamfoot-ai-quality/state.enc
+            ${{ runner.temp }}/steamfoot-ai-quality/review.enc
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Remove private temporary files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/steamfoot-ai-quality"

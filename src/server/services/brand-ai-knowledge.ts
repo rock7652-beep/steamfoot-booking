@@ -25,6 +25,7 @@ export type BrandKnowledge = {
   title: string;
   url: string;
   text: string;
+  urls?: string[];
   kind?: "customer-case" | "demonstration" | "guide";
 };
 const origin = "https://www.steamfoot.com";
@@ -39,6 +40,15 @@ const source = (
 export function brandKnowledge(query: string, now = Date.now()) {
   const offer = getPublicPricingOffer(now),
     addons = getPublicAddonOffer(now);
+  const moduleKeywords: Record<string, RegExp> = {
+    beauty: /beauty|美容|美業|美甲|美睫|按摩|SPA/iu,
+    fitness: /fitness|運動|瑜珈|健身|皮拉提斯/iu,
+    music: /music|音樂|鋼琴|樂器/iu,
+    slots: /slots|蒸足|時段/iu,
+  };
+  const relevantModules = BOOKING_TYPES.filter((item) =>
+    moduleKeywords[item.id]?.test(query),
+  );
   const core: BrandKnowledge[] = [
     {
       ...source(
@@ -50,9 +60,19 @@ export function brandKnowledge(query: string, now = Date.now()) {
         ) +
           "\n目前核准的實際店家案例只有上述蒸足門市，沒有美業、運動或音樂店家的公開案例。不得推測名稱、成效、聯絡或參訪安排。",
       ),
+      urls: PUBLIC_STORE_CASES.map(
+        (item) => `${origin}/cases?store=${item.id}`,
+      ),
       kind: "customer-case",
     },
     source("brand", "蒸管家", "/pricing", BRAND_AI_FAQ[0].answer),
+    source(
+      "trial-application",
+      "申請免費體驗的流程",
+      "/apply",
+      BRAND_AI_FAQ[2].answer +
+        "\n這是公開申請後續流程，不代表聊天已轉接或已安排聯繫。",
+    ),
     source(
       "trial",
       "免費體驗及到期規則",
@@ -85,7 +105,7 @@ export function brandKnowledge(query: string, now = Date.now()) {
         `${plan.audience}；${plan.purpose}。月繳每期 NT$${plan.monthly}，12期合計 NT$${plan.annual}；最低承諾12個月，不含年繳贈送。年繳 NT$${plan.annual} 一次繳清，使用${offer.months}個月。${offer.active ? "年繳贈送優惠至2026/12/31（台灣時間），自正式啟用起算。" : "目前沒有核准的年繳贈送優惠。"}\n${plan.benefits.join("；")}`,
       ),
     ),
-    ...BOOKING_TYPES.map((module) => ({
+    ...relevantModules.map((module) => ({
       ...source(
         `module-${module.id}`,
         module.name,
@@ -149,7 +169,18 @@ export function brandKnowledge(query: string, now = Date.now()) {
       kind: "guide" as const,
     })),
   ];
-  const tokens = query.match(/[a-z][\w-]+|[\p{Script=Han}]{2}/giu) ?? [];
+  // Overlapping bigrams avoid missing a term because it starts at an odd offset.
+  const normalized = query.normalize("NFKC").toLowerCase();
+  const tokens = [
+    ...new Set([
+      ...(normalized.match(/[a-z][\w-]+/giu) ?? []),
+      ...[...normalized.matchAll(/[\p{Script=Han}]+/gu)].flatMap(([word]) =>
+        Array.from({ length: Math.max(0, word.length - 1) }, (_, i) =>
+          word.slice(i, i + 2),
+        ),
+      ),
+    ]),
+  ];
   const score = (s: BrandKnowledge) =>
     tokens.filter((t) =>
       `${s.id} ${s.title} ${s.text}`.toLowerCase().includes(t.toLowerCase()),

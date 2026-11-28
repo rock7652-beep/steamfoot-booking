@@ -1,5 +1,7 @@
 # 蒸管家 AI Customer Service Framework
 
+P0品質修訂與驗證／修正預算規則見[本機P0審查](brand-ai-p0-quality.md)，尚未發布；#1601已結束驗收、AI停用。
+
 本文件規範客服溝通，不新增工作台、租戶、路由、資料庫或權限系統。
 執行提示詞唯一來源：`src/server/services/ai-customer-service-framework.ts`；品牌的事實與安全條件由各 adapter 注入。
 適用於未來蒸足、美業、運動、音樂客服，但不表示已接入這些門市；本次只接入蒸管家品牌 V2。
