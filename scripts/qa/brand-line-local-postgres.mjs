@@ -71,6 +71,7 @@ export async function brandLineLocalPostgres() {
         "utf8",
       ),
     );
+    await admin.query(readFileSync("prisma/migrations/20261128073000_brand_ai_p0_diagnostics/migration.sql", "utf8"));
     await admin.query(`CREATE ROLE brand_line_runtime LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
       GRANT USAGE ON SCHEMA public TO brand_line_runtime;
       ALTER DATABASE postgres SET timezone='Asia/Taipei'`);

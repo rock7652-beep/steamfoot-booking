@@ -27,6 +27,8 @@ export async function reserveBrandAiCall(
   webhookEventId: string,
   database = prisma,
   leaseMs = 30_000,
+  attempt: 1 | 2 = 1,
+  absoluteCallLimit?: number,
 ) {
   return database.$transaction(
     async (tx) => {
@@ -35,22 +37,47 @@ export async function reserveBrandAiCall(
         { now: Date }[]
       >`SELECT clock_timestamp() AS now`;
       const range = dayRange(toLocalDateStr(clock.now));
-      const daily = await tx.brandAiReplyLog.count({
-        where: { modelStartedAt: { gte: range.start, lte: range.end } },
-      });
-      if (daily >= 20) return "daily_limit" as const;
+      const [usage] = await tx.$queryRaw<{ daily: bigint; total: bigint }[]>`
+        SELECT count("modelStartedAt") + count("repairStartedAt") AS total,
+          count(*) FILTER(WHERE "modelStartedAt">=${range.start} AND "modelStartedAt"<=${range.end})
+          + count(*) FILTER(WHERE "repairStartedAt">=${range.start} AND "repairStartedAt"<=${range.end}) AS daily
+        FROM "BrandAiReplyLog"`;
+      if (usage.daily >= BigInt(20)) return "daily_limit" as const;
+      if (
+        absoluteCallLimit !== undefined &&
+        (!Number.isSafeInteger(absoluteCallLimit) ||
+          absoluteCallLimit < 0 ||
+          usage.total >= BigInt(absoluteCallLimit))
+      )
+        return "absolute_call_limit" as const;
       const active = await tx.brandAiReplyLog.count({
-        where: { modelLeaseUntil: { gt: clock.now } },
+        where: {
+          modelLeaseUntil: { gt: clock.now },
+          ...(attempt === 2 ? { webhookEventId: { not: webhookEventId } } : {}),
+        },
       });
       if (active >= 1) return "concurrent_limit" as const;
       const changed = await tx.brandAiReplyLog.updateMany({
-        where: { webhookEventId, modelStartedAt: null },
-        data: {
-          modelStartedAt: clock.now,
-          modelLeaseUntil: new Date(
-            clock.now.getTime() + Math.max(30_000, Math.min(leaseMs, 60_000)),
-          ),
+        where: {
+          webhookEventId,
+          ...(attempt === 1
+            ? { modelStartedAt: null }
+            : {
+                modelStartedAt: { not: null },
+                repairStartedAt: null,
+                modelLeaseUntil: { gt: clock.now },
+              }),
         },
+        data:
+          attempt === 1
+            ? {
+                modelStartedAt: clock.now,
+                modelLeaseUntil: new Date(
+                  clock.now.getTime() +
+                    Math.max(30_000, Math.min(leaseMs, 60_000)),
+                ),
+              }
+            : { repairStartedAt: clock.now },
       });
       return changed.count === 1
         ? ("allowed" as const)

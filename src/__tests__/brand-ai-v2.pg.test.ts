@@ -590,3 +590,111 @@ it.skipIf(!enabled)(
     ).not.toContain(beautyStudioQualityConversation[0].question);
   },
 );
+
+it.skipIf(!enabled)(
+  "repairs in the actual reply flow with independent call and reply ceilings and safe audit",
+  async () => {
+    const user = actor();
+    let calls = 0;
+    const fake = vi.fn<typeof fetch>(async () =>
+      ++calls === 1
+        ? response(learned, "基本版每月NT$999，12期。", ["plan-BASIC"])
+        : response(learned, "申請入口：https://www.steamfoot.com/apply", [
+            "trial-application",
+          ]),
+    );
+    await handleBrandAiText(input(user, "怎麼試用"), vi.fn(), {
+      env: {
+        ...env(user),
+        BRAND_AI_REPLY_LOG_LIMIT: "1",
+        BRAND_AI_MODEL_CALL_LIMIT: "2",
+      },
+      transport: fake,
+      database: a,
+    });
+    expect(fake).toHaveBeenCalledTimes(2);
+    expect(mocks.reply).toHaveBeenCalledTimes(1);
+    const row = (await a.brandAiReplyLog.findMany())[0];
+    expect(row.outcome).toBe("ANSWER");
+    expect(row.repairStartedAt).not.toBeNull();
+    expect(row.inputTokens).toBe(4000);
+    expect(row.outputTokens).toBe(200);
+    expect(row.diagnostics).toMatchObject({
+      attempts: 2,
+      route: "repaired",
+      failures: [
+        {
+          code: "UNAPPROVED_PRICE",
+          stage: "validation",
+          sourceIds: ["plan-BASIC"],
+        },
+      ],
+    });
+    expect(JSON.stringify(row.diagnostics)).not.toContain(user);
+    expect(JSON.stringify(row.diagnostics)).not.toContain("999");
+    await handleBrandAiText(input(user, "更多問題"), vi.fn(), {
+      env: {
+        ...env(user),
+        BRAND_AI_REPLY_LOG_LIMIT: "1",
+        BRAND_AI_MODEL_CALL_LIMIT: "2",
+      },
+      transport: fake,
+      database: a,
+    });
+    expect(fake).toHaveBeenCalledTimes(2);
+    expect(mocks.reply).toHaveBeenCalledTimes(1);
+  },
+);
+it.skipIf(!enabled)(
+  "budget denial suppresses correction without losing the owned lease release",
+  async () => {
+    const user = actor();
+    const fake = vi.fn<typeof fetch>(async () =>
+      response(learned, "基本版每月NT$999，12期。", ["plan-BASIC"]),
+    );
+    await handleBrandAiText(input(user, "怎麼試用"), vi.fn(), {
+      env: {
+        ...env(user),
+        BRAND_AI_REPLY_LOG_LIMIT: "1",
+        BRAND_AI_MODEL_CALL_LIMIT: "1",
+      },
+      transport: fake,
+      database: a,
+    });
+    expect(fake).toHaveBeenCalledTimes(1);
+    expect(mocks.reply).toHaveBeenCalledTimes(1);
+    const row = (await a.brandAiReplyLog.findMany())[0];
+    expect(row.repairStartedAt).toBeNull();
+    expect(row.modelLeaseUntil).toBeNull();
+    expect(row.diagnostics).toMatchObject({
+      route: "knowledge_fallback",
+      attempts: 1,
+    });
+  },
+);
+
+it.skipIf(!enabled)(
+  "stop activated after the first response prevents correction and every LINE reply",
+  async () => {
+    const user = actor();
+    const fake = vi.fn<typeof fetch>(async () => {
+      mocks.paused.mockReturnValue(true);
+      return response(learned, "NT$999", ["plan-BASIC"]);
+    });
+    await handleBrandAiText(input(user, "怎麼試用"), vi.fn(), {
+      env: {
+        ...env(user),
+        BRAND_AI_REPLY_LOG_LIMIT: "1",
+        BRAND_AI_MODEL_CALL_LIMIT: "2",
+      },
+      transport: fake,
+      database: a,
+    });
+    expect(fake).toHaveBeenCalledTimes(1);
+    expect(mocks.reply).not.toHaveBeenCalled();
+    const row = (await a.brandAiReplyLog.findMany())[0];
+    expect(row.repairStartedAt).toBeNull();
+    expect(row.modelLeaseUntil).toBeNull();
+    expect(row.outcome).toBe("ERROR");
+  },
+);

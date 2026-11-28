@@ -93,7 +93,7 @@ it.each([
   { ...good(), profile: { ...profile, phone: "synthetic-private" } },
   { ...good(), profile: { ...profile, staffCount: 999999999 } },
 ])(
-  "refuses ungrounded/unsafe generation %j without a retry",
+  "refuses ungrounded/unsafe generation %j with at most one correction",
   async (choice) => {
     const fake = transport(choice);
     const result = await selectBrandAiAnswer(
@@ -104,7 +104,7 @@ it.each([
     );
     expect(result.text).toBe(AI_CUSTOMER_SERVICE_UNCERTAIN_REPLY);
     expect(result.outcome).not.toBe("ANSWER");
-    expect(fake).toHaveBeenCalledTimes(1);
+    expect(fake).toHaveBeenCalledTimes(2);
   },
 );
 
