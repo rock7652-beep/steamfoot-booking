@@ -64,7 +64,7 @@ HMAC值仍視為私有資料，不寫公開PR／日誌。profile不回寫核准�
 - 原BrandAiReplyLog只加knowledgeVersion、knowledgeIds兩欄；原紀錄與計費欄位不修改。
 - Production唯讀核對：PostgreSQL17.6，既有runtime／表owner為postgres，新表不存在、log目前9欄。沒有安裝新表或修改ACL。
 - 既有受信任owner可使用新表，不增加正式角色或額外營運權限。本機以NOSUPERUSER／NOBYPASSRLS server角色、實際migration約束／RLS、故障注入觸發器與PG17.6多連線驗證。
-- `scripts/sql/brand-line-ai/v2-rollback.proposed.sql` 僅無記憶、無V2來源活動時移除本次schema，保留舊帳本。已有活動即拒絕DDL回復：停用AI、保留來源稽核，讓同版本清除工作繼續清理記憶。
+- `scripts/sql/brand-line-ai/v2-rollback.proposed.sql` 僅尚未登記migration、無記憶、無V2來源活動時移除本次schema，保留舊帳本。已登記migration或已有活動即拒絕DDL回復：停用AI、保留來源稽核，讓同版本清除工作繼續清理記憶。
 
 **安裝順序不可倒置**：新Prisma client會讀新log欄位，即使維持V1也必須先裝這次migration，再部署新版。不得執行全量歷史migration。
 既有唯讀前檢已擴充v2Ready：檢查新表結構／RLS／必要DML／公開角色無權限；migration checksum與履歷需由受控管理身分另外對帳。唯讀不是功能寫入驗收。

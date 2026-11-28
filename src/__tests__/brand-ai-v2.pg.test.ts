@@ -505,6 +505,17 @@ it.skipIf(!enabled)(
         ),
       );
       await probe.admin.query(
+        'CREATE TABLE "_prisma_migrations"(migration_name text)',
+      );
+      await probe.admin.query('INSERT INTO "_prisma_migrations" VALUES($1)', [
+        "20261128060000_brand_ai_conversation",
+      ]);
+      await expect(probe.admin.query(rollback)).rejects.toThrow(
+        "BRAND_V2_REGISTERED_RETAIN_SCHEMA",
+      );
+      await probe.admin.query("ROLLBACK");
+      await probe.admin.query('DROP TABLE "_prisma_migrations"');
+      await probe.admin.query(
         'UPDATE "BrandAiReplyLog" SET "knowledgeVersion"=$1',
         ["synthetic-version"],
       );
