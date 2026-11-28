@@ -231,6 +231,7 @@ export function parseBrandDialogue(
       staffCount: next.staffCount ?? prior.staffCount,
       storeCount: next.storeCount ?? prior.storeCount,
       mode: next.mode ?? prior.mode,
+      plan: next.plan ?? prior.plan,
       lastSources: choice.sourceIds,
     } satisfies BrandProfile,
   };

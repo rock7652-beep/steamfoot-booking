@@ -128,13 +128,20 @@ it.skipIf(!enabled)(
       env: env(user),
       transport: fake.mockImplementation(async () =>
         response(
-          learned,
+          { ...learned, plan: null },
           "可以免費體驗30天，申請網址：\nhttps://www.steamfoot.com/apply",
           ["trial"],
         ),
       ),
       database: b,
     });
+    expect(
+      (
+        await a.brandAiConversation.findUniqueOrThrow({
+          where: { scopeKey: brandMemoryKey(user) },
+        })
+      ).profile,
+    ).toMatchObject({ plan: "BASIC" });
     const second = JSON.parse(
       JSON.parse(String(fake.mock.calls[1][1]?.body)).input[0].content,
     );

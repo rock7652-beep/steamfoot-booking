@@ -225,3 +225,20 @@ it("links public FAQ facts to the actual homepage FAQ section", () => {
     faqs.every((source) => source.url === "https://www.steamfoot.com/#faq"),
   ).toBe(true);
 });
+
+it("keeps the last recommendation when a follow-up makes no new recommendation", async () => {
+  const fake = transport({
+    ...good(),
+    answer: "可以免費體驗30天。",
+    sourceIds: ["trial"],
+    profile: { ...profile, plan: null },
+  });
+  const result = await selectBrandAiAnswer(
+    "那可以試用嗎？",
+    env,
+    fake,
+    async () => true,
+    { ...emptyBrandProfile, plan: "GROWTH" },
+  );
+  expect(result.profile?.plan).toBe("GROWTH");
+});

@@ -27,7 +27,7 @@
   "safetyLimitation": "deterministic grounding checks and fake tests are not a semantic proof of real model quality",
   "local": {
     "testFiles": 18,
-    "testsPassed": 301,
+    "testsPassed": 302,
     "postgres": "17.6 real minimal role and multiple clients",
     "typeScript": "passed",
     "eslint": "passed",
