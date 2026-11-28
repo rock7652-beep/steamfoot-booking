@@ -1,6 +1,6 @@
 # STEAMFOOT AI Agent P0 品質修復與發布審查
 
-狀態：本機實作／驗證，未推送、未部署、未安裝遠端migration、未進行真實模型評估。
+狀態：原 Draft PR #1602 已推送；P0 及共用品質評估入口本機驗證通過。未合併、未部署、未安裝遠端 migration、未進行真實模型評估。共用環境設定與首次 CI 入口安裝仍待完成。
 基準：main `99adf9097d76aeb42d1a9bafd4b29f857698dea7`；支線 `fix/brand-ai-p0-quality`。
 原則：**事實由工具提供，表達交給模型。** P0先修現有核准來源與生成管線；P1工具呼叫只做設計。
 
@@ -93,3 +93,5 @@ checkpoint使用私有檔原子rename與單程序lock。正常跨日續跑只處
 自動跨日排程只有在安全Key注入、checkpoint持續性及本輪停止狀態確認後才建立，未確認前不啟動會每天重試的任務。
 
 新review支線已在本地Vercel設定排除，既有build/migration入口對此支線fail-closed。Cloudflare既有失敗獨立列管，不更改其正式設定。
+
+共用品質評估環境、一次性安全設定與首次入口安裝邊界，統一見 `docs/brand-ai-quality-environment.md`；本機證據見 `brand-ai-quality-environment-evidence.json`。不再採每輪專用 Key／Environment。

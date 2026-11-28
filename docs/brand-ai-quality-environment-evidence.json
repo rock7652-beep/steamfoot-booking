@@ -1,0 +1,47 @@
+{
+  "phase": "LOCAL_ENGINEERING_PASSED_REMOTE_SETUP_BLOCKED",
+  "date": "2026-11-28",
+  "pr": 1602,
+  "baselineSha": "75b0b1e16c46798a793dda91d551499109fcbf29",
+  "approvedProductSha": "75b0b1e16c46798a793dda91d551499109fcbf29",
+  "checks": {
+    "typescript": "passed",
+    "eslint": "passed",
+    "workflowYaml": "parsed",
+    "regression": {
+      "filesPassed": 13,
+      "filesSkipped": 2,
+      "passed": 217,
+      "skipped": 30,
+      "skipReason": "Existing opt-in PostgreSQL suites not run in this infrastructure-only verification"
+    },
+    "independentMainBootstrap": {
+      "newTestsPassed": 12,
+      "productP0Merged": false,
+      "approvedCandidateOfflineRetrievalCases": 40,
+      "modelQuality": "NOT_EVALUATED"
+    },
+    "twoProcesses": "AES checkpoint transferred; unknown reservation rejected by second process",
+    "quotaAndCost": "daily20 across PRs, concurrency1, two-call case reservation, unknown retained",
+    "security": "immutable reviewed SHA/corpus; test-specific Secret name; candidate child excludes GitHub and state keys"
+  },
+  "remote": {
+    "environmentCreate": "HTTP403 integration lacks administration permission; no alternate route attempted",
+    "mainProtected": false,
+    "environmentInstalled": false,
+    "secretsInstalled": false,
+    "workflowInstalledOnDefaultBranch": false,
+    "scheduleStarted": false,
+    "realModelCalls": 0,
+    "realLineSends": 0,
+    "migrationApplied": false,
+    "productionDeployment": false,
+    "existingProductionSensitiveKey": "not read, exported, moved or changed"
+  },
+  "remaining": [
+    "Owner creates fixed Environment and protects reviewed main",
+    "Owner binds long-lived Preview-only API Secret and state encryption Secret",
+    "Review/install infrastructure-only bootstrap without prematurely merging P0 product; resolve main auto-build side effects before publication",
+    "After readiness: real GitHub artifact/resume and API quality verification; local fake results are not model quality"
+  ]
+}

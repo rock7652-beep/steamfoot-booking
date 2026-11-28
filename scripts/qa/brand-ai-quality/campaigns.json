@@ -1,0 +1,17 @@
+{
+  "active": "p0-1602",
+  "campaigns": [
+    {
+      "id": "p0-1602",
+      "sha": "75b0b1e16c46798a793dda91d551499109fcbf29",
+      "corpusHash": "bc8b288c0118fc2d51a38b6bd51061737c09045e11e7823cfabed8e697097b38",
+      "model": "gpt-6-luna",
+      "maxCalls": 70,
+      "budgetMicros": 88720,
+      "caseMicros": 2256,
+      "caseCount": 35,
+      "notBeforeDay": "2026-11-29",
+      "ratesValidUntil": "2026-12-28T00:00:00Z"
+    }
+  ]
+}

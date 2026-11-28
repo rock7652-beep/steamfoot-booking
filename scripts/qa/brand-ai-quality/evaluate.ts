@@ -10,9 +10,8 @@ import {
 } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
+import { pathToFileURL } from "node:url";
 import { brandKnowledge } from "../../../src/server/services/brand-ai-knowledge";
-import type { BrandAiDiagnostics } from "../../../src/server/services/brand-ai-diagnostics";
-import { selectBrandAiAnswer } from "../../../src/server/services/brand-ai-provider";
 import {
   emptyBrandProfile,
   type BrandProfile,
@@ -24,8 +23,43 @@ import {
   evaluateQualityGate,
 } from "./checkpoint";
 import { dayRange, toLocalDateStr } from "../../../src/lib/date-utils";
+// A small evaluation port keeps the trusted harness installable on main BEFORE
+// the candidate's P0 product/migration is released. No candidate workflow runs.
+type EvaluationDiagnostics = {
+  attempts: number;
+  route: string;
+  failures: { code: string }[];
+};
+type Provider = (
+  question: string,
+  env: Record<string, string | undefined>,
+  transport: typeof fetch,
+  before: (attempt?: 1 | 2) => Promise<boolean>,
+  profile: BrandProfile,
+) => Promise<{
+  diagnostics?: EvaluationDiagnostics;
+  text: string;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  knowledgeIds?: string[];
+}>;
 async function main() {
-  const file = resolve(dirname(process.argv[1]), "cases.json");
+  const arg = (name: string) => process.argv[process.argv.indexOf(name) + 1];
+  // The reviewed harness can evaluate an immutable PR checkout without running
+  // that checkout's workflow or copying its secrets into another deployment.
+  const implementation = process.argv.includes("--implementation-root")
+    ? resolve(arg("--implementation-root"))
+    : null;
+  const provider: Provider = (await import(pathToFileURL(resolve(
+    implementation ?? resolve(dirname(process.argv[1]), "..", "..", ".."),
+    "src/server/services/brand-ai-provider.ts")).href)).selectBrandAiAnswer;
+  const knowledgeReader: typeof brandKnowledge = implementation
+    ? (await import(pathToFileURL(resolve(implementation,
+        "src/server/services/brand-ai-knowledge.ts")).href)).brandKnowledge
+    : brandKnowledge;
+  const file = implementation
+    ? resolve(implementation, "scripts/qa/brand-ai-quality/cases.json")
+    : resolve(dirname(process.argv[1]), "cases.json");
   const cases = JSON.parse(readFileSync(file, "utf8")) as {
     id: string;
     channel: "phone" | "api";
@@ -38,7 +72,6 @@ async function main() {
   const fingerprint = createHash("sha256")
     .update(readFileSync(file))
     .digest("hex");
-  const arg = (name: string) => process.argv[process.argv.indexOf(name) + 1];
   if (process.argv.includes("--gate")) {
     const ledger = JSON.parse(readFileSync(arg("--ledger"), "utf8"));
     if (ledger.fingerprint !== fingerprint)
@@ -54,7 +87,7 @@ async function main() {
   }
   if (!process.argv.includes("--real")) {
     for (const row of cases) {
-      const sourceIds = brandKnowledge(
+      const sourceIds = knowledgeReader(
         row.question + JSON.stringify(row.prior ?? emptyBrandProfile),
       ).sources.map((s) => s.id);
       if (
@@ -76,11 +109,17 @@ async function main() {
     // Does not use or pull Production credentials. Only synthetic/public corpus.
     const max = Number(arg("--authorized-calls")),
       external = Number(arg("--daily-used"));
+    const batchCalls = process.argv.includes("--batch-calls")
+      ? Number(arg("--batch-calls")) : max;
+    const batchCases = process.argv.includes("--batch-cases")
+      ? Number(arg("--batch-cases")) : 35;
     if (
       !process.argv.includes("--authorized-calls") ||
       !Number.isInteger(max) ||
       max < 1 ||
       max > 70 ||
+      !Number.isInteger(batchCalls) || batchCalls < 2 || batchCalls > max ||
+      !Number.isInteger(batchCases) || batchCases < 1 || batchCases > 35 ||
       !process.argv.includes("--daily-used") ||
       !Number.isInteger(external) ||
       external < 0 ||
@@ -112,7 +151,7 @@ async function main() {
         route: string;
         attempts: number;
         codes: string[];
-        diagnostics: BrandAiDiagnostics;
+        diagnostics: EvaluationDiagnostics;
         answer: string;
         inputTokens: number | null;
         outputTokens: number | null;
@@ -137,6 +176,8 @@ async function main() {
       if (ledger.fingerprint !== fingerprint || ledger.max !== max)
         throw Error("LEDGER_MISMATCH_NO_RESET");
       const today = toLocalDateStr();
+      if (process.argv.includes("--expected-day") && arg("--expected-day") !== today)
+        throw Error("BATCH_DAY_CHANGED_NO_CALLS");
       ledger.baselines[today] = Math.max(
         ledger.baselines[today] ?? 0,
         external,
@@ -166,23 +207,24 @@ async function main() {
         throw Error("CHECKPOINT_REQUIRES_REVIEW");
       }
       save();
+      const batchLimit = Math.min(max, ledger.calls.length + batchCalls);
       for (const row of cases.filter(
         (item) =>
           item.channel === "api" &&
           !ledger.results.some((r) => r.id === item.id),
-      )) {
+      ).slice(0, batchCases)) {
         if (
           !canStartEvaluationCase(
             ledger.calls,
             row.id,
             today,
             ledger.baselines[today],
-            max,
+            batchLimit,
             dayRange(today).end.getTime() + 1 - Date.now(),
           )
         )
           break;
-        const result = await selectBrandAiAnswer(
+        const result = await provider(
           row.question,
           {
             OPENAI_API_KEY: process.env.OPENAI_API_KEY,
@@ -194,7 +236,7 @@ async function main() {
             const day = toLocalDateStr();
             if (
               day !== today ||
-              ledger.calls.length >= max ||
+              ledger.calls.length >= batchLimit ||
               ledger.calls.filter((c) => c.day === day).length +
                 ledger.baselines[day] >=
                 20
@@ -206,7 +248,13 @@ async function main() {
           },
           row.prior ?? emptyBrandProfile,
         );
-        if (!result.diagnostics?.attempts) break; // resume unstarted case later, no budget reset
+        if (!result.diagnostics?.attempts) {
+          if (result.diagnostics?.failures.length) {
+            ledger.haltReason = "MODEL_CONFIGURATION_REQUIRES_REVIEW";
+            save();
+          }
+          break;
+        }
         ledger.results.push({
           id: row.id,
           route: result.diagnostics.route,
@@ -236,6 +284,10 @@ async function main() {
           ledger.haltReason = "CORRECTION_INCOMPLETE_REVIEW_REQUIRED";
         if (last.codes.some((code) => HIGH_RISK_CODES.has(code)))
           ledger.haltReason = "HIGH_RISK_VALIDATION_STOP";
+        if (last.codes.some((code) => /^HTTP_/.test(code) ||
+            ["DEADLINE", "TRANSPORT_ERROR", "RESPONSE_INVALID", "USAGE_EXCEEDED",
+              "KEY_MISSING", "CONFIG_REJECTED"].includes(code)))
+          ledger.haltReason = "MODEL_INFRASTRUCTURE_REQUIRES_REVIEW";
         save();
         if (ledger.haltReason) break;
       }
