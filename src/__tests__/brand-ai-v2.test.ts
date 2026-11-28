@@ -1,8 +1,6 @@
+import { AI_CUSTOMER_SERVICE_UNCERTAIN_REPLY } from "@/server/services/ai-customer-service-framework";
 import { afterEach, expect, it, vi } from "vitest";
-import {
-  selectBrandAiAnswer,
-  BRAND_AI_HANDOFF,
-} from "@/server/services/brand-ai-provider";
+import { selectBrandAiAnswer } from "@/server/services/brand-ai-provider";
 import { brandKnowledge } from "@/server/services/brand-ai-knowledge";
 import {
   emptyBrandProfile,
@@ -104,7 +102,7 @@ it.each([
       fake,
       async () => true,
     );
-    expect(result.text).toBe(BRAND_AI_HANDOFF);
+    expect(result.text).toBe(AI_CUSTOMER_SERVICE_UNCERTAIN_REPLY);
     expect(result.outcome).not.toBe("ANSWER");
     expect(fake).toHaveBeenCalledTimes(1);
   },
@@ -119,7 +117,10 @@ it("uses a fixed human prompt for unknown information rather than model-written 
   });
   expect(
     await selectBrandAiAnswer("明天台北天氣？", env, fake, async () => true),
-  ).toMatchObject({ outcome: "HANDOFF", text: BRAND_AI_HANDOFF });
+  ).toMatchObject({
+    outcome: "HANDOFF",
+    text: AI_CUSTOMER_SERVICE_UNCERTAIN_REPLY,
+  });
 });
 it("retains approved structured context, with no other customer's identifiers in the input", async () => {
   const fake = transport(good());
@@ -179,7 +180,7 @@ it("uses shared current prices and drops expired offers on the next request", ()
     expect(source.text).not.toContain("使用14個月");
   }
 });
-it("never ingests internal manuals, draft guides, case narrative or tenant records", () => {
+it("never ingests internal manuals, draft guides, fictional guide narratives or tenant records", () => {
   const data = brandKnowledge("預約 店務 指南 教學 顧客 課程 音樂");
   const serialized = JSON.stringify(data);
   for (const draft of PUBLIC_GUIDES.filter((g) => g.status === "draft"))
@@ -188,7 +189,7 @@ it("never ingests internal manuals, draft guides, case narrative or tenant recor
     const guide = PUBLIC_GUIDES.find((g) => `guide-${g.id}` === source.id)!;
     expect(guide.status).toBe("published");
     expect(source.url).toBe("https://www.steamfoot.com" + guidePath(guide));
-    expect(source.text).toContain("公開指南入口");
+    expect(source.text).toContain("公開經營指南");
   }
   expect(serialized).not.toMatch(
     /DATABASE_URL|OPENAI_API_KEY|\/dashboard|\/docs\/|\bSTAFF\b/,

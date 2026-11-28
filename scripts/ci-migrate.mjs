@@ -1,3 +1,7 @@
+// Communication-framework review is local/CI only until a release is approved.
+if ([process.env.VERCEL_GIT_COMMIT_REF, process.env.WORKERS_CI_BRANCH, process.env.CF_PAGES_BRANCH].includes("feat/ai-customer-service-framework")) {
+  throw Error("AI customer service review branch cannot deploy or access databases");
+}
 // V2 is local/CI review only; no hosted writes or deployments authorized.
 if ([process.env.VERCEL_GIT_COMMIT_REF,process.env.WORKERS_CI_BRANCH,process.env.CF_PAGES_BRANCH].includes("feat/brand-line-ai-v2")) throw Error("Brand AI V2 review branch cannot deploy or access databases");
 // Fee-list release review uses an isolated local UI preview only.

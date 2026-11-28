@@ -235,7 +235,8 @@
       "fix/liff-plan-selection-audit-20261111": false,
       "feat/brand-line-ai-whitelist": false,
       "fix/brand-line-ai-native-text": false,
-      "feat/brand-line-ai-v2": false
+      "feat/brand-line-ai-v2": false,
+      "feat/ai-customer-service-framework": false
     }
   }
 }

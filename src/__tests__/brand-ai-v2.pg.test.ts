@@ -1,3 +1,4 @@
+import { beautyStudioQualityConversation } from "./fixtures-brand-ai-customer-service";
 import { beforeAll, afterAll, beforeEach, expect, it, vi } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
@@ -295,7 +296,7 @@ it.skipIf(!enabled)(
       transport: fake,
       database: a,
     });
-    expect(mocks.reply.mock.calls[0][1][0].text).toContain("專人");
+    expect(mocks.reply.mock.calls[0][1][0].text).toContain("無法代為轉接真人");
     mocks.reply.mockResolvedValue({ success: false });
     await handleBrandAiText(input(user), vi.fn(), {
       env: env(user),
@@ -542,4 +543,50 @@ it.skipIf(!enabled)(
     }
   },
   30000,
+);
+
+it.skipIf(!enabled)(
+  "replays the owner five-turn quality scenario through reply, PG memory and source audit",
+  async () => {
+    const user = actor();
+    const settings = { ...env(user), BRAND_AI_REPLY_LOG_LIMIT: "6" };
+    for (const [index, turn] of beautyStudioQualityConversation.entries()) {
+      const fake = vi.fn<typeof fetch>(async (_url, init) => {
+        const body = JSON.parse(String(init?.body));
+        const payload = JSON.parse(body.input[0].content);
+        expect(body.instructions).toContain("預設約50～150字");
+        expect(payload.question).toBe(turn.question);
+        if (index)
+          expect(payload.profile).toMatchObject({
+            industry: "beauty",
+            staffCount: 2,
+            plan: "BASIC",
+          });
+        return response(learned, turn.answer, turn.sourceIds);
+      });
+      await handleBrandAiText(input(user, turn.question), vi.fn(), {
+        env: settings,
+        transport: fake,
+        database: a,
+      });
+      expect(fake).toHaveBeenCalledTimes(1);
+      expect(mocks.reply).toHaveBeenLastCalledWith(
+        "synthetic-reply",
+        [{ type: "text", text: turn.answer }],
+        { format: "native-text", timeoutMs: 8000 },
+      );
+    }
+    expect(
+      await a.brandAiReplyLog.count({ where: { outcome: "ANSWER" } }),
+    ).toBe(5);
+    expect(await a.brandAiConversation.count()).toBe(1);
+    const rows = await a.brandAiReplyLog.findMany();
+    expect(
+      rows.every((row) => row.knowledgeVersion && row.knowledgeIds.length),
+    ).toBe(true);
+    expect(JSON.stringify(rows)).not.toContain(user);
+    expect(
+      JSON.stringify(await a.brandAiConversation.findMany()),
+    ).not.toContain(beautyStudioQualityConversation[0].question);
+  },
 );
