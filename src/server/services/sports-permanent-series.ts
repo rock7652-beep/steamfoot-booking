@@ -29,12 +29,26 @@ export async function assertSportsSeriesFree(tx:Tx,storeId:string,ranges:Array<{
  const active=rules.filter(r=>!r.cancelledAt&&(r.requestKey!==requestKey||excludedOwnDates!==undefined))
   .map(r=>r.requestKey===requestKey&&excludedOwnDates!==undefined?{...r,excludedDates:[...new Set([...r.excludedDates,...excludedOwnDates])]}:r);
  if(frequency&&frequency!=="SINGLE"){
-  const [sessions,rentals]=await Promise.all([
+  const relevantRules=active.filter(rule=>rule.roomId===resources.roomId||rule.coachId===resources.coachId);
+  const [sessions,rentals,exceptions]=await Promise.all([
    tx.courseSession.findMany({where:{storeId,...(requestKey?{requestKey:{not:requestKey}}:{}),cancelledAt:null,releasedAt:null,endsAt:{gt:ranges[0].startsAt},OR:[{roomId:resources.roomId},{coachId:resources.coachId}]},select:{startsAt:true,endsAt:true,roomId:true,coachId:true}}),
    tx.courseRental.findMany({where:{storeId,roomId:resources.roomId,cancelledAt:null,occupiedEndsAt:{gt:ranges[0].startsAt}},select:{occupiedStartsAt:true,occupiedEndsAt:true,roomId:true}}),
+   relevantRules.length ? tx.courseSession.findMany({
+    where:{storeId,requestKey:{in:relevantRules.map(rule=>rule.requestKey)},endsAt:{gt:ranges[0].startsAt},cancelledAt:{not:null}},
+    select:{requestKey:true,startsAt:true,endsAt:true},
+   }) : [],
   ]);
+  const rulesByKey=new Map(relevantRules.map(rule=>[rule.requestKey,{...rule,excludedDates:[...rule.excludedDates]}]));
+  for(const exception of exceptions){
+   const rule=rulesByKey.get(exception.requestKey);
+   if(!rule)continue;
+   const {startsAt,endsAt}=exception;
+   const date=toLocalDateStr(startsAt);
+   const occurrence=fixedSeriesOccurrenceOnDate(rule,date);
+   if(occurrence&&+occurrence.startsAt===+startsAt&&+occurrence.endsAt===+endsAt)rule.excludedDates.push(date);
+  }
   const proposed={...resources,...ranges[0],requestKey:requestKey??"",frequency,untilDate:null,excludedDates:[],cancelledAt:null};
-  const issues=findOngoingFixedSeriesConflicts(proposed,active,[...sessions,...rentals.map(r=>({startsAt:r.occupiedStartsAt,endsAt:r.occupiedEndsAt,roomId:r.roomId}))]);
+  const issues=findOngoingFixedSeriesConflicts(proposed,[...rulesByKey.values()],[...sessions,...rentals.map(r=>({startsAt:r.occupiedStartsAt,endsAt:r.occupiedEndsAt,roomId:r.roomId}))]);
   if(issues.length)throw new AppError("CONFLICT",`${issues.map(issue=>`${issue.date} · ${issue.reason}`).join("；")}；固定時段尚未建立，請調整排課時段或先處理衝突課次`);
  }else for(const range of ranges){
   for(const rule of active){
