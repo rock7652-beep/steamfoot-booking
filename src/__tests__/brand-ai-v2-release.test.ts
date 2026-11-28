@@ -29,3 +29,19 @@ it.each(["VERCEL_GIT_COMMIT_REF", "WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"])(
     }
   },
 );
+
+it("keeps the communication-framework review branch non-deploying", () => {
+  const branch = "feat/ai-customer-service-framework";
+  const config = JSON.parse(readFileSync("vercel.json", "utf8"));
+  expect(config.git.deploymentEnabled[branch]).toBe(false);
+  for (const key of ["VERCEL_GIT_COMMIT_REF", "WORKERS_CI_BRANCH", "CF_PAGES_BRANCH"]) {
+    for (const script of ["scripts/music-release-preflight.mjs", "scripts/ci-migrate.mjs"]) {
+      const result = spawnSync(process.execPath, [script], {
+        env: { NODE_ENV: "test", PATH: process.env.PATH, [key]: branch },
+        encoding: "utf8",
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("AI customer service review branch cannot deploy or access databases");
+    }
+  }
+});

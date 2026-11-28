@@ -11,6 +11,7 @@ import {
   brandDialogueFormat,
   parseBrandDialogue,
 } from "./brand-ai-dialogue";
+import { AI_CUSTOMER_SERVICE_UNCERTAIN_REPLY } from "./ai-customer-service-framework";
 import { BRAND_AI_FAQ } from "@/lib/brand-ai-faq";
 
 export const BRAND_AI_HANDOFF = "這個問題將由專人回覆您，請稍候。";
@@ -57,14 +58,14 @@ export async function selectBrandAiAnswer(
   beforeRequest: () => Promise<boolean> = async () => false,
   profile: BrandProfile = emptyBrandProfile,
 ): Promise<BrandAiAnswer> {
+  const dialogue = env.BRAND_AI_VERSION === "2";
   const result: BrandAiAnswer = {
     outcome: "ERROR",
     faqId: null,
-    text: BRAND_AI_HANDOFF,
+    text: dialogue ? AI_CUSTOMER_SERVICE_UNCERTAIN_REPLY : BRAND_AI_HANDOFF,
     inputTokens: null,
     outputTokens: null,
   };
-  const dialogue = env.BRAND_AI_VERSION === "2";
   const maxOutput = dialogue ? BRAND_AI_MAX_OUTPUT_TOKENS : 256;
   const knowledge = dialogue
     ? brandKnowledge(question + JSON.stringify(profile))

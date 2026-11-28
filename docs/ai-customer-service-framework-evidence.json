@@ -1,0 +1,43 @@
+{
+  "baseSha": "2ba545b71a5a06852624c4c8b79f0594a5fb448b",
+  "branch": "feat/ai-customer-service-framework",
+  "status": "local_implemented_not_pushed_or_deployed",
+  "productionAiFlagReadOnlyConfirmed": "0",
+  "productionPublicAliasReadOnlyConfirmed": "dpl_FDAkU5MXvCCorFXERFYMybtQdyZK",
+  "previousAcceptanceClosed": true,
+  "sharedPolicy": "src/server/services/ai-customer-service-framework.ts",
+  "qualityFixtures": "src/__tests__/fixtures-brand-ai-customer-service.ts",
+  "localVerification": {
+    "ownerFiveTurnFullReplyPgFlow": "passed; PostgreSQL17.6 disposable local minimal role, fake Responses and fake LINE",
+    "fiveTurnEditorialReference": "all passed; existing guards accept answers and prompt/profile/source wiring is correct",
+    "brandLineAndPublicRegression": "14 files 258 passed, plus updated branch-release guard5 passed",
+    "finalSourceClassificationRegression": "brand V2 and shared-policy tests passed",
+    "typeScript": "passed",
+    "eslint": "passed",
+    "publicCaseDataExtraction": "literal data equality passed; page markup unchanged",
+    "hostedBranchGate": "Vercel/Workers/Cloudflare branch variables rejected before DB work in both existing build entry points"
+  },
+  "publicReadonlyLinkChecks": [
+    {"path":"/cases?store=nuanmu","status":200,"expectedContentPresent":true},
+    {"path":"/cases?store=nuannuan","status":200,"expectedContentPresent":true},
+    {"path":"/pricing/features/beauty","status":200,"expectedContentPresent":true},
+    {"path":"/pricing/trial/guide/oa-admin","status":200,"expectedContentPresent":true}
+  ],
+  "limitations": [
+    "Fake responses do not prove real model brevity, relevance, nonrepetition or semantic grounding",
+    "50-150 characters is a soft instruction; existing output safety limits remain unchanged",
+    "lastSources is not a complete conversation transcript or proof all facts were disclosed",
+    "Real cases currently approved are steamfoot stores, not beauty/fitness/music case proof",
+    "No new hosted UI or phone acceptance performed",
+    "Full Cloudflare account settings not available; existing failures remain independently tracked"
+  ],
+  "migrationRequired": false,
+  "newTables": 0,
+  "newCredentials": 0,
+  "newServices": 0,
+  "realApiCalls": 0,
+  "realLineSends": 0,
+  "remoteWrites": 0,
+  "builds": 0,
+  "memoryQuotaWhitelistSafetyChanged": false
+}

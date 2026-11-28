@@ -17,6 +17,7 @@ import {
   PUBLIC_SUBSCRIPTION_RETENTION,
 } from "@/lib/public-marketing-copy";
 import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
+import { PUBLIC_STORE_CASES } from "@/lib/public-store-cases";
 import { BRAND_AI_FAQ } from "@/lib/brand-ai-faq";
 
 export type BrandKnowledge = {
@@ -24,6 +25,7 @@ export type BrandKnowledge = {
   title: string;
   url: string;
   text: string;
+  kind?: "customer-case" | "demonstration" | "guide";
 };
 const origin = "https://www.steamfoot.com";
 const source = (
@@ -37,7 +39,19 @@ const source = (
 export function brandKnowledge(query: string, now = Date.now()) {
   const offer = getPublicPricingOffer(now),
     addons = getPublicAddonOffer(now);
-  const core = [
+  const core: BrandKnowledge[] = [
+    {
+      ...source(
+        "public-cases",
+        "公開蒸足真實案例（非美業案例）",
+        "/cases",
+        PUBLIC_STORE_CASES.map((item) => `${item.name}：${item.intro}`).join(
+          "\n",
+        ) +
+          "\n目前核准的實際店家案例只有上述蒸足門市，沒有美業、運動或音樂店家的公開案例。不得推測名稱、成效、聯絡或參訪安排。",
+      ),
+      kind: "customer-case",
+    },
     source("brand", "蒸管家", "/pricing", BRAND_AI_FAQ[0].answer),
     source(
       "trial",
@@ -71,14 +85,15 @@ export function brandKnowledge(query: string, now = Date.now()) {
         `${plan.audience}；${plan.purpose}。月繳每期 NT$${plan.monthly}，12期合計 NT$${plan.annual}；最低承諾12個月，不含年繳贈送。年繳 NT$${plan.annual} 一次繳清，使用${offer.months}個月。${offer.active ? "年繳贈送優惠至2026/12/31（台灣時間），自正式啟用起算。" : "目前沒有核准的年繳贈送優惠。"}\n${plan.benefits.join("；")}`,
       ),
     ),
-    ...BOOKING_TYPES.map((module) =>
-      source(
+    ...BOOKING_TYPES.map((module) => ({
+      ...source(
         `module-${module.id}`,
         module.name,
         `/pricing/features/${module.id}`,
-        `${module.who}。${module.question} ${module.detail}`,
+        `${module.who}。${module.question} ${module.detail}。本頁介面為功能示意、範例資料，非實際店家或可操作測試帳號。`,
       ),
-    ),
+      kind: "demonstration" as const,
+    })),
   ];
   const optional = [
     source(
@@ -99,14 +114,15 @@ export function brandKnowledge(query: string, now = Date.now()) {
       "/refunds",
       "退款條件請查看官網並請專人確認個案，AI不能執行退款或推測可退金額。",
     ),
-    ...Object.entries(trialGuides).map(([id, guide]) =>
-      source(
+    ...Object.entries(trialGuides).map(([id, guide]) => ({
+      ...source(
         `setup-${id}`,
         guide.title,
         `/pricing/trial/guide/${id}`,
         "公開申請設定指南入口。請依指南在官方管理介面操作；不要在聊天貼上密碼、Key或邀請連結。",
       ),
-    ),
+      kind: "guide" as const,
+    })),
     ...PUBLIC_MARKETING_FAQ.flatMap((group, g) =>
       group.questions.map((faq, i) =>
         source(`faq-${g}-${i}`, faq.question, "/#faq", faq.answers.join("\n")),
@@ -123,14 +139,15 @@ export function brandKnowledge(query: string, now = Date.now()) {
       ),
     ),
     // Index published guides only. Fictional case examples are not product facts.
-    ...PUBLIC_GUIDES.filter((g) => g.status === "published").map((g) =>
-      source(
+    ...PUBLIC_GUIDES.filter((g) => g.status === "published").map((g) => ({
+      ...source(
         `guide-${g.id}`,
         g.title,
         guidePath(g),
-        `公開指南入口：${g.featureName}。詳細步驟請查看指南；不可將文章情境視為公司承諾或顧客紀錄。`,
+        `公開經營指南：${g.featureName}。文章情境為示意，不是操作帳號、真實顧客案例或成效保證。`,
       ),
-    ),
+      kind: "guide" as const,
+    })),
   ];
   const tokens = query.match(/[a-z][\w-]+|[\p{Script=Han}]{2}/giu) ?? [];
   const score = (s: BrandKnowledge) =>
