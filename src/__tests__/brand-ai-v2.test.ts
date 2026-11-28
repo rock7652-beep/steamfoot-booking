@@ -81,6 +81,8 @@ it.each([
   { ...good(), sourceIds: ["internal-roadmap"] },
   { ...good(), sourceIds: ["trial", "trial"] },
   { ...good(), answer: "每月 NT$999，12期。" },
+  { ...good(), answer: "每月 ＮＴ＄９９９，12期。" },
+  { ...good(), answer: "支援 AI 自動預約。" },
   { ...good(), answer: "基本版每月NT$1480，沒有承諾。" },
   { ...good(), answer: "年繳使用99個月。" },
   { ...good(), answer: "優惠只要一百元。" },
@@ -199,4 +201,18 @@ it("rejects a byte-budget overflow before model reservation", async () => {
   await selectBrandAiAnswer("長".repeat(2000), env, fake, reserve);
   expect(fake).not.toHaveBeenCalled();
   expect(reserve).not.toHaveBeenCalled();
+});
+
+it("does not mistake numbered multi-question formatting for an unsupported factual number", async () => {
+  const choice = {
+    ...good(),
+    answer: "1. 基本版每期NT$1480，月繳最低承諾12個月。\n2. 可以免費體驗30天。",
+  };
+  const result = await selectBrandAiAnswer(
+    "價格和試用？",
+    env,
+    transport(choice),
+    async () => true,
+  );
+  expect(result).toMatchObject({ outcome: "ANSWER", text: choice.answer });
 });
