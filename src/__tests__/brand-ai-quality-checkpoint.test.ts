@@ -13,7 +13,7 @@ const calls = (n: number) =>
   }));
 it("defers an unstarted case when only one daily slot remains, and starts it next day", () => {
   const history = calls(19);
-  expect(canStartEvaluationCase(history, "next", today, 0, 70, 60000)).toBe(
+  expect(canStartEvaluationCase(history, "next", today, 80, 70, 60000)).toBe(
     false,
   );
   expect(

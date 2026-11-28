@@ -1,48 +1,65 @@
 {
-  "phase": "LOCAL_ENGINEERING_PASSED_REMOTE_SETUP_BLOCKED",
+  "phase": "TRUE_MODEL_EVALUATION_PENDING_OWNER_SETTINGS",
   "date": "2026-11-28",
   "pr": 1602,
-  "baselineSha": "75b0b1e16c46798a793dda91d551499109fcbf29",
+  "baselineSha": "596e229c8c3b1c105463977dd08f6182344531d2",
   "approvedProductSha": "75b0b1e16c46798a793dda91d551499109fcbf29",
   "checks": {
     "typescript": "passed",
     "eslint": "passed",
-    "workflowYaml": "parsed",
+    "workflowYaml": {
+      ".github/workflows/ci.yml": "parsed",
+      ".github/workflows/ai-quality.yml": "parsed"
+    },
     "regression": {
       "filesPassed": 13,
       "filesSkipped": 2,
-      "passed": 218,
+      "passed": 221,
       "skipped": 30,
       "skipReason": "Existing opt-in PostgreSQL suites not run in this infrastructure-only verification"
     },
     "independentMainBootstrap": {
-      "newTestsPassed": 13,
-      "productP0Merged": false,
-      "approvedCandidateOfflineRetrievalCases": 40,
-      "modelQuality": "NOT_EVALUATED"
+      "status": "superseded_by_existing_CI_dispatch_bridge",
+      "mainMergeRequired": false
     },
     "twoProcesses": "AES checkpoint transferred; unknown reservation rejected by second process",
-    "quotaAndCost": "daily20 across PRs, concurrency1, two-call case reservation, unknown retained",
+    "quotaAndCost": "35 cases may reserve70 in one run; shared batch100 / US$1 across SHA and initial70 / retest30; daily100 across test batches; Production quota unchanged",
     "security": "immutable reviewed SHA/corpus; test-specific Secret name; candidate child excludes GitHub and state keys",
-    "historySafety": "fixed successful zero-call genesis; reject reruns before inspecting latest jobs; require continuous run numbers; deleted history cannot restore older budget"
+    "historySafety": "fixed successful zero-call genesis; reject reruns before inspecting latest jobs; require continuous run numbers; deleted history cannot restore older budget",
+    "focusedTests": 24,
+    "productionQuotaByteIdentical": true,
+    "privateReview": "Hybrid encrypted report available without exporting API/checkpoint Secrets; ephemeral recipient private material stays off-repo",
+    "singleOwner": "Only owner Environment reviewer; self-review allowed; no second PR reviewer; no approval/bypass performed by assistant"
   },
   "remote": {
-    "environmentCreate": "HTTP403 integration lacks administration permission; no alternate route attempted",
+    "environmentCreate": "Owner created fixed environment; agent did not bypass original403",
     "mainProtected": false,
-    "environmentInstalled": false,
-    "secretsInstalled": false,
+    "environmentInstalled": true,
+    "secretsInstalled": "not read; zero-call initialization will verify presence",
     "workflowInstalledOnDefaultBranch": false,
     "scheduleStarted": false,
     "realModelCalls": 0,
     "realLineSends": 0,
     "migrationApplied": false,
     "productionDeployment": false,
-    "existingProductionSensitiveKey": "not read, exported, moved or changed"
+    "existingProductionSensitiveKey": "not read, exported, moved or changed",
+    "workflowEntry": "Existing default-branch ci.yml dispatches reviewed PR ref to reusable workflow; no early main merge required",
+    "sourceBranchProtected": "pending owner configuration",
+    "environmentPolicy": "Verified exactly one Branch fix/brand-ai-p0-quality; no Tag or main"
   },
   "remaining": [
-    "Owner creates fixed Environment and protects reviewed main; after zero-call initialization records AI_QUALITY_GENESIS_RUN_ID once",
-    "Owner binds long-lived Preview-only API Secret and state encryption Secret",
-    "Review/install infrastructure-only bootstrap without prematurely merging P0 product; resolve main auto-build side effects before publication",
-    "After readiness: real GitHub artifact/resume and API quality verification; local fake results are not model quality"
-  ]
+    "Owner adds long-lived test Secrets and single-owner source/Environment protections",
+    "Read-only admission then owner-approved zero-call initialization; record fixed genesis run once",
+    "Owner approves the reviewed SHA test job; execute/review35 true model cases plus bounded necessary retests, without early release"
+  ],
+  "goalCompleted": false,
+  "approvedDevelopmentLimits": {
+    "daily": 100,
+    "concurrent": 1,
+    "batchCalls": 100,
+    "initialCalls": 70,
+    "retestCalls": 30,
+    "batchBudgetUsd": 1
+  },
+  "actual35CasesEvaluated": 0
 }

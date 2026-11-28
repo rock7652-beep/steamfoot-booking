@@ -1,4 +1,5 @@
 /** Evaluation scheduling only; no Production state, credentials or model transport. */
+export const DEVELOPMENT_DAILY_LIMIT = 100;
 export const HIGH_RISK_CODES = new Set([
   "UNAPPROVED_PRICE",
   "PLAN_PRICE_MISMATCH",
@@ -32,7 +33,7 @@ export function canStartEvaluationCase(
   return (
     !calls.some((c) => c.id === id) &&
     calls.length + 2 <= max &&
-    calls.filter((c) => c.day === day).length + baseline + 2 <= 20 &&
+    calls.filter((c) => c.day === day).length + baseline + 2 <= DEVELOPMENT_DAILY_LIMIT &&
     untilDayEndMs >= 15000
   );
 }

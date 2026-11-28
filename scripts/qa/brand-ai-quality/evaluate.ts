@@ -21,6 +21,7 @@ import {
   resultIsIncomplete,
   HIGH_RISK_CODES,
   evaluateQualityGate,
+  DEVELOPMENT_DAILY_LIMIT,
 } from "./checkpoint";
 import { dayRange, toLocalDateStr } from "../../../src/lib/date-utils";
 // A small evaluation port keeps the trusted harness installable on main BEFORE
@@ -42,6 +43,7 @@ type Provider = (
   inputTokens: number | null;
   outputTokens: number | null;
   knowledgeIds?: string[];
+  outcome?: string;
 }>;
 async function main() {
   const arg = (name: string) => process.argv[process.argv.indexOf(name) + 1];
@@ -69,6 +71,11 @@ async function main() {
     focus: string[];
     requiredForRelease?: boolean;
   }[];
+  const selectedIds = process.argv.includes("--case-ids")
+    ? arg("--case-ids").split(",") : null;
+  if (selectedIds && (new Set(selectedIds).size !== selectedIds.length ||
+      selectedIds.some((id) => !cases.some((c) => c.id === id && c.channel === "api"))))
+    throw Error("UNAPPROVED_CASE_SELECTION");
   const fingerprint = createHash("sha256")
     .update(readFileSync(file))
     .digest("hex");
@@ -123,7 +130,7 @@ async function main() {
       !process.argv.includes("--daily-used") ||
       !Number.isInteger(external) ||
       external < 0 ||
-      external > 20 ||
+      external > DEVELOPMENT_DAILY_LIMIT ||
       !process.argv.includes("--ledger") ||
       !process.env.OPENAI_API_KEY ||
       process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0" ||
@@ -162,6 +169,8 @@ async function main() {
           highRisk: boolean | null;
         };
         styleFlags: string[];
+        latencyMs: number;
+        outcome?: string;
       }[];
     };
     try {
@@ -211,6 +220,7 @@ async function main() {
       for (const row of cases.filter(
         (item) =>
           item.channel === "api" &&
+          (!selectedIds || selectedIds.includes(item.id)) &&
           !ledger.results.some((r) => r.id === item.id),
       ).slice(0, batchCases)) {
         if (
@@ -224,6 +234,7 @@ async function main() {
           )
         )
           break;
+        const caseStarted = performance.now();
         const result = await provider(
           row.question,
           {
@@ -235,11 +246,13 @@ async function main() {
           async (attempt = 1) => {
             const day = toLocalDateStr();
             if (
+              ![1, 2].includes(attempt) ||
+              attempt !== ledger.calls.filter((call) => call.id === row.id).length + 1 ||
               day !== today ||
               ledger.calls.length >= batchLimit ||
               ledger.calls.filter((c) => c.day === day).length +
                 ledger.baselines[day] >=
-                20
+                DEVELOPMENT_DAILY_LIMIT
             )
               return false;
             ledger.calls.push({ id: row.id, attempt, day });
@@ -265,6 +278,8 @@ async function main() {
           outputTokens: result.outputTokens,
           sourceIds: result.knowledgeIds ?? [],
           answer: result.text,
+          outcome: result.outcome,
+          latencyMs: Math.round(performance.now() - caseStarted),
           state: resultIsIncomplete(
             result.diagnostics.attempts,
             result.diagnostics.failures.map((d) => d.code),
