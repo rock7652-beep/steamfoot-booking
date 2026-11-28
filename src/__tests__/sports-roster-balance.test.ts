@@ -1,7 +1,7 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 vi.mock('server-only',()=>({}));
-const m=vi.hoisted(()=>({session:vi.fn(),cards:vi.fn(),rule:vi.fn(),templates:vi.fn(),sessionBatch:vi.fn()}));
-vi.mock('@/lib/course-db',()=>({coursePrisma:{courseSession:{findFirst:m.session,findMany:m.sessionBatch},coursePointCard:{findMany:m.cards},courseTemplate:{findMany:m.templates}}}));
+const m=vi.hoisted(()=>({session:vi.fn(),cards:vi.fn(),rule:vi.fn(),templates:vi.fn(),sessionBatch:vi.fn(),staff:vi.fn()}));
+vi.mock('@/lib/course-db',()=>({coursePrisma:{$queryRaw:m.staff,courseSession:{findFirst:m.session,findMany:m.sessionBatch},coursePointCard:{findMany:m.cards},courseTemplate:{findMany:m.templates}}}));
 vi.mock('@/server/services/sports-staging-schedule',()=>({readSportsSessionRule:m.rule}));
 import {readSportsRosterBalances} from '@/server/services/sports-roster-balance';
 const card=(id:string,remaining:number,held=0)=>({id,remaining,storeId:'store',sportsMode:'ASSIGNED',sportsSubjectId:'dance',sportsCost:1,unit:'SESSION',planId:'plan',templateIds:['old'],nameSnapshot:'十堂舞蹈',requestKey:'normal',termSessionIds:[],members:[{customerId:'a'},{customerId:'b'}],bookings:[{pointCost:held}]});
@@ -73,15 +73,18 @@ it.each(['ASSIGNED','OPEN'])('shows the purchased 20-lesson universal balance fo
  expect((await readSportsRosterBalances('store','session',['a'])).has('a')).toBe(false);
 });
 
- it('combines old OPEN item rights with the purchased provider agreement after new plans use qualifications',async()=>{
+ it('counts legacy cards with a teacher qualified for the scheduled item',async()=>{
   m.rule.mockResolvedValue({enrollment:'OPEN',planId:null});
   const session={id:'session',templateId:'current',coachId:'old-coach',startsAt:new Date('2099-10-28'),pointCost:7,template:{musicSubjectId:'dance'}};
   m.session.mockResolvedValue(session);
   const original={kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['old-coach']};
   const universal={...card('old-universal',20,2),sportsMode:'OPEN',sportsSubjectId:null,sportsCost:null,templateIds:[],chargeSettingsSnapshot:original,plan:{storeId:'store',templateIds:['old'],chargeSettings:{...original,providerIds:[],providerScope:'QUALIFIED'}}};
   m.cards.mockResolvedValue([universal]);
+  m.staff.mockResolvedValue([{courseQualifiedTemplateIds:['current']}]);
   expect((await readSportsRosterBalances('store','session',['a'])).get('a')).toMatchObject({remaining:20,available:18,cost:1});
   m.session.mockResolvedValue({...session,coachId:'new-coach'});
+  expect((await readSportsRosterBalances('store','session',['a'])).get('a')?.available).toBe(18);
+  m.staff.mockResolvedValue([{courseQualifiedTemplateIds:['other']}]);
   expect((await readSportsRosterBalances('store','session',['a'])).size).toBe(0);
   expect(universal).toMatchObject({remaining:20,bookings:[{pointCost:2}],chargeSettingsSnapshot:original});
  });
