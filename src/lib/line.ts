@@ -234,16 +234,18 @@ export async function replyMessage(
 
 export async function replySteamButlerMessage(
   replyToken: string,
-  messages: LineMessage[]
+  messages: LineMessage[],
+  options?: { format: "native-text" }
 ): Promise<LineReplyResult> {
   if (isSystemLineDeliveryPaused()) return { success: false, error: "系統 LINE 發送已全面暫停，須店主確認後才能恢復", httpStatus: null, errorType: "delivery_paused" };
-  return replyMessageWithAccessToken(getSteamButlerLineAccessToken(), replyToken, messages);
+  return replyMessageWithAccessToken(getSteamButlerLineAccessToken(), replyToken, messages, options);
 }
 
 async function replyMessageWithAccessToken(
   token: string | null,
   replyToken: string,
-  messages: LineMessage[]
+  messages: LineMessage[],
+  options?: { format: "native-text" }
 ): Promise<LineReplyResult> {
   try {
     if (isPreviewExternalIntegrationBlocked()) {
@@ -270,7 +272,11 @@ async function replyMessageWithAccessToken(
       },
       body: JSON.stringify({
         replyToken,
-        messages:systemLineFlexMessages(messages),
+        // Only the brand AI caller opts in. Existing cards and store replies
+        // retain the shared Flex conversion and all delivery safety checks.
+        messages: options?.format === "native-text"
+          ? messages
+          : systemLineFlexMessages(messages),
       }),
     });
 

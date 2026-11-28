@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { brandLineLocalPostgres } from "../../scripts/qa/brand-line-local-postgres.mjs";
 import {
+  claimLimitedBrandAiReply,
   reserveBrandAiCall,
   releaseBrandAiCall,
 } from "@/server/services/brand-ai-quota";
@@ -94,6 +95,7 @@ it.skipIf(!enabled)(
     expect(reply.mock.calls[0]).toEqual([
       first.replyToken,
       [{ type: "text", text: BRAND_AI_FAQ[0].answer }],
+      { format: "native-text" },
     ]);
     expect(reply.mock.calls[20][1]).toEqual([
       { type: "text", text: BRAND_AI_HANDOFF },
@@ -349,5 +351,88 @@ it.skipIf(!enabled)(
         ).replaceAll("steamfoot_ai_preview_20261125", "brand_line_runtime"),
       );
     }
+  },
+);
+
+it.skipIf(!enabled)(
+  "bounds the full reply service to three new claims without resetting history",
+  async () => {
+    await a.brandAiReplyLog.createMany({
+      data: Array.from({ length: 4 }, () => ({
+        webhookEventId: randomUUID(),
+        outcome: "ERROR" as const,
+      })),
+    });
+    const userId = `synthetic-${randomUUID()}`;
+    const env = {
+      BRAND_AI_ENABLED: "1",
+      BRAND_AI_ALLOWED_LINE_USER_IDS: userId,
+      OPENAI_API_KEY: "synthetic",
+      BRAND_AI_REPLY_LOG_LIMIT: "7",
+    };
+    const transport = vi.fn<typeof fetch>();
+    transport.mockImplementation(async () =>
+      Response.json({
+        status: "completed",
+        usage: { input_tokens: 1, output_tokens: 1 },
+        output: [
+          {
+            type: "message",
+            content: [
+              {
+                type: "output_text",
+                text: JSON.stringify({ action: "answer", faqIds: ["Q3"] }),
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    const first = {
+      userId,
+      sourceType: "user",
+      text: "試用",
+      webhookEventId: randomUUID(),
+      replyToken: "synthetic",
+    };
+    for (let i = 0; i < 6; i++)
+      await handleBrandAiText(
+        {
+          ...first,
+          webhookEventId: i === 0 ? first.webhookEventId : randomUUID(),
+        },
+        vi.fn(),
+        { env, transport, database: i % 2 ? a : b },
+      );
+    await handleBrandAiText(first, vi.fn(), { env, transport, database: b });
+    expect(transport).toHaveBeenCalledTimes(3);
+    expect(reply).toHaveBeenCalledTimes(3);
+    expect(await a.brandAiReplyLog.count()).toBe(7);
+    expect(
+      await a.brandAiReplyLog.count({
+        where: { modelStartedAt: { not: null } },
+      }),
+    ).toBe(3);
+    expect(
+      reply.mock.calls.every(
+        (call) =>
+          call[1][0] && (call[1][0] as { type: string }).type === "text",
+      ),
+    ).toBe(true);
+  },
+  30000,
+);
+
+it.skipIf(!enabled)(
+  "serializes the absolute claim ceiling across clients; failures consume it",
+  async () => {
+    const claimed = await Promise.all(
+      Array.from({ length: 8 }, (_, i) =>
+        claimLimitedBrandAiReply(randomUUID(), 3, i % 2 ? a : b),
+      ),
+    );
+    expect(claimed.filter(Boolean)).toHaveLength(3);
+    expect(await a.brandAiReplyLog.count()).toBe(3);
+    expect(await claimLimitedBrandAiReply(randomUUID(), 3, a)).toBe(false);
   },
 );
