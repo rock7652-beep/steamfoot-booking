@@ -1,9 +1,10 @@
 import {expect,it,vi} from "vitest";
 import type {Prisma} from "../../generated/course-client";
+import type {FixedCourseSeries} from "@/lib/course-series";
 vi.mock("@/lib/sports-native-preview",()=>({sportsNativePreview:()=>true}));
 import {assertSportsSeriesFree} from "@/server/services/sports-permanent-series";
 const store="sports-live-flow-store";
-const own={requestKey:"weekly",roomId:"room",coachId:"coach",startsAt:new Date("2026-11-02T01:00Z"),endsAt:new Date("2026-11-02T02:00Z"),frequency:"WEEKLY",untilDate:null,excludedDates:[],cancelledAt:null};
+const own:FixedCourseSeries={requestKey:"weekly",roomId:"room",coachId:"coach",startsAt:new Date("2026-11-02T01:00Z"),endsAt:new Date("2026-11-02T02:00Z"),frequency:"WEEKLY",untilDate:null,excludedDates:[],cancelledAt:null};
 function fixture(rules=[own]){return {$queryRaw:vi.fn().mockResolvedValue(rules),courseSession:{findFirst:vi.fn().mockResolvedValue(null)}};}
 const resources={roomId:"room",coachId:"coach"};
 const range=(day:string)=>({startsAt:new Date(`${day}T01:00Z`),endsAt:new Date(`${day}T02:00Z`)});
@@ -36,6 +37,7 @@ function matches(row: Row, where: Row): boolean {
   if (condition && typeof condition === "object") {
    const filter = condition as Row;
    if ("not" in filter) return value !== filter.not;
+   if ("in" in filter) return (filter.in as unknown[]).includes(value);
    if (!(value instanceof Date)) return false;
    return (!("lte" in filter) || +value <= +(filter.lte as Date)) &&
     (!("gte" in filter) || +value >= +(filter.gte as Date)) &&
@@ -54,8 +56,11 @@ const freed = (day = "2026-11-02", overrides: Row = {}): Row => ({
 });
 function recordsFixture(rows: Row[], rules = [own]) {
  return {$queryRaw: vi.fn().mockResolvedValue(rules),
-  courseSession: {findFirst: vi.fn(async ({where}: {where: Row}) => rows.find(row => matches(row, where)) ?? null)},
-  courseRental: {findFirst: vi.fn().mockResolvedValue(null)}};
+  courseSession: {
+   findFirst: vi.fn(async ({where}: {where: Row}) => rows.find(row => matches(row, where)) ?? null),
+   findMany: vi.fn(async ({where}: {where: Row}) => rows.filter(row => matches(row, where))),
+  },
+  courseRental: {findFirst: vi.fn().mockResolvedValue(null),findMany: vi.fn().mockResolvedValue([])}};
 }
 it.each([["09:00", "11:00"], ["08:30", "09:30"], ["09:30", "10:30"], ["09:15", "09:45"]])(
  "當次09–10釋放後可排 %s–%s，其他空閒時間不須被原課涵蓋", async (start, end) => {
@@ -97,11 +102,20 @@ it("新課跨多個固定日期時，每一堂都必須已釋放", async () => {
  await expect(assertSportsSeriesFree(recordsFixture([freed(), freed("2026-11-09")]) as unknown as Prisma.TransactionClient,
   store, proposed, resources)).resolves.toBeUndefined();
 });
-it("原課釋放不放寬新永久系列，後續每週仍保留", async () => {
- const tx = {...recordsFixture([freed()]), courseSession: {findMany: vi.fn().mockResolvedValue([])},
-  courseRental: {findMany: vi.fn().mockResolvedValue([])}};
+it("取消一堂固定課後，後續每週仍保留", async () => {
+ const tx = recordsFixture([freed("2026-11-02",{releasedAt:null,cancelledAt:at("08:00")})]);
  await expect(assertSportsSeriesFree(tx as unknown as Prisma.TransactionClient, store,
-  [{startsAt: at("09:00"), endsAt: at("11:00")}], resources, "new-series", "WEEKLY")).rejects.toThrow("固定時段尚未建立");
+  [{startsAt: at("09:00"), endsAt: at("11:00")}], resources, "new-series", "WEEKLY")).rejects.toThrow("2026-11-09 ·");
+});
+it("固定排課略過有限系列中已取消的課次", async () => {
+ const originalRule={...own,roomId:"other-room",untilDate:at("00:00","2026-11-15")};
+ const rows=[
+  freed("2026-11-02",{roomId:"other-room",releasedAt:null,cancelledAt:at("08:00")}),
+  freed("2026-11-09",{roomId:"other-room",releasedAt:null,cancelledAt:at("08:00","2026-11-09")}),
+ ];
+ const tx=recordsFixture(rows,[originalRule]);
+ await expect(assertSportsSeriesFree(tx as unknown as Prisma.TransactionClient,store,
+  [range("2026-11-02")],resources,"new-series","WEEKLY")).resolves.toBeUndefined();
 });
 it("固定課遇到後續單次衝突時列出所有日期，不只第一筆", async () => {
  const session=(day:string)=>({...range(day),roomId:"room",coachId:"coach"});
