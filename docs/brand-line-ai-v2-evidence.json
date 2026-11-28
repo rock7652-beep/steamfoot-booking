@@ -1,0 +1,37 @@
+{
+  "baseSha": "77c5d2af194d1dcea4cd7a56f3a20a0dd192b34b",
+  "status": "local_only_draft",
+  "migration": "20261128060000_brand_ai_conversation",
+  "migrationSha256": "eda060d5bdc0cd6e6a74501722b445a3c0e4514e31576e63dde6f7e65794f247",
+  "newPrivateTables": 1,
+  "newLogColumns": [
+    "knowledgeVersion",
+    "knowledgeIds"
+  ],
+  "remoteMigrationApplied": false,
+  "productionAiEnabled": false,
+  "realOpenAiCallsV2": 0,
+  "realLineSendsV2": 0,
+  "newRoles": 0,
+  "newCredentials": 0,
+  "oldAcceptance": {
+    "newModelCalls": 3,
+    "newReplies": 3,
+    "historicalRows": 7,
+    "restoredDisabledDeployment": "dpl_F28CEPBXD2HHxwBPMYrLX5unRshh"
+  },
+  "sourcePolicy": "explicit_published_public_allowlist_no_internal_docs",
+  "memoryPolicy": "structured_only_fixed30min_no_raw_userId_no_chat_transcript",
+  "physicalPurge": "every10min_batch1000_including_ai_off",
+  "cloudAcceptance": "not_executed",
+  "safetyLimitation": "deterministic grounding checks and fake tests are not a semantic proof of real model quality",
+  "local": {
+    "testFiles": 18,
+    "testsPassed": 302,
+    "postgres": "17.6 real minimal role and multiple clients",
+    "typeScript": "passed",
+    "eslint": "passed",
+    "provider": "fake only",
+    "deviceAcceptance": "not_executed"
+  }
+}

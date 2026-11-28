@@ -62,6 +62,15 @@ export async function brandLineLocalPostgres() {
         "utf8",
       ),
     );
+    await admin.query(
+      "CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;",
+    );
+    await admin.query(
+      readFileSync(
+        "prisma/migrations/20261128060000_brand_ai_conversation/migration.sql",
+        "utf8",
+      ),
+    );
     await admin.query(`CREATE ROLE brand_line_runtime LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
       GRANT USAGE ON SCHEMA public TO brand_line_runtime;
       ALTER DATABASE postgres SET timezone='Asia/Taipei'`);
@@ -70,6 +79,9 @@ export async function brandLineLocalPostgres() {
         "scripts/sql/brand-line-ai/preview-runtime.proposed.sql",
         "utf8",
       ).replaceAll("steamfoot_ai_preview_20261125", "brand_line_runtime"),
+    );
+    await admin.query(
+      'GRANT SELECT,INSERT,UPDATE,DELETE ON "BrandAiConversation" TO brand_line_runtime; CREATE POLICY brand_memory_runtime ON "BrandAiConversation" TO brand_line_runtime USING(true) WITH CHECK(true);',
     );
     return {
       admin,

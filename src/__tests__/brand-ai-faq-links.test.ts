@@ -86,3 +86,23 @@ it.each(["paused", "preview", "missing-token"])(
     expect(send).not.toHaveBeenCalled();
   },
 );
+
+it("bounds V2 native reply time without retrying LINE", async () => {
+  send.mockImplementation(
+    async (_url, options) =>
+      new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener(
+          "abort",
+          () => reject(Error("synthetic abort")),
+          { once: true },
+        );
+      }),
+  );
+  const result = await replySteamButlerMessage(
+    "synthetic-reply",
+    [{ type: "text", text: "測試" }],
+    { format: "native-text", timeoutMs: 10 },
+  );
+  expect(result).toMatchObject({ success: false, errorType: "network_error" });
+  expect(send).toHaveBeenCalledTimes(1);
+});

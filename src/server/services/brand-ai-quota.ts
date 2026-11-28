@@ -26,6 +26,7 @@ export async function claimLimitedBrandAiReply(
 export async function reserveBrandAiCall(
   webhookEventId: string,
   database = prisma,
+  leaseMs = 30_000,
 ) {
   return database.$transaction(
     async (tx) => {
@@ -46,7 +47,9 @@ export async function reserveBrandAiCall(
         where: { webhookEventId, modelStartedAt: null },
         data: {
           modelStartedAt: clock.now,
-          modelLeaseUntil: new Date(clock.now.getTime() + 30_000),
+          modelLeaseUntil: new Date(
+            clock.now.getTime() + Math.max(30_000, Math.min(leaseMs, 60_000)),
+          ),
         },
       });
       return changed.count === 1

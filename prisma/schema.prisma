@@ -15,10 +15,22 @@ enum BrandAiReplyOutcome {
   ERROR
 }
 
+model BrandAiConversation {
+  scopeKey  String @id @db.VarChar(64)
+  sessionId String @db.Uuid
+  revision  Int @default(0)
+  profile   Json @db.JsonB
+  expiresAt DateTime @db.Timestamptz(3)
+
+  @@index([expiresAt])
+}
+
 model BrandAiReplyLog {
   webhookEventId  String              @id
   outcome         BrandAiReplyOutcome @default(ERROR)
   faqId           String?
+  knowledgeVersion String?
+  knowledgeIds String[] @default([])
   inputTokens     Int?
   outputTokens    Int?
   latencyMs       Int?

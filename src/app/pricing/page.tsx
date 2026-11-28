@@ -4,7 +4,7 @@ import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
 import { AddonOffer, PricingOffer, PricingOfferTerms } from "./pricing-offer";
-import { PUBLIC_PRICING_PLANS as plans } from "@/lib/public-pricing-offer";
+import { PUBLIC_PRICING_PLANS as plans, PUBLIC_MONTHLY_SUBSCRIPTION_COPY } from "@/lib/public-pricing-offer";
 
 export const dynamic = "force-dynamic";
 import { PLAN_LIMITS } from "@/lib/feature-flags";
@@ -65,7 +65,7 @@ function OnlinePayment() {
       </article>)}
     </div>
     <div className="mt-4 flex flex-col gap-1 border-t border-[#153B31]/15 pt-3 text-base leading-7 sm:flex-row sm:items-center sm:justify-between">
-      <p><span className="font-semibold">月繳訂閱</span><span className="ml-2 text-[#4C6259]">基本版 NT$1,480、專業版 NT$2,480、展店版 NT$2,980／月；均按 12 期收取、最低承諾 12 個月，不含年繳贈送。期內提前取消仍須支付剩餘期款，服務可用至約定期滿。月繳透過綠界信用卡定期定額授權按月扣款；請先洽專人確認每期金額、12 期總額與服務期間，並依指示至綠界完成授權。總部核對訂單與付款結果後開通服務，蒸管家內不提供付款操作。</span></p>
+      <p><span className="font-semibold">月繳訂閱</span><span className="ml-2 text-[#4C6259]">{PUBLIC_MONTHLY_SUBSCRIPTION_COPY}</span></p>
       <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 shrink-0 items-center font-semibold underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">洽詢月繳與授權 ↗</a>
     </div>
     <div className="mt-2 space-y-1 text-sm leading-6 text-[#4C6259]">
