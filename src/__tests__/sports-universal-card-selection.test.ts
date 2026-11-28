@@ -4,7 +4,7 @@ import {findSportsCard} from '@/server/services/sports-card-selection';
 
 const chargeSettings={kind:'plan',durationMinutes:60,trialPrice:null,trialDuration:null,providerIds:['coach']};
 const card={id:'twenty',storeId:'store',planId:'universal',sportsMode:'OPEN',sportsSubjectId:null,sportsCost:null,unit:'SESSION',templateIds:[],termSessionIds:[],requestKey:'purchase',remaining:20,bookings:[{pointCost:2}],plan:{storeId:'store',templateIds:['regular','basic','special-old'],chargeSettings}};
-const reader={courseTemplate:{findFirst:vi.fn(),findMany:vi.fn()},coursePointCard:{findMany:vi.fn()},coursePurchase:{findMany:vi.fn()}};
+const reader={$queryRaw:vi.fn(),courseTemplate:{findFirst:vi.fn(),findMany:vi.fn()},coursePointCard:{findMany:vi.fn()},coursePurchase:{findMany:vi.fn()}};
 const tx=reader as unknown as Prisma.TransactionClient;
 const sessions=[{id:'session',templateId:'special-current',startsAt:new Date('2099-11-12'),pointCost:9,coachId:'coach'}];
 
@@ -41,4 +41,19 @@ it('keeps shared reservations, teacher and term restrictions authoritative',asyn
   reader.coursePointCard.findMany.mockResolvedValue([{...card,...patch}]);
   expect(await findSportsCard(tx,'store','learner',sessions,{enrollment:'ASSIGNED',planId:null})).toBeNull();
  }
+});
+
+it('selects a previously purchased subject card for a newly qualified teacher',async()=>{
+ const legacy={...chargeSettings,providerIds:['former-teacher']};
+ const purchased={...card,sportsMode:'ASSIGNED',sportsSubjectId:'special',sportsCost:1,
+  chargeSettingsSnapshot:legacy,plan:{...card.plan,chargeSettings:{...legacy,providerIds:[],providerScope:'QUALIFIED'}}};
+ reader.coursePointCard.findMany.mockResolvedValue([purchased]);
+ const rule={enrollment:'ASSIGNED',planId:null};
+ reader.$queryRaw.mockResolvedValue([{courseQualifiedTemplateIds:['special-current']}]);
+ expect(await findSportsCard(tx,'store','learner',sessions,rule)).toMatchObject({card:{id:'twenty'},cost:1});
+ reader.$queryRaw.mockResolvedValue([{courseQualifiedTemplateIds:['different-item']}]);
+ expect(await findSportsCard(tx,'store','learner',sessions,rule)).toBeNull();
+ reader.coursePointCard.findMany.mockResolvedValue([{...purchased,chargeSettingsSnapshot:{...legacy,providerScope:'SELECTED'}}]);
+ reader.$queryRaw.mockResolvedValue([{courseQualifiedTemplateIds:['special-current']}]);
+ expect(await findSportsCard(tx,'store','learner',sessions,rule)).toBeNull();
 });
