@@ -1,4 +1,5 @@
 import {cardChargeSettings,courseChargeAllowsProvider} from "@/lib/course-charge-settings";
+import {sportsCardCoachCheck} from "./sports-card-coach";
 import {courseHasSeatLimit} from "@/lib/course-capacity";
 import {persistCustomerBookingGoods,type BookingGoodsTx} from "./customer-booking-goods";
 import type {CustomerBookingGoodsInput} from "@/lib/customer-booking-goods";
@@ -314,6 +315,7 @@ export async function reserveCourseInTransaction(
     else assertCourseSelfBookingEnabled(rule);
   }
   let entitlementCost: number | null = null;
+  let sportsCard = false;
   let seatLimit = courseHasSeatLimit(session ?? {});
   {
     const {readSportsSessionRule}=await import('./sports-staging-schedule');
@@ -323,6 +325,7 @@ export async function reserveCourseInTransaction(
     if(input.companionIndex&&sessionRule?.enrollment==='ASSIGNED')return fail('指定學員課程不使用同行預約');
     if(actor.customerId&&sessionRule?.enrollment==='ASSIGNED')return fail('本堂僅限店家指定學員，不開放自行選課');
     if (card && session && !(await isMusicCourseStore(tx,storeId))) {
+      sportsCard = !!sessionRule;
       const compatibleTemplateIds=await (await import("./sports-teaching-templates")).readSportsTeachingTemplates(tx,storeId,session.template.musicSubjectId);
       const rights = resolveSportsEntitlement(
         { ...card, templateRestricted: card.requestKey?.startsWith("no-show-makeup:") ?? false },
@@ -338,7 +341,10 @@ export async function reserveCourseInTransaction(
   }
   const cardCharge=courseChargeSettings.safeParse(cardChargeSettings(card));
   if(cardChargeSettings(card)!=null&&!cardCharge.success)return fail('方案授課約定待核對');
-  if(session&&cardCharge.success&&!courseChargeAllowsProvider(cardCharge.data,session.coachId))return fail('此方案未開放所選授課人員');
+  if(session&&card&&cardCharge.success){
+    const allowsCoach=sportsCard?await sportsCardCoachCheck(tx,storeId)(card,session):courseChargeAllowsProvider(cardCharge.data,session.coachId);
+    if(!allowsCoach)return fail('此方案未開放所選授課人員');
+  }
   if(session?.chargeSnapshot){
     const charge=courseChargeSnapshot.parse(session.chargeSnapshot);
     if(charge.isTrial&&card)return fail('體驗課請使用體驗預約');
